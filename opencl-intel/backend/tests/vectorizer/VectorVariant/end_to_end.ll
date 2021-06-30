@@ -1,4 +1,4 @@
-; RUN: %oclopt %s -enable-direct-function-call-vectorization -vector-variant-lowering -sg-size-collector -sg-size-collector-indirect -ocl-vecclone -ocl-vector-variant-isa-encoding-override=AVX512Core -vector-variant-fillin -update-call-attrs -S | FileCheck %s
+; RUN: %oclopt %s -enable-direct-function-call-vectorization -vector-variant-lowering -sg-size-collector -sg-size-collector-indirect -ocl-vecclone -ocl-vector-variant-isa-encoding-override=AVX512Core -vector-variant-fillin -dpcpp-kernel-update-call-attrs -S | FileCheck %s
 
 define void @test(i32 addrspace(1)* noalias %a) !kernel_has_sub_groups !12 !recommended_vector_length !13 {
 entry:

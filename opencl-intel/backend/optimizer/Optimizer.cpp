@@ -116,7 +116,6 @@ llvm::ModulePass *createSGSizeCollectorPass(const CPUDetect *CPUId);
 llvm::ModulePass *createSGSizeCollectorIndirectPass(const CPUDetect *CPUId);
 llvm::ModulePass *createVectorVariantLoweringPass(const CPUDetect *CPUId);
 llvm::ModulePass* createVectorVariantFillInPass();
-llvm::ModulePass* createUpdateCallAttrsPass();
 llvm::ModulePass* createIndirectCallLoweringPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -604,7 +603,7 @@ static void populatePassesPostFailCheck(
         PM.add(createOCLVecClonePass(pConfig->GetCpuId(), !IsSYCL && !IsOMP));
 
         PM.add(createVectorVariantFillInPass());
-        PM.add(createUpdateCallAttrsPass());
+        PM.add(llvm::createUpdateCallAttrsLegacyPass());
 
         // Call VPlan
         PM.add(llvm::createPromoteMemoryToRegisterPass());
