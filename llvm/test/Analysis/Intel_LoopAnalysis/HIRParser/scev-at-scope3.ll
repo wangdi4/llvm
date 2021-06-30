@@ -6,6 +6,7 @@
 ; CHECK-NEXT: |   %add23.lcssa94 = 1;
 ; CHECK-NEXT: |   if (undef #UNDEF# undef)
 ; CHECK-NEXT: |   {
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      + DO i2 = 0, (umax(4, %0) + -2)/u3, 1   <DO_LOOP>
 ; CHECK-NEXT: |      |   %add23 = 3 * i2 + 1  +  3;
 ; CHECK-NEXT: |      + END LOOP

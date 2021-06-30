@@ -4689,9 +4689,10 @@ void HIRParser::phase2Parse() {
   }
 
   for (auto *Call : DistributePoints) {
-    auto *NextNode = Call->getNextNode();
-    assert(NextNode &&
+    assert(!HLNodeUtils::isLexicalLastChildOfParent(Call) &&
            "Could not find next node of distribute point intrinsic!");
+
+    auto *NextNode = &*std::next(Call->getIterator());
     assert(isa<HLDDNode>(NextNode) &&
            "Next node of distribute point intrinsic is not a HLDDNode!");
 

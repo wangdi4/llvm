@@ -232,7 +232,8 @@ void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
   auto Parent = getParent();
 
   // If a previous node exists, add a newline.
-  if (Parent && (this != getHLNodeUtils().getFirstLexicalChild(Parent, this))) {
+  if (Parent && (getTopSortNum() == 0 ||
+                 this != HLNodeUtils::getFirstLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }
@@ -367,7 +368,9 @@ void HLLoop::printDirectives(formatted_raw_ostream &OS, unsigned Depth) const {
   if (ParTraits != nullptr)
     OS << " <parallel>";
 
-  if (isAttached() && isSIMD()) {
+  // Implementation of isSIMD() requires top sort numbers,
+  // so we skip it when they are not available.
+  if (isAttached() && (getTopSortNum() != 0) && isSIMD()) {
     OS << " <simd>";
   }
 
@@ -563,7 +566,8 @@ void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
   auto Parent = getParent();
 
   // If a next node exists, add a newline.
-  if (Parent && (this != getHLNodeUtils().getLastLexicalChild(Parent, this))) {
+  if (Parent && (getTopSortNum() == 0 ||
+                 this != HLNodeUtils::getLastLexicalChild(Parent, this))) {
     indent(OS, Depth);
     OS << "\n";
   }

@@ -16,6 +16,7 @@
 ; CHECK-NEXT: |   %to.addr.130.out = &((%to.addr.130)[0]);
 ; CHECK-NEXT: |   if (%len > 0)
 ; CHECK-NEXT: |   {
+; CHECK-NEXT: |
 ; CHECK-NEXT: |      + DO i2 = 0, %len + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |      |   %0 = (%from)[i2];
 ; CHECK-NEXT: |      |   (%to.addr.130.out)[i2] = %0;
