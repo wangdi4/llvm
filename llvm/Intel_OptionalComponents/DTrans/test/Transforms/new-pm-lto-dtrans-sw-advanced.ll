@@ -1,3 +1,4 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; Test DTrans integration in the new pass manager.
 ;
 ; Ideally, we'd like to have this test integrated with the main test for the
@@ -5,6 +6,7 @@
 ; to exclude the use of the dtrans option for builds that exclude dtrans, the
 ; test must be separate.
 
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
 ; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
 ; RUN:     -enable-resolve-types                                        \
@@ -25,8 +27,13 @@
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
 ; CHECK-NEXT: Running pass: GlobalDCEPass
-; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK: Running pass: ForceFunctionAttrsPass
+; CHECK: Running pass: IPSCCPPass
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on main
+; CHECK-NEXT: Running analysis: AssumptionAnalysis on main
+; CHECK-NEXT: Running pass: IPCloningPass
+; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
@@ -59,6 +66,7 @@
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass on (main)
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
+; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass
 
 ; Make sure we get the IR back out without changes when we print the module.
@@ -104,3 +112,4 @@ define i32 @main(i32 %n) {
 }
 
 attributes #0 = { noinline uwtable }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -S 2>&1 | FileCheck %s
 
@@ -251,3 +253,4 @@ attributes #8 = { cold }
 !18 = distinct !{!18, !14}
 !19 = !{!20, !20, i64 0}
 !20 = !{!"pointer@_ZTSP8_IO_FILE", !10, i64 0}
+; end INTEL_FEATURE_SW_ADVANCED

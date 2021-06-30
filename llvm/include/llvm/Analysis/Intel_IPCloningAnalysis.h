@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloningAnalysis.h - IP CloningAnalysis -*------===//
 //
 // Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
@@ -45,4 +46,5 @@ extern bool isCallCandidateForSpecialization(CallBase& CB, LoopInfo* LI);
 }
 }
 
-#endif
+#endif // LLVM_ANALYSIS_INTELIPCLONING_H
+#endif // INTEL_FEATURE_SW_ADVANCED

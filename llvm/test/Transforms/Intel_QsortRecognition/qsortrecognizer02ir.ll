@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -qsortrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(qsortrecognizer)' -S 2>&1 | FileCheck %s
 
@@ -495,3 +497,4 @@ define internal fastcc void @spec_qsort.40(i8* %0, i64 %1) unnamed_addr #0 {
 attributes #0 = { "is-qsort-spec_qsort" }
 attributes #1 = { "must-be-qsort-compare" }
 
+; end INTEL_FEATURE_SW_ADVANCED

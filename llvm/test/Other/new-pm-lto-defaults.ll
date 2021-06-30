@@ -38,9 +38,8 @@
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
-; CHECK-O-NEXT: Running pass: IPCloningPass
+; CHECK-O: Running pass: ForceFunctionAttrsPass
 ; end INTEL_CUSTOMIZATION
-; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
@@ -126,9 +125,8 @@
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
+; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; END INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Running pass: IPCloningPass ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ: Running pass: InstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass

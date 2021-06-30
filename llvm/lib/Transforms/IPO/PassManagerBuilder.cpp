@@ -278,9 +278,13 @@ static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 // IP Cloning
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_FEATURE_SW_ADVANCED
 // Dead Array Element Ops Elimination
@@ -663,8 +667,10 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createSROAPass());
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableDTrans)
     FPM.add(createFunctionRecognizerLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1721,6 +1727,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableWPA)
     PM.add(createIntelFoldWPIntrinsicLegacyPass());
 
+#if INTEL_FEATURE_SW_ADVANCED
   // IP Cloning
   if (EnableIPCloning) {
 #if INTEL_INCLUDE_DTRANS
@@ -1734,6 +1741,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #endif // INTEL_INCLUDE_DTRANS
     PM.add(createIPCloningLegacyPass(false, true));
   }
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // Apply dynamic_casts optimization pass.
   PM.add(createOptimizeDynamicCastsWrapperPass());
@@ -1856,8 +1864,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableDTrans) {
     // Compute the aligment of the argument
     PM.add(createIntelArgumentAlignmentLegacyPass());
+#if INTEL_FEATURE_SW_ADVANCED
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
     // Multiversion and mark for inlining functions for tiling
     PM.add(createTileMVInlMarkerLegacyPass());
   }
@@ -1946,7 +1956,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
                                      false /*EnableSpecialCases*/));
 #endif // INTEL_INCLUDE_DTRANS
 
-  if (EnableIPCloning || EnableCallTreeCloning) {
+  if (
+#if INTEL_FEATURE_SW_ADVANCED
+      EnableIPCloning ||
+#endif // INTEL_FEATURE_SW_ADVANCED
+      EnableCallTreeCloning) {
+#if INTEL_FEATURE_SW_ADVANCED
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.
 #if INTEL_INCLUDE_DTRANS
@@ -1954,6 +1969,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #else
       PM.add(createIPCloningLegacyPass(true, false));
 #endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_ADVANCED
     if (EnableCallTreeCloning)
       // Do function cloning along call trees
       PM.add(createCallTreeCloningPass());

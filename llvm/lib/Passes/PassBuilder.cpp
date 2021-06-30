@@ -131,18 +131,18 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
+#include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
@@ -196,7 +196,11 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
-#include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
@@ -441,10 +445,14 @@ static cl::opt<bool> EnableInlineAggAnalysis(
    "enable-npm-inline-aggressive-analysis", cl::init(true), cl::Hidden,
    cl::desc("Enable Inline Aggressive Analysis for the new PM (default = on)"));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 // IP Cloning
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 
 // IPO Array Transpose
 static cl::opt<bool> EnableIPArrayTranspose(
@@ -861,8 +869,10 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableDTrans)
     FPM.addPass(FunctionRecognizerPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -1034,8 +1044,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableDTrans)
     FPM.addPass(FunctionRecognizerPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -2751,6 +2763,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableWPA)
     MPM.addPass(IntelFoldWPIntrinsicPass());
 
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableIPCloning) {
 #if INTEL_INCLUDE_DTRANS
     // This pass is being added under DTRANS only at this point, because a
@@ -2764,6 +2777,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(IPCloningPass(/*AfterInl*/ false,
                               /*IFSwitchHeuristic*/ true));
   }
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
   // Force any function attributes we want the rest of the pipeline to observe.
@@ -2894,7 +2908,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_INCLUDE_DTRANS
   if (EnableDTrans) {
     MPM.addPass(IntelArgumentAlignmentPass());
+#if INTEL_FEATURE_SW_ADVANCED
     MPM.addPass(QsortRecognizerPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
     MPM.addPass(TileMVInlMarkerPass());
   }
 
@@ -2964,14 +2980,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,
                                    false /*EnableSpecialCases*/));
 
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableIPCloning)
-#if INTEL_INCLUDE_DTRANS
+#if INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ true,
                               /*IFSwitchHeuristic*/ EnableDTrans));
 #else
     MPM.addPass(IPCloningPass(/*AfterInl*/ true,
                               /*IFSwitchHeuristic*/ false));
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
   // Garbage collect dead functions.

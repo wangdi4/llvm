@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-specialization-cloning -debug-only=ipcloning -S  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
@@ -104,3 +106,4 @@ t43:                                               ; preds = %t41, %t39, %t35, %
 define internal void @convolutionalEncode(i8* nocapture readonly %0, i16 signext %1, i16 signext %2, i16 signext %3, [2 x i8]* nocapture readonly %4, i8* nocapture %5) #5 {
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

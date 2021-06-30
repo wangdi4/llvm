@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.h - IP Cloning  -*------===//
 //
 // Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
@@ -38,3 +39,4 @@ private:
 
 }
 #endif // LLVM_TRANSFORMS_IPO_INTEL_IPCLONING_H
+#endif // INTEL_FEATURE_SW_ADVANCED

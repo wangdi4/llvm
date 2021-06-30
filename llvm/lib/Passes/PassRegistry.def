@@ -153,14 +153,18 @@ MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,
                                         /*IFSwitchHeuristic*/ false))
+#endif // INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())
 #endif // INTEL_FEATURE_SW_ADVANCED
+#if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,
                                         /*IFSwitchHeuristic*/ false))
+#endif // INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
@@ -193,7 +197,11 @@ MODULE_PASS("print-must-be-executed-contexts", MustBeExecutedContextPrinterPass(
 MODULE_PASS("print-stack-safety", StackSafetyGlobalPrinterPass(dbgs()))
 MODULE_PASS("print<module-debuginfo>", ModuleDebugInfoPrinterPass(dbgs()))
 MODULE_PASS("rel-lookup-table-converter", RelLookupTableConverterPass())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("qsortrecognizer", QsortRecognizerPass()) // INTEL
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
 MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
@@ -377,7 +385,11 @@ FUNCTION_PASS("make-guards-explicit", MakeGuardsExplicitPass())
 FUNCTION_PASS("fma-splitter", FMASplitterPass()) // INTEL
 FUNCTION_PASS("post-inline-ee-instrument", EntryExitInstrumenterPass(/*PostInlining=*/true))
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false)) // INTEL
 FUNCTION_PASS("gvn-sink", GVNSinkPass())
 FUNCTION_PASS("helloworld", HelloWorldPass())

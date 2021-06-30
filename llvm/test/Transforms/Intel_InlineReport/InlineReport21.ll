@@ -1,4 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; Inline report
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -inline -ip-cloning -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline),module(ip-cloning)' -inline-report=7 < %s -S 2>&1 | FileCheck  --check-prefix=CHECK-NEW %s
 ; Inline report via metadata
@@ -50,3 +52,4 @@ for.end:                                          ; preds = %for.cond
 ; CHECK-NEW-NOT: i32 call i32 @mynoclone
 ; CHECK-NEW: INLINE: mynoclone{{.*}}Callee has single callsite and local linkage
 
+; end INTEL_FEATURE_SW_ADVANCED

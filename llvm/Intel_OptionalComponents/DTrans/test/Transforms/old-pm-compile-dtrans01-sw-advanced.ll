@@ -1,10 +1,17 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ;
 ; Test passes run under -enable-dtrans in the compile step in the old pass manager
 ;
 
 ; RUN: opt -O0 -disable-output -disable-verify -enable-dtrans -debug-pass=Executions \
 ; RUN:   -prepare-for-lto %s 2>&1 | FileCheck %s --check-prefixes=CHECK-OLDPM-O0
+; RUN: opt -O1 -disable-output -disable-verify -enable-dtrans -debug-pass=Executions \
+; RUN:  -prepare-for-lto %s 2>&1 | FileCheck %s --check-prefixes=CHECK-OLDPM-O123
+; RUN: opt -O2 -disable-output -disable-verify -enable-dtrans -debug-pass=Executions \
+; RUN:  -prepare-for-lto %s 2>&1 | FileCheck %s --check-prefixes=CHECK-OLDPM-O123
+; RUN: opt -O3 -disable-output -disable-verify -enable-dtrans -debug-pass=Executions \
+; RUN:  -prepare-for-lto %s 2>&1 | FileCheck %s --check-prefixes=CHECK-OLDPM-O123
 
 ; These passes should not be enabled at -O0
 
@@ -14,6 +21,15 @@
 ; CHECK-OLDPM-O0-NOT: Freeing Pass 'Function Recognizer' on Function 'foo'
 ; CHECK-OLDPM-O0-NOT: Executing Pass 'Function Recognizer' on Function 'main'
 ; CHECK-OLDPM-O0-NOT: Freeing Pass 'Function Recognizer' on Function 'main'
+
+; But these passes should be enabled at optimization levels over -O0
+
+; CHECK-OLDPM-O123: FunctionPass Manager
+; CHECK-OLDPM-O123: Function Recognizer
+; CHECK-OLDPM-O123: Executing Pass 'Function Recognizer' on Function 'foo'
+; CHECK-OLDPM-O123: Freeing Pass 'Function Recognizer' on Function 'foo'
+; CHECK-OLDPM-O123: Executing Pass 'Function Recognizer' on Function 'main'
+; CHECK-OLDPM-O123: Freeing Pass 'Function Recognizer' on Function 'main'
 
 declare void @bar() local_unnamed_addr
 
@@ -37,3 +53,4 @@ define i32 @main() {
 }
 
 attributes #0 = { noinline uwtable }
+; end INTEL_FEATURE_SW_ADVANCED

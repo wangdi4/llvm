@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
@@ -4614,3 +4616,4 @@ attributes #10 = { nounwind }
 !2675 = !DILocation(line: 1596, column: 14, scope: !2619)
 !2676 = !DILocation(line: 1598, column: 7, scope: !2619)
 !2677 = !DILocation(line: 1599, column: 3, scope: !2619)
+; end INTEL_FEATURE_SW_ADVANCED

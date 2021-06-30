@@ -23,6 +23,7 @@ namespace llvm {
 
 class Function;
 
+#if INTEL_FEATURE_SW_ADVANCED
 //
 // Return 'true' if 'F' is a recursive progression clone candidate. If
 // 'TestCountForConstant' check that the period of the recursive progression
@@ -42,6 +43,7 @@ extern bool isRecProgressionCloneCandidate(
     unsigned *Count = nullptr, int *Start = nullptr, int *Inc = nullptr,
     bool *IsByRef = nullptr, bool *IsCyclic = nullptr);
 
+#endif // INTEL_FEATURE_SW_ADVANCED
 //
 // Return the unique callsite of 'F', if there is a unique callsite.
 //

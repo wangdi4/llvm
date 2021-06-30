@@ -1,10 +1,11 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; It checks two function clones are created when options -ip-cloning,
 ; -ip-cloning-after-inl and -ip-cloning-loop-heuristic are enabled.
 ; -ip-cloning-after-inl option enables IP Cloning that runs after inlining.
 ; -ip-cloning-loop-heuristic option enables loop based heuristic for Cloning.
 ; This test expects "bar" function is cloned two times.
 
-; REQUIRES: asserts
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -debug-only=ipcloning -disable-output 2>&1 | FileCheck %s
 
@@ -45,3 +46,4 @@ for.body:                                         ; preds = %for.body.preheader,
 for.end:                                          ; preds = %for.body, %entry
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

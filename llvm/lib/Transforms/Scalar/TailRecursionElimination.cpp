@@ -85,7 +85,11 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Intel_CloneUtils.h"  // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
@@ -862,9 +866,11 @@ bool TailRecursionEliminator::eliminate(Function &F,
   if (F.getFnAttribute("disable-tail-calls").getValueAsBool())
     return false;
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
   if ((SkipRecProgression || NoTailCallForRecProClone) &&
       isRecProgressionCloneCandidate(F, false))
     return false;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   bool MadeChange = false;
   MadeChange |= markTails(F, ORE);

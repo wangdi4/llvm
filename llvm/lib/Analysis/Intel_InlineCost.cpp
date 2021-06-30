@@ -21,8 +21,8 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/LoopInfo.h"
@@ -49,7 +49,9 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTree.h"
 #include "llvm/Support/raw_ostream.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_InlineReportCommon.h"
 #include <algorithm>
 #include <queue>
@@ -738,8 +740,10 @@ static bool preferCloningToInlining(CallBase &CB, InliningLoopInfoCache &ILIC,
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI)
     return false;
+#if INTEL_FEATURE_SW_ADVANCED
   if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CB, LI))
     return true;
+#endif // INTEL_FEATURE_SW_ADVANCED
   return false;
 }
 

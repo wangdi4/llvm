@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 
@@ -712,3 +713,4 @@ define dso_local void @MAIN__() #0 {
   ret void
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

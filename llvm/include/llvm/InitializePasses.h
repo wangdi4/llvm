@@ -236,7 +236,11 @@ void initializeIROutlinerLegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
 void initializeIPArrayTransposeLegacyPassPass(PassRegistry &); // INTEL
-void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+void initializeIPCloningLegacyPassPass(PassRegistry&);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
@@ -533,8 +537,12 @@ void initializeStdContainerOptPass(PassRegistry &);
 void initializeTbaaMDPropagationLegacyPassPass(PassRegistry &);
 // Pass for removing fakeload intrinisics
 void initializeCleanupFakeLoadsLegacyPassPass(PassRegistry &);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 // Pass for function recognition
 void initializeFunctionRecognizerLegacyPassPass(PassRegistry &);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 // Pass for handling '#pragma vector aligned'.
 void initializeHandlePragmaVectorAlignedLegacyPassPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
@@ -557,8 +565,12 @@ void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // Pass for transforming __fpga_reg builtin representation
 void initializeTransformFPGARegPass(PassRegistry &);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
 // Qsort recognition
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 // Multiversioning and inline marking for tiled functions
 void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
 // Mark callsites for aggressive inlining

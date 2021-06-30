@@ -329,9 +329,11 @@ ModulePass *createIntelPartialInlineLegacyPass();
 /// \brief This pass conducts IPO-based Array Transpose.
 ModulePass *createIPArrayTransposeLegacyPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
                                       bool IfSwitchHeuristic = false);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass parses -[no]inline-list option and assigns corresponding
 /// attributes to callsites (for experimental purposes).
@@ -354,10 +356,12 @@ ModulePass* createCallTreeCloningPass();
 /// formal parameters).
 ModulePass *createDopeVectorConstPropLegacyPass(void);
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass will attempt to recognize each Function as a "qsort".
 /// For those it recognizes as such, it will add the Function attribute
 /// "is-qsort".
 ModulePass *createQsortRecognizerLegacyPass(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass will mark callsites that should be aggressively
 /// inlined with the "prefer-inline-aggressive" attribute.
