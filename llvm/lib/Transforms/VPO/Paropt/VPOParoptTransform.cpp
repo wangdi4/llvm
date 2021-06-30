@@ -4715,6 +4715,24 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
     Changed |= removeAllUsesInClauses<QUAL_OMP_NONTEMPORAL>(
         cast<IntrinsicInst>(W->getEntryDirective()), Val);
 
+#if INTEL_CUSTOMIZATION
+    // For dope vectors we need to add base pointer users to the work list.
+    if (NtmpItem->getIsF90DopeVector()) {
+      assert(cast<PointerType>(Val->getType())
+                 ->getPointerElementType()
+                 ->isStructTy() &&
+             "pointer to struct is expected");
+      for (auto *U : Val->users())
+        if (auto *GEP = dyn_cast<GEPOperator>(U))
+          if (GEP->hasAllZeroIndices())
+            for (auto *U : GEP->users())
+              if (auto *Load = dyn_cast<LoadInst>(U)) {
+                assert(Load->getType()->isPointerTy() &&
+                       "dope vector base should have pointer type");
+                growWorkList(Load);
+              }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (NtmpItem->getIsPointerToPointer()) {
       for (auto *U : Val->users())
         if (auto *Load = dyn_cast<LoadInst>(U))
