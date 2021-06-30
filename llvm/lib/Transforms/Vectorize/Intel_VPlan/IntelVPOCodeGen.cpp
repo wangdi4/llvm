@@ -2811,8 +2811,8 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr,
 
   // Create a GEP that would return the address of each elements that is to be
   // accessed.
-  Value *WidenedVectorGEP =
-      Builder.CreateGEP(nullptr, VecBasePtr, Cv, "elemBasePtr.");
+  Value *WidenedVectorGEP = Builder.CreateGEP(VecType->getElementType(),
+                                              VecBasePtr, Cv, "elemBasePtr.");
   return WidenedVectorGEP;
 }
 
