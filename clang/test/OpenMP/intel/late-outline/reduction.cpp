@@ -520,22 +520,22 @@ void foo4() {
 // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B1* %bvar1,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B1*)* @_ZTS2B1.omp.destr,
+// CHECK-SAME: i8* null,
 // CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_combiner..12,
 // CHECK-SAME: void (%struct.B1*, %struct.B1*)* @.omp_initializer..13),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B2* %bvar2,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B2*)* @_ZTS2B2.omp.destr,
+// CHECK-SAME: i8* null,
 // CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_combiner..14,
 // CHECK-SAME: void (%struct.B2*, %struct.B2*)* @.omp_initializer..15),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B3* %bvar3,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B3*)* @_ZTS2B3.omp.destr,
+// CHECK-SAME: i8* null,
 // CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_combiner..16,
 // CHECK-SAME: void (%struct.B3*, %struct.B3*)* @.omp_initializer..17),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.B4* %bvar4,
 // CHECK-SAME: i8* null,
-// CHECK-SAME: void (%struct.B4*)* @_ZTS2B4.omp.destr,
+// CHECK-SAME: i8* null,
 // CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_combiner..18,
 // CHECK-SAME: void (%struct.B4*, %struct.B4*)* @.omp_initializer..19),
 // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.A4* %avar4a,
@@ -629,7 +629,7 @@ void test1()
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[INIT:@.omp_initializer..[0-9]*]]
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z),
@@ -639,7 +639,7 @@ void test1()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z),
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[INIT:@.omp_initializer..[0-9]*]]
   #pragma omp parallel reduction(+:z,f)
@@ -651,7 +651,7 @@ void test1()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z1),
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f1,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[INIT:@.omp_initializer..[0-9]*]]
   #pragma omp parallel reduction(+:z1) reduction(+:f1)
@@ -662,7 +662,7 @@ void test1()
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f2,
   // CHECK-SAME: i8* null,
-  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[COMB1:@.omp_combiner..[0-9]*]]
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* [[INIT:@.omp_initializer..[0-9]*]]
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z2),
