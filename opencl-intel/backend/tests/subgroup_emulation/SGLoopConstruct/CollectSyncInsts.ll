@@ -26,7 +26,7 @@ entry:                                            ; preds = %sg.loop.exclude
   br label %sg.barrier.bb.1
 
 sg.barrier.bb.1:                                  ; preds = %entry
-; CHECK-LABEL: sg.barrier.split.[[#B1:]]:
+; CHECK-LABEL: sg.barrier.split.{{.*}}:
 ; CHECK: call <16 x i32> @_Z13sub_group_allDv16_iDv16_j
   call void @_Z17sub_group_barrierj(i32 1)
   %call = call <16 x i32> @_Z13sub_group_allDv16_iDv16_j(<16 x i32> undef, <16 x i32> zeroinitializer)

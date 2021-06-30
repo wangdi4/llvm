@@ -24,6 +24,8 @@ sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
 
 declare i32 @_Z13sub_group_alli(i32) #0
 
+; CHECK: define <16 x i32> @_ZGVbN16v_foo(<16 x i32> %a)
+
 define void @test(i32 %x) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK-LABEL: define void @test
 ; CHECK: sg.loop.exclude:
@@ -56,8 +58,6 @@ sg.dummy.bb.2:                                    ; preds = %sg.dummy.bb.
   call void @dummy_sg_barrier()
   ret void
 }
-
-; CHECK: define <16 x i32> @_ZGVbN16v_foo(<16 x i32> %a)
 
 declare void @dummybarrier.()
 declare void @_Z7barrierj(i32)
