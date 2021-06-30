@@ -103,7 +103,7 @@ body:             |
   ; CHECK:   [[COPY1:%[0-9]+]]:fr32x = COPY $xmm2
   ; CHECK:   [[COPY2:%[0-9]+]]:fr32x = COPY $xmm1
   ; CHECK:   [[COPY3:%[0-9]+]]:fr32x = COPY $xmm0
-  ; CHECK:   [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, %const.0, $noreg :: (load 4 from constant-pool)
+  ; CHECK:   [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, %const.0, $noreg :: (load (s32) from constant-pool)
   ; CHECK:   nofpexcept VUCOMISSZrr [[COPY1]], [[VMOVSSZrm_alt]], implicit-def $eflags, implicit $mxcsr
   ; CHECK:   JCC_1 %bb.2, 7, implicit $eflags
   ; CHECK:   JMP_1 %bb.1
@@ -111,7 +111,7 @@ body:             |
   ; CHECK:   successors: %bb.2(0x80000000)
   ; CHECK:   %12:fr32x = nofpexcept VSUBSSZrr [[COPY3]], [[COPY2]], implicit $mxcsr
   ; CHECK:   %13:fr32x = nofpexcept VMULSSZrr [[COPY1]], [[COPY3]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[COPY]], 1, $noreg, 0, $noreg :: (load 4 from %ir.G, !tbaa !2)
+  ; CHECK:   [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[COPY]], 1, $noreg, 0, $noreg :: (load (s32) from %ir.G, !tbaa !2)
   ; CHECK:   %15:fr32x = nofpexcept VMULSSZrr killed %12, killed [[VMOVSSZrm_alt1]], implicit $mxcsr
   ; CHECK:   %0:fr32x = nofpexcept VMULSSZrr killed %15, killed %13, implicit $mxcsr
   ; CHECK: bb.2.return:

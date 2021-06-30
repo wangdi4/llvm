@@ -786,31 +786,31 @@ body:             |
   ; CHECK:   [[COPY:%[0-9]+]]:gr64 = COPY $rdx
   ; CHECK:   [[COPY1:%[0-9]+]]:gr64 = COPY $rsi
   ; CHECK:   [[COPY2:%[0-9]+]]:gr64 = COPY $rdi
-  ; CHECK:   undef %267.sub_32bit:gr64_with_sub_8bit = MOV32rm [[COPY2]], 1, $noreg, 0, $noreg :: (load 4 from %ir.gloadptridx0)
-  ; CHECK:   undef %268.sub_32bit:gr64_nosp = MOV32rm [[COPY2]], 1, $noreg, 4, $noreg :: (load 4 from %ir.gloadptridx1)
-  ; CHECK:   [[MOV32rm:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 8, $noreg :: (load 4 from %ir.gloadptridx2)
-  ; CHECK:   [[MOV32rm1:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 12, $noreg :: (load 4 from %ir.gloadptridx3)
-  ; CHECK:   [[MOV32rm2:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 16, $noreg :: (load 4 from %ir.gloadptridx4)
-  ; CHECK:   [[MOV32rm3:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 20, $noreg :: (load 4 from %ir.gloadptridx5)
-  ; CHECK:   [[MOV32rm4:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 24, $noreg :: (load 4 from %ir.gloadptridx6)
-  ; CHECK:   [[MOV32rm5:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 28, $noreg :: (load 4 from %ir.gloadptridx7)
-  ; CHECK:   [[MOV32rm6:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 32, $noreg :: (load 4 from %ir.gloadptridx8)
-  ; CHECK:   [[MOV32rm7:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 36, $noreg :: (load 4 from %ir.gloadptridx9)
-  ; CHECK:   [[MOV32rm8:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 40, $noreg :: (load 4 from %ir.gloadptridx10)
-  ; CHECK:   [[MOV32rm9:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 44, $noreg :: (load 4 from %ir.gloadptridx11)
-  ; CHECK:   [[MOV32rm10:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 48, $noreg :: (load 4 from %ir.gloadptridx12)
-  ; CHECK:   [[MOV32rm11:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 52, $noreg :: (load 4 from %ir.gloadptridx13)
-  ; CHECK:   [[MOV32rm12:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 56, $noreg :: (load 4 from %ir.gloadptridx14)
-  ; CHECK:   [[MOV32rm13:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 60, $noreg :: (load 4 from %ir.gloadptridx15)
-  ; CHECK:   [[MOV64rm:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 0, $noreg :: (load 8 from %ir.fptridx0)
-  ; CHECK:   [[MOV64rm1:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 8, $noreg :: (load 8 from %ir.fptridx1)
-  ; CHECK:   [[MOV64rm2:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 16, $noreg :: (load 8 from %ir.fptridx2)
+  ; CHECK:   undef %267.sub_32bit:gr64_with_sub_8bit = MOV32rm [[COPY2]], 1, $noreg, 0, $noreg :: (load (s32) from %ir.gloadptridx0)
+  ; CHECK:   undef %268.sub_32bit:gr64_nosp = MOV32rm [[COPY2]], 1, $noreg, 4, $noreg :: (load (s32) from %ir.gloadptridx1)
+  ; CHECK:   [[MOV32rm:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 8, $noreg :: (load (s32) from %ir.gloadptridx2)
+  ; CHECK:   [[MOV32rm1:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 12, $noreg :: (load (s32) from %ir.gloadptridx3)
+  ; CHECK:   [[MOV32rm2:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 16, $noreg :: (load (s32) from %ir.gloadptridx4)
+  ; CHECK:   [[MOV32rm3:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 20, $noreg :: (load (s32) from %ir.gloadptridx5)
+  ; CHECK:   [[MOV32rm4:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 24, $noreg :: (load (s32) from %ir.gloadptridx6)
+  ; CHECK:   [[MOV32rm5:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 28, $noreg :: (load (s32) from %ir.gloadptridx7)
+  ; CHECK:   [[MOV32rm6:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 32, $noreg :: (load (s32) from %ir.gloadptridx8)
+  ; CHECK:   [[MOV32rm7:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 36, $noreg :: (load (s32) from %ir.gloadptridx9)
+  ; CHECK:   [[MOV32rm8:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 40, $noreg :: (load (s32) from %ir.gloadptridx10)
+  ; CHECK:   [[MOV32rm9:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 44, $noreg :: (load (s32) from %ir.gloadptridx11)
+  ; CHECK:   [[MOV32rm10:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 48, $noreg :: (load (s32) from %ir.gloadptridx12)
+  ; CHECK:   [[MOV32rm11:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 52, $noreg :: (load (s32) from %ir.gloadptridx13)
+  ; CHECK:   [[MOV32rm12:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 56, $noreg :: (load (s32) from %ir.gloadptridx14)
+  ; CHECK:   [[MOV32rm13:%[0-9]+]]:gr32 = MOV32rm [[COPY2]], 1, $noreg, 60, $noreg :: (load (s32) from %ir.gloadptridx15)
+  ; CHECK:   [[MOV64rm:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 0, $noreg :: (load (s64) from %ir.fptridx0)
+  ; CHECK:   [[MOV64rm1:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 8, $noreg :: (load (s64) from %ir.fptridx1)
+  ; CHECK:   [[MOV64rm2:%[0-9]+]]:gr64 = MOV64rm [[COPY]], 1, $noreg, 16, $noreg :: (load (s64) from %ir.fptridx2)
   ; CHECK: bb.1.body:
   ; CHECK:   successors: %bb.2(0x80000000)
   ; CHECK:   [[MOVSX64rr32_:%[0-9]+]]:gr64 = MOVSX64rr32 %267.sub_32bit
   ; CHECK:   [[MOVSX64rr32_1:%[0-9]+]]:gr64 = MOVSX64rr32 %268.sub_32bit
-  ; CHECK:   [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 0, $noreg :: (load 4 from %ir.aptridx0)
-  ; CHECK:   [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 0, $noreg :: (load 4 from %ir.bptridx0)
+  ; CHECK:   [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 0, $noreg :: (load (s32) from %ir.aptridx0)
+  ; CHECK:   [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 0, $noreg :: (load (s32) from %ir.bptridx0)
   ; CHECK:   %42:fr32x = nofpexcept VADDSSZrr [[VMOVSSZrm_alt]], [[VMOVSSZrm_alt]], implicit $mxcsr
   ; CHECK:   %43:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt]], [[VMOVSSZrm_alt]], implicit $mxcsr
   ; CHECK:   %44:fr32x = nofpexcept VADDSSZrr [[VMOVSSZrm_alt1]], [[VMOVSSZrm_alt1]], implicit $mxcsr
@@ -819,199 +819,199 @@ body:             |
   ; CHECK:   [[IMUL64rri32_:%[0-9]+]]:gr64_nosp = IMUL64rri32 [[MOVSX64rr32_]], 3211264, implicit-def dead $eflags
   ; CHECK:   [[ADD64rr:%[0-9]+]]:gr64_nosp = ADD64rr [[ADD64rr]], [[MOV64rm2]], implicit-def dead $eflags
   ; CHECK:   [[SHL64ri:%[0-9]+]]:gr64 = SHL64ri [[SHL64ri]], 12, implicit-def dead $eflags
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 0, $noreg, %46 :: (store 4 into %ir.fstoreptridx0)
-  ; CHECK:   [[VMOVSSZrm_alt2:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 4, $noreg :: (load 4 from %ir.aptridx1)
-  ; CHECK:   [[VMOVSSZrm_alt3:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 4, $noreg :: (load 4 from %ir.bptridx1)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 0, $noreg, %46 :: (store (s32) into %ir.fstoreptridx0)
+  ; CHECK:   [[VMOVSSZrm_alt2:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 4, $noreg :: (load (s32) from %ir.aptridx1)
+  ; CHECK:   [[VMOVSSZrm_alt3:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 4, $noreg :: (load (s32) from %ir.bptridx1)
   ; CHECK:   %52:fr32x = nofpexcept VADDSSZrr %42, [[VMOVSSZrm_alt2]], implicit $mxcsr
   ; CHECK:   %53:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt2]], %43, implicit $mxcsr
   ; CHECK:   %54:fr32x = nofpexcept VADDSSZrr %44, [[VMOVSSZrm_alt3]], implicit $mxcsr
   ; CHECK:   %56:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt2]], [[VMOVSSZrm_alt3]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 4, $noreg, %56 :: (store 4 into %ir.fstoreptridx1)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 4, $noreg, %56 :: (store (s32) into %ir.fstoreptridx1)
   ; CHECK:   %55:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt3]], %45, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt4:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 8, $noreg :: (load 4 from %ir.aptridx2)
-  ; CHECK:   [[VMOVSSZrm_alt5:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 8, $noreg :: (load 4 from %ir.bptridx2)
+  ; CHECK:   [[VMOVSSZrm_alt4:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 8, $noreg :: (load (s32) from %ir.aptridx2)
+  ; CHECK:   [[VMOVSSZrm_alt5:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 8, $noreg :: (load (s32) from %ir.bptridx2)
   ; CHECK:   %59:fr32x = nofpexcept VADDSSZrr %52, [[VMOVSSZrm_alt4]], implicit $mxcsr
   ; CHECK:   %60:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt4]], %53, implicit $mxcsr
   ; CHECK:   %61:fr32x = nofpexcept VADDSSZrr %54, [[VMOVSSZrm_alt5]], implicit $mxcsr
   ; CHECK:   %62:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt5]], %55, implicit $mxcsr
   ; CHECK:   %63:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt4]], [[VMOVSSZrm_alt5]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 8, $noreg, %63 :: (store 4 into %ir.fstoreptridx2)
-  ; CHECK:   [[VMOVSSZrm_alt6:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 12, $noreg :: (load 4 from %ir.aptridx3)
-  ; CHECK:   [[VMOVSSZrm_alt7:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 12, $noreg :: (load 4 from %ir.bptridx3)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 8, $noreg, %63 :: (store (s32) into %ir.fstoreptridx2)
+  ; CHECK:   [[VMOVSSZrm_alt6:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 12, $noreg :: (load (s32) from %ir.aptridx3)
+  ; CHECK:   [[VMOVSSZrm_alt7:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 12, $noreg :: (load (s32) from %ir.bptridx3)
   ; CHECK:   %66:fr32x = nofpexcept VADDSSZrr %59, [[VMOVSSZrm_alt6]], implicit $mxcsr
   ; CHECK:   %67:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt6]], %60, implicit $mxcsr
   ; CHECK:   %68:fr32x = nofpexcept VADDSSZrr %61, [[VMOVSSZrm_alt7]], implicit $mxcsr
   ; CHECK:   %70:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt6]], [[VMOVSSZrm_alt7]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 12, $noreg, %70 :: (store 4 into %ir.fstoreptridx3)
-  ; CHECK:   [[VMOVSSZrm_alt8:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 16, $noreg :: (load 4 from %ir.aptridx4)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 12, $noreg, %70 :: (store (s32) into %ir.fstoreptridx3)
+  ; CHECK:   [[VMOVSSZrm_alt8:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 16, $noreg :: (load (s32) from %ir.aptridx4)
   ; CHECK:   %69:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt7]], %62, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt9:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 16, $noreg :: (load 4 from %ir.bptridx4)
+  ; CHECK:   [[VMOVSSZrm_alt9:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 16, $noreg :: (load (s32) from %ir.bptridx4)
   ; CHECK:   %73:fr32x = nofpexcept VADDSSZrr %66, [[VMOVSSZrm_alt8]], implicit $mxcsr
   ; CHECK:   %74:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt8]], %67, implicit $mxcsr
   ; CHECK:   %75:fr32x = nofpexcept VADDSSZrr %68, [[VMOVSSZrm_alt9]], implicit $mxcsr
   ; CHECK:   %76:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt9]], %69, implicit $mxcsr
   ; CHECK:   %77:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt8]], [[VMOVSSZrm_alt9]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 16, $noreg, %77 :: (store 4 into %ir.fstoreptridx4)
-  ; CHECK:   [[VMOVSSZrm_alt10:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 20, $noreg :: (load 4 from %ir.aptridx5)
-  ; CHECK:   [[VMOVSSZrm_alt11:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 20, $noreg :: (load 4 from %ir.bptridx5)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 16, $noreg, %77 :: (store (s32) into %ir.fstoreptridx4)
+  ; CHECK:   [[VMOVSSZrm_alt10:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 20, $noreg :: (load (s32) from %ir.aptridx5)
+  ; CHECK:   [[VMOVSSZrm_alt11:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 20, $noreg :: (load (s32) from %ir.bptridx5)
   ; CHECK:   %80:fr32x = nofpexcept VADDSSZrr %73, [[VMOVSSZrm_alt10]], implicit $mxcsr
   ; CHECK:   %81:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt10]], %74, implicit $mxcsr
   ; CHECK:   %82:fr32x = nofpexcept VADDSSZrr %75, [[VMOVSSZrm_alt11]], implicit $mxcsr
   ; CHECK:   %84:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt10]], [[VMOVSSZrm_alt11]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 20, $noreg, %84 :: (store 4 into %ir.fstoreptridx5)
-  ; CHECK:   [[VMOVSSZrm_alt12:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 24, $noreg :: (load 4 from %ir.aptridx6)
-  ; CHECK:   [[VMOVSSZrm_alt13:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 24, $noreg :: (load 4 from %ir.bptridx6)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 20, $noreg, %84 :: (store (s32) into %ir.fstoreptridx5)
+  ; CHECK:   [[VMOVSSZrm_alt12:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 24, $noreg :: (load (s32) from %ir.aptridx6)
+  ; CHECK:   [[VMOVSSZrm_alt13:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 24, $noreg :: (load (s32) from %ir.bptridx6)
   ; CHECK:   %83:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt11]], %76, implicit $mxcsr
   ; CHECK:   %87:fr32x = nofpexcept VADDSSZrr %80, [[VMOVSSZrm_alt12]], implicit $mxcsr
   ; CHECK:   %88:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt12]], %81, implicit $mxcsr
   ; CHECK:   %89:fr32x = nofpexcept VADDSSZrr %82, [[VMOVSSZrm_alt13]], implicit $mxcsr
   ; CHECK:   %90:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt13]], %83, implicit $mxcsr
   ; CHECK:   %91:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt12]], [[VMOVSSZrm_alt13]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 24, $noreg, %91 :: (store 4 into %ir.fstoreptridx6)
-  ; CHECK:   [[VMOVSSZrm_alt14:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 28, $noreg :: (load 4 from %ir.aptridx7)
-  ; CHECK:   [[VMOVSSZrm_alt15:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 28, $noreg :: (load 4 from %ir.bptridx7)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 24, $noreg, %91 :: (store (s32) into %ir.fstoreptridx6)
+  ; CHECK:   [[VMOVSSZrm_alt14:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 28, $noreg :: (load (s32) from %ir.aptridx7)
+  ; CHECK:   [[VMOVSSZrm_alt15:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 28, $noreg :: (load (s32) from %ir.bptridx7)
   ; CHECK:   %94:fr32x = nofpexcept VADDSSZrr %87, [[VMOVSSZrm_alt14]], implicit $mxcsr
   ; CHECK:   %95:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt14]], %88, implicit $mxcsr
   ; CHECK:   %96:fr32x = nofpexcept VADDSSZrr %89, [[VMOVSSZrm_alt15]], implicit $mxcsr
   ; CHECK:   %98:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt14]], [[VMOVSSZrm_alt15]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 28, $noreg, %98 :: (store 4 into %ir.fstoreptridx7)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 28, $noreg, %98 :: (store (s32) into %ir.fstoreptridx7)
   ; CHECK:   %97:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt15]], %90, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt16:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 32, $noreg :: (load 4 from %ir.aptridx8)
-  ; CHECK:   [[VMOVSSZrm_alt17:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 32, $noreg :: (load 4 from %ir.bptridx8)
+  ; CHECK:   [[VMOVSSZrm_alt16:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 32, $noreg :: (load (s32) from %ir.aptridx8)
+  ; CHECK:   [[VMOVSSZrm_alt17:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 32, $noreg :: (load (s32) from %ir.bptridx8)
   ; CHECK:   %101:fr32x = nofpexcept VADDSSZrr %94, [[VMOVSSZrm_alt16]], implicit $mxcsr
   ; CHECK:   %102:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt16]], %95, implicit $mxcsr
   ; CHECK:   %103:fr32x = nofpexcept VADDSSZrr %96, [[VMOVSSZrm_alt17]], implicit $mxcsr
   ; CHECK:   %104:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt17]], %97, implicit $mxcsr
   ; CHECK:   %105:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt16]], [[VMOVSSZrm_alt17]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 32, $noreg, %105 :: (store 4 into %ir.fstoreptridx8)
-  ; CHECK:   [[VMOVSSZrm_alt18:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 36, $noreg :: (load 4 from %ir.aptridx9)
-  ; CHECK:   [[VMOVSSZrm_alt19:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 36, $noreg :: (load 4 from %ir.bptridx9)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 32, $noreg, %105 :: (store (s32) into %ir.fstoreptridx8)
+  ; CHECK:   [[VMOVSSZrm_alt18:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 36, $noreg :: (load (s32) from %ir.aptridx9)
+  ; CHECK:   [[VMOVSSZrm_alt19:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 36, $noreg :: (load (s32) from %ir.bptridx9)
   ; CHECK:   %108:fr32x = nofpexcept VADDSSZrr %101, [[VMOVSSZrm_alt18]], implicit $mxcsr
   ; CHECK:   %109:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt18]], %102, implicit $mxcsr
   ; CHECK:   %110:fr32x = nofpexcept VADDSSZrr %103, [[VMOVSSZrm_alt19]], implicit $mxcsr
   ; CHECK:   %112:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt18]], [[VMOVSSZrm_alt19]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 36, $noreg, %112 :: (store 4 into %ir.fstoreptridx9)
-  ; CHECK:   [[VMOVSSZrm_alt20:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 40, $noreg :: (load 4 from %ir.aptridx10)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 36, $noreg, %112 :: (store (s32) into %ir.fstoreptridx9)
+  ; CHECK:   [[VMOVSSZrm_alt20:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 40, $noreg :: (load (s32) from %ir.aptridx10)
   ; CHECK:   %111:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt19]], %104, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt21:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 40, $noreg :: (load 4 from %ir.bptridx10)
+  ; CHECK:   [[VMOVSSZrm_alt21:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 40, $noreg :: (load (s32) from %ir.bptridx10)
   ; CHECK:   %115:fr32x = nofpexcept VADDSSZrr %108, [[VMOVSSZrm_alt20]], implicit $mxcsr
   ; CHECK:   %116:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt20]], %109, implicit $mxcsr
   ; CHECK:   %117:fr32x = nofpexcept VADDSSZrr %110, [[VMOVSSZrm_alt21]], implicit $mxcsr
   ; CHECK:   %118:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt21]], %111, implicit $mxcsr
   ; CHECK:   %119:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt20]], [[VMOVSSZrm_alt21]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 40, $noreg, %119 :: (store 4 into %ir.fstoreptridx10)
-  ; CHECK:   [[VMOVSSZrm_alt22:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 44, $noreg :: (load 4 from %ir.aptridx11)
-  ; CHECK:   [[VMOVSSZrm_alt23:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 44, $noreg :: (load 4 from %ir.bptridx11)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 40, $noreg, %119 :: (store (s32) into %ir.fstoreptridx10)
+  ; CHECK:   [[VMOVSSZrm_alt22:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 44, $noreg :: (load (s32) from %ir.aptridx11)
+  ; CHECK:   [[VMOVSSZrm_alt23:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 44, $noreg :: (load (s32) from %ir.bptridx11)
   ; CHECK:   %122:fr32x = nofpexcept VADDSSZrr %115, [[VMOVSSZrm_alt22]], implicit $mxcsr
   ; CHECK:   %123:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt22]], %116, implicit $mxcsr
   ; CHECK:   %124:fr32x = nofpexcept VADDSSZrr %117, [[VMOVSSZrm_alt23]], implicit $mxcsr
   ; CHECK:   %126:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt22]], [[VMOVSSZrm_alt23]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 44, $noreg, %126 :: (store 4 into %ir.fstoreptridx11)
-  ; CHECK:   [[VMOVSSZrm_alt24:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 48, $noreg :: (load 4 from %ir.aptridx12)
-  ; CHECK:   [[VMOVSSZrm_alt25:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 48, $noreg :: (load 4 from %ir.bptridx12)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 44, $noreg, %126 :: (store (s32) into %ir.fstoreptridx11)
+  ; CHECK:   [[VMOVSSZrm_alt24:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 48, $noreg :: (load (s32) from %ir.aptridx12)
+  ; CHECK:   [[VMOVSSZrm_alt25:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 48, $noreg :: (load (s32) from %ir.bptridx12)
   ; CHECK:   %125:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt23]], %118, implicit $mxcsr
   ; CHECK:   %129:fr32x = nofpexcept VADDSSZrr %122, [[VMOVSSZrm_alt24]], implicit $mxcsr
   ; CHECK:   %130:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt24]], %123, implicit $mxcsr
   ; CHECK:   %131:fr32x = nofpexcept VADDSSZrr %124, [[VMOVSSZrm_alt25]], implicit $mxcsr
   ; CHECK:   %132:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt25]], %125, implicit $mxcsr
   ; CHECK:   %133:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt24]], [[VMOVSSZrm_alt25]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 48, $noreg, %133 :: (store 4 into %ir.fstoreptridx12)
-  ; CHECK:   [[VMOVSSZrm_alt26:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 52, $noreg :: (load 4 from %ir.aptridx13)
-  ; CHECK:   [[VMOVSSZrm_alt27:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 52, $noreg :: (load 4 from %ir.bptridx13)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 48, $noreg, %133 :: (store (s32) into %ir.fstoreptridx12)
+  ; CHECK:   [[VMOVSSZrm_alt26:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 52, $noreg :: (load (s32) from %ir.aptridx13)
+  ; CHECK:   [[VMOVSSZrm_alt27:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 52, $noreg :: (load (s32) from %ir.bptridx13)
   ; CHECK:   %136:fr32x = nofpexcept VADDSSZrr %129, [[VMOVSSZrm_alt26]], implicit $mxcsr
   ; CHECK:   %140:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt26]], [[VMOVSSZrm_alt27]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 52, $noreg, %140 :: (store 4 into %ir.fstoreptridx13)
-  ; CHECK:   [[VMOVSSZrm_alt28:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 56, $noreg :: (load 4 from %ir.aptridx14)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 52, $noreg, %140 :: (store (s32) into %ir.fstoreptridx13)
+  ; CHECK:   [[VMOVSSZrm_alt28:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 56, $noreg :: (load (s32) from %ir.aptridx14)
   ; CHECK:   %137:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt26]], %130, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt29:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 56, $noreg :: (load 4 from %ir.bptridx14)
+  ; CHECK:   [[VMOVSSZrm_alt29:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 56, $noreg :: (load (s32) from %ir.bptridx14)
   ; CHECK:   %147:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt28]], [[VMOVSSZrm_alt29]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 56, $noreg, %147 :: (store 4 into %ir.fstoreptridx14)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 56, $noreg, %147 :: (store (s32) into %ir.fstoreptridx14)
   ; CHECK:   %138:fr32x = nofpexcept VADDSSZrr %131, [[VMOVSSZrm_alt27]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt30:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 60, $noreg :: (load 4 from %ir.aptridx15)
-  ; CHECK:   [[VMOVSSZrm_alt31:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 60, $noreg :: (load 4 from %ir.bptridx15)
+  ; CHECK:   [[VMOVSSZrm_alt30:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 60, $noreg :: (load (s32) from %ir.aptridx15)
+  ; CHECK:   [[VMOVSSZrm_alt31:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 60, $noreg :: (load (s32) from %ir.bptridx15)
   ; CHECK:   %154:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt30]], [[VMOVSSZrm_alt31]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 60, $noreg, %154 :: (store 4 into %ir.fstoreptridx15)
-  ; CHECK:   [[VMOVSSZrm_alt32:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 64, $noreg :: (load 4 from %ir.aptridx16)
-  ; CHECK:   [[VMOVSSZrm_alt33:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 64, $noreg :: (load 4 from %ir.bptridx16)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 60, $noreg, %154 :: (store (s32) into %ir.fstoreptridx15)
+  ; CHECK:   [[VMOVSSZrm_alt32:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 64, $noreg :: (load (s32) from %ir.aptridx16)
+  ; CHECK:   [[VMOVSSZrm_alt33:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 64, $noreg :: (load (s32) from %ir.bptridx16)
   ; CHECK:   %139:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt27]], %132, implicit $mxcsr
   ; CHECK:   %161:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt32]], [[VMOVSSZrm_alt33]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 64, $noreg, %161 :: (store 4 into %ir.fstoreptridx16)
-  ; CHECK:   [[VMOVSSZrm_alt34:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 68, $noreg :: (load 4 from %ir.aptridx17)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 64, $noreg, %161 :: (store (s32) into %ir.fstoreptridx16)
+  ; CHECK:   [[VMOVSSZrm_alt34:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 68, $noreg :: (load (s32) from %ir.aptridx17)
   ; CHECK:   %143:fr32x = nofpexcept VADDSSZrr %136, [[VMOVSSZrm_alt28]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt35:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 68, $noreg :: (load 4 from %ir.bptridx17)
+  ; CHECK:   [[VMOVSSZrm_alt35:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 68, $noreg :: (load (s32) from %ir.bptridx17)
   ; CHECK:   %168:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt34]], [[VMOVSSZrm_alt35]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 68, $noreg, %168 :: (store 4 into %ir.fstoreptridx17)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 68, $noreg, %168 :: (store (s32) into %ir.fstoreptridx17)
   ; CHECK:   %144:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt28]], %137, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt36:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 72, $noreg :: (load 4 from %ir.aptridx18)
-  ; CHECK:   [[VMOVSSZrm_alt37:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 72, $noreg :: (load 4 from %ir.bptridx18)
+  ; CHECK:   [[VMOVSSZrm_alt36:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 72, $noreg :: (load (s32) from %ir.aptridx18)
+  ; CHECK:   [[VMOVSSZrm_alt37:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 72, $noreg :: (load (s32) from %ir.bptridx18)
   ; CHECK:   %175:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt36]], [[VMOVSSZrm_alt37]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 72, $noreg, %175 :: (store 4 into %ir.fstoreptridx18)
-  ; CHECK:   [[VMOVSSZrm_alt38:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 76, $noreg :: (load 4 from %ir.aptridx19)
-  ; CHECK:   [[VMOVSSZrm_alt39:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 76, $noreg :: (load 4 from %ir.bptridx19)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 72, $noreg, %175 :: (store (s32) into %ir.fstoreptridx18)
+  ; CHECK:   [[VMOVSSZrm_alt38:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 76, $noreg :: (load (s32) from %ir.aptridx19)
+  ; CHECK:   [[VMOVSSZrm_alt39:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 76, $noreg :: (load (s32) from %ir.bptridx19)
   ; CHECK:   %145:fr32x = nofpexcept VADDSSZrr %138, [[VMOVSSZrm_alt29]], implicit $mxcsr
   ; CHECK:   %182:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt38]], [[VMOVSSZrm_alt39]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 76, $noreg, %182 :: (store 4 into %ir.fstoreptridx19)
-  ; CHECK:   [[VMOVSSZrm_alt40:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 80, $noreg :: (load 4 from %ir.aptridx20)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 76, $noreg, %182 :: (store (s32) into %ir.fstoreptridx19)
+  ; CHECK:   [[VMOVSSZrm_alt40:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 80, $noreg :: (load (s32) from %ir.aptridx20)
   ; CHECK:   %146:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt29]], %139, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt41:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 80, $noreg :: (load 4 from %ir.bptridx20)
+  ; CHECK:   [[VMOVSSZrm_alt41:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 80, $noreg :: (load (s32) from %ir.bptridx20)
   ; CHECK:   %189:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt40]], [[VMOVSSZrm_alt41]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 80, $noreg, %189 :: (store 4 into %ir.fstoreptridx20)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 80, $noreg, %189 :: (store (s32) into %ir.fstoreptridx20)
   ; CHECK:   %150:fr32x = nofpexcept VADDSSZrr %143, [[VMOVSSZrm_alt30]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt42:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 84, $noreg :: (load 4 from %ir.aptridx21)
-  ; CHECK:   [[VMOVSSZrm_alt43:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 84, $noreg :: (load 4 from %ir.bptridx21)
+  ; CHECK:   [[VMOVSSZrm_alt42:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 84, $noreg :: (load (s32) from %ir.aptridx21)
+  ; CHECK:   [[VMOVSSZrm_alt43:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 84, $noreg :: (load (s32) from %ir.bptridx21)
   ; CHECK:   %196:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt42]], [[VMOVSSZrm_alt43]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 84, $noreg, %196 :: (store 4 into %ir.fstoreptridx21)
-  ; CHECK:   [[VMOVSSZrm_alt44:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 88, $noreg :: (load 4 from %ir.aptridx22)
-  ; CHECK:   [[VMOVSSZrm_alt45:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 88, $noreg :: (load 4 from %ir.bptridx22)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 84, $noreg, %196 :: (store (s32) into %ir.fstoreptridx21)
+  ; CHECK:   [[VMOVSSZrm_alt44:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 88, $noreg :: (load (s32) from %ir.aptridx22)
+  ; CHECK:   [[VMOVSSZrm_alt45:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 88, $noreg :: (load (s32) from %ir.bptridx22)
   ; CHECK:   %151:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt30]], %144, implicit $mxcsr
   ; CHECK:   %203:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt44]], [[VMOVSSZrm_alt45]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 88, $noreg, %203 :: (store 4 into %ir.fstoreptridx22)
-  ; CHECK:   [[VMOVSSZrm_alt46:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 92, $noreg :: (load 4 from %ir.aptridx23)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 88, $noreg, %203 :: (store (s32) into %ir.fstoreptridx22)
+  ; CHECK:   [[VMOVSSZrm_alt46:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 92, $noreg :: (load (s32) from %ir.aptridx23)
   ; CHECK:   %152:fr32x = nofpexcept VADDSSZrr %145, [[VMOVSSZrm_alt31]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt47:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 92, $noreg :: (load 4 from %ir.bptridx23)
+  ; CHECK:   [[VMOVSSZrm_alt47:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 92, $noreg :: (load (s32) from %ir.bptridx23)
   ; CHECK:   %210:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt46]], [[VMOVSSZrm_alt47]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 92, $noreg, %210 :: (store 4 into %ir.fstoreptridx23)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 92, $noreg, %210 :: (store (s32) into %ir.fstoreptridx23)
   ; CHECK:   %153:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt31]], %146, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt48:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 96, $noreg :: (load 4 from %ir.aptridx24)
-  ; CHECK:   [[VMOVSSZrm_alt49:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 96, $noreg :: (load 4 from %ir.bptridx24)
+  ; CHECK:   [[VMOVSSZrm_alt48:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 96, $noreg :: (load (s32) from %ir.aptridx24)
+  ; CHECK:   [[VMOVSSZrm_alt49:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 96, $noreg :: (load (s32) from %ir.bptridx24)
   ; CHECK:   %217:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt48]], [[VMOVSSZrm_alt49]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 96, $noreg, %217 :: (store 4 into %ir.fstoreptridx24)
-  ; CHECK:   [[VMOVSSZrm_alt50:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 100, $noreg :: (load 4 from %ir.aptridx25)
-  ; CHECK:   [[VMOVSSZrm_alt51:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 100, $noreg :: (load 4 from %ir.bptridx25)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 96, $noreg, %217 :: (store (s32) into %ir.fstoreptridx24)
+  ; CHECK:   [[VMOVSSZrm_alt50:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 100, $noreg :: (load (s32) from %ir.aptridx25)
+  ; CHECK:   [[VMOVSSZrm_alt51:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 100, $noreg :: (load (s32) from %ir.bptridx25)
   ; CHECK:   %157:fr32x = nofpexcept VADDSSZrr %150, [[VMOVSSZrm_alt32]], implicit $mxcsr
   ; CHECK:   %224:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt50]], [[VMOVSSZrm_alt51]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 100, $noreg, %224 :: (store 4 into %ir.fstoreptridx25)
-  ; CHECK:   [[VMOVSSZrm_alt52:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 104, $noreg :: (load 4 from %ir.aptridx26)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 100, $noreg, %224 :: (store (s32) into %ir.fstoreptridx25)
+  ; CHECK:   [[VMOVSSZrm_alt52:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 104, $noreg :: (load (s32) from %ir.aptridx26)
   ; CHECK:   %158:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt32]], %151, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt53:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 104, $noreg :: (load 4 from %ir.bptridx26)
+  ; CHECK:   [[VMOVSSZrm_alt53:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 104, $noreg :: (load (s32) from %ir.bptridx26)
   ; CHECK:   %231:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt52]], [[VMOVSSZrm_alt53]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 104, $noreg, %231 :: (store 4 into %ir.fstoreptridx26)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 104, $noreg, %231 :: (store (s32) into %ir.fstoreptridx26)
   ; CHECK:   %159:fr32x = nofpexcept VADDSSZrr %152, [[VMOVSSZrm_alt33]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt54:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 108, $noreg :: (load 4 from %ir.aptridx27)
-  ; CHECK:   [[VMOVSSZrm_alt55:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 108, $noreg :: (load 4 from %ir.bptridx27)
+  ; CHECK:   [[VMOVSSZrm_alt54:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 108, $noreg :: (load (s32) from %ir.aptridx27)
+  ; CHECK:   [[VMOVSSZrm_alt55:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 108, $noreg :: (load (s32) from %ir.bptridx27)
   ; CHECK:   %238:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt54]], [[VMOVSSZrm_alt55]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 108, $noreg, %238 :: (store 4 into %ir.fstoreptridx27)
-  ; CHECK:   [[VMOVSSZrm_alt56:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 112, $noreg :: (load 4 from %ir.aptridx28)
-  ; CHECK:   [[VMOVSSZrm_alt57:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 112, $noreg :: (load 4 from %ir.bptridx28)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 108, $noreg, %238 :: (store (s32) into %ir.fstoreptridx27)
+  ; CHECK:   [[VMOVSSZrm_alt56:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 112, $noreg :: (load (s32) from %ir.aptridx28)
+  ; CHECK:   [[VMOVSSZrm_alt57:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 112, $noreg :: (load (s32) from %ir.bptridx28)
   ; CHECK:   %160:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt33]], %153, implicit $mxcsr
   ; CHECK:   %245:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt56]], [[VMOVSSZrm_alt57]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 112, $noreg, %245 :: (store 4 into %ir.fstoreptridx28)
-  ; CHECK:   [[VMOVSSZrm_alt58:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 116, $noreg :: (load 4 from %ir.aptridx29)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 112, $noreg, %245 :: (store (s32) into %ir.fstoreptridx28)
+  ; CHECK:   [[VMOVSSZrm_alt58:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 116, $noreg :: (load (s32) from %ir.aptridx29)
   ; CHECK:   %164:fr32x = nofpexcept VADDSSZrr %157, [[VMOVSSZrm_alt34]], implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt59:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 116, $noreg :: (load 4 from %ir.bptridx29)
+  ; CHECK:   [[VMOVSSZrm_alt59:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 116, $noreg :: (load (s32) from %ir.bptridx29)
   ; CHECK:   %252:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt58]], [[VMOVSSZrm_alt59]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 116, $noreg, %252 :: (store 4 into %ir.fstoreptridx29)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 116, $noreg, %252 :: (store (s32) into %ir.fstoreptridx29)
   ; CHECK:   %165:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt34]], %158, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt60:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 120, $noreg :: (load 4 from %ir.aptridx30)
-  ; CHECK:   [[VMOVSSZrm_alt61:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 120, $noreg :: (load 4 from %ir.bptridx30)
+  ; CHECK:   [[VMOVSSZrm_alt60:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 120, $noreg :: (load (s32) from %ir.aptridx30)
+  ; CHECK:   [[VMOVSSZrm_alt61:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 120, $noreg :: (load (s32) from %ir.bptridx30)
   ; CHECK:   %259:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt60]], [[VMOVSSZrm_alt61]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 120, $noreg, %259 :: (store 4 into %ir.fstoreptridx30)
-  ; CHECK:   [[VMOVSSZrm_alt62:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 124, $noreg :: (load 4 from %ir.aptridx31)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 120, $noreg, %259 :: (store (s32) into %ir.fstoreptridx30)
+  ; CHECK:   [[VMOVSSZrm_alt62:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm]], 1, $noreg, 124, $noreg :: (load (s32) from %ir.aptridx31)
   ; CHECK:   %166:fr32x = nofpexcept VADDSSZrr %159, [[VMOVSSZrm_alt35]], implicit $mxcsr
   ; CHECK:   %167:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt35]], %160, implicit $mxcsr
-  ; CHECK:   [[VMOVSSZrm_alt63:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 124, $noreg :: (load 4 from %ir.bptridx31)
+  ; CHECK:   [[VMOVSSZrm_alt63:%[0-9]+]]:fr32x = VMOVSSZrm_alt [[MOV64rm1]], 1, $noreg, 124, $noreg :: (load (s32) from %ir.bptridx31)
   ; CHECK:   %266:fr32x = nofpexcept VSUBSSZrr [[VMOVSSZrm_alt62]], [[VMOVSSZrm_alt63]], implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 124, $noreg, %266 :: (store 4 into %ir.fstoreptridx31)
+  ; CHECK:   VMOVSSZmr [[SHL64ri]], 1, [[ADD64rr]], 124, $noreg, %266 :: (store (s32) into %ir.fstoreptridx31)
   ; CHECK:   [[LEA64_32r:%[0-9]+]]:gr32 = LEA64_32r %267, 1, %268, 0, $noreg
   ; CHECK:   [[ADD32rr:%[0-9]+]]:gr32 = ADD32rr [[ADD32rr]], [[MOV32rm]], implicit-def dead $eflags
   ; CHECK:   [[ADD32rr1:%[0-9]+]]:gr32 = ADD32rr [[ADD32rr1]], [[MOV32rm1]], implicit-def dead $eflags
@@ -1083,27 +1083,27 @@ body:             |
   ; CHECK:   %263:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt62]], %256, implicit $mxcsr
   ; CHECK:   %264:fr32x = nofpexcept VADDSSZrr %257, [[VMOVSSZrm_alt63]], implicit $mxcsr
   ; CHECK:   %265:fr32x = nofpexcept VMULSSZrr [[VMOVSSZrm_alt63]], %258, implicit $mxcsr
-  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 0, $noreg, %262 :: (store 4 into %ir.fstoreptr2idx0)
-  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 4, $noreg, %263 :: (store 4 into %ir.fstoreptr2idx1)
-  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 8, $noreg, %264 :: (store 4 into %ir.fstoreptr2idx2)
-  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 12, $noreg, %265 :: (store 4 into %ir.fstoreptr2idx3)
+  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 0, $noreg, %262 :: (store (s32) into %ir.fstoreptr2idx0)
+  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 4, $noreg, %263 :: (store (s32) into %ir.fstoreptr2idx1)
+  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 8, $noreg, %264 :: (store (s32) into %ir.fstoreptr2idx2)
+  ; CHECK:   VMOVSSZmr [[MOV64rm2]], 1, $noreg, 12, $noreg, %265 :: (store (s32) into %ir.fstoreptr2idx3)
   ; CHECK: bb.2.exit:
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 0, $noreg, %267.sub_32bit :: (store 4 into %ir.gstoreptridx0)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 4, $noreg, %268.sub_32bit :: (store 4 into %ir.gstoreptridx1)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 8, $noreg, [[MOV32rm]] :: (store 4 into %ir.gstoreptridx2)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 12, $noreg, [[MOV32rm1]] :: (store 4 into %ir.gstoreptridx3)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 16, $noreg, [[MOV32rm2]] :: (store 4 into %ir.gstoreptridx4)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 20, $noreg, [[MOV32rm3]] :: (store 4 into %ir.gstoreptridx5)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 24, $noreg, [[MOV32rm4]] :: (store 4 into %ir.gstoreptridx6)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 28, $noreg, [[MOV32rm5]] :: (store 4 into %ir.gstoreptridx7)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 32, $noreg, [[MOV32rm6]] :: (store 4 into %ir.gstoreptridx8)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 36, $noreg, [[MOV32rm7]] :: (store 4 into %ir.gstoreptridx9)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 40, $noreg, [[MOV32rm8]] :: (store 4 into %ir.gstoreptridx10)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 44, $noreg, [[MOV32rm9]] :: (store 4 into %ir.gstoreptridx11)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 48, $noreg, [[MOV32rm10]] :: (store 4 into %ir.gstoreptridx12)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 52, $noreg, [[MOV32rm11]] :: (store 4 into %ir.gstoreptridx13)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 56, $noreg, [[MOV32rm12]] :: (store 4 into %ir.gstoreptridx14)
-  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 60, $noreg, [[ADD32rr1]] :: (store 4 into %ir.gstoreptridx15)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 0, $noreg, %267.sub_32bit :: (store (s32) into %ir.gstoreptridx0)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 4, $noreg, %268.sub_32bit :: (store (s32) into %ir.gstoreptridx1)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 8, $noreg, [[MOV32rm]] :: (store (s32) into %ir.gstoreptridx2)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 12, $noreg, [[MOV32rm1]] :: (store (s32) into %ir.gstoreptridx3)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 16, $noreg, [[MOV32rm2]] :: (store (s32) into %ir.gstoreptridx4)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 20, $noreg, [[MOV32rm3]] :: (store (s32) into %ir.gstoreptridx5)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 24, $noreg, [[MOV32rm4]] :: (store (s32) into %ir.gstoreptridx6)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 28, $noreg, [[MOV32rm5]] :: (store (s32) into %ir.gstoreptridx7)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 32, $noreg, [[MOV32rm6]] :: (store (s32) into %ir.gstoreptridx8)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 36, $noreg, [[MOV32rm7]] :: (store (s32) into %ir.gstoreptridx9)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 40, $noreg, [[MOV32rm8]] :: (store (s32) into %ir.gstoreptridx10)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 44, $noreg, [[MOV32rm9]] :: (store (s32) into %ir.gstoreptridx11)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 48, $noreg, [[MOV32rm10]] :: (store (s32) into %ir.gstoreptridx12)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 52, $noreg, [[MOV32rm11]] :: (store (s32) into %ir.gstoreptridx13)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 56, $noreg, [[MOV32rm12]] :: (store (s32) into %ir.gstoreptridx14)
+  ; CHECK:   MOV32mr [[COPY1]], 1, $noreg, 60, $noreg, [[ADD32rr1]] :: (store (s32) into %ir.gstoreptridx15)
   ; CHECK:   RET 0
   bb.0.entry:
     successors: %bb.1(0x80000000)

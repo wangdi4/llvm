@@ -67,10 +67,10 @@ body:             |
 
     ; CHECK-LABEL: name: add
     ; CHECK: liveins: $edx, $rdi, $rsi
-    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
+    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load (s16) from %ir.x)
     ; CHECK: $eax = ADD32ri undef $eax, 2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
-    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
-    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
+    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
+    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
     ; CHECK: RETQ
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = ADD16ri killed renamable $ax, 2, implicit-def dead $eflags
@@ -95,10 +95,10 @@ body:             |
 
     ; CHECK-LABEL: name: sub
     ; CHECK: liveins: $edx, $rdi, $rsi
-    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
+    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load (s16) from %ir.x)
     ; CHECK: $eax = SUB32ri undef $eax, 2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
-    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
-    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
+    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
+    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
     ; CHECK: RETQ
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = SUB16ri killed renamable $ax, 2, implicit-def dead $eflags
@@ -123,10 +123,10 @@ body:             |
 
     ; CHECK-LABEL: name: and
     ; CHECK: liveins: $edx, $rdi, $rsi
-    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
+    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load (s16) from %ir.x)
     ; CHECK: $eax = AND32ri undef $eax, -2, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
-    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
-    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
+    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
+    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
     ; CHECK: RETQ
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = AND16ri killed renamable $ax, -2, implicit-def dead $eflags
@@ -151,10 +151,10 @@ body:             |
 
     ; CHECK-LABEL: name: or
     ; CHECK: liveins: $edx, $rdi, $rsi
-    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
+    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load (s16) from %ir.x)
     ; CHECK: $eax = OR32ri undef $eax, 1, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
-    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
-    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
+    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
+    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
     ; CHECK: RETQ
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = OR16ri killed renamable $ax, 1, implicit-def dead $eflags
@@ -179,10 +179,10 @@ body:             |
 
     ; CHECK-LABEL: name: xor
     ; CHECK: liveins: $edx, $rdi, $rsi
-    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
+    ; CHECK: $eax = MOVZX32rm16 renamable $rdi, 1, $noreg, 0, $noreg :: (load (s16) from %ir.x)
     ; CHECK: $eax = XOR32ri undef $eax, 1, implicit-def $eflags, implicit $ax, implicit-def dead $eflags
-    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store 2 into %ir.y)
-    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store 2 into %ir.x)
+    ; CHECK: MOV16mr killed renamable $rsi, 1, $noreg, 0, $noreg, renamable $dx, implicit killed $edx :: (store (s16) into %ir.y)
+    ; CHECK: MOV16mr killed renamable $rdi, 1, $noreg, 0, $noreg, killed renamable $ax :: (store (s16) into %ir.x)
     ; CHECK: RETQ
     renamable $ax = MOV16rm renamable $rdi, 1, $noreg, 0, $noreg :: (load 2 from %ir.x)
     renamable $ax = XOR16ri killed renamable $ax, 1, implicit-def dead $eflags
