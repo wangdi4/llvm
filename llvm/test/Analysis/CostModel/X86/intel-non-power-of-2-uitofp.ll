@@ -61,8 +61,8 @@ define i32 @uitofp_i32_double() {
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'uitofp_i32_double'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %cvt_v3i32_v3f64 = uitofp <3 x i32> undef to <3 x double>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %cvt_v7i32_v7f64 = uitofp <7 x i32> undef to <7 x double>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cvt_v3i32_v3f64 = uitofp <3 x i32> undef to <3 x double>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %cvt_v7i32_v7f64 = uitofp <7 x i32> undef to <7 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %cvt_v9i32_v9f64 = uitofp <9 x i32> undef to <9 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
@@ -170,8 +170,8 @@ define i32 @uitofp_i32_float() {
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'uitofp_i32_float'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %cvt_v3i32_v3f32 = uitofp <3 x i32> undef to <3 x float>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %cvt_v7i32_v7f32 = uitofp <7 x i32> undef to <7 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cvt_v3i32_v3f32 = uitofp <3 x i32> undef to <3 x float>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cvt_v7i32_v7f32 = uitofp <7 x i32> undef to <7 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 28 for instruction: %cvt_v9i32_v9f32 = uitofp <9 x i32> undef to <9 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 106 for instruction: %cvt_v33i32_v33f32 = uitofp <33 x i32> undef to <33 x float>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef

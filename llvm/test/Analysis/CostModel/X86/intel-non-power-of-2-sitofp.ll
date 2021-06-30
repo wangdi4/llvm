@@ -55,14 +55,14 @@ define i32 @sitofp_i16_double() {
 
 define i32 @sitofp_i32_double() {
 ; X86_64-SSE-LABEL: 'sitofp_i32_double'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %cvt_v3i32_v3f64 = sitofp <3 x i32> undef to <3 x double>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %cvt_v7i32_v7f64 = sitofp <7 x i32> undef to <7 x double>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %cvt_v9i32_v9f64 = sitofp <9 x i32> undef to <9 x double>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cvt_v3i32_v3f64 = sitofp <3 x i32> undef to <3 x double>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cvt_v7i32_v7f64 = sitofp <7 x i32> undef to <7 x double>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %cvt_v9i32_v9f64 = sitofp <9 x i32> undef to <9 x double>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'sitofp_i32_double'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cvt_v3i32_v3f64 = sitofp <3 x i32> undef to <3 x double>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 19 for instruction: %cvt_v7i32_v7f64 = sitofp <7 x i32> undef to <7 x double>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %cvt_v7i32_v7f64 = sitofp <7 x i32> undef to <7 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %cvt_v9i32_v9f64 = sitofp <9 x i32> undef to <9 x double>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
@@ -163,10 +163,10 @@ define i32 @sitofp_i16_float() {
 
 define i32 @sitofp_i32_float() {
 ; X86_64-SSE-LABEL: 'sitofp_i32_float'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %cvt_v3i32_v3f32 = sitofp <3 x i32> undef to <3 x float>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %cvt_v7i32_v7f32 = sitofp <7 x i32> undef to <7 x float>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %cvt_v9i32_v9f32 = sitofp <9 x i32> undef to <9 x float>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 80 for instruction: %cvt_v33i32_v33f32 = sitofp <33 x i32> undef to <33 x float>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %cvt_v3i32_v3f32 = sitofp <3 x i32> undef to <3 x float>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %cvt_v7i32_v7f32 = sitofp <7 x i32> undef to <7 x float>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %cvt_v9i32_v9f32 = sitofp <9 x i32> undef to <9 x float>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %cvt_v33i32_v33f32 = sitofp <33 x i32> undef to <33 x float>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'sitofp_i32_float'
