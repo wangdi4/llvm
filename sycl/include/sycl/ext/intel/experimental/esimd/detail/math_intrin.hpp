@@ -347,6 +347,14 @@ __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
 template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<__SEIEE::bfloat16, N>
+__esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src);
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<float, N>
+__esimd_bf_cvt(__SEIEED::vector_type_t<__SEIEE::bfloat16, N> src);
+
+template <int N>
 SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint32_t, N>
 __esimd_tf32_cvt(__SEIEED::vector_type_t<float, N> src);
 
@@ -1643,6 +1651,20 @@ __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2) {
   throw cl::sycl::feature_not_supported();
   return __SEIEED::vector_type_t<T, N>();
+}
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint16_t, N>
+__esimd_bf_cvt(__SEIEED::vector_type_t<float, N> src) {
+  throw cl::sycl::feature_not_supported();
+  return __SEIEED::vector_type_t<uint16_t, N>();
+}
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<float, N>
+__esimd_bf_cvt(__SEIEED::vector_type_t<uint16_t, N> src) {
+  throw cl::sycl::feature_not_supported();
+  return __SEIEED::vector_type_t<float, N>();
 }
 
 template <int N>
