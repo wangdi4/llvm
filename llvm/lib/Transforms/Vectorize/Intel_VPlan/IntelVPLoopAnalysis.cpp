@@ -831,8 +831,10 @@ void VPLoopEntityList::identifyMinMaxLinearIdxs() {
   VPDominatorTree DomTree;
   DomTree.recalculate(Plan);
 
-  for (auto &RedPtr : ReductionList) {
-    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr.get());
+  auto Reds = vpreductions();
+  SmallVector<VPReduction *, 4> RedPtrs(Reds.begin(), Reds.end());
+  for (VPReduction *RedPtr : RedPtrs) {
+    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr);
     if (!Reduction)
       continue;
     if (Reduction->isLinearIndex())
