@@ -11,6 +11,7 @@
 // License.
 
 #include "OptimizerLTO.h"
+#include "SPIRVToOCL.h"
 #include "VecConfig.h"
 
 #include "llvm/ADT/Triple.h"
@@ -93,6 +94,7 @@ void OptimizerLTO::Optimize() {
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
+        MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(DPCPPEqualizerPass());
         if (Level != PassBuilder::OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());

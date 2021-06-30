@@ -13,6 +13,12 @@ set(TARGET_SOURCE_FILES
 )
 
 include_directories(
+    BEFORE
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib/SPIRV
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/lib/SPIRV/Mangler
+)
+
+include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/ocl_cpu_backend

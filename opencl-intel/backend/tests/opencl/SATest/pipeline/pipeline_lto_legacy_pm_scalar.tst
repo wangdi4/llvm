@@ -5,6 +5,7 @@
 ; CHECK-NEXT:     Infer address spaces
 
 ; CHECK:        ModulePass Manager
+; CHECK:          Translate SPIR-V builtins to OCL 2.0 builtins
 ; CHECK:          DPCPPEqualizerLegacy
 ; CHECK-NEXT:     InternalizeNonKernelFuncLegacy
 ; CHECK-NEXT:     CallGraph Construction

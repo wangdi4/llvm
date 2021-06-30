@@ -1,6 +1,7 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
-; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NOT:  Running pass: InternalizeNonKernelFuncPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
