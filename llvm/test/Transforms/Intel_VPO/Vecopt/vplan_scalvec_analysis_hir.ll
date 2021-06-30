@@ -145,13 +145,13 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1 (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 [[REDUCTION_PHI0:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_LOAD:%.*]] = load i32* [[A0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP1]] = add i32 [[VP0]] i32 [[VP_LOAD]] (SVAOpBits 0->V 1->V )
@@ -160,7 +160,7 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP4]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -168,7 +168,7 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP5:%.*]] = {%reduction.phi}
+; CHECK-NEXT:  Id: 0   i32 [[VP_RED_FINAL]] -> [[VP5:%.*]] = {%reduction.phi}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
 ;
