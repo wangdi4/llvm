@@ -1651,6 +1651,13 @@ public:
     return CmdList;
   }
 
+  bool usingCopyCmdQueue(int32_t DeviceId) {
+    if (!Flags.UseCopyEngine ||
+        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+       return  false;
+    return true;
+  }
+
   ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
     if (!Flags.UseCopyEngine ||
         CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
@@ -2113,6 +2120,8 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
       copyLock.lock();
       ownsLock = true;
     }
+    IDP("Copy Engine is %s for data transfer\n",
+        DeviceInfo->usingCopyCmdQueue(DeviceId) ? "used" : "not used");
     CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size,
                      nullptr, 0, nullptr);
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
