@@ -47,11 +47,11 @@ body:             |
     ; CHECK: liveins: $rdi
     ; CHECK: [[COPY:%[0-9]+]]:gr64 = COPY $rdi
     ; CHECK: [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2412, $noreg
-    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10 :: (store 4 into %ir.val_0)
-    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -2400, $noreg, 10 :: (store 4 into %ir.val_1)
-    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -400, $noreg, 10 :: (store 4 into %ir.val_2)
-    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -350, $noreg, 10 :: (store 4 into %ir.val_3)
-    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -200, $noreg, 10 :: (store 4 into %ir.val_4)
+    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10 :: (store (s32) into %ir.val_0)
+    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -2400, $noreg, 10 :: (store (s32) into %ir.val_1)
+    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -400, $noreg, 10 :: (store (s32) into %ir.val_2)
+    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -350, $noreg, 10 :: (store (s32) into %ir.val_3)
+    ; CHECK: MOV32mi [[LEA64r]], 1, $noreg, -200, $noreg, 10 :: (store (s32) into %ir.val_4)
     ; CHECK: RET 0
     %0:gr64 = COPY $rdi
     %1:gr64 = LEA64r %0, 1, $noreg, @block_ + 2412, $noreg

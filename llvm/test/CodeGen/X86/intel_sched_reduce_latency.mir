@@ -197,17 +197,17 @@ body:             |
   ; X64:   liveins: $rdi
   ; X64:   [[COPY:%[0-9]+]]:gr64 = COPY $rdi
   ; X64:   undef %35.sub_32bit:gr64_nosp = MOV32r0 implicit-def dead $eflags
-  ; X64:   [[VPBROADCASTWZrm:%[0-9]+]]:vr512 = VPBROADCASTWZrm $rip, 1, $noreg, %const.0, $noreg :: (load 2 from constant-pool)
+  ; X64:   [[VPBROADCASTWZrm:%[0-9]+]]:vr512 = VPBROADCASTWZrm $rip, 1, $noreg, %const.0, $noreg :: (load (s16) from constant-pool)
   ; X64: bb.1.loop.93:
   ; X64:   successors: %bb.2(0x04000000), %bb.1(0x7c000000)
-  ; X64:   [[VMOVDQU64Zrm:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 512, $noreg :: (load 64 from %ir.scevgep44, align 8)
-  ; X64:   [[VMOVDQU64Zrm1:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1536, $noreg :: (load 64 from %ir.scevgep38, align 8)
-  ; X64:   [[VMOVDQU64Zrm2:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2560, $noreg :: (load 64 from %ir.scevgep31, align 8)
-  ; X64:   [[VMOVDQU64Zrm3:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3584, $noreg :: (load 64 from %ir.scevgep25, align 8)
-  ; X64:   [[VMOVDQU64Zrm4:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 0, $noreg :: (load 64 from %ir.uglygep4546, align 8)
-  ; X64:   [[VMOVDQU64Zrm5:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1024, $noreg :: (load 64 from %ir.scevgep41, align 8)
-  ; X64:   [[VMOVDQU64Zrm6:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2048, $noreg :: (load 64 from %ir.scevgep35, align 8)
-  ; X64:   [[VMOVDQU64Zrm7:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3072, $noreg :: (load 64 from %ir.scevgep28, align 8)
+  ; X64:   [[VMOVDQU64Zrm:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 512, $noreg :: (load (s512) from %ir.scevgep44, align 8)
+  ; X64:   [[VMOVDQU64Zrm1:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1536, $noreg :: (load (s512) from %ir.scevgep38, align 8)
+  ; X64:   [[VMOVDQU64Zrm2:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2560, $noreg :: (load (s512) from %ir.scevgep31, align 8)
+  ; X64:   [[VMOVDQU64Zrm3:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3584, $noreg :: (load (s512) from %ir.scevgep25, align 8)
+  ; X64:   [[VMOVDQU64Zrm4:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 0, $noreg :: (load (s512) from %ir.uglygep4546, align 8)
+  ; X64:   [[VMOVDQU64Zrm5:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1024, $noreg :: (load (s512) from %ir.scevgep41, align 8)
+  ; X64:   [[VMOVDQU64Zrm6:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2048, $noreg :: (load (s512) from %ir.scevgep35, align 8)
+  ; X64:   [[VMOVDQU64Zrm7:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3072, $noreg :: (load (s512) from %ir.scevgep28, align 8)
   ; X64:   [[VPSRLQZri:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm]], 8
   ; X64:   [[VPSRLQZri1:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm1]], 8
   ; X64:   [[VPSRLQZri2:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm2]], 8
@@ -228,14 +228,14 @@ body:             |
   ; X64:   [[VPSLLWZri3:%[0-9]+]]:vr512 = VPSLLWZri [[VPXORQZrr3]], 8
   ; X64:   [[VPXORQZrr6:%[0-9]+]]:vr512 = VPXORQZrr [[VPSLLWZri2]], [[VMOVDQU64Zrm2]]
   ; X64:   [[VPXORQZrr7:%[0-9]+]]:vr512 = VPXORQZrr [[VPSLLWZri3]], [[VMOVDQU64Zrm3]]
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 0, $noreg, [[VPTERNLOGQZrri]] :: (store 64 into %ir.scevgep2122, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 64, $noreg, [[VPXORQZrr4]] :: (store 64 into %ir.scevgep20, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 128, $noreg, [[VPTERNLOGQZrri1]] :: (store 64 into %ir.scevgep17, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 192, $noreg, [[VPXORQZrr5]] :: (store 64 into %ir.scevgep14, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 256, $noreg, [[VPTERNLOGQZrri2]] :: (store 64 into %ir.scevgep11, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 320, $noreg, [[VPXORQZrr6]] :: (store 64 into %ir.scevgep8, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 384, $noreg, [[VPTERNLOGQZrri3]] :: (store 64 into %ir.scevgep5, align 8)
-  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 448, $noreg, [[VPXORQZrr7]] :: (store 64 into %ir.scevgep2, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 0, $noreg, [[VPTERNLOGQZrri]] :: (store (s512) into %ir.scevgep2122, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 64, $noreg, [[VPXORQZrr4]] :: (store (s512) into %ir.scevgep20, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 128, $noreg, [[VPTERNLOGQZrri1]] :: (store (s512) into %ir.scevgep17, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 192, $noreg, [[VPXORQZrr5]] :: (store (s512) into %ir.scevgep14, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 256, $noreg, [[VPTERNLOGQZrri2]] :: (store (s512) into %ir.scevgep11, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 320, $noreg, [[VPXORQZrr6]] :: (store (s512) into %ir.scevgep8, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 384, $noreg, [[VPTERNLOGQZrri3]] :: (store (s512) into %ir.scevgep5, align 8)
+  ; X64:   VMOVDQU64Zmr [[COPY]], 8, %35, 448, $noreg, [[VPXORQZrr7]] :: (store (s512) into %ir.scevgep2, align 8)
   ; X64:   [[ADD64ri8_:%[0-9]+]]:gr64_nosp = nuw nsw ADD64ri8 [[ADD64ri8_]], 64, implicit-def dead $eflags
   ; X64:   CMP64ri32 [[ADD64ri8_]], 512, implicit-def $eflags
   ; X64:   JCC_1 %bb.1, 5, implicit killed $eflags
@@ -248,17 +248,17 @@ body:             |
   ; X64_DISRP:   liveins: $rdi
   ; X64_DISRP:   [[COPY:%[0-9]+]]:gr64 = COPY $rdi
   ; X64_DISRP:   undef %35.sub_32bit:gr64_nosp = MOV32r0 implicit-def dead $eflags
-  ; X64_DISRP:   [[VPBROADCASTWZrm:%[0-9]+]]:vr512 = VPBROADCASTWZrm $rip, 1, $noreg, %const.0, $noreg :: (load 2 from constant-pool)
+  ; X64_DISRP:   [[VPBROADCASTWZrm:%[0-9]+]]:vr512 = VPBROADCASTWZrm $rip, 1, $noreg, %const.0, $noreg :: (load (s16) from constant-pool)
   ; X64_DISRP: bb.1.loop.93:
   ; X64_DISRP:   successors: %bb.2(0x04000000), %bb.1(0x7c000000)
-  ; X64_DISRP:   [[VMOVDQU64Zrm:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 512, $noreg :: (load 64 from %ir.scevgep44, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm1:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1536, $noreg :: (load 64 from %ir.scevgep38, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm2:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2560, $noreg :: (load 64 from %ir.scevgep31, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm3:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3584, $noreg :: (load 64 from %ir.scevgep25, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm4:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 0, $noreg :: (load 64 from %ir.uglygep4546, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm5:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1024, $noreg :: (load 64 from %ir.scevgep41, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm6:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2048, $noreg :: (load 64 from %ir.scevgep35, align 8)
-  ; X64_DISRP:   [[VMOVDQU64Zrm7:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3072, $noreg :: (load 64 from %ir.scevgep28, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 512, $noreg :: (load (s512) from %ir.scevgep44, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm1:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1536, $noreg :: (load (s512) from %ir.scevgep38, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm2:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2560, $noreg :: (load (s512) from %ir.scevgep31, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm3:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3584, $noreg :: (load (s512) from %ir.scevgep25, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm4:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 0, $noreg :: (load (s512) from %ir.uglygep4546, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm5:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 1024, $noreg :: (load (s512) from %ir.scevgep41, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm6:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 2048, $noreg :: (load (s512) from %ir.scevgep35, align 8)
+  ; X64_DISRP:   [[VMOVDQU64Zrm7:%[0-9]+]]:vr512 = VMOVDQU64Zrm [[COPY]], 1, %35, 3072, $noreg :: (load (s512) from %ir.scevgep28, align 8)
   ; X64_DISRP:   [[VPSRLQZri:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm]], 8
   ; X64_DISRP:   [[VPSRLQZri1:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm1]], 8
   ; X64_DISRP:   [[VPSRLQZri2:%[0-9]+]]:vr512 = VPSRLQZri [[VMOVDQU64Zrm2]], 8
@@ -279,14 +279,14 @@ body:             |
   ; X64_DISRP:   [[VPXORQZrr5:%[0-9]+]]:vr512 = VPXORQZrr [[VPSLLWZri1]], [[VMOVDQU64Zrm1]]
   ; X64_DISRP:   [[VPXORQZrr6:%[0-9]+]]:vr512 = VPXORQZrr [[VPSLLWZri2]], [[VMOVDQU64Zrm2]]
   ; X64_DISRP:   [[VPXORQZrr7:%[0-9]+]]:vr512 = VPXORQZrr [[VPSLLWZri3]], [[VMOVDQU64Zrm3]]
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 0, $noreg, [[VPTERNLOGQZrri]] :: (store 64 into %ir.scevgep2122, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 64, $noreg, [[VPXORQZrr4]] :: (store 64 into %ir.scevgep20, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 128, $noreg, [[VPTERNLOGQZrri1]] :: (store 64 into %ir.scevgep17, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 192, $noreg, [[VPXORQZrr5]] :: (store 64 into %ir.scevgep14, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 256, $noreg, [[VPTERNLOGQZrri2]] :: (store 64 into %ir.scevgep11, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 320, $noreg, [[VPXORQZrr6]] :: (store 64 into %ir.scevgep8, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 384, $noreg, [[VPTERNLOGQZrri3]] :: (store 64 into %ir.scevgep5, align 8)
-  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 448, $noreg, [[VPXORQZrr7]] :: (store 64 into %ir.scevgep2, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 0, $noreg, [[VPTERNLOGQZrri]] :: (store (s512) into %ir.scevgep2122, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 64, $noreg, [[VPXORQZrr4]] :: (store (s512) into %ir.scevgep20, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 128, $noreg, [[VPTERNLOGQZrri1]] :: (store (s512) into %ir.scevgep17, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 192, $noreg, [[VPXORQZrr5]] :: (store (s512) into %ir.scevgep14, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 256, $noreg, [[VPTERNLOGQZrri2]] :: (store (s512) into %ir.scevgep11, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 320, $noreg, [[VPXORQZrr6]] :: (store (s512) into %ir.scevgep8, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 384, $noreg, [[VPTERNLOGQZrri3]] :: (store (s512) into %ir.scevgep5, align 8)
+  ; X64_DISRP:   VMOVDQU64Zmr [[COPY]], 8, %35, 448, $noreg, [[VPXORQZrr7]] :: (store (s512) into %ir.scevgep2, align 8)
   ; X64_DISRP:   [[ADD64ri8_:%[0-9]+]]:gr64_nosp = nuw nsw ADD64ri8 [[ADD64ri8_]], 64, implicit-def dead $eflags
   ; X64_DISRP:   CMP64ri32 [[ADD64ri8_]], 512, implicit-def $eflags
   ; X64_DISRP:   JCC_1 %bb.1, 5, implicit killed $eflags
