@@ -6383,6 +6383,35 @@ let TargetPrefix = "x86" in {
               Intrinsic<[], [ llvm_i32_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_storelin_64 : GCCBuiltin<"__builtin_ia32_icecode_storelin_64">,
               Intrinsic<[], [ llvm_i64_ty, llvm_i64_ty ], []>;
+
+  def int_x86_icecode_loaduphys : GCCBuiltin<"__builtin_ia32_icecode_loaduphys">,
+              Intrinsic<[], [ llvm_ptr_ty ], []>;
+  def int_x86_icecode_storeuphys : GCCBuiltin<"__builtin_ia32_icecode_storeuphys">,
+              Intrinsic<[], [ llvm_ptr_ty ], []>;
+  def int_x86_icecode_fscp_or_32 : GCCBuiltin<"__builtin_ia32_icecode_fscp_or_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty, llvm_i32_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_fscp_or_64 : GCCBuiltin<"__builtin_ia32_icecode_fscp_or_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty, llvm_i64_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_creg_or_mt_32 : GCCBuiltin<"__builtin_ia32_icecode_creg_or_mt_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty, llvm_i32_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_creg_or_mt_64 : GCCBuiltin<"__builtin_ia32_icecode_creg_or_mt_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty, llvm_i64_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_fscp_andnot_32 : GCCBuiltin<"__builtin_ia32_icecode_fscp_andnot_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty, llvm_i32_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_fscp_andnot_64 : GCCBuiltin<"__builtin_ia32_icecode_fscp_andnot_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty, llvm_i64_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_creg_andnot_mt_32 : GCCBuiltin<"__builtin_ia32_icecode_creg_andnot_mt_32">,
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty, llvm_i32_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
+  def int_x86_icecode_creg_andnot_mt_64 : GCCBuiltin<"__builtin_ia32_icecode_creg_andnot_mt_64">,
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty, llvm_i64_ty ],
+                        [ ImmArg<ArgIndex<0>> ]>;
 }
 #endif // INTEL_FEATURE_ICECODE
 

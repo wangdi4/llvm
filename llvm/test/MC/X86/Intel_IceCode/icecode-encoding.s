@@ -377,9 +377,9 @@
 // CHECK: encoding: [0x0f,0x01,0xcb]
           store_tickle_gpa
 
-// CHECK: flush_ifu
+// CHECK: flush_ifu %rax
 // CHECK: encoding: [0xf3,0x0f,0x01,0xd4]
-          flush_ifu
+          flush_ifu %rax
 
 // CHECK: gmovlinw (%rdx), %ax
 // CHECK: encoding: [0x66,0xf3,0x0f,0x02,0x02]
@@ -420,3 +420,47 @@
 // CHECK: fe_serizlize
 // CHECK: encoding: [0x0f,0x01,0xd1]
           fe_serizlize
+
+// CHECK: loaduphys (%rbx)
+// CHECK: encoding: [0xc7,0x33]
+          loaduphys (%rbx)
+
+// CHECK: storeuphys (%rbx)
+// CHECK: encoding: [0xc7,0x3b]
+          storeuphys (%rbx)
+
+// CHECK: fscp_orl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xcb,0x04,0x03,0x02,0x01]
+          fscp_or $0x01020304, %ebx
+
+// CHECK: fscp_orq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xcb,0x04,0x03,0x02,0x01]
+          fscp_or $0x01020304, %rbx
+
+// CHECK: creg_or_mtl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xeb,0x04,0x03,0x02,0x01]
+          creg_or_mt $0x01020304, %ebx
+
+// CHECK: creg_or_mtq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xeb,0x04,0x03,0x02,0x01]
+          creg_or_mt $0x01020304, %rbx
+
+// CHECK: fscp_andnotl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xe3,0x04,0x03,0x02,0x01]
+          fscp_andnot $0x01020304, %ebx
+
+// CHECK: fscp_andnotq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xe3,0x04,0x03,0x02,0x01]
+          fscp_andnot $0x01020304, %rbx
+
+// CHECK: creg_andnot_mtl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xc3,0x04,0x03,0x02,0x01]
+          creg_andnot_mt $0x01020304, %ebx
+
+// CHECK: creg_andnot_mtq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xc3,0x04,0x03,0x02,0x01]
+          creg_andnot_mt $0x01020304, %rbx
+
+// CHECK: io_tickle_debug %rax
+// CHECK: encoding: [0x0f,0x06]
+          io_tickle_debug %rax
