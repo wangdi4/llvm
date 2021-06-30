@@ -32,7 +32,7 @@ entry:
   call void @llvm.coro.resume(i8* %hdl)
   call void @llvm.coro.destroy(i8* %hdl)
   ret i32 0
-; CHECK-NEXT: entry:
+; COM:CHECK-NEXT: entry: ;INTEL
 ; CHECK:      call void @print(i32 4)
 ; CHECK:      call void @print(i32 5)
 ; CHECK:      call void @print(i32 6)
