@@ -5896,6 +5896,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     break;
 #if INTEL_COLLAB
   case OMPC_compare:
+    assert(!V && "compare capture codegen not yet implemented");
     emitOMPAtomicCompareExpr(CGF, AO, X, E, Expected, IsCompareMin,
                              IsCompareMax, Loc);
     break;
@@ -6027,6 +6028,11 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
         C->getClauseKind() != OMPC_release &&
         C->getClauseKind() != OMPC_relaxed && C->getClauseKind() != OMPC_hint) {
       Kind = C->getClauseKind();
+#if INTEL_COLLAB
+      // Use 'compare' Kind if 'compare' and 'capture'.
+      if (Kind == OMPC_capture)
+        continue;
+#endif // INTEL_COLLAB
       break;
     }
   }

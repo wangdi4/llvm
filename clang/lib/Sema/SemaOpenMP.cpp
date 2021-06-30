@@ -12040,6 +12040,9 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   SourceLocation AtomicKindLoc;
   OpenMPClauseKind MemOrderKind = OMPC_unknown;
   SourceLocation MemOrderLoc;
+#if INTEL_COLLAB
+  bool IsCompareCapture = false;
+#endif // INTEL_COLLAB
   for (const OMPClause *C : Clauses) {
     if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
         C->getClauseKind() == OMPC_update ||
@@ -12047,6 +12050,14 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
         C->getClauseKind() == OMPC_compare ||
 #endif // INTEL_COLLAB
         C->getClauseKind() == OMPC_capture) {
+#if INTEL_COLLAB
+      if (!IsCompareCapture &&
+          ((C->getClauseKind() == OMPC_capture && AtomicKind == OMPC_compare) ||
+           (C->getClauseKind() == OMPC_compare &&
+            AtomicKind == OMPC_capture))) {
+        IsCompareCapture = true;
+      } else
+#endif // INTEL_COLLAB
       if (AtomicKind != OMPC_unknown) {
         Diag(C->getBeginLoc(), diag::err_omp_atomic_several_clauses)
             << SourceRange(C->getBeginLoc(), C->getEndLoc());
@@ -12281,6 +12292,119 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
       UE = Checker.getUpdateExpr();
       IsXLHSInRHSPart = Checker.isXLHSInRHSPart();
     }
+#if INTEL_COLLAB
+  } else if (IsCompareCapture) {
+    enum {
+      NotAnAssignmentOp,
+      NotACompoundStatement,
+      NotTwoSubstatements,
+      NotIfStatement,
+      CannotMatchX,
+      NoError
+    } ErrorFound = NoError;
+    SourceLocation ErrorLoc, NoteLoc;
+    SourceRange ErrorRange, NoteRange;
+    if (auto *CS = dyn_cast<CompoundStmt>(Body)) {
+      if (CS->size() == 2) {
+        Stmt *First = CS->body_front();
+        Stmt *Second = CS->body_back();
+        if (auto *EWC = dyn_cast<ExprWithCleanups>(First))
+          First = EWC->getSubExpr()->IgnoreParenImpCasts();
+        if (auto *EWC = dyn_cast<ExprWithCleanups>(Second))
+          Second = EWC->getSubExpr()->IgnoreParenImpCasts();
+        // One must be assignment and one an if statement.
+        auto *If1 = dyn_cast<IfStmt>(First);
+        auto *If2 = dyn_cast<IfStmt>(Second);
+        if (If1 || If2) {
+          BinaryOperator *Assign;
+          if (If1) {
+            Assign = dyn_cast<BinaryOperator>(Second);
+            IsPostfixUpdate = false;
+          } else {
+            Assign = dyn_cast<BinaryOperator>(First);
+            IsPostfixUpdate = true;
+          }
+          if (Assign && Assign->getOpcode() == BO_Assign) {
+            OpenMPAtomicCompareChecker Checker(*this);
+            if (Checker.checkStatement(
+                    If1 ? If1 : If2,
+                    diag::err_omp_atomic_compare_capture_bad_form,
+                    diag::note_omp_atomic_compare))
+              return StmtError();
+            if (!CurContext->isDependentContext()) {
+              Expr *PossibleX = Assign->getRHS()->IgnoreParenImpCasts();
+              llvm::FoldingSetNodeID XId, PossibleXId;
+              Checker.getX()->Profile(XId, Context, /*Canonical=*/true);
+              PossibleX->Profile(PossibleXId, Context, /*Canonical=*/true);
+              if (XId == PossibleXId) {
+                V = Assign->getLHS();
+                X = Checker.getX();
+                if (Expr *Exp = Checker.getExpected()) {
+                  Expected = Exp;
+                  E = Checker.getDesired();
+                } else {
+                  E = Checker.getExpr();
+                }
+                IsCompareMin = Checker.getIsCompareMin();
+                IsCompareMax = Checker.getIsCompareMax();
+              } else {
+                NoteLoc = ErrorLoc = PossibleX->getBeginLoc();
+                NoteRange = ErrorRange = SourceRange(PossibleX->getBeginLoc(),
+                                                     PossibleX->getBeginLoc());
+                ErrorFound = CannotMatchX;
+              }
+            }
+          } else {
+            Stmt *ErrS = If1 ? Second : First;
+            NoteLoc = ErrorLoc = ErrS->getBeginLoc();
+            NoteRange = ErrorRange =
+                SourceRange(ErrS->getBeginLoc(), ErrS->getBeginLoc());
+            ErrorFound = NotAnAssignmentOp;
+          }
+        } else {
+          NoteLoc = ErrorLoc = First->getBeginLoc();
+          NoteRange = ErrorRange =
+              SourceRange(First->getBeginLoc(), First->getBeginLoc());
+          ErrorFound = NotIfStatement;
+        }
+      } else {
+        NoteLoc = ErrorLoc = Body->getBeginLoc();
+        NoteRange = ErrorRange =
+            SourceRange(Body->getBeginLoc(), Body->getBeginLoc());
+        ErrorFound = NotTwoSubstatements;
+      }
+    } else {
+      NoteLoc = ErrorLoc = Body->getBeginLoc();
+      NoteRange = ErrorRange =
+          SourceRange(Body->getBeginLoc(), Body->getBeginLoc());
+      ErrorFound = NotACompoundStatement;
+    }
+    if (ErrorFound != NoError) {
+      Diag(ErrorLoc, diag::err_omp_atomic_compare_capture_bad_form)
+          << ErrorRange;
+      Diag(NoteLoc, diag::note_omp_atomic_compare_capture)
+          << ErrorFound << NoteRange;
+      return StmtError();
+    }
+    if (CurContext->isDependentContext())
+      UE = V = E = X = Expected = nullptr;
+  } else if (AtomicKind == OMPC_compare) {
+    OpenMPAtomicCompareChecker Checker(*this);
+    if (Checker.checkStatement(Body, diag::err_omp_atomic_compare_bad_form,
+                               diag::note_omp_atomic_compare))
+      return StmtError();
+    if (!CurContext->isDependentContext()) {
+      X = Checker.getX();
+      if (Expr *Exp = Checker.getExpected()) {
+        Expected = Exp;
+        E = Checker.getDesired();
+      } else {
+        E = Checker.getExpr();
+      }
+      IsCompareMin = Checker.getIsCompareMin();
+      IsCompareMax = Checker.getIsCompareMax();
+    }
+#endif // INTEL_COLLAB
   } else if (AtomicKind == OMPC_capture) {
     enum {
       NotAnAssignmentOp,
@@ -12495,23 +12619,6 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
       if (CurContext->isDependentContext())
         UE = V = E = X = nullptr;
     }
-#if INTEL_COLLAB
-  } else if (AtomicKind == OMPC_compare) {
-    OpenMPAtomicCompareChecker Checker(*this);
-    if (Checker.checkStatement(Body, diag::err_omp_atomic_compare_bad_form, diag::note_omp_atomic_compare))
-      return StmtError();
-    if (!CurContext->isDependentContext()) {
-      X = Checker.getX();
-      if (Expr *Exp = Checker.getExpected()) {
-        Expected = Exp;
-        E = Checker.getDesired();
-      } else {
-        E = Checker.getExpr();
-      }
-      IsCompareMin = Checker.getIsCompareMin();
-      IsCompareMax = Checker.getIsCompareMax();
-    }
-#endif // INTEL_COLLAB
   }
 
   setFunctionHasBranchProtectedScope();
