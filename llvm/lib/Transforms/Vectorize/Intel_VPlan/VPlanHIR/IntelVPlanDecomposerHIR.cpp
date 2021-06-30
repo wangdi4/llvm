@@ -890,7 +890,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else if(auto *GEP = dyn_cast<GetElementPtrInst>(LLVMInst)) {
+    } else if(isa<GetElementPtrInst>(LLVMInst)) {
       NewVPInst = Builder.createGEP(
           VPOperands[0],
           ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
