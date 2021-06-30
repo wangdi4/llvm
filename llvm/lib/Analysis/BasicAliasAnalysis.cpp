@@ -564,7 +564,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     }
 
     if (!!Scale) {
-      VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits, Scale, {}};
+      VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits,
+                                Scale, {}, LE.IsNSW};
       Entry.CxtI = Subs;
       Decomposed.VarIndices.push_back(Entry);
     }
