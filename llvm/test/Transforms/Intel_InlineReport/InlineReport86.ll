@@ -10,11 +10,11 @@
 ; CHECK: COMPILE FUNC: myadd
 ; CHECK: COMPILE FUNC: mysub
 ; CHECK: COMPILE FUNC: main
-; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK: myadd.1{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK-NOT: Newly created callsite
 ; CHECK-NOT: Not tested for inlining
 ; CHECK-NOT: DELETE
