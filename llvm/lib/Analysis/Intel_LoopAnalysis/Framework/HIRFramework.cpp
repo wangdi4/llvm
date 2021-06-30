@@ -288,7 +288,8 @@ static void cleanupRefLowerBounds(HLRegion &Reg) {
   //   return;
   // }
 
-  using Gatherer = DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs>;
+  using Gatherer =
+      DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
   Gatherer::gather(&Reg, Refs);
 

@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework 2>&1 -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-framework -hir-dd-analysis -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -hir-details 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -hir-cost-model-throttling=0 -disable-output -hir-details 2>&1 | FileCheck %s
 
 ; Verify that DD forms edges for fake call refs.
@@ -7,12 +7,12 @@
 
 ; CHECK: + DO i32 i1 = 0, %n + -1, 1   <DO_LOOP>
 ; CHECK: |   @bar1(&((%A)[0]),  &((@C)[0][0]));
-; CHECK: |   <FAKE-LVAL-REG> (LINEAR i32* %A)[i64 undef]
+; CHECK: |   <FAKE-LVAL-REG> (LINEAR i32* %A)[i64 0]
 
 ; CHECK-NOT: FAKE
 
 ; CHECK: |   @bar2(&((%A)[0]),  &((%B)[0]));
-; CHECK: |   <FAKE-RVAL-REG> (LINEAR i32* %B)[i64 undef]
+; CHECK: |   <FAKE-RVAL-REG> (LINEAR i32* %B)[i64 0]
 
 ; CHECK-NOT: FAKEa
 
@@ -24,9 +24,9 @@
 
 ; Fake refs should lead to following edges-
 
-; CHECK-DAG: (%A)[undef] --> (%A)[undef] OUTPUT (*) (?)
-; CHECK-DAG: (%A)[undef] --> (%B)[undef] FLOW (*) (?)
-; CHECK-DAG: (%B)[undef] --> (%A)[undef] ANTI (*) (?)
+; CHECK-DAG: (%A)[0] --> (%A)[0] OUTPUT (*) (?)
+; CHECK-DAG: (%A)[0] --> (%B)[0] FLOW (*) (?)
+; CHECK-DAG: (%B)[0] --> (%A)[0] ANTI (*) (?)
 
 
 ; ModuleID = 'func.c'

@@ -64,6 +64,7 @@ enum RuntimeDDResult {
   UNSIZED,
   SIMD_LOOP,
   UNKNOWN_MIN_MAX,
+  UNKNOWN_ADDR_RANGE
 };
 
 enum RTDDMethod {

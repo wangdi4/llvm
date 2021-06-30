@@ -284,7 +284,7 @@ bool DDRefUtils::haveEqualBaseAndShape(const RegDDRef *Ref1,
   }
 
   // Check that dimension lowers and strides are the same.
-  for (unsigned DimI = 1, DimE = Ref1->getNumDimensions(); DimI < DimE;
+  for (unsigned DimI = 1, DimE = Ref1->getNumDimensions(); DimI <= DimE;
        ++DimI) {
     if (!CanonExprUtils::areEqual(Ref1->getDimensionLower(DimI),
                                   Ref2->getDimensionLower(DimI), RelaxedMode) ||

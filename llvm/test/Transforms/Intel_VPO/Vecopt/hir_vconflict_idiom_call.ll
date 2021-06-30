@@ -19,7 +19,7 @@ declare void @foo(float * ) #1
 
 ; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
 ; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          @foo(&((%A)[%0]));
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK: [VConflict Idiom] Skipped: Sink ref is fake ref.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo15PiS_S_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {

@@ -260,7 +260,8 @@ void LoopTreeForMV::buildTreeByTrackingAncestors() {
 
 class HIRMVForVariableStride {
   typedef SmallVector<HLLoop *, 8> LoopSetTy;
-  typedef DDRefGatherer<RegDDRef, MemRefs | FakeRefs> MemRefGatherer;
+  typedef DDRefGatherer<RegDDRef, MemRefs | IsAddressOfRefs | FakeRefs>
+      GEPRefGatherer;
 
 public:
   HIRMVForVariableStride(HIRFramework &HIRF) : HIRF(HIRF) {}
@@ -494,7 +495,7 @@ bool HIRMVForVariableStride::MVTransformer::rewrite() {
     ForEach<RegDDRef>::visitRange(
         InnermostLp->child_begin(), InnermostLp->child_end(),
         [&RefsToRewrite](RegDDRef *Ref) {
-          if (Ref->isMemRef() &&
+          if (Ref->hasGEPInfo() &&
               HIRMVForVariableStride::Analyzer::hasVariableStride(Ref))
             RefsToRewrite.push_back(Ref);
         });
@@ -520,8 +521,8 @@ bool HIRMVForVariableStride::Analyzer::hasVariableStride(const RegDDRef *Ref) {
 bool HIRMVForVariableStride::Analyzer::checkAndAddIfCandidate(
     HLLoop *InnermostLoop) {
 
-  MemRefGatherer::VectorTy Refs;
-  MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
+  GEPRefGatherer::VectorTy Refs;
+  GEPRefGatherer::gatherRange(InnermostLoop->child_begin(),
                               InnermostLoop->child_end(), Refs);
 
   bool FoundVariableStride = false;

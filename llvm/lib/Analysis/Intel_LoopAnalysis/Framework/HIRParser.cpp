@@ -4471,27 +4471,7 @@ void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
   // Reset AddressOf property as we want it to be a memref.
   FakeRef->setAddressOf(false);
 
-  // Set all dimensions of ref to undef to make DD conservative.
-  for (unsigned I = 1, NumDims = FakeRef->getNumDimensions(); I <= NumDims;
-       ++I) {
-    auto CE = FakeRef->getDimensionIndex(I);
-
-    CE->clear();
-    CE->setSrcType(CE->getDestType());
-
-    Value *UndefVal = UndefValue::get(CE->getSrcType());
-    BlobTy UndefBlob = ScopedSE.getUnknown(UndefVal);
-
-    unsigned BlobIndex = findOrInsertBlob(UndefBlob, ConstantSymbase);
-    CE->setBlobCoeff(BlobIndex, 1);
-  }
-
   IsRval ? HInst->addFakeRvalDDRef(FakeRef) : HInst->addFakeLvalDDRef(FakeRef);
-
-  // Need to update blobs in Ref since we cleared one of the CEs.
-  SmallVector<BlobDDRef *, 1> BlobRefs;
-  FakeRef->updateBlobDDRefs(BlobRefs);
-  assert(BlobRefs.empty() && "New blobs not expected in fake ref!");
 
   // Copy ref -> value mapping for symbase assignment.
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
