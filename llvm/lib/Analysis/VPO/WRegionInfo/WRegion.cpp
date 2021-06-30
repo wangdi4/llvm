@@ -874,10 +874,32 @@ void WRNCriticalNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   vpo::printInt("HINT", getHint(), OS, Indent, Verbosity);
 }
 
+//
+// Methods for WRNFlushNode
+//
+
 // constructor
 WRNFlushNode::WRNFlushNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNFlush, BB) {
   LLVM_DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+//
+// Methods for WRNPrefetchNode
+//
+
+// constructor
+WRNPrefetchNode::WRNPrefetchNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNPrefetch, BB) {
+  setIf(nullptr);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNPrefetchNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNPrefetchNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                 unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("IF_EXPR", getIf(), OS, Indent, Verbosity);
 }
 
 //

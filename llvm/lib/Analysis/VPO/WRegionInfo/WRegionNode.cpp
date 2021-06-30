@@ -60,6 +60,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
+    {WRegionNode::WRNPrefetch, "prefetch"},
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
@@ -518,6 +519,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveFlush())
     PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
+
+  if (canHaveData())
+    PrintedSomething |= getData().print(OS, Depth, Verbosity);
 
   if (PrintedSomething)
     OS << "\n";
@@ -1589,6 +1593,22 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     C.back()->setAllocator(AllocatorHandle);
     break;
   }
+  case QUAL_OMP_DATA: {
+    // "QUAL.OMP.DATA"(TYPE** %ptr, i32 <hint>, size_t <NumElem>)
+    assert(NumArgs == 3 && "Expected 3 arguments for DATA clause");
+    Value *Ptr = Args[0];
+    assert(isa<ConstantInt>(Args[1]) && "Hint must be a constant integer");
+    assert(isa<ConstantInt>(Args[2]) &&
+           "Number of elements must be a constant integer");
+    ConstantInt *CI = cast<ConstantInt>(Args[1]);
+    unsigned Hint = CI->getZExtValue();
+    CI = cast<ConstantInt>(Args[2]);
+    uint64_t NumElem = CI->getZExtValue();
+    DataItem *Item = new DataItem(Ptr, Hint, NumElem);
+    DataClause &C = getData();
+    C.add(Item);
+    break;
+  }
   case QUAL_OMP_INIT: {
     extractInitOpndList(getInteropAction(), Args, NumArgs, ClauseInfo);
     break;
@@ -2057,6 +2077,11 @@ bool WRegionNode::canHaveFlush() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNFlushNode can have a flush set
   return SubClassID==WRNFlush;
+}
+
+bool WRegionNode::canHaveData() const {
+  unsigned SubClassID = getWRegionKindID();
+  return SubClassID==WRNPrefetch;
 }
 
 // Returns `true` if the Construct can be cancelled, and thus have
