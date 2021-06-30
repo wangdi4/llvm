@@ -5000,6 +5000,8 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
   Policy.SuppressTypedefs = true;
   Policy.SuppressUnwrittenScope = true;
 
+  OS << "#include <CL/sycl/detail/defines_elementary.hpp>\n";
+
   llvm::SmallSet<const VarDecl *, 8> VisitedSpecConstants;
 
   // Used to uniquely name the 'shim's as we generate the names in each
@@ -5023,7 +5025,7 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
     OS << "namespace sycl {\n";
     OS << "namespace detail {\n";
     OS << "template<>\n";
-    OS << "inline const char *get_spec_constant_symbolic_ID<";
+    OS << "inline const char *get_spec_constant_symbolic_ID_impl<";
 
     if (VD->isInAnonymousNamespace()) {
       OS << TopShim;
@@ -5043,6 +5045,7 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
   }
 
   OS << "#include <CL/sycl/detail/spec_const_integration.hpp>\n";
+
   return true;
 }
 
