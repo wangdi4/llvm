@@ -4,15 +4,16 @@
 ; when we do not explicitly throw the flag to enable VPValue based code
 ; generation (check prefix to be used is VPVAL for this case).
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s --check-prefix=VPVAL
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -print-after=vplan-driver-hir -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1 | FileCheck %s --check-prefix=VPVAL
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1  | FileCheck %s --check-prefix=VPVAL
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
 
 
 define void @foo(i64* noalias nocapture readonly %larr, float* noalias nocapture %farr) {
-; VPVAL-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+;PM1:         IR Dump After VPlan HIR Vectorizer
+;PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVAL:               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVAL-NEXT:          |   %.vec2 = undef;
 ; VPVAL-NEXT:          |   %.vec = (<4 x i64>*)(%larr)[i1];

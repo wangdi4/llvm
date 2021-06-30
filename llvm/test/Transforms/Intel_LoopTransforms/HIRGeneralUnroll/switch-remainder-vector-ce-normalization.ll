@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 
 ; Verify that we are able to generate a switch remainder by successfully
 ; normalizing the loop containing vector CEs with IV.

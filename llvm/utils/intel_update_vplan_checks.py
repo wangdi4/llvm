@@ -16,7 +16,7 @@ Workflow:
 2. Save the patch and revert it from your local work area.
 3. Update the RUN-lines in the affected regression tests to look canonical.
    Example:
-     "; RUN: opt < %s -VPlanDriver -vplan-cost-model-print-analyses -disable-output | FileCheck %s"
+     "; RUN: opt < %s -vplan-vec -vplan-cost-model-print-analyses -disable-output | FileCheck %s"
 4. Refresh the FileCheck lines for the file running this script.
 5. Commit the fresh baseline of checks.
 6. Apply your patch from step 1 and rebuild your local binaries.

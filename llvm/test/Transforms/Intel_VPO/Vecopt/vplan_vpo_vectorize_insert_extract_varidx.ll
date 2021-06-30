@@ -5,7 +5,7 @@
 ; Run the following command and intercept the function and print module
 ; before VPlanDriver is invoked on a function
 ;
-; icx -Xclang -fintel-openmp-region -c -fopenmp -mllvm --vplan-driver
+; icx -Xclang -fintel-openmp-region -c -fopenmp -mllvm --vplan-vec
 ; -mllvm -vplan-force-vf=2 -mllvm --loopopt=0 tt2.cpp
 ;
 ; =====================tt2.cpp============================================
@@ -42,7 +42,7 @@
 ;}
 ; =======================================================================
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver \
+; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec \
 ; RUN: -vplan-enable-all-zero-bypass-non-loops=false -vplan-force-vf=2 | FileCheck %s --check-prefixes=CHECK,CHECK-VF2
 
 source_filename = "tt2.cpp"

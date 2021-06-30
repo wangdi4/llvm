@@ -1,4 +1,4 @@
-; RUN: opt %s -S -enable-vp-value-codegen-hir=1 -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-memory-reduction-sinking -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt %s -S -enable-vp-value-codegen-hir=1 -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-memory-reduction-sinking -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefix=VPCHECK
 
 ; CHECK:        + DO i1 = 0, -1 * [[DOTPR0:%.*]] + 3, 1   <DO_LOOP>
 ; CHECK:        |   [[MUL_VEC0:%.*]] = (<2 x double>*)([[TMP2:%.*]])[<i64 0, i64 4>]  *  [[TMP5:%.*]]

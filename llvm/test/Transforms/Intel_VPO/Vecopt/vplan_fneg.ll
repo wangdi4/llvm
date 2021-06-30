@@ -1,6 +1,6 @@
 ; Check that VPlan vectorizes and revectorizes fneg instruction properly
-; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s | FileCheck %s --check-prefixes=CHECK-IR,CHECK-BOTH
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -enable-vp-value-codegen-hir -vplan-force-vf=4 < %s | FileCheck %s --check-prefixes=CHECK-BOTH
+; RUN: opt -S -vplan-vec -vplan-force-vf=4 < %s | FileCheck %s --check-prefixes=CHECK-IR,CHECK-BOTH
+; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-cg -enable-vp-value-codegen-hir -vplan-force-vf=4 < %s | FileCheck %s --check-prefixes=CHECK-BOTH
 
 ; CHECK-BOTH-LABEL: @f
 ; CHECK-BOTH: fneg <4 x float>

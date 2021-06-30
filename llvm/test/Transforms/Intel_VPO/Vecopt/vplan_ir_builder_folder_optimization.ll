@@ -6,7 +6,7 @@
 
 
 ; TODO: enable cfg merge after private support enabled
-; RUN: opt -S -VPlanDriver -vplan-force-vf=2 -vplan-enable-cfg-merge=0 %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-enable-cfg-merge=0 %s | FileCheck %s
 ; CHECK:      vector.body:
 ; CHECK:        [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, %vector.ph ], [ [[VEC_PHI_NEXT:%.*]], %vector.body ]
 ; CHECK-NEXT:   [[ADD1:%.*]] = add <2 x i64> %vec.phi, <i64 1, i64 1>

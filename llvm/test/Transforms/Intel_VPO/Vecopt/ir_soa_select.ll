@@ -1,6 +1,6 @@
 ; TODO: enable cfg merge after private support enabled
-; RUN: opt -S -VPlanDriver -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
 
 ; CHECK-LABEL: Private list
 ; CHECK-EMPTY:

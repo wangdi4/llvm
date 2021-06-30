@@ -1,6 +1,6 @@
 ; Test to check VPlan cost-modelling of zero-cost intrinsics.
 
-; RUN: opt -vplan-enable-soa=false < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt -vplan-enable-soa=false < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -disable-output \
 ; RUN:     -vplan-cost-model-use-gettype -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s

@@ -16,8 +16,8 @@
 ; Here both "ptr" and "c" are recognized by VPOLegality as induction variables. Since they are both used after their corresponding
 ; increment instruction, closed-form is needed for their representation in VPlan.
 
-; RUN: opt -VPlanDriver -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -disable-vplan-codegen -vplan-print-after-vpentity-instrs -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

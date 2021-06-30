@@ -1,4 +1,4 @@
-; RUN: opt -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -print-after=VPlanDriverHIR %s 2>&1 2>&1 -disable-output | FileCheck %s
+; RUN: opt -vplan-force-vf=8 -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec %s 2>&1 2>&1 -disable-output | FileCheck %s
 
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK-NEXT:  %sum.red.promoted = (%sum.red)[0];

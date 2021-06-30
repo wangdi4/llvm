@@ -1,5 +1,5 @@
-; RUN: opt -S -VPlanDriver < %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" < %s | FileCheck %s
+; RUN: opt -S -vplan-vec < %s | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/callee parameter matching fails and results in serialized calls.
 ; Failure should occur on the attempt of matching v->l and v->u on the last parameter.

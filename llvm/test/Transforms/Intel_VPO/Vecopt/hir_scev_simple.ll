@@ -1,8 +1,8 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -vplan-force-vf=4 \
 ; RUN:     -vplan-enable-peeling \
 ; RUN:     -debug-only=vplan-scalar-evolution,vplan-alignment-analysis \
-; RUN:     -print-before=VPlanDriverHIR -disable-output < %s 2>&1 \
+; RUN:     -print-before=hir-vplan-vec -disable-output < %s 2>&1 \
 ; RUN: | FileCheck %s
 ;
 ; REQUIRES: asserts

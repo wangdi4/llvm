@@ -1,6 +1,6 @@
 ;
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR  -hir-details < %s 2>&1  | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -VPlanDriver -disable-output -print-after=VPlanDriver  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
+; RUN: opt -tbaa -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -hir-details < %s 2>&1  | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -vplan-vec -disable-output -print-after=vplan-vec  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
 ;
 ; LIT test to check that alignment is being set correctly for VLS group load and store.
 ; The alignment value to be used needs to come from the alignment of the first memory

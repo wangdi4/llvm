@@ -13,7 +13,7 @@
 
 ; MFREPLACE: attributes #2 = { nounwind readnone }
 
-; RUN: opt -replace-with-math-library-functions -VPlanDriver -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
+; RUN: opt -replace-with-math-library-functions -vplan-vec -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 
 ; VPLAN-LABEL: VPlan after CallVecDecisions analysis for VF=8
 ; VPLAN:        [DA: Uni] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]

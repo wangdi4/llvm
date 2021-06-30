@@ -1,6 +1,6 @@
 ; TODO: Enable a way to run with LLVM-IR VPlanDriver
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 -hir-vec-dir-insert -VPlanDriverHIR -vplan-cost-model-print-analysis-for-vf=4 -disable-output | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 -hir-vec-dir-insert -hir-vplan-vec -vplan-cost-model-print-analysis-for-vf=4 -disable-output | FileCheck %s
 
 ; CHECK: Extra cost due to SLP breaking heuristic
 

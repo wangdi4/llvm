@@ -4,7 +4,7 @@
 ; idiom.
 
 ; REQUIRES: asserts
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=1 -enable-vconflict-idiom -vplan-entities-dump -vplan-print-after-vpentity-instrs -VPlanDriverHIR -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-mmindex=1 -disable-nonlinear-mmindex=1 -enable-vconflict-idiom -vplan-entities-dump -vplan-print-after-vpentity-instrs -hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z3foo1PiS_S_S_S_S_S_(i32* noalias nocapture readonly %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %C, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32* noalias nocapture readonly %F, i32* noalias nocapture %G) local_unnamed_addr #0 {

@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator %s | FileCheck %s
+; RUN: opt -S -vplan-vec -disable-vplan-predicator %s | FileCheck %s
 
 ;#define N 1024
 ;#define SIZE 1024*10

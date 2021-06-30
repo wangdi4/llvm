@@ -43,7 +43,7 @@
 ; CHECK-EMITTER-NEXT: LOOP END
 
 ; TODO: -simplifycfg gets rid of one of loops showing the remark of loop unswitch in this test case. We need to change the test case to show loop unswitch remark in the HIR.
-; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
+; RUN: opt -loop-unswitch -intel-loop-optreport=low -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=CHECK-HIR --strict-whitespace
 
 ; CHECK-HIR:      LOOP BEGIN
 ; CHECK-HIR:          LOOP BEGIN

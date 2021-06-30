@@ -1,4 +1,4 @@
-; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-scex-cost=12 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-vec-dir-insert -VPlanDriverHIR -disable-hir-cond-last-priv-cg=false -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -disable-output -S -hir-loop-distribute-scex-cost=12 -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-distribute-memrec -hir-vec-dir-insert -hir-vplan-vec -disable-hir-cond-last-priv-cg=false -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
 
 ; The imagick loop on line 2224. Check that we are able to distribute and vectorize it.
 

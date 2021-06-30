@@ -2,8 +2,8 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate issue with VLS group cost being applied twice to stores in
 ; the group. This happens the first time when we see a new store group. The
@@ -49,7 +49,7 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
 ; CMCHECK-NEXT:  Base Cost: 86000
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:  BEGIN REGION { modified }
