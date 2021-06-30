@@ -226,7 +226,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 16: compiler, {15}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 17: offload, "host-openmp (x86_64-unknown-linux-gnu)" {3}, "device-openmp (spir64)" {16}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {0, 5, 7, 9, 11, 13}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {0, 5, 7, 9, 11, 13}, host_dep_image, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 20: clang-offload-deps, {19}, ir, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 21: input, "[[INPUT1]]", archive
 // FOFFLOAD_STATIC_LIB_SRC: 22: clang-offload-unbundler, {21}, archive
