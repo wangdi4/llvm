@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -wholeprogramanalysis -inline -inline-report=7 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -inline-report=7 --whole-program-assume-read -lto-inline-cost -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0x86 -dtrans-inline-heuristics -inline-expose-local-arrays-min-args=2 -inline-expose-local-arrays-min-calls=2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
@@ -104,3 +106,4 @@ define internal fastcc void @mycopy_(float* noalias nocapture dereferenceable(4)
 }
 
 attributes #0 = { "intel-lang"="fortran" }
+; end INTEL_FEATURE_SW_ADVANCED

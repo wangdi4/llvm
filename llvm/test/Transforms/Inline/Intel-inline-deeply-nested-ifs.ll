@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
 ; RUN: opt -inline -inline-threshold=20 -inlining-for-deep-ifs=true -inlining-min-if-depth=4 -inline-report=7 < %s -S 2>&1 | FileCheck %s
@@ -215,3 +217,4 @@ attributes #0 = { nounwind uwtable }
 !llvm.module.flags = !{!0}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
+; end INTEL_FEATURE_SW_ADVANCED

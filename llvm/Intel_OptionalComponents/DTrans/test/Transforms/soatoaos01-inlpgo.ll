@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced, asserts
 ; This test is to verify that when the pre-PGO inlining pass is run for a
 ; DTrans LTO compilation, the DTrans SOA-to-AOS heuristics are used during
 ; that inlining pass.
@@ -264,3 +265,4 @@ entry:
   store i32 0, i32* %size, align 8
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

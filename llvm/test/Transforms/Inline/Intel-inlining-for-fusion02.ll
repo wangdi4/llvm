@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
 ; RUN: opt -inline -pre-lto-inline-cost -inlining-for-fusion-heuristics=true -inline-threshold=20 -inline-for-fusion-min-arg-refs=3 -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK-CL,CHECK-CL-OLD %s
@@ -190,3 +192,4 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
+; end INTEL_FEATURE_SW_ADVANCED

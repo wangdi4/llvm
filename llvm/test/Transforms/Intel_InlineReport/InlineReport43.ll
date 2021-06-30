@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -pre-lto-inline-cost -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-threshold=10 -inline-for-array-struct-arg-min-uses=12 -inline-for-array-struct-arg-min-caller-args=2 -inline-report=7 -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
@@ -121,3 +123,4 @@ return:                                           ; preds = %if.end, %if.then
   %retval.0 = phi i32 [ %conv40, %if.then ], [ %conv80, %if.end ]
   ret i32 %retval.0
 }
+; end INTEL_FEATURE_SW_ADVANCED

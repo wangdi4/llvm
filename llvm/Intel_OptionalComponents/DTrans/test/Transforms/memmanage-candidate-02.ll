@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; This test verifies that calls in member functions of XStringCachedAllocator
 ; are not inlined and other calls in member functions of ReusableArenaAllocator
 ; are inlined.
@@ -732,3 +734,4 @@ entry:
 
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
+; end INTEL_FEATURE_SW_ADVANCED

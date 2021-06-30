@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -dtrans-inline-heuristics -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
@@ -170,3 +172,4 @@ attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-si
 attributes #1 = { argmemonly nofree nosync nounwind willreturn }
 attributes #2 = { nounwind }
 attributes #3 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" "use-soft-float"="false" }
+; end INTEL_FEATURE_SW_ADVANCED

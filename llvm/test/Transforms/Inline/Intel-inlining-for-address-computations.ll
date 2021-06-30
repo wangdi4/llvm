@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; INTEL CUSTOMIZATION:
 
 ; RUN: opt -inline -inlining-for-address-computations -inlining-for-ac-min-arg-refs=4 -inlining-for-ac-loop-depth=2 -inline-threshold=40 -inline-report=7 -disable-output < %s -S 2>&1 | FileCheck %s
@@ -100,3 +102,4 @@ if.end:                                           ; preds = %for.cond, %entry
   ret i32 %res.1
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

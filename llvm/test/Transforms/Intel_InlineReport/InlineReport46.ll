@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=7 -S 2>&1 | FileCheck %s
 
 ; Check that with the old pass manager, the first call to foo() is not inlined
@@ -93,3 +95,4 @@ attributes #1 = { inlinehint nounwind uwtable "correctly-rounded-divide-sqrt-fp-
 !37 = !{!"intel_profx", i64 10000}
 !38 = !{!"function_entry_count", i64 10000}
 !39 = !{!"sm.c:foo"}
+; end INTEL_FEATURE_SW_ADVANCED

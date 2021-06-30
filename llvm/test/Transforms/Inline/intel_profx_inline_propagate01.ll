@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -S 2>&1 | FileCheck %s
 
 ; Test that intel_profx counts on calls are propagated correctly after
@@ -116,3 +118,4 @@ entry:
 !39 = !{!"sm.c:bar"}
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -8,7 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_InlineCost.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -70,20 +72,24 @@ using namespace llvm::vpo;
 cl::opt<bool> InlineForXmain("inline-for-xmain", cl::Hidden, cl::init(true),
                              cl::desc("Xmain customization of inlining"));
 
-static cl::opt<bool> DTransInlineHeuristics(
-    "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
-    cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
-
 cl::opt<bool> EnablePreLTOInlineCost("pre-lto-inline-cost", cl::Hidden,
                                      cl::init(false),
                                      cl::desc("Enable pre-LTO inline cost"));
 
+static cl::opt<bool> DTransInlineHeuristics(
+    "dtrans-inline-heuristics", cl::Hidden, cl::init(false),
+    cl::desc("inlining heuristics controlled under -qopt-mem-layout-trans"));
+
+#if INTEL_FEATURE_SW_ADVANCED
 static cl::opt<bool> EnableLTOInlineCost("lto-inline-cost", cl::Hidden,
                                          cl::init(false),
                                          cl::desc("Enable LTO inline cost"));
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 
 namespace llvm {
 
+#if INTEL_FEATURE_SW_ADVANCED
 //
 // Intel specific internal options
 //
@@ -343,6 +349,8 @@ static cl::opt<unsigned> ExposeLocalArraysMaxDepth(
     "inline-expose-local-arrays-max-depth", cl::init(5), cl::ReallyHidden,
     cl::desc("Maximum traversal depth for expose local arrays candidate"));
 
+#endif // INTEL_FEATURE_SW_ADVANCED
+
 //
 // Implementation of the Intel LoopInfo Cache (ILIC).
 //
@@ -389,6 +397,7 @@ InliningLoopInfoCache::~InliningLoopInfoCache() {
   LIMapSCC.clear();
 }
 
+#if INTEL_FEATURE_SW_ADVANCED
 //
 // Functions to manage profiling
 //
@@ -740,10 +749,8 @@ static bool preferCloningToInlining(CallBase &CB, InliningLoopInfoCache &ILIC,
   LoopInfo *LI = ILIC.getLI(Callee);
   if (!LI)
     return false;
-#if INTEL_FEATURE_SW_ADVANCED
   if (llvm::llvm_cloning_analysis::isCallCandidateForSpecialization(CB, LI))
     return true;
-#endif // INTEL_FEATURE_SW_ADVANCED
   return false;
 }
 
@@ -1652,7 +1659,6 @@ static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
   return true;
 }
 
-#if INTEL_FEATURE_SW_ADVANCED
 //
 // Return 'true' if 'Callee' is a function that is preferred to be
 // partially inlined over fully inlined. This function won't be inlined
@@ -1732,7 +1738,6 @@ static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
   };
   return isIntelPartialInlineCandidate(&F, GetLoopInfo, PrepareForLTO);
 }
-#endif // INTEL_FEATURE_SW_ADVANCED
 
 //
 // Return 'true' if 'I' is an instruction related to exception handling that
@@ -1839,14 +1844,12 @@ extern Optional<InlineResult> intelWorthNotInlining(
   if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
-#if INTEL_FEATURE_SW_ADVANCED
   if (preferPartialInlineOutlinedFunc(Callee))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferPartialInline);
   if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
-#endif // INTEL_FEATURE_SW_ADVANCED
   if (preferNotToInlineEHIntoLoop(CandidateCall, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrCalleeHasExceptionHandling);
@@ -3896,5 +3899,5 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   }
   return 0;
 }
-
+#endif // INTEL_FEATURE_SW_ADVANCED
 } // end namespace llvm

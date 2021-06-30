@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; This test case verifies that aggressive inlining is triggered using "Single
 ; Access Function GlobalVar Heuristic".
 
@@ -87,3 +89,4 @@ if.end:                                           ; preds = %entry, %if.then
 
 declare dso_local noalias i8* @malloc(i64)
 declare dso_local void @free(i8* nocapture)
+; end INTEL_FEATURE_SW_ADVANCED
