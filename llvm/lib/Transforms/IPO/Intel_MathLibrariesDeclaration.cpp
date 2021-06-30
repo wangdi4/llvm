@@ -26,6 +26,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
@@ -47,7 +48,8 @@ static cl::opt<bool> EnableMathLibsDecl("enable-math-libs-decls",
 // Helper class to add the declaration for math libraries
 class MathLibrariesDeclImpl {
 public:
-  MathLibrariesDeclImpl(Module &M) : M(M) {}
+  MathLibrariesDeclImpl(Module &M) : M(M), SinFunc(nullptr),
+                                     CosFunc(nullptr) {}
   bool run();
 
 private:
@@ -71,9 +73,22 @@ private:
   // with NewFuncName. If the supplied name is a nullptr then the function will
   // return false.
   bool generateFuncPrototype(Function &F, const char *NewFuncName);
+
+  // Given a function name and the function type, generate the declaration for
+  // it if the function is not in the IR.
+  bool generateFuncPrototype(StringRef &NewFuncName, FunctionType *FuncType);
+
+  // Return true if the pass found sin and cos, and it generated sincos and
+  // fmod. If sin and cos are in the compilation unit then the compiler might
+  // optimize it by calling sincos (function optimized for computing the sine
+  // and cosine for the same angle).
+  bool generateSinCos();
+
+  Function *SinFunc;
+  Function *CosFunc;
 };
 
-// Generate the new function prototype
+// Generate the new function prototype from the input function
 bool MathLibrariesDeclImpl::generateFuncPrototype(Function &F,
                                                   const char *NewFuncName) {
 
@@ -99,6 +114,110 @@ bool MathLibrariesDeclImpl::generateFuncPrototype(Function &F,
                     << "function @" << NewFuncNameRef << "\n");
 
   return true;
+}
+
+// Generate the new function prototype with the function name and type
+bool MathLibrariesDeclImpl::generateFuncPrototype(StringRef &NewFuncName,
+                                                  FunctionType *FuncType) {
+
+  if (FuncType == nullptr)
+    return false;
+
+  assert(!NewFuncName.empty() && "Trying to create a new math declaration "
+                                    "with an empty name");
+
+  // If the function exists then there is nothing to do
+  if (M.getFunction(NewFuncName))
+    return false;
+
+  Function::Create(FuncType, llvm::GlobalValue::ExternalLinkage,
+                   NewFuncName, M);
+
+  NumOfNewPrototypesGenerated++;
+
+  LLVM_DEBUG(dbgs() << "  New function @" << NewFuncName << " generated\n");
+
+  return true;
+}
+
+// Special case for handling sincos from libm
+bool MathLibrariesDeclImpl::generateSinCos() {
+
+  // Sine and cosine must be found
+  if (!SinFunc || !CosFunc)
+    return false;
+
+  // Make sure they both are used for computing the same type
+  if (SinFunc->getReturnType() != CosFunc->getReturnType())
+    return false;
+
+  StringRef FSinCosName;
+  StringRef FModName;
+  SmallVector<Type *, 3> SinCosArgTys;
+  SmallVector<Type *, 2> FModArgTys;
+  LLVMContext &Cxt = M.getContext();
+  switch (SinFunc->getReturnType()->getTypeID()) {
+  case Type::FloatTyID:
+    FSinCosName = StringRef("sincosf");
+    FModName = StringRef("fmodf");
+    SinCosArgTys.push_back(Type::getFloatTy(Cxt));
+    SinCosArgTys.push_back(Type::getFloatPtrTy(Cxt));
+    SinCosArgTys.push_back(Type::getFloatPtrTy(Cxt));
+    FModArgTys.push_back(Type::getFloatTy(Cxt));
+    FModArgTys.push_back(Type::getFloatTy(Cxt));
+    break;
+  case Type::DoubleTyID:
+    FSinCosName = StringRef("sincos");
+    FModName = StringRef("fmod");
+    SinCosArgTys.push_back(Type::getDoubleTy(Cxt));
+    SinCosArgTys.push_back(Type::getDoublePtrTy(Cxt));
+    SinCosArgTys.push_back(Type::getDoublePtrTy(Cxt));
+    FModArgTys.push_back(Type::getDoubleTy(Cxt));
+    FModArgTys.push_back(Type::getDoubleTy(Cxt));
+    break;
+  case Type::X86_FP80TyID:
+    FSinCosName = StringRef("sincosl");
+    FModName = StringRef("fmodl");
+    SinCosArgTys.push_back(Type::getX86_FP80Ty(Cxt));
+    SinCosArgTys.push_back(Type::getX86_FP80PtrTy(Cxt));
+    SinCosArgTys.push_back(Type::getX86_FP80PtrTy(Cxt));
+    FModArgTys.push_back(Type::getX86_FP80Ty(Cxt));
+    FModArgTys.push_back(Type::getX86_FP80Ty(Cxt));
+    break;
+  case Type::FP128TyID:
+    FSinCosName = StringRef("sincosl");
+    FModName = StringRef("fmodl");
+    SinCosArgTys.push_back(Type::getFP128Ty(Cxt));
+    SinCosArgTys.push_back(Type::getFP128PtrTy(Cxt));
+    SinCosArgTys.push_back(Type::getFP128PtrTy(Cxt));
+    FModArgTys.push_back(Type::getFP128Ty(Cxt));
+    FModArgTys.push_back(Type::getFP128Ty(Cxt));
+    break;
+  default:
+    break;
+  }
+
+  if (FSinCosName.empty() || FModName.empty() ||
+      SinCosArgTys.size() != 3 || FModArgTys.size() != 2)
+    return false;
+
+  // Generate one of the following:
+  //   void sincos(double, double*, double*)
+  //   void sincosf(float, float*, float*)
+  //   void sincosl(long double, long double*, long double*)
+  Type *RetTy = Type::getVoidTy(Cxt);
+  FunctionType *FuncTy = FunctionType::get(RetTy, SinCosArgTys, false);
+  bool GenSinCos = generateFuncPrototype(FSinCosName, FuncTy);
+
+  // Generate one of the following:
+  //  double fmod(double, double)
+  //  float fmodf(float, float)
+  //  long double fmodl(long double, long double)
+  RetTy = FModArgTys[0];
+  FuncTy = FunctionType::get(RetTy, FModArgTys, false);
+  bool GenFMod = generateFuncPrototype(FModName, FuncTy);
+
+  return GenSinCos || GenFMod;
 }
 
 // Return true if the input function is an intrisic to a simple math
@@ -179,6 +298,7 @@ bool MathLibrariesDeclImpl::isSimpleTypesMathIntrinsic(Function &F) {
     break;
   case Intrinsic::cos:
     Changed = GenerateSimpleTypesPrototype("cosf", "cos", "cosl");
+    CosFunc = &F;
     break;
   case Intrinsic::exp:
     Changed = GenerateSimpleTypesPrototype("expf", "exp", "expl");
@@ -200,6 +320,7 @@ bool MathLibrariesDeclImpl::isSimpleTypesMathIntrinsic(Function &F) {
     break;
   case Intrinsic::sin:
     Changed = GenerateSimpleTypesPrototype("sinf", "sin", "sinl");
+    SinFunc = &F;
     break;
   case Intrinsic::sqrt:
     Changed = GenerateSimpleTypesPrototype("sqrtf", "sqrt", "sqrtl");
@@ -231,6 +352,9 @@ bool MathLibrariesDeclImpl::run() {
     // types are the same. We may need to define other cases.
     Changed |= isSimpleTypesMathIntrinsic(F);
   }
+
+  // Check if there is a chance that the compiler might add sincos
+  Changed |= generateSinCos();
 
   LLVM_DEBUG(dbgs() << "  Total functions added: "
                     << NumOfNewPrototypesGenerated << "\n");
