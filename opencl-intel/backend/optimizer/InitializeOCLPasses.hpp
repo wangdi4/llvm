@@ -113,7 +113,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSGSizeCollectorPass(Registry);
     intel::initializeSGSizeCollectorIndirectPass(Registry);
     intel::initializeVectorVariantLoweringPass(Registry);
-    intel::initializeVectorVariantFillInPass(Registry);
     intel::initializeIndirectCallLoweringPass(Registry);
     intel::initializeAddFastMathPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);

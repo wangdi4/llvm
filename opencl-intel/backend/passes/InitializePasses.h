@@ -126,7 +126,6 @@ void initializeCreateSimdVariantPropagationPass(llvm::PassRegistry &);
 void initializeSGSizeCollectorPass(llvm::PassRegistry &);
 void initializeSGSizeCollectorIndirectPass(llvm::PassRegistry &);
 void initializeVectorVariantLoweringPass(llvm::PassRegistry &);
-void initializeVectorVariantFillInPass(llvm::PassRegistry &);
 void initializeIndirectCallLoweringPass(llvm::PassRegistry &);
 void initializeAddFastMathPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);

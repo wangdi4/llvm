@@ -96,7 +96,6 @@ set(TARGET_INCLUDE_FILES
   VectorVariant/SGSizeCollector.h
   VectorVariant/SGSizeCollectorIndirect.h
   VectorVariant/VectorVariantLowering.h
-  VectorVariant/VectorVariantFillIn.h
   VectorVariant/IndirectCallLowering.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
@@ -142,7 +141,6 @@ set(TARGET_SOURCE_FILES
   VectorVariant/SGSizeCollector.cpp
   VectorVariant/SGSizeCollectorIndirect.cpp
   VectorVariant/VectorVariantLowering.cpp
-  VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/IndirectCallLowering.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
