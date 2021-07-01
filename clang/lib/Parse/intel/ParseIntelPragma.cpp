@@ -591,7 +591,8 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
     } else
       PP.Lex(Tok);
     if (Tok.isNot(tok::numeric_constant)) {
-      PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+      PP.Diag(Tok.getLocation(),
+          diag::err_pragma_expected_non_negative_integer_const)
           << PragmaName.getIdentifierInfo()->getName();
       return true;
     }
@@ -600,7 +601,8 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
     if (Tok.is(tok::colon)) {
       PP.Lex(Tok);
       if (Tok.isNot(tok::numeric_constant)) {
-        PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+        PP.Diag(Tok.getLocation(),
+            diag::err_pragma_expected_non_negative_integer_const)
             << PragmaName.getIdentifierInfo()->getName();
         return true;
       }
@@ -637,7 +639,8 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
     if (IsPrefetch && Tok.is(tok::colon)) {
       PP.Lex(Tok);
       if (Tok.isNot(tok::numeric_constant)) {
-        PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+        PP.Diag(Tok.getLocation(),
+            diag::err_pragma_expected_non_negative_integer_const)
             << PragmaName.getIdentifierInfo()->getName();
         return true;
       }
@@ -646,7 +649,8 @@ static bool ParseIntelPrefetchArgument(Preprocessor &PP, Token &Tok,
       if (Tok.is(tok::colon)) {
         PP.Lex(Tok);
         if (Tok.isNot(tok::numeric_constant)) {
-          PP.Diag(Tok.getLocation(), diag::err_pragma_expected_integer_const)
+          PP.Diag(Tok.getLocation(),
+              diag::err_pragma_expected_non_negative_integer_const)
               << PragmaName.getIdentifierInfo()->getName();
           return true;
         }

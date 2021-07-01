@@ -61,8 +61,8 @@ def warn_multiple_blockloop_clause : Warning<
 def warn_pragma_loop_count_invalid_option
     : Warning<"invalid loop count '#pragma loop_count' - ignored">,
       InGroup<IgnoredPragmas>;
-def err_pragma_expected_integer_const
-    : Error<"expected an integer constant in '#pragma %0'">;
+def err_pragma_expected_non_negative_integer_const
+    : Error<"expected non-negative integer constant in '#pragma %0'">;
 def warn_pragma_unsupported_modifier
     : Warning<"unsupported modifier '%0' - ignored">,
       InGroup<IgnoredPragmas>;

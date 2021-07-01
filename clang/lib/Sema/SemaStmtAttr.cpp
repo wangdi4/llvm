@@ -901,9 +901,9 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
     if (IntArgsSeen++ == 0) {
       // hint
       int32_t Hint = getConstInt(S, AI, AA);
-      if (Hint < 1 || Hint > 4) {
+      if (Hint < 0 || Hint > 3) {
         S.Diag(Arg->getExprLoc(),
-               diag::err_prefetch_hint_out_of_range) << Hint << 1 << 4;
+               diag::err_prefetch_hint_out_of_range) << Hint << 0 << 3;
         return nullptr;
       }
       // For prefetch *, add default first argument.
