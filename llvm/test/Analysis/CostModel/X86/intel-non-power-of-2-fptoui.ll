@@ -5,15 +5,15 @@
 
 define i32 @fptoui_double_i64(i32 %arg) {
 ; X86_64-SSE-LABEL: 'fptoui_double_i64'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V3I64 = fptoui <3 x double> undef to <3 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 42 for instruction: %V7I64 = fptoui <7 x double> undef to <7 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 54 for instruction: %V9I64 = fptoui <9 x double> undef to <9 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 51 for instruction: %V3I64 = fptoui <3 x double> undef to <3 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 119 for instruction: %V7I64 = fptoui <7 x double> undef to <7 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 153 for instruction: %V9I64 = fptoui <9 x double> undef to <9 x i64>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'fptoui_double_i64'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %V3I64 = fptoui <3 x double> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 50 for instruction: %V7I64 = fptoui <7 x double> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 63 for instruction: %V9I64 = fptoui <9 x double> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 55 for instruction: %V3I64 = fptoui <3 x double> undef to <3 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 127 for instruction: %V7I64 = fptoui <7 x double> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 162 for instruction: %V9I64 = fptoui <9 x double> undef to <9 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'fptoui_double_i64'
