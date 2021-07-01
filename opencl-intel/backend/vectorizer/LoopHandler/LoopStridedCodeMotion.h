@@ -121,6 +121,13 @@ private:
   /// @returns the stride for I.
   Value *getStrideForInst(Instruction *I);
 
+  /// @brief get the stride to increment I between loop iterations.
+  ///        If one of I's operands is strided FMul, get stride from FMul
+  ///        instead in order to minimize floating-point accuracy loss.
+  /// @param I - instruction to obtain stride for.
+  /// @param Width - stride width, i.e. vector length.
+  /// @returns the stride for I, or nullptr if FMul is not found.
+  Value *getStrideForInstFMul(Instruction *I, Value *Width);
 
   /// @brief get the vector version of stride for I if I is a vector.
   /// @param I - instruction to get vector stride.
