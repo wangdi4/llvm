@@ -27,6 +27,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <numeric>
+// INTEL_CUSTOMIZATION
+#include <string>
+// end INTEL_CUSTOMIZATION
 #include <utility>
 
 #define FOR_EACH_NODE_KIND(X) \
