@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; This test verifies that foo is inlined even though it has dynamic alloca
 ; instructions.
 
@@ -56,3 +58,4 @@ return:
 declare void @baz(i32*, double**)
 declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
 declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+; end INTEL_FEATURE_SW_ADVANCED

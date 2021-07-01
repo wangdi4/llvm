@@ -22,7 +22,11 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_InlineCost.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_InlineCost.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -485,8 +489,11 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true),
-        FoundForgivable(false) {}
+        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true)
+#if INTEL_FEATURE_SW_ADVANCED
+        , FoundForgivable(false)
+#endif // INTEL_FEATURE_SW_ADVANCED
+        {}
 #endif // INTEL_CUSTOMIZATION
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
@@ -719,6 +726,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // due to branches or switches which folded above will also fold after
     // inlining.
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
     if (InlineForXmain) {
       // CQ378383: Tolerate a single "forgivable" condition when optimizing
       // for size. In this case, we delay subtracting out the single basic
@@ -740,12 +748,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
     }
     else {
+#endif // INTEL_FEATURE_SW_ADVANCED
       if (SingleBB && TI->getNumSuccessors() > 1) {
         // Take off the bonus we applied to the threshold.
         Threshold -= SingleBBBonus;
         SingleBB = false;
       }
+#if INTEL_FEATURE_SW_ADVANCED
     }
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1009,9 +1020,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     Threshold += (SingleBBBonus + VectorBonus);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
     if (auto IR = intelWorthNotInlining(CandidateCall, Params, TLI, CalleeTTI,
         PSI, ILIC, &QueuedCallers, NoReasonVector))
       return IR.getValue();
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // Give out bonuses for the callsite, as the instructions setting them up
     // will be gone after inlining.
@@ -1027,10 +1040,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         break;
       }
     }
-
+#if INTEL_FEATURE_SW_ADVANCED
     if (InlineForXmain && CandidateCall.getCalledFunction() == &F)
       addCost(intelWorthInlining(CandidateCall, Params, TLI, CalleeTTI,
           PSI, ILIC, &QueuedCallers, YesReasonVector, WPI, IsCallerRecursive));
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
     // If this function uses the coldcc calling convention, prefer not to inline
     // it.
@@ -1781,8 +1795,11 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
        (F.hasLocalLinkage()
   // CQ370998: Added link once ODR linkage case.
          || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&
-       F.hasOneUse() && &F == Call.getCalledFunction() &&
-       !isHugeFunction(&F, ILIC);
+       F.hasOneUse() && &F == Call.getCalledFunction()
+#if INTEL_FEATURE_SW_ADVANCED
+       && !isHugeFunction(&F, ILIC)
+#endif // INTEL_FEATURE_SW_ADVANCED
+       ;
 #endif // INTEL_CUSTOMIZATION
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically. It may seem odd to update
@@ -2610,8 +2627,10 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
 #if INTEL_CUSTOMIZATION
   if (SingleBB)
     YesReasonVector.push_back(InlrSingleBasicBlock);
+#if INTEL_FEATURE_SW_ADVANCED
   else if (FoundForgivable)
     YesReasonVector.push_back(InlrSingleBasicBlockWithTest);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   bool OnlyOneCallAndLocalLinkage =
       (F.hasLocalLinkage()
@@ -2630,7 +2649,11 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
 
 #if INTEL_CUSTOMIZATION
 bool InlineCostCallAnalyzer::onDynamicAllocaInstException(AllocaInst &I) {
-  return isDynamicAllocaException(I, CandidateCall, Params, TTI, WPI);
+  bool ReturnValue = false;
+#if INTEL_FEATURE_SW_ADVANCED
+  ReturnValue = isDynamicAllocaException(I, CandidateCall, Params, TTI, WPI);
+#endif // INTEL_FEATURE_SW_ADVANCED
+  return ReturnValue;
 }
 #endif // INTEL_CUSTOMIZATION
 void InlineCostCallAnalyzer::print() {

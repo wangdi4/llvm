@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; CMPLRLLVM-27769: Check that aggressive inlining is triggered even though
 ; module has some unused functions that are not marked with "norecurse".
 ; @UnusedFoo is not marked with "norecurse". Analysis can skip @UnusedFoo
@@ -309,3 +311,4 @@ define internal fastcc void @MAIN_initialize(%struct.MAIN_Param* nocapture reado
 }
 
 attributes #0 = { norecurse }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced, asserts
 ; RUN: opt -inline -pre-lto-inline-cost -inline-report=7 < %s -S 2>&1 | FileCheck  --check-prefixes=CHECK,CHECK-CLASSIC %s
 ; RUN: opt -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CLASSIC %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -inline-report=0x86  -pre-lto-inline-cost -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-META %s
@@ -388,3 +389,4 @@ if.end113:                                        ; preds = %for.cond.thread201,
 }
 
 attributes #0 = { "pre_loopopt" }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -inline-report=7 -inline-prof-instr-hot-percentage=95 -inline-prof-instr-hot-count=2 -S 2>&1 | FileCheck %s
 
 ; Test that the two hottest calls get inlined because of hot profiles since
@@ -112,3 +114,4 @@ for.end10:                                        ; preds = %for.cond
 !37 = !{!"intel_profx", i64 100}
 
 
+; end INTEL_FEATURE_SW_ADVANCED

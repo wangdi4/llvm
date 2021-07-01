@@ -191,6 +191,8 @@ typedef enum {
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
+// A vector of reasons why a given callsite was or was not inlined.
+typedef SmallVector<InlineReason, 2> InlineReasonVector;
 }
 
 extern bool IsInlinedReason(InlineReportTypes::InlineReason Reason);

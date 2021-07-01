@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -whole-program-assume -agginliner -inline -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='module(agginliner),cgscc(inline)' -inline-report=7 -inline-threshold=-50 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -whole-program-assume -agginliner -inline -inline-report=0x86 -inline-threshold=-50 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s
@@ -347,3 +349,4 @@ define internal fastcc void @MAIN_initialize(%struct.MAIN_Param* nocapture reado
 }
 
 attributes #0 = { norecurse }
+; end INTEL_FEATURE_SW_ADVANCED

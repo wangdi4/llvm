@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 ; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
@@ -869,3 +871,4 @@ declare dso_local i32 @for_write_seq_fmt_xmit(i8* %0, i8* %1, i8* %2) local_unna
 
 attributes #0 = { "intel-lang"="fortran" }
 
+; end INTEL_FEATURE_SW_ADVANCED

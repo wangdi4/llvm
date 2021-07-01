@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefix=CHECK-NEW
@@ -118,3 +120,4 @@ entry:
   ret i32 %rv
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

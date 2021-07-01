@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck %s
@@ -158,3 +160,4 @@ define dso_local i32 @main() {
 ; CHECK: INLINE: mypushptr{{.*}}Callee has key stack computations
 ; CHECK: INLINE: mypushptr{{.*}}Callee has single callsite and local linkage
 ; CHECK-NOT: call void @mypushptr
+; end INTEL_FEATURE_SW_ADVANCED
