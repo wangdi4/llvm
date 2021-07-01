@@ -45,7 +45,7 @@ entry:
   %.omp.ub = alloca i32, align 4
   %0 = bitcast i32* %i to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"([100 x i32]* @a), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.FIRSTPRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %.omp.iv) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"([100 x i32]* @a, [100 x i32]* @a, i64 400, i64 35, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.FIRSTPRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %.omp.iv) ]
 ; %.omp.iv was manually added to PRIVATE clause above.  This will be done automatically in FE,
 ; when omp.iv privatization for the inner region is enabled in Paropt.
   %2 = bitcast i32* %.omp.iv to i8*

@@ -35,7 +35,7 @@ target device_triples = "spir64"
 define dso_local void @_Z6updatev() #0 {
 entry:
   call void @_Z22modify_array_on_targetv()
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.FROM"([100 x i32]* @a) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.MAP.FROM"([100 x i32]* @a, [100 x i32]* @a, i64 400, i64 2, i8* null, i8* null) ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.UPDATE"() ]
   ret void
 }

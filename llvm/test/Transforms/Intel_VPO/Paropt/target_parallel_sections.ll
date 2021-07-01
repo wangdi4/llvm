@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S | FileCheck %s
 ;
 ; It does a verification whether the "omp target parallel sections" construct is supported in the Paropt codegen for offloading.
 ;
@@ -30,105 +30,71 @@
 ;
 ; CHECK:  call i32 @__tgt_target({{.*}})
 
-target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "spir64"
 
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
-@"@tid.addr" = external global i32
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @_Z11test_squareiPd(i32 %n, double* %d) #0 {
+define dso_local void @test_square(i32 %n, double* %d) #0 {
 entry:
+  %n.addr = alloca i32, align 4
   %d.addr = alloca double*, align 8
-  store double* %d, double** %d.addr, align 8, !tbaa !3
-  %mul = mul nsw i32 %n, %n
-  %0 = zext i32 %mul to i64
-  %1 = mul nuw i64 %0, 8
-  %num.sects = alloca i32, align 4
-  store i32 3, i32* %num.sects, align 4
-  %d.addr.addr = alloca double**
-  %d.addr.addr2 = alloca double**
-  %arrayidx.addr = alloca double*
-  %num.sects.addr = alloca i32*
-  store double** %d.addr, double*** %d.addr.addr2
-  store double* %d, double** %arrayidx.addr
-  store i32* %num.sects, i32** %num.sects.addr
-  %end.dir.temp5 = alloca i1
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(double** %d.addr, double** %d.addr, i64 8), "QUAL.OMP.MAP.TOFROM:AGGR"(double** %d.addr, double* %d, i64 %1), "QUAL.OMP.MAP.TO"(i32* %num.sects), "QUAL.OMP.OPERAND.ADDR"(double** %d.addr, double*** %d.addr.addr2), "QUAL.OMP.OPERAND.ADDR"(double* %d, double** %arrayidx.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %num.sects, i32** %num.sects.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp5) ]
-  %temp.load6 = load volatile i1, i1* %end.dir.temp5
-  %.sloop.iv.1 = alloca i32
-  store i32 0, i32* %.sloop.iv.1
-  br i1 %temp.load6, label %DIR.OMP.END.PARALLEL.SECTIONS.18.split, label %DIR.OMP.TARGET.3
-
-DIR.OMP.TARGET.3:                                 ; preds = %entry
-  %d.addr3 = load double**, double*** %d.addr.addr2
-  %num.sects4 = load i32*, i32** %num.sects.addr
-  store double** %d.addr3, double*** %d.addr.addr
-  %end.dir.temp = alloca i1
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.SECTIONS"(), "QUAL.OMP.SHARED"(double** %d.addr3), "QUAL.OMP.NORMALIZED.UB"(i32* %num.sects4), "QUAL.OMP.NORMALIZED.IV"(i32* %.sloop.iv.1), "QUAL.OMP.OPERAND.ADDR"(double** %d.addr3, double*** %d.addr.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ]
-  %temp.load = load volatile i1, i1* %end.dir.temp
-  br i1 %temp.load, label %DIR.OMP.END.SECTION.17.split, label %.sloop.preheader.1
-
-.sloop.preheader.1:                               ; preds = %DIR.OMP.TARGET.3
-  %d.addr1 = load double**, double*** %d.addr.addr
-  %sloop.ub = load i32, i32* %num.sects4
-  br label %.sloop.header.1
-
-.sloop.header.1:                                  ; preds = %_Z11test_squareiPd.sw.epilog.1, %.sloop.preheader.1
-  %4 = load volatile i32, i32* %.sloop.iv.1
-  switch i32 %4, label %DIR.OMP.SECTION.6 [
-    i32 1, label %DIR.OMP.SECTION.9
-    i32 2, label %DIR.OMP.SECTION.12
-    i32 3, label %DIR.OMP.SECTION.15
-  ]
-
-DIR.OMP.SECTION.6:                                ; preds = %.sloop.header.1
-  %5 = load double*, double** %d.addr1, align 8, !tbaa !3
-  %6 = load double, double* %5, align 8, !tbaa !7
-  %add = fadd double %6, 1.000000e+00
-  store double %add, double* %5, align 8, !tbaa !7
-  br label %_Z11test_squareiPd.sw.epilog.1
-
-DIR.OMP.SECTION.9:                                ; preds = %.sloop.header.1
-  %7 = load double*, double** %d.addr1, align 8, !tbaa !3
-  %arrayidx3 = getelementptr inbounds double, double* %7, i64 1
-  %8 = load double, double* %arrayidx3, align 8, !tbaa !7
-  %add4 = fadd double %8, 1.000000e+00
-  store double %add4, double* %arrayidx3, align 8, !tbaa !7
-  br label %_Z11test_squareiPd.sw.epilog.1
-
-DIR.OMP.SECTION.12:                               ; preds = %.sloop.header.1
-  %9 = load double*, double** %d.addr1, align 8, !tbaa !3
-  %arrayidx6 = getelementptr inbounds double, double* %9, i64 2
-  %10 = load double, double* %arrayidx6, align 8, !tbaa !7
-  %add7 = fadd double %10, 1.000000e+00
-  store double %add7, double* %arrayidx6, align 8, !tbaa !7
-  br label %_Z11test_squareiPd.sw.epilog.1
-
-DIR.OMP.SECTION.15:                               ; preds = %.sloop.header.1
-  %11 = load double*, double** %d.addr1, align 8, !tbaa !3
-  %arrayidx9 = getelementptr inbounds double, double* %11, i64 3
-  %12 = load double, double* %arrayidx9, align 8, !tbaa !7
-  %add10 = fadd double %12, 1.000000e+00
-  store double %add10, double* %arrayidx9, align 8, !tbaa !7
-  br label %_Z11test_squareiPd.sw.epilog.1
-
-DIR.OMP.END.SECTION.17.split:                     ; preds = %_Z11test_squareiPd.sw.epilog.1, %DIR.OMP.TARGET.3
-  call void @llvm.directive.region.exit(token %3) [ "DIR.OMP.END.PARALLEL.SECTIONS"() ]
-  br label %DIR.OMP.END.PARALLEL.SECTIONS.18.split
-
-DIR.OMP.END.PARALLEL.SECTIONS.18.split:           ; preds = %entry, %DIR.OMP.END.SECTION.17.split
-  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
+  %d.map.ptr.tmp = alloca double*, align 8
+  store i32 %n, i32* %n.addr, align 4, !tbaa !4
+  store double* %d, double** %d.addr, align 8, !tbaa !8
+  %0 = load double*, double** %d.addr, align 8, !tbaa !8
+  %1 = load double*, double** %d.addr, align 8
+  %2 = load double*, double** %d.addr, align 8, !tbaa !8
+  %arrayidx = getelementptr inbounds double, double* %2, i64 0
+  %3 = load i32, i32* %n.addr, align 4, !tbaa !4
+  %4 = load i32, i32* %n.addr, align 4, !tbaa !4
+  %mul = mul nsw i32 %3, %4
+  %conv = sext i32 %mul to i64
+  %5 = mul nuw i64 %conv, 8
+  %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(double* %1, double* %arrayidx, i64 %5, i64 35, i8* null, i8* null), "QUAL.OMP.PRIVATE"(double** %d.map.ptr.tmp) ]
+  store double* %1, double** %d.map.ptr.tmp, align 8
+  %7 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.SECTIONS"(), "QUAL.OMP.SHARED"(double** %d.map.ptr.tmp) ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
+  %9 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx1 = getelementptr inbounds double, double* %9, i64 0
+  %10 = load double, double* %arrayidx1, align 8, !tbaa !10
+  %add = fadd fast double %10, 1.000000e+00
+  %11 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx2 = getelementptr inbounds double, double* %11, i64 0
+  store double %add, double* %arrayidx2, align 8, !tbaa !10
+  call void @llvm.directive.region.exit(token %8) [ "DIR.OMP.END.SECTION"() ]
+  %12 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
+  %13 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx3 = getelementptr inbounds double, double* %13, i64 1
+  %14 = load double, double* %arrayidx3, align 8, !tbaa !10
+  %add4 = fadd fast double %14, 1.000000e+00
+  %15 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx5 = getelementptr inbounds double, double* %15, i64 1
+  store double %add4, double* %arrayidx5, align 8, !tbaa !10
+  call void @llvm.directive.region.exit(token %12) [ "DIR.OMP.END.SECTION"() ]
+  %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
+  %17 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx6 = getelementptr inbounds double, double* %17, i64 2
+  %18 = load double, double* %arrayidx6, align 8, !tbaa !10
+  %add7 = fadd fast double %18, 1.000000e+00
+  %19 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx8 = getelementptr inbounds double, double* %19, i64 2
+  store double %add7, double* %arrayidx8, align 8, !tbaa !10
+  call void @llvm.directive.region.exit(token %16) [ "DIR.OMP.END.SECTION"() ]
+  %20 = call token @llvm.directive.region.entry() [ "DIR.OMP.SECTION"() ]
+  %21 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx9 = getelementptr inbounds double, double* %21, i64 3
+  %22 = load double, double* %arrayidx9, align 8, !tbaa !10
+  %add10 = fadd fast double %22, 1.000000e+00
+  %23 = load double*, double** %d.map.ptr.tmp, align 8, !tbaa !8
+  %arrayidx11 = getelementptr inbounds double, double* %23, i64 3
+  store double %add10, double* %arrayidx11, align 8, !tbaa !10
+  call void @llvm.directive.region.exit(token %20) [ "DIR.OMP.END.SECTION"() ]
+  call void @llvm.directive.region.exit(token %7) [ "DIR.OMP.END.PARALLEL.SECTIONS"() ]
+  call void @llvm.directive.region.exit(token %6) [ "DIR.OMP.END.TARGET"() ]
   ret void
-
-_Z11test_squareiPd.sw.epilog.1:                   ; preds = %DIR.OMP.SECTION.15, %DIR.OMP.SECTION.12, %DIR.OMP.SECTION.9, %DIR.OMP.SECTION.6
-  %13 = load volatile i32, i32* %.sloop.iv.1
-  %.sloop.inc.1 = add nuw nsw i32 %13, 1
-  store volatile i32 %.sloop.inc.1, i32* %.sloop.iv.1
-  %14 = load volatile i32, i32* %.sloop.iv.1
-  %_Z11test_squareiPd.sloop.cond.1 = icmp sle i32 %14, %sloop.ub
-  br i1 %_Z11test_squareiPd.sloop.cond.1, label %.sloop.header.1, label %DIR.OMP.END.SECTION.17.split
 }
 
 ; Function Attrs: nounwind
@@ -137,29 +103,33 @@ declare token @llvm.directive.region.entry() #1
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token) #1
 
-; Function Attrs: uwtable
+; Function Attrs: nounwind uwtable
 define internal void @.omp_offloading.requires_reg() #2 section ".text.startup" {
 entry:
   call void @__tgt_register_requires(i64 1)
   ret void
 }
 
-declare dso_local void @__tgt_register_requires(i64)
+; Function Attrs: nounwind
+declare void @__tgt_register_requires(i64) #1
 
-attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 attributes #1 = { nounwind }
-attributes #2 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { nounwind uwtable "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "tune-cpu"="generic" "unsafe-fp-math"="true" }
 
 !omp_offload.info = !{!0}
-!llvm.module.flags = !{!1}
-!llvm.ident = !{!2}
+!llvm.module.flags = !{!1, !2}
+!llvm.ident = !{!3}
 
-!0 = !{i32 0, i32 59, i32 -1929423428, !"_Z11test_squareiPd", i32 5, i32 0, i32 0}
+!0 = !{i32 0, i32 66313, i32 12590452, !"_Z11test_square", i32 2, i32 0, i32 0}
 !1 = !{i32 1, !"wchar_size", i32 4}
-!2 = !{!"clang version 8.0.0"}
-!3 = !{!4, !4, i64 0}
-!4 = !{!"pointer@_ZTSPd", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C++ TBAA"}
-!7 = !{!8, !8, i64 0}
-!8 = !{!"double", !5, i64 0}
+!2 = !{i32 7, !"uwtable", i32 1}
+!3 = !{!"clang version 12.0.0"}
+!4 = !{!5, !5, i64 0}
+!5 = !{!"int", !6, i64 0}
+!6 = !{!"omnipotent char", !7, i64 0}
+!7 = !{!"Simple C/C++ TBAA"}
+!8 = !{!9, !9, i64 0}
+!9 = !{!"pointer@_ZTSPd", !6, i64 0}
+!10 = !{!11, !11, i64 0}
+!11 = !{!"double", !6, i64 0}

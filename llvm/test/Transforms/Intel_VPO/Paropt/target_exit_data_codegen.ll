@@ -22,7 +22,7 @@ entry:
   br label %DIR.OMP.TARGET.EXIT.DATA.1
 
 DIR.OMP.TARGET.EXIT.DATA.1:                       ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.EXIT.DATA"(), "QUAL.OMP.MAP.FROM"(i32* %arg.addr), "QUAL.OMP.IF"(i1 %tobool), "QUAL.OMP.DEVICE"(i32 4) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.EXIT.DATA"(), "QUAL.OMP.MAP.FROM"(i32* %arg.addr, i32* %arg.addr, i64 4, i64 2, i8* null, i8* null), "QUAL.OMP.IF"(i1 %tobool), "QUAL.OMP.DEVICE"(i32 4) ]
   br label %DIR.OMP.TARGET.EXIT.DATA.2
 
 DIR.OMP.TARGET.EXIT.DATA.2:                       ; preds = %DIR.OMP.TARGET.EXIT.DATA.1

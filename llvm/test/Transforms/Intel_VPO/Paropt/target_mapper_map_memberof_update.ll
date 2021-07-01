@@ -6,6 +6,9 @@
 
 ; The test was generating by modifying the CFE IR for the following test,
 ; by changing the FIRSTPRIVATE qual for "f" to "MAP.TOFROM".
+; The test was disabled, because Paropt stopped supporting non-chain representation
+; for maps. It cannot be supported with opaque pointers.
+; UNSUPPORTED: asserts
 ;
 ; Test src:
 

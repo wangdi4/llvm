@@ -25,7 +25,7 @@ entry:
   br label %DIR.OMP.TARGET.UPDATE.1
 
 DIR.OMP.TARGET.UPDATE.1:                          ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.FROM"(i32* %arg.addr), "QUAL.OMP.IF"(i1 %tobool), "QUAL.OMP.DEVICE"(i32 4) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.UPDATE"(), "QUAL.OMP.IF"(i1 %tobool), "QUAL.OMP.DEVICE"(i32 4),  "QUAL.OMP.MAP.FROM"(i32* %arg.addr, i32* %arg.addr, i64 4, i64 2, i8* null, i8* null) ]
   br label %DIR.OMP.END.TARGET.UPDATE.3
 
 DIR.OMP.END.TARGET.UPDATE.3:                      ; preds = %DIR.OMP.TARGET.UPDATE.1

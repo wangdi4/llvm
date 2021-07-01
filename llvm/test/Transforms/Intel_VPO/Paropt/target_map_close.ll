@@ -14,7 +14,7 @@
 ;              TO  | FROM | PARAM | CLOSE
 ;           =  0x1 | 0x2  | 0x20  | 0x400
 ;           =  0x423 = 1059 (decimal)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 1059, i64 1059]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 1059]
 
 source_filename = "t_close.cpp"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -31,7 +31,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %entry
   br label %DIR.OMP.TARGET.2
 
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* %xyz, i32* %xyz, i64 4) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* %xyz, i32* %xyz, i64 4, i64 1059, i8* null, i8* null) ]
   br label %DIR.OMP.TARGET.3
 
 DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.2

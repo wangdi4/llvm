@@ -63,7 +63,7 @@ entry:
 ; CHECK: [[VLA_SIZE_VAL:[^ ]+]] = load i64, i64* [[SIZE_ADDR_ARG]]
 ; CHECK: {{.+}} = alloca double, i64 [[VLA_SIZE_VAL]]
 
-  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(double* %vla), "QUAL.OMP.MAP.TO"(double** @yptr) ]
+  %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(double* %vla), "QUAL.OMP.MAP.TO"(double** @yptr, double** @yptr, i64 8, i64 33, i8* null, i8* null) ]
   %arrayidx1 = getelementptr inbounds double, double* %vla, i64 2
   %4 = load double, double* %arrayidx1, align 16
   %5 = load double, double* %arrayidx1, align 16

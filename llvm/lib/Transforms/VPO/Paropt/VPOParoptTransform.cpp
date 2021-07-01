@@ -7254,6 +7254,8 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
   W->setEntryBBlock(NewEntryBB);
   W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
 
+  const DataLayout &DL = NewEntryBB->getModule()->getDataLayout();
+  LLVMContext &C = NewEntryBB->getContext();
   for (Value *ValToCapture : DirectlyUsedNonPointerVals) { //           (1)
     // Make the changes (2), (3), (4), (5)
     Value *CapturedValAddr = //                                         (2)
@@ -7273,8 +7275,14 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
       WRegionUtils::addToClause(ShrClause, CapturedValAddr); //         (6)
     } else {
       MapClause &MpClause = W->getMap();
-      WRegionUtils::addToClause(MpClause, CapturedValAddr);
-      MpClause.back()->setIsMapTo();
+      ConstantInt *Size =
+          ConstantInt::get(Type::getInt64Ty(C),
+                           DL.getTypeAllocSize(ValToCapture->getType()));
+      MapAggrTy *Aggr = new MapAggrTy(CapturedValAddr, CapturedValAddr,
+                                      Size, MapItem::WRNMapKind::WRNMapTo);
+      MapItem *MI = new MapItem(Aggr);
+      MI->setOrig(CapturedValAddr);
+      MpClause.add(MI);
     }
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": Added implicit shared/map(to) clause for: '";
@@ -10427,16 +10435,31 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
 
     } else if (isa<WRNTargetNode>(P)) {
       MapClause &MpClause = P->getMap();
-
-      for (Value *V: NormUBs)
-        WRegionUtils::addToClause(MpClause, V);
-
-      MpClause.back()->setIsMapTo();
+      CallInst *CI = cast<CallInst>(P->getEntryDirective());
       StringRef ClauseString =
           VPOAnalysisUtils::getClauseString(QUAL_OMP_MAP_TO);
+      LLVMContext &C = CI->getContext();
+      const DataLayout &DL = CI->getModule()->getDataLayout();
 
-      CallInst *CI = cast<CallInst>(P->getEntryDirective());
-      CI = VPOUtils::addOperandBundlesInCall(CI, {{ClauseString, {NormUBs}}});
+      for (Value *V: NormUBs) {
+        // TODO: OPAQUEPOINTER: normalized UBs must be stored with
+        // their data types so that we can get them here.
+        Type *UBType = V->getType()->getPointerElementType();
+        ConstantInt *Size =
+            ConstantInt::get(Type::getInt64Ty(C),
+                             DL.getTypeAllocSize(UBType));
+        MapAggrTy *Aggr =
+            new MapAggrTy(V, V, Size, MapItem::WRNMapKind::WRNMapTo);
+        MapItem *MI = new MapItem(Aggr);
+        MI->setOrig(V);
+        MpClause.add(MI);
+
+        ConstantInt *MapType = ConstantInt::get(Type::getInt64Ty(C),
+                                                MapItem::WRNMapKind::WRNMapTo);
+        CI = VPOUtils::addOperandBundlesInCall(CI,
+            {{ClauseString, {V, V, Size, MapType}}});
+      }
+
       P->setEntryDirective(CI);
       Changed = true;
     }

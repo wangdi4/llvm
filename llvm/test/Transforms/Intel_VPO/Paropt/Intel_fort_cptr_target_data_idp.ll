@@ -66,7 +66,7 @@ alloca_1:
   %"foo$A_FPTR$_3" = alloca i32*, align 8
   %"foo$A_CPTR2$_3" = alloca %"ISO_C_BINDING$.btC_PTR", align 8
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(%"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3"), "QUAL.OMP.IS_DEVICE_PTR:CPTR"(%"ISO_C_BINDING$.btC_PTR"* %A_CPTR1) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(%"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3", %"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3", i64 8, i64 34, i8* null, i8* null), "QUAL.OMP.IS_DEVICE_PTR:CPTR"(%"ISO_C_BINDING$.btC_PTR"* %A_CPTR1) ]
 
   %A_CPTR1_fetch = load %"ISO_C_BINDING$.btC_PTR", %"ISO_C_BINDING$.btC_PTR"* %A_CPTR1, align 1
   call void @"llvm.memcpy.p0s_ISO_C_BINDING$.btC_PTRs.p0s_ISO_C_BINDING$.btC_PTRs.i64"(%"ISO_C_BINDING$.btC_PTR"* %"foo$A_CPTR2$_3", %"ISO_C_BINDING$.btC_PTR"* %A_CPTR1, i64 8, i1 false)

@@ -75,7 +75,7 @@ alloca_0:
   br label %bb12
 
 bb12:                                             ; preds = %alloca_0
-%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:CPTR"(%"ISO_C_BINDING$.btC_PTR"* %"main_$A_CPTR"), "QUAL.OMP.MAP.TOFROM"(i32* %"main_$A") ]
+%0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:CPTR"(%"ISO_C_BINDING$.btC_PTR"* %"main_$A_CPTR"), "QUAL.OMP.MAP.TOFROM"(i32* %"main_$A", i32* %"main_$A", i64 4, i64 3, i8* null, i8* null) ]
 
   call void @foo_.t0p(%"ISO_C_BINDING$.btC_PTR"* %"main_$A_CPTR")
 
