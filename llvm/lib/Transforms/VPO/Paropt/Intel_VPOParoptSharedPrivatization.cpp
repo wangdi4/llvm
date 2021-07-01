@@ -242,9 +242,8 @@ static bool isWRNLastprivate(WRegionNode *W, Value *V) {
 // Collects set of work region blocks where we will be checking if item is used
 // or items's memory is modified. This set does not include blocks with
 // directives (all directives have their own basic blocks now) and nested
-// regions where item is private and first-private if ExcludeFPBBs is true.
-static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V,
-                                                    bool ExcludeFPBBs = true) {
+// regions where item is private or first-private.
+static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V) {
   // Build set of work region blocks where we will be checking if item's
   // memory is modified. Exclude blocks with directives (all directives have
   // their own basic blocks now).
@@ -261,7 +260,7 @@ static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V,
   do {
     WRegionNode *W = Worklist.pop_back_val();
     for (WRegionNode *CW : W->getChildren()) {
-      if ((isWRNPrivate(CW, V) || (ExcludeFPBBs && isWRNFirstprivate(CW, V))) &&
+      if ((isWRNPrivate(CW, V) || isWRNFirstprivate(CW, V)) &&
           !isWRNLastprivate(CW, V)) {
         for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
         continue;
@@ -523,6 +522,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
 
   bool Changed = false;
   if (W->canHavePrivate()) {
+    SmallPtrSet<Value *, 8u> ToPrivatize;
+
     // Return true if value V has uses inside work region W excluding
     // sub-regions where it is private.
     auto HasWRNUses = [](WRegionNode *W, Value *V) {
@@ -530,8 +531,38 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       if (GeneralUtils::isOMPItemGlobalVAR(V))
         return true;
 
-      // Collect set of WRN blocks where value can be used.
-      auto BBs = findWRNBlocks(W, V, /*ExcludeFPBBs=*/false);
+      // Collect set of WRN blocks where value can be used. Start with the
+      // region's set of blocks excluding begin/end directives.
+      SmallPtrSet<BasicBlock *, 16u> BBs;
+      for (BasicBlock *BB : W->blocks())
+        if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
+          BBs.insert(BB);
+
+      // Then exclude blocks from nested regions where item is private.
+      std::queue<WRegionNode *> Worklist;
+      Worklist.push(W);
+      do {
+        WRegionNode *W = Worklist.front();
+        Worklist.pop();
+
+        for (WRegionNode *CW : W->getChildren()) {
+          // If item is private on the nested child exclude its blocks from
+          // the set.
+          if (isWRNPrivate(CW, V)) {
+            for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+            continue;
+          }
+
+          // If item is not private check if item is used by the directive
+          // itself (there could be uses for example in 'thread_limit' or 'if'
+          // clauses). If there are such uses then consider it being used.
+          if (any_of(CW->getEntryDirective()->operands(),
+                     [V](Value *O) { return O == V; }))
+            return true;
+
+          Worklist.push(CW);
+        }
+      } while (!Worklist.empty());
 
       // Check if value V has any uses in these blocks.
       for (const User *U : V->users())
@@ -543,8 +574,30 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
     };
 
     // Remove item's uses from the clause bundles.
-    auto CleanupItem = [](WRegionNode *W, auto *Item, int ClauseID) {
+    auto CleanupItem = [this, &ToPrivatize](WRegionNode *W, auto *Item,
+                                            int ClauseID) {
       bool Changed = false;
+      Value *V = Item->getOrig();
+
+      StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
+      LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName()
+                        << "' on '" << W->getName()
+                        << "' construct is redundant\n");
+
+      // Emit diagnostic in the host compilation only to avoid duplicating
+      // remarks.
+      if (!hasOffloadCompilation())
+        F->getContext().diagnose(
+            OptimizationRemarkAnalysis("openmp", "optimization note",
+                                       W->getEntryDirective())
+            << ClauseName << " clause for variable '" << V->getName()
+            << "' on '" << W->getName() << "' construct is redundant");
+
+      // Do not change target regions so far because we cannot be sure that
+      // both host and device sides will be changed the same way.
+      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses)
+        return Changed;
+
       auto *Entry = cast<CallInst>(W->getEntryDirective());
       for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
                                   Entry->bundle_op_info_end())) {
@@ -556,7 +609,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
         // Check bundle operand uses and zap the ones matching given value.
         for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
           Use &U = Entry->getOperandUse(I);
-          if (Item->getOrig() != U.get())
+          if (V != U.get())
             continue;
 
           // Change item's value to null.
@@ -566,12 +619,14 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           Changed = true;
         }
       }
+
+      // And add item to the list that need to be privatized.
+      ToPrivatize.insert(V);
+
       return Changed;
     };
 
-    SmallVector<Value *, 8u> ToPrivatize;
-    auto CleanupRedundantItems = [this, W, &HasWRNUses, &CleanupItem,
-                                  &ToPrivatize](auto *Clause) {
+    auto CleanupRedundantItems = [W, &HasWRNUses, &CleanupItem](auto *Clause) {
       bool Changed = false;
       for (auto *Item : Clause->items()) {
         Value *V = Item->getOrig();
@@ -607,28 +662,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
               continue;
 
         // Item's value is not used inside the region, so it should be safe to
-        // turn it into a private. Print a diagnostic that clause is redundant.
-        StringRef ClauseName =
-            VPOAnalysisUtils::getOmpClauseName(Clause->getClauseID());
-
-        LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName()
-                          << "' is redundant\n");
-
-        // Emit diagnostic in the host compilation only to avoid duplicating
-        // remarks.
-        if (!hasOffloadCompilation())
-          F->getContext().diagnose(
-              OptimizationRemarkAnalysis("openmp", "optimization note",
-                                         W->getEntryDirective())
-              << ClauseName << " clause for variable '" << V->getName()
-              << "' is redundant");
-
-        // Do not change target regions so far because we cannot be sure that
-        // both host and device sides will be changed the same way.
-        if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses)
-          continue;
-
-        // Remove item's uses from clause bundles.
+        // turn it into a private. Print a diagnostic that clause is redundant
+        // and remove item's uses from clause bundles.
         Changed |= CleanupItem(W, Item, Clause->getClauseID());
 
         // Special case first-private items which can also be listed in the
@@ -638,9 +673,6 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
             for (auto *LPItem : LPClause->items())
               if (LPItem->getOrig() == V)
                 Changed |= CleanupItem(W, LPItem, LPClause->getClauseID());
-
-        // And add item to the list that need to be privatized.
-        ToPrivatize.push_back(V);
       }
       return Changed;
     };
