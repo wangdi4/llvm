@@ -71,8 +71,7 @@ define void @test_vec(%S2 *%p) {
 ; CHECK:            [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT:%.*]], vector.ph ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2:.*]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_NEG:%.*]] = sub i64 0 i64 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] <2 x i32>* [[VP_P0:%.*]] = getelementptr inbounds %S2* [[P0:%.*]] i64 [[VP_NEG]] i32 0
-; FIXME: The index is wrong - we only need to adjust for one <2 x i32> (VF == 2).
-; CHECK-NEXT:       [DA: Div] <2 x i32>* [[VP_P0_REVERSE_ADJUST:%.*]] = getelementptr <2 x i32>* [[VP_P0]] i64 -4
+; CHECK-NEXT:       [DA: Div] <2 x i32>* [[VP_P0_REVERSE_ADJUST:%.*]] = getelementptr <2 x i32>* [[VP_P0]] i64 -1
 ; CHECK-NEXT:       [DA: Uni] <4 x i64> [[VP_VLS_LOAD:%.*]] = vls-load <2 x i32>* [[VP_P0_REVERSE_ADJUST]], group_size=2, align=8
 ; CHECK-NEXT:       [DA: Uni] <4 x i64> [[VP_VLS_LOAD_REVERSE:%.*]] = shufflevector <4 x i64> [[VP_VLS_LOAD]] <4 x i64> [[VP_VLS_LOAD]] <4 x i64> <i64 2, i64 3, i64 0, i64 1>
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD0:%.*]] = vls-extract <4 x i64> [[VP_VLS_LOAD_REVERSE]], group_size=2, offset=0
