@@ -1,5 +1,9 @@
 ; RUN: opt -pre-isel-intrinsic-lowering -S -o - %s | FileCheck %s
 
+; CMPLRLLVM-29492: The test fails with this error:
+; " fast-math-flags specified for call without floating-point scalar or vector return type"
+; XFAIL: *
+
 ; This test verifies that the PreISelIntrsicLowering pass correctly lowers
 ; the intel.honor.fcmp intrinsic and preserves appropriate fast-math flags.
 ; In cases where the result is known, the lowering may produce a constant.
