@@ -427,6 +427,7 @@ public:
         {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+        {"bf_cvt", { "bf.cvt", { a(0) }}},
         {"tf32_cvt", { "tf32.cvt", { a(0) }}},
         {"qf_cvt", { "qf.cvt", { a(0) }}},
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},

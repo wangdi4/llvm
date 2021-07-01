@@ -33,6 +33,21 @@ using uchar = unsigned char;
 using ushort = unsigned short;
 using uint = unsigned int;
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#ifdef __SYCL_DEVICE_ONLY__
+// TODO map bfloat16 to SYCL's half type storage for now, following CM practice.
+// Will map to native bfloat16 (available since LLVM 11), once supported in BE.
+using bfloat16 = _Float16;
+#else
+// TODO can't map to cl::sycl::detail::half_impl::StorageT, as it is a class on
+// host and can't be a vector element. Implement generic solution for half and
+// bfloat16.
+using bfloat16 = uint16_t;
+#endif // __SYCL_DEVICE_ONLY__
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 #ifdef __SYCL_DEVICE_ONLY__
 // Mark a function being nodebug.
 #define ESIMD_NODEBUG __attribute__((nodebug))

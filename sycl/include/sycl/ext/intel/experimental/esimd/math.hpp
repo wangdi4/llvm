@@ -2176,6 +2176,48 @@ ESIMD_INLINE simd<uint32_t, N> esimd_impl_udivrem(simd<uint32_t, N> la,
 ESIMD_UDIV_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
 ESIMD_UREM_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
 
+/// float32->bf16 conversion (vector version).
+/// Available on the ATS, PVC platforms.
+/// \tparam N size of the input and returned vectors.
+/// \param src0 vector of float32 values.
+/// \return vector of converted bf16 values.
+template <int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<bfloat16, N>
+convert_to_bf16(simd<float, N> src0) {
+  return __esimd_bf_cvt<N>(src0);
+}
+
+/// float32->bf16 conversion (scalar version).
+/// Available on the ATS, PVC platforms.
+/// \param src0 scalar float32 value.
+/// \return converted scalar bf16 value.
+ESIMD_INLINE ESIMD_NODEBUG bfloat16 convert_to_bf16(float src0) {
+  simd<float, 1> src_0 = src0;
+  simd<bfloat16, 1> Result = convert_to_bf16<1>(src_0);
+  return Result[0];
+}
+
+/// bf16->float32 conversion (vector version).
+/// Available on the ATS, PVC platforms.
+/// \tparam N size of the input and returned vectors.
+/// \param src0 vector of bf16 values.
+/// \return vector of converted float32 values.
+template <int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<float, N>
+convert_from_bf16(simd<bfloat16, N> src0) {
+  return __esimd_bf_cvt<N>(src0);
+}
+
+/// bf16->float32 conversion (scalar version).
+/// Available on the ATS, PVC platforms.
+/// \param src0 scalar bf16 value.
+/// \return converted scalar float32 value.
+ESIMD_INLINE ESIMD_NODEBUG float convert_from_bf16(bfloat16 src0) {
+  simd<bfloat16, 1> src_0 = src0;
+  simd<float, 1> Result = convert_from_bf16<1>(src_0);
+  return Result[0];
+}
+
 /// convert_to_tf32 - converts vector of fp32 values to "tf32" data format.
 // Available on PVC platform
 // maps to FCVT vISA instruction
