@@ -1,5 +1,8 @@
 // RUN: %clang_cc1 -verify %s
 // RUN: %clang_cc1 -verify -cl-std=CL2.0 -D CL20 %s
+// if INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -verify -cl-std=CL3.0 -D CL20 %s
+// endif INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -verify -x c -D NOCL %s
 
 #ifndef NOCL
