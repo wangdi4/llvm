@@ -1135,6 +1135,8 @@ private:
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+  bool IsTargetNowaitTask = false; // set to true when parsing nowait on
+                                   // taskwait as task.
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -1148,6 +1150,7 @@ protected:
   void setMergeable(bool B) override { Mergeable = B; }
   void setIsTargetTask(bool B) override { IsTargetTask = B; }
   void setTaskFlag(unsigned F) override { TaskFlag = F; }
+  void setIsTaskwaitNowaitTask(bool B) override { IsTargetNowaitTask = B; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1165,6 +1168,7 @@ public:
   bool getMergeable() const override { return Mergeable; }
   bool getIsTargetTask() const override { return IsTargetTask; }
   unsigned getTaskFlag() const override { return TaskFlag; }
+  bool getIsTaskwaitNowaitTask() const override { return IsTargetNowaitTask; }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }

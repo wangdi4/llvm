@@ -214,6 +214,9 @@ public:
   /// to make the WRN graph builder skip them instead of asserting.
   static bool skipDirFromWrnConstruction(int DirID);
 
+  /// Lookahead for a nowait clause and return true in case it finds it
+  static bool nowaitLookahead(BasicBlock *EntryBB);
+
   /// Removal Utilities
 
   /// \brief Destroys the passed in WRegion node.
