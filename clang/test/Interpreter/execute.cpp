@@ -1,8 +1,13 @@
 // INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
 
-// RUN: cat %s | clang-repl | FileCheck %s
+// RUN: clang-repl "int i = 10;" 'extern "C" int printf(const char*,...);' \
+// RUN:            'auto r1 = printf("i = %d\n", i);' | FileCheck --check-prefix=CHECK-DRIVER %s
 // REQUIRES: host-supports-jit
 // UNSUPPORTED: powerpc64
+
+// CHECK-DRIVER: i = 10
+
+// RUN: cat %s | clang-repl | FileCheck %s
 
 extern "C" int printf(const char *, ...);
 int i = 42;
