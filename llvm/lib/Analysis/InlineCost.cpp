@@ -2798,7 +2798,8 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   // coro-early pass can not handle this quiet well.
   // So we won't inline the coroutine function if it have not been unsplited
   if (Callee->isPresplitCoroutine())
-    return InlineResult::failure("unsplited coroutine call");
+    return InlineResult::failure("unsplited coroutine call") // INTEL
+        .setIntelInlReason(NinlrUnsplitCoroutineCall);       // INTEL
 
   // Never inline calls with byval arguments that does not have the alloca
   // address space. Since byval arguments can be replaced with a copy to an
@@ -2811,7 +2812,8 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
       PointerType *PTy = cast<PointerType>(Call.getArgOperand(I)->getType());
       if (PTy->getAddressSpace() != AllocaAS)
         return InlineResult::failure("byval arguments without alloca"
-                                     " address space");
+                                     " address space")               // INTEL
+            .setIntelInlReason(NinlrByvalArgsWithoutAllocaAS);       // INTEL
     }
 
   // Calls to functions with always-inline attributes should be inlined
@@ -2879,10 +2881,14 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
   // but the other does.
   if (Caller->hasStackProtectorFnAttr() && !Callee->hasStackProtectorFnAttr())
     return InlineResult::failure(
-        "stack protected caller but callee requested no stack protector");
+        "stack protected caller but "                   // INTEL
+        "callee requested no stack protector")          // INTEL
+        .setIntelInlReason(NinlrStackProtectMismatch);  // INTEL
   if (Callee->hasStackProtectorFnAttr() && !Caller->hasStackProtectorFnAttr())
     return InlineResult::failure(
-        "stack protected callee but caller requested no stack protector");
+        "stack protected callee but "                   // INTEL
+        "caller requested no stack protector")          // INTEL
+        .setIntelInlReason(NinlrStackProtectMismatch);  // INTEL
 
   return None;
 }
