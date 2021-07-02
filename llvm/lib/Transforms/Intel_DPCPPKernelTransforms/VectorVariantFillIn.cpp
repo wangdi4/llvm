@@ -1,6 +1,6 @@
 //=---------------------- VectorVariantFillIn.cpp -*- C++ -*-----------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,6 +15,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 #define DEBUG_TYPE "VectorVariantFillIn"
@@ -68,6 +69,7 @@ bool VectorVariantFillIn::runImpl(Module &M) {
 
   for (auto &Fn : M) {
     if (Fn.hasFnAttribute("vector_function_ptrs")) {
+      LLVM_DEBUG(dbgs() << "Process function: " << Fn.getName() << "\n");
 
       Attribute Attr = Fn.getFnAttribute("vector_function_ptrs");
       StringRef Var = Attr.getValueAsString();
@@ -109,15 +111,23 @@ bool VectorVariantFillIn::runImpl(Module &M) {
               M, ArrTy, GV->isConstant(), GV->getLinkage(), FPtrArray, "", GV,
               GV->getThreadLocalMode(), GV->getAddressSpace());
 
+          Value *NewVal = GVNewInit;
+          // If the type between GV and GVNewInit is different, add bitcast.
+          if (GV->getType() != GVNewInit->getType())
+            NewVal = ConstantExpr::getBitCast(GVNewInit, GV->getType());
+
           SmallVector<User *, 16> UsersToUpdate(GV->users());
           for (User *U : UsersToUpdate) {
             if (Constant *C = dyn_cast<Constant>(U)) {
               if (!isa<GlobalValue>(C)) {
-                C->handleOperandChange(GV, GVNewInit);
+                LLVM_DEBUG(dbgs() << "Replace operand in Constant: " << *C
+                                  << "\n (" << *GV << "\n  ->\n"
+                                  << *NewVal << "\n");
+                C->handleOperandChange(GV, NewVal);
                 continue;
               }
             }
-            U->replaceUsesOfWith(GV, GVNewInit);
+            U->replaceUsesOfWith(GV, NewVal);
           }
 
           Constant *Initializer = GV->getInitializer();

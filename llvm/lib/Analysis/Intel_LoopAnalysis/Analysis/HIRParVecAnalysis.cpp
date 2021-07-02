@@ -834,6 +834,18 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
           // Can be invariant at that level.
           IdiomKind = HIRVectorIdioms::MMFirstLastVal;
           Msg = "(invariant)\n";
+        } else if (Rhs->getSingleCanonExpr()->hasIVBlobCoeff(
+                       Loop->getNestingLevel()) ||
+                   Rhs->getSingleCanonExpr()->getIVConstCoeff(
+                       Loop->getNestingLevel()) <= 0) {
+          // Can have negative coeff which is currently unsupported.
+          // E.g. something like %3 = (%a > %b) -1 * i1 + 8 ? %3;
+          // We generate code not accounting that negative coefficient.
+          // TODO: Need to account that, probably having another enum
+          // value for negative MMFirstLastIdx and with corresponding
+          // processing in VPlan.
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(negative coeff at loop level)\n";
         }
       }
       if (DisableNonMonotonicIndexes &&
