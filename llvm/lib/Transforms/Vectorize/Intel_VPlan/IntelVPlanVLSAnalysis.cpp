@@ -76,8 +76,9 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                  : nullptr;
 }
 
-void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
-                                      const VPlan *Plan, unsigned VF) {
+void VPlanVLSAnalysis::collectMemrefs(
+    OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVector, const VPlan *Plan,
+    unsigned VF) {
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
@@ -108,11 +109,10 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       //        sizes. At the moment, it crashes trying to compute access mask
       //        for a group if element size is greater than MAX_VECTOR_LENGTH.
       if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
-        delete Memref;
         continue;
       }
 
-      MemrefVector.push_back(Memref);
+      MemrefVector.emplace_back(Memref);
       LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
     }
   }
@@ -129,7 +129,7 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   // we may simply change OVLSType for each collected memref.
   auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   if (!Force && VLSInfoIt != Plan2VLSInfo.end()) {
-    for (auto *Memref : VLSInfoIt->second.Memrefs)
+    for (auto &Memref : VLSInfoIt->second.Memrefs)
       Memref->setNumElements(VF);
     LLVM_DEBUG(
         dbgs() << "Fixed all OVLSTypes for previously collected memrefs.\n";
@@ -161,20 +161,21 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
   }
   const auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   assert(VLSInfoIt != Plan2VLSInfo.end() && "No VLSInfo for a given VPlan.");
-  const OVLSMemrefVector &Memrefs = VLSInfoIt->second.Memrefs;
-  for (const auto *Memref : Memrefs)
+  for(auto &Memref : VLSInfoIt->second.Memrefs)
     Memref->dump();
 
   // For each collected memref print information about distance and dependency
   // to each next memref from the vector of memrefs.
-  for (auto I = Memrefs.begin(), E = Memrefs.end(); I != E; ++I) {
+  for (auto I = VLSInfoIt->second.Memrefs.begin(),
+            E = VLSInfoIt->second.Memrefs.end();
+       I != E; ++I) {
     dbgs() << "Information about ";
-    auto *From = *I;
+    auto *From = I->get();
     From->print(dbgs());
     dbgs() << '\n';
     for (auto J = I + 1; J != E; ++J) {
       dbgs() << "\t distance to ";
-      const auto *To = *J;
+      const auto *To = J->get();
       To->print(dbgs(), 2);
       dbgs() << "  " << From->getConstDistanceFrom(*To);
 

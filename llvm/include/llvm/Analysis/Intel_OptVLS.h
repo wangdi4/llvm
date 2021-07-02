@@ -994,8 +994,8 @@ public:
   /// vector length. At the moment, the grouping algorithm is far from perfect.
   /// For best results it is recommended to keep Memrefs in reverse postorder.
   /// This recommendation is to be removed after the algorithm is improved.
-  static void getGroups(const OVLSMemrefVector &Memrefs, OVLSGroupVector &Grps,
-                        uint32_t VectorLength,
+  static void getGroups(const OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
+                        OVLSGroupVector &Grps, uint32_t VectorLength,
                         OVLSMemrefToGroupMap *MemrefToGroupMap = nullptr);
 
   /// \brief getGroupCost() examines if it is beneficial to perform

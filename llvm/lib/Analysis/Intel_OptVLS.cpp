@@ -1163,10 +1163,11 @@ static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
     G->print(OS, 3);
   OS << '\n';
 }
-static void dumpOVLSMemrefVector(OVLSostream &OS,
-                                 const OVLSMemrefVector &MemrefVec,
-                                 unsigned NumSpaces) {
-  for (OVLSMemref *Memref : MemrefVec) {
+static void
+dumpOVLSMemrefVector(OVLSostream &OS,
+                     const OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVec,
+                     unsigned NumSpaces) {
+  for (auto &Memref : MemrefVec) {
     Memref->print(OS, NumSpaces);
     OS << "\n";
   }
@@ -1350,7 +1351,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
 //
 // The relative order of adjacent loads is preserved, relative order of stores
 // is reversed (so that the first item in every set is a valid insertion point).
-static void splitMrfs(const OVLSMemrefVector &Memrefs,
+static void splitMrfs(const  OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
                       MemrefDistanceMapVector &AdjMemrefSetVec) {
   OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
                           "adjacacent memrefs: \n");
@@ -1367,14 +1368,14 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   //        vector and use dominance information to sort it.
 
   // Process loads top down.
-  for (OVLSMemref *Memref : Memrefs)
+  for (auto &Memref : Memrefs)
     if (Memref->getAccessKind().isLoad())
-      splitMrfsStep(Memref, AdjMemrefSetVec);
+      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
 
   // Process stores bottom up.
-  for (OVLSMemref *Memref : reverse(Memrefs))
+  for (auto &Memref : reverse(Memrefs))
     if (Memref->getAccessKind().isStore())
-      splitMrfsStep(Memref, AdjMemrefSetVec);
+      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
 
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
   return;
@@ -1845,9 +1846,10 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
 // OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
 // in a way where having all the memrefs in OptVLSgroup (at group InsertPoint
 // location) does not violate any program semantics nor any memory dependencies.
-void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
-                                OVLSGroupVector &Grps, unsigned VectorLength,
-                                OVLSMemrefToGroupMap *MemrefToGroupMap) {
+void OptVLSInterface::getGroups(
+    const OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
+    OVLSGroupVector &Grps, unsigned VectorLength,
+    OVLSMemrefToGroupMap *MemrefToGroupMap) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
                        << "  Received a vector of memrefs (" << Memrefs.size()
                        << "): \n");

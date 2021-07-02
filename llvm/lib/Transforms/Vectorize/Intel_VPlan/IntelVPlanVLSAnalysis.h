@@ -30,8 +30,8 @@ class VPlan;
 class VPlanScalarEvolutionLLVM;
 
 /// VPlanVLSAnalysis class is used to collect all memory references in VPlan,
-/// pass them to OptVLS interface and store result internally, so there's no need
-/// to recollect and recompute grouping information for same HCFG and VF.
+/// pass them to OptVLS interface and store result internally, so there's no
+/// need to recollect and recompute grouping information for same HCFG and VF.
 class VPlanVLSAnalysis {
 protected:
   enum class MemAccessTy {
@@ -57,11 +57,13 @@ protected:
                                     const VPInstruction *Inst) const {
     const VLSInfo &VlsInfoForVPlan = Plan2VLSInfo.find(Plan)->second;
     auto MemrefIt = llvm::find_if(
-        VlsInfoForVPlan.Memrefs, [&Inst](const OVLSMemref *Memref) {
-          return cast<VPVLSClientMemref>(Memref)->getInstruction() == Inst;
+        VlsInfoForVPlan.Memrefs,
+        [Inst](const std::unique_ptr<OVLSMemref> &Memref) {
+          return cast<VPVLSClientMemref>(Memref.get())->getInstruction() ==
+                 Inst;
         });
     if (MemrefIt != VlsInfoForVPlan.Memrefs.end()) {
-      auto GIt = VlsInfoForVPlan.Mem2Group.find(*MemrefIt);
+      auto GIt = VlsInfoForVPlan.Mem2Group.find(MemrefIt->get());
       if (GIt != VlsInfoForVPlan.Mem2Group.end())
         return GIt->second;
     }
@@ -72,8 +74,8 @@ protected:
                                       const unsigned VF) const;
 
 private:
-  void collectMemrefs(OVLSMemrefVector &MemrefVector, const VPlan *Plan,
-                      unsigned VF);
+  void collectMemrefs(OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVector,
+                      const VPlan *Plan, unsigned VF);
 
   /// To call OptVLSInterface, vectorizer has to pass maximum physical
   /// vector length for a given target. From vectorization point of view,
@@ -83,14 +85,11 @@ private:
 
   /// Data structure to keep all needed information for each VPlan.
   struct VLSInfo {
-    OVLSMemrefVector Memrefs;
+    OVLSVector<std::unique_ptr<OVLSMemref>> Memrefs;
     OVLSGroupVector Groups;
     OVLSMemrefToGroupMap Mem2Group;
 
     void erase() {
-      for (OVLSMemref *X : Memrefs)
-        delete X;
-
       Memrefs.clear();
       Groups.clear();
       Mem2Group.clear();
