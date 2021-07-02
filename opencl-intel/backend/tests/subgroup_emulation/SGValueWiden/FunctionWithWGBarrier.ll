@@ -36,6 +36,13 @@ sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
   ret i32 %call
 }
 
+;CHECK-LABEL: define <4 x i32> @_ZGVbN4v_foo
+;CHECK-LABEL: sg.dummy.bb.3:
+;CHECK: call void @_Z17sub_group_barrierj(i32 1)
+;CHECK-NEXT: %[[#RET:]] = load <4 x i32>, <4 x i32>* %w.{{.*}}, align 16
+;CHECK-NEXT: call void @_Z7barrierj(i32 1)
+;CHECK-NEXT: ret <4 x i32> %[[#RET]]
+
 ; Function Attrs: convergent
 declare void @_Z7barrierj(i32) #1
 
@@ -92,13 +99,6 @@ sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
   call void @dummy_sg_barrier()
   ret void
 }
-
-;CHECK-LABEL: define <4 x i32> @_ZGVbN4v_foo
-;CHECK-LABEL: sg.dummy.bb.3:
-;CHECK: call void @_Z17sub_group_barrierj(i32 1)
-;CHECK-NEXT: %[[#RET:]] = load <4 x i32>, <4 x i32>* %w.{{.*}}, align 16
-;CHECK-NEXT: call void @_Z7barrierj(i32 1)
-;CHECK-NEXT: ret <4 x i32> %[[#RET]]
 
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) #4

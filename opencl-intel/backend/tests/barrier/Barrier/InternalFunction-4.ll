@@ -42,7 +42,7 @@ L4:
 ; CHECK: xor
 ;;;; TODO: add regular expression for the below values.
 
-; CHECK: L2:                                               ; preds = %SyncBB3
+; CHECK-LABEL: L2:                                               ; preds = %SyncBB2
 ; CHECK: %SBIndex = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex, 8
 ; CHECK: %1 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
@@ -58,7 +58,7 @@ L4:
 ; CHECK: call i32 @foo
 ; CHECK: br label %
 ;;;; TODO: add regular expression for the below values.
-; CHECK: SyncBB2:
+; CHECK-LABEL: SyncBB3:
 ; CHECK: %SBIndex1 = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset2 = add nuw i32 %SBIndex1, 12
 ; CHECK: %11 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset2
