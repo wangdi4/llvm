@@ -1322,8 +1322,12 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
 #endif // INTEL_CUSTOMIZATION
 
   // If the incoming values are pointer casts of the same original value,
-  // replace the phi with a single cast.
-  if (PN.getType()->isPointerTy() && !isCatchSwitch) { // INTEL
+  // replace the phi with a single cast iff we can insert a non-PHI instruction.
+  if (PN.getType()->isPointerTy() &&
+#if INTEL_CUSTOMIZATION
+      !isCatchSwitch &&
+#endif // INTEL_CUSTOMIZATION
+      PN.getParent()->getFirstInsertionPt() != PN.getParent()->end()) {
     Value *IV0 = PN.getIncomingValue(0);
     Value *IV0Stripped = IV0->stripPointerCasts();
     // Set to keep track of values known to be equal to IV0Stripped after
