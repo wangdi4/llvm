@@ -423,7 +423,6 @@ TARGET_HEADER_BUILTIN(_mm512_mask_rem_epi32, "V8LLiV8LLiUsV8LLiV8LLi", "nV:512:"
 TARGET_HEADER_BUILTIN(_mm512_mask_rem_epu32, "V8LLiV8LLiUsV8LLiV8LLi", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512f")
 TARGET_HEADER_BUILTIN(_mm512_rem_epi64, "V8LLiV8LLiV8LLi", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512f")
 TARGET_HEADER_BUILTIN(_mm512_rem_epu64, "V8LLiV8LLiV8LLi", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512f")
-#if INTEL_FEATURE_ISA_FP16
 
 // AVX512 half precision
 TARGET_HEADER_BUILTIN(_mm_acos_ph, "V8gV8g", "nV:128:", "immintrin.h", ALL_LANGUAGES, "avx512fp16")
@@ -582,7 +581,6 @@ TARGET_HEADER_BUILTIN(_mm512_tand_ph, "V32gV32g", "nV:512:", "immintrin.h", ALL_
 TARGET_HEADER_BUILTIN(_mm512_mask_tand_ph, "V32gV32gUiV32g", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512fp16")
 TARGET_HEADER_BUILTIN(_mm512_tanh_ph, "V32gV32g", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512fp16")
 TARGET_HEADER_BUILTIN(_mm512_mask_tanh_ph, "V32gV32gUiV32g", "nV:512:", "immintrin.h", ALL_LANGUAGES, "avx512fp16")
-#endif // INTEL_FEATURE_ISA_FP16
 
 #undef BUILTIN
 #undef TARGET_BUILTIN

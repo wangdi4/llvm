@@ -1,5 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
-
 ; Check SVML calls absent in the library falls back to scalarized calls with "f16" suffix.
 ; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 

@@ -3624,9 +3624,7 @@ X86
 .. option:: -mavx512f, -mno-avx512f
 
 .. INTEL_CUSTOMIZATION
-.. INTEL_FEATURE_ISA_FP16
 .. option:: -mavx512fp16, -mno-avx512fp16
-.. end INTEL_FEATURE_ISA_FP16
 .. end INTEL_CUSTOMIZATION
 
 .. option:: -mavx512ifma, -mno-avx512ifma

@@ -5366,7 +5366,6 @@ let TargetPrefix = "x86" in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 // avx512_fp16: vaddph
 let TargetPrefix = "x86" in {
   def int_x86_avx512fp16_add_ph_512
@@ -6119,7 +6118,6 @@ let TargetPrefix = "x86" in {
                     llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<ArgIndex<4>> ]>;
 }
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
 // FIXME: We assume that avxmemadvise is disclosed firstly. Renaming these
 // if avx512memadvise is disclosed firstly.

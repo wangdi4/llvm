@@ -1606,9 +1606,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   // For more info, see X86 ISA docs.
   Features["pconfig"] = HasLeaf7 && ((EDX >> 18) & 1);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   Features["avx512fp16"] = HasLeaf7 && ((EDX >> 23) & 1) && HasAVX512Save;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   Features["amx-bf16"]   = HasLeaf7 && ((EDX >> 22) & 1) && HasAMXSave;

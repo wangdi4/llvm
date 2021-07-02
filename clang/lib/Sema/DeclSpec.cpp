@@ -1330,9 +1330,7 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
         S.Diag(TSTLoc, diag::ext_integer_complex);
     } else if (TypeSpecType != TST_float && TypeSpecType != TST_double &&
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-               TypeSpecType != TST_float16 && // INTEL
-#endif // INTEL_FEATURE_ISA_FP16
+               TypeSpecType != TST_float16 &&
 #endif // INTEL_CUSTOMIZATION
                TypeSpecType != TST_float128) {
       // FIXME: _Float16, __fp16?

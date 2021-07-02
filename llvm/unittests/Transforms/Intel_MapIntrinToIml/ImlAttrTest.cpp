@@ -268,7 +268,6 @@ TEST_F(ImlAttrTest, ValidStatusBitsTest) {
             makeFuncNamePair("pow", "__libm_pow_ex"));
 }
 
-#if INTEL_FEATURE_ISA_FP16
 TEST_F(ImlAttrTest, FP16Test) {
   ImfFuncInfo HighAccuracy = ImfFuncInfo().setPrecision(High);
   ImfFuncInfo GLC = ImfFuncInfo().setISASet("coreavx512glc");
@@ -284,6 +283,5 @@ TEST_F(ImlAttrTest, FP16Test) {
   EXPECT_EQ(getLibraryFunctionName("__svml_sins16", GLCHighAccuracy),
             makeFuncNamePair("__svml_sins16_ha_x1", "__svml_sins16_ha_z1"));
 }
-#endif // INTEL_FEATURE_ISA_FP16
 
 } // namespace

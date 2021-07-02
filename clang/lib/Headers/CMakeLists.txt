@@ -142,16 +142,6 @@ intel_add_file(INTEL_HEADERS
   )
 # end INTEL_FEATURE_ISA_AMX_FP19
 
-# INTEL_FEATURE_ISA_FP16
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
-  Intel_Headers/avx512fp16intrin.h
-  )
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16
-  Intel_Headers/avx512vlfp16intrin.h
-  )
-# end INTEL_FEATURE_ISA_FP16
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8
@@ -384,6 +374,9 @@ set(files
   avx512dqintrin.h
   avx512erintrin.h
   avx512fintrin.h
+# INTEL_CUSTOMIZATION
+  avx512fp16intrin.h
+# end INTEL_CUSTOMIZATION
   avx512ifmaintrin.h
   avx512ifmavlintrin.h
   avx512pfintrin.h
@@ -395,6 +388,9 @@ set(files
   avx512vlbwintrin.h
   avx512vlcdintrin.h
   avx512vldqintrin.h
+# INTEL_CUSTOMIZATION
+  avx512vlfp16intrin.h
+# end INTEL_CUSTOMIZATION
   avx512vlintrin.h
   avx512vp2intersectintrin.h
   avx512vlvp2intersectintrin.h

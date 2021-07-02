@@ -1,5 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
-
 ; Check split FP16 SVML calls are generated correctly when needed
 ; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 

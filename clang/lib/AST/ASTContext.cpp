@@ -10506,13 +10506,11 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
     Type = Context.HalfTy;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case 'g':
     assert(HowLong == 0 && !Signed && !Unsigned &&
            "Bad modifiers used with 'g'!");
     Type = Context.Float16Ty;
     break;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case 'f':
     assert(HowLong == 0 && !Signed && !Unsigned &&

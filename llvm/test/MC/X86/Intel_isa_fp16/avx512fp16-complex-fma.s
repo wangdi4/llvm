@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_fp16
 // RUN: llvm-mc -triple x86_64-unknown-unknown %s > %t 2> %t.err
 // RUN: FileCheck < %t %s
 // RUN: FileCheck --check-prefix=CHECK-STDERR < %t.err %s

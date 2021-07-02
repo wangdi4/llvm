@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_fp16
 // RUN: %clang_cc1 -triple i386-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -o - %s | FileCheck %s -check-prefix=CHECK
 
 // Return value should be passed in <2 x half> so the backend will use xmm0

@@ -177,11 +177,9 @@ constexpr FeatureBitset FeaturesCommonAVX512 =
 #define ENABLE_ISA_AVX256
 constexpr FeatureBitset FeaturesCommonAVX256 =
 #endif // INTEL_FEATURE_ISA_AVX256
-#if INTEL_FEATURE_ISA_FP16
 #ifdef ENABLE_ISA_AVX256
     FeatureAVX512FP16 |
 #endif
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #ifdef ENABLE_ISA_AVX256
     FeatureAVXDOTPRODINT8 |
@@ -231,9 +229,7 @@ constexpr FeatureBitset FeaturesTigerlake =
     FeatureCLWB | FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
@@ -651,10 +647,8 @@ static constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
-#if INTEL_FEATURE_ISA_FP16
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 = FeatureAVX512F |
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODINT8 = FeatureAVX512F |
     FeatureAVXDOTPRODINT8;

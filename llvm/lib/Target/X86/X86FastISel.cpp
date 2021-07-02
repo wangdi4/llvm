@@ -57,9 +57,7 @@ class X86FastISel final : public FastISel {
   bool X86ScalarSSEf64;
   bool X86ScalarSSEf32;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   bool X86ScalarAVXf16;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 public:
@@ -70,9 +68,7 @@ public:
     X86ScalarSSEf64 = Subtarget->hasSSE2();
     X86ScalarSSEf32 = Subtarget->hasSSE1();
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     X86ScalarAVXf16 = Subtarget->hasFP16();
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -169,12 +165,8 @@ private:
   bool isScalarFPTypeInSSEReg(EVT VT) const {
     return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
            (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
            (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
-#else  // INTEL_FEATURE_ISA_FP16
-      (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2304,9 +2296,7 @@ bool X86FastISel::X86FastEmitPseudoSelect(MVT RetVT, const Instruction *I) {
   case MVT::i8:  Opc = X86::CMOV_GR8;  break;
   case MVT::i16: Opc = X86::CMOV_GR16; break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case MVT::f16: Opc = X86::CMOV_FR16X; break;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case MVT::i32: Opc = X86::CMOV_GR32; break;
   case MVT::f32: Opc = Subtarget->hasAVX512() ? X86::CMOV_FR32X

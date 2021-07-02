@@ -237,10 +237,8 @@ RTLIB::Libcall RTLIB::getFPEXT(EVT OpVT, EVT RetVT) {
     if (RetVT == MVT::f64)
       return FPEXT_F16_F64;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     if (RetVT == MVT::f80)
       return FPEXT_F16_F80;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     if (RetVT == MVT::f128)
       return FPEXT_F16_F128;

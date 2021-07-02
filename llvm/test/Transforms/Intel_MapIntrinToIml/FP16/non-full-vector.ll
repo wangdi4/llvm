@@ -1,5 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
-
 ; Check narrower FP16 SVML calls are correctly widen to 512-bit SVML calls
 ; RUN: opt -vector-library=SVML -iml-trans -S < %s | FileCheck %s
 

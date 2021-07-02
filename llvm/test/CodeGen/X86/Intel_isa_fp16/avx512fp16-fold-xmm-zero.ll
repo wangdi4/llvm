@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
 ; RUN: llc < %s -mtriple=i386-apple-macosx10.6.7 -mattr=+avx512fp16 -no-integrated-as | FileCheck %s
 
 ; Simple test to make sure folding for special constants (like half zero)
