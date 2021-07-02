@@ -13,6 +13,10 @@
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 -ast-dump-all \
 // RUN:  -include-pch %t.pch %s | FileCheck %s --check-prefix=DUMP
 
+// RUN: %clang_cc1 -verify -triple i386-pc-win32 -fopenmp \
+// RUN:  -fopenmp-version=51 -ast-dump %s \
+// RUN:  | FileCheck %s --check-prefix=DUMP
+
 // expected-no-diagnostics
 
 #ifndef HEADER
@@ -528,7 +532,7 @@ class A {
   int v = 0;
   int x = 1, expr = 2;
   int e = 2, d = 3;
-  //DUMP:CXXMethodDecl {{.*}}bar 'void ()'
+  //DUMP:CXXMethodDecl {{.*}}bar 'void (){{.*}}'
   void bar() {
 
     //PRINT:#pragma omp atomic capture compare
