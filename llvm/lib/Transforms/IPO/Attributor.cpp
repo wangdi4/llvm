@@ -580,7 +580,7 @@ Attributor::getAssumedConstant(const Value &V, const AbstractAttribute &AA,
       AA, IRPosition::value(V, AA.getCallBaseContext()), DepClassTy::NONE);
   Optional<Value *> SimplifiedV =
       ValueSimplifyAA.getAssumedSimplifiedValue(*this);
-  bool IsKnown = ValueSimplifyAA.isKnown();
+  bool IsKnown = ValueSimplifyAA.isAtFixpoint();
   UsedAssumedInformation |= !IsKnown;
   if (!SimplifiedV.hasValue()) {
     recordDependence(ValueSimplifyAA, AA, DepClassTy::OPTIONAL);
@@ -619,7 +619,7 @@ Attributor::getAssumedSimplified(const IRPosition &IRP,
       getOrCreateAAFor<AAValueSimplify>(IRP, AA, DepClassTy::NONE);
   Optional<Value *> SimplifiedV =
       ValueSimplifyAA.getAssumedSimplifiedValue(*this);
-  bool IsKnown = ValueSimplifyAA.isKnown();
+  bool IsKnown = ValueSimplifyAA.isAtFixpoint();
   UsedAssumedInformation |= !IsKnown;
   if (!SimplifiedV.hasValue()) {
     if (AA)

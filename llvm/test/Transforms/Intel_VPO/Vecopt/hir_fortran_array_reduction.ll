@@ -29,7 +29,7 @@
 
 
 ; Check that loop was vectorized.
-; CHECK:      + DO i2 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:      + DO i2 = 0, 2 * %tgu + -1, 2 <DO_LOOP> <MAX_TC_EST = 1073741824> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK:      |   %.vec = (<2 x double>*)(%"interp_$ARR")[i2 + <i64 0, i64 1>][i1];
 ; CHECK:      |   %red.var = %red.var  +  %.vec;
 ; CHECK:      + END LOOP

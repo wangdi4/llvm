@@ -977,13 +977,16 @@ static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
     assert(canConstantFoldCallTo(II, cast<Function>(II->getCalledOperand())) &&
            "Expected constant-foldable intrinsic");
     Intrinsic::ID IID = II->getIntrinsicID();
-    SmallVector<Value *, 2> Args = {SO};
+    if (II->getNumArgOperands() == 1)
+      return Builder.CreateUnaryIntrinsic(IID, SO);
 
-    // Propagate the zero-is-undef argument to the new instruction.
-    if (IID == Intrinsic::ctlz || IID == Intrinsic::cttz)
-      Args.push_back(II->getArgOperand(1));
-
-    return Builder.CreateIntrinsic(IID, I.getType(), Args);
+    // This works for real binary ops like min/max (where we always expect the
+    // constant operand to be canonicalized as op1) and unary ops with a bonus
+    // constant argument like ctlz/cttz.
+    // TODO: Handle non-commutative binary intrinsics as below for binops.
+    assert(II->getNumArgOperands() == 2 && "Expected binary intrinsic");
+    assert(isa<Constant>(II->getArgOperand(1)) && "Expected constant operand");
+    return Builder.CreateBinaryIntrinsic(IID, SO, II->getArgOperand(1));
   }
 
   assert(I.isBinaryOp() && "Unexpected opcode for select folding");
@@ -3342,13 +3345,35 @@ Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
         return BinaryOperator::Create(BinOp, LHS, RHS);
       }
 
-      // If the normal result of the add is dead, and the RHS is a constant,
-      // we can transform this into a range comparison.
-      // overflow = uadd a, -4  -->  overflow = icmp ugt a, 3
-      if (WO->getIntrinsicID() == Intrinsic::uadd_with_overflow)
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(WO->getRHS()))
-          return new ICmpInst(ICmpInst::ICMP_UGT, WO->getLHS(),
-                              ConstantExpr::getNot(CI));
+      assert(*EV.idx_begin() == 1 &&
+             "unexpected extract index for overflow inst");
+
+      // If only the overflow result is used, and the right hand side is a
+      // constant (or constant splat), we can remove the intrinsic by directly
+      // checking for overflow.
+      const APInt *C;
+      if (match(WO->getRHS(), m_APInt(C))) {
+        // Compute the no-wrap range [X,Y) for LHS given RHS=C, then
+        // check for the inverted range using range offset trick (i.e.
+        // use a subtract to shift the range to bottom of either the
+        // signed or unsigned domain and then use a single compare to
+        // check range membership).
+        ConstantRange NWR =
+          ConstantRange::makeExactNoWrapRegion(WO->getBinaryOp(), *C,
+                                               WO->getNoWrapKind());
+        APInt Min = WO->isSigned() ? NWR.getSignedMin() : NWR.getUnsignedMin();
+        NWR = NWR.subtract(Min);
+
+        CmpInst::Predicate Pred;
+        APInt NewRHSC;
+        if (NWR.getEquivalentICmp(Pred, NewRHSC)) {
+          auto *OpTy = WO->getRHS()->getType();
+          auto *NewLHS = Builder.CreateSub(WO->getLHS(),
+                                           ConstantInt::get(OpTy, Min));
+          return new ICmpInst(ICmpInst::getInversePredicate(Pred), NewLHS,
+                              ConstantInt::get(OpTy, NewRHSC));
+        }
+      }
     }
   }
   if (LoadInst *L = dyn_cast<LoadInst>(Agg))

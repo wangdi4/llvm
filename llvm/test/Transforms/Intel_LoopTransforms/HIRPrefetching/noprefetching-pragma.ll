@@ -16,7 +16,7 @@
 ;<0>          BEGIN REGION { }
 ;<9>                   %2 = (%C.addr)[0];
 ;<10>                  %3 = (%A.addr)[0];
-;<37>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;<37>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<17>               |   %conv = fpext.float.double((%3)[i1]);
 ;<20>               |   %conv3 = fpext.float.double((%2)[i1]);
 ;<21>               |   %mul = %conv3  *  2.000000e+00;
@@ -34,7 +34,7 @@
 ; CHECK:     BEGIN REGION { }
 ; CHECK:              %2 = (%C.addr)[0];
 ; CHECK:              %3 = (%A.addr)[0];
-; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   %conv = fpext.float.double((%3)[i1]);
 ; CHECK:           |   %conv3 = fpext.float.double((%2)[i1]);
 ; CHECK:           |   %mul = %conv3  *  2.000000e+00;

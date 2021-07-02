@@ -379,7 +379,7 @@ static void getTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_32:
   case llvm::Triple::aarch64_be:
-    aarch64::getAArch64TargetFeatures(D, Triple, Args, Features);
+    aarch64::getAArch64TargetFeatures(D, Triple, Args, Features, ForAS);
     break;
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
@@ -840,6 +840,20 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     PGOGenerateArg = nullptr;
   }
 
+  if (TC.getTriple().isOSAIX()) {
+    if (PGOGenerateArg)
+      if (!D.isUsingLTO(false /*IsDeviceOffloadAction */) ||
+          D.getLTOMode() != LTOK_Full)
+        D.Diag(clang::diag::err_drv_argument_only_allowed_with)
+            << PGOGenerateArg->getSpelling() << "-flto";
+    if (ProfileGenerateArg)
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << ProfileGenerateArg->getSpelling() << TC.getTriple().str();
+    if (Arg *ProfileSampleUseArg = getLastProfileSampleUseArg(Args))
+      D.Diag(diag::err_drv_unsupported_opt_for_target)
+          << ProfileSampleUseArg->getSpelling() << TC.getTriple().str();
+  }
+
   if (ProfileGenerateArg) {
     if (ProfileGenerateArg->getOption().matches(
             options::OPT_fprofile_instr_generate_EQ))
@@ -1203,7 +1217,7 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   // When preprocessing using the integration footer, add the comments
   // to the first preprocessing step.
   if (JA.isOffloading(Action::OFK_SYCL) && !ContainsAppendFooterAction(&JA) &&
-      Args.hasArg(options::OPT_fsycl_use_footer) &&
+      !Args.hasArg(options::OPT_fno_sycl_use_footer) &&
       JA.isDeviceOffloading(Action::OFK_None))
     CmdArgs.push_back("-C");
 
@@ -1438,6 +1452,11 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
                                                        << A->getAsString(Args);
         }
       }
+      // Do not render -include when performing the compilation that occurs
+      // after the the integration footer has been appended.  This has already
+      // been preprocessed and should not be included again.
+      if (ContainsAppendFooterAction(&JA))
+        continue;
     } else if (A->getOption().matches(options::OPT_isystem_after)) {
       // Handling of paths which must come late.  These entries are handled by
       // the toolchain itself after the resource dir is inserted in the right
@@ -2176,7 +2195,7 @@ static void SetRISCVSmallDataLimit(const ToolChain &TC, const ArgList &Args,
       D.Diag(diag::warn_drv_unsupported_sdata);
     }
   } else if (Args.getLastArgValue(options::OPT_mcmodel_EQ)
-                 .equals_lower("large") &&
+                 .equals_insensitive("large") &&
              (Triple.getArch() == llvm::Triple::riscv64)) {
     // Not support linker relaxation for RV64 with large code model.
     SmallDataLimit = "0";
@@ -3494,7 +3513,8 @@ static void RenderOpenCLOptions(const ArgList &Args, ArgStringList &CmdArgs,
       CmdArgs.push_back(Args.MakeArgString(A->getOption().getPrefixedName()));
 
   // Only add the default headers if we are compiling OpenCL sources.
-  if ((types::isOpenCL(InputType) || Args.hasArg(options::OPT_cl_std_EQ)) &&
+  if ((types::isOpenCL(InputType) ||
+       (Args.hasArg(options::OPT_cl_std_EQ) && types::isSrcFile(InputType))) &&
       !Args.hasArg(options::OPT_cl_no_stdinc)) {
     CmdArgs.push_back("-finclude-default-header");
     CmdArgs.push_back("-fdeclare-opencl-builtins");
@@ -4898,7 +4918,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(HeaderOpt));
     }
 
-    if (Args.hasArg(options::OPT_fsycl_use_footer)) {
+    if (!Args.hasArg(options::OPT_fno_sycl_use_footer)) {
       // Add the integration footer option to generated the footer.
       StringRef Footer(D.getIntegrationFooter(Input.getBaseInput()));
       if (!Footer.empty()) {
@@ -4955,12 +4975,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       }
     if (HasFPGA)
       CmdArgs.push_back("-fsycl-disable-range-rounding");
-
-    // Enable generation of USM address spaces for FPGA.
-    // __ENABLE_USM_ADDR_SPACE__ will be used during compilation of SYCL headers
-    if (getToolChain().getTriple().getSubArch() ==
-        llvm::Triple::SPIRSubArch_fpga)
-      CmdArgs.push_back("-D__ENABLE_USM_ADDR_SPACE__");
 
     // Add any options that are needed specific to SYCL offload while
     // performing the host side compilation.
@@ -5614,7 +5628,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (A->getOption().getID() == options::OPT_mabi_EQ_vec_extabi)
       CmdArgs.push_back("-mabi=vec-extabi");
     else
-      D.Diag(diag::err_aix_default_altivec_abi);
+      CmdArgs.push_back("-mabi=vec-default");
   }
 
   if (Arg *A = Args.getLastArg(options::OPT_Wframe_larger_than_EQ)) {
@@ -5750,6 +5764,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fsplit_stack, options::OPT_fno_split_stack,
                    false))
     CmdArgs.push_back("-fsplit-stack");
+
+  // -fprotect-parens=0 is default.
+  if (Args.hasFlag(options::OPT_fprotect_parens,
+                   options::OPT_fno_protect_parens, false))
+    CmdArgs.push_back("-fprotect-parens");
 
   RenderFloatingPointOptions(TC, D, OFastEnabled, Args, CmdArgs, JA);
 
@@ -6111,15 +6130,20 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   if (Arg *A = Args.getLastArg(options::OPT_fbasic_block_sections_EQ)) {
+    StringRef Val = A->getValue();
     if (Triple.isX86() && Triple.isOSBinFormatELF()) {
-      StringRef Val = A->getValue();
       if (Val != "all" && Val != "labels" && Val != "none" &&
           !Val.startswith("list="))
         D.Diag(diag::err_drv_invalid_value)
             << A->getAsString(Args) << A->getValue();
       else
         A->render(Args, CmdArgs);
-    } else {
+    } else if (Triple.isNVPTX()) {
+      // Do not pass the option to the GPU compilation. We still want it enabled
+      // for the host-side compilation, so seeing it here is not an error.
+    } else if (Val != "none") {
+      // =none is allowed everywhere. It's useful for overriding the option
+      // and is the same as not specifying the option.
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
     }
@@ -6333,7 +6357,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
              Args.hasArg(options::OPT_fopenmp_targets_EQ) &&
              Args.hasArg(options::OPT__SLASH_std)) {
       const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std);
-      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_lower("c++");
+      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_insensitive("c++");
       ImplyVCPPCVer = !ImplyVCPPCXXVer;
     }
 
@@ -6786,6 +6810,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       (Args.hasArg(options::OPT_mkernel) && types::isCXX(InputType)))
     CmdArgs.push_back("-fapple-kext");
 
+  Args.AddLastArg(CmdArgs, options::OPT_altivec_src_compat);
   Args.AddLastArg(CmdArgs, options::OPT_flax_vector_conversions_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fobjc_sender_dependent_dispatch);
   Args.AddLastArg(CmdArgs, options::OPT_fdiagnostics_print_source_range_info);
@@ -7380,7 +7405,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -finput_charset=UTF-8 is default. Reject others
   if (Arg *inputCharset = Args.getLastArg(options::OPT_finput_charset_EQ)) {
     StringRef value = inputCharset->getValue();
-    if (!value.equals_lower("utf-8"))
+    if (!value.equals_insensitive("utf-8"))
       D.Diag(diag::err_drv_invalid_value) << inputCharset->getAsString(Args)
                                           << value;
   }
@@ -7388,7 +7413,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fexec_charset=UTF-8 is default. Reject others
   if (Arg *execCharset = Args.getLastArg(options::OPT_fexec_charset_EQ)) {
     StringRef value = execCharset->getValue();
-    if (!value.equals_lower("utf-8"))
+    if (!value.equals_insensitive("utf-8"))
       D.Diag(diag::err_drv_invalid_value) << execCharset->getAsString(Args)
                                           << value;
   }
@@ -8562,17 +8587,17 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     StringRef GuardArgs = A->getValue();
     // The only valid options are "cf", "cf,nochecks", "cf-", "ehcont" and
     // "ehcont-".
-    if (GuardArgs.equals_lower("cf")) {
+    if (GuardArgs.equals_insensitive("cf")) {
       // Emit CFG instrumentation and the table of address-taken functions.
       CmdArgs.push_back("-cfguard");
-    } else if (GuardArgs.equals_lower("cf,nochecks")) {
+    } else if (GuardArgs.equals_insensitive("cf,nochecks")) {
       // Emit only the table of address-taken functions.
       CmdArgs.push_back("-cfguard-no-checks");
-    } else if (GuardArgs.equals_lower("ehcont")) {
+    } else if (GuardArgs.equals_insensitive("ehcont")) {
       // Emit EH continuation table.
       CmdArgs.push_back("-ehcontguard");
-    } else if (GuardArgs.equals_lower("cf-") ||
-               GuardArgs.equals_lower("ehcont-")) {
+    } else if (GuardArgs.equals_insensitive("cf-") ||
+               GuardArgs.equals_insensitive("ehcont-")) {
       // Do nothing, but we might want to emit a security warning in future.
     } else {
       D.Diag(diag::err_drv_invalid_value) << A->getSpelling() << GuardArgs;
@@ -8934,10 +8959,16 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
       });
     }
     Triples += Action::GetOffloadKindName(CurKind);
-    Triples += '-';
-    Triples += CurTC->getTriple().normalize();
-    if (CurKind == Action::OFK_HIP && CurDep->getOffloadingArch()) {
-      Triples += '-';
+    Triples += "-";
+    std::string NormalizedTriple = CurTC->getTriple().normalize();
+    Triples += NormalizedTriple;
+
+    if (CurDep->getOffloadingArch() != nullptr) {
+      // If OffloadArch is present it can only appear as the 6th hypen
+      // sepearated field of Bundle Entry ID. So, pad required number of
+      // hyphens in Triple.
+      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
+        Triples += "-";
       Triples += CurDep->getOffloadingArch();
     }
   }
@@ -9092,11 +9123,17 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     if (J++)
       Triples += ',';
     Triples += Action::GetOffloadKindName(Dep.DependentOffloadKind);
-    Triples += '-';
-    Triples += Dep.DependentToolChain->getTriple().normalize();
-    if (Dep.DependentOffloadKind == Action::OFK_HIP &&
-        !Dep.DependentBoundArch.empty()) {
-      Triples += '-';
+    Triples += "-";
+    std::string NormalizedTriple =
+        Dep.DependentToolChain->getTriple().normalize();
+    Triples += NormalizedTriple;
+
+    if (!Dep.DependentBoundArch.empty()) {
+      // If OffloadArch is present it can only appear as the 6th hypen
+      // sepearated field of Bundle Entry ID. So, pad required number of
+      // hyphens in Triple.
+      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
+        Triples += "-";
       Triples += Dep.DependentBoundArch;
     }
   }
@@ -9465,7 +9502,11 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
        getToolChain().getTriple().isSPIR())) {
 #endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back("-spirv-max-version=1.3");
-    TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
+    // TODO: align debug info for FPGA H/W when its SPIR-V consumer is ready
+    if (C.getDriver().isFPGAEmulationMode())
+      TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
+    else
+      TranslatorArgs.push_back("-spirv-debug-info-version=legacy");
     // Prevent crash in the translator if input IR contains DIExpression
     // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
     TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
@@ -9508,35 +9549,29 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_arbitrary_precision_floating_point"
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
         ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
-        ",+SPV_INTEL_long_constant_composite";
+        ",+SPV_INTEL_long_constant_composite"
+        ",+SPV_INTEL_fpga_invocation_pipelining_attributes";
 #if INTEL_CUSTOMIZATION
     // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
     if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd))
       INTELExtArg += ",+SPV_INTEL_optnone";
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
-    if (getToolChain().getTriple().getSubArch() ==
-        llvm::Triple::SPIRSubArch_fpga) {
-      for (auto *A : TCArgs) {
-        if (A->getOption().matches(options::OPT_Xs_separate) ||
-            A->getOption().matches(options::OPT_Xs)) {
-          StringRef ArgString(A->getValue());
-          // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
-          // since it adds new storage classes that represent global_device and
-          // global_host address spaces, which are not supported for all
-          // targets. With the extension disabled the storage classes will be
-          // lowered to CrossWorkgroup storage class that is mapped to just
-          // global address space.
 #if INTEL_CUSTOMIZATION
-          if (ArgString == "hardware" || ArgString == "simulation") {
-            ExtArg += ",+SPV_INTEL_usm_storage_classes";
-            // Disable optnone for FPGA hardware
-            ExtArg += ",-SPV_INTEL_optnone";
-          }
+    if (!C.getDriver().isFPGAEmulationMode()) {
 #endif // INTEL_CUSTOMIZATION
-        }
-      }
+      // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
+      // since it adds new storage classes that represent global_device and
+      // global_host address spaces, which are not supported for all
+      // targets. With the extension disabled the storage classes will be
+      // lowered to CrossWorkgroup storage class that is mapped to just
+      // global address space.
+      ExtArg += ",+SPV_INTEL_usm_storage_classes";
+#if INTEL_CUSTOMIZATION
+      // Disable optnone for FPGA hardware
+      ExtArg += ",-SPV_INTEL_optnone";
     }
+#endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 

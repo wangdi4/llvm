@@ -13,7 +13,7 @@
 ; CHECK:Function: sub1_
 
 ; CHECK:     BEGIN REGION { }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %add6 = (%"sub1_$B")[i2][i3]  +  1.000000e+00;
@@ -40,7 +40,7 @@
 ; Notice that i2-loop at line 16 above is actually, i2 and i3 loop, where i3-loop's LB, UB, and inc are 0, 0, and 1.
 ;
 ; After transformation - after normalization
-;           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;           |   + DO i2 = 0, 2, 2   <DO_LOOP>       // By-strip loop of the original i2-loop. Stripmine size is 2, and loop normalization was not applied.
 ;           |   |   %tile_e_min = (i2 + 1 <= 2) ? i2 + 1 : 2;  // Loop tile begin is i2, and end will be (i2 + 1). The guard is for taking care of the last tile,
 ;                                                              // in case iteration range is not divisible by the tile size. Typical for any loop blocking.
@@ -84,7 +84,7 @@
 ; CHECK:Function: sub1_
 
 ; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   + DO i2 = 0, 2, 2   <DO_LOOP>
 ; CHECK:           |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 2) ? i2 + 1 : 2;
 ; CHECK:           |   |

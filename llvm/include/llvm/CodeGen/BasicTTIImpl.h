@@ -1671,6 +1671,7 @@ public:
     case Intrinsic::directive_region_exit:
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::pseudoprobe:
+    case Intrinsic::arithmetic_fence:
       return 0;
     case Intrinsic::masked_store: {
       Type *Ty = Tys[0];

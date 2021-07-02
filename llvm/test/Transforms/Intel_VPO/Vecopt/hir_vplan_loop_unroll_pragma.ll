@@ -98,7 +98,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG-NEXT:  <23>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; VPVALCG-NEXT:  <25>               if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:  <25>               {
-; VPVALCG-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; VPVALCG-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12 <DO_LOOP> <MAX_TC_EST = 178956970> <simd-vectorized> <nounroll> <novectorize>
 ; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <28>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC0]] + 1
 ; VPVALCG-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]

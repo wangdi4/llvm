@@ -776,7 +776,8 @@ CodeGenTypes::arrangeLLVMFunctionInfo(CanQualType resultType,
   unsigned CC = ClangCallConvToLLVMCallConv(info.getCC());
   // This is required so SYCL kernels are successfully processed by tools from CUDA. Kernels
   // with a `spir_kernel` calling convention are ignored otherwise.
-  if (CC == llvm::CallingConv::SPIR_KERNEL && CGM.getTriple().isNVPTX() &&
+  if (CC == llvm::CallingConv::SPIR_KERNEL &&
+      (CGM.getTriple().isNVPTX() || CGM.getTriple().isAMDGCN()) &&
       getContext().getLangOpts().SYCLIsDevice) {
     CC = llvm::CallingConv::C;
   }
@@ -2245,8 +2246,9 @@ void CodeGenModule::ConstructAttributeList(StringRef Name,
   // Add "sample-profile-suffix-elision-policy" attribute for internal linkage
   // functions with -funique-internal-linkage-names.
   if (TargetDecl && CodeGenOpts.UniqueInternalLinkageNames) {
-    if (auto *Fn = dyn_cast<FunctionDecl>(TargetDecl)) {
-      if (this->getFunctionLinkage(Fn) == llvm::GlobalValue::InternalLinkage)
+    if (isa<FunctionDecl>(TargetDecl)) {
+      if (this->getFunctionLinkage(CalleeInfo.getCalleeDecl()) ==
+          llvm::GlobalValue::InternalLinkage)
         FuncAttrs.addAttribute("sample-profile-suffix-elision-policy",
                                "selected");
     }

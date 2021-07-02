@@ -13,7 +13,7 @@
 ;<8>                   %"jacobian_$M.13" = undef;
 ;<202>
 ;<23>                     %"jacobian_$M.0" = undef;
-;<202>                 + DO i1 = 0, %"jacobian_$N_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;<202>                 + DO i1 = 0, %"jacobian_$N_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<203>                 |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
 ;<204>                 |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ;<38>                  |   |   |   %mod = i3 + 2  %  %"jacobian_$NY_fetch";
@@ -100,7 +100,7 @@
 ; CHECK:              %"jacobian_$M.13" = undef;
 ;
 ; CHECK:                 %"jacobian_$M.0" = undef;
-; CHECK:              + DO i1 = 0, %"jacobian_$N_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:              + DO i1 = 0, %"jacobian_$N_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:              |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + 3, 1   <DO_LOOP>
 ; CHECK:              |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
 ; CHECK:              |   |   |   + DO i4 = 0, sext.i32.i64(%"jacobian_$NX_fetch"), 1   <DO_LOOP>

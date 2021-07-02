@@ -81,7 +81,7 @@ entry:
   %1 = load i32 addrspace(3)*, i32 addrspace(3)** %x.addr, align 8
   br label %"Barrier BB1"
 
-; CHECK-LABEL: SyncBB3:
+; CHECK-LABEL: SyncBB2:
 ; CHECK: [[L1:%[0-9]+]] = load i32*, i32** %lid.addr
 ; CHECK: [[LocalId0:%LocalId_[0-9]+]] = load i64, i64* %pLocalId_0
 ; CHECK-NEXT: %conv = trunc i64 [[LocalId0]] to i32

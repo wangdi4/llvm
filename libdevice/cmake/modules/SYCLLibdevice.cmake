@@ -37,6 +37,9 @@ add_custom_command(OUTPUT ${devicelib-obj-file}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/crt_wrapper.cpp
                            -o ${devicelib-obj-file}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY crt_wrapper.cpp
                    DEPENDS wrapper.h device.h spirv_vars.h clang clang-offload-bundler
                    VERBATIM)
@@ -47,6 +50,9 @@ add_custom_command(OUTPUT ${devicelib-obj-complex}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/complex_wrapper.cpp
                            -o ${devicelib-obj-complex}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY complex_wrapper.cpp
                    DEPENDS device_complex.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -57,6 +63,9 @@ add_custom_command(OUTPUT ${devicelib-obj-complex-fp64}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/complex_wrapper_fp64.cpp
                            -o ${devicelib-obj-complex-fp64}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY complex_wrapper_fp64.cpp
                    DEPENDS device_complex.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -67,6 +76,9 @@ add_custom_command(OUTPUT ${devicelib-obj-cmath}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/cmath_wrapper.cpp
                            -o ${devicelib-obj-cmath}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY cmath_wrapper.cpp
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -77,6 +89,9 @@ add_custom_command(OUTPUT ${devicelib-obj-cmath-fp64}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/cmath_wrapper_fp64.cpp
                            -o ${devicelib-obj-cmath-fp64}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY cmath_wrapper_fp64.cpp
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -95,6 +110,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-cassert.${lib-suffi
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
                            -o ${obj_binary_dir}/libsycl-fallback-cassert.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY fallback-cassert.cpp
                    DEPENDS wrapper.h device.h clang spirv_vars.h clang-offload-bundler
                    VERBATIM)
@@ -113,6 +131,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-complex.${lib-suffi
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex.cpp
                            -o ${obj_binary_dir}/libsycl-fallback-complex.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY fallback-complex.cpp
                    DEPENDS device_math.h device_complex.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -131,6 +152,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-complex-fp64.${lib-
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex-fp64.cpp
                            -o ${obj_binary_dir}/libsycl-fallback-complex-fp64.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY fallback-complex-fp64.cpp
                    DEPENDS device_math.h device_complex.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -149,6 +173,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-cmath.${lib-suffix}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath.cpp
                            -o ${obj_binary_dir}/libsycl-fallback-cmath.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY fallback-cmath.cpp
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -167,6 +194,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-fallback-cmath-fp64.${lib-su
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cmath-fp64.cpp
                            -o ${obj_binary_dir}/libsycl-fallback-cmath-fp64.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY fallback-cmath-fp64.cpp
                    DEPENDS device_math.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -176,6 +206,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-itt-stubs.${lib-suffix}
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/itt_stubs.cpp
                            -o ${obj_binary_dir}/libsycl-itt-stubs.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY itt_stubs.cpp
                    DEPENDS device_itt.h spirv_vars.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -185,6 +218,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-itt-compiler-wrappers.${lib-
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/itt_compiler_wrappers.cpp
                            -o ${obj_binary_dir}/libsycl-itt-compiler-wrappers.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY itt_compiler_wrappers.cpp
                    DEPENDS device_itt.h spirv_vars.h device.h clang clang-offload-bundler
                    VERBATIM)
@@ -194,6 +230,9 @@ add_custom_command(OUTPUT ${obj_binary_dir}/libsycl-itt-user-wrappers.${lib-suff
                            ${compile_opts} ${sycl_targets_opt}
                            ${CMAKE_CURRENT_SOURCE_DIR}/itt_user_wrappers.cpp
                            -o ${obj_binary_dir}/libsycl-itt-user-wrappers.${lib-suffix}
+                           # TODO: remove -fno-sycl-use-footer after regression after 
+                           # intel/llvm:#3777 is fixed properly (CMPLRLLVM-22180)
+                           -fno-sycl-use-footer # INTEL_CUSTOMIZATION
                    MAIN_DEPENDENCY itt_user_wrappers.cpp
                    DEPENDS device_itt.h spirv_vars.h device.h clang clang-offload-bundler
                    VERBATIM)

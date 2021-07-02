@@ -139,29 +139,19 @@ struct ESIMDIntrinDesc {
     SRC_TMPL_ARG, // is an integer template argument
     NUM_BYTES,    // is a number of bytes (gather.scaled and scatter.scaled)
     UNDEF,        // is an undef value
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-    // This is used for PVC LSC emabrgo intrinsics
-    CONST_INT8,  // is an i8 constant
-#endif           // INTEL_FEATURE_ESIMD_EMBARGO
-#endif           // INTEL_CUSTOMIZATION
+    CONST_INT8,   // is an i8 constant
     CONST_INT16,  // is an i16 constant
     CONST_INT32,  // is an i32 constant
     CONST_INT64,  // is an i64 constant
   };
 
-  enum GenXArgConversion {
-    NONE,  // no conversion
-    TO_I1, // convert vector of N-bit integer to 1-bit
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-    // This is used for PVC LSC emabrgo intrinsics
+  enum class GenXArgConversion : int16_t {
+    NONE,   // no conversion
+    TO_SI,  // convert to 32-bit integer surface index
+    TO_I1,  // convert vector of N-bit integer to 1-bit
     TO_I8,  // convert vector of N-bit integer to 18-bit
     TO_I16, // convert vector of N-bit integer to 16-bit
     TO_I32, // convert vector of N-bit integer to 32-bit
-#endif      // INTEL_FEATURE_ESIMD_EMBARGO
-#endif      // INTEL_CUSTOMIZATION
-    TO_SI  // convert to 32-bit integer surface index
   };
 
   // Denotes GenX intrinsic name suffix creation rule kind.
@@ -177,18 +167,13 @@ struct ESIMDIntrinDesc {
     GenXArgRuleKind Kind;
     union Info {
       struct {
-        int16_t CallArgNo; // SRC_CALL_ARG: source call arg num
-                           // UNDEF: source call arg num to get type from
-                           // -1 denotes return value
-        int16_t Conv;      // GenXArgConversion
+        int16_t CallArgNo;      // SRC_CALL_ARG: source call arg num
+                                // SRC_TMPL_ARG: source template arg num
+                                // UNDEF: source call arg num to get type from
+                                // -1 denotes return value
+        GenXArgConversion Conv; // GenXArgConversion
       } Arg;
       int NRemArgs;           // SRC_CALL_ALL: number of remaining args
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-#else                         // INTEL_FEATURE_ESIMD_EMBARGO
-      unsigned int TmplArgNo; // SRC_TMPL_ARG: source template arg num
-#endif                        // INTEL_FEATURE_ESIMD_EMBARGO
-#endif                        // INTEL_CUSTOMIZATION
       unsigned int ArgConst;  // CONST_I16 OR CONST_I32: constant value
     } I;
   };
@@ -233,18 +218,9 @@ private:
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::Kind, {{N, {}}}};         \
   }
   DEF_ARG_RULE(l, SRC_CALL_ALL)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-#else  // INTEL_FEATURE_ESIMD_EMBARGO
-  DEF_ARG_RULE(t, SRC_TMPL_ARG)
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
   DEF_ARG_RULE(u, UNDEF)
   DEF_ARG_RULE(nbs, NUM_BYTES)
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-  // This is used for PVC LSC emabrgo intrinsics
   static constexpr ESIMDIntrinDesc::ArgRule t(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{
         ESIMDIntrinDesc::SRC_TMPL_ARG,
@@ -274,8 +250,6 @@ private:
         ESIMDIntrinDesc::SRC_TMPL_ARG,
         {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I32}}};
   }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule a(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{
@@ -294,13 +268,12 @@ private:
         ESIMDIntrinDesc::SRC_CALL_ARG,
         {{N, ESIMDIntrinDesc::GenXArgConversion::TO_SI}}};
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-  // This is used for PVC LSC emabrgo intrinsics
+
   static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
   }
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
   static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
     return c8(static_cast<uint8_t>(OpCode));
   }
@@ -600,7 +573,10 @@ public:
         {"ssdp4a_sat", {"ssdp4a.sat", {a(0), a(1), a(2)}}},
         {"any", {"any", {ai1(0)}}},
         {"all", {"all", {ai1(0)}}},
-        {"lane_id", {"lane.id", {}}}};
+        {"lane_id", {"lane.id", {}}},
+        {"test_src_tmpl_arg",
+         {"test.src.tmpl.arg", {t(0), t1(1), t8(2), t16(3), t32(4), c8(17)}}},
+    };
   }
 
   const IntrinTable &getTable() { return Table; }
@@ -683,35 +659,21 @@ static const T *castNodeImpl(const id::Node *N, id::Node::Kind K) {
   castNodeImpl<id::NodeKind>(NodeObj, id::Node::K##NodeKind)
 
 static APInt parseTemplateArg(id::FunctionEncoding *FE, unsigned int N,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-                              // This is used for PVC LSC emabrgo intrinsics
                               Type *&Ty, LLVMContext &Ctx,
                               ESIMDIntrinDesc::GenXArgConversion Conv =
                                   ESIMDIntrinDesc::GenXArgConversion::NONE) {
-#else  // INTEL_FEATURE_ESIMD_EMBARGO
-                              Type *&Ty, LLVMContext &Ctx) {
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
   // parseTemplateArg returns APInt with a certain bitsize
   // This bitsize (primitive size in bits) is deduced by the following rules:
   // If Conv is not None, then bitsize is taken from Conv
   // If Conv is None and Arg is IntegerLiteral, then bitsize is taken from
   // Arg size
   // If Conv is None and Arg is BoolExpr or Enum, the bitsize falls back to 32
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
   const auto *Nm = castNode(FE->getName(), NameWithTemplateArgs);
   const auto *ArgsN = castNode(Nm->TemplateArgs, TemplateArgs);
   id::NodeArray Args = ArgsN->getParams();
   assert(N < Args.size() && "too few template arguments");
   id::StringView Val;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-  // This is used for PVC LSC emabrgo intrinsics
   switch (Conv) {
   case ESIMDIntrinDesc::GenXArgConversion::NONE:
     // Default fallback case, if we cannot deduce bitsize
@@ -731,47 +693,25 @@ static APInt parseTemplateArg(id::FunctionEncoding *FE, unsigned int N,
     Ty = IntegerType::getInt32Ty(Ctx);
     break;
   }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
 
   switch (Args[N]->getKind()) {
   case id::Node::KIntegerLiteral: {
     auto *ValL = castNode(Args[N], IntegerLiteral);
     const id::StringView &TyStr = ValL->getType();
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-    // This is used for PVC LSC emabrgo intrinsics
     if (Conv == ESIMDIntrinDesc::GenXArgConversion::NONE && TyStr.size() != 0)
       // Overwrite Ty with IntegerLiteral's size
       Ty =
           parsePrimitiveTypeString(StringRef(TyStr.begin(), TyStr.size()), Ctx);
-#else  // INTEL_FEATURE_ESIMD_EMBARGO
-    Ty = TyStr.size() == 0 ? IntegerType::getInt32Ty(Ctx)
-                           : parsePrimitiveTypeString(
-                                 StringRef(TyStr.begin(), TyStr.size()), Ctx);
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
     Val = ValL->getValue();
     break;
   }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-  // This is used for PVC LSC emabrgo intrinsics
   case id::Node::KBoolExpr: {
     auto *ValL = castNode(Args[N], BoolExpr);
     ValL->match([&Val](bool Value) { Value ? Val = "1" : Val = "0"; });
     break;
   }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
   case id::Node::KEnumLiteral: {
     auto *CE = castNode(Args[N], EnumLiteral);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-#else  // INTEL_FEATURE_ESIMD_EMBARGO
-    Ty = IntegerType::getInt32Ty(Ctx);
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
     Val = CE->getIntegerValue();
     break;
   }
@@ -1286,16 +1226,8 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       break;
     case ESIMDIntrinDesc::GenXArgRuleKind::SRC_TMPL_ARG: {
       Type *Ty = nullptr;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-      // This is used for PVC LSC emabrgo intrinsic
-      APInt Val = parseTemplateArg(
-          FE, Rule.I.Arg.CallArgNo, Ty, CI.getContext(),
-          static_cast<ESIMDIntrinDesc::GenXArgConversion>(Rule.I.Arg.Conv));
-#else  // INTEL_FEATURE_ESIMD_EMBARGO
-      APInt Val = parseTemplateArg(FE, Rule.I.TmplArgNo, Ty, CI.getContext());
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
+      APInt Val = parseTemplateArg(FE, Rule.I.Arg.CallArgNo, Ty,
+                                   CI.getContext(), Rule.I.Arg.Conv);
       Value *ArgVal = ConstantInt::get(
           Ty, static_cast<uint64_t>(Val.getSExtValue()), true /*signed*/);
       GenXArgs.push_back(ArgVal);
@@ -1321,16 +1253,11 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       GenXArgs.push_back(UndefValue::get(Ty));
       break;
     }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ESIMD_EMBARGO
-    // This is used for PVC LSC emabrgo intrinsics
     case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT8: {
       auto Ty = IntegerType::getInt8Ty(CI.getContext());
       GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
       break;
     }
-#endif // INTEL_FEATURE_ESIMD_EMBARGO
-#endif // INTEL_CUSTOMIZATION
     case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT16: {
       auto Ty = IntegerType::getInt16Ty(CI.getContext());
       GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
@@ -1348,6 +1275,21 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
     }
     }
   }
+}
+
+// Create a simple function declaration
+// This is used for testing purposes, when it is impossible to query
+// vc-intrinsics
+static Function *createTestESIMDDeclaration(const ESIMDIntrinDesc &Desc,
+                                            SmallVector<Value *, 16> &GenXArgs,
+                                            CallInst &CI) {
+  SmallVector<Type *, 16> ArgTypes;
+  for (unsigned i = 0; i < GenXArgs.size(); ++i)
+    ArgTypes.push_back(GenXArgs[i]->getType());
+  auto *FType = FunctionType::get(CI.getType(), ArgTypes, false);
+  auto Name = GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling;
+  return Function::Create(FType, GlobalVariable::ExternalLinkage, Name,
+                          CI.getModule());
 }
 
 // Demangles and translates given ESIMD intrinsic call instruction. Example
@@ -1433,21 +1375,26 @@ static void translateESIMDIntrinsicCall(CallInst &CI) {
 
   auto *FTy = F->getFunctionType();
   std::string Suffix = getESIMDIntrinSuffix(FE, FTy, Desc.SuffixRule);
-  auto ID = GenXIntrinsic::lookupGenXIntrinsicID(
-      GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling + Suffix);
-
   SmallVector<Value *, 16> GenXArgs;
   createESIMDIntrinsicArgs(Desc, GenXArgs, CI, FE);
+  Function *NewFDecl = nullptr;
+  if (Desc.GenXSpelling.rfind("test.src.", 0) == 0) {
+    // Special case for testing purposes
+    NewFDecl = createTestESIMDDeclaration(Desc, GenXArgs, CI);
+  } else {
+    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(
+        GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling + Suffix);
 
-  SmallVector<Type *, 16> GenXOverloadedTypes;
-  if (GenXIntrinsic::isOverloadedRet(ID))
-    GenXOverloadedTypes.push_back(CI.getType());
-  for (unsigned i = 0; i < GenXArgs.size(); ++i)
-    if (GenXIntrinsic::isOverloadedArg(ID, i))
-      GenXOverloadedTypes.push_back(GenXArgs[i]->getType());
+    SmallVector<Type *, 16> GenXOverloadedTypes;
+    if (GenXIntrinsic::isOverloadedRet(ID))
+      GenXOverloadedTypes.push_back(CI.getType());
+    for (unsigned i = 0; i < GenXArgs.size(); ++i)
+      if (GenXIntrinsic::isOverloadedArg(ID, i))
+        GenXOverloadedTypes.push_back(GenXArgs[i]->getType());
 
-  Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID,
-                                                         GenXOverloadedTypes);
+    NewFDecl = GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID,
+                                                 GenXOverloadedTypes);
+  }
 
   Instruction *NewCI = CallInst::Create(
       NewFDecl, GenXArgs,

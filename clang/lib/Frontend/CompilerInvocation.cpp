@@ -1910,13 +1910,7 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
           << A->getSpelling() << T.str();
 
     const Option &O = A->getOption();
-    if (O.matches(OPT_mabi_EQ_vec_default))
-      Diags.Report(diag::err_aix_default_altivec_abi)
-          << A->getSpelling() << T.str();
-    else {
-      assert(O.matches(OPT_mabi_EQ_vec_extabi));
-      Opts.EnableAIXExtendedAltivecABI = 1;
-    }
+    Opts.EnableAIXExtendedAltivecABI = O.matches(OPT_mabi_EQ_vec_extabi);
   }
 
   bool NeedLocTracking = false;
@@ -4330,13 +4324,13 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   if (Arg *A = Args.getLastArg(OPT_msign_return_address_EQ)) {
     StringRef SignScope = A->getValue();
 
-    if (SignScope.equals_lower("none"))
+    if (SignScope.equals_insensitive("none"))
       Opts.setSignReturnAddressScope(
           LangOptions::SignReturnAddressScopeKind::None);
-    else if (SignScope.equals_lower("all"))
+    else if (SignScope.equals_insensitive("all"))
       Opts.setSignReturnAddressScope(
           LangOptions::SignReturnAddressScopeKind::All);
-    else if (SignScope.equals_lower("non-leaf"))
+    else if (SignScope.equals_insensitive("non-leaf"))
       Opts.setSignReturnAddressScope(
           LangOptions::SignReturnAddressScopeKind::NonLeaf);
     else
@@ -4346,10 +4340,10 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     if (Arg *A = Args.getLastArg(OPT_msign_return_address_key_EQ)) {
       StringRef SignKey = A->getValue();
       if (!SignScope.empty() && !SignKey.empty()) {
-        if (SignKey.equals_lower("a_key"))
+        if (SignKey.equals_insensitive("a_key"))
           Opts.setSignReturnAddressKey(
               LangOptions::SignReturnAddressKeyKind::AKey);
-        else if (SignKey.equals_lower("b_key"))
+        else if (SignKey.equals_insensitive("b_key"))
           Opts.setSignReturnAddressKey(
               LangOptions::SignReturnAddressKeyKind::BKey);
         else

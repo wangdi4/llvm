@@ -1155,9 +1155,9 @@ public:
         if (LI1->getParent() != LI2->getParent())
           return VLOperands::ScoreFail;
 
-        Optional<int> Dist =
-            getPointersDiff(LI1->getPointerOperand(), LI2->getPointerOperand(),
-                            DL, SE, /*StrictCheck=*/true);
+        Optional<int> Dist = getPointersDiff(
+            LI1->getType(), LI1->getPointerOperand(), LI2->getType(),
+            LI2->getPointerOperand(), DL, SE, /*StrictCheck=*/true);
         return (Dist && *Dist == 1) ? VLOperands::ScoreConsecutiveLoads
                                     : VLOperands::ScoreFail;
       }
@@ -5055,7 +5055,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       bool CandidateForGatherLoad = false; // INTEL
       OrdersType CurrentOrder;
       // Check the order of pointer operands.
-      if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
+      if (llvm::sortPtrAccesses(PointerOps, ScalarTy, *DL, *SE, CurrentOrder)) {
         Value *Ptr0;
         Value *PtrN;
         if (CurrentOrder.empty()) {
@@ -5065,7 +5065,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           Ptr0 = PointerOps[CurrentOrder.front()];
           PtrN = PointerOps[CurrentOrder.back()];
         }
-        Optional<int> Diff = getPointersDiff(Ptr0, PtrN, *DL, *SE);
+        Optional<int> Diff = getPointersDiff(
+            ScalarTy, Ptr0, ScalarTy, PtrN, *DL, *SE);
         // Check that the sorted loads are consecutive.
         if (static_cast<unsigned>(*Diff) == VL.size() - 1) {
           if (CurrentOrder.empty()) {
@@ -5124,7 +5125,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
         // Find out if we are able to build up the entire vector load with
         // multiple smaller size vector loads (of GroupSize elements each).
         // Populates LoadGroups with loads information.
-        auto TryGroupSize = [this, VF, &LoadGroups,
+        auto TryGroupSize = [this, &ScalarTy, VF, &LoadGroups,
                              IsConsecutive](ArrayRef<Value *> Pointers,
                                             ArrayRef<unsigned> PointersOrder,
                                             unsigned GroupSize) {
@@ -5139,7 +5140,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
             } else {
               ArrayRef<Value *> Slice =
                   makeArrayRef(Pointers).slice(First, GroupSize);
-              if (!llvm::sortPtrAccesses(Slice, *DL, *SE, GroupOrder) ||
+              if (!llvm::sortPtrAccesses(Slice, ScalarTy, *DL, *SE, GroupOrder) ||
                   (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
                 return false;
 
@@ -5460,7 +5461,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
       OrdersType CurrentOrder;
       // Check the order of pointer operands.
-      if (llvm::sortPtrAccesses(PointerOps, *DL, *SE, CurrentOrder)) {
+      if (llvm::sortPtrAccesses(PointerOps, ScalarTy, *DL, *SE, CurrentOrder)) {
         Value *Ptr0;
         Value *PtrN;
         if (CurrentOrder.empty()) {
@@ -5470,7 +5471,8 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
           Ptr0 = PointerOps[CurrentOrder.front()];
           PtrN = PointerOps[CurrentOrder.back()];
         }
-        Optional<int> Dist = getPointersDiff(Ptr0, PtrN, *DL, *SE);
+        Optional<int> Dist =
+            getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, *DL, *SE);
         // Check that the sorted pointer operands are consecutive.
         if (static_cast<unsigned>(*Dist) == VL.size() - 1) {
           SmallVector<int, 4> OpDirection(VL.size(), 0); // INTEL
@@ -9487,9 +9489,10 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
     ++IterCnt;
     CheckedPairs[Idx].set(K);
     CheckedPairs[K].set(Idx);
-    Optional<int> Diff = getPointersDiff(Stores[K]->getPointerOperand(),
-                                         Stores[Idx]->getPointerOperand(), *DL,
-                                         *SE, /*StrictCheck=*/true);
+    Optional<int> Diff = getPointersDiff(
+        Stores[K]->getValueOperand()->getType(), Stores[K]->getPointerOperand(),
+        Stores[Idx]->getValueOperand()->getType(),
+        Stores[Idx]->getPointerOperand(), *DL, *SE, /*StrictCheck=*/true);
     if (!Diff || *Diff == 0)
       return false;
     int Val = *Diff;

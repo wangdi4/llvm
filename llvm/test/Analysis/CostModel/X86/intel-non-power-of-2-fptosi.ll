@@ -37,14 +37,14 @@ define i32 @fptosi_double_i32(i32 %arg) {
 ;
 ; X86_64-AVX2-LABEL: 'fptosi_double_i32'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3I32 = fptosi <3 x double> undef to <3 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V7I32 = fptosi <7 x double> undef to <7 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7I32 = fptosi <7 x double> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %V9I32 = fptosi <9 x double> undef to <9 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX512-VL-BW-LABEL: 'fptosi_double_i32'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3I32 = fptosi <3 x double> undef to <3 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7I32 = fptosi <7 x double> undef to <7 x i32>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9I32 = fptosi <9 x double> undef to <9 x i32>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9I32 = fptosi <9 x double> undef to <9 x i32>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3I32 = fptosi <3 x double> undef to <3 x i32>

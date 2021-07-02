@@ -16,7 +16,7 @@
 ;<8>                   %1 = (%B.addr)[0];
 ;<9>                   %2 = (%C.addr)[0];
 ;<10>                  %3 = (%A.addr)[0];
-;<37>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;<37>               + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<16>               |   %4 = (%1)[i1];
 ;<17>               |   %conv = fpext.float.double(%4);
 ;<19>               |   %5 = (%2)[i1];
@@ -37,7 +37,7 @@
 ; CHECK-NEXT:         %1 = (%B.addr)[0];
 ; CHECK-NEXT:         %2 = (%C.addr)[0];
 ; CHECK-NEXT:         %3 = (%A.addr)[0];
-; CHECK-NEXT:      + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK-NEXT:      + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK-NEXT:      |   %conv = fpext.float.double((%1)[i1]);
 ; CHECK-NEXT:      |   %conv3 = fpext.float.double((%2)[i1]);
 ; CHECK-NEXT:      |   %mul = %conv3  *  2.000000e+00;

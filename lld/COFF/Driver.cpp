@@ -241,7 +241,7 @@ void LinkerDriver::addBuffer(std::unique_ptr<MemoryBuffer> mb,
 #endif // INTEL_CUSTOMIZATION
     break;
   case file_magic::pecoff_executable:
-    if (filename.endswith_lower(".dll")) {
+    if (filename.endswith_insensitive(".dll")) {
       error(filename + ": bad file type. Did you specify a DLL instead of an "
                        "import library?");
       break;
@@ -486,7 +486,7 @@ Optional<StringRef> LinkerDriver::findFile(StringRef filename) {
       return None;
   }
 
-  if (path.endswith_lower(".lib"))
+  if (path.endswith_insensitive(".lib"))
     visitedLibs.insert(std::string(sys::path::filename(path)));
   return path;
 }
@@ -1295,9 +1295,9 @@ static void parsePDBAltPath(StringRef altPath) {
     // text between first and second % as variable name.
     buf.append(altPath.substr(cursor, firstMark - cursor));
     StringRef var = altPath.substr(firstMark, secondMark - firstMark + 1);
-    if (var.equals_lower("%_pdb%"))
+    if (var.equals_insensitive("%_pdb%"))
       buf.append(pdbBasename);
-    else if (var.equals_lower("%_ext%"))
+    else if (var.equals_insensitive("%_ext%"))
       buf.append(binaryExtension);
     else {
       warn("only %_PDB% and %_EXT% supported in /pdbaltpath:, keeping " +
@@ -1411,7 +1411,7 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
 
     // Check that "/lib" is the first argument in the expanded command
     if (expandedArgv.size() > 1 &&
-        StringRef(expandedArgv[1]).equals_lower("/lib")) {
+        StringRef(expandedArgv[1]).equals_insensitive("/lib")) {
       if (llvm::libDriverMain(makeArrayRef(expandedArgv).slice(1)) != 0)
         fatal("lib failed");
       return true;
@@ -1465,8 +1465,9 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 
   // If the first command line argument is "/lib", link.exe acts like lib.exe.
   // We call our own implementation of lib.exe that understands bitcode files.
-  if (argsArr.size() > 1 && (StringRef(argsArr[1]).equals_lower("/lib") ||
-                             StringRef(argsArr[1]).equals_lower("-lib"))) {
+  if (argsArr.size() > 1 &&
+      (StringRef(argsArr[1]).equals_insensitive("/lib") ||
+       StringRef(argsArr[1]).equals_insensitive("-lib"))) {
     if (llvm::libDriverMain(argsArr.slice(1)) != 0)
       fatal("lib failed");
     return;

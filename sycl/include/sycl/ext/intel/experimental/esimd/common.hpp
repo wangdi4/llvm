@@ -518,10 +518,11 @@ constexpr lsc_data_size finalize_data_size() {
 enum class CacheHint : uint8_t {
   None = 0,
   Uncached = 1,
-  WriteBack = 2,
-  WriteThrough = 3,
-  Streaming = 4,
-  ReadInvalidate = 5
+  Cached = 2,
+  WriteBack = 3,
+  WriteThrough = 4,
+  Streaming = 5,
+  ReadInvalidate = 6
 };
 
 /// Represents a split barrier action.

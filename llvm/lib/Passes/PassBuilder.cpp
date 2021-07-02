@@ -1471,9 +1471,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
 
-  if (PTO.Coroutines)
-    MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
-
   // Now deduce any function attributes based in the current code.
   MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
 
@@ -1494,6 +1491,9 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // CGSCC walk.
   MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase)));
+
+  if (PTO.Coroutines)
+    MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
 
   return MIWP;
 }
@@ -1616,7 +1616,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
   // Try to perform OpenMP specific optimizations on the module. This is a
   // (quick!) no-op if there are no OpenMP runtime calls present in the module.
-  if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
+  if (Level != OptimizationLevel::O0)
     MPM.addPass(OpenMPOptPass());
 
   if (AttributorRun & AttributorRunOption::MODULE)
@@ -1720,7 +1720,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 
 /// TODO: Should LTO cause any differences to this set of passes?
 void PassBuilder::addVectorPasses(OptimizationLevel Level,
-                                  FunctionPassManager &FPM, bool IsLTO) {
+                                  FunctionPassManager &FPM, bool IsFullLTO) {
 #if INTEL_CUSTOMIZATION
   // In LTO mode, loopopt runs in link phase along with community vectorizer
   // after it.
@@ -1729,7 +1729,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
-  if (IsLTO) {
+  if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
     // parallel execution resources of an out-of-order processor. We also then
@@ -1747,7 +1747,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(WarnMissedTransformationsPass());
   }
 
-  if (!IsLTO) {
+  if (!IsFullLTO) {
     // Eliminate loads by forwarding stores from the previous iteration to loads
     // of the current iteration.
     FPM.addPass(LoopLoadEliminationPass());
@@ -1784,7 +1784,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (IsLTO) {
+  if (IsFullLTO) {
     // 28038: Avoid excessive hoisting as it increases register pressure and
     // select conversion without clear gains.
     // FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
@@ -1807,10 +1807,10 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
                                   .hoistCommonInsts(true)
                                   .sinkCommonInsts(true)));
 #if INTEL_CUSTOMIZATION
-  } // IsLTO
+  } // IsFullLTO
 #endif // INTEL_CUSTOMIZATION
 
-  if (IsLTO) {
+  if (IsFullLTO) {
     FPM.addPass(SCCPPass());
     addInstCombinePass(FPM, !DTransEnabled); // INTEL
     FPM.addPass(BDCEPass());
@@ -1825,13 +1825,13 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   }
   } // INTEL
 #if INTEL_CUSTOMIZATION
-  if (!IsLTO)
+  if (!IsFullLTO)
     AfterSLPVectorizer = true;
 #endif // INTEL_CUSTOMIZATION
   // Enhance/cleanup vector code.
   FPM.addPass(VectorCombinePass());
 
-  if (!IsLTO) {
+  if (!IsFullLTO) {
 #if INTEL_CUSTOMIZATION
     FPM.addPass(EarlyCSEPass());
     // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
@@ -1878,7 +1878,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // alignment information, try to re-derive it here.
   FPM.addPass(AlignmentFromAssumptionsPass());
 
-  if (IsLTO)
+  if (IsFullLTO)
     addInstCombinePass(FPM, true /* EnableUpCasting */); // INTEL
 }
 
@@ -2386,7 +2386,7 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // from the TargetLibraryInfo.
   OptimizePM.addPass(InjectTLIMappings());
 
-  addVectorPasses(Level, OptimizePM, /* IsLTO */ false);
+  addVectorPasses(Level, OptimizePM, /* IsFullLTO */ false);
 
   // Split out cold code. Splitting is done late to avoid hiding context from
   // other optimizations and inadvertently regressing performance. The tradeoff
@@ -3104,7 +3104,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #endif // INTEL_CUSTOMIZATION
   MainFPM.addPass(LoopDistributePass());
 
-  addVectorPasses(Level, MainFPM, /* IsLTO */ true);
+  addVectorPasses(Level, MainFPM, /* IsFullLTO */ true);
 
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
@@ -3269,7 +3269,6 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
 
     CGSCCPassManager CGPM;
     CGPM.addPass(CoroSplitPass());
-    CGPM.addPass(createCGSCCToFunctionPassAdaptor(CoroElidePass()));
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM)));
 
     MPM.addPass(createModuleToFunctionPassAdaptor(CoroCleanupPass()));

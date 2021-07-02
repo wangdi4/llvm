@@ -207,7 +207,7 @@ static MacroDiag shouldWarnOnMacroUndef(Preprocessor &PP, IdentifierInfo *II) {
 static bool warnByDefaultOnWrongCase(StringRef Include) {
   // If the first component of the path is "boost", treat this like a standard header
   // for the purposes of diagnostics.
-  if (::llvm::sys::path::begin(Include)->equals_lower("boost"))
+  if (::llvm::sys::path::begin(Include)->equals_insensitive("boost"))
     return true;
 
   // "condition_variable" is the longest standard header name at 18 characters.
@@ -1734,7 +1734,8 @@ static bool trySimplifyPath(SmallVectorImpl<StringRef> &Components,
         // If these path components differ by more than just case, then we
         // may be looking at symlinked paths. Bail on this diagnostic to avoid
         // noisy false positives.
-        SuggestReplacement = RealPathComponentIter->equals_lower(Component);
+        SuggestReplacement =
+            RealPathComponentIter->equals_insensitive(Component);
         if (!SuggestReplacement)
           break;
         Component = *RealPathComponentIter;
@@ -2553,14 +2554,14 @@ static void getTypelibGuid(const char *Name, GUID *GuidPtr,
                            LCID *Lcid) {
   char GuidStr[SIZEOF_GUID_STRING] = "";
   StringRef OriginalName = Name;
-  if (OriginalName.startswith_lower("libid:")) {
+  if (OriginalName.startswith_insensitive("libid:")) {
     Name += 6;
     while (isspace(*Name))
       Name++;
     strcpy(GuidStr, "{");
     strncat(GuidStr, Name, SIZEOF_GUID_STRING - 3);
     strcat(GuidStr, "}");
-  } else if (OriginalName.startswith_lower("progid:")) {
+  } else if (OriginalName.startswith_insensitive("progid:")) {
     // Find the CLSID for the PROGID then use that to get the LIBID.
     //
     // The CLSID is either HKEY_CLASSES_ROOT\foo\CLSID or
@@ -2627,8 +2628,8 @@ static std::string getTypelibName(StringRef Filename, unsigned short Major,
 
   if (Guid == GUID_NULL) {
     StringRef ResultRef = Result;
-    if (ResultRef.startswith_lower("libid:") ||
-        ResultRef.startswith_lower("progid:"))
+    if (ResultRef.startswith_insensitive("libid:") ||
+        ResultRef.startswith_insensitive("progid:"))
       return "";
   }
 

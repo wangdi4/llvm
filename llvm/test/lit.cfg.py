@@ -165,7 +165,7 @@ tools.extend([
     'llvm-link', 'llvm-lto', 'llvm-lto2', 'llvm-mc', 'llvm-mca',
     'llvm-modextract', 'llvm-nm', 'llvm-objcopy', 'llvm-objdump', 'llvm-otool',
     'llvm-pdbutil', 'llvm-profdata', 'llvm-profgen', 'llvm-ranlib', 'llvm-rc', 'llvm-readelf',
-    'llvm-readobj', 'llvm-rtdyld', 'llvm-size', 'llvm-split', 'llvm-strings',
+    'llvm-readobj', 'llvm-rtdyld', 'llvm-sim', 'llvm-size', 'llvm-split', 'llvm-strings',
     'llvm-strip', 'llvm-tblgen', 'llvm-tapi-diff', 'llvm-undname', 'llvm-windres',
     'llvm-c-test', 'llvm-cxxfilt',
     'llvm-xray', 'yaml2obj', 'obj2yaml', 'yaml-bench', 'verify-uselistorder',
@@ -182,7 +182,12 @@ tools.extend([
     ToolSubst('Kaleidoscope-Ch7', unresolved='ignore'),
     ToolSubst('Kaleidoscope-Ch8', unresolved='ignore'),
     ToolSubst('LLJITWithThinLTOSummaries', unresolved='ignore'),
-    ToolSubst('LLJITWithRemoteDebugging', unresolved='ignore')])
+    ToolSubst('LLJITWithRemoteDebugging', unresolved='ignore'),
+    ToolSubst('OrcV2CBindingsBasicUsage', unresolved='ignore'),
+    ToolSubst('OrcV2CBindingsAddObjectFile', unresolved='ignore'),
+    ToolSubst('OrcV2CBindingsRemovableCode', unresolved='ignore'),
+    ToolSubst('OrcV2CBindingsReflectProcessSymbols', unresolved='ignore'),
+    ToolSubst('OrcV2CBindingsLazy', unresolved='ignore')])
 
 llvm_config.add_tool_substitutions(tools, config.llvm_tools_dir)
 

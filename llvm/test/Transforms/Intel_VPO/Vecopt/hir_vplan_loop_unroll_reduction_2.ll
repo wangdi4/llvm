@@ -21,7 +21,7 @@
 ; BEGIN REGION { }
 ;       %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
-;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;       + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;       |   %acc.08 = (%a)[i1]  +  %acc.08; <Safe Reduction>
 ;       + END LOOP
 ;
@@ -99,7 +99,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:  <16>               {
 ; CGCHECK-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
 ; CGCHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
-; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <auto-vectorized> <nounroll> <novectorize>
+; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 178956970> <auto-vectorized> <nounroll> <novectorize>
 ; CGCHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; CGCHECK-NEXT:  <21>                  |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CGCHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]

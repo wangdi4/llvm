@@ -59,7 +59,7 @@
 ;CGCHECK-NEXT:        {
 ;CGCHECK-NEXT:           %red.var = %best.023;
 ;CGCHECK-NEXT:           %red.var1 = %tmp.024;
-;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CGCHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CGCHECK-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
 ;CGCHECK-NEXT:           |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;

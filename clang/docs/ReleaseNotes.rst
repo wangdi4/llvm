@@ -265,6 +265,10 @@ clang-format
   change that so that the lambda body is indented one level relative to the scope
   containing the lambda, regardless of where the lambda signature was placed.
 
+- Option ``IfMacros`` has been added. This lets you define macros that get
+  formatted like conditionals much like ``ForEachMacros`` get styled like
+  foreach loops.
+
 - ``git-clang-format`` no longer formats changes to symbolic links. (Fixes
   https://llvm.org/PR46992.)
 
@@ -273,6 +277,8 @@ clang-format
 
 - Option ``AlignArrayOfStructure`` has been added to allow for ordering array-like
   initializers.
+
+- Support for formatting JSON file (\*.json) has been added to clang-format.
 
 libclang
 --------

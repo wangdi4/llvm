@@ -16,6 +16,7 @@
 #include <__iterator/iterator_traits.h>
 #include <__iterator/readable_traits.h>
 #include <__memory/pointer_traits.h>
+#include <__utility/forward.h>
 #include <concepts>
 #include <type_traits>
 
@@ -247,6 +248,9 @@ concept indirectly_movable_storable =
   movable<iter_value_t<_In>> &&
   constructible_from<iter_value_t<_In>, iter_rvalue_reference_t<_In>> &&
   assignable_from<iter_value_t<_In>&, iter_rvalue_reference_t<_In>>;
+
+// Note: indirectly_swappable is located in iter_swap.h to prevent a dependency cycle
+// (both iter_swap and indirectly_swappable require indirectly_readable).
 
 // clang-format on
 

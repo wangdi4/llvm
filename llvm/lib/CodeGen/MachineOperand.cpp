@@ -1023,13 +1023,12 @@ MachinePointerInfo MachinePointerInfo::getUnknownStack(MachineFunction &MF) {
 }
 
 MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
-                                     uint64_t s, Align a,
-                                     const AAMDNodes &AAInfo,
+                                     LLT type, Align a, const AAMDNodes &AAInfo,
                                      const MDNode *Ranges, SyncScope::ID SSID,
                                      AtomicOrdering Ordering,
                                      AtomicOrdering FailureOrdering)
-    : PtrInfo(ptrinfo), Size(s), FlagVals(f), BaseAlign(a), AAInfo(AAInfo),
-      Ranges(Ranges) {
+    : PtrInfo(ptrinfo), MemoryType(type), FlagVals(f), BaseAlign(a),
+      AAInfo(AAInfo), Ranges(Ranges) {
   assert((PtrInfo.V.isNull() || PtrInfo.V.is<const PseudoSourceValue *>() ||
           isa<PointerType>(PtrInfo.V.get<const Value *>()->getType())) &&
          "invalid pointer value");
@@ -1049,11 +1048,21 @@ MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
 #endif // INTEL_CUSTOMIZATION
 }
 
+MachineMemOperand::MachineMemOperand(MachinePointerInfo ptrinfo, Flags f,
+                                     uint64_t s, Align a,
+                                     const AAMDNodes &AAInfo,
+                                     const MDNode *Ranges, SyncScope::ID SSID,
+                                     AtomicOrdering Ordering,
+                                     AtomicOrdering FailureOrdering)
+    : MachineMemOperand(ptrinfo, f,
+                        s == ~UINT64_C(0) ? LLT() : LLT::scalar(8 * s), a,
+                        AAInfo, Ranges, SSID, Ordering, FailureOrdering) {}
+
 /// Profile - Gather unique data for the object.
 ///
 void MachineMemOperand::Profile(FoldingSetNodeID &ID) const {
   ID.AddInteger(getOffset());
-  ID.AddInteger(Size);
+  ID.AddInteger(getMemoryType().getUniqueRAWLLTData());
   ID.AddPointer(getOpaqueValue());
   ID.AddInteger(getFlags());
   ID.AddInteger(getBaseAlign().value());
@@ -1118,10 +1127,10 @@ void MachineMemOperand::print(raw_ostream &OS, ModuleSlotTracker &MST,
   if (getFailureOrdering() != AtomicOrdering::NotAtomic)
     OS << toIRString(getFailureOrdering()) << ' ';
 
-  if (getSize() == MemoryLocation::UnknownSize)
-    OS << "unknown-size";
+  if (getMemoryType().isValid())
+    OS << '(' << getMemoryType() << ')';
   else
-    OS << getSize();
+    OS << "unknown-size";
 
   if (const Value *Val = getValue()) {
     OS << ((isLoad() && isStore()) ? " on " : isLoad() ? " from " : " into ");

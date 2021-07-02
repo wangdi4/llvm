@@ -21,8 +21,8 @@
 ; CHECK: Selecting all Pending FORMALs
 
 ; CHECK: define dso_local i32 @main
-; CHECK: call i32 @foo.2
 ; CHECK: call i32 @foo.1
+; CHECK: call i32 @foo.2
 ; CHECK: define internal i32 @foo.1
 ; CHECK: define internal i32 @foo.2
 

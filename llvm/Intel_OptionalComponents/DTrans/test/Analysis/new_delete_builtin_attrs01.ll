@@ -14,10 +14,10 @@
 ; CHECK: Is MallocPostDom _ZN10MemManager8allocateEl
 ; CHECK: Analyzing for FreePostDom _ZN10MemManagerD0Ev
 ; CHECK: Is FreePostDom _ZN10MemManagerD0Ev
-; CHECK: Analyzing for FreePostDom _ZN10MemManager11deallocate2EPv
-; CHECK: Is FreePostDom _ZN10MemManager11deallocate2EPv
 ; CHECK: Analyzing for FreePostDom _ZN10MemManager11deallocate1EPv
 ; CHECK: Is FreePostDom _ZN10MemManager11deallocate1EPv
+; CHECK: Analyzing for FreePostDom _ZN10MemManager11deallocate2EPv
+; CHECK: Is FreePostDom _ZN10MemManager11deallocate2EPv
 
 %class.MemManager = type { i32 (...)** }
 

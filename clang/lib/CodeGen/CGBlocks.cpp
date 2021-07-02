@@ -2394,6 +2394,8 @@ generateByrefCopyHelper(CodeGenFunction &CGF, const BlockByrefInfo &byrefInfo,
   CGF.CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
   CGF.StartFunction(GlobalDecl(), ReturnTy, Fn, FI, args);
+    // Create a scope with an artificial location for the body of this function.
+  auto AL = ApplyDebugLocation::CreateArtificial(CGF);
 
   if (generator.needsCopy()) {
     llvm::Type *byrefPtrType = byrefInfo.Type->getPointerTo(0);
@@ -2461,6 +2463,8 @@ generateByrefDisposeHelper(CodeGenFunction &CGF,
   CGF.CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
   CGF.StartFunction(GlobalDecl(), R, Fn, FI, args);
+    // Create a scope with an artificial location for the body of this function.
+  auto AL = ApplyDebugLocation::CreateArtificial(CGF);
 
   if (generator.needsDispose()) {
     Address addr = CGF.GetAddrOfLocalVar(&Src);

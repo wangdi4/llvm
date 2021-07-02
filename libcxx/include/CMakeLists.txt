@@ -34,6 +34,7 @@ set(files
   __algorithm/is_permutation.h
   __algorithm/is_sorted.h
   __algorithm/is_sorted_until.h
+  __algorithm/iter_swap.h
   __algorithm/lexicographical_compare.h
   __algorithm/lower_bound.h
   __algorithm/make_heap.h
@@ -85,6 +86,7 @@ set(files
   __algorithm/sort_heap.h
   __algorithm/stable_partition.h
   __algorithm/stable_sort.h
+  __algorithm/swap_ranges.h
   __algorithm/transform.h
   __algorithm/unique_copy.h
   __algorithm/unique.h
@@ -101,27 +103,61 @@ set(files
   __format/format_error.h
   __format/format_parse_context.h
   __function_like.h
-  __functional/search.h
-  __functional_03
   __functional_base
-  __functional_base_03
+  __functional/binary_function.h
+  __functional/binary_negate.h
+  __functional/bind_front.h
+  __functional/bind.h
+  __functional/binder1st.h
+  __functional/binder2nd.h
+  __functional/default_searcher.h
+  __functional/function.h
+  __functional/hash.h
+  __functional/identity.h
+  __functional/invoke.h
+  __functional/is_transparent.h
+  __functional/mem_fn.h
+  __functional/mem_fun_ref.h
+  __functional/not_fn.h
+  __functional/operations.h
+  __functional/perfect_forward.h
+  __functional/pointer_to_binary_function.h
+  __functional/pointer_to_unary_function.h
+  __functional/ranges_operations.h
+  __functional/reference_wrapper.h
+  __functional/unary_function.h
+  __functional/unary_negate.h
+  __functional/unwrap_ref.h
+  __functional/weak_result_type.h
   __hash_table
   __iterator/advance.h
+  __iterator/back_insert_iterator.h
   __iterator/concepts.h
   __iterator/default_sentinel.h
+  __iterator/front_insert_iterator.h
   __iterator/incrementable_traits.h
+  __iterator/insert_iterator.h
+  __iterator/istream_iterator.h
+  __iterator/istreambuf_iterator.h
   __iterator/iter_move.h
   __iterator/iter_swap.h
   __iterator/iterator_traits.h
+  __iterator/iterator.h
+  __iterator/move_iterator.h
   __iterator/next.h
+  __iterator/ostream_iterator.h
+  __iterator/ostreambuf_iterator.h
   __iterator/prev.h
   __iterator/projected.h
   __iterator/readable_traits.h
+  __iterator/reverse_iterator.h
+  __iterator/wrap_iter.h
   __libcpp_version
   __locale
   __memory/addressof.h
   __memory/allocation_guard.h
   __memory/allocator.h
+  __memory/allocator_arg_t.h
   __memory/allocator_traits.h
   __memory/auto_ptr.h
   __memory/compressed_pair.h
@@ -133,6 +169,7 @@ set(files
   __memory/temporary_buffer.h
   __memory/uninitialized_algorithms.h
   __memory/unique_ptr.h
+  __memory/uses_allocator.h
   __mutex_base
   __node_handle
   __nullptr
@@ -141,6 +178,7 @@ set(files
   __ranges/all.h
   __ranges/concepts.h
   __ranges/data.h
+  __ranges/drop_view.h
   __ranges/empty.h
   __ranges/empty_view.h
   __ranges/enable_borrowed_range.h
@@ -156,6 +194,19 @@ set(files
   __tree
   __tuple
   __undef_macros
+  __utility/__decay_copy.h
+  __utility/as_const.h
+  __utility/cmp.h
+  __utility/declval.h
+  __utility/exchange.h
+  __utility/forward.h
+  __utility/in_place.h
+  __utility/integer_sequence.h
+  __utility/move.h
+  __utility/pair.h
+  __utility/piecewise_construct.h
+  __utility/rel_ops.h
+  __utility/swap.h
   __utility/to_underlying.h
   algorithm
   any

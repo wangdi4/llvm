@@ -8,7 +8,7 @@
 ;  |   (%A)[zext.i3.i64(i1)] = i1;
 ;  + END LOOP
 
-; CHECK: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>
+; CHECK: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>
 ; CHECK: |   (<8 x i32>*)(%A)[i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
 ; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
 ; CHECK: + END LOOP
@@ -18,7 +18,7 @@
 
 
 ; Verify that -hir-ignore-wraparound  works as expected.
-; IGNORE-WRAP: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>
+; IGNORE-WRAP: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 268435455>
 ; IGNORE-WRAP: |   (<8 x i32>*)(%A)[i1] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
 ; IGNORE-WRAP: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.i3.i64(i1)]
 ; IGNORE-WRAP: + END LOOP

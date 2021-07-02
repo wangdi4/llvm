@@ -801,8 +801,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
                                               // Eliminate tail calls
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-  MPM.add(createReassociatePass());           // Reassociate expressions
+  MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
+  // FIXME: re-association increases variables liveness and therefore register
+  // pressure.
+  if (!SYCLOptimizationMode)
+    MPM.add(createReassociatePass()); // Reassociate expressions
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
@@ -945,10 +948,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
 /// FIXME: Should LTO cause any differences to this set of passes?
 void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
-                                         bool IsLTO) {
+                                         bool IsFullLTO) {
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode) {
-    if (!IsLTO) {
+    if (!IsFullLTO) {
       if ((!PrepareForLTO || !isLoopOptEnabled()) && EnableLV)
         PM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
     } else {
@@ -957,7 +960,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     }
 #endif // INTEL_CUSTOMIZATION
 
-  if (IsLTO) {
+  if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
     // parallel execution resources of an out-of-order processor. We also then
@@ -978,7 +981,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     PM.add(createWarnMissedTransformationsPass());
   }
 
-  if (!IsLTO) {
+  if (!IsFullLTO) {
     // Eliminate loads by forwarding stores from the previous iteration to loads
     // of the current iteration.
     PM.add(createLoopLoadEliminationPass());
@@ -1004,7 +1007,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (IsLTO) {
+  if (IsFullLTO) {
     // 28038: Avoid excessive hoisting as it increases register pressure and
     // select conversion without clear gains.
     // PM.add(createCFGSimplificationPass(SimplifyCFGOptions() // if-convert
@@ -1028,10 +1031,10 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
                                          .hoistCommonInsts(true)
                                          .sinkCommonInsts(true)));
 #if INTEL_CUSTOMIZATION
-  } // IsLTO
+  } // IsFullLTO
 #endif // INTEL_CUSTOMIZATION
 
-  if (IsLTO) {
+  if (IsFullLTO) {
     PM.add(createSCCPPass());                 // Propagate exposed constants
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
     PM.add(createBitTrackingDCEPass());
@@ -1057,7 +1060,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   // Enhance/cleanup vector code.
   PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
-  if (!IsLTO)
+  if (!IsFullLTO)
     PM.add(createEarlyCSEPass());
 #endif // INTEL_CUSTOMIZATION
   } // if (!SYCLOptimizationMode) // INTEL
@@ -1065,7 +1068,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #if INTEL_CUSTOMIZATION
   if (!SYCLOptimizationMode)
 #endif // INTEL_CUSTOMIZATION
-  if (!IsLTO) {
+  if (!IsFullLTO) {
     addExtensionsToPM(EP_Peephole, PM);
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
 
@@ -1121,7 +1124,7 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   PM.add(createAlignmentFromAssumptionsPass());
 
 #if INTEL_CUSTOMIZATION
-  if (IsLTO) {
+  if (IsFullLTO) {
     // Make unaligned nontemporal stores use a wrapper function instead of
     // scalarizing them.
     PM.add(createNontemporalStoreWrapperPass());
@@ -1546,7 +1549,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopDistributePass());
   } // INTEL
 
-  addVectorPasses(MPM, /* IsLTO */ false);
+  addVectorPasses(MPM, /* IsFullLTO */ false);
 
   // FIXME: We shouldn't bother with this anymore.
   MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
@@ -2072,7 +2075,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addLoopOptAndAssociatedVPOPasses(PM, true);
 #endif  // INTEL_CUSTOMIZATION
   PM.add(createLoopDistributePass());
-  addVectorPasses(PM, /* IsLTO */ true);
+
+  addVectorPasses(PM, /* IsFullLTO */ true);
 
   addExtensionsToPM(EP_Peephole, PM);
 

@@ -11,8 +11,8 @@
 ; requiring asserts.
 
 ; CHECK: define dso_local i32 @main()
-; CHECK: tail call fastcc i32 @foo.2(i32 100)
-; CHECK: tail call fastcc i32 @foo.1(i32 200)
+; CHECK: tail call fastcc i32 @foo.1(i32 100)
+; CHECK: tail call fastcc i32 @foo.2(i32 200)
 ; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5(
 ; CHECK: define internal fastcc i32 @foo.1
 ; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5 to

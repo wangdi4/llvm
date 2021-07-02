@@ -53,7 +53,7 @@ bb177:                                            ; preds = %bb168
 
 bb180:                                            ; preds = %bb177, %bb175
   %tmp181 = phi i64 [ %tmp176, %bb175 ], [ %tmp178, %bb177 ]
-  %tmp182 = phi i32 [ undef, %bb175 ], [ %tmp179, %bb177 ]
+  %tmp182 = phi i32 [ 0, %bb175 ], [ %tmp179, %bb177 ]
   %tmp183 = phi float [ 0.000000e+00, %bb175 ], [ %tmp173, %bb177 ]
   %tmp184 = getelementptr inbounds float, float* %tmp12, i64 %tmp181
   %tmp185 = load float, float* %tmp184, align 4
@@ -64,7 +64,7 @@ bb187:                                            ; preds = %bb180
   br label %bb190
 
 bb190:                                            ; preds = %bb187, %bb180
-  %tmp191 = phi i32 [ undef, %bb187 ], [ %tmp182, %bb180 ]
+  %tmp191 = phi i32 [ 0, %bb187 ], [ %tmp182, %bb180 ]
   %tmp192 = phi float [ %tmp185, %bb187 ], [ %tmp183, %bb180 ]
   %tmp193 = add nuw nsw i64 %tmp98, 1
   %tmp194 = icmp eq i64 %tmp98, %tmp94
@@ -78,7 +78,7 @@ bb195:                                            ; preds = %bb190
 bb203:                                            ; preds = %bb215, %bb195
   %tmp204 = phi i32 [ %tmp196, %bb195 ], [ %tmp217, %bb215 ]
   %tmp205 = phi float [ %tmp197, %bb195 ], [ %tmp218, %bb215 ]
-  %tmp206 = phi i64 [ undef, %bb195 ], [ %tmp216, %bb215 ]
+  %tmp206 = phi i64 [ 0, %bb195 ], [ %tmp216, %bb215 ]
   %tmp207 = getelementptr inbounds float, float* %tmp12, i64 %tmp206
   %tmp208 = load float, float* %tmp207, align 4
   %tmp209 = fcmp fast olt float %tmp208, %tmp205

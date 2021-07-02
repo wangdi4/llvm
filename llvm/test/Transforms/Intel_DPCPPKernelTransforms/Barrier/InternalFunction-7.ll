@@ -33,7 +33,7 @@ L3:
 ; CHECK-NOT: @barrier_dummy
 ; CHECK-NOT: @_Z18work_group_barrierj
 ;;;; TODO: add regular expression for the below values.
-; CHECK-LABEL: SyncBB2:
+; CHECK-LABEL: SyncBB{{[0-9]*}}:
 ; CHECK:          [[GEP0:%[a-zA-Z0-9]+]] = load i32*, i32** %x.addr
 ; CHECK-NEXT:   br label %L2
 ; CHECK-LABEL: L2:

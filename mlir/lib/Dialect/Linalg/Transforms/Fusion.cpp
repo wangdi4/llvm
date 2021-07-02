@@ -187,8 +187,7 @@ static LinalgOp fuse(OpBuilder &b, LinalgOp producer,
                               << loopRanges.back() << "\n");
     } else {
       auto shapeDim = getShapeDefiningLoopRange(producer, i);
-      Value dim = b.createOrFold<memref::DimOp>(loc, shapeDim.shape,
-                                                shapeDim.dimension);
+      Value dim = createOrFoldDimOp(b, loc, shapeDim.shape, shapeDim.dimension);
       tileSizes.push_back(zero);
       sizeBounds.push_back(dim);
       loopRanges.push_back(Range{zero, dim, one});
@@ -204,10 +203,6 @@ static LinalgOp fuse(OpBuilder &b, LinalgOp producer,
   clonedShapes.append(makeTiledShapes(b, loc, producer,
                                       getTiledOperands(b, producer), ivs,
                                       tileSizes, sizeBounds));
-
-  // Append the other operands.
-  auto operands = producer.getAssumedNonShapedOperands();
-  clonedShapes.append(operands.begin(), operands.end());
 
   // Iterate over the results in order.
   // Extract the subtensor type from the linearized range.
@@ -648,7 +643,7 @@ static bool doesTransposeAccess(AffineMap map,
 /// parallel loops and appear in the result of the map
 ///
 /// Example 1:
-///   linalg.fill(%c, %cst)
+///   linalg.fill(%cst, %c)
 ///   linalg.matmul ins(%a, %b) outs(%c)
 ///     Number of parallel loops : 2
 ///     producerIndexMap = affine_map<(i, j) ->(i , j)>

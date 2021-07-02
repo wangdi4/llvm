@@ -1014,7 +1014,7 @@ protected:
                      const RegPressureTracker &RPTracker,
                      RegPressureTracker &TempTracker);
 
-  virtual void tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
+  virtual bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
                             SchedBoundary *Zone) const;
 
   SUnit *pickNodeBidirectional(bool &IsTopNode);
@@ -1077,7 +1077,7 @@ public:
   }
 
 protected:
-  virtual void tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand);
+  virtual bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand);
 
   void pickNodeFromQueue(SchedCandidate &Cand);
 };

@@ -101,8 +101,8 @@ func @multiple_results(%arg0: tensor<4xf32>) -> (tensor<4xf32>, tensor<4xf32>) {
 // CHECK-DAG:       %[[C0:.*]] = constant 0 : index
 // CHECK-DAG:       %[[C1:.*]] = constant 1 : index
 // CHECK:           %[[MEMREF_ARG:.*]] = memref.buffer_cast %[[ARG]] : memref<?x?xf32>
-// CHECK:           %[[DIM0:.*]] = memref.dim %[[ARG]], %[[C0]] : tensor<?x?xf32>
-// CHECK:           %[[DIM1:.*]] = memref.dim %[[ARG]], %[[C1]] : tensor<?x?xf32>
+// CHECK:           %[[DIM0:.*]] = tensor.dim %[[ARG]], %[[C0]] : tensor<?x?xf32>
+// CHECK:           %[[DIM1:.*]] = tensor.dim %[[ARG]], %[[C1]] : tensor<?x?xf32>
 // CHECK:           %[[RESULT0:.*]] = memref.alloc(%[[DIM0]], %[[DIM1]]) : memref<?x?xf32>
 // CHECK:           %[[RESULT1:.*]] = memref.alloc(%[[DIM0]], %[[DIM1]]) : memref<?x?xf32>
 // CHECK:           linalg.generic
@@ -214,8 +214,8 @@ func @bufferize_insert_slice(%t : tensor<?x?xf32>, %st0 : tensor<2x3xf32>, %st1 
 
   // CHECK-DAG: %[[M:.*]] = memref.buffer_cast %[[T]] : memref<?x?xf32>
   // CHECK-DAG: %[[SM0:.*]] = memref.buffer_cast %[[ST0]] : memref<2x3xf32>
-  // CHECK-NEXT: %[[DIM0:.*]] = memref.dim %[[T]], %[[C0]] : tensor<?x?xf32>
-  // CHECK-NEXT: %[[DIM1:.*]] = memref.dim %[[T]], %[[C1]] : tensor<?x?xf32>
+  // CHECK-NEXT: %[[DIM0:.*]] = tensor.dim %[[T]], %[[C0]] : tensor<?x?xf32>
+  // CHECK-NEXT: %[[DIM1:.*]] = tensor.dim %[[T]], %[[C1]] : tensor<?x?xf32>
   // CHECK-NEXT: %[[M_COPY0:.*]] = memref.alloc(%[[DIM0]], %[[DIM1]]) : memref<?x?xf32>
   // CHECK-NEXT: linalg.copy(%[[M]], %[[M_COPY0]]) : memref<?x?xf32>, memref<?x?xf32>
   // CHECK-NEXT: %[[SUBVIEW0:.*]] = memref.subview %[[M_COPY0]][0, 0] [2, 3] [1, 1]
@@ -244,10 +244,10 @@ func @bufferize_insert_slice(%t : tensor<?x?xf32>, %st0 : tensor<2x3xf32>, %st1 
 func @bufferize_fill(%arg0: tensor<?xf32>) -> tensor<?xf32> {
   %c0 = constant 0.0 : f32
   // CHECK: %[[MEMREF:.*]] = memref.buffer_cast %[[IN]] : memref<?xf32>
-  // CHECK: linalg.fill(%[[MEMREF]], %cst) : memref<?xf32>, f32
+  // CHECK: linalg.fill(%cst, %[[MEMREF]]) : f32, memref<?xf32>
   // CHECK: %[[TENSOR:.*]] = memref.tensor_load %[[MEMREF]] : memref<?xf32>
   // CHECK: return %[[TENSOR]]
-  %0 = linalg.fill(%arg0, %c0) : tensor<?xf32>, f32 -> tensor<?xf32>
+  %0 = linalg.fill(%c0, %arg0) : f32, tensor<?xf32> -> tensor<?xf32>
   return %0 : tensor<?xf32>
 }
 

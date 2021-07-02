@@ -17,7 +17,7 @@
 ; CHECK:              |   + END LOOP
 ; CHECK:              |
 ; CHECK:              |
-; CHECK:              |   + DO i2 = 0, %3 + -503, 1   <DO_LOOP>  <MAX_TC_EST = 4294966793>
+; CHECK:              |   + DO i2 = 0, %3 + -503, 1   <DO_LOOP>  <MAX_TC_EST = 2147483145>
 ; CHECK:              |   |   %add26 = (%"sub1_$A")[i2 + 2]  +  2.000000e+00;
 ; CHECK:              |   |   (%"sub1_$B")[i2] = %add26;
 ; CHECK:              |   + END LOOP
@@ -43,7 +43,7 @@
 ; CHECK:              |   |   %sub = %tile_e_min  -  2;
 ; CHECK:              |   |   %ub_min5 = (%3 + -503 <= %sub) ? %3 + -503 : %sub;
 ; CHECK:              |   |
-; CHECK:              |   |   + DO i3 = 0, -1 * %lb_max4 + %ub_min5, 1   <DO_LOOP>  <MAX_TC_EST = 4294966793>
+; CHECK:              |   |   + DO i3 = 0, -1 * %lb_max4 + %ub_min5, 1   <DO_LOOP>  <MAX_TC_EST = 2147483145>
 ; CHECK:              |   |   |   %add26 = (%"sub1_$A")[i3 + %lb_max4 + 2]  +  2.000000e+00;
 ; CHECK:              |   |   |   (%"sub1_$B")[i3 + %lb_max4] = %add26;
 ; CHECK:              |   |   + END LOOP

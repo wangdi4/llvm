@@ -4,7 +4,7 @@
 ;*** IR Dump Before HIR Propagate Casted IV ***
 ;
 ;<0>          BEGIN REGION { }
-;<13>               + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;<13>               + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;<3>                |   %t2 = zext.i32.i64(i1 + %n);
 ;<6>                |   (%a)[%t2 + 1].0 = i1;
 ;<13>               + END LOOP
@@ -14,7 +14,7 @@
 ;
 ; CHECK:     BEGIN REGION { }
 ; CHECK:              %ptr = &((%a)[1]);
-; CHECK:           + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   (%ptr)[i1 + %n].0 = i1;
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION

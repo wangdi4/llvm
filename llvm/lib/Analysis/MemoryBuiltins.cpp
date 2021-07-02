@@ -160,9 +160,8 @@ static Optional<AllocFnsTy>
 getAllocationDataForFunction(const Function *Callee, AllocType AllocTy,
                              const TargetLibraryInfo *TLI) {
   // Make sure that the function is available.
-  StringRef FnName = Callee->getName();
   LibFunc TLIFn;
-  if (!TLI || !TLI->getLibFunc(FnName, TLIFn) || !TLI->has(TLIFn))
+  if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
     return None;
 
   const auto *Iter = find_if(
@@ -620,9 +619,8 @@ const CallInst *llvm::isFreeCall(const Value *I, const TargetLibraryInfo *TLI,
   if (Callee == nullptr || (CheckNoBuiltin && IsNoBuiltinCall))
     return nullptr;
 
-  StringRef FnName = Callee->getName();
   LibFunc TLIFn;
-  if (!TLI || !TLI->getLibFunc(FnName, TLIFn) || !TLI->has(TLIFn))
+  if (!TLI || !TLI->getLibFunc(*Callee, TLIFn) || !TLI->has(TLIFn))
     return nullptr;
 
   return isLibFreeFunction(Callee, TLIFn) ? dyn_cast<CallInst>(I) : nullptr;
