@@ -21,8 +21,8 @@ define i32 @fpext_vXfloat() {
 ; X86_64-AVX512-VL-BW-LABEL: 'fpext_vXfloat'
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3f64 = fpext <3 x float> undef to <3 x double>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7f64 = fpext <7 x float> undef to <7 x double>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 33 for instruction: %V9f64 = fpext <9 x float> undef to <9 x double>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 129 for instruction: %V33f64 = fpext <33 x float> undef to <33 x double>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V9f64 = fpext <9 x float> undef to <9 x double>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 24 for instruction: %V33f64 = fpext <33 x float> undef to <33 x double>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3f64 = fpext <3 x float> undef to <3 x double>

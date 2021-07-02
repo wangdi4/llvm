@@ -253,7 +253,7 @@ define i32 @sext_vXi1() {
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i8 = sext <9 x i1> undef to <9 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V33i8 = sext <33 x i1> undef to <33 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V63i8 = sext <63 x i1> undef to <63 x i8>
-; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 254 for instruction: %V67i8 = sext <67 x i1> undef to <67 x i8>
+; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V67i8 = sext <67 x i1> undef to <67 x i8>
 ; X86_64-AVX512-VL-BW-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
   %V3i64 = sext <3 x i1> undef to <3 x i64>
