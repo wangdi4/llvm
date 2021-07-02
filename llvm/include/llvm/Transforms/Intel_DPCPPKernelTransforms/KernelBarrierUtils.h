@@ -1,4 +1,4 @@
-//===- BarrierUtils.h - Barrier Utils -------------------------------------===//
+//===- KernelBarrierUtils.h - Barrier Utils -------------------------------===//
 //
 // Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
@@ -17,6 +17,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include <map>
 #include <vector>
@@ -33,7 +34,7 @@ class StringRef;
 class Twine;
 
 // Pseudo functions for barrier passes
-#define DUMMY_BARRIER_FUNC_NAME "dummybarrier."
+#define DUMMY_BARRIER_FUNC_NAME "barrier_dummy"
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 #define GET_BASE_GID "get_base_global_id."
 
@@ -43,13 +44,6 @@ class Twine;
 
 #define SPECIAL_BUFFER_ADDR_SPACE 0
 #define CURR_WI_ADDR_SPACE 0
-
-typedef enum {
-  SYNC_TYPE_NONE,
-  SYNC_TYPE_BARRIER,
-  SYNC_TYPE_DUMMY_BARRIER,
-  SYNC_TYPE_NUM
-} SYNC_TYPE;
 
 typedef enum {
   CALL_BI_TYPE_WG,
@@ -92,13 +86,13 @@ public:
   /// \brief return synchronize type of given instruction
   /// \param Inst instruction to observe its synchronize type
   /// \returns given instruction synchronize type {barrier dummyBarrier or none}
-  SYNC_TYPE getSynchronizeType(Instruction *Inst);
+  SyncType getSyncType(Instruction *Inst);
 
   /// \brief return synchronize type of given basic block
   /// \param BB basic block to observe its synchronize type
   /// \returns given basic block synchronize type {barrier, dummyBarrier or
   /// none}
-  SYNC_TYPE getSynchronizeType(BasicBlock *BB);
+  SyncType getSyncType(BasicBlock *BB);
 
   /// \brief return all synchronize instructions in the module
   /// \returns container with all synchronize instructions

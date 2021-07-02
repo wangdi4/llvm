@@ -1,4 +1,4 @@
-//===- BarrierUtils.cpp - Barrier Utils -----------------------------------===//
+//===- KernelBarrierUtils.cpp - Barrier Utils -----------------------------===//
 //
 // Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
@@ -8,14 +8,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <vector>
@@ -81,27 +80,27 @@ BasicBlock *BarrierUtils::findBasicBlockOfUsageInst(Value *Val,
   return PrevBB;
 }
 
-SYNC_TYPE BarrierUtils::getSynchronizeType(Instruction *Inst) {
+SyncType BarrierUtils::getSyncType(Instruction *Inst) {
   // Initialize sync data if it is not done yet
   initializeSyncData();
 
   if (!isa<CallInst>(Inst)) {
     // Not a call instruction, cannot BE a synchronize instruction
-    return SYNC_TYPE_NONE;
+    return SyncType::None;
   }
   if (Barriers.count(Inst)) {
     // It is a barrier instruction
-    return SYNC_TYPE_BARRIER;
+    return SyncType::Barrier;
   }
   if (DummyBarriers.count(Inst)) {
     // It is a dummyBarrier instruction
-    return SYNC_TYPE_DUMMY_BARRIER;
+    return SyncType::DummyBarrier;
   }
-  return SYNC_TYPE_NONE;
+  return SyncType::None;
 }
 
-SYNC_TYPE BarrierUtils::getSynchronizeType(BasicBlock *BB) {
-  return getSynchronizeType(&*BB->begin());
+SyncType BarrierUtils::getSyncType(BasicBlock *BB) {
+  return getSyncType(&*BB->begin());
 }
 
 InstVector &BarrierUtils::getAllSynchronizeInstructions() {
@@ -266,7 +265,8 @@ Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
   if (!BarrierFunc) {
     // Barrier function is not initialized yet
     // Check if there is a declaration in the module
-    BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledBarrier());
+    BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
+        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE));
   }
   if (!BarrierFunc) {
     // Module has no barrier declaration. Create one
@@ -274,7 +274,9 @@ Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
     std::vector<Type *> FuncTyArgs;
     FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
     BarrierFunc = createFunctionDeclaration(
-        DPCPPKernelCompilationUtils::mangledBarrier(), Result, FuncTyArgs);
+        DPCPPKernelCompilationUtils::mangledWGBarrier(
+            DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+        Result, FuncTyArgs);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
         BarrierFunc->getContext(), AttributeList::FunctionIndex,
         Attribute::Convergent));

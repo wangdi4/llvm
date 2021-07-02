@@ -41,14 +41,13 @@ PreservedAnalyses BarrierInFunction::run(Module &M, ModuleAnalysisManager &) {
 
 bool BarrierInFunction::runImpl(Module &M) {
   // Initialize barrier utils class with current module.
-  BarrierUtils.init(&M);
+  Utils.init(&M);
 
   // Find all the kernel functions.
-  FuncVector &KernelFunctions = BarrierUtils.getAllKernelsWithBarrier();
+  FuncVector &KernelFunctions = Utils.getAllKernelsWithBarrier();
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync =
-      BarrierUtils.getAllFunctionsWithSynchronization();
+  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
   // Set of all functions that allready added to handle container.
   // Will be used to prevent handling functions more than once.
@@ -89,10 +88,10 @@ bool BarrierInFunction::runImpl(Module &M) {
         continue;
 
       // Add Barrier before function call instruction.
-      BarrierUtils.createBarrier(CI);
+      Utils.createBarrier(CI);
 
       // Add dummyBarrier after function call instruction.
-      Instruction *DummyBarrierCall = BarrierUtils.createDummyBarrier();
+      Instruction *DummyBarrierCall = Utils.createDummyBarrier();
       DummyBarrierCall->insertAfter(CI);
 
       Function *CallerFunc = CI->getParent()->getParent();
@@ -103,9 +102,6 @@ bool BarrierInFunction::runImpl(Module &M) {
         FunctionsToHandle.push_back(CallerFunc);
     }
   }
-
-  // Remove all fiber instructions from non handled functions.
-  removeFibersFromNonHandledFunctions(FunctionsAddedToHandle, M);
 
   return true;
 }
@@ -119,7 +115,7 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
   assert(!dyn_cast<PHINode>(FirstInst) && "First instruction is a PHINode");
 
   // Add dummyBarrier call before FirstInst.
-  BarrierUtils.createDummyBarrier(FirstInst);
+  Utils.createDummyBarrier(FirstInst);
 
   // Find all reachable return instructions in Func.
   InstVector RetInstructions;
@@ -134,13 +130,8 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
 
   // Add barrier call before each ret instruction in Func.
   for (Instruction *RetInst: RetInstructions) {
-    BarrierUtils.createBarrier(RetInst);
+    Utils.createBarrier(RetInst);
   }
-}
-
-void BarrierInFunction::removeFibersFromNonHandledFunctions(
-    FuncSet &FunctionSet, Module &M) {
-  // Don't need this for DPCPP.
 }
 
 ModulePass *llvm::createBarrierInFunctionLegacyPass() {

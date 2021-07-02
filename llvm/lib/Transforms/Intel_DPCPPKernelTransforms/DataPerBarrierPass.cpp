@@ -14,6 +14,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+
 using namespace llvm;
 
 AnalysisKey DataPerBarrierAnalysis::Key;
@@ -28,6 +29,13 @@ PreservedAnalyses DataPerBarrierPrinter::run(Module &M,
   return PreservedAnalyses::all();
 }
 
+DataPerBarrier::DataPerBarrier(Module &M) {
+  Utils.init(&M);
+  InitSynchronizeData();
+  for (auto &F : M)
+    runOnFunction(F);
+}
+
 void DataPerBarrier::InitSynchronizeData() {
   // Internal Data used to calculate user Analysis Data.
   unsigned int CurrentAvailableID = 0;
@@ -35,14 +43,14 @@ void DataPerBarrier::InitSynchronizeData() {
   HasFiber = false;
 
   // Find all synchronize instructions.
-  InstVector &SyncInstructions = BarrierUtils.getAllSyncInstructions();
+  InstVector &SyncInstructions = Utils.getAllSynchronizeInstructions();
 
   for (Instruction *I : SyncInstructions) {
-    SyncType InstSyncType = BarrierUtils.getSynchronizeType(I);
-    assert(SyncTypeNone != InstSyncType &&
+    SyncType InstSyncType = Utils.getSyncType(I);
+    assert(SyncType::None != InstSyncType &&
            "Sync list contains non sync instruction!");
 
-    if (SyncTypeFiber == InstSyncType) {
+    if (SyncType::Fiber == InstSyncType) {
       // Module is using fiber instruction.
       // TODO: do we need this information per Function?
       HasFiber = true;
@@ -153,7 +161,7 @@ void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
       if (BarrierBBSet.count(Inst)) {
         // This predecessor basic block conatins a barrier.
         BarrierPredecessors.insert(Inst);
-        if (DataPerBarrierMap[Inst].Type == SyncTypeFiber) {
+        if (DataPerBarrierMap[Inst].Type == SyncType::Fiber) {
           // predecessor is a fiber instruction, update barrier related data.
           InstBarrierRelated.HasFiberRelated = true;
         }

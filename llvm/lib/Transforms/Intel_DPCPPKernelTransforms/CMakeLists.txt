@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RedundantPhiNodePass.cpp
   SplitBBonBarrierPass.cpp
   DPCPPKernelBarrierUtils.cpp
+  KernelBarrierUtils.cpp
   WIRelatedValuePass.cpp
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
@@ -33,7 +34,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   VectorVariant/UpdateCallAttrs.cpp
   VectorVariant/VectorVariantFillIn.cpp
 
-  Utils/BarrierUtils.cpp
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp

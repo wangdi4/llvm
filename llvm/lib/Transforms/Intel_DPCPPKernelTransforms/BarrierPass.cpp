@@ -18,7 +18,6 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
@@ -972,7 +971,7 @@ void KernelBarrier::replaceSyncInstructions() {
     BasicBlock *SyncBB = Inst->getParent();
     BasicBlock *PreSyncBB = PreSyncLoopHeader[SyncBB];
     assert(PreSyncBB && "SyncBB assumed to have sync loop header basic block!");
-    if (SyncTypeDummyBarrier == SyncTy) {
+    if (SyncType::DummyBarrier == SyncTy) {
       // This is a dummy barrier replace with the following
       // LocalId = 0
       // currSB = 0
