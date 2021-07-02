@@ -26,9 +26,9 @@ namespace llvm {
 
 class DominatorTree;
 class TargetTransformInfo;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 class DTransImmutableInfo;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 namespace loopopt {
 class HIRLoopStatistics;
@@ -53,9 +53,9 @@ public:
   HIRCompleteUnroll(HIRFramework &HIRF, DominatorTree &DT,
                     const TargetTransformInfo &TTI, HIRLoopStatistics &HLS,
                     HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &HSRA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                     DTransImmutableInfo *DTII,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                     unsigned OptLevel, bool IsPreVec,
                     bool PragmaOnlyUnroll);
 
@@ -76,9 +76,9 @@ private:
   HIRLoopStatistics &HLS;
   HIRDDAnalysis &DDA;
   HIRSafeReductionAnalysis &HSRA;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   DTransImmutableInfo *DTII;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;

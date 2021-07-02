@@ -318,6 +318,11 @@
 # INTEL_FEATURE_SW_ADVANCED
 @SW_ADVANCED:SECRET@
 # end INTEL_FEATURE_SW_ADVANCED
+
+# INTEL_FEATURE_SW_DTRANS
+# Build the compiler with DTrans optimizations enabled
+@SW_DTRANS:SECRET@
+# end INTEL_FEATURE_SW_DTRANS
 # === New SW features section end ===
 
 # === New CPU section begin ===
@@ -328,8 +333,8 @@
 
 # Special software features section currently consist of
 # INTEL_INTERNAL_BUILD feature only.  We may actually represent
-# the current INTEL_CUSTOMIZATION, INTEL_SPECIFIC_OPENMP,
-# INTEL_SPECIFIC_CILKPLUS and INTEL_INCLUDE_DTRANS as features
-# by adding them here.  INTEL_COLLAB cannot use this scheme,
-# because we do not provide this file to the community.
+# the current INTEL_CUSTOMIZATION, INTEL_SPECIFIC_OPENMP and
+# INTEL_SPECIFIC_CILKPLUS as features by adding them here.
+# INTEL_COLLAB cannot use this scheme, because we do not provide
+# this file to the community.
 @INTEL_INTERNAL_BUILD:SHARED@

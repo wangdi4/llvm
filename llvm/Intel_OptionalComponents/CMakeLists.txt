@@ -11,6 +11,8 @@
 #    Configures build for project.
 #
 
+# TODO: The DTrans subdirectory needs to be guarded FEATURE_SW_DTRANS.
+# This will be done after fully moving INCLUDE_DTRANS to FEATURE_SW_DTRANS.
 if (INTEL_INCLUDE_DTRANS)
   add_subdirectory(DTrans)
 endif()

@@ -24,9 +24,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -921,7 +921,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   (void)HasConstStride;
   assert(HasConstStride && "Constant loop stride expected!");
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
   // allocate more than 4GB of memory. As soon as currently there's no
@@ -929,7 +929,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   // that if pointer is padded, 4GB check is inserted.
   if (Value *Base = getTempBaseValue())
     FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
@@ -1028,7 +1028,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   (void)LoopHasConstStride;
   assert(LoopHasConstStride && "Constant loop stride expected!");
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
   // allocate more than 4GB of memory. As soon as currently there's no
@@ -1036,7 +1036,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   // that if pointer is padded, 4GB check is inserted.
   if (Value *Base = getTempBaseValue())
     FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
