@@ -263,11 +263,11 @@ public:
   bool shouldScalarizeMaskedGather(CallInst *CI) const {
     // By default, This function will return !isLegalMaskedGather.
     const DataLayout *DL = &CI->getModule()->getDataLayout();
-    unsigned AlignmentInt =
-        cast<ConstantInt>(CI->getArgOperand(1))->getZExtValue();
+    MaybeAlign MA =
+        cast<ConstantInt>(CI->getArgOperand(1))->getMaybeAlignValue();
     Type *LoadTy = CI->getType();
-    Align Alignment =
-        DL->getValueOrABITypeAlignment(MaybeAlign(AlignmentInt), LoadTy);
+    Align Alignment = DL->getValueOrABITypeAlignment(MA,
+                                                    LoadTy->getScalarType());
     return !isLegalMaskedGather(LoadTy, Alignment);
   }
 
