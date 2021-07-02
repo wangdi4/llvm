@@ -4,9 +4,9 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 
-; Original global variables are removed
-; CHECK-NOT: @a.__local = internal addrspace(3) global
-; CHECK-NOT: @b.__local = internal addrspace(3) global
+; Original global variables are not removed in case they have other users
+; CHECK: @a.__local = internal addrspace(3) global
+; CHECK: @b.__local = internal addrspace(3) global
 @a.__local = internal addrspace(3) global [4 x i32] undef, align 4, !dbg !0
 @b.__local = internal addrspace(3) global [4 x i64] undef, align 8, !dbg !17
 
@@ -54,10 +54,9 @@ entry:
 !opencl.kernels = !{!35}
 !opencl.stats.InstCounter.CanVect = !{!36}
 
-; Make sure original GlobalVariable DebugInfos are removed
-; CHECK-NOT: !DIGlobalVariableExpression
-; CHECK-NOT: !DIGlobalVariable(name: "a"
-; CHECK-NOT: !DIGlobalVariable(name: "b"
+; Make sure original GlobalVariable DebugInfos are removed from DICompileUnit global list
+; CHECK-DAG: distinct !DICompileUnit({{.*}} globals: ![[#GLB_ID:]]
+; CHECK-DAG: ![[#GLB_ID]] = !{}
 
 ; Newly created local variable DebugInfos:
 ; CHECK-DAG: ![[#A_LOCAL]] = !DILocalVariable(name: "a"

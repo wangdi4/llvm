@@ -70,9 +70,6 @@ namespace intel{
 
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
-    m_GVEToRemove.clear();
-    m_GVToRemove.clear();
-
     // Run on all defined function in the module
     for ( auto &F : M ) {
       Function *pFunc = &F;
@@ -94,9 +91,9 @@ namespace intel{
 
     UpdateDICompileUnitGlobals();
 
-    // Safely erase useless GVs
-    for (auto *GV : m_GVToRemove)
-      GV->eraseFromParent();
+    // FIXME: Currently we don't remove GVs to W/A a SIMULATOR DEBUGGER MODE
+    // issue. The GVs should be removed finally after we switch to NATIVE
+    // DEBUGGER MODE.
 
     return true;
   }
@@ -188,7 +185,6 @@ namespace intel{
     }
 
     m_GVEToRemove.insert(DIGVExprs.begin(), DIGVExprs.end());
-    m_GVToRemove.insert(GV);
   }
 
   void LocalBuffers::UpdateDICompileUnitGlobals() {
