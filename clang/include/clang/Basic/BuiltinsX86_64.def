@@ -372,7 +372,7 @@ TARGET_BUILTIN(__builtin_ia32_ttmmulfp19ps, "vIUcIUcIUc", "n", "amx-fp19")
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
 TARGET_BUILTIN(__builtin_ia32_icecode_loadseg, "vvC*Ii", "n", "icecode-mode")
-TARGET_BUILTIN(__builtin_ia32_icecode_storeseg, "vvC*Ii", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storeseg, "vv*Ii", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_8, "UcULLi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_16, "UsULLi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_loadpphys_32, "UiULLi", "n", "icecode-mode")
@@ -419,6 +419,17 @@ TARGET_BUILTIN(__builtin_ia32_icecode_loadlin_64, "ULLiULLi", "n", "icecode-mode
 TARGET_BUILTIN(__builtin_ia32_icecode_storelin_16, "vUsULLi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_storelin_32, "vUiULLi", "n", "icecode-mode")
 TARGET_BUILTIN(__builtin_ia32_icecode_storelin_64, "vULLiULLi", "n", "icecode-mode")
+
+TARGET_BUILTIN(__builtin_ia32_icecode_loaduphys, "vvC*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_storeuphys, "vv*", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_or_32, "UiIUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_or_64, "ULLiIUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_or_mt_32, "UiIUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_or_mt_64, "ULLiIUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_andnot_32, "UiIUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_fscp_andnot_64, "ULLiIUiULLi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_andnot_mt_32, "UiIUiUi", "n", "icecode-mode")
+TARGET_BUILTIN(__builtin_ia32_icecode_creg_andnot_mt_64, "ULLiIUiULLi", "n", "icecode-mode")
 #endif // INTEL_FEATURE_ICECODE
 
 #if INTEL_FEATURE_ISA_GPR_MOVGET
