@@ -448,6 +448,7 @@ public:
       if (MapIt != IRCallBaseCallSiteMap.end()) {
         InlineReportCallSite *IRCS = MapIt->second;
         IRCallBaseCallSiteMap.erase(MapIt);
+        IRCS->setCall(nullptr);
         IRCS->setReason(InlineReportTypes::NinlrDeleted);
       }
     }

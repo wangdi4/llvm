@@ -376,8 +376,17 @@ _ce_store_tickle_gpa(unsigned long long addr) {
   __asm__ __volatile__ ("store_tickle_gpa" :: "a"(addr));
 }
 
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_flush_ifu(unsigned long long value) {
+  __asm__ __volatile__ ("flush_ifu %0" :: "a"(value));
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_io_tickle_debug(unsigned long long value) {
+  __asm__ __volatile__ ("io_tickle_debug %0" :: "a"(value));
+}
+
 #define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
-#define _ce_flush_ifu() __asm__ __volatile__ ("flush_ifu")
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
 _ce_loadlin16(unsigned long long addr) {
@@ -423,8 +432,26 @@ _ce_cccp(unsigned long long reg) {
   return res;
 }
 
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loaduphys(void *mem) {
+  __builtin_ia32_icecode_loaduphys(mem);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeuphys(void *mem) {
+  __builtin_ia32_icecode_storeuphys(mem);
+}
+
 #define _ce_jmp_nopred(addr) __asm__ __volatile__ ("jmp_nopred %0" :: "r"(addr))
 #define _ce_fe_serialize() __asm__ __volatile__ ("fe_serialize")
+#define _ce_fscp_or_32(V, I) __builtin_ia32_icecode_fscp_or_32(I, V)
+#define _ce_fscp_or_64(V, I) __builtin_ia32_icecode_fscp_or_64(I, V)
+#define _ce_creg_or_mt_32(V, I) __builtin_ia32_icecode_creg_or_mt_32(I, V)
+#define _ce_creg_or_mt_64(V, I) __builtin_ia32_icecode_creg_or_mt_64(I, V)
+#define _ce_fscp_andnot_32(V, I) __builtin_ia32_icecode_fscp_andnot_32(I, V)
+#define _ce_fscp_andnot_64(V, I) __builtin_ia32_icecode_fscp_andnot_64(I, V)
+#define _ce_creg_andnot_mt_32(V, I) __builtin_ia32_icecode_creg_andnot_mt_32(I, V)
+#define _ce_creg_andnot_mt_64(V, I) __builtin_ia32_icecode_creg_andnot_mt_64(I, V)
 
 #undef __DEFAULT_FN_ATTRS
 
