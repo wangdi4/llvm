@@ -181,4 +181,4 @@ attributes #1 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 !7 = !{i16 6, i16 14}
 
 ; All instuctions are added to call global constructor of pipe. Now DebugLoc for them.
-; DEBUGIFY: PASS
+; DEBUGIFY-COUNT-3: WARNING:
