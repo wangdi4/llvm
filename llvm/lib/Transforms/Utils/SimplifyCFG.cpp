@@ -3717,8 +3717,14 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   Indices[Indices.size() - 1] = BVIndexV;
   auto *BBPtr = Builder.CreateInBoundsGEP(BBPtrBase->getPointerOperand(),
                                           Indices, "BBPtr");
-  auto *BBV =
-      Builder.CreateMaskedGather(BBPtr, Align(1), nullptr, nullptr, "BBV");
+
+  auto *VecPtrTy = cast<VectorType>(BBPtr->getType());
+  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
+  ElementCount NumElts = VecPtrTy->getElementCount();
+  auto *Ty = PtrTy->getElementType();
+  auto *VecTy = VectorType::get(Ty, NumElts);
+  auto *BBV = Builder.CreateMaskedGather(VecTy, BBPtr, Align(1), nullptr,
+                                         nullptr, "BBV");
 
   // %StartPtr = bitcast float* "Group0.StartPtr" to <3 x float>*
   // %StartV = load <3 x float>, <3 x float>* %StartPtr, align 1

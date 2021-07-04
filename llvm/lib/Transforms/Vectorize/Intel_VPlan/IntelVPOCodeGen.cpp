@@ -1748,8 +1748,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
 
     auto *WideLoad =
-        Builder.CreateMaskedLoad(CastedBase, VLSLoad->getAlignment(), LoadMask,
-                                 nullptr /* PassThru */, "vls.load");
+        Builder.CreateMaskedLoad(VecTy, CastedBase, VLSLoad->getAlignment(),
+                                 LoadMask, nullptr /* PassThru */, "vls.load");
     VPScalarMap[VLSLoad][0] = WideLoad;
     OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
     return;
@@ -2531,7 +2531,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
     ++OptRptStats.MaskedUnalignedUnitStrideLoads;
-    WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
+    Type *VecTy = VecPtr->getType()->getPointerElementType();
+    WideLoad = Builder.CreateMaskedLoad(VecTy, VecPtr, Alignment, RepMaskValue,
                                         nullptr, "wide.masked.load");
   } else {
     ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
@@ -2597,8 +2598,15 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   Value *GatherAddress = getWidenedAddressForScatterGather(Ptr);
   Align Alignment = getAlignmentForGatherScatter(VPLoad);
   ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
-  Instruction *NewLI = Builder.CreateMaskedGather(
-      GatherAddress, Alignment, RepMaskValue, nullptr, "wide.masked.gather");
+
+  auto *VecPtrTy = cast<VectorType>(GatherAddress->getType());
+  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
+  ElementCount NumElts = VecPtrTy->getElementCount();
+  auto *Ty = PtrTy->getElementType();
+  auto *VecTy = VectorType::get(Ty, NumElts);
+  Instruction *NewLI =
+      Builder.CreateMaskedGather(VecTy, GatherAddress, Alignment, RepMaskValue,
+                                 nullptr, "wide.masked.gather");
   propagateLoadStoreInstAliasMetadata(NewLI, VPLoad);
 
   VPWidenMap[VPLoad] = NewLI;

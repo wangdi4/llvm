@@ -104,8 +104,14 @@ CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
                                            unsigned Alignment,
                                            Value *Mask,
                                            Value *PassThru) {
-  auto NewCallInst =
-      Builder.CreateMaskedGather(VecPtr, Align(Alignment), Mask, PassThru);
+  auto *VecPtrTy = cast<VectorType>(VecPtr->getType());
+  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
+  ElementCount NumElts = VecPtrTy->getElementCount();
+  auto *Ty = PtrTy->getElementType();
+  auto *VecTy = VectorType::get(Ty, NumElts);
+
+  auto NewCallInst = Builder.CreateMaskedGather(VecTy, VecPtr, Align(Alignment),
+                                                Mask, PassThru);
   return NewCallInst;
 }
 
@@ -124,8 +130,9 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          unsigned Alignment,
                                          Value *Mask,
                                          Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, assumeAligned(Alignment),
-                                              Mask, PassThru);
+  auto *VecTy = VecPtr->getType()->getPointerElementType();
+  auto NewCallInst = Builder.CreateMaskedLoad(
+      VecTy, VecPtr, assumeAligned(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 
