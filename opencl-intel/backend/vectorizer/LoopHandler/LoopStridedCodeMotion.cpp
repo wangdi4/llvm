@@ -13,13 +13,13 @@
 // License.
 
 #include "LoopStridedCodeMotion.h"
+#include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include "VectorizerUtils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
-
 
 //unsigned counter = 0;
 //int getIntEnvVarVal (const char *varName){
@@ -88,6 +88,10 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   // Move the marked instructions outside the loop, create Phi node to replace
   // them if needed.
   HoistMarkedInstructions();
+
+  // clear WI Analysis data since they are not in the loop anymore.
+  for (Value *V : m_instToMoveSet)
+    m_WIAnalysis->clearValDep(V);
 
   // changed if any instruction was moved.
 
@@ -174,8 +178,6 @@ void LoopStridedCodeMotion::HoistMarkedInstructions() {
     // Create Phi that increments the strided and it's users that were
     // not moved outside the loop.
     createPhiIncrementors(I);
-    // clear WI Analysis data since it is not in the loop anymore.
-    m_WIAnalysis->clearValDep(I);
   }
 }
 
@@ -211,10 +213,12 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
   // Create increment for the phi node.
   Value *stride = getStrideForInst(I);
   Value *strideToAdd = getVectorStrideIfNeeded(I, stride);
-  bool isFP = PN->getType()->isFPOrFPVectorTy();
-  Instruction::BinaryOps addOp = isFP ? Instruction::FAdd : Instruction::Add;
-  BinaryOperator *incremenedVal = BinaryOperator::Create(addOp, PN,
-                       strideToAdd, "Strided.add", m_latch->getTerminator());
+  IRBuilder<> Builder(m_latch->getTerminator());
+  Value *incrementedVal;
+  if (PN->getType()->isFPOrFPVectorTy())
+    incrementedVal = Builder.CreateFAdd(PN, strideToAdd, "strided.add");
+  else
+    incrementedVal = Builder.CreateAdd(PN, strideToAdd, "strided.add");
 
   // Set nsw, nuw on the incremented phi incase the hoisted value has these
   // flags.
@@ -225,11 +229,14 @@ void LoopStridedCodeMotion::createPhiIncrementors(Instruction *I) {
   if (opcode == Instruction::Add || opcode == Instruction::Sub ||
       opcode == Instruction::Mul) {
     BinaryOperator *BO = cast<BinaryOperator>(I);
-    if (BO->hasNoSignedWrap()) incremenedVal->setHasNoSignedWrap();
-    if (BO->hasNoUnsignedWrap()) incremenedVal->setHasNoUnsignedWrap();
+    Instruction *IncrementedValInst = cast<Instruction>(incrementedVal);
+    if (BO->hasNoSignedWrap())
+      IncrementedValInst->setHasNoSignedWrap();
+    if (BO->hasNoUnsignedWrap())
+      IncrementedValInst->setHasNoUnsignedWrap();
   }
 
-  PN->addIncoming(incremenedVal, m_latch);
+  PN->addIncoming(incrementedVal, m_latch);
 
   // Replace the users with the phi.
   for (unsigned i=0; i<usersToFix.size(); ++i) {
@@ -253,21 +260,69 @@ Value *LoopStridedCodeMotion::getStrideForInst(Instruction *I) {
   Type *baseType = vTy->getElementType();
 
   // Calculate the stride as the substraction of the first two elements.
-  Instruction *loc = m_preHeader->getTerminator();
-  Value *Elt0 = ExtractElementInst::Create(I, m_zero, "extract.0", loc);
-  Value *Elt1 = ExtractElementInst::Create(I, m_one, "extract.0", loc);
-  Instruction::BinaryOps subOp = Instruction::Sub;
-  Instruction::BinaryOps mulOp = Instruction::Mul;
-  Value *width;
+  Value *Width;
   if (baseType->isFloatingPointTy()) {
-    subOp = Instruction::FSub;
-    mulOp = Instruction::FMul;
-    width = ConstantFP::get(baseType, static_cast<double>(nElts));
+    Width = ConstantFP::get(baseType, static_cast<double>(nElts));
+    if (Value *S = getStrideForInstFMul(I, Width))
+      return S;
   } else {
-    width = ConstantInt::get(baseType, nElts);
+    Width = ConstantInt::get(baseType, nElts);
   }
-  Value *subVals = BinaryOperator::Create(subOp, Elt1, Elt0,"sub.delta", loc);
-  return BinaryOperator::Create(mulOp ,subVals, width, "mul.delta", loc);
+  IRBuilder<> Builder(m_preHeader->getTerminator());
+  Builder.SetCurrentDebugLocation(I->getDebugLoc());
+  Value *Elt0 = Builder.CreateExtractElement(I, m_zero, "extract.0");
+  Value *Elt1 = Builder.CreateExtractElement(I, m_one, "extract.1");
+  if (baseType->isFloatingPointTy()) {
+    Value *SubVals = Builder.CreateFSub(Elt1, Elt0, "sub.delta");
+    return Builder.CreateFMul(SubVals, Width, "mul.delta");
+  } else {
+    Value *SubVals = Builder.CreateSub(Elt1, Elt0, "sub.delta");
+    return Builder.CreateMul(SubVals, Width, "mul.delta");
+  }
+}
+
+// If FMul instruction is strided, avoid succeeding add/subtract which may bring
+// additional accuracy loss.
+Value *LoopStridedCodeMotion::getStrideForInstFMul(Instruction *I,
+                                                   Value *Width) {
+  // Ignore all add/substract instructions which have an strided operand and an
+  // uniform operand. Find the nearest preceding strided FMul.
+  while (I) {
+    unsigned Opcode = I->getOpcode();
+    if (Opcode != Instruction::FAdd && Opcode != Instruction::FSub)
+      break;
+    Value *Op0 = I->getOperand(0);
+    Value *Op1 = I->getOperand(1);
+    if (m_WIAnalysis->isUniform(Op0))
+      I = dyn_cast<Instruction>(Op1);
+    else if (m_WIAnalysis->isUniform(Op1))
+      I = dyn_cast<Instruction>(Op0);
+    else
+      break;
+  }
+
+  if (!I || I->getOpcode() != Instruction::FMul)
+    return nullptr;
+
+  assert(m_WIAnalysis->isStrided(I) && "FMul should be strided");
+
+  // FMul is strided. Obtain its strided operand's stride, multiply with its
+  // uniform operand, and then multiply with vector length.
+  Value *Op0 = I->getOperand(0);
+  Value *Op1 = I->getOperand(1);
+  bool IsOp0Uniform = m_WIAnalysis->isUniform(Op0);
+  Value *OpUniform = IsOp0Uniform ? Op0 : Op1;
+  Value *OpStrided = IsOp0Uniform ? Op1 : Op0;
+
+  IRBuilder<> Builder(m_preHeader->getTerminator());
+  Builder.SetCurrentDebugLocation(I->getDebugLoc());
+  Value *Elt0 = Builder.CreateExtractElement(OpStrided, m_zero, "extract.0");
+  Value *Elt1 = Builder.CreateExtractElement(OpStrided, m_one, "extract.1");
+  Value *SubV = Builder.CreateFSub(Elt1, Elt0, "sub.delta");
+  Value *EltUni =
+      Builder.CreateExtractElement(OpUniform, m_zero, "extract.uniform");
+  Value *MulV = Builder.CreateFMul(EltUni, Width, "mul.uniform.width");
+  return Builder.CreateFMul(SubV, MulV, "mul.delta");
 }
 
 Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
