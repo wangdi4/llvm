@@ -32,7 +32,6 @@
 #include "ChannelPipeTransformation/ChannelPipeUtils.h"
 
 #include <string>
-#include <set>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -49,39 +48,25 @@ OCL_INITIALIZE_PASS_END(SYCLPipesHack, "sycl-pipes-hack",
                     "Hack SYCL pipe objects and wire them to OpenCL pipes",
                     false, false)
 
-const char *CreatePipeFromPipeStorageWriteName =
-    "_Z39__spirv_CreatePipeFromPipeStorage_write";
-const char *CreatePipeFromPipeStorageReadName =
-    "_Z38__spirv_CreatePipeFromPipeStorage_read";
+static void findPipeStorageGlobals(Module *M,
+                                   SmallVectorImpl<GlobalVariable *> &StorageVars) {
+  const char *StorageTypeName = "struct._ZTS19ConstantPipeStorage.ConstantPipeStorage";
+  Type *StorageTy = StructType::getTypeByName(M->getContext(), StorageTypeName);
+  if (!StorageTy) {
+    LLVM_DEBUG(dbgs() << "Could not find pipe storage type \"" << StorageTypeName
+                      << "\" in the module\n");
+    // Module doesn't have any SYCL program scope pipes, so we have nothing to
+    // do.
+    return;
+  }
 
-static void
-findPipeStorageGlobals(Module *M,
-                       std::set<GlobalVariable *> &StorageVars) {
-  Function *CreatePipeFun = nullptr;
-  for (auto &Fun : *M) {
-    StringRef FunName = Fun.getName();
-    if (FunName.startswith(CreatePipeFromPipeStorageWriteName) ||
-        FunName.startswith(CreatePipeFromPipeStorageReadName))
-      CreatePipeFun = &Fun;
-    if (!CreatePipeFun)
-      continue;
+  auto *StoragePtrTy =
+    PointerType::get(StorageTy, Utils::OCLAddressSpace::Global);
 
-    for (auto *User : CreatePipeFun->users()) {
-      auto *Call = dyn_cast<CallInst>(User);
-      if (!Call)
-        continue;
-      assert(Call->getNumArgOperands() == 1 &&
-             "Expect __spirv_CreatePipeFromPipeStorage to have 1 argument");
-      // Get PipeStorage GV, it might be hidden by several pointer casts.
-      // Strip them.
-      Value *PipeStorageArg = Call->getArgOperand(0);
-      assert(PipeStorageArg && "Failed to obtain an argument");
-      GlobalVariable *PipeStorageGV =
-          dyn_cast<GlobalVariable>(PipeStorageArg->stripPointerCasts());
-      assert(PipeStorageGV && "PipeStorage should be a GV");
-      LLVM_DEBUG(dbgs() << "Found SYCL pipe storage: " << *PipeStorageGV <<
-                           "\n");
-      StorageVars.emplace(PipeStorageGV);
+  for (auto &GV : M->globals()) {
+    if (GV.getType() == StoragePtrTy) {
+      LLVM_DEBUG(dbgs() << "Found SYCL pipe storage: " << GV << "\n");
+      StorageVars.push_back(&GV);
     }
   }
 }
@@ -135,7 +120,7 @@ bool SYCLPipesHack::runOnModule(Module &M) {
   // i32 values: size, align and capacity. We need to find these global structs
   // and replace with %opencl.pipe_rw_t objects to utilize the rest of pipe
   // related passes without any modifications.
-  std::set<GlobalVariable *> StorageVars;
+  SmallVector<GlobalVariable *, 16> StorageVars;
   findPipeStorageGlobals(&M, StorageVars);
   if (StorageVars.empty()) {
     return false;
@@ -199,10 +184,8 @@ bool SYCLPipesHack::runOnModule(Module &M) {
         CallInst *CI = cast<CallInst>(CastU);
         Function *F = CI->getCalledFunction();
         assert(F && "Indirect call is not expected");
-        assert(F->getName().find(CreatePipeFromPipeStorageWriteName) !=
-                   StringRef::npos ||
-               F->getName().find(CreatePipeFromPipeStorageReadName) !=
-                   StringRef::npos);
+        assert(F->getName().find("__spirv_CreatePipeFromPipeStorage") !=
+               StringRef::npos);
       }
     }
 #endif
