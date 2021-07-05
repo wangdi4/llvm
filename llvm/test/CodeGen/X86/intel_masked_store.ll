@@ -6,43 +6,26 @@
 define void @mstore_constmask_v12i8_v12i8(<12 x i8>* %addr, <12 x i8> %val) {
 ; SSE2-LABEL: mstore_constmask_v12i8_v12i8:
 ; SSE2:       ## %bb.0:
-; SSE2-NEXT:    movaps %xmm0, -{{[0-9]+}}(%rsp)
-; SSE2-NEXT:    movq -{{[0-9]+}}(%rsp), %rax
-; SSE2-NEXT:    movq %rax, (%rdi)
-; SSE2-NEXT:    movzwl -{{[0-9]+}}(%rsp), %eax
-; SSE2-NEXT:    movw %ax, 8(%rdi)
+; SSE2-NEXT:    movq %xmm0, (%rdi)
+; SSE2-NEXT:    movdqa %xmm0, -{{[0-9]+}}(%rsp)
 ; SSE2-NEXT:    movb -{{[0-9]+}}(%rsp), %al
 ; SSE2-NEXT:    movb %al, 10(%rdi)
+; SSE2-NEXT:    pextrw $4, %xmm0, %eax
+; SSE2-NEXT:    movw %ax, 8(%rdi)
 ; SSE2-NEXT:    retq
 ;
 ; SSE4-LABEL: mstore_constmask_v12i8_v12i8:
 ; SSE4:       ## %bb.0:
-; SSE4-NEXT:    pextrb $0, %xmm0, (%rdi)
-; SSE4-NEXT:    pextrb $1, %xmm0, 1(%rdi)
-; SSE4-NEXT:    pextrb $2, %xmm0, 2(%rdi)
-; SSE4-NEXT:    pextrb $3, %xmm0, 3(%rdi)
-; SSE4-NEXT:    pextrb $4, %xmm0, 4(%rdi)
-; SSE4-NEXT:    pextrb $5, %xmm0, 5(%rdi)
-; SSE4-NEXT:    pextrb $6, %xmm0, 6(%rdi)
-; SSE4-NEXT:    pextrb $7, %xmm0, 7(%rdi)
-; SSE4-NEXT:    pextrb $8, %xmm0, 8(%rdi)
-; SSE4-NEXT:    pextrb $9, %xmm0, 9(%rdi)
 ; SSE4-NEXT:    pextrb $10, %xmm0, 10(%rdi)
+; SSE4-NEXT:    pextrw $4, %xmm0, 8(%rdi)
+; SSE4-NEXT:    movq %xmm0, (%rdi)
 ; SSE4-NEXT:    retq
 ;
 ; AVX2-LABEL: mstore_constmask_v12i8_v12i8:
 ; AVX2:       ## %bb.0:
-; AVX2-NEXT:    vpextrb $0, %xmm0, (%rdi)
-; AVX2-NEXT:    vpextrb $1, %xmm0, 1(%rdi)
-; AVX2-NEXT:    vpextrb $2, %xmm0, 2(%rdi)
-; AVX2-NEXT:    vpextrb $3, %xmm0, 3(%rdi)
-; AVX2-NEXT:    vpextrb $4, %xmm0, 4(%rdi)
-; AVX2-NEXT:    vpextrb $5, %xmm0, 5(%rdi)
-; AVX2-NEXT:    vpextrb $6, %xmm0, 6(%rdi)
-; AVX2-NEXT:    vpextrb $7, %xmm0, 7(%rdi)
-; AVX2-NEXT:    vpextrb $8, %xmm0, 8(%rdi)
-; AVX2-NEXT:    vpextrb $9, %xmm0, 9(%rdi)
 ; AVX2-NEXT:    vpextrb $10, %xmm0, 10(%rdi)
+; AVX2-NEXT:    vpextrw $4, %xmm0, 8(%rdi)
+; AVX2-NEXT:    vmovq %xmm0, (%rdi)
 ; AVX2-NEXT:    retq
   call void @llvm.masked.store.v12i8.p0v12i8(<12 x i8> %val, <12 x i8>* %addr, i32 4, <12 x i1> <i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 1, i1 0>)
   ret void
