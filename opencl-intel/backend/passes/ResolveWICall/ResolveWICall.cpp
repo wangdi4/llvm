@@ -423,7 +423,7 @@ namespace intel {
       // be placed
       //
       GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
-        buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
+        buf_arr_type, buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
       Value *arg = pCall->getArgOperand(numarg);
       Type *argtype = arg->getType();
@@ -452,7 +452,7 @@ namespace intel {
     index_args.push_back(getConstZeroInt32Value());
 
     GetElementPtrInst *ptr_to_buf = GetElementPtrInst::CreateInBounds(
-      buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
+      buf_arr_type, buf_alloca_inst, ArrayRef<Value*>(index_args), "", pCall);
 
     // Finally create the call to opencl_printf
     //
