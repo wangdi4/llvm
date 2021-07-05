@@ -3661,6 +3661,13 @@ X86
 
 .. option:: -mavx512vnni, -mno-avx512vnni
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+.. option:: -mavx512vnniint16, -mno-avx512vnniint16
+
+.. end INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mavx512vp2intersect, -mno-avx512vp2intersect
 
 .. option:: -mavx512vpopcntdq, -mno-avx512vpopcntdq

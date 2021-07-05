@@ -8801,7 +8801,8 @@ defm VSM4RNDS4Y : SM4_Base<"vsm4rnds4", VR256, "256", loadv8i32, i256mem>, T8XD,
 #endif // INTEL_FEATURE_ISA_SM4
 
 #if INTEL_FEATURE_ISA_AVX_VNNI_INT16
-let Predicates = [HasAVXVNNIINT16], Constraints = "$src1 = $dst" in
+let Predicates = [HasAVXVNNIINT16, NoVLX_Or_NoVNNIINT16],
+    Constraints = "$src1 = $dst", checkVEXPredicate = 1 in
 multiclass avx_vnni_int16<bits<8> opc, string OpcodeStr, bit IsCommutable> {
   let isCommutable = IsCommutable in
   def rr  : I<opc, MRMSrcReg, (outs VR128:$dst),
