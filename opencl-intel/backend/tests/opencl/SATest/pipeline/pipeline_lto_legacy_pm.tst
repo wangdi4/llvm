@@ -40,8 +40,11 @@
 ; CHECK:          LocalBufferAnalysisLegacy
 ; CHECK-NEXT:     AddImplicitArgsLegacy
 ; CHECK-NEXT:     ResolveWICallLegacy
+; CHECK:          CallGraph Construction
+; CHECK-NEXT:     LocalBufferAnalysisLegacy
+; CHECK-NEXT:     LocalBuffersLegacy
 ; CHECK-NEXT:     BuiltinImportLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK-NEXT:     PrepareKernelArgsLegacy
+; CHECK:          PrepareKernelArgsLegacy
 ; CHECK:          CleanupWrappedKernelLegacy

@@ -124,6 +124,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // Barrier passes end.
     MPM.addPass(AddImplicitArgsPass());
     MPM.addPass(ResolveWICallPass());
+    MPM.addPass(LocalBuffersPass(/*UseTLSGlobals*/ false));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
     MPM.addPass(PrepareKernelArgsPass());

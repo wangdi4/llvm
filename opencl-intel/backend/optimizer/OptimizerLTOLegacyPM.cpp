@@ -151,6 +151,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createCFGSimplificationPass());
         MPM.add(createAddImplicitArgsLegacyPass());
         MPM.add(createResolveWICallLegacyPass(false, false));
+        MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
         MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
         MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createPrepareKernelArgsLegacyPass(false));
@@ -173,6 +174,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     // Barrier passes end.
     MPM.add(createAddImplicitArgsLegacyPass());
     MPM.add(createResolveWICallLegacyPass(false, false));
+    MPM.add(createLocalBuffersLegacyPass(/*UseTLSGlobals*/false));
     MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
     MPM.add(createBuiltinCallToInstLegacyPass());
     MPM.add(createPrepareKernelArgsLegacyPass(false));
