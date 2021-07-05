@@ -30,6 +30,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeBarrierInFunctionLegacyPass(Registry);
   initializeLinearIdResolverLegacyPass(Registry);
   initializeLocalBufferAnalysisLegacyPass(Registry);
+  initializeLocalBuffersLegacyPass(Registry);
   initializeImplicitArgsAnalysisLegacyPass(Registry);
   initializeInternalizeNonKernelFuncLegacyPass(Registry);
   initializeAddImplicitArgsLegacyPass(Registry);

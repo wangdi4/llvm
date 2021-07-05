@@ -30,7 +30,7 @@ void LocalBufferInfo::updateLocalsMap(GlobalValue *LocalVal, User *U) {
 
     // declaring variables for debugging purposes shouldn't affect local
     // buffers.
-    if (MDNode *mdn = I->getMetadata("dbg_declare_I")) {
+    if (MDNode *mdn = I->getMetadata("dbg_declare_inst")) {
       if (mdconst::extract<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
         return;
       }

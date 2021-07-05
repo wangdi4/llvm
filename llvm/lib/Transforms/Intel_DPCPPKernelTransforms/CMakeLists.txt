@@ -14,6 +14,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   ImplicitArgsAnalysis.cpp
   InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp
+  LocalBuffers.cpp
   LinearIdResolver.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp

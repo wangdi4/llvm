@@ -41,6 +41,7 @@ ModulePass *createImplicitArgsAnalysisLegacyPass();
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
+ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createAddImplicitArgsLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
