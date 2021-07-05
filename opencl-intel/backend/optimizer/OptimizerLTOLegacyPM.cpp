@@ -116,8 +116,11 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
   PMBuilder.addExtension(
       PassManagerBuilder::EP_VectorizerStart,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
-        if (Config->GetTransposeSize() != 1)
+        if (Config->GetTransposeSize() != 1) {
           MPM.add(createDPCPPKernelVecClonePass());
+          MPM.add(createVectorVariantFillInLegacyPass());
+          MPM.add(createUpdateCallAttrsLegacyPass());
+        }
       });
 }
 

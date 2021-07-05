@@ -21,6 +21,8 @@
 
 ; CHECK:          DPCPPKernelVecClone pass
 ; CHECK-NOT:      VecClone
+; CHECK-NEXT:     Fill-in addresses of vector variants
+; CHECK-NEXT:     UpdateCallAttrs
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorizer
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels
