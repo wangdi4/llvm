@@ -4592,10 +4592,6 @@ static Value *SimplifyExtractElementInst(Value *Vec, Value *Idx,
     if (auto *CIdx = dyn_cast<Constant>(Idx))
       return ConstantExpr::getExtractElement(CVec, CIdx);
 
-    // The index is not relevant if our vector is a splat.
-    if (auto *Splat = CVec->getSplatValue())
-      return Splat;
-
     if (Q.isUndefValue(Vec))
       return UndefValue::get(VecVTy->getElementType());
   }
@@ -4618,6 +4614,10 @@ static Value *SimplifyExtractElementInst(Value *Vec, Value *Idx,
         return Splat;
     if (Value *Elt = findScalarElement(Vec, IdxC->getZExtValue()))
       return Elt;
+  } else {
+    // The index is not relevant if our vector is a splat.
+    if (Value *Splat = getSplatValue(Vec))
+      return Splat;
   }
   return nullptr;
 }
