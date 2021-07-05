@@ -881,10 +881,13 @@ public:
     SK_ExtractSubvector, ///< ExtractSubvector Index indicates start offset.
     SK_PermuteTwoSrc,    ///< Merge elements from two source vectors into one
                          ///< with any shuffle mask.
-#if INTEL_CUSTOMIZATION
     SK_PermuteSingleSrc, ///< Shuffle elements of single source vector with any
                          ///< shuffle mask.
-    SK_TargetSpecific    ///< Defines target-specific shuffle kind. // INTEL
+#if INTEL_CUSTOMIZATION
+    SK_Splice,           ///< Concatenates elements from the first input vector
+                         ///< with elements of the second input vector. Returning
+                         ///< a vector of the same type as the input vectors.
+    SK_TargetSpecific    ///< Defines target-specific shuffle kind.
 #endif // INTEL_CUSTOMIZATION
   };
 
