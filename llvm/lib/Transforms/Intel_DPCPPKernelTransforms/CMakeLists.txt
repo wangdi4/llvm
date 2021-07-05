@@ -33,6 +33,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   UpdateCallAttrs.cpp
   VectorVariantFillIn.cpp
 
+  Utils/BarrierUtils.cpp
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp

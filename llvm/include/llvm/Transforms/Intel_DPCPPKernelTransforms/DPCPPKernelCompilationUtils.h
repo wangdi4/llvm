@@ -19,6 +19,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
 namespace llvm {
@@ -74,6 +75,8 @@ inline int getAttributeAsInt(const Function &F, StringRef Attr, int Default) {
 
 namespace DPCPPKernelCompilationUtils {
 
+extern const char *ATTR_RECURSION_WITH_BARRIER;
+
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
   ADDRESS_SPACE_GLOBAL = 1,
@@ -97,6 +100,13 @@ enum {
 
 /// We use a SetVector to ensure determinstic iterations.
 using FuncSet = SetVector<Function *>;
+
+/// Return true if this alloca instruction is created by ImplicitGID Pass.
+bool isImplicitGID(AllocaInst *AI);
+
+/// Append the dimension string to S.
+std::string AppendWithDimension(StringRef S, int Dimension);
+std::string AppendWithDimension(StringRef S, const Value *Dimension);
 
 /// Return true if string is __enqueue_kernel_*.
 bool isEnqueueKernel(StringRef S);
@@ -156,6 +166,72 @@ bool isGetSpecialBuffer(StringRef S);
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
 
+/// \name WorkGroup Builtin
+/// \param S function name
+/// @{
+bool isWorkGroupReserveReadPipe(StringRef S);
+bool isWorkGroupCommitReadPipe(StringRef S);
+bool isWorkGroupReserveWritePipe(StringRef S);
+bool isWorkGroupCommitWritePipe(StringRef S);
+bool isWorkGroupAll(StringRef S);
+bool isWorkGroupAny(StringRef S);
+bool isWorkGroupBroadCast(StringRef S);
+bool isWorkGroupReduceAdd(StringRef S);
+bool isWorkGroupScanExclusiveAdd(StringRef S);
+bool isWorkGroupScanInclusiveAdd(StringRef S);
+bool isWorkGroupReduceMin(StringRef S);
+bool isWorkGroupScanExclusiveMin(StringRef S);
+bool isWorkGroupScanInclusiveMin(StringRef S);
+bool isWorkGroupReduceMax(StringRef S);
+bool isWorkGroupScanExclusiveMax(StringRef S);
+bool isWorkGroupScanInclusiveMax(StringRef S);
+bool isWorkGroupBuiltin(StringRef S);
+bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M);
+bool isWorkGroupScan(StringRef S);
+bool isWorkGroupMin(StringRef S);
+bool isWorkGroupMax(StringRef S);
+bool isAsyncWorkGroupCopy(StringRef S);
+bool isAsyncWorkGroupStridedCopy(StringRef S);
+/// }@
+
+/// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
+/// a workgroup.
+bool isWorkGroupUniform(StringRef S);
+
+/// Returns true if \p S is a name of workgroup builtin, and it's divergent
+/// inside a workgroup.
+bool isWorkGroupDivergent(StringRef S);
+
+/// Returns true if \p S has "__finalize_" prefix.
+bool hasWorkGroupFinalizePrefix(StringRef S);
+
+/// Append "__finalize_" to \p S.
+std::string appendWorkGroupFinalizePrefix(StringRef S);
+
+/// Remove "__finalize_" prefix for \p S.
+std::string removeWorkGroupFinalizePrefix(StringRef S);
+
+/// Returns struct type with corresponding name if such exists
+/// The main difference from Module::getTypeByName is that this function
+/// doesn't account '.N' suffixes while comparing type names.
+/// For example, if module contains only '__pipe_t.2' type:
+///   * Module::getTypeByName('__pipe_t') will return nullptr
+///   * getStructByName('__pipe_t', M) will return '__pipe_t_.2' type
+StructType *getStructFromTypePtr(Type *Ty);
+
+/// Check if two types actually have the same opaque ptr type.
+/// Such types appear when 2 or more types were created with the same name.
+/// These types differ only in .N name suffix, e.g.: %opencl.image2d_ro_t and
+/// %opencl.image2d_ro_t.0
+bool isSameStructType(StructType *STy1, StructType *STy2);
+
+/// Replaces innermost element type from a pointer to a given struct type.
+PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
+
+/// Import a declaration of \p Orig into module \p Dst.
+Function *importFunctionDecl(Module *Dst, const Function *Orig,
+                             bool DuplicateIfExists = false);
+
 /// Returns the mangled name of the function get_global_id.
 std::string mangledGetGID();
 
@@ -181,7 +257,6 @@ std::string mangledWGBarrier(BarrierType BT);
 inline auto getKernels(Module &M) {
   return DPCPPKernelMetadataAPI::KernelList(M);
 }
-
 
 /// Collect all kernel functions including vectorized and vectorized masked
 /// kernel.
