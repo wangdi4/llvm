@@ -3312,18 +3312,56 @@ bool GenericScheduler::tryCandidate(SchedCandidate &Cand,
                    TryCand, Cand, ResourceDemand))
       return TryCand.Reason != NoCand;
 
-    unsigned RemLatency = 0; //INTEL
+
+#if INTEL_CUSTOMIZATION
+    // Since latency heuristic may increase the register pressure, this
+    // heuristic try to avoid to let current max register pressure bigger than
+    // the original order too much if current register pressure is already
+    // bigger than its register limit.
+    auto LowRegPressure = [](const SchedCandidate &TryCand,
+                             const SchedCandidate &Cand,
+                             ScheduleDAGMILive *DAG) -> bool {
+      if (!DAG->isTrackingPressure())
+        return true;
+
+      const PressureChange &TryCandExcess = TryCand.RPDelta.Excess;
+
+      // If current register pressure is smaller than its register limit,
+      // do it.
+      if (!TryCandExcess.isValid())
+        return true;
+
+      // If this candidate can decrease the register pressure, do it.
+      if (TryCandExcess.getUnitInc() <= 0)
+        return true;
+
+      unsigned PSetID = TryCandExcess.getPSet();
+
+      const RegPressureTracker &RPTracker =
+          TryCand.AtTop ? DAG->getTopRPTracker() : DAG->getBotRPTracker();
+      unsigned CurMaxPressure = RPTracker.getPressure().MaxSetPressure[PSetID];
+
+      unsigned OrgMaxPressure = DAG->getRegPressure().MaxSetPressure[PSetID];
+
+      // Compared with the original order, if current order's max register
+      // pressure is greater or equal to origanal order, we don't do latency
+      // heuristic until current register pressure is smaller than its
+      // register limit.
+      return CurMaxPressure < OrgMaxPressure;
+    };
+
+    unsigned RemLatency = 0;
     // Avoid serializing long latency dependence chains.
     // For acyclic path limited loops, latency was already checked above.
-#if INTEL_CUSTOMIZATION
     //TODO: check if it is possible that setPolicy (which includes ReduceResIdx)
     //      could be better than shouldReduceLatency
     if (!RegionPolicy.DisableLatencyHeuristic &&
-        shouldReduceLatency(TryCand.Policy, *Zone, true, RemLatency) &&
         DAG->MF.getFunction().hasFnAttribute(Attribute::NoFree) == true &&
-#endif // INTEL_CUSTOMIZATION
+        LowRegPressure(TryCand, Cand, DAG) &&
+        shouldReduceLatency(TryCand.Policy, *Zone, true, RemLatency) &&
         !Rem.IsAcyclicLatencyLimited && tryLatency(TryCand, Cand, *Zone))
       return TryCand.Reason != NoCand;
+#endif // INTEL_CUSTOMIZATION
 
     // Fall through to original instruction order.
     if ((Zone->isTop() && TryCand.SU->NodeNum < Cand.SU->NodeNum)
