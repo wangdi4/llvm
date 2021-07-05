@@ -8,7 +8,7 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/UpdateCallAttrs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/UpdateCallAttrs.h"
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
