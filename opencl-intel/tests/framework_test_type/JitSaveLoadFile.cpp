@@ -185,14 +185,12 @@ protected:
     cl_int err =
         clGetKernelInfo(kernel, CL_KERNEL_ATTRIBUTES, 0, nullptr, &attrSize);
     ASSERT_OCL_SUCCESS(err, "clGetKernelInfo");
-    std::string attributes("", attrSize);
+    std::vector<char> attributes(attrSize);
     err = clGetKernelInfo(kernel, CL_KERNEL_ATTRIBUTES, attrSize,
-                          &attributes[0], nullptr);
+                          attributes.data(), nullptr);
     ASSERT_OCL_SUCCESS(err, "clGetKernelInfo");
-    std::string expected =
-        "reqd_work_group_size(" + std::to_string(m_reqdWGSize) + ",1,1)";
-    ASSERT_TRUE(attributes.find(expected) != std::string::npos)
-        << expected << " is not found in attributes (" << attributes << ")";
+    std::string attributesStr(attributes.data());
+    ASSERT_TRUE(attributesStr.empty()) << "kernel attribute should be empty";
   }
 
 protected:

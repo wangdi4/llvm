@@ -140,6 +140,102 @@ bool clKernelAttributesTest()
             attrStr.find("vec_type_hint(float)") != std::string::npos;
         bool bRes = Check("CL_KERNEL_ATTRIBUTES", true, attrFound);
 
+        // Query attribute of kernel not created from source.
+        std::vector<size_t> binarySizes(uiNumDevices);
+        // Get the binary
+        iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, binarySizes.data(), NULL);
+        bResult = Check("clGetProgramInfo", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                clReleaseProgram(prog);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+
+        size_t sumBinariesSize = 0;
+        unsigned char ** pBinaries = new unsigned char*[uiNumDevices];
+        for (unsigned int i = 0; i < uiNumDevices; i++)
+        {
+            pBinaries[i] = new unsigned char[binarySizes[i]];
+            sumBinariesSize += binarySizes[i];
+        }
+        iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, nullptr);
+        bResult = Check("clGetProgramInfo", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                for (unsigned int i = 0; i < uiNumDevices; i++)
+                {
+                    delete[] pBinaries[i];
+                }
+                clReleaseProgram(prog);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+        cl_program binProg = clCreateProgramWithBinary(context, uiNumDevices, pDevices, binarySizes.data(),
+                  const_cast<const unsigned char**>(pBinaries), nullptr, &iRet);
+        for (unsigned int i = 0; i < uiNumDevices; i++)
+        {
+            delete[] pBinaries[i];
+        }
+        bResult = Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                clReleaseProgram(binProg);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+
+        iRet = clBuildProgram(binProg, uiNumDevices, pDevices, nullptr, nullptr, nullptr);
+        bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
+        if (!bResult)
+        {
+                clReleaseProgram(binProg);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+
+        cl_kernel binKernel = clCreateKernel(binProg, "sample_test_reqrd", &iRet);
+        bResult = Check("clCreateKernel", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                clReleaseProgram(binProg);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+
+        // Get attribute size.
+        iRet = clGetKernelInfo(binKernel, CL_KERNEL_ATTRIBUTES, 0, nullptr, &size);
+        bResult = Check("clGetKernelInfo", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                clReleaseKernel(binKernel);
+                clReleaseProgram(binProg);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+
+        // Get attribute string.
+        std::vector<char> binAttributes(size);
+        iRet = clGetKernelInfo(binKernel, CL_KERNEL_ATTRIBUTES, binAttributes.size(),
+                              binAttributes.data(), nullptr);
+        bResult = Check("clGetKernelInfo", CL_SUCCESS, iRet);
+        if ( !bResult )
+        {
+                clReleaseKernel(binKernel);
+                clReleaseProgram(binProg);
+                clReleaseContext(context);
+                delete []pDevices;
+                return false;
+        }
+        std::string binAttrStr(binAttributes.data());
+        bRes = Check("CL_KERNEL_ATTRIBUTES", true, binAttrStr.empty());
+
 	// Get kernel extended attributes
 	size_t wgSizeInfo[3];
 	iRet = clGetKernelWorkGroupInfo(kernel, pDevices[0], CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(wgSizeInfo), &wgSizeInfo, NULL);

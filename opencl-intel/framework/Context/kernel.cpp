@@ -462,9 +462,23 @@ cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
       }
         break;
     case CL_KERNEL_ATTRIBUTES:
-        szParamSize = m_sKernelPrototype.m_szKernelAttributes.length() + 1;
-        pValue = m_sKernelPrototype.m_szKernelAttributes.c_str();
+      {
+        // From opencl spec:
+        // For kernels not created from OpenCL C source and the
+        // clCreateProgramWithSource API call the string returned
+        // from this query will be empty.
+        size_t srcSize = 0;
+        if (NULL != m_pProgram.GetPtr())
+          m_pProgram->GetInfo(CL_PROGRAM_SOURCE, 0, nullptr, &srcSize);
+        if (srcSize != 0) {
+          szParamSize = m_sKernelPrototype.m_szKernelAttributes.length() + 1;
+          pValue = m_sKernelPrototype.m_szKernelAttributes.c_str();
+        } else {
+          szParamSize = 1;
+          pValue = "";
+        }
         break;
+      }
     default:
         return CL_INVALID_VALUE;
         break;
