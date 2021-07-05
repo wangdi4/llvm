@@ -478,108 +478,6 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
 }
 
 // test that a module with FPGA device agnostic capabilities is rejected by FE
-TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnFPGA) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityInt64Atomics, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat64AddEXT,
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-
-  };
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
-
-  CLANG_DEV_INFO devInfo = {
-      "",    // extensions
-      false, // images support
-      true,  // fp64 support
-      false, // source level profiling
-      true   // fpga emu
-  };
-  std::unique_ptr<IOCLFECompiler> spFeCompiler;
-  IOCLFECompiler *pFeCompiler = spFeCompiler.get();
-
-  int err =
-      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
-  ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
-
-  err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
-  ASSERT_NE(CL_SUCCESS, err)
-      << "Unexpected retcode for a valid SPIR-V module.\n";
-}
-
-// test the capability is accepted on both CPU and FPG device
-TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
-  // Hand made SPIR-V module
-  std::uint32_t const spvBC[] = {
-      // First 5 mandatory words
-      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
-      // Common capabilities
-      SPIRVOpCapability, spv::CapabilityAddresses, SPIRVOpCapability,
-      spv::CapabilityLinkage, SPIRVOpCapability, spv::CapabilityKernel,
-      SPIRVOpCapability, spv::CapabilityVector16, SPIRVOpCapability,
-      spv::CapabilityFloat16Buffer, SPIRVOpCapability, spv::CapabilityInt64,
-      SPIRVOpCapability, spv::CapabilityPipes, SPIRVOpCapability,
-      spv::CapabilityPipeStorage, SPIRVOpCapability, spv::CapabilityGroups,
-      SPIRVOpCapability, spv::CapabilityDeviceEnqueue, SPIRVOpCapability,
-      spv::CapabilityLiteralSampler, SPIRVOpCapability, spv::CapabilityInt16,
-      SPIRVOpCapability, spv::CapabilityGenericPointer, SPIRVOpCapability,
-      spv::CapabilityInt8, SPIRVOpCapability,
-      spv::CapabilitySubgroupShuffleINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupBufferBlockIOINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupImageBlockIOINTEL, SPIRVOpCapability,
-      spv::CapabilitySubgroupDispatch, SPIRVOpCapability,
-      spv::CapabilityFunctionPointersINTEL, SPIRVOpCapability,
-      spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
-      spv::CapabilityAsmINTEL, SPIRVOpCapability,
-      spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
-      spv::CapabilityVectorVariantsINTEL, SPIRVOpCapability,
-      spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
-      spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
-      spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
-      spv::CapabilityArbitraryPrecisionIntegersINTEL, SPIRVOpCapability,
-      spv::CapabilityFPFastMathModeINTEL, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat32AddEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat16MinMaxEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat32MinMaxEXT, SPIRVOpCapability,
-      spv::CapabilityAtomicFloat64MinMaxEXT, SPIRVOpCapability,
-      spv::internal::CapabilityOptNoneINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
-      spv::internal::CapabilityDebugInfoModuleINTEL,
-      // Memory model
-      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-
-  };
-  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
-
-  for (int i = 0; i < 2; i++) {
-    CLANG_DEV_INFO devInfo = {
-        "",    // extensions
-        false, // images support
-        true,  // fp64 support
-        false, // source level profiling
-        true   // true: fpga emu; false: CPU
-    };
-    if (i == 1)
-      devInfo.bIsFPGAEmu = false;
-    std::unique_ptr<IOCLFECompiler> spFeCompiler;
-    IOCLFECompiler *pFeCompiler = spFeCompiler.get();
-
-    int err = CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler,
-                                     nullptr);
-    ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
-
-    err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
-    ASSERT_EQ(CL_SUCCESS, err)
-        << "Unexpected retcode for an invalid SPIR-V module.\n";
-  }
-}
-
-// test that a module with FPGA device agnostic capabilities is rejected by FE
 // for CPU device
 TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
   // Hand made SPIR-V module
@@ -614,7 +512,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       false, // images support
       true,  // fp64 support
       false, // source level profiling
-      false  // CPU
+      false  // fpga emu
   };
   std::unique_ptr<IOCLFECompiler> spFeCompiler;
   IOCLFECompiler *pFeCompiler = spFeCompiler.get();
@@ -625,7 +523,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
 
   err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
   ASSERT_NE(CL_SUCCESS, err)
-      << "Unexpected retcode for an invalid SPIR-V module.\n";
+      << "Unexpected retcode for a invalid SPIR-V module.\n";
 }
 
 int main(int argc, char** argv)
