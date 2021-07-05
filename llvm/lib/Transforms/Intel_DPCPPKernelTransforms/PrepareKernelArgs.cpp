@@ -123,7 +123,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
       FunctionType::get(F->getReturnType(), NewArgsVec, /*isVarArg*/ false);
 
   // Create a new function
-  Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName());
+  Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName(), M);
   NewF->setCallingConv(F->getCallingConv());
   NewF->copyMetadata(F, 0);
 
@@ -472,6 +472,7 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
   // BIs like enqueue_kernel and kernel query have a function pointer to a
   // block invoke kernel as an argument.
   // Replace these arguments by a pointer to the wrapper function.
+  IRBuilder<> Builder(WrappedKernel->getContext());
   for (auto &EEF : *M) {
     if (!EEF.isDeclaration())
       continue;
@@ -495,10 +496,9 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
         auto *Int8PtrTy = PointerType::get(
             IntegerType::getInt8Ty(M->getContext()),
             DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC);
-
-        auto *NewCast =
-            CastInst::CreatePointerCast(Wrapper, Int8PtrTy, "", EECall);
-        EECall->getArgOperand(BlockInvokeIdx)->replaceAllUsesWith(NewCast);
+        Builder.SetInsertPoint(EECall);
+        auto *NewCast = Builder.CreatePointerCast(Wrapper, Int8PtrTy);
+        EECall->setArgOperand(BlockInvokeIdx, NewCast);
       }
     }
   }
@@ -514,15 +514,17 @@ void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
 }
 
 bool PrepareKernelArgsPass::runOnFunction(Function *F) {
+  const std::string FName = F->getName().str();
+
   // Create wrapper function
   Function *Wrapper = createWrapper(F);
 
   // Change name of old function
-  F->setName("__" + F->getName() + "_separated_args");
+  F->setName("__" + Twine(F->getName()) + "_separated_args");
   CallInst *CI = createWrapperBody(Wrapper, F);
 
-  // Add declaration of original function with its signature
-  M->getFunctionList().push_back(Wrapper);
+  // Set original kernel name to wrapper.
+  Wrapper->setName(FName);
 
   // Replace function pointers to the original function (occures in case of
   // a call of a device execution built-in) by ones to the wrapper
