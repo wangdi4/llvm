@@ -112,6 +112,124 @@ static unsigned adjustForEndian(const DataLayout &DL, unsigned VectorWidth,
   return DL.isBigEndian() ? VectorWidth - 1 - Idx : Idx;
 }
 
+#if INTEL_CUSTOMIZATION
+
+static unsigned getTruePrefixMaskNum(Value *Mask) {
+  Constant *C = cast<Constant>(Mask);
+  unsigned NumElts = cast<FixedVectorType>(Mask->getType())->getNumElements();
+  unsigned i = 0;
+  unsigned TruePrefixMaskNum = 0;
+  for (; i != NumElts; ++i) {
+    Constant *CElt = C->getAggregateElement(i);
+    if (CElt->isNullValue())
+      break;
+  }
+
+  TruePrefixMaskNum = i;
+  // If there is still 'true' mask, return 0 directly.
+  for (; i != NumElts; ++i) {
+    Constant *CElt = C->getAggregateElement(i);
+    if (CElt->isOneValue())
+      return 0;
+  }
+
+  return TruePrefixMaskNum;
+}
+
+// Transform
+// masked.store(<4 x i8> %data, <4 x i8>* %ptr, i32 1, <4 x i1> <0xe>)
+// to
+// %new_data = shufflevector <4 x i8> %data, <4 x i8> poison,
+//                                           <3 x i32> <i32 0, i32 1, i32 2>
+// %new_ptr = bitcast <4 x i8>* %ptr to <3 x i8>*
+// store <3 x i8> %new_data, <3 x i8>* %new_ptr, 1
+static bool scalarizeTruePrefixMaskStore(const DataLayout &DL, CallInst *CI) {
+
+  Value *Data = CI->getArgOperand(0);
+  Value *Ptr = CI->getArgOperand(1);
+  Value *Mask = CI->getArgOperand(3);
+
+  unsigned TruePrefixMaskNum = getTruePrefixMaskNum(Mask);
+  if (TruePrefixMaskNum == 0)
+    return false;
+
+  IRBuilder<> Builder(CI);
+  VectorType *VecType = cast<FixedVectorType>(Data->getType());
+
+  Type *EltTy = VecType->getElementType();
+  VectorType *NewVecType = FixedVectorType::get(EltTy, TruePrefixMaskNum);
+
+  SmallVector<int, 8> ShufMask;
+  for (unsigned i = 0; i < TruePrefixMaskNum; ++i)
+    ShufMask.push_back(i);
+  Value *NewData = Builder.CreateShuffleVector(Data, ShufMask);
+
+  auto NewVecPtrType =
+      PointerType::get(NewVecType, Ptr->getType()->getPointerAddressSpace());
+  auto NewPtr = Builder.CreateBitCast(Ptr, NewVecPtrType);
+
+  Builder.CreateStore(NewData, NewPtr);
+
+  CI->eraseFromParent();
+
+  return true;
+}
+
+// Transform
+// %data = call <4 x i8> masked.load(<4 x i8>* %ptr, i32 1, <4 x i1> <0xe>,
+//                                   <4 x i8> undef)
+// to
+// %new_ptr = bitcast <4 x i8>* %ptr to <3 x i8>*
+// %data = load <3 x i8>, <3 x i8>* %new_ptr, align 1
+// %new_data = shufflevector <3 x i8> %data, <3 x i8> undef,
+//                           <4 x i32> <i32 0, i32 1, i32 2, i32 undef>
+static bool scalarizeTruePrefixMaskLoad(const DataLayout &DL, CallInst *CI) {
+
+  Value *Ptr = CI->getArgOperand(0);
+  Value *Alignment = CI->getArgOperand(1);
+  Value *Mask = CI->getArgOperand(2);
+  Value *Src0 = CI->getArgOperand(3);
+
+  // Only support undef value current.
+  if (!isa<UndefValue>(Src0))
+    return false;
+
+  unsigned NumElts = cast<FixedVectorType>(Mask->getType())->getNumElements();
+
+  unsigned TruePrefixMaskNum = getTruePrefixMaskNum(Mask);
+  if (TruePrefixMaskNum == 0)
+    return false;
+
+  IRBuilder<> Builder(CI);
+  const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
+  VectorType *VecType = cast<FixedVectorType>(CI->getType());
+
+  Type *EltTy = VecType->getElementType();
+  VectorType *NewVecType = FixedVectorType::get(EltTy, TruePrefixMaskNum);
+  auto NewVecPtrType =
+      PointerType::get(NewVecType, Ptr->getType()->getPointerAddressSpace());
+  auto NewPtr = Builder.CreateBitCast(Ptr, NewVecPtrType);
+  Value *Load = Builder.CreateAlignedLoad(NewVecType, NewPtr, AlignVal);
+
+  SmallVector<int, 8> WidenMask;
+  for (unsigned i = 0; i < NumElts; ++i) {
+    if (i < TruePrefixMaskNum)
+      WidenMask.push_back(i);
+    else
+      WidenMask.push_back(-1);
+  }
+
+  Value *WidenLoad = Builder.CreateShuffleVector(
+      Load, UndefValue::get(Load->getType()), WidenMask);
+
+  CI->replaceAllUsesWith(WidenLoad);
+  CI->eraseFromParent();
+
+  return true;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 // Translate a masked load intrinsic like
 // <16 x i32 > @llvm.masked.load( <16 x i32>* %addr, i32 align,
 //                               <16 x i1> %mask, <16 x i32> %passthru)
@@ -184,6 +302,10 @@ static void scalarizeMaskedLoad(const DataLayout &DL, CallInst *CI,
   Value *VResult = Src0;
 
   if (isConstantIntVector(Mask)) {
+#if INTEL_CUSTOMIZATION
+    if (scalarizeTruePrefixMaskLoad(DL, CI))
+      return;
+#endif // INTEL_CUSTOMIZATION
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
@@ -320,6 +442,10 @@ static void scalarizeMaskedStore(const DataLayout &DL, CallInst *CI,
   unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   if (isConstantIntVector(Mask)) {
+#if INTEL_CUSTOMIZATION
+    if (scalarizeTruePrefixMaskStore(DL, CI))
+      return;
+#endif // INTEL_CUSTOMIZATION
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
