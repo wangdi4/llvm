@@ -1,5 +1,3 @@
-// INTEL CONFIDENTIAL
-//
 // Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -194,6 +192,8 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
 #define GET_EXT_VER(name, major, minor, patch)                                 \
     m_extensions.emplace_back(                                                 \
         cl_name_version{CL_MAKE_VERSION(major, minor, patch), name})
+
+    GET_EXT_VER(OCL_EXT_KHR_SPIRV_LINKONCE_ODR, 1, 0, 0);
 
     if (FPGA_EMU_DEVICE == GetDeviceMode())
     {
