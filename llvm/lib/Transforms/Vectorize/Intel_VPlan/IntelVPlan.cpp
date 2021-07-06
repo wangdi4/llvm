@@ -97,6 +97,12 @@ static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
     "vplan-dump-live-inout", cl::init(false), cl::Hidden,
     cl::desc("Print live-ins and live-outs of main loop"));
 
+static cl::opt<bool>
+    VPGEPPrintSrcElemType("vpgep-print-src-elem-type", cl::init(false),
+                          cl::Hidden,
+                          cl::desc("Print VPGEPInstruction's SourceElementType "
+                                   "even for non-opaque pointers."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS);
@@ -470,9 +476,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     cast<VPConstStepVector>(this)->printImpl(O);
     break;
   }
-  case Instruction::GetElementPtr:
-    PrintOpcodeWithInBounds(cast<const VPGEPInstruction>(this));
+  case Instruction::GetElementPtr: {
+    auto *GEP = cast<const VPGEPInstruction>(this);
+    PrintOpcodeWithInBounds(GEP);
+    if (GEP->isOpaque() || VPGEPPrintSrcElemType)
+      // We only print it for opaque so that we won't have to update all the
+      // tests twice - right now and when all the GEPs will have to be
+      // transitioned to be opaque.
+      O << " " << *GEP->getSourceElementType() << ",";
     break;
+  }
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;

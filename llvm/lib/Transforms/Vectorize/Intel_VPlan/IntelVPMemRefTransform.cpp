@@ -82,6 +82,10 @@ void VPMemRefTransform::transformSOAUnitStrideGEPs(VPGEPInstruction *GEP) {
   VPInstruction *ConstVectorStepInst =
       Builder.create<VPConstStepVector>("const.step", IndexTy, 0, 1, VF);
   VPInstruction *BaseAddrGEP = Builder.createGEP(
+      GEP->getResultElementType(),
+       // FIXME: This is totally wrong, but consistent with a pre-existing bug
+       // in the VPGEPInstruction's ctor...
+      GEP->getResultElementType(),
       GEP,
       {Plan.getVPConstant(ConstantInt::get(IndexTy, 0)), ConstVectorStepInst},
       nullptr);

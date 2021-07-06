@@ -891,7 +891,12 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
     } else if(isa<GetElementPtrInst>(LLVMInst)) {
+      assert(VPOperands.size() <= 2 && "Unexpected GEP being created.");
       NewVPInst = Builder.createGEP(
+          // FIXME: Should come from elsewhere. Or, even better, the GEP
+          // shouldn't be created at all.
+          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
+          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
           VPOperands[0],
           ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
           nullptr /* Inst */);

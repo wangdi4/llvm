@@ -1001,6 +1001,16 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
   }
 }
 
+static Type *getResultElementTypeForMemAddrInst(const VPInstruction *I) {
+  assert(isa<VPGEPInstruction>(I) ||
+         isa<VPSubscriptInst>(I) && "Not a MemAddrInst!");
+  if (auto *GEP = dyn_cast<VPGEPInstruction>(I))
+    return GEP->getResultElementType();
+
+  // FIXME: Store ResultElementType inside VPSubscriptInst itself.
+  return cast<PointerType>(I->getType())->getElementType();
+}
+
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I) {
   const auto &VPBB = *I->getParent();
@@ -1034,7 +1044,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
   // If shape is not random, then a new stride (in bytes) can be calculated for
   // the gep. Gep stride is always in bytes.
   if (NewDesc != VPVectorShape::SOARnd) {
-    Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep on an array-private should result in strided-access with
@@ -1063,7 +1073,6 @@ VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I)
   }
   return {NewDesc, NewStride};
 }
-
 
 VPVectorShape
 VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I) {
@@ -1131,7 +1140,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
       // NewIdxStride     = (32/8) * 1 = 4 (elements)
       int64_t CurrIdxStride = IdxShape.getStrideVal();
       unsigned ZeroDimStrideVal = ZeroDimStride->getZExtValue();
-      Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+      Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
       uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
       // Index could have a multiplicative co-efficient, so multiply the
       // dimension's stride with current stride value.
@@ -1165,7 +1174,7 @@ VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I
     // Examples: float* -> float,
     //           [3000 x [3000 x i32]]* -> i32,
     //           <4 x i32>* -> <4 x i32>
-    Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+    Type *PointedToTy = getResultElementTypeForMemAddrInst(I);
     uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
     // For known strides:
     // 1) Uniform gep should result in 0 stride (i.e., pointer and idx are

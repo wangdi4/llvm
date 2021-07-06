@@ -365,7 +365,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     // can't simply use the address of the first memref as its def might be
     // unavailable here.
     LeaderAddress =
-        Builder.createGEP(LeaderAddress,
+        Builder.createGEP(InsertPointInst->getValueType(),
+                          InsertPointInst->getValueType(), LeaderAddress,
                           {Plan.getVPConstant(-APInt(64, LeaderInterleaveIndex,
                                                      true /* Signed */))},
                           nullptr);
@@ -519,7 +520,10 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
   if (auto *VecTy = dyn_cast<FixedVectorType>(Ty))
     Multiplier = VecTy->getNumElements();
 
+  // TODO: API boundaries are wacky here.
   auto *Result = Builder.createGEP(
+      FirstMemrefInst->getValueType(),
+      FirstMemrefInst->getValueType(),
       Base,
       {Plan.getVPConstant(
           -APInt(64, GroupSizeInGranularityElements * (VF - 1) * Multiplier,
