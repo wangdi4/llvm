@@ -1706,6 +1706,16 @@ bool GVN::PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
 
 bool GVN::performLoopLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
                              UnavailBlkVect &UnavailableBlocks) {
+#if INTEL_CUSTOMIZATION
+  // This transformation adds a conditional loop carried dependency
+  // for the load. It's bad for vectorization.
+  Function *F = Load->getFunction();
+  if (F->getFnAttribute("prefer-vector-width").isValid())
+    return false;
+  if (vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   if (!LI)
     return false;
 
