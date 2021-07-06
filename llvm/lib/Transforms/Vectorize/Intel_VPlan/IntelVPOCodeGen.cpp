@@ -2518,6 +2518,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
   Align Alignment = VPAA.getAlignmentUnitStride(*VPLoad,
                                                 getGuaranteedPeeling());
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
+  Type *WidenedType = getWidenedType(LoadType, VF);
 
   // Masking not needed for privates.
   // TODO: This needs to be generalized for all "dereferenceable" pointers
@@ -2531,13 +2532,13 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
     ++OptRptStats.MaskedUnalignedUnitStrideLoads;
-    Type *VecTy = VecPtr->getType()->getPointerElementType();
-    WideLoad = Builder.CreateMaskedLoad(VecTy, VecPtr, Alignment, RepMaskValue,
-                                        nullptr, "wide.masked.load");
+    WideLoad =
+        Builder.CreateMaskedLoad(WidenedType, VecPtr, Alignment, RepMaskValue,
+                                 nullptr, "wide.masked.load");
   } else {
     ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
-    WideLoad = Builder.CreateAlignedLoad(getWidenedType(LoadType, VF), VecPtr,
-                                         Alignment, "wide.load");
+    WideLoad =
+        Builder.CreateAlignedLoad(WidenedType, VecPtr, Alignment, "wide.load");
   }
 
   // We don't need GuaranteedPeeling here. PreferredAlignmentMetadata is just a
@@ -2599,11 +2600,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   Align Alignment = getAlignmentForGatherScatter(VPLoad);
   ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
 
-  auto *VecPtrTy = cast<VectorType>(GatherAddress->getType());
-  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
-  ElementCount NumElts = VecPtrTy->getElementCount();
-  auto *Ty = PtrTy->getElementType();
-  auto *VecTy = VectorType::get(Ty, NumElts);
+  Type *VecTy =  getWidenedType(LoadType, VF);
   Instruction *NewLI =
       Builder.CreateMaskedGather(VecTy, GatherAddress, Alignment, RepMaskValue,
                                  nullptr, "wide.masked.gather");
