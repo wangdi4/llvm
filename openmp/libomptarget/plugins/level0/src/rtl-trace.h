@@ -15,48 +15,40 @@
 
 #include <string>
 #include "omptarget.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
-#else
-#include <unistd.h>
-#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
-#endif // _WIN32
+#include "Debug.h"
 
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
+#define TARGET_NAME LEVEL0
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
+
 extern int DebugLevel;
 
-#define IDPLEVEL(Level, ...)                                                   \
+#define DPCALL(...)                                                            \
   do {                                                                         \
-    if (DebugLevel > Level) {                                                  \
-      fprintf(stderr, "%s", " Target " TO_STRING(TARGET_NAME) " RTL");         \
-      if (DebugLevel > 2) {                                                    \
-        print_pid();                                                           \
-      }                                                                        \
-      fprintf(stderr, " --> ");                                                \
-      fprintf(stderr, __VA_ARGS__);                                            \
-    }                                                                          \
+    if (DebugLevel > 1)                                                        \
+      DP(__VA_ARGS__);                                                         \
   } while (0)
 
-#define IDP(...) IDPLEVEL(0, __VA_ARGS__)
-#define IDP1(...) IDPLEVEL(1, __VA_ARGS__)
-
 #if INTEL_INTERNAL_BUILD
-#define IDPI(...) IDP(__VA_ARGS__)
+#define DPI(...) DP(__VA_ARGS__)
 #else  // !INTEL_INTERNAL_BUILD
-#define IDPI(...)
+#define DPI(...)
 #endif // !INTEL_INTERNAL_BUILD
 
 #define FATAL_ERROR(Msg)                                                       \
   do {                                                                         \
-    IDPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);      \
+    fprintf(stderr, "%s --> ", DEBUG_PREFIX);                                  \
+    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
-#define WARNING(...) IDPLEVEL(-1, "Warning: " __VA_ARGS__)
+#define WARNING(...)                                                           \
+  do {                                                                         \
+    fprintf(stderr, "%s --> ", DEBUG_PREFIX);                                  \
+    fprintf(stderr, "Warning: " __VA_ARGS__);                                  \
+  } while (0)
 
 ///
 /// Wrappers for tracing ze API calls.
@@ -68,13 +60,13 @@ extern int DebugLevel;
 #define TRACE_FN_ARG_BEGIN()                                                   \
   do {                                                                         \
     std::string fn(__func__);                                                  \
-    IDP1("ZE_CALLEE: %s (\n", fn.substr(4).c_str());                           \
+    DPCALL("ZE_CALLEE: %s (\n", fn.substr(4).c_str());                         \
   } while (0)
 
-#define TRACE_FN_ARG_END() IDP1(")\n")
-#define TRACE_FN_ARG(Arg, Fmt) IDP1("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
+#define TRACE_FN_ARG_END() DPCALL(")\n")
+#define TRACE_FN_ARG(Arg, Fmt) DPCALL("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
 #define TRACE_FN_ARG_PTR(Arg)                                                  \
-  IDP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
+  DPCALL("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
 #define TRACE_FN_ARG_UINT(Arg) TRACE_FN_ARG(Arg, "%" PRIu32)
 #define TRACE_FN_ARG_UINT64(Arg) TRACE_FN_ARG(Arg, "%" PRIu64)
 #define TRACE_FN_ARG_SIZE(Arg) TRACE_FN_ARG(Arg, "%zu")
@@ -759,7 +751,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
 #define CALL_ZE(Rc, Fn, ...)                                                   \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      IDP1("ZE_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
+      DPCALL("ZE_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
       Rc = TRACE_FN(Fn)(__VA_ARGS__);                                          \
     } else {                                                                   \
       Rc = Fn(__VA_ARGS__);                                                    \
@@ -770,7 +762,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   do {                                                                         \
     CALL_ZE(Rc, Fn, __VA_ARGS__);                                              \
     if (Rc != ZE_RESULT_SUCCESS) {                                             \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
          getZeErrorName(rc));                                                  \
     }                                                                          \
   } while(0)
@@ -783,7 +775,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     CALL_ZE(rc, Fn, __VA_ARGS__);                                              \
     Mtx.unlock();                                                              \
     if (rc != ZE_RESULT_SUCCESS) {                                             \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
          getZeErrorName(rc));                                                  \
       return Ret;                                                              \
     }                                                                          \
@@ -802,7 +794,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     ze_result_t rc;                                                            \
     CALL_ZE(rc, Fn, __VA_ARGS__);                                              \
     if (rc != ZE_RESULT_SUCCESS) {                                             \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
          getZeErrorName(rc));                                                  \
       return Ret;                                                              \
     }                                                                          \
@@ -817,7 +809,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
     ze_result_t rc;                                                            \
     CALL_ZE(rc, Fn, __VA_ARGS__);                                              \
     if (rc != ZE_RESULT_SUCCESS) {                                             \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
          getZeErrorName(rc));                                                  \
       std::exit(EXIT_FAILURE);                                                 \
     }                                                                          \
