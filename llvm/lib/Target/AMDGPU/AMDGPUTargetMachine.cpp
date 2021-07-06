@@ -888,9 +888,6 @@ void AMDGPUPassConfig::addIRPasses() {
   // A call to propagate attributes pass in the backend in case opt was not run.
   addPass(createAMDGPUPropagateAttributesEarlyPass(&TM));
 
-  addPass(createAtomicExpandPass());
-
-
   addPass(createAMDGPULowerIntrinsicsPass());
 
   // Function calls are not supported, so make sure we inline everything.
@@ -921,8 +918,12 @@ void AMDGPUPassConfig::addIRPasses() {
     addPass(createAMDGPULowerModuleLDSPass());
   }
 
-  if (TM.getOptLevel() > CodeGenOpt::None) {
+  if (TM.getOptLevel() > CodeGenOpt::None)
     addPass(createInferAddressSpacesPass());
+
+  addPass(createAtomicExpandPass());
+
+  if (TM.getOptLevel() > CodeGenOpt::None) {
     addPass(createAMDGPUPromoteAlloca());
 
     if (EnableSROA)
@@ -940,11 +941,11 @@ void AMDGPUPassConfig::addIRPasses() {
           AAR.addAAResult(WrapperPass->getResult());
         }));
     }
-  }
 
-  if (TM.getTargetTriple().getArch() == Triple::amdgcn) {
-    // TODO: May want to move later or split into an early and late one.
-    addPass(createAMDGPUCodeGenPreparePass());
+    if (TM.getTargetTriple().getArch() == Triple::amdgcn) {
+      // TODO: May want to move later or split into an early and late one.
+      addPass(createAMDGPUCodeGenPreparePass());
+    }
   }
 
   TargetPassConfig::addIRPasses();
@@ -1062,7 +1063,9 @@ ScheduleDAGInstrs *GCNPassConfig::createMachineScheduler(
 bool GCNPassConfig::addPreISel() {
   AMDGPUPassConfig::addPreISel();
 
-  addPass(createAMDGPULateCodeGenPreparePass());
+  if (TM->getOptLevel() > CodeGenOpt::None)
+    addPass(createAMDGPULateCodeGenPreparePass());
+
   if (EnableAtomicOptimizations) {
     addPass(createAMDGPUAtomicOptimizerPass());
   }
