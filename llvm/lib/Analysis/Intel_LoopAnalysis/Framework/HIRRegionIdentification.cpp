@@ -2229,6 +2229,7 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
 }
 
 void HIRRegionIdentification::formRegions(Function &Func) {
+#if INTEL_FEATURE_SW_ADVANCED
   SmallVector<const Loop *, 32> GenerableLoops;
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
@@ -2254,9 +2255,12 @@ void HIRRegionIdentification::formRegions(Function &Func) {
   }
 
   formRegionsForLoopMaterialization(Func);
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
+#if INTEL_FEATURE_SW_ADVANCED
+
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
     printOptReportRemark(nullptr,
                          "Region throttled due to region number threshold.");
@@ -2274,6 +2278,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
                          NonLoopBBlocks, LI.getTopLevelLoops(), false, true);
 
   RegionCount++;
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
@@ -2434,6 +2439,7 @@ HIRRegionIdentification::HIRRegionIdentification(
 }
 
 void HIRRegionIdentification::runImpl(Function &F) {
+#if INTEL_FEATURE_SW_ADVANCED
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
     return;
   }
@@ -2465,6 +2471,9 @@ void HIRRegionIdentification::runImpl(Function &F) {
   } else {
     formRegions(F);
   }
+#else
+  llvm_unreachable("Loopopt Disabled!");
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)

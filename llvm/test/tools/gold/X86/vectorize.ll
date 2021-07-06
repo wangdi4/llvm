@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+
 ; RUN: llvm-as %s -o %t.o
 ; INTEL - added loopopt in pipeline.
 ; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/LLVMgold%shlibext \
@@ -29,3 +32,5 @@ bb1:
 bb6:
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED
+

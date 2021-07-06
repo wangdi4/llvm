@@ -49,6 +49,7 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+#if INTEL_FEATURE_SW_ADVANCED
 using namespace llvm::loopopt::unrollsymtc;
 
 const std::string TempName = "mv";
@@ -1939,13 +1940,16 @@ void HIRPMSymbolicTripCountCompleteUnroll::clearWorkingSetMemory(void) {
   MParentRefVec.clear();
   MLibsRefVec.clear();
 }
+#endif //INTEL_FEATURE_SW_ADVANCED
 
 PreservedAnalyses HIRPMSymbolicTripCountCompleteUnrollPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+#if INTEL_FEATURE_SW_ADVANCED
   HIRPMSymbolicTripCountCompleteUnroll(HIRF, AM.getResult<TargetIRAnalysis>(F),
                                        AM.getResult<HIRDDAnalysisPass>(F))
       .run();
 
+#endif //INTEL_FEATURE_SW_ADVANCED
   return PreservedAnalyses::all();
 }
 
@@ -1971,11 +1975,15 @@ public:
       return false;
     }
 
-    return HIRPMSymbolicTripCountCompleteUnroll(
+    bool Result = false;
+#if INTEL_FEATURE_SW_ADVANCED
+    Result = HIRPMSymbolicTripCountCompleteUnroll(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
                getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
         .run();
+#endif //INTEL_FEATURE_SW_ADVANCED
+    return Result;
   }
 };
 

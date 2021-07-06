@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+
 ; RUN: opt -inline -lcssa -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -simplifycfg -inline -inline-report=7 -disable-output 2>&1 %s | FileCheck %s
 ; RUN: opt -passes='cgscc(inline),function(lcssa,hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg)' -inline-report=7 -S 2>&1 %s | FileCheck %s
 
@@ -69,3 +72,6 @@ define i32 @foo1(i32 %0) #0 {
 declare void @llvm.lifetime.end(i64, i8* nocapture)
 
 attributes #0 = { noinline }
+
+; end INTEL_FEATURE_SW_ADVANCED
+
