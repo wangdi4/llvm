@@ -417,7 +417,8 @@ public:
   // replicated and flattened if we are dealing with re-vectorization scenarios.
   // In the generated code, the returned DDRef is itself used as operand for
   // Scatter/Gather memrefs.
-  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr);
+  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr,
+                                              Type *ScallarAccessType);
 
   // Given a load/store instruction, setup and return the memory ref to use in
   // generating the load/store HLInst. The given load/store instruction is also

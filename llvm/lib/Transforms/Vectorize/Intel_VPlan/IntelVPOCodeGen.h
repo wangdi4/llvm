@@ -677,7 +677,8 @@ private:
   /// This function returns the widened GEP instruction for a pointer. In the
   /// generated code, the returned GEP is itself used as an operand of a
   /// Scatter/Gather function.
-  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr);
+  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr,
+                                           Type *ScalarAccessType);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
