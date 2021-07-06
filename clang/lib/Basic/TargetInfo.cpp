@@ -397,11 +397,22 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     FloatFormat = &llvm::APFloat::IEEEsingle();
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
 
+#if INTEL_CUSTOMIZATION
+    // OpenCL C v3.0 s6.7.5 - The generic address space requires support for
+    // OpenCL C 2.0 or OpenCL C 3.0 with the __opencl_c_generic_address_space
+    // feature
+    // FIXME: OpenCLGenericAddressSpace is also defined in setLangDefaults()
+    // for OpenCL C 2.0 but with no access to target capabilities. Target
+    // should be immutable once created and thus this language option needs
+    // to be defined only once.
     if (Opts.OpenCLVersion >= 300) {
-      const auto &FeaturesMap = getSupportedOpenCLOpts();
-      Opts.Blocks = hasFeatureEnabled(FeaturesMap, "__opencl_c_device_enqueue");
-      Opts.OpenCLPipe = hasFeatureEnabled(FeaturesMap, "__opencl_c_pipes");
+      const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
+      Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
+          OpenCLFeaturesMap, "__opencl_c_generic_address_space");
+      Opts.Blocks = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
+      Opts.OpenCLPipe = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
     }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Opts.DoubleSize) {

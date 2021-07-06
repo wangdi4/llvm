@@ -1,12 +1,11 @@
 // RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL1.2
-// if INTEL_CUSTOMIZATION
-// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables -DNO_GENERIC_AS
-// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables -DNO_GENERIC_AS
-// endif INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables,-__opencl_c_generic_address_space
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=-__opencl_c_program_scope_global_variables,+__opencl_c_generic_address_space
+// RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL3.0 -cl-ext=+__opencl_c_program_scope_global_variables,+__opencl_c_generic_address_space
 static constant int G1 = 0;
 constant int G2 = 0;
 
-// if INTEL_CUSTOMIZATION
 int G3 = 0;
 #ifndef __opencl_c_program_scope_global_variables
 // expected-error@-2 {{program scope variable must reside in constant address space}}
@@ -43,9 +42,20 @@ static private float g_private_static_var = 0;
 // expected-error@-4 {{program scope variable must reside in global or constant address space}}
 #endif
 
-static generic float g_generic_static_var = 0; // expected-error-re {{OpenCL C version {{1.2|3.0}} does not support the 'generic' type qualifier}}
-#ifndef __opencl_c_program_scope_global_variables
-// expected-error@-2 {{program scope variable must reside in constant address space}}
+static generic float g_generic_static_var = 0;
+#if (__OPENCL_C_VERSION__ < 300)
+// expected-error@-2 {{OpenCL C version 1.2 does not support the 'generic' type qualifier}}
+// expected-error@-3 {{program scope variable must reside in constant address space}}
+#elif (__OPENCL_C_VERSION__ == 300)
+ #if !defined(__opencl_c_generic_address_space)
+// expected-error@-6 {{OpenCL C version 3.0 does not support the 'generic' type qualifier}}
+ #endif
+ #if !defined(__opencl_c_program_scope_global_variables)
+// expected-error@-9 {{program scope variable must reside in constant address space}}
+ #endif
+ #if defined(__opencl_c_generic_address_space) && defined(__opencl_c_program_scope_global_variables)
+// expected-error@-12 {{program scope variable must reside in global or constant address space}}
+ #endif
 #endif
 
 extern float g_implicit_extern_var;
@@ -74,9 +84,20 @@ extern private float g_private_extern_var;
 // expected-error@-4 {{extern variable must reside in global or constant address space}}
 #endif
 
-extern generic float g_generic_extern_var; // expected-error-re {{OpenCL C version {{1.2|3.0}} does not support the 'generic' type qualifier}}
-#ifndef __opencl_c_program_scope_global_variables
-// expected-error@-2 {{extern variable must reside in constant address space}}
+extern generic float g_generic_extern_var;
+#if (__OPENCL_C_VERSION__ < 300)
+// expected-error@-2 {{OpenCL C version 1.2 does not support the 'generic' type qualifier}}
+// expected-error@-3 {{extern variable must reside in constant address space}}
+#elif (__OPENCL_C_VERSION__ == 300)
+ #if !defined(__opencl_c_generic_address_space)
+// expected-error@-6 {{OpenCL C version 3.0 does not support the 'generic' type qualifier}}
+ #endif
+ #if !defined(__opencl_c_program_scope_global_variables)
+// expected-error@-9 {{extern variable must reside in constant address space}}
+ #endif
+ #if defined(__opencl_c_generic_address_space) && defined(__opencl_c_program_scope_global_variables)
+// expected-error@-12 {{extern variable must reside in global or constant address space}}
+ #endif
 #endif
 
 void kernel foo(int x) {
@@ -89,7 +110,6 @@ void kernel foo(int x) {
 #elif !defined(__opencl_c_program_scope_global_variables)
 // expected-error@-6 {{static local variable must reside in constant address space}}
 #endif
-// endif INTEL_CUSTOMIZATION
 
   constant int L1 = 0;
   local int L2;
@@ -99,13 +119,14 @@ void kernel foo(int x) {
     constant int L1 = 42; // expected-error {{variables in the constant address space can only be declared in the outermost scope of a kernel function}}
   }
 
-  auto int L3 = 7;                            // INTEL: expected-error-re{{OpenCL C version {{1.2|3.0}} does not support the 'auto' storage class specifier}}
+  auto int L3 = 7;                            // expected-error-re{{OpenCL C version {{1.2|3.0}} does not support the 'auto' storage class specifier}}
   global int L4;                              // expected-error{{function scope variable cannot be declared in global address space}}
   __attribute__((address_space(100))) int L5; // expected-error{{automatic variable qualified with an invalid address space}}
 
   constant int L6 = x;                        // expected-error {{initializer element is not a compile-time constant}}
   global int *constant L7 = &G4;
-  private int *constant L8 = &x;              // expected-error {{initializer element is not a compile-time constant}}
+private
+  int *constant L8 = &x;                      // expected-error {{initializer element is not a compile-time constant}}
   constant int *constant L9 = &L1;
   local int *constant L10 = &L2;              // expected-error {{initializer element is not a compile-time constant}}
 }
@@ -126,7 +147,6 @@ void f() {
     __attribute__((address_space(100))) int L4; // expected-error{{automatic variable qualified with an invalid address space}}
   }
 
-// if INTEL_CUSTOMIZATION
   static float l_implicit_static_var = 0;
 #if __OPENCL_C_VERSION__ < 300
 // expected-error@-2 {{variables in function scope cannot be declared static}}
@@ -164,11 +184,20 @@ void f() {
 // expected-error@-6 {{static local variable must reside in global or constant address space}}
 #endif
 
-  static generic float l_generic_static_var = 0; // expected-error-re{{OpenCL C version {{1.2|3.0}} does not support the 'generic' type qualifier}}
-#if __OPENCL_C_VERSION__ < 300
-// expected-error@-2 {{variables in function scope cannot be declared static}}
-#elif !defined(__opencl_c_program_scope_global_variables)
-// expected-error@-4 {{static local variable must reside in constant address space}}
+  static generic float l_generic_static_var = 0;
+#if (__OPENCL_C_VERSION__ < 300)
+// expected-error@-2 {{OpenCL C version 1.2 does not support the 'generic' type qualifier}}
+// expected-error@-3 {{variables in function scope cannot be declared static}}
+#elif (__OPENCL_C_VERSION__ == 300)
+ #if !defined(__opencl_c_generic_address_space)
+// expected-error@-6 {{OpenCL C version 3.0 does not support the 'generic' type qualifier}}
+ #endif
+ #if !defined(__opencl_c_program_scope_global_variables)
+// expected-error@-9 {{static local variable must reside in constant address space}}
+ #endif
+ #if defined(__opencl_c_generic_address_space) && defined(__opencl_c_program_scope_global_variables)
+// expected-error@-12 {{static local variable must reside in global or constant address space}}
+ #endif
 #endif
 
   extern float l_implicit_extern_var;
@@ -205,11 +234,19 @@ void f() {
 // expected-error@-6 {{extern variable must reside in global or constant address space}}
 #endif
 
-  extern generic float l_generic_extern_var; // expected-error-re{{OpenCL C version {{1.2|3.0}} does not support the 'generic' type qualifier}}
-#if __OPENCL_C_VERSION__ < 300
-// expected-error@-2 {{extern variable must reside in constant address space}}
-#elif !defined(__opencl_c_program_scope_global_variables)
-// expected-error@-4 {{extern variable must reside in constant address space}}
+  extern generic float l_generic_extern_var;
+#if (__OPENCL_C_VERSION__ < 300)
+// expected-error@-2 {{OpenCL C version 1.2 does not support the 'generic' type qualifier}}
+// expected-error@-3 {{extern variable must reside in constant address space}}
+#elif (__OPENCL_C_VERSION__ == 300)
+ #if !defined(__opencl_c_generic_address_space)
+// expected-error@-6 {{OpenCL C version 3.0 does not support the 'generic' type qualifier}}
+ #endif
+ #if !defined(__opencl_c_program_scope_global_variables)
+// expected-error@-9 {{extern variable must reside in constant address space}}
+ #endif
+ #if defined(__opencl_c_generic_address_space) && defined(__opencl_c_program_scope_global_variables)
+// expected-error@-12 {{extern variable must reside in global or constant address space}}
+ #endif
 #endif
 }
-// endif INTEL_CUSTOMIZATION
