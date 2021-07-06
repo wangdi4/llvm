@@ -2,23 +2,20 @@
 ; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
-; This test checks the DataPerValue pass
-;; The case: kernel "main" with barrier instructions and the following
-;;           alloca instructions (values):
-;;           "%p1" of size 8 bytes and 4 byte aligmnet,
-;;           while "%p2" of size 10x8 bytes and 8 byte aligmnet.
-;;      0. Kernel "main" was not changed
+;; This test checks the DataPerInternalFunction pass
+;; The case: kernel "main" with no barier instruction that calls function "foo",
+;;           which returns i32 and receives non-uniform value "%y",  where the return
+;;           value is not crossing a barrier (i.e. won't be saved in special buffer)
 ;; The expected result:
 ;;  Group-A Values analysis data collected is as follows
-;;      1. Data was collected only for kernel "main"
-;;      2. Only values "%p1" and "%p2" were collected to this group
-;;      3. "%p1" value has offset 0 in the special buffer
-;;      4. "%p2" value has offset 8 in the special buffer
+;;      1. No analysis data was collected to this group
 ;;  Group-B.1 Values analysis data collected is as follows
-;;      5. No analysis data was collected to this group
+;;      2. Data was collected only for function "main"
+;;      3. value "%y" was collected to this group
+;;      4. "%y" value has offset 0 in the special buffer
 ;;  Group-B.2 Values analysis data collected is as follows
-;;      6. No analysis data was collected to this group
-;;  Buffer Total Size is 88
+;;      7. No analysis data was collected to this group
+;;  Buffer Total Size is 8
 ;;*****************************************************************************
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -27,42 +24,59 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  %p1 = alloca i64, align 4
-  %p2 = alloca [10 x i64], align 8
+  %lid = call i32 @_Z12get_local_idj(i32 0)
+  %y = xor i32 %x, %lid
   br label %L1
 L1:
   call void @_Z18work_group_barrierj(i32 1)
+  %ret = call i32 @foo(i32 %y)
   br label %L2
 L2:
   call void @barrier_dummy()
   ret void
 ; CHECK: L0:
-; CHECK: %p1 = alloca i64, align 4
-; CHECK: %p2 = alloca [10 x i64], align 8
+; CHECK: %lid = call i32 @_Z12get_local_idj(i32 0)
+; CHECK: %y = xor i32 %x, %lid
 ; CHECK: br label %L1
 ; CHECK: L1:
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
+; CHECK: %ret = call i32 @foo(i32 %y)
 ; CHECK: br label %L2
 ; CHECK: L2:
 ; CHECK: call void @barrier_dummy()
 ; CHECK: ret void
 }
 
+; CHECK: @foo
+define i32 @foo(i32 %x) nounwind {
+L3:
+  %y = xor i32 %x, %x
+  br label %L4
+L4:
+  call void @_Z18work_group_barrierj(i32 1)
+  ret i32 %y
+; CHECK: L3:
+; CHECK: %y = xor i32 %x, %x
+; CHECK: br label %L4
+; CHECK: L4:
+; CHECK: @_Z18work_group_barrierj(i32 1)
+; CHECK: ret i32 %y
+}
+
 ; CHECK: Group-A Values
+; CHECK-NOT: +
+; CHECK-NOT: -
+; CHECK-NOT: *
+
+; CHECK: Group-B.1 Values
 ; CHECK-NOT: +
 ; CHECK: +main
 ; CHECK-NOT: +
 ; CHECK-NOT: -
-; CHECK: -p1 (0)
-; CHECK: -p2 (8)
+; CHECK: -y (0)
 ; CHECK-NOT: -
+; CHECK-NOT: +
 ; CHECK: *
-; CHECK-NOT: +
-
-; CHECK: Group-B.1 Values
-; CHECK-NOT: +
-; CHECK-NOT: -
-; CHECK-NOT: *
 
 ; CHECK: Group-B.2 Values
 ; CHECK-NOT: +
@@ -71,7 +85,7 @@ L2:
 
 ; CHECK: Buffer Total Size:
 ; CHECK-NOT: entry
-; CHECK: entry(0) : (88)
+; CHECK: entry(1) : (8)
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
