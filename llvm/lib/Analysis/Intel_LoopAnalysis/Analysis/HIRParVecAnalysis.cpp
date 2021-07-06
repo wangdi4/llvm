@@ -917,12 +917,18 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 // We don't consider/recognize those different kinds of idiom here, the
 // classification is done in VPlan. Moreover, we do not recognize general
 // conflict for now.
-// To detect VConflict idiom, we have to prove the following that:
-// - there is one backward flow dependency (backward dependencies do not have
-// linear memrefs),
-// - the load and store have the same memory reference,
-// In VPlan side, we also check if the intermediate values between load and
-// store have live-outs.
+// We bail-out if one of the following does not occut:
+// - there should be only one backward flow dependency (backward dependencies do not
+//   have linear memrefs)
+// - the load and store should have the same memory reference
+// - there should be only one output dependency
+//
+// In VPlan side, we also check the following:
+// - if the load and the store are in the same basic block
+// - if the load has uses outside of VConflict region
+// - if the instructions of VConflict region has uses outside of VConflict
+//   region and if there is a call or a store in the region
+//
 bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   auto *StoreInst = dyn_cast<HLInst>(CurNode);
   if (!StoreInst)
