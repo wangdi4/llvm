@@ -18,7 +18,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 namespace llvm {
 
@@ -38,6 +38,10 @@ public:
       return false;
     }
     return SpecialValues[V];
+  }
+
+  void setWIRelated(Value *Val, bool WIRelated) {
+    SpecialValues[Val] = WIRelated;
   }
 
   void print(raw_ostream &OS, const Module *M) const;
@@ -80,7 +84,7 @@ protected:
 
 private:
   /// This is barrier utility class
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 
   /// This is a list of all functions to be fixed in processed module
   /// that are ordered according to call graph from leaf to root.
@@ -88,7 +92,7 @@ private:
 
   /// Internal Data used to calculate user Analysis Data.
   /// Saves which values changed in this round.
-  SetVector<Value *> ChangedValues;
+  SetVector<Value *> Changed;
 
   /// Analysis Data for pass user.
   /// This holds a map between value and it relation on WI-id (related or not).

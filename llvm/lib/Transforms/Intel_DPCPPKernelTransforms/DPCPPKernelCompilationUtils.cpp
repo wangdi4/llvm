@@ -217,6 +217,19 @@ bool isGetWorkDim(StringRef S) {
   return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
 }
 
+bool isGetLocalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_LID); }
+
+bool isGetGlobalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_GID); }
+
+bool isAtomicBuiltin(StringRef S) {
+  // S is atomic built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it starts with "atom" (only atomic built-ins has "atom" prefix)
+  if (!isMangledName(S))
+    return false;
+  return stripName(S).startswith("atom");
+}
+
 bool isGlobalCtorDtor(Function *F) {
   // TODO: implement good solution based on value of @llvm.global_ctors variable
   return F->getName() == "__pipe_global_ctor" ||
@@ -309,6 +322,74 @@ bool isAsyncWorkGroupStridedCopy(StringRef S) {
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
 }
 
+PipeKind getPipeKind(StringRef S) {
+  PipeKind Kind;
+  Kind.Op = PipeKind::OK_None;
+
+  if (!S.consume_front("__"))
+    return Kind;
+
+  if (S.consume_front("sub_group_"))
+    Kind.Scope = PipeKind::SK_SubGroup;
+  else if (S.consume_front("work_group_"))
+    Kind.Scope = PipeKind::SK_WorkGroup;
+  else
+    Kind.Scope = PipeKind::SK_WorkItem;
+
+  if (S.consume_front("commit_"))
+    Kind.Op = PipeKind::OK_Commit;
+  else if (S.consume_front("reserve_"))
+    Kind.Op = PipeKind::OK_Reserve;
+
+  if (S.consume_front("read_"))
+    Kind.Access = PipeKind::AK_Read;
+  else if (S.consume_front("write_"))
+    Kind.Access = PipeKind::AK_Write;
+  else {
+    Kind.Op = PipeKind::OK_None;
+    return Kind; // not a pipe built-in
+  }
+
+  if (!S.consume_front("pipe")) {
+    Kind.Op = PipeKind::OK_None;
+    return Kind; // not a pipe built-in
+  }
+
+  if (Kind.Op == PipeKind::OK_Commit || Kind.Op == PipeKind::OK_Reserve) {
+    // rest for the modifiers only appliy to read/write built-ins
+    return Kind;
+  }
+
+  if (S.consume_front("_2"))
+    Kind.Op = PipeKind::OK_ReadWrite;
+  else if (S.consume_front("_4"))
+    Kind.Op = PipeKind::OK_ReadWriteReserve;
+
+  // FPGA extension.
+  if (S.consume_front("_bl"))
+    Kind.Blocking = true;
+  else
+    Kind.Blocking = false;
+
+  if (S.consume_front("_io"))
+    Kind.IO = true;
+  else
+    Kind.IO = false;
+
+  if (S.consume_front("_fpga"))
+    Kind.FPGA = true;
+
+  if (S.consume_front("_") && S.startswith("v"))
+    Kind.SimdSuffix = std::string(S);
+
+  return Kind;
+}
+
+bool isWorkItemPipeBuiltin(StringRef S) {
+  auto Kind = getPipeKind(S);
+  return Kind && Kind.Scope == PipeKind::SK_WorkItem;
+}
+
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
   return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
          (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(M) &&
@@ -343,8 +424,7 @@ bool isWorkGroupDivergent(StringRef S) { return isWorkGroupScan(S); }
 bool hasWorkGroupFinalizePrefix(StringRef S) {
   if (!isMangledName(S))
     return false;
-  std::string FuncName = std::string(stripName(S));
-  return StringRef(FuncName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
+  return stripName(S).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
 }
 
 std::string appendWorkGroupFinalizePrefix(StringRef S) {
@@ -414,9 +494,9 @@ std::string mangledBarrier() {
 
 std::string mangledWGBarrier(BarrierType BT) {
   switch (BT) {
-  case BARRIER_NO_SCOPE:
+  case BarrierType::NoScope:
     return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_WG_BARRIER);
-  case BARRIER_WITH_SCOPE:
+  case BarrierType::WithScope:
     return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
                                    reflection::PRIMITIVE_MEMORY_SCOPE>(
         NAME_WG_BARRIER);
@@ -580,8 +660,8 @@ void getAllSyncBuiltinsDecls(FuncSet &FuncSet, Module *M) {
 
   // TODO: port handling of WG collectives here as well
   std::string BarrierNames[] = {mangledBarrier(),
-                                mangledWGBarrier(BARRIER_NO_SCOPE),
-                                mangledWGBarrier(BARRIER_WITH_SCOPE)};
+                                mangledWGBarrier(BarrierType::NoScope),
+                                mangledWGBarrier(BarrierType::WithScope)};
   for (const auto &BarrierName : BarrierNames) {
     auto *F = M->getFunction(BarrierName);
 

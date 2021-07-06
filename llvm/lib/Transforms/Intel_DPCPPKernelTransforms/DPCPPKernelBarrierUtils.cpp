@@ -61,10 +61,10 @@ void DPCPPKernelBarrierUtils::initializeSyncData() {
   // Find all calls to barrier().
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledBarrier(), Barriers);
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+                        DPCPPKernelCompilationUtils::BarrierType::NoScope),
                     Barriers);
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BARRIER_WITH_SCOPE),
+                        DPCPPKernelCompilationUtils::BarrierType::WithScope),
                     Barriers);
   // Find all calls to dummyBarrier().
   findAllUsesOfFunc(DummyBarrierName, DummyBarriers);
@@ -221,7 +221,7 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
     // Barrier function is not initialized yet,
     // Check if there is a declaration in the module.
     BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
-        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE));
+        DPCPPKernelCompilationUtils::BarrierType::NoScope));
   }
   if (!BarrierFunc) {
     // Module has no barrier declaration.
@@ -231,7 +231,7 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
     FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
     BarrierFunc = createFunctionDeclaration(
         DPCPPKernelCompilationUtils::mangledWGBarrier(
-            DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+            DPCPPKernelCompilationUtils::BarrierType::NoScope),
         Result, FuncTyArgs);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
         BarrierFunc->getContext(), AttributeList::FunctionIndex,
