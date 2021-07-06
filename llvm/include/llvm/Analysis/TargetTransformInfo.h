@@ -1415,6 +1415,9 @@ public:
   bool isLegalToVectorizeReduction(const RecurrenceDescriptor &RdxDesc,
                                    ElementCount VF) const;
 
+  /// \returns True if the given type is supported for scalable vectors
+  bool isElementTypeLegalForScalableVector(Type *Ty) const;
+
   /// \returns The new vector factor value if the target doesn't support \p
   /// SizeInBytes loads or has a better vector factor.
   unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
@@ -1838,6 +1841,7 @@ public:
                                             unsigned AddrSpace) const = 0;
   virtual bool isLegalToVectorizeReduction(const RecurrenceDescriptor &RdxDesc,
                                            ElementCount VF) const = 0;
+  virtual bool isElementTypeLegalForScalableVector(Type *Ty) const = 0;
   virtual unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
                                        unsigned ChainSizeInBytes,
                                        VectorType *VecTy) const = 0;
@@ -2467,6 +2471,9 @@ public:
   bool isLegalToVectorizeReduction(const RecurrenceDescriptor &RdxDesc,
                                    ElementCount VF) const override {
     return Impl.isLegalToVectorizeReduction(RdxDesc, VF);
+  }
+  bool isElementTypeLegalForScalableVector(Type *Ty) const override {
+    return Impl.isElementTypeLegalForScalableVector(Ty);
   }
   unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
                                unsigned ChainSizeInBytes,
