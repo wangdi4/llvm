@@ -273,6 +273,7 @@
 // RUN:   %clang_cl -### -fsycl -Qiopenmp -Qopenmp-targets=spir64 /std:c++20 -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-STD %s
 
+// CHK-STD-NOT: clang{{.*}} warning: argument unused during compilation: '/std:c++20'
 // CHK-STD: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice"{{.*}} "-std=c++20"
 // CHK-STD: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}} "-include"{{.*}} "-std=c++20"
 // CHK-STD: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-std=c++20"

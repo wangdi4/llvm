@@ -6334,6 +6334,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       if (A != Std)
         A->render(Args, CmdArgs);
   } else {
+#if INTEL_CUSTOMIZATION
+    bool CPPVerSpecified = false;
+    if (Args.hasArg(options::OPT__SLASH_std)) {
+      const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std);
+      CPPVerSpecified =
+        StringRef(StdArg->getValue()).contains_insensitive("c++");
+    }
+#endif // INTEL_CUSTOMIZATION
     // Honor -std-default.
     //
     // FIXME: Clang doesn't correctly handle -std= when the input language
@@ -6345,6 +6353,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         Args.AddAllArgsTranslated(CmdArgs, options::OPT_std_default_EQ, "-std=",
                                   /*Joined=*/true);
       } else
+#if INTEL_CUSTOMIZATION
+      if (!CPPVerSpecified)
+#endif // INTEL_CUSTOMIZATION
         ImplyVCPPCVer = true;
     }
     else if (IsWindowsMSVC)
@@ -6356,8 +6367,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else if ((IsSYCL || Args.hasArg(options::OPT_fsycl)) &&
              Args.hasArg(options::OPT_fopenmp_targets_EQ) &&
              Args.hasArg(options::OPT__SLASH_std)) {
-      const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std);
-      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_insensitive("c++");
+      ImplyVCPPCXXVer = CPPVerSpecified;
       ImplyVCPPCVer = !ImplyVCPPCXXVer;
     }
 
