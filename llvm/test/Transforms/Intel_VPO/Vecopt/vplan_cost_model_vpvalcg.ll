@@ -659,7 +659,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i8 [[VP_FPTOUI:%.*]] = fptoui float [[VP_LD_FLOAT]] to i8
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i32 [[VP_FPTOSI:%.*]] = fptosi float [[VP_LD_FLOAT]] to i32
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for double [[VP_SITOFP:%.*]] = sitofp i32 [[VP_LD_I32]] to double
-; VPLAN-CM-VF1-NEXT:    Cost 1000 for float [[VP_UITOFP:%.*]] = uitofp i8 [[VP_LD_I8]] to float
+; VPLAN-CM-VF1-NEXT:    Cost 2000 for float [[VP_UITOFP:%.*]] = uitofp i8 [[VP_LD_I8]] to float
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for float [[VP_FPTRUNC:%.*]] = fptrunc double [[VP_LD_DOUBLE]] to float
 ; VPLAN-CM-VF1-NEXT:    Cost 7000 for float [[VP_FSQRT:%.*]] = call float [[VP_FPTRUNC]] float (float)* @llvm.sqrt.f32
 ; VPLAN-CM-VF1-NEXT:    Cost 26000 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
@@ -678,7 +678,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 111000
+; VPLAN-CM-VF1-NEXT:  [[BB2]]: base cost: 112000
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -686,7 +686,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-CM-VF1-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-CM-VF1-NEXT:  Base Cost: 111000
+; VPLAN-CM-VF1-NEXT:  Base Cost: 112000
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  Cost Model for VPlan test_casts:HIR with VF = 4:
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
@@ -775,7 +775,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i8 [[VP2:%.*]] = fptoui float [[VP_LOAD_2]] to i8
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i32 [[VP3:%.*]] = fptosi float [[VP_LOAD_2]] to i32
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for double [[VP4:%.*]] = sitofp i32 [[VP_LOAD]] to double
-; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for float [[VP5:%.*]] = uitofp i8 [[VP_LOAD_1]] to float
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 2000 for float [[VP5:%.*]] = uitofp i8 [[VP_LOAD_1]] to float
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for float [[VP6:%.*]] = fptrunc double [[VP_LOAD_3]] to float
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 7000 for float [[VP_FSQRT:%.*]] = call float [[VP6]] float (float)* @llvm.sqrt.f32
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 26000 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
@@ -806,7 +806,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP11:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
-; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 111000
+; VPLAN-HIR-CM-VF1-NEXT:  [[BB2]]: base cost: 112000
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -814,7 +814,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
 ; VPLAN-HIR-CM-VF1-NEXT:  [[BB4]]: base cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:  Base Cost: 111000
+; VPLAN-HIR-CM-VF1-NEXT:  Base Cost: 112000
 ;
 ; LLVM-CM-VF4-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_casts':
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br label [[VECTOR_BODY0:%.*]]
