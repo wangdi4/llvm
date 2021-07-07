@@ -2574,6 +2574,53 @@ convert_from_bf8(simd<uint8_t, N> src0) {
   return __esimd_qf_cvt<N, DstType, SrcType>(src0);
 }
 
+// TODO: we need a more generic solution to derive storage types
+template <EsimdPrecisionType> struct SrndPrecisionTypeStorage;
+
+template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::BF8> {
+  using StorageT = uint8_t;
+};
+template <> struct SrndPrecisionTypeStorage<EsimdPrecisionType::FP16> {
+  using StorageT = cl::sycl::detail::half_impl::StorageT;
+};
+
+/// esimd_srnd - perform stochastic rounding.
+// Supported convertions:
+//   half -> bf8
+//   fp32 (float) -> half
+//   fp32 -> bf8 (emulated sequence, fp32 converted to half)
+// Available on PVC_XT+
+// maps to SRND vISA instruction
+/// \param src0 the operand to be rounded
+/// \param src1 random number used for rounding
+/// \return the converted value
+template <EsimdPrecisionType DstPrecision, int N, typename SrcType>
+ESIMD_NODEBUG ESIMD_INLINE
+    simd<typename SrndPrecisionTypeStorage<DstPrecision>::StorageT, N>
+    esimd_srnd(simd<SrcType, N> src0, simd<SrcType, N> src1) {
+
+  using DstStorageT = typename SrndPrecisionTypeStorage<DstPrecision>::StorageT;
+  constexpr bool is_bf8_fp32 = (DstPrecision == EsimdPrecisionType::BF8) &&
+                               detail::is_fp_type<SrcType>::value;
+  constexpr bool is_hf16_fp32 = (DstPrecision == EsimdPrecisionType::FP16) &&
+                                detail::is_fp_type<SrcType>::value;
+  constexpr bool is_bf8_hf16 = (DstPrecision == EsimdPrecisionType::BF8) &&
+                               detail::is_hf_type<SrcType>::value;
+
+  static_assert((is_bf8_fp32 || is_hf16_fp32 || is_bf8_hf16),
+                "unsupported srnd type");
+
+  if constexpr (is_bf8_fp32) {
+    using half_t = cl::sycl::detail::half_impl::StorageT;
+    // emulated sequence, uses convertion of fp32->hf
+    simd<half_t, N> src0_hf = src0;
+    simd<half_t, N> src1_hf = src1;
+    return __esimd_srnd<N, DstStorageT, half_t>(src0_hf, src1_hf);
+  } else {
+    return __esimd_srnd<N, DstStorageT, SrcType>(src0, src1);
+  }
+}
+
 // dpas helpers
 namespace detail {
 
