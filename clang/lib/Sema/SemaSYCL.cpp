@@ -787,11 +787,9 @@ class SingleDeviceFunctionTracker {
     return FD->getMostRecentDecl();
   }
 
-  void VisitCallNode(CallGraphNode *Node,
+  void VisitCallNode(CallGraphNode *Node, FunctionDecl *CurrentDecl,
                      const Expr *CE, // INTEL
                      llvm::SmallVectorImpl<FunctionDecl *> &CallStack) {
-    FunctionDecl *CurrentDecl = GetFDFromNode(Node);
-
     // If this isn't a function, I don't think there is anything we can do here.
     if (!CurrentDecl)
       return;
@@ -868,20 +866,29 @@ class SingleDeviceFunctionTracker {
     }
 
     // Recurse.
-#if INTEL_CUSTOMIZATION
     CallStack.push_back(CurrentDecl);
+    llvm::SmallPtrSet<FunctionDecl *, 16> SeenCallees;
+#if INTEL_CUSTOMIZATION
     for (CallGraphNode::CallRecord CR : Node->callees()) {
-      VisitCallNode(CR.Callee, CR.CallExpr, CallStack);
+      FunctionDecl *CurFD = GetFDFromNode(CR);
+      // Make sure we only visit each callee 1x from this function to avoid very
+      // time consuming template recursion cases.
+      if (!llvm::is_contained(SeenCallees, CurFD)) {
+        VisitCallNode(CR.Callee, CurFD, CR.CallExpr, CallStack);
+        SeenCallees.insert(CurFD);
+      }
     }
+#endif // INTEL_CUSTOMIZATION
     CallStack.pop_back();
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Function to walk the call graph and identify the important information.
   void Init() {
     CallGraphNode *KernelNode = Parent.getNodeForKernel(SYCLKernel);
     llvm::SmallVector<FunctionDecl *> CallStack;
-    VisitCallNode(KernelNode, nullptr, CallStack); // INTEL
+#if INTEL_CUSTOMIZATION
+    VisitCallNode(KernelNode, GetFDFromNode(KernelNode), nullptr, CallStack);
+#endif // INTEL_CUSTOMIZATION
   }
 
 public:
