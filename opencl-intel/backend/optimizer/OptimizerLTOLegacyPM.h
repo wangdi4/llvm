@@ -55,6 +55,7 @@ private:
   //  CodeGenOptions m_CodeGenOpts;
   llvm::legacy::FunctionPassManager FPM;
   llvm::legacy::PassManager MPM;
+  llvm::legacy::PassManager MaterializerMPM;
 };
 
 } // namespace DeviceBackend

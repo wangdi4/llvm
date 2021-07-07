@@ -80,6 +80,9 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
   FPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
+  // Translate SPV-IR to OCL20-IR first.
+  MaterializerMPM.add(createSPIRVToOCL20Legacy());
+
   registerPipelineStartCallback(PMBuilder);
   registerVectorizerStartCallback(PMBuilder);
   registerOptimizerLastCallback(PMBuilder);
@@ -100,7 +103,6 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
                 : PassManagerBuilder::EP_ModuleOptimizerEarly;
   PMBuilder.addExtension(
       EP, [](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
-        MPM.add(createSPIRVToOCL20Legacy());
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
         if (PMB.OptLevel > 0)
@@ -184,6 +186,8 @@ void OptimizerLTOLegacyPM::registerLastPasses(
 }
 
 void OptimizerLTOLegacyPM::Optimize() {
+  MaterializerMPM.run(*m_M);
+
   FPM.doInitialization();
   for (Function &F : *m_M) {
     if (!F.isDeclaration())
