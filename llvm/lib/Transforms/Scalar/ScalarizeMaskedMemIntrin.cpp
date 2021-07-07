@@ -147,11 +147,14 @@ static bool scalarizeTruePrefixMaskStore(const DataLayout &DL, CallInst *CI) {
 
   Value *Data = CI->getArgOperand(0);
   Value *Ptr = CI->getArgOperand(1);
+  Value *Alignment = CI->getArgOperand(2);
   Value *Mask = CI->getArgOperand(3);
 
   unsigned TruePrefixMaskNum = getTruePrefixMaskNum(Mask);
   if (TruePrefixMaskNum == 0)
     return false;
+
+  const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
 
   IRBuilder<> Builder(CI);
   VectorType *VecType = cast<FixedVectorType>(Data->getType());
@@ -168,7 +171,7 @@ static bool scalarizeTruePrefixMaskStore(const DataLayout &DL, CallInst *CI) {
       PointerType::get(NewVecType, Ptr->getType()->getPointerAddressSpace());
   auto NewPtr = Builder.CreateBitCast(Ptr, NewVecPtrType);
 
-  Builder.CreateStore(NewData, NewPtr);
+  Builder.CreateAlignedStore(NewData, NewPtr, AlignVal);
 
   CI->eraseFromParent();
 

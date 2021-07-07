@@ -34,22 +34,22 @@ define void @mstore_constmask_v12i8_v12i8(<12 x i8>* %addr, <12 x i8> %val) {
 define void @mstore_constmask_v16f64_v16f64(<16 x double>* %addr, <16 x double> %val) {
 ; SSE2-LABEL: mstore_constmask_v16f64_v16f64:
 ; SSE2:       ## %bb.0:
-; SSE2-NEXT:    movaps %xmm5, 80(%rdi)
-; SSE2-NEXT:    movaps %xmm4, 64(%rdi)
-; SSE2-NEXT:    movaps %xmm3, 48(%rdi)
-; SSE2-NEXT:    movaps %xmm2, 32(%rdi)
-; SSE2-NEXT:    movaps %xmm1, 16(%rdi)
-; SSE2-NEXT:    movaps %xmm0, (%rdi)
+; SSE2-NEXT:    movups %xmm5, 80(%rdi)
+; SSE2-NEXT:    movups %xmm4, 64(%rdi)
+; SSE2-NEXT:    movups %xmm3, 48(%rdi)
+; SSE2-NEXT:    movups %xmm2, 32(%rdi)
+; SSE2-NEXT:    movups %xmm1, 16(%rdi)
+; SSE2-NEXT:    movups %xmm0, (%rdi)
 ; SSE2-NEXT:    retq
 ;
 ; SSE4-LABEL: mstore_constmask_v16f64_v16f64:
 ; SSE4:       ## %bb.0:
-; SSE4-NEXT:    movaps %xmm5, 80(%rdi)
-; SSE4-NEXT:    movaps %xmm4, 64(%rdi)
-; SSE4-NEXT:    movaps %xmm3, 48(%rdi)
-; SSE4-NEXT:    movaps %xmm2, 32(%rdi)
-; SSE4-NEXT:    movaps %xmm1, 16(%rdi)
-; SSE4-NEXT:    movaps %xmm0, (%rdi)
+; SSE4-NEXT:    movups %xmm5, 80(%rdi)
+; SSE4-NEXT:    movups %xmm4, 64(%rdi)
+; SSE4-NEXT:    movups %xmm3, 48(%rdi)
+; SSE4-NEXT:    movups %xmm2, 32(%rdi)
+; SSE4-NEXT:    movups %xmm1, 16(%rdi)
+; SSE4-NEXT:    movups %xmm0, (%rdi)
 ; SSE4-NEXT:    retq
 ;
 ; AVX2-LABEL: mstore_constmask_v16f64_v16f64:
