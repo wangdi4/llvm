@@ -1288,6 +1288,27 @@ SYCL_EXTERNAL
 }
 #endif // __SYCL_DEVICE_ONLY__
 
+/// \brief lsc memory fence.
+/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+///
+/// @tparam Sfid is the Sfid shaded function.
+/// @tparam FenceOp is the fence operation.
+/// @tparam Scope is the operation scope.
+/// @tparam N is the number of channels (platform dependent).
+/// @param pred is predicates.
+template <__SEIEE::lsc_sfid Sfid, __SEIEE::lsc_fence_op FenceOp,
+          __SEIEE::lsc_scope Scope, int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void
+__esimd_lsc_fence(__SEIEED::vector_type_t<uint16_t, N> pred)
+#ifdef __SYCL_DEVICE_ONLY__
+    ;
+#else  // __SYCL_DEVICE_ONLY__
+{
+  throw cl::sycl::feature_not_supported();
+  return 0;
+}
+#endif // __SYCL_DEVICE_ONLY__
+
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 

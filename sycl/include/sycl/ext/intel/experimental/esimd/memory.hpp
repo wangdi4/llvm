@@ -2340,6 +2340,25 @@ lsc_flat_atomic(T *p, simd<uint32_t, N> offsets, simd<T, N * NElts> src0,
                                          _ImmOffset, _DS, _VS, _Transposed, N>(
       pred, addrs, src0, src1);
 }
+
+/// \brief lsc memory fence.
+/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+///
+/// @tparam Sfid is the Sfid shaded funnction.
+/// @tparam FenceOp is the fence operation.
+/// @tparam Scope is the operation scope.
+/// @tparam N is the number of channels (platform dependent).
+/// @param pred is predicates.
+template <lsc_sfid Sfid = lsc_sfid::ugm,
+          lsc_fence_op FenceOp = lsc_fence_op::none,
+          lsc_scope Scope = lsc_scope::group, int N = 16>
+ESIMD_INLINE ESIMD_NODEBUG void lsc_fence(simd<uint16_t, N> pred = 1) {
+  static_assert(Sfid != lsc_sfid::slm || (FenceOp == lsc_fence_op::none &&
+                                          Scope == lsc_scope::group),
+                "SLM fence must have 'none' lsc_fence_op and 'group' scope");
+  __esimd_lsc_fence<Sfid, FenceOp, Scope, N>(pred);
+}
+
 /// @}
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
