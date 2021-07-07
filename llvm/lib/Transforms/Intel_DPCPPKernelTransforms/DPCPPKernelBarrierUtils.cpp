@@ -12,7 +12,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 namespace llvm {
@@ -125,17 +124,17 @@ SyncType DPCPPKernelBarrierUtils::getSynchronizeType(const Instruction *I) {
 
   if (!isa<CallInst>(I)) {
     // Not a call instruction, cannot be a synchronize instruction.
-    return SyncTypeNone;
+    return SyncType::None;
   }
   if (Barriers.count(const_cast<Instruction *>(I))) {
     // It is a barrier instruction.
-    return SyncTypeBarrier;
+    return SyncType::Barrier;
   }
   if (DummyBarriers.count(const_cast<Instruction *>(I))) {
     // It is a dummyBarrier instruction.
-    return SyncTypeDummyBarrier;
+    return SyncType::DummyBarrier;
   }
-  return SyncTypeNone;
+  return SyncType::None;
 }
 
 bool DPCPPKernelBarrierUtils::isDummyBarrierCall(const CallInst *CI) {

@@ -24,6 +24,8 @@
 
 namespace llvm {
 
+enum class SyncType { None, Barrier, DummyBarrier, Fiber };
+
 namespace KernelAttribute {
 // Attributes
 extern const char *SyclKernel;

@@ -13,9 +13,11 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 namespace llvm {
+
+class BarrierUtils;
 
 /// SplitBBonBarrier pass is a module pass used to assure
 /// barrier/fiber instructions appears only at the begining of basic block
@@ -30,7 +32,7 @@ public:
 
 private:
   /// This is barrier utility class
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 };
 
 /// SplitBBonBarrierLegacy pass for legacy pass manager.

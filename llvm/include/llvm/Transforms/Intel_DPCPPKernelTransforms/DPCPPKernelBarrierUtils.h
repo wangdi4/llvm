@@ -18,6 +18,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include <string>
 
@@ -26,14 +27,6 @@
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 
 namespace llvm {
-
-typedef enum {
-  SyncTypeNone,
-  SyncTypeBarrier,
-  SyncTypeDummyBarrier,
-  SyncTypeFiber,
-  SyncTypeNum
-} SyncType;
 
 using InstVector = SmallVector<llvm::Instruction *, 8>;
 using ValueVector = SmallVector<llvm::Value *, 8>;
