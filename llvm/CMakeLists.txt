@@ -893,6 +893,20 @@ if(INTEL_CUSTOMIZATION)
   endif(INTEL_ENABLE_SW_ADVANCED)
 # end INTEL_FEATURE_SW_ADVANCED
 
+# INTEL_FEATURE_SW_DTRANS
+  # TODO: We need to move the directories and set commands from
+  # INTEL_INCLUDE_DTRANS to here. This should happen when we are ready
+  # to swap INTEL_INCLUDE_DTRANS to FEATURE_SW_DTRANS.
+  if(INTEL_INCLUDE_DTRANS)
+    option(INTEL_ENABLE_SW_DTRANS "Include DTrans optimizations" ON)
+    if (INTEL_ENABLE_SW_DTRANS)
+      list(APPEND features_enabled_by_default
+         "${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS"
+      )
+    endif(INTEL_ENABLE_SW_DTRANS)
+  endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_FEATURE_SW_DTRANS
+
   # Force adding features enabled by default to CMake cache.
   # features_enabled_by_default list now contains all features
   # from the original LLVM_INTEL_FEATURES and also the features

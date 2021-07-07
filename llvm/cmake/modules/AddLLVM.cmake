@@ -2398,8 +2398,8 @@ macro(dpcpptarget_add_resource_file target binary_name product_name file_descrip
       DEPENDS ${dpcpp_rc}
       VERBATIM
     )
-    add_custom_target(${target}.res ALL DEPENDS ${resource_file})
-    add_dependencies(${target} ${target}.res)
+    add_custom_target(${target}_res ALL DEPENDS ${resource_file})
+    add_dependencies(${target} ${target}_res)
     target_link_libraries(${target} PRIVATE ${resource_file})
   endif()
 endmacro()

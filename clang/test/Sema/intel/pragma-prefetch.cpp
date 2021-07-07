@@ -8,14 +8,11 @@ void prefetch() {
 // expected-error@+2 {{expected a for, while, or do-while loop to follow '#pragma prefetch'}}
 #pragma prefetch
    A = B;
-// expected-error@+1 {{hint value, 0, must be between 1 and 4, inclusive}}
-#pragma prefetch A:0
-  for (int i; i < 10; ++i) {}
-// expected-error@+1 {{hint value, 5, must be between 1 and 4, inclusive}}
+// expected-error@+1 {{hint value, 5, must be between 0 and 3, inclusive}}
 #pragma prefetch A:5
   for (int i; i < 10; ++i) {}
 // expected-error@+1 {{distance value must be greater than zero}}
-#pragma prefetch A:4:0
+#pragma prefetch A:0:0
   for (int i; i < 10; ++i) {}
   int p;
   int *pp = &p;

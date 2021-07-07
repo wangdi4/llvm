@@ -61,7 +61,12 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
 
 add_subdirectory(OptReport)
 
-if(INTEL_INCLUDE_DTRANS)
-  target_link_libraries(LLVMIntel_LoopAnalysis PRIVATE LLVMIntel_DTransOpt
-                                                       LLVMIntel_DTransAnalysis)
-endif(INTEL_INCLUDE_DTRANS)
+if(INTEL_CUSTOMIZATION)
+# INTEL_FEATURE_SW_DTRANS
+  is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+  if (p)
+    target_link_libraries(LLVMIntel_LoopAnalysis PRIVATE LLVMIntel_DTransOpt
+                                                      LLVMIntel_DTransAnalysis)
+  endif()
+# end INTEL_FEATURE_SW_DTRANS
+endif()

@@ -22,9 +22,9 @@
 namespace llvm {
 
 class DominatorTree;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 class FieldModRefResult;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 namespace loopopt {
 
@@ -164,9 +164,9 @@ class HIRLMM {
   HIRDDAnalysis &HDDA;
   HIRLoopStatistics &HLS;
   HLNodeUtils &HNU;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   FieldModRefResult *FieldModRef;
-#endif //  INTEL_INCLUDE_DTRANS
+#endif //  INTEL_FEATURE_SW_DTRANS
   DominatorTree *DT;
 
   MemRefCollection MRC;
@@ -179,15 +179,15 @@ class HIRLMM {
 
 public:
   HIRLMM(HIRFramework &HIRF, HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
          FieldModRefResult *FieldModRef = nullptr,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
          DominatorTree *DT = nullptr,
          bool LoopNestHoistingOnly = false)
       : HIRF(HIRF), HDDA(HDDA), HLS(HLS), HNU(HIRF.getHLNodeUtils()),
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
         FieldModRef(FieldModRef),
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
         DT(DT), LoopNestHoistingOnly(LoopNestHoistingOnly) {}
 
   bool run();

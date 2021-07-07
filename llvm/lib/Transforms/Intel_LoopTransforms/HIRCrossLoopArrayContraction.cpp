@@ -199,11 +199,11 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
                         << Loop->getNumber() << "\n";
                  Loop->dump(); dbgs() << "\n";);
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(Loop, nullptr);
-#else
+#else // INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(Loop);
-#endif
+#endif // INTEL_FEATURE_SW_DTRANS
     });
   }
 

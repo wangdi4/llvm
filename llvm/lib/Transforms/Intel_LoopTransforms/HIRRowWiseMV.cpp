@@ -72,11 +72,11 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -129,10 +129,10 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     AU.addRequiredTransitive<DTransImmutableAnalysisWrapper>();
     AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
     AU.setPreservesAll();
   }
 };
@@ -140,22 +140,22 @@ public:
 /// Implements the row-wise multiversioning transform.
 class HIRRowWiseMV {
   HIRDDAnalysis &HDDA;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   DTransImmutableInfo *DTII;
   FieldModRefResult *FieldModRef;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   HIRLoopStatistics &HLS;
 
 public:
   HIRRowWiseMV(HIRDDAnalysis &HDDA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                DTransImmutableInfo *DTII, FieldModRefResult *FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                 HIRLoopStatistics &HLS)
       : HDDA{HDDA},
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
         DTII{DTII}, FieldModRef{FieldModRef},
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
         HLS{HLS} {}
 
   /// Performs row-wise multiversioning on the given loop.
@@ -361,10 +361,10 @@ static SmallVector<RegDDRef *, 3> getLoadUses(const HLInst *Load,
 static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
                                        const HLLoop *SafeCheckLevelParent,
                                        HIRDDAnalysis &HDDA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                                        DTransImmutableInfo *DTII,
                                        FieldModRefResult *FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                                        HIRLoopStatistics &HLS) {
 
   // For this to be the case, it must be a load (Rval memory reference).
@@ -439,9 +439,9 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
   const HLLoop *const OutermostParent =
     Ref->getParentLoop()->getOutermostParentLoop();
   if (!HIRTransformUtils::isLoopInvariant(Ref, OutermostParent, HDDA, HLS,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                                           FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                                           true)) {
     LLVM_DEBUG({
       dbgs() << "  Array is not read-only within the loop nest:\n";
@@ -500,7 +500,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
       dbgs() << "    " << *ACVal << "\n";
   });
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Filter the arithmetically convenient values using DTrans unless this should
   // be skipped.
   if (!SkipDTrans && DTII) {
@@ -559,7 +559,7 @@ static MVCandidate checkCandidateDDRef(const RegDDRef *Ref, const HLLoop *Lp,
     sort(PossibleVals, constantValueOrder);
     ACVals = getIntersection(ACVals, PossibleVals);
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   if (ACVals.empty()) {
     LLVM_DEBUG(dbgs() << "  No overlap with possible array values\n");
@@ -731,9 +731,9 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
 /// SafeCheckLevelParent.
 static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
                              HLLoop *SafeCheckLevelParent,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                              DTransImmutableInfo *DTII,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                              HIRDDAnalysis &HDDA) {
   assert(MVCand);
   const RegDDRef *const MVRef   = MVCand.Ref;
@@ -1301,11 +1301,11 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     if (HIRTransformUtils::doConstantPropagation(MVLoop, DTII)) {
-#else // INTEL_INCLUDE_DTRANS
+#else // INTEL_FEATURE_SW_DTRANS
     if (HIRTransformUtils::doConstantPropagation(MVLoop)) {
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
       applyPeepHole(MVLoop, HDDA);
       HLNodeUtils::removeRedundantNodes(MVLoop);
     }
@@ -1391,9 +1391,9 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
            make_range(CI->ddref_begin(), CI->ddref_end()))
         if (const MVCandidate MVCand = checkCandidateDDRef(
                 Ref, Lp, SafeCheckLevelParent, HDDA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                 DTII, FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                 HLS))
           MVCands.push_back(MVCand);
 
@@ -1423,9 +1423,9 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
   const MVCandidate &ChosenCand = MVCands.front();
 
   multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                    DTII,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                    HDDA);
 
   return true;
@@ -1433,10 +1433,10 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
 
 /// Performs row-wise multiversioning using the given analysis results.
 static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                          DTransImmutableInfo *DTII,
                          FieldModRefResult *FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                          HIRLoopStatistics &HLS) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << OPT_DESC " Disabled\n");
@@ -1455,9 +1455,9 @@ static bool runRowWiseMV(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
   }
 
   HIRRowWiseMV RWMV{HDDA,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                     DTII, FieldModRef,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                     HLS};
 
   // Attempt row-wise multiversioning on innermost loops.
@@ -1489,10 +1489,10 @@ INITIALIZE_PASS_BEGIN(HIRRowWiseMVLegacyPass, OPT_SWITCH, OPT_DESC, false,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 INITIALIZE_PASS_END(HIRRowWiseMVLegacyPass, OPT_SWITCH, OPT_DESC, false, false)
 
 FunctionPass *llvm::createHIRRowWiseMVPass() {
@@ -1507,26 +1507,26 @@ bool HIRRowWiseMVLegacyPass::runOnFunction(Function &F) {
   return runRowWiseMV(
       getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
       getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       &getAnalysis<DTransImmutableAnalysisWrapper>().getResult(),
       &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
       getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
 PreservedAnalyses HIRRowWiseMVPass::runImpl(Function &F,
                                             llvm::FunctionAnalysisManager &AM,
                                             HIRFramework &HIRF) {
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   runRowWiseMV(
       HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
       MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
       AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
