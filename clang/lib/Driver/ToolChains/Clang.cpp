@@ -9582,6 +9582,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       ExtArg += ",-SPV_INTEL_optnone";
     }
 #endif // INTEL_CUSTOMIZATION
+    else
+      // Don't enable several freshly added extensions on FPGA H/W
+      ExtArg += ",+SPV_INTEL_token_type";
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
