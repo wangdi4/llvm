@@ -31,5 +31,37 @@ define void @mstore_constmask_v12i8_v12i8(<12 x i8>* %addr, <12 x i8> %val) {
   ret void
 }
 
-declare void @llvm.masked.store.v12i8.p0v12i8(<12 x i8>, <12 x i8>*, i32, <12 x i1>)
+define void @mstore_constmask_v16f64_v16f64(<16 x double>* %addr, <16 x double> %val) {
+; SSE2-LABEL: mstore_constmask_v16f64_v16f64:
+; SSE2:       ## %bb.0:
+; SSE2-NEXT:    movaps %xmm5, 80(%rdi)
+; SSE2-NEXT:    movaps %xmm4, 64(%rdi)
+; SSE2-NEXT:    movaps %xmm3, 48(%rdi)
+; SSE2-NEXT:    movaps %xmm2, 32(%rdi)
+; SSE2-NEXT:    movaps %xmm1, 16(%rdi)
+; SSE2-NEXT:    movaps %xmm0, (%rdi)
+; SSE2-NEXT:    retq
+;
+; SSE4-LABEL: mstore_constmask_v16f64_v16f64:
+; SSE4:       ## %bb.0:
+; SSE4-NEXT:    movaps %xmm5, 80(%rdi)
+; SSE4-NEXT:    movaps %xmm4, 64(%rdi)
+; SSE4-NEXT:    movaps %xmm3, 48(%rdi)
+; SSE4-NEXT:    movaps %xmm2, 32(%rdi)
+; SSE4-NEXT:    movaps %xmm1, 16(%rdi)
+; SSE4-NEXT:    movaps %xmm0, (%rdi)
+; SSE4-NEXT:    retq
+;
+; AVX2-LABEL: mstore_constmask_v16f64_v16f64:
+; AVX2:       ## %bb.0:
+; AVX2-NEXT:    vmovups %ymm1, 32(%rdi)
+; AVX2-NEXT:    vmovups %ymm0, (%rdi)
+; AVX2-NEXT:    vmovups %ymm2, 64(%rdi)
+; AVX2-NEXT:    vzeroupper
+; AVX2-NEXT:    retq
+  call void @llvm.masked.store.v16f64.p0v16f64(<16 x double> %val, <16 x double>* %addr, i32 1, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
+  ret void
+}
 
+declare void @llvm.masked.store.v12i8.p0v12i8(<12 x i8>, <12 x i8>*, i32, <12 x i1>)
+declare void @llvm.masked.store.v16f64.p0v16f64(<16 x double>, <16 x double>*, i32, <16 x i1>)
