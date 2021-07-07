@@ -172,7 +172,8 @@ int dut() {
 }
 
 int main() {
-  cl::sycl::kernel_single_task([]() {
+  cl::sycl::handler h;
+  h.single_task([]() {
     long l;
     foo0();
     foo1();
