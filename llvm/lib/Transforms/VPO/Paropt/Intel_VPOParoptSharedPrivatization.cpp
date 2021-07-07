@@ -272,6 +272,55 @@ static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V) {
   return BBs;
 }
 
+// Return true if value V has uses inside work region W excluding
+// sub-regions where it is private.
+static bool hasWRNUses(WRegionNode *W, Value *V) {
+  // Conservatively assume that globals have uses.
+  if (GeneralUtils::isOMPItemGlobalVAR(V))
+    return true;
+
+  // Collect set of WRN blocks where value can be used. Start with the
+  // region's set of blocks excluding begin/end directives.
+  SmallPtrSet<BasicBlock *, 16u> BBs;
+  for (BasicBlock *BB : W->blocks())
+    if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
+      BBs.insert(BB);
+
+  // Then exclude blocks from nested regions where item is private.
+  std::queue<WRegionNode *> Worklist;
+  Worklist.push(W);
+  do {
+    WRegionNode *W = Worklist.front();
+    Worklist.pop();
+
+    for (WRegionNode *CW : W->getChildren()) {
+      // If item is private on the nested child exclude its blocks from
+      // the set.
+      if (isWRNPrivate(CW, V)) {
+        for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+        continue;
+      }
+
+      // If item is not private check if item is used by the directive
+      // itself (there could be uses for example in 'thread_limit' or 'if'
+      // clauses). If there are such uses then consider it being used.
+      if (any_of(CW->getEntryDirective()->operands(),
+                 [V](Value *O) { return O == V; }))
+        return true;
+
+      Worklist.push(CW);
+    }
+  } while (!Worklist.empty());
+
+  // Check if value V has any uses in these blocks.
+  for (const User *U : V->users())
+    if (auto *I = dyn_cast<Instruction>(U))
+      if (is_contained(BBs, I->getParent()))
+        return true;
+
+  return false;
+}
+
 bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   if (!W->canHaveShared() || !W->needsOutlining())
     return false;
@@ -421,8 +470,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
   if (isa<WRNTargetNode>(W) && !hasOffloadCompilation()) {
     // Return true if given map item maps scalar value.
     auto IsScalarMapItem = [this](const MapItem *MI) {
-      if (!MI->getIsMapChain())
-        return false;
+      assert(MI->getIsMapChain() && "map chain is expected");
 
       const MapChainTy &MC = MI->getMapChain();
       if (MC.size() > 1)
@@ -481,6 +529,29 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       return false;
     };
 
+    auto IsMapTo = [](const MapItem *MI) {
+      uint64_t MapType = MI->getMapChain()[0]->getMapType();
+      return (MapType & TGT_MAP_TO) &&
+             !((MapType & TGT_MAP_PRIVATE) || (MapType & TGT_MAP_LITERAL));
+    };
+    auto IsMapFrom = [](const MapItem *MI) {
+      uint64_t MapType = MI->getMapChain()[0]->getMapType();
+      return (MapType & TGT_MAP_FROM);
+    };
+    auto IsMapTofrom = [&](const MapItem *MI) {
+      return IsMapTo(MI) && IsMapFrom(MI);
+    };
+
+    auto GetMapName = [&](const MapItem *MI) {
+      if (IsMapTofrom(MI))
+        return "MAP:TOFROM";
+      if (IsMapTo(MI))
+        return "MAP:TO";
+      if (IsMapFrom(MI))
+        return "MAP:FROM";
+      return "MAP";
+    };
+
     for (const MapItem *MI : W->getMap().items()) {
       auto *AI = dyn_cast<AllocaInst>(MI->getOrig());
       if (!AI) {
@@ -488,7 +559,30 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
         continue;
       }
 
-      if (!MI->getIsMapTo() && !MI->getIsMapTofrom()) {
+      if (MayBeMappedBefore(AI, W)) {
+        LLVM_DEBUG(reportSkipped(AI, "may be mapped before work region"));
+        continue;
+      }
+
+      if (!MI->getIsMapChain()) {
+        LLVM_DEBUG(reportSkipped(AI, "not a map chain"));
+        continue;
+      }
+
+      if ((IsMapTo(MI) || IsMapFrom(MI)) && !hasWRNUses(W, AI)) {
+        LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
+                          << "' on '" << W->getName()
+                          << "' construct is redundant\n");
+
+        F->getContext().diagnose(
+            OptimizationRemarkAnalysis("openmp", "optimization note",
+                                       W->getEntryDirective())
+            << GetMapName(MI) << " clause for variable '" << AI->getName()
+            << "' on '" << W->getName() << "' construct is redundant");
+        continue;
+      }
+
+      if (!IsMapTo(MI)) {
         LLVM_DEBUG(reportSkipped(MI->getOrig(), "is not a map to/tofrom"));
         continue;
       }
@@ -504,74 +598,23 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           !allUsersAreLoads(AI, BBs))
         continue;
 
-      if (MayBeMappedBefore(AI, W)) {
-        LLVM_DEBUG(reportSkipped(AI, "may be mapped before work region"));
-        continue;
-      }
-
-      LLVM_DEBUG(dbgs() << "Map clause for '" << AI->getName()
-                        << "' can be changed to firstprivate\n");
+      LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
+                        << "' on '" << W->getName()
+                        << "' construct can be changed to FIRSTPRIVATE\n");
 
       F->getContext().diagnose(
           OptimizationRemarkAnalysis("openmp", "optimization note",
                                      W->getEntryDirective())
-          << "map clause for variable '" << AI->getName()
-          << "' can be changed to firstprivate to reduce mapping overhead");
+          << GetMapName(MI) << " clause for variable '" << AI->getName()
+          << "' on '" << W->getName()
+          << "' construct can be changed to FIRSTPRIVATE to reduce mapping "
+             "overhead");
     }
   }
 
   bool Changed = false;
   if (W->canHavePrivate()) {
     SmallPtrSet<Value *, 8u> ToPrivatize;
-
-    // Return true if value V has uses inside work region W excluding
-    // sub-regions where it is private.
-    auto HasWRNUses = [](WRegionNode *W, Value *V) {
-      // Conservatively assume that globals have uses.
-      if (GeneralUtils::isOMPItemGlobalVAR(V))
-        return true;
-
-      // Collect set of WRN blocks where value can be used. Start with the
-      // region's set of blocks excluding begin/end directives.
-      SmallPtrSet<BasicBlock *, 16u> BBs;
-      for (BasicBlock *BB : W->blocks())
-        if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
-          BBs.insert(BB);
-
-      // Then exclude blocks from nested regions where item is private.
-      std::queue<WRegionNode *> Worklist;
-      Worklist.push(W);
-      do {
-        WRegionNode *W = Worklist.front();
-        Worklist.pop();
-
-        for (WRegionNode *CW : W->getChildren()) {
-          // If item is private on the nested child exclude its blocks from
-          // the set.
-          if (isWRNPrivate(CW, V)) {
-            for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
-            continue;
-          }
-
-          // If item is not private check if item is used by the directive
-          // itself (there could be uses for example in 'thread_limit' or 'if'
-          // clauses). If there are such uses then consider it being used.
-          if (any_of(CW->getEntryDirective()->operands(),
-                     [V](Value *O) { return O == V; }))
-            return true;
-
-          Worklist.push(CW);
-        }
-      } while (!Worklist.empty());
-
-      // Check if value V has any uses in these blocks.
-      for (const User *U : V->users())
-        if (auto *I = dyn_cast<Instruction>(U))
-          if (is_contained(BBs, I->getParent()))
-            return true;
-
-      return false;
-    };
 
     // Remove item's uses from the clause bundles.
     auto CleanupItem = [this, &ToPrivatize](WRegionNode *W, auto *Item,
@@ -626,11 +669,11 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       return Changed;
     };
 
-    auto CleanupRedundantItems = [W, &HasWRNUses, &CleanupItem](auto *Clause) {
+    auto CleanupRedundantItems = [W, &CleanupItem](auto *Clause) {
       bool Changed = false;
       for (auto *Item : Clause->items()) {
         Value *V = Item->getOrig();
-        if (HasWRNUses(W, V))
+        if (hasWRNUses(W, V))
           continue;
 
         // Special handling for the schedule chunk that is loaded from a shared
