@@ -1,6 +1,6 @@
 //==--- BarrierPass.h - Main Barrier pass - C++ -*--------------------------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,9 +18,9 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include <map>
 
@@ -199,18 +199,24 @@ private:
   }
   Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
-    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(
+        SizeTTy, Ptr,
+        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
-    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(
+        SizeTTy, Ptr,
+        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(
         LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
-    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(
+        SizeTTy, Ptr,
+        DPCPPKernelCompilationUtils::AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
@@ -253,8 +259,9 @@ private:
     SmallVector<Value *, 4> Indices;
     Indices.push_back(ConstZero);
     Indices.push_back(Dim);
-    return B.CreateInBoundsGEP(LocalIdValues, Indices,
-                               AppendWithDimension("pLocalId_", Dim));
+    return B.CreateInBoundsGEP(
+        LocalIdValues, Indices,
+        DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
   }
   Value *getLocalSize(unsigned Dim) {
     return CurrentBarrierKeyValues->LocalSize[Dim];
@@ -279,10 +286,10 @@ private:
 
   /// Bind AI's users to basic blocks so that a user will be replaced
   /// by value loaded from AI's new address alloca in its bound basic block.
-  /// AI AllocaInst to process,
-  /// DI DbgDeclareInst of AI,
-  /// BBUsers Output binding map.
-  void bindUsersToBasicBlock(AllocaInst *AI, DbgDeclareInst *DI,
+  /// \param AI AllocaInst to process,
+  /// \param DI DbgVariableIntrinsic of AI.
+  /// \param BBUsers Output binding map.
+  void bindUsersToBasicBlock(AllocaInst *AI, DbgVariableIntrinsic *DI,
                              BasicBlockToInstructionMapVectorTy &BBUsers);
 
 private:
@@ -291,7 +298,7 @@ private:
   const DataLayout *DL;
 
   /// This is barrier utility class.
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 
   /// This holds the processed module context.
   LLVMContext *Context;

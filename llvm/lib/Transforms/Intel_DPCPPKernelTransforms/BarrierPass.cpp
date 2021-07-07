@@ -1,6 +1,6 @@
 //==--- BarrierPass.cpp - Main Barrier pass - C++ -*------------------------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -33,14 +33,22 @@
 
 using namespace llvm;
 
+static cl::opt<bool> OptEnableNativeDebug("enable-native-debug",
+                                          cl::init(false), cl::Hidden,
+                                          cl::desc("enable native debug"));
+static cl::opt<bool> OptEnableTLSGlobals("enable-tls-globals", cl::init(false),
+                                         cl::Hidden,
+                                         cl::desc("enable tls globals"));
+
 KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
     : DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr), I32Ty(nullptr),
-      UseTLSGlobals(UseTLSGlobals), LocalIdAllocTy(nullptr), LocalIds(nullptr),
-      LocalIdArrayTy(nullptr), ConstZero(nullptr), ConstOne(nullptr),
-      AllocaValues(nullptr), SpecialValues(nullptr),
-      CrossBarrierValues(nullptr), SyncInstructions(nullptr), DPV(nullptr),
-      DPB(nullptr), CurrentFunction(nullptr), CurrentBarrierKeyValues(nullptr),
-      IsNativeDBG(IsNativeDebug) {
+      UseTLSGlobals(UseTLSGlobals || OptEnableTLSGlobals),
+      LocalIdAllocTy(nullptr), LocalIds(nullptr), LocalIdArrayTy(nullptr),
+      ConstZero(nullptr), ConstOne(nullptr), AllocaValues(nullptr),
+      SpecialValues(nullptr), CrossBarrierValues(nullptr),
+      SyncInstructions(nullptr), DPV(nullptr), DPB(nullptr),
+      CurrentFunction(nullptr), CurrentBarrierKeyValues(nullptr),
+      IsNativeDBG(IsNativeDebug || OptEnableNativeDebug) {
   std::fill(PtrLocalId, PtrLocalId + MaxNumDims, nullptr);
 }
 
@@ -63,12 +71,11 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   DL = &M.getDataLayout();
 
   // Initialize barrier utils class with current module.
-  BarrierUtils.init(&M);
+  Utils.init(&M);
   // This call is needed to initialize vectorization widths.
-  BarrierUtils.getAllKernelsWithBarrier();
+  Utils.getAllKernelsWithBarrier();
 
   Context = &M.getContext();
-  // Initialize the side of size_t.
   SizeT = M.getDataLayout().getPointerSizeInBits(0);
   SizeTTy = IntegerType::get(*Context, SizeT);
   I32Ty = IntegerType::get(*Context, 32);
@@ -85,15 +92,17 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
                                   GlobalValue::LinkOnceODRLinkage,
                                   UndefValue::get(LocalIdArrayTy), "LocalIds",
                                   nullptr, GlobalValue::GeneralDynamicTLSModel);
-    LocalIds->setAlignment(
-        MaybeAlign(M.getDataLayout().getPreferredAlign(LocalIds)));
+    LocalIds->setAlignment(M.getDataLayout().getPreferredAlign(LocalIds));
   }
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync =
-      BarrierUtils.getAllFunctionsWithSynchronization();
+  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
-  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  // Note: We can't early exit here, otherwise, optimizer will claim the
+  // functions to be resolved in this pass are undefined.
+  FuncSet RecursiveFunctions = Utils.getRecursiveFunctionsWithSync();
+  for (Function *F : RecursiveFunctions)
+    F->addFnAttr(DPCPPKernelCompilationUtils::ATTR_RECURSION_WITH_BARRIER);
 
   // Collect data for each function with synchronize instruction.
   for (Function *Func : FunctionsWithSync) {
@@ -108,8 +117,8 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
     OldToNewSyncBBMap[Func][EntryBB] = FirstBB;
 
     // Initialize the argument values.
-    // This is needed for optimize pLocalId calculation.
-    bool HasNoInternalCalls = !BarrierUtils.doesCallModuleFunction(Func);
+    // This is needed for optimize LocalId calculation.
+    bool HasNoInternalCalls = !Utils.doesCallModuleFunction(Func);
     ModuleHasAnyInternalCalls =
         ModuleHasAnyInternalCalls || !HasNoInternalCalls;
     createBarrierKeyValues(Func, HasNoInternalCalls);
@@ -119,13 +128,11 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   // Run over functions with synchronize instruction:
   // 1. Handle call instructions to non-inline functions.
   for (Function *FuncToFix : FunctionsWithSync) {
-    // Run over old users of pFuncToFix and prepare parameters as needed.
-    for (auto *U : FuncToFix->users()) {
+
+    // Run over old users of FuncToFix and prepare parameters as needed.
+    for (User *U : FuncToFix->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
       if (!CI)
-        continue;
-      // Skip non-kernel calls.
-      if (llvm::find(Kernels, CI->getFunction()) == Kernels.end())
         continue;
       // Handle call instruction operands and return value, if needed.
       fixCallInstruction(CI);
@@ -138,17 +145,17 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   }
 
   // Run over functions with synchronize instruction:
-  // 1. Handle Values from Group-A, Group-B.1 and Group-B.2
+  // 1. Handle Values from Group-A, Group-B.1 and Group-B.2.
   // 2. Hanlde synchronize instructions.
-  for (Function *FuncToFix : FunctionsWithSync) {
+  for (Function *FuncToFix : FunctionsWithSync)
     runOnFunction(*FuncToFix);
-  }
 
   // Update Map with structure stride size for each kernel.
   // fixAllocaValues may add new alloca.
   updateStructureStride(M, FunctionsWithSync);
 
-  fixSynclessTIDUsers(M, FunctionsWithSync);
+  if (!UseTLSGlobals)
+    fixSynclessTIDUsers(M, FunctionsWithSync);
   // Fix get_local_id() and get_global_id() function calls.
   fixGetWIIdFunctions(M);
 
@@ -156,10 +163,6 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
 }
 
 bool KernelBarrier::runOnFunction(Function &F) {
-
-  assert(!DPB->hasFiberInstruction(&F) &&
-         "Handle case when having fiber instructions!");
-
   // Get key values for this functions.
   getBarrierKeyValues(&F);
 
@@ -168,15 +171,6 @@ bool KernelBarrier::runOnFunction(Function &F) {
   SpecialValues = &DPV->getValuesToHandle(&F);
   AllocaValues = &DPV->getAllocaValuesToHandle(&F);
   CrossBarrierValues = &DPV->getUniformValuesToHandle(&F);
-
-  Instruction *InsertBefore = &*F.getEntryBlock().begin();
-  if (IsNativeDBG) {
-    // Move alloca instructions for locals/parameters for debugging purposes.
-    for (Value *V : *AllocaValues) {
-      AllocaInst *AI = cast<AllocaInst>(V);
-      AI->moveBefore(InsertBefore);
-    }
-  }
 
   // Clear container for new iteration on new function.
   InstructionsToRemove.clear();
@@ -191,7 +185,7 @@ bool KernelBarrier::runOnFunction(Function &F) {
   // Fix cross barrier uniform values.
   fixCrossBarrierValues(&*F.begin()->begin());
 
-  // Replace sync instructions with initernal loop over WI ID.
+  // Replace sync instructions with internal loop over WI ID.
   replaceSyncInstructions();
 
   // Remove all instructions in InstructionsToRemove.
@@ -215,7 +209,7 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
     Function *F = M.getFunction(TIDFuncNames[I]);
     if (!F)
       continue;
-    for (auto *U : F->users()) {
+    for (User *U : F->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
       if (!CI)
         continue;
@@ -231,13 +225,13 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
   // to be patched. Also find the coresponding call intructions Function which
   // need to be patched are either:
   // 1. Functions w/o sync instructions which are direct calls of get_*_id()
-  // (handled in loop above).
-  // 2. Functions which are direct caller of functions described in 1. or
+  // (handled in loop above)
+  // 2. Functions which are direct caller of functions described in 1 or
   // (recursively) functions defined in this line which do not contain sync
   // instructions.
   for (unsigned WorkListIdx = 0; WorkListIdx < Worklist.size(); ++WorkListIdx) {
     Function *CalledF = Worklist[WorkListIdx];
-    for (auto *U : CalledF->users()) {
+    for (User *U : CalledF->users()) {
       // OCL2.0. handle constant expression with bitcast of function pointer.
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
         if ((CE->getOpcode() == Instruction::BitCast ||
@@ -262,58 +256,54 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
 
   typedef std::map<Function *, Function *> F2FMap;
   F2FMap OldF2PatchedF;
-  if (!UseTLSGlobals) {
-    // Setup stuff needed for adding another argument to patched functions.
-    SmallVector<Attribute, 1> NoAlias(
-        1, Attribute::get(M.getContext(), Attribute::NoAlias));
-    SmallVector<AttributeSet, 1> NewAttrs(1,
-                                          AttributeSet::get(*Context, NoAlias));
-    // Patch the functions.
-    for (Function *OldF : FuncsToPatch) {
-      Function *PatchedF = DPCPPKernelCompilationUtils::AddMoreArgsToFunc(
-          OldF, LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
-      OldF2PatchedF[OldF] = PatchedF;
-      assert(!BarrierKeyValuesPerFunction.count(OldF));
-      // So now the last arg of NewF is the base of the memory holding
-      // LocalId's.
-      // Find the last arg.
-      Function::arg_iterator AI = PatchedF->arg_begin();
-      for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
-        // Skip over the original args.
-      }
-      BarrierKeyValuesPerFunction[PatchedF].TheFunction = PatchedF;
-      BarrierKeyValuesPerFunction[PatchedF].LocalIdValues = &*AI;
+  // Setup stuff needed for adding another argument to patched functions.
+  SmallVector<Attribute, 1> NoAlias(
+      1, Attribute::get(M.getContext(), Attribute::NoAlias));
+  SmallVector<AttributeSet, 1> NewAttrs(1,
+                                        AttributeSet::get(*Context, NoAlias));
+  // Patch the functions.
+  for (Function *OldF : FuncsToPatch) {
+    Function *PatchedF = DPCPPKernelCompilationUtils::AddMoreArgsToFunc(
+        OldF, LocalIdAllocTy, "pLocalIdValues", NewAttrs, "BarrierPass");
+    OldF2PatchedF[OldF] = PatchedF;
+    assert(!BarrierKeyValuesPerFunction.count(OldF));
+    // So now the last arg of NewF is the base of the memory holding
+    // LocalId's
+    // Find the last arg
+    Function::arg_iterator AI = PatchedF->arg_begin();
+    for (unsigned I = 0; I < PatchedF->arg_size() - 1; ++I, ++AI) {
+      // Skip over the original args.
     }
-    // Patch the calls.
-    for (CallInst *CI : CIsToPatch) {
-      Function *CallingF = CI->getParent()->getParent();
-      Function *CalledF = CI->getCalledFunction();
-      assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
-      Function *PatchedF = OldF2PatchedF[CalledF];
-      // Use calling functions's LocalIdValues as additional argument to
-      // called function.
-      assert(BarrierKeyValuesPerFunction.find(CallingF) !=
-             BarrierKeyValuesPerFunction.end());
-      Value *NewArg =
-          BarrierKeyValuesPerFunction.find(CallingF)->second.LocalIdValues;
-      SmallVector<Value *, 1> NewArgs(1, NewArg);
-      DPCPPKernelCompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
-    }
+    BarrierKeyValuesPerFunction[PatchedF].TheFunction = PatchedF;
+    BarrierKeyValuesPerFunction[PatchedF].LocalIdValues = &*AI;
+  }
+  // Patch the calls.
+  for (CallInst *CI : CIsToPatch) {
+    Function *CallingF = CI->getFunction();
+    Function *CalledF = CI->getCalledFunction();
+    assert(OldF2PatchedF.find(CalledF) != OldF2PatchedF.end());
+    Function *PatchedF = OldF2PatchedF[CalledF];
+    // Use calling functions's LocalIdValues as additional argument to
+    // called function.
+    assert(BarrierKeyValuesPerFunction.find(CallingF) !=
+           BarrierKeyValuesPerFunction.end());
+    Value *NewArg =
+        BarrierKeyValuesPerFunction.find(CallingF)->second.LocalIdValues;
+    SmallVector<Value *, 1> NewArgs(1, NewArg);
+    DPCPPKernelCompilationUtils::AddMoreArgsToCall(CI, NewArgs, PatchedF);
   }
 
   // Patch the constant function ptr addr bitcasts. Used in OCL20. Extended
   // execution.
-  for (auto &KV : ConstBitcastsToPatch) {
-    ConstantExpr *CE = KV.first;
-    Function *F = KV.second;
+  for (auto &ConstBitcastsToPatchPair : ConstBitcastsToPatch) {
+    ConstantExpr *CE = ConstBitcastsToPatchPair.first;
+    Function *F = ConstBitcastsToPatchPair.second;
 
-    if (!UseTLSGlobals) {
-      assert(OldF2PatchedF.find(F) != OldF2PatchedF.end() &&
-             "Expected to find patched function in map");
-      F = OldF2PatchedF[F];
-    }
+    assert(OldF2PatchedF.find(F) != OldF2PatchedF.end() &&
+           "expected to find patched function in map");
+    F = OldF2PatchedF[F];
 
-    // this case happens when global block variable is used
+    // This case happens when global block variable is used.
     Constant *NewCE = ConstantExpr::getPointerCast(F, CE->getType());
     CE->replaceAllUsesWith(NewCE);
   }
@@ -371,14 +361,14 @@ BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
       continue;
     }
     // Check that there isn't another barrier in any path from SyncBB to BB.
-    auto noBarrierFromTo = [this](BasicBlock *SyncBB, BasicBlock *BB) -> bool {
+    auto NoBarrierFromTo = [this](BasicBlock *SyncBB, BasicBlock *BB) -> bool {
       for (BasicBlock *Succ : SyncBBSuccessors[SyncBB]) {
         if (isPotentiallyReachable(Succ, BB))
           return false;
       }
       return true;
     };
-    if (noBarrierFromTo(SyncBB, BB))
+    if (NoBarrierFromTo(SyncBB, BB))
       Dominator = SyncBB;
   }
   return Dominator;
@@ -425,7 +415,7 @@ BasicBlock *KernelBarrier::findNearestDominatorSyncBB(DominatorTree &DT,
 // while.end:
 // for.inc:
 void KernelBarrier::bindUsersToBasicBlock(
-    AllocaInst *AI, DbgDeclareInst *DI,
+    AllocaInst *AI, DbgVariableIntrinsic *DI,
     BasicBlockToInstructionMapVectorTy &BBUsers) {
   Function &F = *AI->getFunction();
   DominatorTree DT;
@@ -457,7 +447,7 @@ void KernelBarrier::bindUsersToBasicBlock(
     if (SyncPerBB.count(BB))
       continue;
 
-    // Collect BB's predecessors that are SyncBB
+    // Collect BB's predecessors that are SyncBB.
     if (!BBToPredSyncBB.count(BB) && DPB->hasPredecessors(BB)) {
       BasicBlockSet &Preds = DPB->getPredecessors(BB);
       for (BasicBlock *Pred : Preds) {
@@ -471,19 +461,10 @@ void KernelBarrier::bindUsersToBasicBlock(
       }
     }
 
-    // Find the nearest SyncBB that dominates BB
+    // Find the nearest SyncBB that dominates BB.
     if (!BBToNearestDominatorSyncBB.count(BB))
       BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
   }
-
-  // FIXME IsSingleUserBB and it related code should be removed.
-  // Currently a variable's new llvm.dbg.value intrinsic is correct after
-  // removing IsSingleUserBB, however, a few debugger_test_type tests fail
-  // because register is killed if the variable has only one use, making it
-  // optimized-out at a later breakpoint.
-  // DBG_VALUE renamable $rdx, $noreg, !"v", !DIExpression(DW_OP_deref)
-  // MOV32mi killed renamable $rdx
-  bool IsSingleUserBB = (BBs.size() == 1);
 
   // Map from user BB to its bound dominator that value loaded from AddrAI in
   // the dominator will be reused in the user BB.
@@ -494,7 +475,7 @@ void KernelBarrier::bindUsersToBasicBlock(
   for (BasicBlock *BB : BBs)
     BBBindToDominator[BB] = BB;
 
-  // Bind user basic blocks to SyncBB
+  // Bind user basic blocks to SyncBB.
   for (auto &BBToDominator : BBToNearestDominatorSyncBB) {
     BasicBlock *BB = BBToDominator.first;
     BasicBlock *Dominator = BBToDominator.second;
@@ -502,19 +483,11 @@ void KernelBarrier::bindUsersToBasicBlock(
       continue;
     // If Dominator is DIBB's predecessor, we shouldn't bind BB to Dominator
     // so that AI's debug scope is within DIBB.
-    if (DIBB && isPotentiallyReachable(Dominator, DIBB) && !IsSingleUserBB)
+    if (DIBB && isPotentiallyReachable(Dominator, DIBB))
       continue;
 
     BBBindToDominator[BB] = Dominator;
     BBBindToNearestSyncDominator.insert(BB);
-  }
-
-  if (IsSingleUserBB) {
-    BasicBlock *BB = UIs[0]->getParent();
-    if (BBBindToNearestSyncDominator.count(BB)) {
-      if (BasicBlock *Pred = BB->getUniquePredecessor())
-        BBBindToDominator[BB] = Pred;
-    }
   }
 
   for (BasicBlock *BB : BBs) {
@@ -533,14 +506,15 @@ void KernelBarrier::bindUsersToBasicBlock(
       if (BBBindToNearestSyncDominator.count(DominatedBB))
         continue;
       // Skip if DominatedBB is already bound to either the basic block
-      // containing DbgDeclareInst or a basic block that BB doesn't dominate.
+      // containing DbgVariableIntrinsic or a basic block that BB doesn't
+      // dominate.
       if ((BB != DIBB) && (!DT.dominates(BB, BBBindToDominator[DominatedBB]) ||
                            BBBindToDominator[DominatedBB] == DIBB))
         continue;
 
       if (!HasBarrierTo.count(DominatedBB))
         HasBarrierTo[DominatedBB] =
-            BarrierUtils.isCrossedByBarrier(*SyncInstructions, DominatedBB, BB);
+            Utils.isCrossedByBarrier(*SyncInstructions, DominatedBB, BB);
       if (!HasBarrierTo[DominatedBB])
         BBBindToDominator[DominatedBB] = BB;
     }
@@ -553,8 +527,6 @@ void KernelBarrier::bindUsersToBasicBlock(
 
 void KernelBarrier::fixAllocaValues(Function &F) {
   DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
-  uint64_t Addr[] = {llvm::dwarf::DW_OP_deref};
-  DIExpression *Expr = DIB.createExpression(Addr);
   const DataLayout &DL = F.getParent()->getDataLayout();
   Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
 
@@ -575,29 +547,51 @@ void KernelBarrier::fixAllocaValues(Function &F) {
     assert(AI && "container of alloca values has non AllocaInst value!");
 
     // Don't fix implicit GID.
-    if (IsNativeDBG && BarrierUtils.isImplicitGID(AI))
+    if (IsNativeDBG && DPCPPKernelCompilationUtils::isImplicitGID(AI)) {
+      // Move implicit GID out of barrier loop.
+      AI->moveBefore(AddrInsertBefore);
       continue;
-
+    }
     // Insert new alloca which stores AI's address in special buffer.
     // AI's users will be replaced by result of load instruction from the new
     // alloca.
-    StringRef allocaName = AI->getName();
+    StringRef AllocaName = AI->getName();
     AllocaInst *AddrAI = new AllocaInst(AI->getType(), DL.getAllocaAddrSpace(),
-                                        allocaName + ".addr", AddrInsertBefore);
+                                        AllocaName + ".addr", AddrInsertBefore);
     uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
     AddrAI->setAlignment(assumeAligned(ASize));
     AddrAllocaSize[&F] += ASize;
 
     // Collect debug intrinsic.
-    TinyPtrVector<DbgDeclareInst *> DIs;
+    TinyPtrVector<DbgVariableIntrinsic *> DIs;
     if (IsNativeDBG) {
-      for (DbgVariableIntrinsic *DVI : FindDbgAddrUses(AI)) {
-        if (auto *DDI = dyn_cast<DbgDeclareInst>(DVI))
-          DIs.push_back(DDI);
-      }
+      auto findDbgVariableOfAlloca = [AI]() {
+        TinyPtrVector<DbgVariableIntrinsic *> DIs = FindDbgAddrUses(AI);
+        if (DIs.empty()) {
+          // Try debug info of addrspacecast user.
+          for (auto *U : AI->users()) {
+            if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
+              DIs = FindDbgAddrUses(ASC);
+              if (!DIs.empty())
+                break;
+            }
+          }
+        }
+        return DIs;
+      };
+      DIs = findDbgVariableOfAlloca();
     }
-    // Only use the first DbgDeclareInst.
-    DbgDeclareInst *DI = DIs.empty() ? nullptr : DIs.front();
+    // Only use the first DbgVariableIntrinsic.
+    // TODO: there might be multiple llvm.dbg.addr calls when llvm.dbg.declare
+    // is deprecated. We probably need to insert new llvm.dbg.addr for each
+    // call.
+    DbgVariableIntrinsic *DI = DIs.empty() ? nullptr : DIs.front();
+    if (DI) {
+      DIExpression *Expr =
+          DIExpression::prepend(DI->getExpression(), DIExpression::DerefBefore);
+      DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
+                        DI->getDebugLoc().get(), AddrAI->getNextNode());
+    }
 
     // Get offset of alloca value in special buffer.
     unsigned int Offset = DPV->getOffset(AI);
@@ -610,6 +604,8 @@ void KernelBarrier::fixAllocaValues(Function &F) {
     // Now each user is bound to a basic block, in which we insert instruction
     // to load AI's address in special buffer to AddrAI, and replace the user
     // with result of the load instruction.
+
+    bool AllocaDebugLocFixed = false;
     for (auto &BBUser : BBUsers) {
       BasicBlock *BB = BBUser.first;
       Instruction *InsertBefore;
@@ -618,29 +614,39 @@ void KernelBarrier::fixAllocaValues(Function &F) {
         assert(
             InsertBefore->getParent() == BB &&
             "sync instruction must not be the last instruction in the block");
-      } else
-        InsertBefore = BB->getFirstNonPHI();
+      } else {
+        if (AI->getParent() == BB) {
+          // The inserted instructions will get debug loc of current alloca.
+          InsertBefore = AI;
+          AllocaDebugLocFixed = true;
+        } else {
+          InsertBefore = BB->getFirstNonPHI();
+        }
+      }
       assert(InsertBefore && "InsertBefore is invalid");
-      // Calculate the pointer of the current alloca in the special buffer
+      // Calculate the pointer of the current alloca in the special buffer.
       Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
           Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
       IRBuilder<> Builder(InsertBefore);
       Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
       LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
-      if (IsNativeDBG && DI) {
-        const DebugLoc *DB = &DI->getDebugLoc();
-        DIB.insertDbgValueIntrinsic(LI, DI->getVariable(), Expr, DB->get(),
-                                    InsertBefore);
-      }
       for (Instruction *UI : BBUser.second) {
-        if (!isa<DbgDeclareInst>(UI))
+        if (!isa<DbgVariableIntrinsic>(UI))
           UI->replaceUsesOfWith(AI, LI);
       }
     }
 
+    if (IsNativeDBG && !AllocaDebugLocFixed) {
+      // Store the new addr in special buffer into AddrAI to preserve debug
+      // info.
+      Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
+          Offset, AI->getType(), AI, &AI->getDebugLoc());
+      auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
+      SI->setDebugLoc(AI->getDebugLoc());
+    }
     InstructionsToRemove.push_back(AI);
 
-    // Remove old DbgDeclareInst
+    // Remove old DbgVariableIntrinsic.
     if (IsNativeDBG) {
       for (auto *DI : DIs)
         DI->eraseFromParent();
@@ -655,16 +661,17 @@ void KernelBarrier::fixSpecialValues() {
 
     const DebugLoc &DB = Inst->getDebugLoc();
     // This will hold the real type of this value in the special buffer.
-    Type *TypeInSP = Inst->getType();
+    Type *TyInSP = Inst->getType();
     bool OneBitBaseType = DPV->isOneBitElementType(Inst);
     if (OneBitBaseType) {
       // Base type is i1 need to ZEXT/TRUNC to/from i32.
       VectorType *VecType = dyn_cast<VectorType>(Inst->getType());
       if (VecType) {
-        TypeInSP = FixedVectorType::get(IntegerType::get(*Context, 32),
-                                        VecType->getNumElements());
+        TyInSP = FixedVectorType::get(
+            IntegerType::get(*Context, 32),
+            cast<FixedVectorType>(VecType)->getNumElements());
       } else {
-        TypeInSP = IntegerType::get(*Context, 32);
+        TyInSP = IntegerType::get(*Context, 32);
       }
     }
 
@@ -678,36 +685,35 @@ void KernelBarrier::fixSpecialValues() {
       NextInst = NextInst->getParent()->getFirstNonPHI();
     }
     // Get PointerType of value type.
-    PointerType *PtrType = TypeInSP->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
+    PointerType *Ty = TyInSP->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     // Handle Special buffer only if it is not a call instruction.
     // Special buffer value of call instruction will be handled in the callee.
     CallInst *CI = dyn_cast<CallInst>(Inst);
     if (!(CI && DPV->hasOffset(CI->getCalledFunction()))) {
       // Calculate the pointer of the current special in the special buffer.
       Value *AddrInSpecialBuffer =
-          getAddressInSpecialBuffer(Offset, PtrType, NextInst, &DB);
+          getAddressInSpecialBuffer(Offset, Ty, NextInst, &DB);
       Instruction *InstToStore =
           !OneBitBaseType ? Inst
                           : CastInst::CreateZExtOrBitCast(
-                                Inst, TypeInSP, "ZEXT-i1Toi32", NextInst);
-      // Need to set DebugLoc for the case is oneBitBaseType. It won't hart to
-      // set Same DebugLoc for the other case, as DB = pInst->getDebugLoc();
+                                Inst, TyInSP, "ZEXT-i1Toi32", NextInst);
+      // Need to set DebugLoc for the case is OneBitBaseType. It won't hart to
+      // set Same DebugLoc for the other case, as DB = Inst->getDebugLoc();
       InstToStore->setDebugLoc(DB);
       // Add Store instruction after the value instruction.
-      StoreInst *PtrStoreInst =
-          new StoreInst(InstToStore, AddrInSpecialBuffer, NextInst);
-      PtrStoreInst->setDebugLoc(DB);
+      StoreInst *SI = new StoreInst(InstToStore, AddrInSpecialBuffer, NextInst);
+      SI->setDebugLoc(DB);
     }
 
     InstSet UserInsts;
-    // Save all uses of pInst and add them to a container before start handling
+    // Save all uses of Inst and add them to a container before start handling
     // them!
-    for (auto *U : Inst->users()) {
+    for (User *U : Inst->users()) {
       Instruction *UserInst = cast<Instruction>(U);
       if (Inst->getParent() == UserInst->getParent()) {
-        // This use of pInst is at the same basic block (no barrier cross so
-        // far) assert( !isa<PHINode>(pUserInst) && "user instruction is a
-        // PHINode and appears befre pInst in BB" );
+        // This use of Inst is at the same basic block (no barrier cross so far)
+        // assert( !isa<PHINode>(UserInst) && "user instruction is a PHINode and
+        // appears befre Inst in BB" );
         if (!isa<PHINode>(UserInst)) {
           continue;
         }
@@ -725,15 +731,15 @@ void KernelBarrier::fixSpecialValues() {
       Instruction *InsertBefore =
           getInstructionToInsertBefore(Inst, UserInst, true);
       if (!InsertBefore) {
-        // as no barrier in the middle, no need to load & replace the origin
+        // As no barrier in the middle, no need to load & replace the origin
         // value.
         continue;
       }
       const DebugLoc &DB = UserInst->getDebugLoc();
       // Calculate the pointer of the current special in the special buffer.
       Value *AddrInSpecialBuffer =
-          getAddressInSpecialBuffer(Offset, PtrType, InsertBefore, &DB);
-      Instruction *LoadedValue = new LoadInst(TypeInSP, AddrInSpecialBuffer,
+          getAddressInSpecialBuffer(Offset, Ty, InsertBefore, &DB);
+      Instruction *LoadedValue = new LoadInst(TyInSP, AddrInSpecialBuffer,
                                               "loadedValue", InsertBefore);
       Instruction *RealValue =
           !OneBitBaseType
@@ -752,7 +758,7 @@ void KernelBarrier::fixSpecialValues() {
 void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
   for (Value *V : *CrossBarrierValues) {
     Instruction *Inst = dyn_cast<Instruction>(V);
-    assert(Inst && "Container of special values has non Instruction value!");
+    assert(Inst && "container of special values has non Instruction value!");
     // Find next instruction so we can create new instruction before it.
     Instruction *NextInst = &*(++BasicBlock::iterator(Inst));
     if (isa<PHINode>(NextInst)) {
@@ -768,14 +774,14 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
     SI->setDebugLoc(Inst->getDebugLoc());
 
     InstSet UserInsts;
-    // Save all uses of pInst and add them to a container before start handling
+    // Save all uses of Inst and add them to a container before start handling
     // them!
-    for (auto *U : Inst->users()) {
+    for (User *U : Inst->users()) {
       Instruction *UserInst = dyn_cast<Instruction>(U);
       assert(UserInst && "uses of special instruction is not an instruction!");
       if (Inst->getParent() == UserInst->getParent() &&
           !isa<PHINode>(UserInst)) {
-        // This use of pInst is at the same basic block (no barrier cross so
+        // This use of Inst is at the same basic block (no barrier cross so
         // far).
         continue;
       }
@@ -805,12 +811,12 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
 BasicBlock *KernelBarrier::createLatchNesting(unsigned Dim, BasicBlock *Body,
                                               BasicBlock *Dispatch, Value *Step,
                                               const DebugLoc &DL) {
-
   LLVMContext &C = Body->getContext();
   Function *F = Body->getParent();
-  // BB that is jumped to if loop in current nesting finishes
-  BasicBlock *LoopEnd =
-      BasicBlock::Create(C, AppendWithDimension("LoopEnd_", Dim), F, Dispatch);
+  // BB that is jumped to if loop in current nesting finishes.
+  BasicBlock *LoopEnd = BasicBlock::Create(
+      C, DPCPPKernelCompilationUtils::AppendWithDimension("LoopEnd_", Dim), F,
+      Dispatch);
 
   {
     IRBuilder<> B(Body);
@@ -842,7 +848,7 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
   // A. change the preSync basic block as follow
   // A(1). remove the unconditional jump instruction.
   PreSyncBB->getTerminator()->eraseFromParent();
-  // Create then and else basic-blocks.
+  // Create then and else basicblocks.
   BasicBlock *Dispatch = BasicBlock::Create(*Context, "Dispatch", F, SyncBB);
   BasicBlock *InnerMost = PreSyncBB;
   assert(CurrentBarrierKeyValues->CurrentVectorizedWidthValue);
@@ -852,13 +858,10 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
     InnerMost = createLatchNesting(I, InnerMost, Dispatch, LoopSteps[I], DL);
 
   // A(2). add the entry tail code
-  // if(LocalId < WGSize[dim]) {Dispatch} else {ElseBB}.
-
-  // B. Create LocalId++ and switch instruction in Dispatch.
-
-  // Create "LocalId+=VectorizationWidth" code.
-
-  // Create "CurrSBBase+=Stride" code.
+  // if(LocalId < WGSize[dim]) {Dispatch} else {pElseBB}
+  // B. Create LocalId++ and switch instruction in Dispatch
+  // Create "LocalId+=VectorizationWidth" code
+  // Create "CurrSBBase+=Stride" code
   {
     IRBuilder<> B(Dispatch);
     B.SetCurrentDebugLocation(DL);
@@ -881,11 +884,11 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
     }
   }
 
-  // C. Create initialization to LocalId, currSB and currBarrier in ElseBB.
+  // C. Create initialization to LocalId, currSB and currBarrier in pElseBB
   // LocalId = 0
   // currSB = 0
   // currBarrier = id
-  // And connect the ElseBB to the SyncBB with unconditional jump.
+  // And connect the pElseBB to the SyncBB with unconditional jump.
   {
     IRBuilder<> B(InnerMost);
     B.SetCurrentDebugLocation(DL);
@@ -895,57 +898,7 @@ BasicBlock *KernelBarrier::createBarrierLatch(BasicBlock *PreSyncBB,
     }
     B.CreateBr(SyncBB);
   }
-  // Only if we are debugging, copy data into the stack from local buffer
-  // for execution and copy data out when finished. This allows for proper
-  // DWARF based debugging.
-  if (IsNativeDBG) {
-    createDebugInstrumentation(Dispatch, InnerMost);
-  }
   return InnerMost;
-}
-
-void KernelBarrier::createDebugInstrumentation(BasicBlock *Then,
-                                               BasicBlock *Else) {
-  // Use the then and else blocks to copy local buffer data.
-  Instruction &ThenFront = Then->front();
-  Instruction &ElseFront = Else->front();
-
-  // I add the function DebugCopy as a marker so it can be handled later
-  // in LocalBuffers pass.
-  // LocalBuffers pass is responsible for implementing __local variables
-  // correctly in OpenCL
-  // (ie. as work-group globals and not thread globals). I insert them
-  // in these marked blocks
-  // so that I know when I need to copy from the local buffer into the
-  // thread local (global).
-  // This is also how I know where the beginning of each work item
-  // iteration is (in the presence
-  // of barriers) which is where the copying occurs.
-
-  // Maybe there is a better way, I'm not sure. The problem I found is
-  // LocalBuffers finds all
-  // uses of a __local variable and updates the references to a local
-  // buffer memory location
-  // rather then the thread specific global for which the __local
-  // variable symbol is defined.
-  // So any changes to __local variables would have to be delayed until
-  // this pass or LocalBuffers
-  // would have to behave very differently.
-
-  // There is also a copy that occurs from the local buffer into the
-  // global variable after each
-  // use of the __local variable so that the thread specific global
-  // stays updated. This is
-  // independent of the function markers. This is done in LocalBuffers
-  // pass.
-
-  // This only allows for reading of __local variables and not setting.
-
-  Type *Result = Type::getVoidTy(*Context);
-  Module *M = Then->getParent()->getParent();
-  FunctionCallee Func = M->getOrInsertFunction("DebugCopy.", Result);
-  CallInst::Create(Func, "", &ThenFront);
-  CallInst::Create(Func, "", &ElseFront);
 }
 
 void KernelBarrier::replaceSyncInstructions() {
@@ -954,7 +907,6 @@ void KernelBarrier::replaceSyncInstructions() {
   unsigned ID = 0;
   std::stringstream Name;
   for (Instruction *Inst : *SyncInstructions) {
-    assert(Inst && "sync instruction container contains non instruction!");
     BasicBlock *LoopHeaderBB = Inst->getParent();
     Name.str("");
     Name << "SyncBB" << ID++;
@@ -963,32 +915,30 @@ void KernelBarrier::replaceSyncInstructions() {
     PreSyncLoopHeader[LoopEntryBB] = LoopHeaderBB;
     InstructionsToRemove.push_back(Inst);
   }
+
   for (Instruction *Inst : *SyncInstructions) {
     DebugLoc DL = Inst->getDebugLoc();
     unsigned int Id = DPB->getUniqueID(Inst);
     Value *UniqueID = ConstantInt::get(I32Ty, APInt(32, Id));
-    SyncType SyncTy = DPB->getSyncType(Inst);
     BasicBlock *SyncBB = Inst->getParent();
     BasicBlock *PreSyncBB = PreSyncLoopHeader[SyncBB];
     assert(PreSyncBB && "SyncBB assumed to have sync loop header basic block!");
-    if (SyncType::DummyBarrier == SyncTy) {
+    if (SyncType::DummyBarrier == DPB->getSyncType(Inst)) {
       // This is a dummy barrier replace with the following
       // LocalId = 0
       // currSB = 0
-      // currBarrier = id.
+      // currBarrier = Id
       IRBuilder<> B(&*PreSyncBB->begin());
-      unsigned NumDimsToZero = getNumDims();
-      assert((!IsNativeDBG || NumDimsToZero == MaxNumDims) &&
-             "Debugger requires local/global_id in all dimensions to be valid");
-      for (unsigned Dim = 0; Dim < NumDimsToZero; ++Dim) {
+      unsigned NumDimsToConstZero = getNumDims();
+      for (unsigned Dim = 0; Dim < NumDimsToConstZero; ++Dim) {
         createSetLocalId(Dim, ConstZero, B);
       }
       createSetCurrSBIndex(ConstZero, B);
       createSetCurrBarrierId(UniqueID, B);
       continue;
     }
-    // This is a barrier/fiber instruction.
-    // For the innermost loop, replace with the following code:
+    // This is a barrier instruction.
+    // For the innermost loop, replace with the following code
     // if (LocalId.0 < GroupSize.0) {
     //   LocalId.0+=VecWidth
     //   switch (currBarrier) {
@@ -1010,8 +960,6 @@ void KernelBarrier::replaceSyncInstructions() {
     // Create List of barrier label that may be jumped to.
     DataPerBarrier::BarrierRelated *Related =
         &DPB->getBarrierPredecessors(Inst);
-    assert(!Related->HasFiberRelated &&
-           "We reach here only if function has no fiber!");
     InstSet *SyncPreds = &Related->RelatedBarriers;
     for (Instruction *SyncInst : *SyncPreds) {
       unsigned int PredId = DPB->getUniqueID(SyncInst);
@@ -1024,50 +972,49 @@ void KernelBarrier::replaceSyncInstructions() {
 }
 
 void KernelBarrier::createBarrierKeyValues(Function *Func,
-                                           bool HasNoInternalCalls) {
-  BarrierKeyValues *BarrierKeyValuesPtr = &BarrierKeyValuesPerFunction[Func];
+                                           bool /*HasNoInternalCalls*/) {
+  BarrierKeyValues *KeyValues = &BarrierKeyValuesPerFunction[Func];
 
   const auto AllocaAddrSpace = DL->getAllocaAddrSpace();
 
-  BarrierKeyValuesPtr->TheFunction = Func;
+  KeyValues->TheFunction = Func;
   unsigned NumDims = computeNumDim(Func);
-  BarrierKeyValuesPtr->NumDims = NumDims;
+  KeyValues->NumDims = NumDims;
   Instruction *InsertBefore = &*Func->getEntryBlock().begin();
   // Add currBarrier alloca.
-  BarrierKeyValuesPtr->CurrBarrierId =
-      new AllocaInst(I32Ty, AllocaAddrSpace, "pCurrBarrier", InsertBefore);
+  KeyValues->CurrBarrierId =
+      new AllocaInst(Type::getInt32Ty(*Context), AllocaAddrSpace,
+                     "pCurrBarrier", InsertBefore);
 
   // Will hold the index in special buffer and will be increased by stride size.
-  BarrierKeyValuesPtr->CurrSBIndex =
+  KeyValues->CurrSBIndex =
       new AllocaInst(SizeTTy, AllocaAddrSpace, "pCurrSBIndex", InsertBefore);
 
   if (!UseTLSGlobals) {
-    // get_local_id():
-    BarrierKeyValuesPtr->LocalIdValues =
+    // get_local_id()
+    KeyValues->LocalIdValues =
         new AllocaInst(LocalIdAllocTy->getElementType(), AllocaAddrSpace,
                        "pLocalIds", InsertBefore);
   }
 
-  // get_special_buffer():
-  BarrierKeyValuesPtr->SpecialBufferValue =
-      BarrierUtils.createGetSpecialBuffer(InsertBefore);
+  // get_special_buffer()
+  KeyValues->SpecialBufferValue = Utils.createGetSpecialBuffer(InsertBefore);
 
-  // get_local_size():
+  // get_local_size()
   for (unsigned i = 0; i < NumDims; ++i)
-    BarrierKeyValuesPtr->LocalSize[i] =
-        BarrierUtils.createGetLocalSize(i, InsertBefore);
+    KeyValues->LocalSize[i] = Utils.createGetLocalSize(i, InsertBefore);
 
   unsigned int StructureSize = DPV->getStrideSize(Func);
-  BarrierKeyValuesPtr->StructureSizeValue =
+  KeyValues->StructureSizeValue =
       ConstantInt::get(SizeTTy, APInt(SizeT, StructureSize));
-  BarrierKeyValuesPtr->CurrentVectorizedWidthValue =
-      ConstantInt::get(SizeTTy, BarrierUtils.getKernelVectorizationWidth(Func));
+  KeyValues->CurrentVectorizedWidthValue =
+      ConstantInt::get(SizeTTy, Utils.getFunctionVectorizationWidth(Func));
 }
 
 void KernelBarrier::getBarrierKeyValues(Function *Func) {
   CurrentFunction = Func;
   assert(BarrierKeyValuesPerFunction.count(Func) &&
-         "Initiation of argument values is broken");
+         "initiation of argument values is broken");
   CurrentBarrierKeyValues = &BarrierKeyValuesPerFunction[Func];
 }
 
@@ -1079,8 +1026,7 @@ Instruction *KernelBarrier::getInstructionToInsertBefore(Instruction *Inst,
     return UserInst;
   }
   // UserInst is a PHINode, find previous basic block.
-  BasicBlock *PrevBB =
-      DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(Inst, UserInst);
+  BasicBlock *PrevBB = BarrierUtils::findBasicBlockOfUsageInst(Inst, UserInst);
 
   if (ExpectNULL && PrevBB == Inst->getParent()) {
     // In such case no need to load & replace the origin value
@@ -1091,17 +1037,17 @@ Instruction *KernelBarrier::getInstructionToInsertBefore(Instruction *Inst,
 }
 
 Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
-                                                PointerType *PtrTy,
+                                                PointerType *Ty,
                                                 Instruction *InsertBefore,
                                                 const DebugLoc *DB) {
   Value *OffsetVal = ConstantInt::get(SizeTTy, APInt(SizeT, Offset));
   // If hit this assert then need to handle PHINode!
   assert(!isa<PHINode>(InsertBefore) &&
-         "Cannot add instructions before a PHI node!");
+         "cannot add instructions before a PHI node!");
   IRBuilder<> B(InsertBefore);
   if (DB)
     B.SetCurrentDebugLocation(*DB);
-  // Calculate the pointer of the given offset for LocalId in the special
+  // Calculate the pointer of the given Offset for LocalId in the special
   // buffer.
   Value *CurrSB = createGetCurrSBIndex(B);
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
@@ -1110,10 +1056,12 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
       CurrentBarrierKeyValues->SpecialBufferValue, ArrayRef<Value *>(Idxs));
   // Bitcast pointer according to alloca type!
   Value *AddrInSpecialBuffer =
-      B.CreatePointerCast(AddrInSBinBytes, PtrTy, "pSB_LocalId");
+      B.CreatePointerCast(AddrInSBinBytes, Ty, "pSB_LocalId");
   return AddrInSpecialBuffer;
 }
 
+// TODO: Since ResolveVariableTIDCall ran before this pass, we won't encounter
+// variable TID call. This logic can be removed.
 Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   // if we are going in this path, then no chance that we can run less than 3D
   //
@@ -1144,6 +1092,7 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   // Entry:2. add the entry tail code (as described up).
   {
     IRBuilder<> B(Block);
+    B.SetCurrentDebugLocation(Call->getDebugLoc());
     ConstantInt *MaxWorkDimI32 =
         ConstantInt::get(*Context, APInt(32U, uint64_t(MaxNumDims), false));
     Value *CheckIndex = B.CreateICmpULT(Call->getArgOperand(0), MaxWorkDimI32,
@@ -1154,22 +1103,24 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   // B.Build the get.wi.properties block
   // Now retrieve address of the DIM count.
 
-  BranchInst::Create(SplitContinue, GetWIProperties);
-  IRBuilder<> B(GetWIProperties->getTerminator());
+  IRBuilder<> B(GetWIProperties);
   B.SetCurrentDebugLocation(Call->getDebugLoc());
-  Value *LocalIds = nullptr;
-  if (!UseTLSGlobals) {
+  Value *LocalIds;
+  if (UseTLSGlobals) {
+    LocalIds = this->LocalIds;
+  } else {
     LocalIds = CurrentBarrierKeyValues->LocalIdValues;
   }
   Instruction *Result = createGetLocalId(LocalIds, Call->getArgOperand(0), B);
+  B.CreateBr(SplitContinue);
 
   // C.Create Phi node at the first of the splitted BB.
-  PHINode *AttrResult =
-      PHINode::Create(SizeTTy, 2, "", SplitContinue->getFirstNonPHI());
+  PHINode *AttrResult = PHINode::Create(IntegerType::get(*Context, SizeT), 2,
+                                        "", SplitContinue->getFirstNonPHI());
   AttrResult->addIncoming(Result, GetWIProperties);
   // The overflow value.
   AttrResult->addIncoming(ConstZero, Block);
-
+  AttrResult->setDebugLoc(Call->getDebugLoc());
   return AttrResult;
 }
 
@@ -1181,21 +1132,22 @@ Value *KernelBarrier::resolveGetLocalIDCall(CallInst *Call) {
       // OpenCL Spec says to return zero for OOB dim value.
       return ConstZero;
     }
-    // assert(BarrierKeyValuesPerFunction[pFunc].NumDims > Dim);
+    // assert(BarrierKeyValuesPerFunction[Func].NumDims > Dim);
     IRBuilder<> B(Call);
     return createGetLocalId(Dim, B);
   }
-  // assert(BarrierKeyValuesPerFunction[pFunc].NumDims == MaxNumDims);
+  // assert(BarrierKeyValuesPerFunction[Func].NumDims == MaxNumDims);
   return createOOBCheckGetLocalId(Call);
 }
 
-bool KernelBarrier::fixGetWIIdFunctions(Module &M) {
-  // Clear container for new iteration on new function.
+bool KernelBarrier::fixGetWIIdFunctions(Module & /*M*/) {
+  // clear container for new iteration on new function.
   InstructionsToRemove.clear();
 
+  std::string Name;
   // Find all get_local_id instructions.
-  InstVector &GetLIDInstructions = BarrierUtils.getAllGetLocalId();
-  for (auto *I : GetLIDInstructions) {
+  InstVector &GetLIDInstructions = Utils.getAllGetLocalId();
+  for (Instruction *I : GetLIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
     if (!UseTLSGlobals)
@@ -1207,8 +1159,11 @@ bool KernelBarrier::fixGetWIIdFunctions(Module &M) {
     InstructionsToRemove.push_back(OldCall);
   }
 
+  // Maps [Function, ConstDimension] --> BaseGlobalId.
+  typedef std::pair<Function *, ConstantInt *> FuncDimPair;
+  std::map<FuncDimPair, Value *> FuncToBaseGID;
   // Find all get_global_id instructions.
-  InstVector &GetGIDInstructions = BarrierUtils.getAllGetGlobalId();
+  InstVector &GetGIDInstructions = Utils.getAllGetGlobalId();
   for (auto *I : GetGIDInstructions) {
     CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
@@ -1216,14 +1171,32 @@ bool KernelBarrier::fixGetWIIdFunctions(Module &M) {
       getBarrierKeyValues(Func);
     else
       CurrentFunction = Func;
-    Value *BaseGID = DPCPPKernelLoopUtils::getWICall(
-        &M, DPCPPKernelCompilationUtils::nameGetBaseGID(),
-        DPCPPKernelLoopUtils::getIntTy(&M), OldCall->getOperand(0), OldCall,
-        "base_gid");
-    Value *LID = resolveGetLocalIDCall(OldCall);
-    Value *GID =
-        BinaryOperator::CreateAdd(LID, BaseGID, OldCall->getName(), OldCall);
-    OldCall->replaceAllUsesWith(GID);
+    Value *BaseGID = nullptr;
+    Value *Dim = OldCall->getOperand(0);
+    // Computation of BaseGID: If the dimension is a constant, cache it and
+    // reuse in function.
+    if (ConstantInt *ConstDim = dyn_cast<ConstantInt>(Dim)) {
+      FuncDimPair Key = std::make_pair(Func, ConstDim);
+      Value *&Val = FuncToBaseGID[Key];
+      if (!Val) {
+        Val = Utils.createGetBaseGlobalId(Dim, &*Func->getEntryBlock().begin());
+      }
+      BaseGID = Val;
+    } else
+      BaseGID = Utils.createGetBaseGlobalId(Dim, OldCall);
+
+    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
+      OldCall->replaceAllUsesWith(BaseGID);
+    } else {
+      Value *LID = resolveGetLocalIDCall(OldCall);
+      // Replace get_global_id(arg) with global_base_id + local_id.
+      Name = DPCPPKernelCompilationUtils::AppendWithDimension("GlobalID_", Dim);
+      Instruction *GlobalID =
+          BinaryOperator::CreateAdd(LID, BaseGID, Name, OldCall);
+      GlobalID->setDebugLoc(OldCall->getDebugLoc());
+      OldCall->replaceAllUsesWith(GlobalID);
+    }
     InstructionsToRemove.push_back(OldCall);
   }
 
@@ -1239,7 +1212,7 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
   getBarrierKeyValues(FuncToFix);
 
   unsigned int NumOfArgs = FuncToFix->getFunctionType()->getNumParams();
-  // Use offsets instead of original parameters.
+  // Use Offsets instead of original parameters
   Function::arg_iterator ArgIter = FuncToFix->arg_begin();
   for (unsigned int i = 0; i < NumOfArgs; ++i, ++ArgIter) {
     Value *ArgVal = &*ArgIter;
@@ -1252,24 +1225,39 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
     unsigned int Offset = DPV->getOffset(FuncToFix);
 
     std::vector<BasicBlock *> VecBB;
-    for (BasicBlock &BB : *FuncToFix) {
+    for (BasicBlock &BB : *FuncToFix)
       VecBB.push_back(&BB);
-    }
     // Run over all basic blocks of the new function and handle return
-    // terminators.
+    // terminators
     for (BasicBlock *BB : VecBB) {
       ReturnInst *RetInst = dyn_cast<ReturnInst>(BB->getTerminator());
       if (!RetInst) {
-        // It is not return instruction terminator, check next basic block.
+        // It is not return instruction terminator, check next basic block
         continue;
       }
       Value *RetVal = RetInst->getOperand(0);
       Instruction *NextInst;
-      if (Instruction *Inst = dyn_cast<Instruction>(RetVal)) {
+      Instruction *Inst = dyn_cast<Instruction>(RetVal);
+      CallInst *CI = dyn_cast<CallInst>(RetVal);
+      Function *Func = nullptr;
+      if (CI != nullptr)
+        Func = CI->getCalledFunction();
+      // If there is uniform work group builtin, we need to store return value
+      // in the special buffer.
+      std::string FuncName;
+      if (Func) {
+        FuncName = Func->getName().str();
+        if (DPCPPKernelCompilationUtils::hasWorkGroupFinalizePrefix(FuncName))
+          FuncName = DPCPPKernelCompilationUtils::removeWorkGroupFinalizePrefix(
+              FuncName);
+      }
+      if ((Inst != nullptr) &&
+          !(Func != nullptr &&
+            DPCPPKernelCompilationUtils::isWorkGroupUniform(FuncName))) {
         // Find next instruction so we can create new instruction before it.
         NextInst = &*(++BasicBlock::iterator(Inst));
         if (isa<PHINode>(NextInst)) {
-          // NextInst is a PHINode, find first non PHINode to add instructions.
+          // NextInst is a PHINode, find first non PHINode to add instructions
           // before it.
           NextInst = NextInst->getParent()->getFirstNonPHI();
         }
@@ -1278,21 +1266,21 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
         // it cannot be assumed that it is inside the barrier loop.
         // Thus, need to create a new barrier loop that store this value
         // in the special buffer, that is why we needed to find the values:
-        // CurrSBIndex, m_pLocalIdValue, m_pWIIterationCountValue
+        //  CurrSBIndex, LocalIdValue, WIIterationCountValue
         // Before:
-        //  BB:
-        //      ret pRetVal
+        //   BB:
+        //       ret RetVal
         // After:
-        //  BB:
-        //      br loopBB
-        //  loopBB:
-        //      pSB[pCurrSBValue+offset] = pRetVal
-        //      cond LocalId < IterCount
-        //      LocalId++
-        //      pCurrSBValue += Stride
-        //      br cond, loopBB, RetBB
-        //  RetBB:
-        //      ret pRetVal
+        //   BB:
+        //       br loopBB
+        //   loopBB:
+        //       pSB[pCurrSBValue+Offset] = RetVal
+        //       cond LocalId < IterCount
+        //       LocalId++
+        //       pCurrSBValue += Stride
+        //       br cond, loopBB, RetBB
+        //   RetBB:
+        //       ret RetVal
         BasicBlock *LoopBB =
             BB->splitBasicBlock(BasicBlock::iterator(RetInst), "LoopBB");
         BasicBlock *RetBB = LoopBB->splitBasicBlock(LoopBB->begin(), "RetBB");
@@ -1312,30 +1300,29 @@ void KernelBarrier::fixNonInlineFunction(Function *FuncToFix) {
 
 void KernelBarrier::fixArgumentUsage(Value *OriginalArg,
                                      unsigned int OffsetArg) {
-  // TODO: do we need to set DebugLoc for these instructions?
   assert((!DPV->isOneBitElementType(OriginalArg) ||
           !isa<VectorType>(OriginalArg->getType())) &&
          "OriginalArg with base type i1!");
   InstSet UserInsts;
-  for (auto *U : OriginalArg->users()) {
+  for (User *U : OriginalArg->users()) {
     Instruction *UserInst = dyn_cast<Instruction>(U);
     UserInsts.insert(UserInst);
   }
   for (Instruction *UserInst : UserInsts) {
     assert(UserInst &&
-           "Something other than Instruction is using a function argument!");
+           "Something other than Instruction is using function argument!");
     Instruction *InsertBefore = UserInst;
     if (isa<PHINode>(UserInst)) {
-      BasicBlock *PrevBB = DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(
-          OriginalArg, UserInst);
+      BasicBlock *PrevBB =
+          BarrierUtils::findBasicBlockOfUsageInst(OriginalArg, UserInst);
       InsertBefore = PrevBB->getTerminator();
     }
     // In this case we will always get a valid offset and need to load the
     // argument from the special buffer using the offset corresponding argument.
-    PointerType *PtrTy =
+    PointerType *Ty =
         OriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *AddrInSpecialBuffer =
-        getAddressInSpecialBuffer(OffsetArg, PtrTy, InsertBefore, nullptr);
+        getAddressInSpecialBuffer(OffsetArg, Ty, InsertBefore, nullptr);
     Value *LoadedValue =
         new LoadInst(OriginalArg->getType(), AddrInSpecialBuffer, "loadedValue",
                      InsertBefore);
@@ -1345,7 +1332,6 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg,
 
 void KernelBarrier::fixReturnValue(Value *RetVal, unsigned int OffsetRet,
                                    Instruction *InsertBefore) {
-  // TODO: do we need to set DebugLoc for these instructions?
   assert((!DPV->isOneBitElementType(RetVal) ||
           !isa<VectorType>(RetVal->getType())) &&
          "RetVal with base type i1!");
@@ -1353,18 +1339,18 @@ void KernelBarrier::fixReturnValue(Value *RetVal, unsigned int OffsetRet,
   // in such case no need to handle it here as it will be saved
   // to the special buffer by the called function itself.
   // Calculate the pointer of the current special in the special buffer.
-  PointerType *PtrTy =
-      RetVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
+  PointerType *Ty = RetVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
   Value *AddrInSpecialBuffer =
-      getAddressInSpecialBuffer(OffsetRet, PtrTy, InsertBefore, nullptr);
+      getAddressInSpecialBuffer(OffsetRet, Ty, InsertBefore, nullptr);
   // Add Store instruction after the value instruction.
-  new StoreInst(RetVal, AddrInSpecialBuffer, InsertBefore);
+  auto *SI = new StoreInst(RetVal, AddrInSpecialBuffer, InsertBefore);
+  SI->setDebugLoc(InsertBefore->getDebugLoc());
 }
 
 void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
   Function *CalledFunc = CallToFix->getCalledFunction();
   assert(CalledFunc && "Call instruction has no called function");
-  Function *Func = CallToFix->getParent()->getParent();
+  Function *Func = CallToFix->getFunction();
 
   // Get key values for this functions.
   getBarrierKeyValues(Func);
@@ -1372,9 +1358,9 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
   const DebugLoc &DB = CallToFix->getDebugLoc();
   Instruction *InsertBefore = nullptr;
   Function::arg_iterator ArgIter = CalledFunc->arg_begin();
-  for (CallInst::const_op_iterator opi = CallToFix->arg_begin(),
-                                   ope = CallToFix->arg_end();
-       opi != ope; ++opi, ++ArgIter) {
+  for (CallInst::const_op_iterator Opi = CallToFix->arg_begin(),
+                                   Ope = CallToFix->arg_end();
+       Opi != Ope; ++Opi, ++ArgIter) {
     if (!DPV->hasOffset(&*ArgIter))
       continue;
 
@@ -1383,22 +1369,21 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
       BasicBlock *PreBB = CallToFix->getParent();
       BasicBlock::iterator FirstInst = PreBB->begin();
       assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
-             "Assume first instruction to be sync instruction");
+             "assume first instruction to be sync instruction");
       BasicBlock *CallBB = PreBB->splitBasicBlock(FirstInst, "CallBB");
       InsertBefore = PreBB->getTerminator();
       OldToNewSyncBBMap[Func][PreBB] = CallBB;
     }
-    // Need to handle operand.
-    Value *OpVal = *opi;
+    // Need to handle Operand.
+    Value *OpVal = *Opi;
     unsigned int Offset = DPV->getOffset(&*ArgIter);
 
     // Calculate the pointer of the current special in the special buffer.
-    PointerType *PtrTy =
-        OpVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
+    PointerType *Ty = OpVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *AddrInSpecialBuffer =
-        getAddressInSpecialBuffer(Offset, PtrTy, InsertBefore, &DB);
+        getAddressInSpecialBuffer(Offset, Ty, InsertBefore, &DB);
     // Add Store instruction before the synchronize instruction (in the pre
-    // basic block).
+    // basic block)
     StoreInst *SI = new StoreInst(OpVal, AddrInSpecialBuffer, InsertBefore);
     SI->setDebugLoc(DB);
   }
@@ -1417,17 +1402,17 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
          "callInst BB has more than one successor");
   BasicBlock::iterator FirstInst = BrInst->getSuccessor(0)->begin();
   assert(DPB->getSyncInstructions(Func).count(&*FirstInst) &&
-         "Assume first instruction to be sync instruction");
+         "assume first instruction to be sync instruction");
   // Find next instruction so we can create new instruction before it.
   Instruction *NextInst = &*(++FirstInst);
 
   unsigned int Offset = DPV->getOffset(CalledFunc);
 
   // Calculate the pointer of the current special in the special buffer.
-  PointerType *PtrTy =
+  PointerType *Ty =
       CallToFix->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
   Value *AddrInSpecialBuffer =
-      getAddressInSpecialBuffer(Offset, PtrTy, NextInst, &DB);
+      getAddressInSpecialBuffer(Offset, Ty, NextInst, &DB);
   // Add Load instruction from special buffer at function offset.
   LoadInst *LoadedValue = new LoadInst(
       CallToFix->getType(), AddrInSpecialBuffer, "loadedValue", NextInst);
@@ -1438,10 +1423,10 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
     // Store the value to this offset.
     unsigned int OffsetRet = DPV->getOffset(CallToFix);
 
-    // Calculate the pointer of the current special in the special buffer.
+    // Calculate the pointer of the current special in the special buffer
     Value *AddrInSpecialBuffer =
-        getAddressInSpecialBuffer(OffsetRet, PtrTy, NextInst, &DB);
-    // Add Store instruction to special buffer at return value offset.
+        getAddressInSpecialBuffer(OffsetRet, Ty, NextInst, &DB);
+    // Add Store instruction to special buffer at return value offset
     StoreInst *SI = new StoreInst(LoadedValue, AddrInSpecialBuffer, NextInst);
     SI->setDebugLoc(DB);
   } else {
@@ -1451,84 +1436,91 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
 
 void KernelBarrier::eraseAllToRemoveInstructions() {
   // Remove all instructions in InstructionsToRemove.
-  for (Instruction *Inst : InstructionsToRemove) {
-    assert(Inst && "Remove instruction container contains non instruction!");
+  for (Instruction *Inst : InstructionsToRemove)
     Inst->eraseFromParent();
-  }
 }
 
 unsigned KernelBarrier::computeNumDim(Function *F) {
-  // TODO: port decusing of max Dim. Or make hint in the header.
-  return 3;
+  auto MaxWGDimMDApi =
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(F).MaxWGDimensions;
+  if (MaxWGDimMDApi.hasValue()) {
+    return MaxWGDimMDApi.get();
+  }
+  return MaxNumDims;
 }
 
 // Use DFS to calculate a function's non-barrier memory usage.
 static unsigned getPrivateSize(Function *Func, const CallGraph &CG,
-                               DataPerValue *DataPerVal,
+                               DataPerValue *DPV,
                                DenseMap<Function *, uint64_t> &AddrAllocaSize,
                                llvm::DenseMap<Function *, unsigned> &FnPrivSize,
-                               FuncSet &FnsWithSync) {
+                               FuncSet &FnsWithSync, unsigned MaxDepth) {
+  --MaxDepth;
+
   // External function or function pointer.
-  if (!Func || Func->isDeclaration())
+  if (!Func || Func->isDeclaration() || !MaxDepth)
     return 0;
+
   if (FnPrivSize.count(Func))
     return FnPrivSize[Func];
+
   unsigned MaxSubPrivSize = 0;
   const CallGraphNode *NodeCG = CG[Func];
   for (auto &CI : *NodeCG) {
     Function *CalledFunc = CI.second->getFunction();
-    MaxSubPrivSize =
-        std::max(MaxSubPrivSize,
-                 getPrivateSize(CalledFunc, CG, DataPerVal, AddrAllocaSize,
-                                FnPrivSize, FnsWithSync));
+    MaxSubPrivSize = std::max(
+        MaxSubPrivSize, getPrivateSize(CalledFunc, CG, DPV, AddrAllocaSize,
+                                       FnPrivSize, FnsWithSync, MaxDepth));
   }
-  FnPrivSize[Func] =
-      MaxSubPrivSize + (AddrAllocaSize.count(Func) ? AddrAllocaSize[Func] : 0) +
-      (FnsWithSync.count(Func) ? 0 : DataPerVal->getStrideSize(Func));
+  FnPrivSize[Func] = MaxSubPrivSize +
+                     (AddrAllocaSize.count(Func) ? AddrAllocaSize[Func] : 0) +
+                     (FnsWithSync.count(Func) ? 0 : DPV->getStrideSize(Func));
 
   return FnPrivSize[Func];
 }
 
 void KernelBarrier::updateStructureStride(Module &M,
                                           FuncSet &FunctionsWithSync) {
-  // Collect functions to process.
+  // Collect Functions to process.
   CallGraph CG{M};
-
   llvm::DenseMap<Function *, unsigned> FuncToPrivSize;
-  auto TodoList = DPCPPKernelCompilationUtils::getAllKernels(M);
+  auto TodoList = BarrierUtils::getAllKernelsAndVectorizedCounterparts(
+      DPCPPKernelMetadataAPI::KernelList(&M).getList());
 
   // Get the kernels using the barrier for work group loops.
-  for (auto *Func : TodoList) {
+  for (auto Func : TodoList) {
+    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(Func);
+    auto FMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(Func);
     // Need to check if Vectorized Width Value exists, it is not guaranteed
-    // that Vectorized is running in all scenarios.
-    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Func);
-    auto VecWidth =
+    // that  Vectorized is running in all scenarios.
+    int VecWidth =
         KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
     unsigned int StrideSize = DPV->getStrideSize(Func);
     assert(VecWidth && "VecWidth should not be 0!");
     StrideSize = (StrideSize + VecWidth - 1) / VecWidth;
 
-    auto PrivateSize = getPrivateSize(Func, CG, DPV, AddrAllocaSize,
-                                      FuncToPrivSize, FunctionsWithSync);
+    bool IsRecursive = FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
+    unsigned MaxDepth = IsRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
+    auto PrivateSize =
+        getPrivateSize(Func, CG, DPV, AddrAllocaSize, FuncToPrivSize,
+                       FunctionsWithSync, MaxDepth);
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
     // CSSD100016517, CSSD100018743: workaround
     // Private memory is always considered to be non-uniform. I.e. it is not
     // shared by each WI per vector lane. If it is uniform (i.e. its content
     // doesn't depend on non-uniform values) the private memory query returns a
-    // smaller value than actual private memory usage. This subtle is taken into
-    // account in the query for the maximum work-group.
-    bool NoBarrierPath =
-        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : false;
-    if (NoBarrierPath) {
+    // smaller value than actual private memory usage. This subtle is taken
+    // into account in the query for the maximum work-group.
+    if (KIMD.NoBarrierPath.hasValue() && KIMD.NoBarrierPath.get()) {
       KIMD.BarrierBufferSize.set(0);
-      // if there are no barrier in the kernel, strideSize is the kernel
+      // If there are no barrier in the kernel, StrideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
       KIMD.PrivateMemorySize.set(StrideSize + PrivateSize -
                                  DPV->getStrideSize(Func));
     } else {
       KIMD.BarrierBufferSize.set(StrideSize);
-      // if there are some barriers in the kernel, stiderSize is barrier
+      // If there are some barriers in the kernel, StrideSize is barrier
       // buffer size. So need to add non barrier private memory.
       KIMD.PrivateMemorySize.set(StrideSize + PrivateSize);
     }
@@ -1550,8 +1542,8 @@ INITIALIZE_PASS_END(
 
 char KernelBarrierLegacy::ID = 0;
 
-KernelBarrierLegacy::KernelBarrierLegacy(bool IsNativeDebug, bool useTLSGlobals)
-    : ModulePass(ID), Impl(IsNativeDebug, useTLSGlobals) {
+KernelBarrierLegacy::KernelBarrierLegacy(bool IsNativeDebug, bool UseTLSGlobals)
+    : ModulePass(ID), Impl(IsNativeDebug, UseTLSGlobals) {
   initializeKernelBarrierLegacyPass(*PassRegistry::getPassRegistry());
 }
 

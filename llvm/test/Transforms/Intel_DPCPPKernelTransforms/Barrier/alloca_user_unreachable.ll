@@ -1,13 +1,26 @@
 ; This test checks alloca' user is replaced with address in special buffer
 ; if there is unreachable in the user's basic block.
 ;
-; RUN: opt -passes='dpcpp-kernel-analysis,dpcpp-kernel-barrier' %s -S | FileCheck %s
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-barrier %s -S | FileCheck %s
+; The IR is dumped at the beginning of BarrierPass::runOnModule() from source:
+;
+; void foo(int gf) {}
+; __kernel void main_kernel()
+; {
+;   int g = 1;
+;   while (false)
+;     foo(g);
+; }
+;
+; RUN: opt -passes=dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-barrier %s -S | FileCheck %s
+; RUN: opt -dpcpp-kernel-barrier %s -S | FileCheck %s
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
+; Function Attrs: convergent noinline norecurse nounwind
 define void @foo(i32 %gf) #0 {
 entry:
   %gf.addr = alloca i32, align 4
@@ -15,7 +28,8 @@ entry:
   ret void
 }
 
-define void @main_kernel() #1 {
+; Function Attrs: convergent noinline norecurse nounwind
+define void @main_kernel() #1 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 !kernel_arg_name !1 !kernel_execution_length !5 !kernel_has_barrier !6 !kernel_has_global_sync !6 {
 entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %g.addr = alloca i32*
@@ -57,10 +71,37 @@ declare void @barrier_dummy()
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #2
 
-attributes #0 = { convergent noinline norecurse nounwind }
-attributes #1 = { convergent noinline norecurse nounwind "no-barrier-path"="false" "sycl-kernel" }
+attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #2 = { convergent }
 
+!llvm.linker.options = !{}
+!opencl.enable.FP_CONTRACT = !{}
+!opencl.ocl.version = !{!0}
+!opencl.spir.version = !{!0}
+!opencl.used.extensions = !{!1}
+!opencl.used.optional.core.features = !{!1}
+!opencl.compiler.options = !{!2}
+!llvm.ident = !{!3}
+!sycl.kernels = !{!4}
 
-!sycl.kernels = !{!0}
-!0 = !{void ()* @main_kernel}
+!0 = !{i32 1, i32 2}
+!1 = !{}
+!2 = !{!"-cl-opt-disable"}
+!3 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!4 = !{void ()* @main_kernel}
+!5 = !{i32 8}
+!6 = !{i1 false}
+
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %g.addr = alloca i32*, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+
+; DEBUGIFY-NOT: WARNING
