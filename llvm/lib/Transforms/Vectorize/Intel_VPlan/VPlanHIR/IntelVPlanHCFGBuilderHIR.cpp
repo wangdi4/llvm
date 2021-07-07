@@ -275,7 +275,7 @@ HIRVectorizationLegality::getVectorIdioms(HLLoop *Loop) const {
   if (!IdiomList) {
     IdiomList.reset(new HIRVectorIdioms());
     HIRVectorIdiomAnalysis Analysis;
-    Analysis.gatherIdioms(*IdiomList, DDAnalysis->getGraph(Loop), *SRA, Loop);
+    Analysis.gatherIdioms(TTI, *IdiomList, DDAnalysis->getGraph(Loop), *SRA, Loop);
   }
   return IdiomList.get();
 }

@@ -1254,6 +1254,11 @@ const char *X86TTIImpl::getISASetForIMLFunctions() const {
 
   return "all";
 }
+
+bool X86TTIImpl::hasCDI() const {
+  return ST->hasCDI();
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,

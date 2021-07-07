@@ -146,9 +146,9 @@ public:
   HIRVectorizationLegality(HIRVectorizationLegality &&) = delete;
   HIRVectorizationLegality &operator=(HIRVectorizationLegality &&) = delete;
 
-  HIRVectorizationLegality(HIRSafeReductionAnalysis *SafeReds,
+  HIRVectorizationLegality(const TargetTransformInfo *TTI, HIRSafeReductionAnalysis *SafeReds,
                            HIRDDAnalysis *DDA)
-      : SRA(SafeReds), DDAnalysis(DDA) {}
+      : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
   // Add explicit private.
   // Add POD privates to PrivatesList
@@ -287,6 +287,7 @@ private:
     return Descr;
   }
 
+  const TargetTransformInfo *TTI;
   HIRSafeReductionAnalysis *SRA;
   HIRDDAnalysis *DDAnalysis;
   PrivatesListTy PrivatesList;
