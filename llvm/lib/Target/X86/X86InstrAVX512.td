@@ -14779,4 +14779,55 @@ multiclass avx512_sm4_base<string OpStr> {
 defm VSM4KEY4 : avx512_sm4_base<"vsm4key4">, T8XS, EVEX_4V;
 defm VSM4RNDS4 : avx512_sm4_base<"vsm4rnds4">, T8XD, EVEX_4V;
 #endif // INTEL_FEATURE_ISA_SM4
+
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+let Constraints = "$src1 = $dst" in
+multiclass VNNIINT16_rmb<bits<8> Op, string OpStr, X86FoldableSchedWrite sched,
+                         X86VectorVTInfo VTI, bit IsCommutable, string VL> {
+  let ExeDomain = VTI.ExeDomain in {
+  defm r  :   AVX512_maskable_3src<Op, MRMSrcReg, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.RC:$src3), OpStr,
+                                   "$src3, $src2", "$src2, $src3",
+                                   (VTI.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1,
+                                            VTI.RC:$src2, VTI.RC:$src3)),
+                                   IsCommutable, IsCommutable>,
+                                   EVEX_4V, Sched<[sched]>;
+  defm m  :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.MemOp:$src3), OpStr,
+                                   "$src3, $src2", "$src2, $src3",
+                                   (VTI.VT (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1, VTI.RC:$src2,
+                                            (VTI.VT (VTI.LdFrag addr:$src3))))>,
+                                   EVEX_4V, EVEX_CD8<32, CD8VF>,
+                                   Sched<[sched.Folded, sched.ReadAfterFold]>;
+  defm mb :   AVX512_maskable_3src<Op, MRMSrcMem, VTI, (outs VTI.RC:$dst),
+                                   (ins VTI.RC:$src2, VTI.ScalarMemOp:$src3),
+                                   OpStr, "${src3}"#VTI.BroadcastStr#", $src2",
+                                   "$src2, ${src3}"#VTI.BroadcastStr,
+                                   (!cast<Intrinsic>("int_x86_"#OpStr#VL) VTI.RC:$src1, VTI.RC:$src2,
+                                    (VTI.VT (VTI.BroadcastLdFrag addr:$src3)))>,
+                                   EVEX_4V, EVEX_CD8<32, CD8VF>, EVEX_B,
+                                   Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass VNNIINT16_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
+                            bit IsCommutable> {
+  let Predicates = [HasAVX512VNNIINT16] in
+  defm Z      :   VNNIINT16_rmb<Op, OpStr, sched.ZMM, v16i32_info,
+                                IsCommutable, "512">, EVEX_V512;
+  let Predicates = [HasAVX512VNNIINT16, HasVLX] in {
+    defm Z256 :   VNNIINT16_rmb<Op, OpStr, sched.YMM, v8i32x_info,
+                                IsCommutable, "256">, EVEX_V256;
+    defm Z128 :   VNNIINT16_rmb<Op, OpStr, sched.XMM, v4i32x_info,
+                                IsCommutable, "128">, EVEX_V128;
+  }
+}
+
+defm VPDPWSUD   : VNNIINT16_common<0xd2, "vpdpwsud", SchedWriteVecIMul, 0>, T8XS;
+defm VPDPWSUDS  : VNNIINT16_common<0xd3, "vpdpwsuds", SchedWriteVecIMul, 0>, T8XS;
+defm VPDPWUSD   : VNNIINT16_common<0xd2, "vpdpwusd", SchedWriteVecIMul, 0>, T8PD;
+defm VPDPWUSDS  : VNNIINT16_common<0xd3, "vpdpwusds", SchedWriteVecIMul, 0>, T8PD;
+defm VPDPWUUD   : VNNIINT16_common<0xd2, "vpdpwuud", SchedWriteVecIMul, 1>, T8PS;
+defm VPDPWUUDS  : VNNIINT16_common<0xd3, "vpdpwuuds", SchedWriteVecIMul, 1>, T8PS;
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION

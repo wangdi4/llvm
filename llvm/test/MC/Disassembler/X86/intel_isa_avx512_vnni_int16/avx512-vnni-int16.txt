@@ -1,0 +1,221 @@
+// REQUIRES: intel_feature_isa_avx512_vnni_int16
+
+# RUN: llvm-mc --disassemble %s -triple=i386 | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc --disassemble %s -triple=i386 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+
+# ATT:        vpdpwsud %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwsud zmm2, zmm3, zmm4
+0x62,0xf2,0x66,0x48,0xd2,0xd4
+
+# ATT:        vpdpwsud %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwsud zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x66,0x4f,0xd2,0xd4
+
+# ATT:        vpdpwsud %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsud zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x66,0xcf,0xd2,0xd4
+
+# ATT:        vpdpwsud  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwsud zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x66,0x48,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsud  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwsud zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x4f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsud  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwsud zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x66,0x58,0xd2,0x10
+
+# ATT:        vpdpwsud  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwsud zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x66,0x48,0xd2,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwsud  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsud zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x66,0xcf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwsud  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsud zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x66,0xdf,0xd2,0x52,0x80
+
+# ATT:        vpdpwsuds %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwsuds zmm2, zmm3, zmm4
+0x62,0xf2,0x66,0x48,0xd3,0xd4
+
+# ATT:        vpdpwsuds %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwsuds zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x66,0x4f,0xd3,0xd4
+
+# ATT:        vpdpwsuds %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsuds zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x66,0xcf,0xd3,0xd4
+
+# ATT:        vpdpwsuds  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwsuds zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x66,0x48,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsuds  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwsuds zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x4f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsuds  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwsuds zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x66,0x58,0xd3,0x10
+
+# ATT:        vpdpwsuds  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwsuds zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x66,0x48,0xd3,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwsuds  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsuds zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x66,0xcf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwsuds  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwsuds zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x66,0xdf,0xd3,0x52,0x80
+
+# ATT:        vpdpwusd %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwusd zmm2, zmm3, zmm4
+0x62,0xf2,0x65,0x48,0xd2,0xd4
+
+# ATT:        vpdpwusd %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwusd zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x65,0x4f,0xd2,0xd4
+
+# ATT:        vpdpwusd %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusd zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x65,0xcf,0xd2,0xd4
+
+# ATT:        vpdpwusd  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwusd zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x65,0x48,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusd  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwusd zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x4f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusd  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwusd zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x65,0x58,0xd2,0x10
+
+# ATT:        vpdpwusd  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwusd zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x65,0x48,0xd2,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwusd  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusd zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x65,0xcf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwusd  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusd zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x65,0xdf,0xd2,0x52,0x80
+
+# ATT:        vpdpwusds %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwusds zmm2, zmm3, zmm4
+0x62,0xf2,0x65,0x48,0xd3,0xd4
+
+# ATT:        vpdpwusds %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwusds zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x65,0x4f,0xd3,0xd4
+
+# ATT:        vpdpwusds %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusds zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x65,0xcf,0xd3,0xd4
+
+# ATT:        vpdpwusds  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwusds zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x65,0x48,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusds  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwusds zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x4f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusds  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwusds zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x65,0x58,0xd3,0x10
+
+# ATT:        vpdpwusds  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwusds zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x65,0x48,0xd3,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwusds  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusds zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x65,0xcf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwusds  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwusds zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x65,0xdf,0xd3,0x52,0x80
+
+# ATT:        vpdpwuud %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwuud zmm2, zmm3, zmm4
+0x62,0xf2,0x64,0x48,0xd2,0xd4
+
+# ATT:        vpdpwuud %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwuud zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x64,0x4f,0xd2,0xd4
+
+# ATT:        vpdpwuud %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuud zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x64,0xcf,0xd2,0xd4
+
+# ATT:        vpdpwuud  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwuud zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x64,0x48,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuud  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwuud zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x4f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuud  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwuud zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x64,0x58,0xd2,0x10
+
+# ATT:        vpdpwuud  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwuud zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x64,0x48,0xd2,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwuud  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuud zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x64,0xcf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwuud  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuud zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x64,0xdf,0xd2,0x52,0x80
+
+# ATT:        vpdpwuuds %zmm4, %zmm3, %zmm2
+# INTEL:      vpdpwuuds zmm2, zmm3, zmm4
+0x62,0xf2,0x64,0x48,0xd3,0xd4
+
+# ATT:        vpdpwuuds %zmm4, %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwuuds zmm2 {k7}, zmm3, zmm4
+0x62,0xf2,0x64,0x4f,0xd3,0xd4
+
+# ATT:        vpdpwuuds %zmm4, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuuds zmm2 {k7} {z}, zmm3, zmm4
+0x62,0xf2,0x64,0xcf,0xd3,0xd4
+
+# ATT:        vpdpwuuds  268435456(%esp,%esi,8), %zmm3, %zmm2
+# INTEL:      vpdpwuuds zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
+0x62,0xf2,0x64,0x48,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuuds  291(%edi,%eax,4), %zmm3, %zmm2 {%k7}
+# INTEL:      vpdpwuuds zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x4f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuuds  (%eax){1to16}, %zmm3, %zmm2
+# INTEL:      vpdpwuuds zmm2, zmm3, dword ptr [eax]{1to16}
+0x62,0xf2,0x64,0x58,0xd3,0x10
+
+# ATT:        vpdpwuuds  -2048(,%ebp,2), %zmm3, %zmm2
+# INTEL:      vpdpwuuds zmm2, zmm3, zmmword ptr [2*ebp - 2048]
+0x62,0xf2,0x64,0x48,0xd3,0x14,0x6d,0x00,0xf8,0xff,0xff
+
+# ATT:        vpdpwuuds  8128(%ecx), %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuuds zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
+0x62,0xf2,0x64,0xcf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwuuds  -512(%edx){1to16}, %zmm3, %zmm2 {%k7} {z}
+# INTEL:      vpdpwuuds zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
+0x62,0xf2,0x64,0xdf,0xd3,0x52,0x80
+

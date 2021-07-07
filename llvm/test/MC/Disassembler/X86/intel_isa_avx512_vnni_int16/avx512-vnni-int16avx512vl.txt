@@ -1,0 +1,437 @@
+// REQUIRES: intel_feature_isa_avx512_vnni_int16
+
+# RUN: llvm-mc --disassemble %s -triple=i386 | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc --disassemble %s -triple=i386 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+
+# ATT:        vpdpwsud %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwsud ymm2, ymm3, ymm4
+0xc4,0xe2,0x66,0xd2,0xd4
+
+# ATT:        vpdpwsud %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwsud ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x66,0x2f,0xd2,0xd4
+
+# ATT:        vpdpwsud %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsud ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x66,0xaf,0xd2,0xd4
+
+# ATT:        vpdpwsud %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwsud xmm2, xmm3, xmm4
+0xc4,0xe2,0x62,0xd2,0xd4
+
+# ATT:        vpdpwsud %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwsud xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x66,0x0f,0xd2,0xd4
+
+# ATT:        vpdpwsud %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsud xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x66,0x8f,0xd2,0xd4
+
+# ATT:        vpdpwsud  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwsud ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x66,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsud  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwsud ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x2f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsud  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwsud ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x66,0x38,0xd2,0x10
+
+# ATT:        vpdpwsud  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwsud ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x66,0xd2,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwsud  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsud ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x66,0xaf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwsud  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsud ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x66,0xbf,0xd2,0x52,0x80
+
+# ATT:        vpdpwsud  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwsud xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x62,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsud  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwsud xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x0f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsud  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwsud xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x66,0x18,0xd2,0x10
+
+# ATT:        vpdpwsud  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwsud xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x62,0xd2,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwsud  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsud xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x66,0x8f,0xd2,0x51,0x7f
+
+# ATT:        vpdpwsud  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsud xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x66,0x9f,0xd2,0x52,0x80
+
+# ATT:        vpdpwsuds %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwsuds ymm2, ymm3, ymm4
+0xc4,0xe2,0x66,0xd3,0xd4
+
+# ATT:        vpdpwsuds %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwsuds ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x66,0x2f,0xd3,0xd4
+
+# ATT:        vpdpwsuds %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsuds ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x66,0xaf,0xd3,0xd4
+
+# ATT:        vpdpwsuds %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwsuds xmm2, xmm3, xmm4
+0xc4,0xe2,0x62,0xd3,0xd4
+
+# ATT:        vpdpwsuds %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwsuds xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x66,0x0f,0xd3,0xd4
+
+# ATT:        vpdpwsuds %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsuds xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x66,0x8f,0xd3,0xd4
+
+# ATT:        vpdpwsuds  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwsuds ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x66,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsuds  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwsuds ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x2f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsuds  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwsuds ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x66,0x38,0xd3,0x10
+
+# ATT:        vpdpwsuds  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwsuds ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x66,0xd3,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwsuds  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsuds ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x66,0xaf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwsuds  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwsuds ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x66,0xbf,0xd3,0x52,0x80
+
+# ATT:        vpdpwsuds  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwsuds xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x62,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwsuds  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwsuds xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x66,0x0f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwsuds  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwsuds xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x66,0x18,0xd3,0x10
+
+# ATT:        vpdpwsuds  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwsuds xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x62,0xd3,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwsuds  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsuds xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x66,0x8f,0xd3,0x51,0x7f
+
+# ATT:        vpdpwsuds  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwsuds xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x66,0x9f,0xd3,0x52,0x80
+
+# ATT:        vpdpwusd %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwusd ymm2, ymm3, ymm4
+0xc4,0xe2,0x65,0xd2,0xd4
+
+# ATT:        vpdpwusd %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwusd ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x65,0x2f,0xd2,0xd4
+
+# ATT:        vpdpwusd %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusd ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x65,0xaf,0xd2,0xd4
+
+# ATT:        vpdpwusd %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwusd xmm2, xmm3, xmm4
+0xc4,0xe2,0x61,0xd2,0xd4
+
+# ATT:        vpdpwusd %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwusd xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x65,0x0f,0xd2,0xd4
+
+# ATT:        vpdpwusd %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusd xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x65,0x8f,0xd2,0xd4
+
+# ATT:        vpdpwusd  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwusd ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x65,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusd  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwusd ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x2f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusd  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwusd ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x65,0x38,0xd2,0x10
+
+# ATT:        vpdpwusd  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwusd ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x65,0xd2,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwusd  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusd ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x65,0xaf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwusd  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusd ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x65,0xbf,0xd2,0x52,0x80
+
+# ATT:        vpdpwusd  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwusd xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x61,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusd  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwusd xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x0f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusd  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwusd xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x65,0x18,0xd2,0x10
+
+# ATT:        vpdpwusd  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwusd xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x61,0xd2,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwusd  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusd xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x65,0x8f,0xd2,0x51,0x7f
+
+# ATT:        vpdpwusd  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusd xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x65,0x9f,0xd2,0x52,0x80
+
+# ATT:        vpdpwusds %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwusds ymm2, ymm3, ymm4
+0xc4,0xe2,0x65,0xd3,0xd4
+
+# ATT:        vpdpwusds %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwusds ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x65,0x2f,0xd3,0xd4
+
+# ATT:        vpdpwusds %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusds ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x65,0xaf,0xd3,0xd4
+
+# ATT:        vpdpwusds %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwusds xmm2, xmm3, xmm4
+0xc4,0xe2,0x61,0xd3,0xd4
+
+# ATT:        vpdpwusds %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwusds xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x65,0x0f,0xd3,0xd4
+
+# ATT:        vpdpwusds %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusds xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x65,0x8f,0xd3,0xd4
+
+# ATT:        vpdpwusds  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwusds ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x65,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusds  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwusds ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x2f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusds  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwusds ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x65,0x38,0xd3,0x10
+
+# ATT:        vpdpwusds  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwusds ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x65,0xd3,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwusds  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusds ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x65,0xaf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwusds  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwusds ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x65,0xbf,0xd3,0x52,0x80
+
+# ATT:        vpdpwusds  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwusds xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x61,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwusds  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwusds xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x65,0x0f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwusds  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwusds xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x65,0x18,0xd3,0x10
+
+# ATT:        vpdpwusds  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwusds xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x61,0xd3,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwusds  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusds xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x65,0x8f,0xd3,0x51,0x7f
+
+# ATT:        vpdpwusds  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwusds xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x65,0x9f,0xd3,0x52,0x80
+
+# ATT:        vpdpwuud %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwuud ymm2, ymm3, ymm4
+0xc4,0xe2,0x64,0xd2,0xd4
+
+# ATT:        vpdpwuud %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwuud ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x64,0x2f,0xd2,0xd4
+
+# ATT:        vpdpwuud %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuud ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x64,0xaf,0xd2,0xd4
+
+# ATT:        vpdpwuud %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwuud xmm2, xmm3, xmm4
+0xc4,0xe2,0x60,0xd2,0xd4
+
+# ATT:        vpdpwuud %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwuud xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x64,0x0f,0xd2,0xd4
+
+# ATT:        vpdpwuud %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuud xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x64,0x8f,0xd2,0xd4
+
+# ATT:        vpdpwuud  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwuud ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x64,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuud  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwuud ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x2f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuud  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwuud ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x64,0x38,0xd2,0x10
+
+# ATT:        vpdpwuud  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwuud ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x64,0xd2,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwuud  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuud ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x64,0xaf,0xd2,0x51,0x7f
+
+# ATT:        vpdpwuud  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuud ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x64,0xbf,0xd2,0x52,0x80
+
+# ATT:        vpdpwuud  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwuud xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x60,0xd2,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuud  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwuud xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x0f,0xd2,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuud  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwuud xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x64,0x18,0xd2,0x10
+
+# ATT:        vpdpwuud  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwuud xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x60,0xd2,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwuud  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuud xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x64,0x8f,0xd2,0x51,0x7f
+
+# ATT:        vpdpwuud  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuud xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x64,0x9f,0xd2,0x52,0x80
+
+# ATT:        vpdpwuuds %ymm4, %ymm3, %ymm2
+# INTEL:      vpdpwuuds ymm2, ymm3, ymm4
+0xc4,0xe2,0x64,0xd3,0xd4
+
+# ATT:        vpdpwuuds %ymm4, %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwuuds ymm2 {k7}, ymm3, ymm4
+0x62,0xf2,0x64,0x2f,0xd3,0xd4
+
+# ATT:        vpdpwuuds %ymm4, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuuds ymm2 {k7} {z}, ymm3, ymm4
+0x62,0xf2,0x64,0xaf,0xd3,0xd4
+
+# ATT:        vpdpwuuds %xmm4, %xmm3, %xmm2
+# INTEL:      vpdpwuuds xmm2, xmm3, xmm4
+0xc4,0xe2,0x60,0xd3,0xd4
+
+# ATT:        vpdpwuuds %xmm4, %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwuuds xmm2 {k7}, xmm3, xmm4
+0x62,0xf2,0x64,0x0f,0xd3,0xd4
+
+# ATT:        vpdpwuuds %xmm4, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuuds xmm2 {k7} {z}, xmm3, xmm4
+0x62,0xf2,0x64,0x8f,0xd3,0xd4
+
+# ATT:        vpdpwuuds  268435456(%esp,%esi,8), %ymm3, %ymm2
+# INTEL:      vpdpwuuds ymm2, ymm3, ymmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x64,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuuds  291(%edi,%eax,4), %ymm3, %ymm2 {%k7}
+# INTEL:      vpdpwuuds ymm2 {k7}, ymm3, ymmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x2f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuuds  (%eax){1to8}, %ymm3, %ymm2
+# INTEL:      vpdpwuuds ymm2, ymm3, dword ptr [eax]{1to8}
+0x62,0xf2,0x64,0x38,0xd3,0x10
+
+# ATT:        vpdpwuuds  -1024(,%ebp,2), %ymm3, %ymm2
+# INTEL:      vpdpwuuds ymm2, ymm3, ymmword ptr [2*ebp - 1024]
+0xc4,0xe2,0x64,0xd3,0x14,0x6d,0x00,0xfc,0xff,0xff
+
+# ATT:        vpdpwuuds  4064(%ecx), %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuuds ymm2 {k7} {z}, ymm3, ymmword ptr [ecx + 4064]
+0x62,0xf2,0x64,0xaf,0xd3,0x51,0x7f
+
+# ATT:        vpdpwuuds  -512(%edx){1to8}, %ymm3, %ymm2 {%k7} {z}
+# INTEL:      vpdpwuuds ymm2 {k7} {z}, ymm3, dword ptr [edx - 512]{1to8}
+0x62,0xf2,0x64,0xbf,0xd3,0x52,0x80
+
+# ATT:        vpdpwuuds  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      vpdpwuuds xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe2,0x60,0xd3,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vpdpwuuds  291(%edi,%eax,4), %xmm3, %xmm2 {%k7}
+# INTEL:      vpdpwuuds xmm2 {k7}, xmm3, xmmword ptr [edi + 4*eax + 291]
+0x62,0xf2,0x64,0x0f,0xd3,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:        vpdpwuuds  (%eax){1to4}, %xmm3, %xmm2
+# INTEL:      vpdpwuuds xmm2, xmm3, dword ptr [eax]{1to4}
+0x62,0xf2,0x64,0x18,0xd3,0x10
+
+# ATT:        vpdpwuuds  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      vpdpwuuds xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe2,0x60,0xd3,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:        vpdpwuuds  2032(%ecx), %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuuds xmm2 {k7} {z}, xmm3, xmmword ptr [ecx + 2032]
+0x62,0xf2,0x64,0x8f,0xd3,0x51,0x7f
+
+# ATT:        vpdpwuuds  -512(%edx){1to4}, %xmm3, %xmm2 {%k7} {z}
+# INTEL:      vpdpwuuds xmm2 {k7} {z}, xmm3, dword ptr [edx - 512]{1to4}
+0x62,0xf2,0x64,0x9f,0xd3,0x52,0x80
+
