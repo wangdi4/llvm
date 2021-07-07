@@ -4192,9 +4192,21 @@ public:
                        bool IsVolatile, bool isInit);
 
 #if INTEL_COLLAB
-  void EmitAtomicCompareAndSwap(RValue Expected, RValue Desired, LValue Lvalue,
-                                llvm::CmpInst::Predicate Op,
-                                llvm::AtomicOrdering AO, bool IsVolatile);
+  /// Generate operation that updates the variable \p Lvalue with \p Desired if
+  /// the comparison with \p Expected is true.
+  /// \param Expected Value to use in comparison.
+  /// \param Desired Value used in the update.
+  /// \param Lvalue The atomic lvalue to update.
+  /// \param Op Comparison operation.
+  /// \param AO Atomic ordering.
+  /// \param IsVolatile true if the atomic variable is volatile.
+  /// \param IsPostCapture If true, return the value after the operation,
+  /// otherwise return the value before the operation.
+  /// \returns Captured value based on \p IsPostCapture.
+  RValue EmitAtomicCompareAndSwap(RValue Expected, RValue Desired,
+                                  LValue Lvalue, llvm::CmpInst::Predicate Op,
+                                  llvm::AtomicOrdering AO, bool IsVolatile,
+                                  bool IsPostCapture);
 #endif // INTEL_COLLAB
 
   std::pair<RValue, llvm::Value *> EmitAtomicCompareExchange(

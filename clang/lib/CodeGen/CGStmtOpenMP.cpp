@@ -5829,10 +5829,11 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
 
 #if INTEL_COLLAB
 static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
-                                     llvm::AtomicOrdering AO, const Expr *X,
-                                     const Expr *E, const Expr *Expected,
-                                     bool IsCompareMin, bool IsCompareMax,
-                                     SourceLocation Loc) {
+                                     llvm::AtomicOrdering AO,
+                                     bool IsPostCapture, const Expr *V,
+                                     const Expr *X, const Expr *E,
+                                     const Expr *Expected, bool IsCompareMin,
+                                     bool IsCompareMax, SourceLocation Loc) {
   LValue LVal = CGF.EmitLValue(X);
   RValue Desired = CGF.EmitAnyExpr(E);
   RValue Exp;
@@ -5852,7 +5853,13 @@ static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
     else
       Op = llvm::CmpInst::ICMP_EQ;
   }
-  CGF.EmitAtomicCompareAndSwap(Exp, Desired, LVal, Op, AO, LVal.isVolatile());
+  RValue Cap = CGF.EmitAtomicCompareAndSwap(Exp, Desired, LVal, Op, AO,
+                                            LVal.isVolatile(), IsPostCapture);
+
+  if (V) {
+    LValue VLVal = CGF.EmitLValue(V);
+    CGF.emitOMPSimpleStore(VLVal, Cap, X->getType().getNonReferenceType(), Loc);
+  }
 }
 #endif // INTEL_COLLAB
 
@@ -5881,11 +5888,12 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                              IsXLHSInRHSPart, Loc);
     break;
 #if INTEL_COLLAB
-  case OMPC_compare:
-    assert(!V && "compare capture codegen not yet implemented");
-    emitOMPAtomicCompareExpr(CGF, AO, X, E, Expected, IsCompareMin,
-                             IsCompareMax, Loc);
+  case OMPC_compare: {
+    bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
+    emitOMPAtomicCompareExpr(CGF, AO, IsPostUpdate, V, X, E, Expected,
+                             IsCompareMin, IsCompareMax, Loc);
     break;
+  }
 #endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
