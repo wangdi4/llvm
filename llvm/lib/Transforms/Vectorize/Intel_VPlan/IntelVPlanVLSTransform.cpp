@@ -511,7 +511,18 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
   if (*GroupStride > 0)
     return Base;
 
-  auto *Ty = cast<PointerType>(Base->getType())->getElementType();
+  auto *BaseTy = cast<PointerType>(Base->getType());
+  if (BaseTy->isOpaque()) {
+    auto *Result = Builder.createGEP(
+        GroupGranularityType, GroupGranularityType, Base,
+        {Plan.getVPConstant(-APInt(
+            64, GroupSizeInGranularityElements * (VF - 1), true /* Signed */))},
+        nullptr /* Underlying Instruction */);
+    Result->setName(Base->getName() + ".reverse.adjust");
+    return Result;
+  }
+
+  auto *Ty = BaseTy->getElementType();
   // We rely on no gaps and equal sizes here.
   assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
              DL.getTypeSizeInBits(Ty) &&

@@ -479,11 +479,15 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case Instruction::GetElementPtr: {
     auto *GEP = cast<const VPGEPInstruction>(this);
     PrintOpcodeWithInBounds(GEP);
-    if (GEP->isOpaque() || VPGEPPrintSrcElemType)
+    if (GEP->isOpaque() || VPGEPPrintSrcElemType) {
       // We only print it for opaque so that we won't have to update all the
       // tests twice - right now and when all the GEPs will have to be
       // transitioned to be opaque.
-      O << " " << *GEP->getSourceElementType() << ",";
+      O << " ";
+      GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
+                                         true /*NoDetails*/);
+      O << ",";
+    }
     break;
   }
   case VPInstruction::Subscript:
