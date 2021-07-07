@@ -516,9 +516,9 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
   assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
              DL.getTypeSizeInBits(Ty) &&
          "Type combination isn't supported yet.");
-  unsigned Multiplier = 1;
+  unsigned Scale = 1;
   if (auto *VecTy = dyn_cast<FixedVectorType>(Ty))
-    Multiplier = VecTy->getNumElements();
+    Scale = VecTy->getNumElements();
 
   // TODO: API boundaries are wacky here.
   auto *Result = Builder.createGEP(
@@ -526,7 +526,7 @@ VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
       FirstMemrefInst->getValueType(),
       Base,
       {Plan.getVPConstant(
-          -APInt(64, GroupSizeInGranularityElements * (VF - 1) * Multiplier,
+          -APInt(64, GroupSizeInGranularityElements * (VF - 1) / Scale,
                  true /* Signed */))},
       nullptr /* Underlying Instruction */);
   Result->setName(Base->getName() + ".reverse.adjust");

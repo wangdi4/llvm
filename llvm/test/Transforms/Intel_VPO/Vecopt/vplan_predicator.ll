@@ -1243,11 +1243,9 @@ define void @test_no_blend_in_uniform_control_flow(i32 %b) {
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_UNIFORM]], [[BB3:BB[0-9]+]], [[BB2]]
-; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp eq i32 [[B0]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_UNIFORM]], [[BB4:BB[0-9]+]], [[BB2]]
-; CHECK-NEXT:       Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp eq i32 [[B0]] i32 42
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_NO_BLEND_PHI:%.*]] = phi  [ i32 [[VP_IV]], [[BB3]] ]

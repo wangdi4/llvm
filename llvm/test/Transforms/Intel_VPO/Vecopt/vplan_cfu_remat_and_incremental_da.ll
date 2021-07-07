@@ -12,7 +12,6 @@ define void @da_incremental_phi_update(i1 %toptest) {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_TOPTEST_NOT:%.*]] = not i1 [[TOPTEST0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[TOPTEST0]], [[BB1:BB[0-9]+]], [[BB2:BB[0-9]+]]
-; CHECK-NEXT:     Condition(external): i1 [[TOPTEST0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]

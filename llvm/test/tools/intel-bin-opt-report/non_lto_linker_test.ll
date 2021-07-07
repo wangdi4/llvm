@@ -1,6 +1,6 @@
 ; REQUIRES: proto_bor
 ; RUN: llc %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t1.o
-; RUN: llc %p/non_lto_linker_test_sub.ll -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t2.o
+; RUN: llc %p/Inputs/non_lto_linker_test_sub.ll -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t2.o
 ; RUN: ld.lld -e main %t1.o %t2.o -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
@@ -68,19 +68,19 @@
 ; CHECK-NEXT: Number of reports: 3
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 6c3da8f82018741a68b74377832d9d07
+; CHECK-DAG:  Anchor ID: a24b6780534737f0842625545ae16681
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: c76b06292a15fe9b3b2e4b2245d3ac27
+; CHECK-DAG:  Anchor ID: 696e069bb4a0a7287f5dba11f9eb1f5d
 ; CHECK-DAG:  Number of remarks: 2
 ; CHECK-DAG:    Property: C_LOOP_VECTORIZED, Remark ID: 15300, Remark Args:
 ; CHECK-DAG:    Property: C_LOOP_VEC_VL, Remark ID: 15305, Remark Args: 8
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 96f89f6fe70726051077caaf68daa008
+; CHECK-DAG:  Anchor ID: 1e104d1c773c7812387af0552b56e6aa
 ; CHECK-DAG:  Number of remarks: 1
 ; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
 ; CHECK-DAG:  ==== Loop End ====

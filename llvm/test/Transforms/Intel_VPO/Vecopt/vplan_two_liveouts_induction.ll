@@ -49,7 +49,6 @@ define void @foo() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB0]], [[BB4]]
 ; CHECK-NEXT:     br i1 undef, [[BB1]], [[BB4]]
-; CHECK-NEXT:     Condition(external): i1 undef
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB4]]
 ; CHECK-NEXT:     i32 [[VP_ADD3]] = add i32 [[VP_STOREMERGE10]] i32 [[VP_STOREMERGE10_IND_INIT_STEP]]

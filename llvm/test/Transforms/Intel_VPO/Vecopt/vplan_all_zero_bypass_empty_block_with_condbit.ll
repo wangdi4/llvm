@@ -34,7 +34,6 @@ define dso_local void @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end11
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP4]], [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_CMP4]] = icmp slt i32 [[N0]] i32 7
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB5]]

@@ -24,7 +24,6 @@ define void @merge_uniform_soa_geps() {
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
 ; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
@@ -101,7 +100,6 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
 ; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
@@ -182,7 +180,6 @@ define void @merge_str_soa_geps() {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
 ; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_STR_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]
@@ -259,7 +256,6 @@ define void @merge_aos_soa_geps() {
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_DIV_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_AOS_PRIV64]] i64 0 i64 0
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_CALL:%.*]] = call i64* [[VP_DIV_GEP]] i64 (i64*)* @helper
 ; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]

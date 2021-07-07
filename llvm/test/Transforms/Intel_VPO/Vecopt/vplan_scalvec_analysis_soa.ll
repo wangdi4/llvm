@@ -139,7 +139,6 @@ define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_UNIT_STR_LD:%.*]] = load i64* [[VP_UNI_GEP]] (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
-; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
 ; CHECK-NEXT:         [DA: Div, SVA: (F  )] i64* [[VP_UNI_GEP_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
