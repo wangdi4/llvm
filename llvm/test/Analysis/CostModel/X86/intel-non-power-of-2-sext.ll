@@ -6,13 +6,13 @@
 define i32 @sext_vXi32() {
 ; X86_64-SSE-LABEL: 'sext_vXi32'
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i32> undef to <3 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7i64 = sext <7 x i32> undef to <7 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i64 = sext <9 x i32> undef to <9 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i64 = sext <33 x i32> undef to <33 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i32> undef to <7 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i32> undef to <9 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i64 = sext <33 x i32> undef to <33 x i64>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'sext_vXi32'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = sext <3 x i32> undef to <3 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i32> undef to <3 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = sext <7 x i32> undef to <7 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = sext <9 x i32> undef to <9 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = sext <33 x i32> undef to <33 x i64>
@@ -35,25 +35,25 @@ define i32 @sext_vXi32() {
 define i32 @sext_vXi16() {
 ; X86_64-SSE-LABEL: 'sext_vXi16'
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i16> undef to <3 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7i64 = sext <7 x i16> undef to <7 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i64 = sext <9 x i16> undef to <9 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i64 = sext <33 x i16> undef to <33 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i64 = sext <63 x i16> undef to <63 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i16> undef to <7 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i16> undef to <9 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i64 = sext <33 x i16> undef to <33 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i64 = sext <63 x i16> undef to <63 x i64>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = sext <3 x i16> undef to <3 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = sext <7 x i16> undef to <7 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = sext <9 x i16> undef to <9 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i32 = sext <33 x i16> undef to <33 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i32 = sext <63 x i16> undef to <63 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V33i32 = sext <33 x i16> undef to <33 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V63i32 = sext <63 x i16> undef to <63 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'sext_vXi16'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = sext <3 x i16> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = sext <7 x i16> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i16> undef to <3 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i16> undef to <7 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = sext <9 x i16> undef to <9 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = sext <33 x i16> undef to <33 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = sext <63 x i16> undef to <63 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = sext <3 x i16> undef to <3 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = sext <7 x i16> undef to <7 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = sext <7 x i16> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9i32 = sext <9 x i16> undef to <9 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = sext <33 x i16> undef to <33 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = sext <63 x i16> undef to <63 x i32>
@@ -89,41 +89,41 @@ define i32 @sext_vXi16() {
 define i32 @sext_vXi8() {
 ; X86_64-SSE-LABEL: 'sext_vXi8'
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i8> undef to <3 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7i64 = sext <7 x i8> undef to <7 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i64 = sext <9 x i8> undef to <9 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i64 = sext <33 x i8> undef to <33 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i64 = sext <63 x i8> undef to <63 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i64 = sext <67 x i8> undef to <67 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i8> undef to <7 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i8> undef to <9 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i64 = sext <33 x i8> undef to <33 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i64 = sext <63 x i8> undef to <63 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V67i64 = sext <67 x i8> undef to <67 x i64>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = sext <3 x i8> undef to <3 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = sext <7 x i8> undef to <7 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = sext <9 x i8> undef to <9 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i32 = sext <33 x i8> undef to <33 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i32 = sext <63 x i8> undef to <63 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i32 = sext <67 x i8> undef to <67 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V33i32 = sext <33 x i8> undef to <33 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V63i32 = sext <63 x i8> undef to <63 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V67i32 = sext <67 x i8> undef to <67 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = sext <3 x i8> undef to <3 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = sext <7 x i8> undef to <7 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i16 = sext <9 x i8> undef to <9 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i16 = sext <33 x i8> undef to <33 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i16 = sext <63 x i8> undef to <63 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i16 = sext <67 x i8> undef to <67 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V33i16 = sext <33 x i8> undef to <33 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V63i16 = sext <63 x i8> undef to <63 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V67i16 = sext <67 x i8> undef to <67 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'sext_vXi8'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = sext <3 x i8> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = sext <7 x i8> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = sext <9 x i8> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i8> undef to <3 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i8> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i8> undef to <9 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = sext <33 x i8> undef to <33 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = sext <63 x i8> undef to <63 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V67i64 = sext <67 x i8> undef to <67 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = sext <3 x i8> undef to <3 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i32 = sext <7 x i8> undef to <7 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = sext <7 x i8> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = sext <9 x i8> undef to <9 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = sext <33 x i8> undef to <33 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = sext <63 x i8> undef to <63 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 250 for instruction: %V67i32 = sext <67 x i8> undef to <67 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = sext <3 x i8> undef to <3 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = sext <7 x i8> undef to <7 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V9i16 = sext <9 x i8> undef to <9 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i16 = sext <9 x i8> undef to <9 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 120 for instruction: %V33i16 = sext <33 x i8> undef to <33 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 229 for instruction: %V63i16 = sext <63 x i8> undef to <63 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 242 for instruction: %V67i16 = sext <67 x i8> undef to <67 x i16>
@@ -176,24 +176,24 @@ define i32 @sext_vXi8() {
 
 define i32 @sext_vXi1() {
 ; X86_64-SSE-LABEL: 'sext_vXi1'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %V3i64 = sext <3 x i1> undef to <3 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7i64 = sext <7 x i1> undef to <7 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i64 = sext <9 x i1> undef to <9 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i64 = sext <33 x i1> undef to <33 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i64 = sext <63 x i1> undef to <63 x i64>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i64 = sext <67 x i1> undef to <67 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = sext <3 x i1> undef to <3 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i1> undef to <7 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i1> undef to <9 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i64 = sext <33 x i1> undef to <33 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i64 = sext <63 x i1> undef to <63 x i64>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V67i64 = sext <67 x i1> undef to <67 x i64>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i32 = sext <3 x i1> undef to <3 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %V7i32 = sext <7 x i1> undef to <7 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i32 = sext <9 x i1> undef to <9 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i32 = sext <33 x i1> undef to <33 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i32 = sext <63 x i1> undef to <63 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i32 = sext <67 x i1> undef to <67 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = sext <7 x i1> undef to <7 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = sext <9 x i1> undef to <9 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V33i32 = sext <33 x i1> undef to <33 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V63i32 = sext <63 x i1> undef to <63 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V67i32 = sext <67 x i1> undef to <67 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i16 = sext <3 x i1> undef to <3 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i16 = sext <7 x i1> undef to <7 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 27 for instruction: %V9i16 = sext <9 x i1> undef to <9 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 99 for instruction: %V33i16 = sext <33 x i1> undef to <33 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 189 for instruction: %V63i16 = sext <63 x i1> undef to <63 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 201 for instruction: %V67i16 = sext <67 x i1> undef to <67 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i16 = sext <9 x i1> undef to <9 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V33i16 = sext <33 x i1> undef to <33 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V63i16 = sext <63 x i1> undef to <63 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V67i16 = sext <67 x i1> undef to <67 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i8 = sext <3 x i1> undef to <3 x i8>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i8 = sext <7 x i1> undef to <7 x i8>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V9i8 = sext <9 x i1> undef to <9 x i8>
@@ -204,14 +204,14 @@ define i32 @sext_vXi1() {
 ;
 ; X86_64-AVX2-LABEL: 'sext_vXi1'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V3i64 = sext <3 x i1> undef to <3 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 29 for instruction: %V7i64 = sext <7 x i1> undef to <7 x i64>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %V9i64 = sext <9 x i1> undef to <9 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = sext <7 x i1> undef to <7 x i64>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = sext <9 x i1> undef to <9 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 132 for instruction: %V33i64 = sext <33 x i1> undef to <33 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 253 for instruction: %V63i64 = sext <63 x i1> undef to <63 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 269 for instruction: %V67i64 = sext <67 x i1> undef to <67 x i64>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i32 = sext <3 x i1> undef to <3 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7i32 = sext <7 x i1> undef to <7 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 34 for instruction: %V9i32 = sext <9 x i1> undef to <9 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i32 = sext <9 x i1> undef to <9 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 124 for instruction: %V33i32 = sext <33 x i1> undef to <33 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 237 for instruction: %V63i32 = sext <63 x i1> undef to <63 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 250 for instruction: %V67i32 = sext <67 x i1> undef to <67 x i32>
