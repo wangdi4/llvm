@@ -3,6 +3,7 @@
 # RUN: llvm-mc --disassemble %s -triple=i686 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
 
 # isadb version: 6aa5c837365e1d1e6e53b3fc3d95ab184e9c06eb
+// FIXME: Adding dvpmuludllq and dvpmuldllq tests when XED support.
 
 # ATT:        dvpmacdhhq %xmm4, %xmm3, %xmm2
 # INTEL:      dvpmacdhhq xmm2, xmm3, xmm4

@@ -22,6 +22,46 @@ define <2 x i64> @test_int_x86_dvpmuldhhq(<4 x i32> %A, <4 x i32> %B) {
 }
 declare <2 x i64> @llvm.x86.dvpmuldhhq(<4 x i32> %A, <4 x i32> %B)
 
+define <2 x i64> @test_int_x86_dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C) {
+; CHECK-LABEL: test_int_x86_dvpnmacdhhq:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpnmacdhhq %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0xf2,0xec,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <2 x i64> @llvm.x86.dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
+  ret <2 x i64> %ret
+}
+declare <2 x i64> @llvm.x86.dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
+
+define <2 x i64> @test_int_x86_dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C) {
+; CHECK-LABEL: test_int_x86_dvpmsubadddllq:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmsubadddllq %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0xf0,0xe7,0xc2]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <2 x i64> @llvm.x86.dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
+  ret <2 x i64> %ret
+}
+declare <2 x i64> @llvm.x86.dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
+
+define <2 x i64> @test_int_x86_dvpmuludllq(<4 x i32> %A, <4 x i32> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmuludllq:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmuludllq %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xfb,0xcb,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <2 x i64> @llvm.x86.dvpmuludllq(<4 x i32> %A, <4 x i32> %B)
+  ret <2 x i64> %ret
+}
+declare <2 x i64> @llvm.x86.dvpmuludllq(<4 x i32> %A, <4 x i32> %B)
+
+define <2 x i64> @test_int_x86_dvpmuldllq(<4 x i32> %A, <4 x i32> %B) nounwind {
+; CHECK-LABEL: test_int_x86_dvpmuldllq:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    dvpmuldllq %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe8,0xfb,0xcc,0xc1]
+; CHECK-NEXT:    retl # encoding: [0xc3]
+  %ret = call <2 x i64> @llvm.x86.dvpmuldllq(<4 x i32> %A, <4 x i32> %B)
+  ret <2 x i64> %ret
+}
+declare <2 x i64> @llvm.x86.dvpmuldllq(<4 x i32> %A, <4 x i32> %B)
+
 define <4 x i32> @test_int_x86_dvpmuldfrs(<4 x i32> %A, <4 x i32> %B) {
 ; CHECK-LABEL: test_int_x86_dvpmuldfrs:
 ; CHECK:       # %bb.0:
@@ -151,24 +191,4 @@ define <2 x i64> @test_int_x86_dvpnmacdllq(<2 x i64> %A, <4 x i32> %B, <4 x i32>
   ret <2 x i64> %ret
 }
 declare <2 x i64> @llvm.x86.dvpnmacdllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
-
-define <2 x i64> @test_int_x86_dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C) {
-; CHECK-LABEL: test_int_x86_dvpnmacdhhq:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    dvpnmacdhhq %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0xf2,0xec,0xc2]
-; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <2 x i64> @llvm.x86.dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
-  ret <2 x i64> %ret
-}
-declare <2 x i64> @llvm.x86.dvpnmacdhhq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
-
-define <2 x i64> @test_int_x86_dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C) {
-; CHECK-LABEL: test_int_x86_dvpmsubadddllq:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    dvpmsubadddllq %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0xf0,0xe7,0xc2]
-; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <2 x i64> @llvm.x86.dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
-  ret <2 x i64> %ret
-}
-declare <2 x i64> @llvm.x86.dvpmsubadddllq(<2 x i64> %A, <4 x i32> %B, <4 x i32> %C)
 

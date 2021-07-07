@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_isa_dspv1
-// RUN: %clang_cc1 %s -ffreestanding -triple=i686-unknown-unknown -target-feature +dspv1 \
+// RUN: %clang_cc1 %s -flax-vector-conversions=none -ffreestanding -triple=i686-unknown-unknown -target-feature +dspv1 \
 // RUN: -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu-statement-expression | FileCheck %s
 
 #include <immintrin.h>
@@ -105,4 +105,16 @@ __m128i test_mm_dsp_pmsubadddllq_epi64(__m128i __A, __m128i __B, __m128i __C) {
   // CHECK-LABEL: @test_mm_dsp_pmsubadddllq_epi64(
   // CHECK: call <2 x i64> @llvm.x86.dvpmsubadddllq(<2 x i64> %{{.*}}, <4 x i32> %{{.*}}, <4 x i32> %{{.*}})
   return _mm_dsp_pmsubadddllq_epi64(__A, __B, __C);
+}
+
+__m128i test_mm_dsp_pmuludllq_epi64(__m128i __A, __m128i __B) {
+  // CHECK-LABEL: @test_mm_dsp_pmuludllq_epi64(
+  // CHECK: call <2 x i64> @llvm.x86.dvpmuludllq(<4 x i32> %{{.*}}, <4 x i32> %{{.*}})
+  return _mm_dsp_pmuludllq_epi64(__A, __B);
+}
+
+__m128i test_mm_dsp_pmuldllq_epi64(__m128i __A, __m128i __B) {
+  // CHECK-LABEL: @test_mm_dsp_pmuldllq_epi64(
+  // CHECK: call <2 x i64> @llvm.x86.dvpmuldllq(<4 x i32> %{{.*}}, <4 x i32> %{{.*}})
+  return _mm_dsp_pmuldllq_epi64(__A, __B);
 }
