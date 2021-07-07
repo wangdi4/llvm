@@ -188,7 +188,8 @@ public:
   }
 
   /// \brief Main analysis function.
-  void analyze(HLLoop *Loop,  const TargetTransformInfo *TTI, TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+  void analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
+               TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                HIRSafeReductionAnalysis *SRA);
 
   /// \brief Print the analysis result.
@@ -196,8 +197,9 @@ public:
 
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
-                         const TargetTransformInfo *TTI, TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
-                         HIRSafeReductionAnalysis *SRA, HLLoop *Loop) {
+                         const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
+                         HLLoop *Loop) {
 
     auto &Info = InfoMap[Loop];
 
@@ -243,9 +245,11 @@ class HIRParVecAnalysis : public HIRAnalysis {
   HIRParVecInfoMapType InfoMap;
 
 public:
-  HIRParVecAnalysis(bool Enabled, const TargetTransformInfo *TTI, TargetLibraryInfo *TLI, HIRFramework *HIRF,
+  HIRParVecAnalysis(bool Enabled, const TargetTransformInfo *TTI,
+                    TargetLibraryInfo *TLI, HIRFramework *HIRF,
                     HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA)
-      : HIRAnalysis(*HIRF), Enabled(Enabled), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
+      : HIRAnalysis(*HIRF), Enabled(Enabled), TTI(TTI), TLI(TLI), DDA(DDA),
+        SRA(SRA) {}
 
   /// \brief Analyze (if invalid) the loop and return the info.
   const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
@@ -422,8 +426,9 @@ class HIRVectorIdiomAnalysis {
 public:
   HIRVectorIdiomAnalysis() = default;
 
-  void gatherIdioms(const TargetTransformInfo *TTI, HIRVectorIdioms &IList, const DDGraph &DDG,
-                    HIRSafeReductionAnalysis &SRA, HLLoop *Loop);
+  void gatherIdioms(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
+                    const DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
+                    HLLoop *Loop);
 };
 
 } // namespace loopopt

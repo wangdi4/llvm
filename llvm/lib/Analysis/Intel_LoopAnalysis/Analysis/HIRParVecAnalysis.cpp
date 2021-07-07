@@ -79,9 +79,9 @@ private:
   HIRSafeReductionAnalysis *SRA;
 
 public:
-  ParVecVisitor(ParVecInfo::AnalysisMode Mode, const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-                HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
-                HIRParVecInfoMapType &InfoMap)
+  ParVecVisitor(ParVecInfo::AnalysisMode Mode, const TargetTransformInfo *TTI,
+                TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+                HIRSafeReductionAnalysis *SRA, HIRParVecInfoMapType &InfoMap)
       : Mode(Mode), InfoMap(InfoMap), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
@@ -228,8 +228,8 @@ void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-    HPVA.reset(
-        new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr, nullptr));
+    HPVA.reset(new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr,
+                                     nullptr));
     return false;
   }
 
@@ -257,7 +257,8 @@ AnalysisKey HIRParVecAnalysisPass::Key;
 HIRParVecAnalysis HIRParVecAnalysisPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F))
-    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr, nullptr);
+    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr,
+                             nullptr);
 
   auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
@@ -524,8 +525,9 @@ static bool loopInSIMD(HLLoop *Loop) {
   return false;
 }
 
-void ParVecInfo::analyze(HLLoop *Loop,  const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
+void ParVecInfo::analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
+                         TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+                         HIRSafeReductionAnalysis *SRA) {
   if (Loop->hasCompleteUnrollEnablingPragma()) {
     // Bail out of vectorization if complete unroll requested.
     setVecType(UNROLL_PRAGMA_LOOP);
@@ -666,8 +668,9 @@ class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
   HLLoop *Loop;
 
 public:
-  HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList, const DDGraph &DDG,
-                   HIRSafeReductionAnalysis &SRA, HLLoop *Loop)
+  HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
+                   const DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
+                   HLLoop *Loop)
       : TTI(TTI), DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
     SRAnalysis.computeSafeReductionChains(Loop);
   }
@@ -989,7 +992,8 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   return;
 }
 
-void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
+void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
+                                          HIRVectorIdioms &IList,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
