@@ -928,51 +928,64 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Looking at store candidate:";
              StoreInst->dump());
 
-  // The store address of the above example has two incoming edges:
-  // 7:8 (%A)[%0] --> (%A)[%0] ANTI (*) (?)
+  // The store address of the above example has two outgoing edges:
+  // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
   // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
-  int AntiDepCnt = 0;
-  for (DDEdge *E : DDG.incoming(StoreMemDDRef)) {
+  int FlowDepCnt = 0;
+  for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
     if (E->isOutput()) {
-      if (E->getSrc() != StoreMemDDRef)
+      if (E->getSink() != StoreMemDDRef)
         return Mismatch(
             "The output dependency is expected to be self-dependency.\n");
-    } else {
-      DDRef *SrcRef = E->getSrc();
-      HLDDNode *SrcNode = SrcRef->getHLDDNode();
-      LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
-                 SrcNode->dump());
-
-      if (!E->isAnti())
-        return Mismatch("Expected anti-dependency.");
-
-      if (AntiDepCnt >= 1)
-        return Mismatch("Too many dependencies.");
-
-      AntiDepCnt++;
-      // TODO: Update VConflict search to work with multi-dimensional arrays.
-      // For now, we just bail-out.
-      if (StoreMemDDRef->getNumDimensions() > 1)
-        return Mismatch("Multidimensional arrays are not supported.");
-
-      // Check if both nodes are at top level.
-      if (SrcNode->getParent() != Loop)
-        return Mismatch("Source is in another loop.");
-
-      // Only backward edges are allowed.
-      if (SrcNode->getTopSortNum() > CurNode->getTopSortNum())
-        return Mismatch("Nodes are not in the right order.");
-
-      // Check if both source and sink nodes have the same memory reference.
-      if (SrcRef->isRval() && DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
-        continue;
-
-      return Mismatch("Wrong memory dependency.");
+      continue;
     }
+
+    DDRef *SinkRef = E->getSink();
+    HLDDNode *SinkNode = SinkRef->getHLDDNode();
+    LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
+               SinkNode->dump());
+
+    assert(E->isFlow() && "Expected flow-dependency");
+
+    if (FlowDepCnt >= 1)
+      return Mismatch("Too many dependencies.");
+
+    FlowDepCnt++;
+    // TODO: Update VConflict search to work with multi-dimensional arrays.
+    // For now, we just bail-out.
+    if (StoreMemDDRef->getNumDimensions() > 1)
+      return Mismatch("Multidimensional arrays are not supported.");
+
+    // Check if both nodes have the same parent.
+    // Pay attention that we don't require the nodes to be on
+    // the top level of the loop.
+    if (SinkNode->getParent() != CurNode->getParent())
+      return Mismatch("Sink node has another parent.");
+
+    if (auto IfNode = dyn_cast<HLIf>(SinkNode->getParent()))
+      if (IfNode->isThenChild(SinkNode) != IfNode->isThenChild(CurNode))
+        return Mismatch("Sink node is in a different IF-branch.");
+
+    // Only backward edges are allowed.
+    if (E->isForwardDep())
+      return Mismatch("Nodes are not in the right order.");
+
+    // Check if both source and sink nodes have the same memory reference.
+    // TODO:  We need to make ensure that the index hasn't been modified between
+    // the load and store, i.e.
+    //
+    //  %ld = A[%tmp0]
+    //  %tmp0 = redefine
+    //  A[%tmp0] = %ld + 42
+    //
+    if (DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+      continue;
+
+    return Mismatch("Wrong memory dependency.");
   }
 
-  if (AntiDepCnt == 0 || AntiDepCnt > 1)
-    return Mismatch("Store address should have one anti-dependency.");
+  if (FlowDepCnt == 0)
+    return Mismatch("Store address should have one flow-dependency.");
 
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
   IdiomList.addIdiom(StoreInst, HIRVectorIdioms::VConflict);
