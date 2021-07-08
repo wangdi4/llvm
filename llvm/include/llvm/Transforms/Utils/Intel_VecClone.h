@@ -49,10 +49,6 @@ struct ParmRef {
 
   // Represents the vector parameter cast from a vector type to scalar type.
   Instruction *VectorParmCast;
-
-  // Marks if the parameter is a byval parameter. Having such parameter requires
-  // rewriting the gep indices.
-  bool IsByValParam = false;
 };
 
 class VecCloneImpl {
