@@ -5194,13 +5194,21 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       if (CandidateForGatherLoad) {
           SmallVector<int, 4> OpDirection(VL.size(), 0);
 #endif // INTEL_CUSTOMIZATION
-        // Vectorizing non-consecutive loads with `llvm.masked.gather`.
-        TreeEntry *TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle, S,
-                                     UserTreeIdx, ReuseShuffleIndicies);
-        TE->setOperandsInOrder();
-        buildTree_rec(PointerOps, Depth + 1, {TE, 0, OpDirection}); // INTEL
-        LLVM_DEBUG(dbgs() << "SLP: added a vector of non-consecutive loads.\n");
-        return;
+        Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
+        for (Value *V : VL)
+          CommonAlignment =
+              commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
+        if (TTI->isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
+                                     CommonAlignment)) {
+          // Vectorizing non-consecutive loads with `llvm.masked.gather`.
+          TreeEntry *TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle,
+                                       S, UserTreeIdx, ReuseShuffleIndicies);
+          TE->setOperandsInOrder();
+          buildTree_rec(PointerOps, Depth + 1, {TE, 0, OpDirection}); // INTEL
+          LLVM_DEBUG(dbgs()
+                     << "SLP: added a vector of non-consecutive loads.\n");
+          return;
+        }
 #if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
@@ -6326,6 +6334,10 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
 #endif // INTEL_CUSTOMIZATION
       } else {
         assert(E->State == TreeEntry::ScatterVectorize && "Unknown EntryState");
+        Align CommonAlignment = alignment;
+        for (Value *V : VL)
+          CommonAlignment =
+              commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
         VecLdCost = TTI->getGatherScatterOpCost(
             Instruction::Load, VecTy, cast<LoadInst>(VL0)->getPointerOperand(),
             /*VariableMask=*/false, alignment, CostKind, VL0);
