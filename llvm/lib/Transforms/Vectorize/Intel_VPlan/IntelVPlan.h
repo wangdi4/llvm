@@ -2083,10 +2083,9 @@ public:
     assert(!getType()->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForName;
     TysForName.push_back(getWidenedType(getType(), getVFForScenario()));
-    // FIXME: Use a better way to obtain Module.
     Function *F = getCalledFunction();
-    return Intrinsic::getName(
-        VecID, TysForName, F ? F->getParent() : getInstruction()->getModule());
+    assert(F && "Indirect calls not expected here.");
+    return Intrinsic::getName(VecID, TysForName, F->getParent());
   }
 
   /// Call argument list size.
