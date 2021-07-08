@@ -172,6 +172,52 @@ public:
                              {LHS, RHS}, Name);
   }
 
+  VPInstruction *createFAdd(VPValue *LHS, VPValue *RHS,
+                            const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::FAdd, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createMul(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::Mul, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createFMul(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::FMul, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createSIToFp(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      Val = createNaryOp(Instruction::SIToFP, Ty, {Val});
+    }
+    return Val;
+  }
+
+  VPValue *createZExtOrTrunc(VPValue *Val, Type *DestTy) {
+    if (Val->getType() == DestTy)
+      return Val;
+    assert(Val->getType()->isIntOrIntVectorTy() &&
+           DestTy->isIntOrIntVectorTy() &&
+           "Can only zero extend/truncate integers!");
+    Type *VTy = Val->getType();
+    unsigned Opcode = 0;
+    if (VTy->getScalarSizeInBits() < DestTy->getScalarSizeInBits())
+      Opcode = Instruction::ZExt;
+    if (VTy->getScalarSizeInBits() > DestTy->getScalarSizeInBits())
+      Opcode = Instruction::Trunc;
+
+    Val = createNaryOp(Opcode, DestTy, {Val});
+    return Val;
+  }
+
   VPValue *createAllZeroCheck(VPValue *Operand, const Twine &Name = "") {
     return createInstruction(VPInstruction::AllZeroCheck, Operand->getType(),
                              {Operand}, Name);

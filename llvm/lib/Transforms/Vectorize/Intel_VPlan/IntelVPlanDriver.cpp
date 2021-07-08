@@ -26,6 +26,7 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanMaskedModeLoop.h"
 #include "IntelVPlanScalarEvolution.h"
+#include "IntelVPlanVConflictTransformation.h"
 #include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
@@ -1191,6 +1192,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // VPlan Predicator
   LVP.predicate();
+
+  for (auto &Pair : LVP.getAllVPlans()) {
+    unsigned VF = Pair.first;
+    std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
+    if (!processVConflictIdiom(*Plan.get(), Fn, VF)) {
+      LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
+      return 0;
+    }
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string HeaderStr =

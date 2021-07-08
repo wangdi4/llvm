@@ -566,6 +566,7 @@ public:
                            // support is deprecated.
     PrivateFinalArray,
     GeneralMemOptConflict,
+    ConflictInsn,
   };
 
 private:
@@ -1861,6 +1862,9 @@ public:
     addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
   }
+
+  VPCallInstruction(FunctionCallee Callee, ArrayRef<VPValue *> ArgList,
+                    VPlan *Plan);
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -3631,7 +3635,11 @@ public:
       addOperand(P);
   }
 
+  VPValue *getConflictIndex() const { return getOperand(0); }
+
   VPRegion *getRegion() const { return Region.get(); }
+
+  VPValue *getConflictLoad() const { return getOperand(2); }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static inline bool classof(const VPInstruction *VPI) {
@@ -3653,6 +3661,29 @@ public:
 private:
   std::unique_ptr<VPRegion> Region;
   LLVMContext *Context;
+};
+
+class VPConflictInsn final : public VPInstruction {
+public:
+  VPConflictInsn(Type *BaseTy, VPInstruction *LoadIndex)
+      : VPInstruction(VPInstruction::ConflictInsn, BaseTy, {}) {
+    assert(LoadIndex->getType()->isIntegerTy() &&
+           "Only integers are expected.");
+    addOperand(LoadIndex);
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ConflictInsn;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPConflictInsn *cloneImpl() const override {
+    return new VPConflictInsn(getType(), cast<VPInstruction>(getOperand(0)));
+  }
 };
 
 /// VPlan models a candidate for vectorization, encoding various decisions take

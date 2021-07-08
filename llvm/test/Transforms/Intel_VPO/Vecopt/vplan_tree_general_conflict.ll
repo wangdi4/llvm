@@ -5,7 +5,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -vplan-print-after-hir-decomposer -disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -vplan-print-after-hir-decomposer	-disable-vplan-codegen -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
 define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C, i32 %N) local_unnamed_addr #0 {
@@ -14,8 +14,8 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%C}
 ; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {%A}
-; CHECK-DAG:     [[VP3:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -46,7 +46,7 @@ define dso_local void @foo1(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_3]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
-; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP3]]
+; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp sle i64 [[VP5]] i64 [[VP2]]
 ; CHECK-NEXT:     br i1 [[VP8]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -187,12 +187,12 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  VPlan IR for: foo3:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%.sink}
-; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP2:%.*]] = {%C}
-; CHECK-DAG:     [[VP3:%.*]] = {%y.0}
-; CHECK-DAG:     [[VP4:%.*]] = {%B}
-; CHECK-DAG:     [[VP5:%.*]] = {%E}
-; CHECK-DAG:     [[VP6:%.*]] = {%D}
+; CHECK-DAG:     [[VP1:%.*]] = {%C}
+; CHECK-DAG:     [[VP2:%.*]] = {%y.0}
+; CHECK-DAG:     [[VP3:%.*]] = {%B}
+; CHECK-DAG:     [[VP4:%.*]] = {%E}
+; CHECK-DAG:     [[VP5:%.*]] = {%D}
+; CHECK-DAG:     [[VP6:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-DAG:     [[VP7:%.*]] = {%A}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -267,7 +267,7 @@ define dso_local void @foo3(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_7]]
 ; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
-; CHECK-NEXT:     i1 [[VP38:%.*]] = icmp sle i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:     i1 [[VP38:%.*]] = icmp sle i64 [[VP9]] i64 [[VP6]]
 ; CHECK-NEXT:     br i1 [[VP38]], [[BB2]], [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
@@ -473,9 +473,9 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%D}
 ; CHECK-DAG:     [[VP1:%.*]] = {%B}
-; CHECK-DAG:     [[VP2:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP3:%.*]] = {%A}
-; CHECK-DAG:     [[VP4:%.*]] = {%E}
+; CHECK-DAG:     [[VP2:%.*]] = {%A}
+; CHECK-DAG:     [[VP3:%.*]] = {%E}
+; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-DAG:     [[VP5:%.*]] = {%C}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
@@ -513,7 +513,7 @@ define dso_local void @foo5(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP2]]
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp sle i64 [[VP7]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -565,11 +565,11 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-LABEL:  VPlan after VPlanHIRDecomposer:
 ; CHECK-NEXT:  VPlan IR for: foo6:HIR
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%N) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%D}
-; CHECK-DAG:     [[VP2:%.*]] = {%0}
-; CHECK-DAG:     [[VP3:%.*]] = {%B}
-; CHECK-DAG:     [[VP4:%.*]] = {%A}
+; CHECK-DAG:     [[VP0:%.*]] = {%D}
+; CHECK-DAG:     [[VP1:%.*]] = {%0}
+; CHECK-DAG:     [[VP2:%.*]] = {%B}
+; CHECK-DAG:     [[VP3:%.*]] = {%A}
+; CHECK-DAG:     [[VP4:%.*]] = {zext.i32.i64(%N) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -605,7 +605,7 @@ define dso_local void @foo6(i32* noalias nocapture %A, i32* noalias nocapture re
 ; CHECK-NEXT:     }
 ; CHECK-NEXT:     store i32 [[VP_GENERAL_MEM_OPT_CONFLICT]] i32* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 [[VP0]]
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP6]] i64 [[VP4]]
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
