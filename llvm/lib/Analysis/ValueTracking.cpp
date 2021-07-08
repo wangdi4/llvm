@@ -6704,6 +6704,17 @@ llvm::canConvertToMinOrMaxIntrinsic(ArrayRef<Value *> VL) {
   return {Intrinsic::not_intrinsic, false};
 }
 
+#if INTEL_CUSTOMIZATION
+Value *llvm::traceThroughReturnedArgCall(Value *Val) {
+  if (auto *Call = dyn_cast<CallBase>(Val)) {
+    if (Value *ReturnedOp = Call->getReturnedArgOperand()) {
+      return ReturnedOp;
+    }
+  }
+
+  return Val;
+}
+#endif // INTEL_CUSTOMIZATION
 bool llvm::matchSimpleRecurrence(const PHINode *P, BinaryOperator *&BO,
                                  Value *&Start, Value *&Step) {
   // Handle the case of a simple two-predecessor recurrence PHI.
@@ -6732,8 +6743,8 @@ bool llvm::matchSimpleRecurrence(const PHINode *P, BinaryOperator *&BO,
     case Instruction::And:
     case Instruction::Or:
     case Instruction::Mul: {
-      Value *LL = LU->getOperand(0);
-      Value *LR = LU->getOperand(1);
+      Value *LL = traceThroughReturnedArgCall(LU->getOperand(0)); // INTEL
+      Value *LR = traceThroughReturnedArgCall(LU->getOperand(1)); // INTEL
       // Find a recurrence.
       if (LL == P)
         L = LR;

@@ -6372,7 +6372,7 @@ getRangeForUnknownRecurrence(const SCEVUnknown *U) {
     break;
   };
 
-  if (BO->getOperand(0) != P)
+  if (traceThroughReturnedArgCall(BO->getOperand(0)) != P) // INTEL
     // TODO: Handle the power function forms some day.
     return FullSet;
 
@@ -9282,6 +9282,7 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
     else
       return false;
 
+    OutLHS = traceThroughReturnedArgCall(OutLHS); // INTEL
     return ShiftAmt->getValue().isStrictlyPositive();
   };
 
