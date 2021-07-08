@@ -21,6 +21,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
   initializeDPCPPKernelAnalysisLegacyPass(Registry);
   initializePhiCanonicalizationLegacyPass(Registry);
+  initializeDuplicateCalledKernelsLegacyPass(Registry);
   initializeRedundantPhiNodeLegacyPass(Registry);
   initializeSplitBBonBarrierLegacyPass(Registry);
   initializeWIRelatedValueWrapperPass(Registry);
