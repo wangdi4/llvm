@@ -13624,6 +13624,19 @@ def : Pat<(v16i32 (X86vzmovl
                                      (iPTR 0)))),
           (SUBREG_TO_REG (i32 0), (VMOVW2SHrr GR32:$src), sub_xmm)>;
 
+def : Pat<(v8i16 (X86vzmovl (v8i16 (scalar_to_vector GR32:$src)))),
+          (VMOVW2SHrr GR32:$src)>;
+
+// AVX 128-bit movw instruction write zeros in the high 128-bit part.
+def : Pat<(v8i16 (X86vzload16 addr:$src)),
+          (VMOVWrm addr:$src)>;
+def : Pat<(v16i16 (X86vzload16 addr:$src)),
+          (SUBREG_TO_REG (i32 0), (v8i16 (VMOVWrm addr:$src)), sub_xmm)>;
+
+// Use regular 128-bit instructions to match 512-bit scalar_to_vec+zext.
+def : Pat<(v32i16 (X86vzload16 addr:$src)),
+          (SUBREG_TO_REG (i32 0), (v8i16 (VMOVWrm addr:$src)), sub_xmm)>;
+
 def : Pat<(v4i32 (scalar_to_vector (i32 (extloadi16 addr:$src)))),
           (VMOVWrm addr:$src)>;
 def : Pat<(v4i32 (X86vzmovl (scalar_to_vector (i32 (zextloadi16 addr:$src))))),
