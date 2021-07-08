@@ -4126,7 +4126,9 @@ void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
   }
   Value *Ret =
       (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
-          ? Builder.CreateInBoundsGEP(BcastStart, {VectorStep}, "vector_gep")
+          ? Builder.CreateInBoundsGEP(
+                BcastStart->getType()->getScalarType()->getPointerElementType(),
+                BcastStart, VectorStep, "vector_gep")
           : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                 BcastStart, VectorStep);
   VPWidenMap[VPInst] = Ret;

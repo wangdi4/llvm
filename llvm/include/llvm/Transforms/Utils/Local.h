@@ -376,8 +376,9 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
     Offsets.back() = ElementOffset;
 
-    return InBounds ? Builder->CreateInBoundsGEP(BasePtr, Offsets)
-                    : Builder->CreateGEP(BasePtr, Offsets);
+    Type *Ty = BasePtr->getType()->getScalarType()->getPointerElementType();
+    return InBounds ? Builder->CreateInBoundsGEP(Ty, BasePtr, Offsets)
+                    : Builder->CreateGEP(Ty, BasePtr, Offsets);
   }
 
   /// The following scheme uses intermediate "bitcast to i8*" to support
