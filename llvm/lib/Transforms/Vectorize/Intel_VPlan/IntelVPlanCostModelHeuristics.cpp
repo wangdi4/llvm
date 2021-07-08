@@ -784,7 +784,7 @@ void HeuristicPsadbw::initForVPlan() {
         const VPInstruction *AddInst = AddsStack.top();
         AddsStack.pop();
 
-        const VPInstruction *LHS = nullptr, *RHS = nullptr;
+        const VPInstruction *LHS, *RHS;
         // In case of accumulator is 64 bits there are ZExt's in operands of
         // the ADD possible.  Go over them.
         if (!match(AddInst, m_Add(m_ZExtOrSelf(m_Bind(LHS)),
