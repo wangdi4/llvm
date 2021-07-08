@@ -5565,10 +5565,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
-        // to a specific AddressSpace. The API currently needs the Element Type
-        // as well.
-        GEPI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
+        GEPI->mutateType(PointerType::getWithSamePointeeType(DstTy, SrcAS));
         CollectUsers = true;
       }
       break;
@@ -5581,10 +5578,7 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       unsigned DstAS = DstTy->getAddressSpace();
       // Mutate the result type to match the address space of the operand.
       if (SrcAS != DstAS) {
-        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
-        // to a specific AddressSpace. The API currently needs the Element Type
-        // as well.
-        BCI->mutateType(DstTy->getPointerElementType()->getPointerTo(SrcAS));
+        BCI->mutateType(PointerType::getWithSamePointeeType(DstTy, SrcAS));
         CollectUsers = true;
       }
       break;

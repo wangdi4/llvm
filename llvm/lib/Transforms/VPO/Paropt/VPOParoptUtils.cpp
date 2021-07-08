@@ -4928,10 +4928,8 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   if (!ValueAddrSpace)
     return V;
 
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
-  auto *CastTy = V->getType()->getPointerElementType()->
-      getPointerTo(ValueAddrSpace.getValue());
+  auto *CastTy = PointerType::getWithSamePointeeType(
+      cast<PointerType>(V->getType()), ValueAddrSpace.getValue());
   auto *ASCI = dyn_cast<Instruction>(
       AddrSpaceCastValue(Builder, V, CastTy));
 
@@ -5280,10 +5278,8 @@ Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                         unsigned AddrSpace) {
   PointerType *PtType = cast<PointerType>(Ptr->getType());
   IRBuilder<> Builder(InsertPt);
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
   Value *RetVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      Ptr, PtType->getPointerElementType()->getPointerTo(AddrSpace));
+      Ptr, PointerType::getWithSamePointeeType(PtType, AddrSpace));
 
   return RetVal;
 }
