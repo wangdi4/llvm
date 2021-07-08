@@ -146,7 +146,8 @@ public:
   HIRVectorizationLegality(HIRVectorizationLegality &&) = delete;
   HIRVectorizationLegality &operator=(HIRVectorizationLegality &&) = delete;
 
-  HIRVectorizationLegality(const TargetTransformInfo *TTI, HIRSafeReductionAnalysis *SafeReds,
+  HIRVectorizationLegality(const TargetTransformInfo *TTI,
+                           HIRSafeReductionAnalysis *SafeReds,
                            HIRDDAnalysis *DDA)
       : TTI(TTI), SRA(SafeReds), DDAnalysis(DDA) {}
 
