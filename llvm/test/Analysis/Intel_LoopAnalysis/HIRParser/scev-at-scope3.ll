@@ -7,7 +7,7 @@
 ; CHECK-NEXT: |   if (undef #UNDEF# undef)
 ; CHECK-NEXT: |   {
 ; CHECK-NEXT: |
-; CHECK-NEXT: |      + DO i2 = 0, (umax(4, %0) + -2)/u3, 1   <DO_LOOP>
+; CHECK-NEXT: |      + DO i2 = 0, ((-4 + (-1 * umin(1, (-4 + umax(4, %0)))) + umax(4, %0)) /u 3) + umin(1, (-4 + umax(4, %0))), 1   <DO_LOOP>  <MAX_TC_EST = 16>
 ; CHECK-NEXT: |      |   %add23 = 3 * i2 + 1  +  3;
 ; CHECK-NEXT: |      + END LOOP
 ; CHECK-NEXT: |
