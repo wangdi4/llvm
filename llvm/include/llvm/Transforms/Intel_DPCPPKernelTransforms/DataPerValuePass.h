@@ -18,6 +18,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 

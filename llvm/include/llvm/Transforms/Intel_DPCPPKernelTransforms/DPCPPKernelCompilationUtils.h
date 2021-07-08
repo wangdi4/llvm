@@ -88,7 +88,40 @@ enum AddressSpace {
   ADDRESS_SPACE_GENERIC = 4
 };
 
-enum BarrierType : char { BARRIER_NO_SCOPE, BARRIER_WITH_SCOPE };
+enum class BarrierType { NoScope, WithScope };
+
+struct PipeKind {
+  enum ScopeKind { SK_WorkItem, SK_WorkGroup, SK_SubGroup };
+
+  /// Access direction: read or write. Note that this direction also applies
+  /// to 'commit' and 'reserve' operations.
+  enum AccessKind { AK_Read, AK_Write };
+
+  /// Operation which is performed on a pipe object.
+  enum OpKind {
+    OK_None,             ///< not a pipe built-in
+    OK_ReadWrite,        ///< actual read or write
+    OK_ReadWriteReserve, ///< read or write with reserve_id
+    OK_Reserve,          ///< reserve operation
+    OK_Commit            ///< commit operation
+  };
+
+  ScopeKind Scope;
+  AccessKind Access;
+  OpKind Op = OK_None;
+  bool Blocking = false;
+  bool IO = false;
+  bool FPGA = false;
+  std::string SimdSuffix = "";
+
+  bool operator==(const PipeKind &LHS) const {
+    return Scope == LHS.Scope && Access == LHS.Access && Op == LHS.Op &&
+           Blocking == LHS.Blocking && IO == LHS.IO &&
+           SimdSuffix == LHS.SimdSuffix && FPGA == LHS.FPGA;
+  }
+
+  operator bool() const { return Op != OK_None; }
+};
 
 namespace OclVersion {
 enum {
@@ -143,6 +176,15 @@ bool isGetNumGroups(StringRef S);
 /// Return true if string is plain or mangled get_work_dim.
 bool isGetWorkDim(StringRef S);
 
+/// Return true if string is plain or mangled get_local_id.
+bool isGetLocalId(StringRef S);
+
+/// Return true if string is plain or mangled get_global_id.
+bool isGetGlobalId(StringRef S);
+
+///  Return true if string is name of atomic builtin.
+bool isAtomicBuiltin(StringRef S);
+
 /// Return true if the function is global constructor or destructor (listed in
 /// @llvm.global_ctors variable). NOTE: current implementation is *the only*
 /// workaround for global ctor/dtor for pipes. See TODO inside the
@@ -167,6 +209,12 @@ bool isGetSpecialBuffer(StringRef S);
 
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
+
+/// Return pipe kind for S.
+PipeKind getPipeKind(StringRef S);
+
+/// Return true if string is name of work-item pipe builtin.
+bool isWorkItemPipeBuiltin(StringRef S);
 
 /// \name WorkGroup Builtin
 /// \param S function name

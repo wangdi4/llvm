@@ -98,6 +98,8 @@ defm DVPMULUDHHQ : dspv1_3op_w<0xcb, "dvpmuludhhq", loadv4i32>,
                    T_MAP8XS, VEX_W;
 defm DVPMULDHHQ : dspv1_3op_w<0xcc, "dvpmuldhhq", loadv4i32>,
                   T_MAP8XS, VEX_W;
+defm DVPMULUDLLQ : dspv1_3op_w<0xcb, "dvpmuludllq", loadv4i32>, T_MAP8XD, VEX_W;
+defm DVPMULDLLQ  : dspv1_3op_w<0xcc, "dvpmuldllq", loadv4i32>, T_MAP8XD, VEX_W;
 defm DVPMULDFRS : dspv1_3op_w<0xca, "dvpmuldfrs", loadv4i32>, T_MAP8XD;
 defm DVPMULDS : dspv1_3op_w<0xcd, "dvpmulds", loadv4i32>, T_MAP8XD;
 defm DVPMACUDLLSQ : dspv1_3op_rw<0xeb, "dvpmacudllsq", loadv4i32>,
@@ -125,4 +127,16 @@ defm DVPNMACDHHQ : dspv1_3op_rw<0xec, "dvpnmacdhhq", loadv4i32>,
 defm DVPMSUBADDDLLQ : dspv1_3op_rw<0xe7, "dvpmsubadddllq", loadv4i32>,
                       T_MAP8PS, VEX_W;
 // end Charpter 7
+
+// Charpter 8
+defm DVPDPBUUD :  dspv1_3op_rw<0xc1, "dvpdpbuud", loadv16i8>, T_MAP8PS;
+defm DVPDPBUUDS : dspv1_3op_rw<0xc2, "dvpdpbuuds", loadv16i8>, T_MAP8PS;
+defm DVPDPBSSD :  dspv1_3op_rw<0xc1, "dvpdpbssd", loadv16i8>, T_MAP8XD;
+defm DVPDPBSSDS : dspv1_3op_rw<0xc2, "dvpdpbssds", loadv16i8>, T_MAP8XD;
+defm DVPDPBUSD :  dspv1_3op_rw<0xc1, "dvpdpbusd", loadv16i8>, T_MAP8PD;
+defm DVPDPBUSDS : dspv1_3op_rw<0xc2, "dvpdpbusds", loadv16i8>, T_MAP8PD;
+defm DVPDPBSUD :  dspv1_3op_rw<0xc1, "dvpdpbsud", loadv16i8>, T_MAP8XS;
+defm DVPDPBSUDS : dspv1_3op_rw<0xc2, "dvpdpbsuds", loadv16i8>, T_MAP8XS;
+defm DVPNDPBSSD : dspv1_3op_rw<0xde, "dvpndpbssd", loadv16i8>, T_MAP8XS, VEX_W;
+// end Charpter 8
 #endif // INTEL_FEATURE_ISA_DSPV1
