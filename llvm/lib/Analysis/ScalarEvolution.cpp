@@ -9262,8 +9262,19 @@ ScalarEvolution::computeLoadConstantCompareExitLimit(
 ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
     Value *LHS, Value *RHSV, const Loop *L, ICmpInst::Predicate Pred) {
   ConstantInt *RHS = dyn_cast<ConstantInt>(RHSV);
-  if (!RHS)
-    return getCouldNotCompute();
+#if INTEL_CUSTOMIZATION
+  bool RHSIsConst = true;
+  bool IsSLTPred = (Pred == ICmpInst::ICMP_SLT);
+  bool IsULTPred = (Pred == ICmpInst::ICMP_ULT);
+  if (!RHS) {
+    // If RHS is not const we only compute max BECount using these two
+    // predicates.
+    if (!IsSLTPred && !IsULTPred)
+      return getCouldNotCompute();
+
+    RHSIsConst = false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   const BasicBlock *Latch = L->getLoopLatch();
   if (!Latch)
@@ -9339,6 +9350,14 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
         // of the PHI node itself
         OpLHS == PNOut &&
 
+#if INTEL_CUSTOMIZATION
+        // Only allow shl with appropriate no wrap flags if we are computing max
+        // BECount.
+        (RHSIsConst ||
+         ((OpCodeOut == Instruction::Shl) &&
+          (IsSLTPred ? cast<Instruction>(BEValue)->hasNoSignedWrap()
+                     : cast<Instruction>(BEValue)->hasNoUnsignedWrap()))) &&
+#endif // INTEL_CUSTOMIZATION
         // and the kind of shift should be match the kind of shift we peeled
         // off, if any.
         (!PostShiftOpCode.hasValue() || *PostShiftOpCode == OpCodeOut);
@@ -9356,10 +9375,10 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
   const DataLayout &DL = getDataLayout();
 
 #if INTEL_CUSTOMIZATION
-  // Look for (icmp ult (shl_recurrence), (1 << C)), if we can prove the MSB of
-  // the starting value we can determine the loop count.
-  if (Pred == ICmpInst::ICMP_ULT && OpCode == Instruction::Shl &&
-      RHS->getValue().isPowerOf2()) {
+  // Look for (icmp ult/slt (shl_recurrence), RHSV), if we can prove the MSB of
+  // the starting value we can determine the max loop count.
+  // If RHSV is a power of 2, we can also determine the exact loop count.
+  if (OpCode == Instruction::Shl && (IsSLTPred || IsULTPred)) {
     Value *FirstValue = PN->getIncomingValueForBlock(Predecessor);
     KnownBits Known = computeKnownBits(FirstValue, DL, 0, nullptr,
                                        Predecessor->getTerminator(), &DT);
@@ -9367,19 +9386,39 @@ ScalarEvolution::ExitLimit ScalarEvolution::computeShiftCompareExitLimit(
     // The value must not be zero. It also needs to be less than limit value.
     unsigned PossibleZeros = Known.countMinLeadingZeros();
     unsigned DefiniteZeros = Known.countMaxLeadingZeros();
+
+    APInt RHSVal;
+    bool ComputeMaxBECountOnly = (!RHSIsConst || !RHS->getValue().isPowerOf2());
+
+    // Compute the max value of RHS.
+    if (ComputeMaxBECountOnly) {
+      auto Range = computeConstantRange(RHSV, true, &AC, PN);
+      RHSVal = IsSLTPred ? Range.getSignedMax() : Range.getUnsignedMax();
+    } else {
+      RHSVal = RHS->getValue();
+    }
+
     if (PossibleZeros == DefiniteZeros && DefiniteZeros < Known.getBitWidth()) {
-      unsigned Log2Limit = RHS->getValue().logBase2();
+      unsigned Log2Limit = RHSVal.ceilLogBase2();
       unsigned InMSB = Known.getBitWidth() - DefiniteZeros - 1;
       if (Log2Limit > InMSB) {
         // Need a minus one here if the comparison is with the shifted IV.
         bool CmpWithShiftedIV = (OrigLHS != PN);
-        unsigned Count = RHS->getValue().logBase2() - InMSB - CmpWithShiftedIV;
-        const SCEV *BECount =
-            getConstant(getEffectiveSCEVType(RHS->getType()), Count);
-        return ExitLimit(BECount, BECount, false);
+        unsigned Count = Log2Limit - InMSB - CmpWithShiftedIV;
+        const SCEV *MaxBECount =
+            getConstant(getEffectiveSCEVType(RHSV->getType()), Count);
+
+        auto *BECount =
+            ComputeMaxBECountOnly ? getCouldNotCompute() : MaxBECount;
+
+        return ExitLimit(BECount, MaxBECount, false);
       }
     }
   }
+
+  // Later sections of code don't handle non-constant RHS.
+  if (!RHSIsConst)
+    return getCouldNotCompute();
 
   // Look for (icmp ne (shr_recurrence), 1), if we can prove the MSB of the
   // starting value we can determine the loop count.

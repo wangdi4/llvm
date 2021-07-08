@@ -98,6 +98,28 @@ entry:
   ret void
 }
 
+; CMPLRLLVM-29304
+; The %T alloca has no useful uses, only cast, lifetime, and var.annotation.
+; SROA must successfully remove all this code below.
+; Previously, it was ignoring the var.annotation intrinsic, which was
+; preventing the ascast instructions from being considered for removal.
+; This caused a crash, as Mem2Reg must have a clean set of uses before
+; promoting an alloca.
+; CHECK-LABEL: @f6
+; CHECK-NOT: alloca
+; CHECK-NOT: addrspacecast
+; CHECK-NOT: call void @llvm.var.annotation
+define dso_local void @f6() {
+  %T = alloca [32 x i32], align 4
+  %T.ascast = addrspacecast [32 x i32]* %T to [32 x i32] addrspace(4)*
+  %1 = bitcast [32 x i32]* %T to i8*
+  call void @llvm.lifetime.start.p0i8(i64 128, i8* %1)
+  %T.ascast3 = bitcast [32 x i32] addrspace(4)* %T.ascast to i8 addrspace(4)*
+  %T.ascast4 = addrspacecast i8 addrspace(4)* %T.ascast3 to i8*
+  call void @llvm.var.annotation(i8* %T.ascast4, i8* getelementptr inbounds ([13 x i8], [13 x i8]* @.str, i32 0, i32 0), i8* undef, i32 undef, i8* undef)
+  ret void
+}
+
 ; Function Attrs: nounwind
 declare void @llvm.var.annotation(i8*, i8*, i8*, i32, i8*) #0
 
