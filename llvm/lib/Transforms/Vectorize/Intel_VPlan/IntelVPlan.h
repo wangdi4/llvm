@@ -135,7 +135,8 @@ public:
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() {
     if (IsLLVMIR) {
-      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp);
+      auto &Context = Lp->getHeader()->getContext();
+      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context, DL);
     } else
       llvm_unreachable("Unimplemented for HIR path.");
   }
