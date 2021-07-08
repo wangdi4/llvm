@@ -39,8 +39,8 @@ add_llvm_component_library(LLVMLTO
 )
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
   target_link_libraries(LLVMLTO PRIVATE LLVMIntel_DTrans
                                         LLVMIntel_DTransAnalysis)
-endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_FEATURE_SW_DTRANS
 # end INTEL_CUSTOMIZATION

@@ -1113,7 +1113,7 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
   return IC.Builder.CreateZExtOrTrunc(Sel, LI.getType());
 }
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 // Return true if there is a possible upcasting from SrcTy to DestTy. This
 // means that the field 0 in DestTy encloses SrcTy.
 static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
@@ -1220,7 +1220,7 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
 
   return false;
 }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
@@ -1251,7 +1251,7 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   bool IsLoadCSE = false;
   if (Value *AvailableVal = FindAvailableLoadedValue(&LI, *AA, &IsLoadCSE)) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     // If DTrans is enabled and we are in the LTO phase, then we may want to
     // disable the process of simplifying a load into a bitcast if it could
     // produce an upcasting. It could produce misleading information in the
@@ -1259,7 +1259,7 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
     if (!enableUpCasting() &&
         possibleUpcasting(AvailableVal->getType(), LI.getType()))
       return nullptr;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     if (IsLoadCSE)
       combineMetadataForCSE(cast<LoadInst>(AvailableVal), &LI, false);

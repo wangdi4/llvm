@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; This test is to check that the devirtualizer marks a devirtualized call that
 ; involves bitcasts with metadata for the DTrans analysis. This case checks the
 ; path where there is only a single devirtualization target for the call.
@@ -60,3 +63,5 @@ define internal default zeroext i1 @_ZN7Derived3fooEi(%class.Derived* %this, i32
 !2 = !{i64 16, !"_ZTS7Derived"}
 !3 = !{i64 16, !"_ZTSM7DerivedFbiE.virtual"}
 !4 = !{i32 1, !"wchar_size", i32 4}
+
+; end INTEL_FEATURE_SW_DTRANS

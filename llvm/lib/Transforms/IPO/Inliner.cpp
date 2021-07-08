@@ -62,11 +62,11 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/MemManageInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #include <algorithm>
 #include <cassert>
 #include <functional>
@@ -306,7 +306,7 @@ static bool inlineHistoryIncludes(
 #if INTEL_CUSTOMIZATION
 static void collectDtransFuncs(Module &M) {
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Returns true if “Fn” is empty.
   auto IsEmptyFunction = [] (Function *Fn) {
     if (Fn->isDeclaration())
@@ -453,7 +453,7 @@ static void collectDtransFuncs(Module &M) {
   for (Function *F: MemManageInlineMethods)
     F->addFnAttr("prefer-inline-dtrans");
 
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
 
