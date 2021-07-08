@@ -33,7 +33,9 @@ enum LanguageID {
   CXX_LANG = 0x4,     // builtin for cplusplus only.
   OBJC_LANG = 0x8,    // builtin for objective-c and objective-c++
   MS_LANG = 0x10,     // builtin requires MS mode.
-  OCLC20_LANG = 0x20, // builtin for OpenCL C 2.0 only.
+#if INTEL_CUSTOMIZATION
+  OCLC2P_LANG = 0x20, // builtin for OpenCL C 2.0 and later versions.
+#endif // INTEL_CUSTOMIZATION
   OCLC1X_LANG = 0x40, // builtin for OpenCL C 1.x only.
   OMP_LANG = 0x80,    // builtin requires OpenMP.
   CUDA_LANG = 0x100,  // builtin requires CUDA.
@@ -42,7 +44,9 @@ enum LanguageID {
   ALL_LANGUAGES = C_LANG | CXX_LANG | OBJC_LANG, // builtin for all languages.
   ALL_GNU_LANGUAGES = ALL_LANGUAGES | GNU_LANG,  // builtin requires GNU mode.
   ALL_MS_LANGUAGES = ALL_LANGUAGES | MS_LANG,    // builtin requires MS mode.
-  ALL_OCLC_LANGUAGES = OCLC1X_LANG | OCLC20_LANG // builtin for OCLC languages.
+#if INTEL_CUSTOMIZATION
+  ALL_OCLC_LANGUAGES = OCLC1X_LANG | OCLC2P_LANG // builtin for OCLC languages.
+#endif // INTEL_CUSTOMIZATION
 };
 
 namespace Builtin {
@@ -240,6 +244,17 @@ private:
   /// Is this builtin supported according to the given language options?
   bool builtinIsSupported(const Builtin::Info &BuiltinInfo,
                           const LangOptions &LangOpts);
+
+#if INTEL_CUSTOMIZATION
+  bool OclBuiltinIsSupported(const Builtin::Info &BuiltinInfo,
+                             const LangOptions &LangOpts) const;
+
+  bool requiresFeatures(const Builtin::Info &BuiltinInfo) const;
+
+  bool requiresFeatures(unsigned ID) const {
+    return requiresFeatures(getRecord(ID));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Helper function for isPrintfLike and isScanfLike.
   bool isLike(unsigned ID, unsigned &FormatIdx, bool &HasVAListArg,

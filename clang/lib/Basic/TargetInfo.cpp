@@ -396,6 +396,12 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     HalfFormat = &llvm::APFloat::IEEEhalf();
     FloatFormat = &llvm::APFloat::IEEEsingle();
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
+
+    if (Opts.OpenCLVersion >= 300) {
+      const auto &FeaturesMap = getSupportedOpenCLOpts();
+      Opts.Blocks = hasFeatureEnabled(FeaturesMap, "__opencl_c_device_enqueue");
+      Opts.OpenCLPipe = hasFeatureEnabled(FeaturesMap, "__opencl_c_pipes");
+    }
   }
 
   if (Opts.DoubleSize) {
