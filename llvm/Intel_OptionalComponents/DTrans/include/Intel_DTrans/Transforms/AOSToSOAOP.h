@@ -22,6 +22,7 @@
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+class BitCastInst;
 class DominatorTree;
 class Module;
 class TargetLibraryInfo;
@@ -51,12 +52,34 @@ public:
                GetTLIFuncType &GetTLI, DominatorTreeFuncType &GetDT);
 
 private:
-  void gatherCandidateTypes(DTransSafetyInfo *DTInfo,
+  void gatherCandidateTypes(DTransSafetyInfo &DTInfo,
                             StructInfoVecImpl &CandidateTypes);
 
   void qualifyCandidates(StructInfoVecImpl &CandidateTypes, Module &M,
-                         DTransSafetyInfo *DTInfo,
+                         DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo,
                          DominatorTreeFuncType &GetDT);
+
+  bool qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
+                              DTransSafetyInfo &DTInfo);
+
+  bool qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
+                    StructInfoVecImpl &CandidateTypes, DTransSafetyInfo &DTInfo,
+                    DominatorTreeFuncType &GetDT);
+
+  bool qualifyInstructions(Module &M, StructInfoVecImpl &CandidateTypes,
+                           DTransSafetyInfo &DTInfo);
+
+  bool checkAllocationUsers(Instruction *AllocCall, llvm::Type *StructTy,
+                            Value **Unsupported);
+
+  bool collectCallChain(
+      WholeProgramInfo &WPInfo, Instruction *I,
+      SmallVectorImpl<std::pair<Function *, Instruction *>> &CallChain);
+
+  // BitCast instructions that are safe because they are simply used for the
+  // allocation/free calls on the type being transformed. These instructions
+  // will be removed during the transformation.
+  SmallPtrSet<BitCastInst*, 2> SafeBitCasts;
 };
 
 } // namespace dtransOP
