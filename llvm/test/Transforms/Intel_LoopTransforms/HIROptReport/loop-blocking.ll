@@ -1,4 +1,4 @@
-; Check that proper optreport format and metadata are emitted for Completely Unrolled loop.
+; Check that proper optreport format are emitted for blocked loop.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sinking-for-perfect-loopnest -hir-loop-blocking -hir-cg -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
