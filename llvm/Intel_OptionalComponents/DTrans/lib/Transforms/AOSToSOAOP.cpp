@@ -205,11 +205,12 @@ private: // data
   // Information about the structures being transformed.
   SmallVector<struct SOATypeInfoTy, 2> SOATypes;
 
-  // A mapping from the original structure type to the new structure type for
-  // structure types that need to change as a result of having a pointer to a
+  // A vector of original structure type/corresponding DTrans structure type
+  // pairs for types that need to change as a result of having a pointer to a
   // type being transformed. When pointer shrinking is enabled, the size of
   // these structures and byte offsets of fields will be modified.
-  SmallPtrSet<llvm::StructType *, 4> DepTypesToTransform;
+  SmallVector<std::pair<llvm::StructType *, DTransStructType *>, 4>
+      DepTypesToTransform;
 
   // Value to use for the 3rd string argument of the ptr.annotation intrinsic.
   // This argument is used to represent a filename, and will be ignored.
@@ -445,13 +446,118 @@ AOSToSOAOPTransformImpl::getSOATypeInfo(llvm::StructType *Ty) {
   llvm_unreachable("Request for type not being transformed");
 }
 
+// Collect and qualify the safety of dependent types that are affected by the
+// type being transformed. This will update the 'PointerShrinkingEnabled' member
+// based on whether the dependent types qualify for allowing shrinking the index
+// to use a 32-bit value. This requires all dependent types to be safe,
+// otherwise the pointer shrinking will be inhibited.
 void AOSToSOAOPTransformImpl::qualifyDependentTypes(
     unsigned PointerSizeInBits) {
-  // TODO: Check whether pointer shrinking is possible based on the safety of
-  // the dependent types, and set 'IndexInfo.PointerShrinkingEnabled' to 'true',
-  // if so. Also, populate the list of dependent structure types into
-  // 'DepTypesToTransform' for the types that will need to have their size
-  // changed.
+  // Return 'true' if there are no safety issues with a dependent type 'Ty'
+  // that prevent transforming a type.
+  auto *TheDTInfo = DTInfo;
+  auto IsDependentTypeSafe = [&TheDTInfo](DTransStructType *Ty) {
+    auto *TI = TheDTInfo->getTypeInfo(Ty);
+    assert(TI && "Expected DTrans to analyze container of dependent type");
+    if (TheDTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependent))
+      return false;
+
+    // We know there is no direct address taken for any fields for the type
+    // being transformed because that structure was not marked as "Address
+    // Taken". However, if the analysis is assuming the address of one field
+    // can be used to access another field, then any time the field address
+    // taken is set for the dependent type, it will be unknown whether it
+    // affects a field member that is a pointer to a type being transformed,
+    // so check whether the code is allowing memory outside the boundaries of
+    // a specific field to be accessed when taking the address.
+    if (TheDTInfo->getDTransOutOfBoundsOK() &&
+        TI->testSafetyData(dtrans::AnyFieldAddressTaken))
+      return false;
+
+    // No issues were found on this dependent type that prevent the AOS to SOA
+    // transformation.
+    return true;
+  };
+
+  auto IsDependentTypeSafeForShrinking = [&TheDTInfo](DTransStructType *Ty) {
+    auto *TI = TheDTInfo->getTypeInfo(Ty);
+    assert(TI && "Expected DTrans to analyze container of dependent type");
+    if (TheDTInfo->testSafetyData(TI, dtrans::DT_AOSToSOADependentIndex32))
+      return false;
+
+    // TODO: The transformation does not support rewriting byte flattened GEPs
+    // that are performed against global variables using a GEPOperator. To
+    // support this the base class would need to inform the derived classes when
+    // global variables of dependent types are replaced, and we should check
+    // whether there are any byte-flattened GEPs of global variables of the
+    // dependent type.
+
+    return true;
+  };
+
+  bool DoPointerShrinking = DTransAOSToSOAOPIndex32 && PointerSizeInBits == 64;
+
+  // Check whether the dependent types are safe, and whether they will support
+  // pointer shrinking.
+  SmallVector<dtrans::StructInfo *, 4> Qualified;
+  for (auto *StInfo : TypesToTransform) {
+    bool DepQualified = true;
+    SmallVector<std::pair<llvm::StructType *, DTransStructType *>, 4>
+      LocalDepTypesToTransform;
+    auto *OrigTy = cast<DTransStructType>(StInfo->getDTransType());
+    for (auto &DepTy : TypeToPtrDependentTypes[OrigTy]) {
+      auto *DepStructTy = dyn_cast<DTransStructType>(DepTy);
+      if (!DepStructTy)
+        continue;
+
+      // Don't check dependent types that are directly being transformed by
+      // AOS-to-SOA.
+      if (std::find(TypesToTransform.begin(), TypesToTransform.end(),
+                    DTInfo->getTypeInfo(DepTy)) != TypesToTransform.end())
+        continue;
+
+      // Verify whether it is going to be safe to change a field member that is
+      // a pointer to type being transformed into an integer type.
+      if (!IsDependentTypeSafe(DepStructTy)) {
+        LLVM_DEBUG(dbgs() << "AOS-to-SOA disqualifying type: " << *OrigTy
+                          << " based on safety conditions of dependent type: "
+                          << *DepTy << "\n");
+        DepQualified = false;
+        break;
+      }
+
+      // Verify whether it is going to be safe to use a 32-bit integer type
+      // within the dependent type. Changing a 64-bit pointer into a 32-bit
+      // integer means that the size of dependent structure will change,
+      // requiring either that this transformation can update IR that is
+      // dependent on the structure size (allocations, memory intrinsic calls,
+      // pointer arithmetic, and byte flattened GEP uses) or that the dependent
+      // type does not have IR for those usages.
+      if (DoPointerShrinking && !IsDependentTypeSafeForShrinking(DepStructTy)) {
+        LLVM_DEBUG(dbgs() << "AOS-to-SOA index shrinking "
+                             "inhibited due to safety checks on: "
+                          << *DepTy << "\n");
+        DoPointerShrinking = false;
+        continue;
+      }
+
+      LocalDepTypesToTransform.push_back(
+          {cast<llvm::StructType>(DepStructTy->getLLVMType()), DepStructTy});
+
+      LLVM_DEBUG(
+          dbgs() << "AOS-to-SOA transforming type    : " << *OrigTy << "\n"
+                 << "will also affect type           : " << *DepTy << "\n");
+    }
+
+    if (DepQualified) {
+      Qualified.push_back(StInfo);
+      for (auto &KV : LocalDepTypesToTransform)
+        DepTypesToTransform.push_back(KV);
+    }
+  }
+
+  IndexInfo.PointerShrinkingEnabled = DoPointerShrinking;
+  TypesToTransform = std::move(Qualified);
 }
 
 // Initialize class fields that are dependent on the size of the SOA index type.
