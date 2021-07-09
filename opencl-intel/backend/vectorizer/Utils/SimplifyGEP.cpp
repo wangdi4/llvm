@@ -143,7 +143,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // Create new Gep instruction just after the PhiNode
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      GetElementPtrInst *pNewIndexGep = GetElementPtrInst::Create(nullptr, pNewBase, pNewPhiNode, "IndexPhiNodeGEP", pPhiNode->getParent()->getFirstNonPHI());
+      Type *Ty = pNewBase->getType()->getScalarType()->getPointerElementType();
+      GetElementPtrInst *pNewIndexGep = GetElementPtrInst::Create(Ty, pNewBase, pNewPhiNode, "IndexPhiNodeGEP", pPhiNode->getParent()->getFirstNonPHI());
 
       // Remove old PhiNode entries, need to do that before removing iterValue
       // But, should not renove PhiNode yet!
@@ -164,7 +165,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
           pOldGep->replaceUsesOfWith(pPhiNode, pNewBase);
           // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
           // (not using type from pointer as this functionality is planned to be removed.
-          GetElementPtrInst *pNewGep = GetElementPtrInst::Create(nullptr, pOldGep, pNewPhiNode, "IndexNewGEP");
+          Type *Ty = pOldGep->getType()->getScalarType()->getPointerElementType();
+          GetElementPtrInst *pNewGep = GetElementPtrInst::Create(Ty, pOldGep, pNewPhiNode, "IndexNewGEP");
           pNewGep->insertAfter(pOldGep);
           pOldGep->replaceAllUsesWith(pNewGep);
           // Now need to reset the base address of the new GEP to be pOldGep
@@ -361,10 +363,12 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // which is used as a base pointer of the second GEP with divergent index
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(nullptr,
+      Type *Ty = pGEP->getOperand(0)->getType()->getScalarType()->getPointerElementType();
+      GetElementPtrInst * pUniformGEP   = GetElementPtrInst::Create(Ty,
                                                                     pGEP->getOperand(0), uniformIdx,
                                                                     "uniformGEP", pGEP);
-      GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(nullptr,
+      Ty = pUniformGEP->getType()->getScalarType()->getPointerElementType();
+      GetElementPtrInst * pDivergentGEP = GetElementPtrInst::Create(Ty,
                                                                     pUniformGEP, divergentIdx,
                                                                     "divergentGEP", pGEP);
 
@@ -397,7 +401,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     // and with its old last index as the new GEP instruction only index.
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
     // (not using type from pointer as this functionality is planned to be removed.
-    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(nullptr, pGEP, pLastIndex, "simplifiedGEP");
+    Type *Ty = pGEP->getType()->getScalarType()->getPointerElementType();
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(Ty, pGEP, pLastIndex, "simplifiedGEP");
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pNewGEP->insertAfter(pGEP);
     pGEP->replaceAllUsesWith(pNewGEP);
@@ -475,7 +480,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
     newBase = new BitCastInst(newBase, pGEP->getType(), "ptrTypeCast", pGEP);
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
     // (not using type from pointer as this functionality is planned to be removed.
-    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(nullptr, newBase, newIndex, "simplifiedGEP", pGEP);
+    Type *Ty = newBase->getType()->getScalarType()->getPointerElementType();
+    GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(Ty, newBase, newIndex, "simplifiedGEP", pGEP);
     VectorizerUtils::SetDebugLocBy(pNewGEP, pGEP);
     pGEP->replaceAllUsesWith(pNewGEP);
     pGEP->eraseFromParent();

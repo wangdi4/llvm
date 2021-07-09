@@ -167,7 +167,8 @@ void AVX512Resolver::FixBaseAndIndexIfNeeded(CallInst *caller, Value * /*Mask*/,
       SmallVector<Constant*, 16> VecNegMax32BitIntConst(IndexType->getNumElements(), NegMax32BitIntConst);
       Value *NegMax32BitInt = ConstantVector::get(ArrayRef<Constant*>(VecNegMax32BitIntConst));
 
-      Ptr = GetElementPtrInst::Create(nullptr, Ptr, PosMax32BitInt, "Base+safeNumFix", caller);
+      Type *Ty = Ptr->getType()->getScalarType()->getPointerElementType();
+      Ptr = GetElementPtrInst::Create(Ty, Ptr, PosMax32BitInt, "Base+safeNumFix", caller);
       Index = BinaryOperator::CreateAdd(Index, NegMax32BitInt, "Index-safeNumFix", caller);
       V_PRINT(gather_scatter_stat, "RESOLVER: Base+safeNumFix " << *Ptr <<
         "\t|\t RESOLVER: Index-safeNumFix " << *Index << "\n");
