@@ -63,6 +63,7 @@
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
+#include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -210,6 +211,10 @@ struct PerFunctionInfo {
   // must be removed during postProcessFunction routine.
   SmallVector<CastInst *, 16> PtrConverts;
 
+  // Set of call sites in the function that may need to have attributes on the
+  // return or parameter types updated.
+  SmallVector<CallBase *, 16> CallsToConvert;
+
   // Instructions from the input IR that need to be removed at the end of
   // processFunction().
   SmallVector<Instruction *, 16> InstructionsToDelete;
@@ -242,17 +247,23 @@ public:
   AOSCollector(AOSToSOAOPTransformImpl &Transform, DTransSafetyInfo &DTInfo,
                PerFunctionInfo &FuncInfo)
       : Transform(Transform), DTInfo(DTInfo), PTA(DTInfo.getPtrTypeAnalyzer()),
-        FuncInfo(FuncInfo) {}
+        MDReader(DTInfo.getTypeMetadataReader()), FuncInfo(FuncInfo) {}
 
   void visitGetElementPtrInst(GetElementPtrInst &GEP);
   void visitLoadInst(LoadInst &I);
   void visitStoreInst(StoreInst &I);
+  void visitCallBase(CallBase &I);
+  void visitReturnInst(ReturnInst &I);
+
   // TODO: visit other instruction types
+
+  void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
 
 private:
   AOSToSOAOPTransformImpl &Transform;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
+  TypeMetadataReader &MDReader;
   PerFunctionInfo &FuncInfo;
 };
 
@@ -286,6 +297,9 @@ public:
   StructType *getDependentTypeReplacement(llvm::StructType *OrigTy);
   DTransStructType *getDependentDTransType(llvm::StructType *OrigTy);
 
+  bool isFnClonedForIndex(Function *F) const;
+  Function *getClonedFunction(Function *F) const;
+
   PointerType *getAddrSpacePtrForType(llvm::StructType *OrigStructTy);
   PointerType *getAddrSpacePtrForType(DTransStructType *OrigStructTy);
 
@@ -307,6 +321,11 @@ private: // methods
   void convertDepGEP(GetElementPtrInst *GEP);
   void convertDepByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
                          size_t FieldNum);
+
+  void updateCallAttributes(CallBase *Call);
+  void updateFunctionAttributes(Function &OrigFn, Function &CloneFn);
+  bool updateAttributeList(llvm::FunctionType *OrigFnType,
+                           llvm::FunctionType *NewFnType, AttributeList &Attrs);
 
   CastInst *createCastToIndexType(Value *V,
                                   Instruction *InsertBefore = nullptr);
@@ -393,6 +412,11 @@ private: // data
   // This object will be used to share information between the processFunction
   // and postProcessFunction about instructions that need to be processed.
   std::unique_ptr<PerFunctionInfo> FuncInfo;
+
+  // The set of functions that were cloned as a result of transforming a
+  // parameter or return type from being a pointer to the structure to being an
+  // integer index value.
+  SmallPtrSet<Function *, 16> FnClonedForIndex;
 };
 
 class DTransAOSToSOAOPWrapper : public ModulePass {
@@ -582,6 +606,153 @@ void AOSCollector::visitStoreInst(StoreInst &I) {
   }
 }
 
+void AOSCollector::visitCallBase(CallBase &I) {
+  // TODO: Check if the call needs to be transformed based on the CallInfo data.
+
+  // The type qualification checks rejected any types passed to address taken
+  // functions, so there is nothing to check for indirect calls.
+  if (I.isIndirectCall())
+    return;
+
+  Function *F = I.getCalledFunction();
+  assert(F && "Expected direct call");
+  if (!Transform.isFnClonedForIndex(F))
+    return;
+
+  // The call may need to have attributes updated, add it to the list to be
+  // processed.
+  FuncInfo.CallsToConvert.push_back(&I);
+
+  // When typed-pointers are being used, the value mapper class can handle all
+  // the conversions necessary. When opaque pointers are in use, we need to
+  // process the pointers to change the function call signature to pass integers
+  // instead of pointer types.
+  if (!F->getType()->isOpaquePointerTy())
+    return;
+
+  Function *CloneFn = Transform.getClonedFunction(F);
+  auto *OrigFnType = cast<llvm::FunctionType>(F->getValueType());
+  auto *CloneFnType = cast<llvm::FunctionType>(CloneFn->getValueType());
+  llvm::Type *RetTy = OrigFnType->getReturnType();
+
+  // Check for a return value changing from a pointer type to an integer type.
+  if (RetTy->isPointerTy() && !CloneFnType->getReturnType()->isPointerTy()) {
+    auto *Info = PTA.getValueTypeInfo(&I);
+    assert(Info && "Expected PointerTypeAnalyzer to collect type");
+    DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+    if (Ty && Ty->isPointerTy() && Ty->getPointerElementType()->isStructTy()) {
+      auto *StructTy = cast<DTransStructType>(Ty->getPointerElementType());
+      PointerType *AddrSpacePtr = Transform.getAddrSpacePtrForType(StructTy);
+      if (AddrSpacePtr)
+        RetTy = AddrSpacePtr;
+    }
+  }
+
+  // Check for a parameter changing from a pointer type to an integer type.
+  SmallVector<Type *, 16> SigTypes;
+  unsigned NumArgs = F->arg_size();
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+    llvm::Type *OrigArgTy = OrigFnType->getParamType(ArgIdx);
+    llvm::Type *CloneArgTy = CloneFnType->getParamType(ArgIdx);
+    llvm::Type *ArgTy = OrigArgTy;
+    if (OrigArgTy->isPointerTy() && !CloneArgTy->isPointerTy()) {
+      auto *Info = PTA.getValueTypeInfo(&I, ArgIdx);
+      assert(Info && "Expected PointerTypeAnalyzer to collect type");
+      DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+      assert(Ty && Ty->isPointerTy() &&
+             Ty->getPointerElementType()->isStructTy() &&
+             "Changing argument should be pointer to struct type");
+      auto *StructTy = cast<DTransStructType>(Ty->getPointerElementType());
+      PointerType *AddrSpacePtr = Transform.getAddrSpacePtrForType(StructTy);
+      if (AddrSpacePtr)
+        ArgTy = AddrSpacePtr;
+    }
+
+    SigTypes.push_back(ArgTy);
+  }
+
+  auto *NewFnType = FunctionType::get(RetTy, SigTypes, F->isVarArg());
+  FuncInfo.InstructionsToMutate.push_back({&I, NewFnType});
+
+  // Check for 'null' pointer values being passed. These need to be updated to
+  // allow them to be converted to an integer index value.
+  unsigned NumOps = I.getNumArgOperands();
+  for (unsigned ArgNum = 0; ArgNum < NumOps; ++ArgNum)
+    checkForConstantToConvert(&I, ArgNum);
+}
+
+// Check for a return instruction that returns an opaque 'null' pointer value of
+// the type being transformed.
+void AOSCollector::visitReturnInst(ReturnInst &I) {
+  Value *V = I.getReturnValue();
+  if (!V)
+    return;
+
+  if (!isa<ConstantPointerNull>(V))
+    return;
+
+  if (!V->getType()->isOpaquePointerTy())
+    return;
+
+  Function *F = I.getFunction();
+  if (!Transform.isFnClonedForIndex(F))
+    return;
+
+  // The PointerTypeAnalyzer does not currently collect a type for 'null'
+  // pointer values of ReturnInst, check it here. The PointerTypeAnalyzer could
+  // be expanded in the future to do this, if it is helpful.
+  auto *FnTy =
+      dyn_cast_or_null<DTransFunctionType>(MDReader.getDTransTypeFromMD(F));
+  assert(FnTy && "Must have type if function is being transformed");
+
+  DTransType *DTransRetTy = FnTy->getReturnType();
+  if (!DTransRetTy || !DTransRetTy->isPointerTy())
+    return;
+
+  auto *StructTy =
+      dyn_cast<DTransStructType>(DTransRetTy->getPointerElementType());
+  if (!StructTy)
+    return;
+
+  auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
+  if (Transform.isTypeToTransform(LLVMStructType)) {
+
+    PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+    if (TypeInAddrSpace)
+      FuncInfo.ConstantsToReplace.push_back({&I, 0, TypeInAddrSpace});
+  }
+}
+
+// Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
+// Instruction 'I' as a constant pointer of the type being transformed.
+void AOSCollector::checkForConstantToConvert(Instruction *I, uint32_t OpNum) {
+  auto *Val = I->getOperand(OpNum);
+
+  // TODO: Currently, this is only handling 'ptr null' types, but should
+  // probably be expanded to handle other constant values such as 'undef null'
+  if (!isa<ConstantPointerNull>((Val)))
+    return;
+
+  ValueTypeInfo *Info = PTA.getValueTypeInfo(I, OpNum);
+  if (!Info)
+    return;
+
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (!Ty || !Ty->isPointerTy())
+    return;
+
+  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  if (!StructTy)
+    return;
+
+  auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
+  if (Transform.isTypeToTransform(LLVMStructType)) {
+    PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+    if (TypeInAddrSpace)
+      FuncInfo.ConstantsToReplace.push_back({I, OpNum, TypeInAddrSpace});
+  }
+}
+
 bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
   unsigned PointerSizeInBits = DL.getPointerSizeInBits();
   qualifyDependentTypes(PointerSizeInBits);
@@ -740,6 +911,18 @@ void AOSToSOAOPTransformImpl::prepareModule(Module &M) {
       DTransAnnotator::createGlobalVariableString(
           M, "__intel_dtrans_aostosoa_filename", ""),
       0);
+
+  // Find the functions that the base class cloned due to a pointer return or
+  // parameter type being changed into an integer.
+  for (auto &KV : OrigFuncToCloneFuncMap) {
+    for (auto Arg : zip(KV.first->getValueType()->subtypes(),
+                        KV.second->getValueType()->subtypes())) {
+      if (std::get<0>(Arg)->isPointerTy() && !std::get<1>(Arg)->isPointerTy()) {
+        FnClonedForIndex.insert(KV.first);
+        break;
+      }
+    }
+  }
 }
 
 void AOSToSOAOPTransformImpl::processFunction(Function &F) {
@@ -750,6 +933,7 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     FuncInfo->ByteGEPsToConvert.clear();
     FuncInfo->DepGEPsToConvert.clear();
     FuncInfo->DepByteGEPsToConvert.clear();
+    FuncInfo->CallsToConvert.clear();
     FuncInfo->InstructionsToDelete.clear();
     FuncInfo->InstructionsToMutate.clear();
     FuncInfo->ConstantsToReplace.clear();
@@ -780,6 +964,9 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
         std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
         std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
 
+  for (auto *Call : FuncInfo->CallsToConvert)
+    updateCallAttributes(Call);
+
   // Convert 'ptr' objects to be 'ptr addrspace(n)' objects so the type
   // remapping will recognize them.
   for (auto KV : FuncInfo->InstructionsToMutate)
@@ -793,6 +980,35 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     uint32_t OpNum = std::get<1>(IOT);
     llvm::PointerType *Ty = std::get<2>(IOT);
     I->setOperand(OpNum, ConstantPointerNull::get(Ty));
+  }
+
+  // When opaque pointers are in use, we need to also mutate the types of any
+  // incoming opaque pointer arguments that are going to have their uses
+  // converted into integers.
+  if (Function *CloneFn = getClonedFunction(&F)) {
+    auto *OrigFnType = cast<llvm::FunctionType>(F.getValueType());
+    auto *CloneFnType = cast<llvm::FunctionType>(CloneFn->getValueType());
+    DTransFunctionType *DFnTy = dyn_cast<DTransFunctionType>(
+        DTInfo->getTypeMetadataReader().getDTransTypeFromMD(&F));
+    assert(DFnTy && "DTransType should exist for any function being cloned");
+    unsigned NumArgs = F.arg_size();
+    for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+      llvm::Type *OrigArgTy = OrigFnType->getParamType(ArgIdx);
+      llvm::Type *CloneArgTy = CloneFnType->getParamType(ArgIdx);
+      if (OrigArgTy->isPointerTy() && !CloneArgTy->isPointerTy()) {
+        DTransType *DTArgTy = DFnTy->getArgType(ArgIdx);
+        assert(DTArgTy->isPointerTy() &&
+               DTArgTy->getPointerElementType()->isStructTy() &&
+               "Only pointers to structures should be changed to int types");
+        if (OrigArgTy->isOpaquePointerTy()) {
+          auto *StructTy =
+              cast<DTransStructType>(DTArgTy->getPointerElementType());
+          llvm::Type *TypeInAddrSpace = getAddrSpacePtrForType(StructTy);
+          Argument *A = F.getArg(ArgIdx);
+          A->mutateType(TypeInAddrSpace);
+        }
+      }
+    }
   }
 
   for (auto *I : FuncInfo->InstructionsToDelete)
@@ -811,8 +1027,10 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
                     << "\n");
 
   Function *Func = &OrigFunc;
-  if (IsCloned)
+  if (IsCloned) {
     Func = cast<Function>(VMap[&OrigFunc]);
+    updateFunctionAttributes(OrigFunc, *Func);
+  }
 
   DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
                   dbgs() << "\nIR after type-remapping:\n"
@@ -919,6 +1137,14 @@ AOSToSOAOPTransformImpl::getDependentDTransType(llvm::StructType *OrigTy) {
     if (P.first == OrigTy)
       return P.second;
   return nullptr;
+}
+
+bool AOSToSOAOPTransformImpl::isFnClonedForIndex(Function *F) const {
+  return FnClonedForIndex.count(F) != 0;
+}
+
+Function *AOSToSOAOPTransformImpl::getClonedFunction(Function *F) const {
+  return OrigFuncToCloneFuncMap.lookup(F);
 }
 
 // Get an opaque pointer in the address space that will be used for
@@ -1304,6 +1530,113 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
                                                 size_t FieldNum) {
   // TODO: Handle byte-flattened GEPs on a dependent type.
   llvm_unreachable("Dependent type ByteGEP conversion not implemented yet");
+}
+
+void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
+  LLVM_DEBUG(dbgs() << "AOS-to-SOA: Checking call attributes for: " << Call
+                    << "\n");
+
+  Function *Callee = Call->getCalledFunction();
+  auto *OrigFnType = cast<llvm::FunctionType>(Callee->getValueType());
+  auto *CloneFnType =
+      cast<llvm::FunctionType>(getClonedFunction(Callee)->getValueType());
+  AttributeList Attrs = Call->getAttributes();
+  if (updateAttributeList(OrigFnType, CloneFnType, Attrs))
+    Call->setAttributes(Attrs);
+
+  LLVM_DEBUG(dbgs() << "AOD-to-SOA: After call update: " << Call << "\n");
+}
+
+// Remove any attributes on the function return type or parameters that are not
+// compatible with changes made to convert a pointer to a structure type into an
+// integer index.
+void AOSToSOAOPTransformImpl::updateFunctionAttributes(Function &OrigFn,
+                                                       Function &CloneFn) {
+  AttributeList Attrs = CloneFn.getAttributes();
+  auto *OrigFnType = cast<llvm::FunctionType>(OrigFn.getValueType());
+  auto *CloneFnType = cast<llvm::FunctionType>(CloneFn.getValueType());
+  if (updateAttributeList(OrigFnType, CloneFnType, Attrs))
+    CloneFn.setAttributes(Attrs);
+}
+
+// This handles updating attributes on a function definition or call site.
+// 'Attrs' holds the attributes currently on the function/call site, and will be
+// updated to remove attributes that are no longer compatible with the function
+// signature. Returns 'true' if the 'Attrs' is changed.
+bool AOSToSOAOPTransformImpl::updateAttributeList(
+    llvm::FunctionType *OrigFnType, llvm::FunctionType *CloneFnType,
+    AttributeList &Attrs) {
+  LLVMContext &Ctx = CloneFnType->getContext();
+  bool Changed = false;
+
+  // We also want to remove the 'intel_dtrans_func_index' on the function
+  // signatures for the integer index value because a pointer is no longer
+  // passed.
+  //
+  // TODO: The format of the metadata that described a function type was such
+  // that this value represented an index into the metadata. For now, we are
+  // not changing the metadata, so that we don't need to change the index on
+  // subsequent parameters.
+  //
+  // For example, we could started with:
+  //   define intel_dtrans_func_index(1) p0 @bitop(
+  //      p0 intel_dtrans_func_index(2) %0,
+  //      i32 %1
+  //      p0 intel_dtrans_func_index(3) %2) !intel.dtrans.func.type !3
+  //   !3 = distinct !{!1, !1, !2}               ; list of type encodings.
+  //
+  // If we remove the first two intel_dtrans_func_index instances, we are left
+  // with:
+  //   define p0 @bitop(
+  //      i32 %0,
+  //      i32 %1
+  //      p0 intel_dtrans_func_index(3) %2) !intel.dtrans.func.type !3
+  //   !3 = distinct !{!1, !1, !2}               ; list of type encodings.
+  //
+  // We could update the metadata to be:
+  //   !3 = distinct !{!2}
+  // But doing so would mean that we need to change the index value used on the
+  // remaining intel_dtrans_func_index attribute, so for now we will leave the
+  // extra unreferenced elements in the metadata.
+  //
+
+  llvm::Type *OrigRetTy = OrigFnType->getReturnType();
+  llvm::Type *CloneRetTy = CloneFnType->getReturnType();
+  if (OrigRetTy->isPointerTy() && !CloneRetTy->isPointerTy()) {
+    AttributeSet RetAttrs = Attrs.getAttributes(AttributeList::ReturnIndex);
+    if (AttrBuilder(RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+      Attrs = Attrs.removeAttributes(Ctx, AttributeList::ReturnIndex,
+                                     IndexInfo.IncompatibleTypeAttrs);
+      Changed = true;
+    }
+
+    // Remove the DTrans pointer type information attribute, if it is present.
+    if (TypeMetadataReader::removeDTransFuncIndexAttribute(
+            Ctx, AttributeList::ReturnIndex, Attrs))
+      Changed = true;
+  }
+
+  unsigned NumArgs = OrigFnType->getNumParams();
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+    llvm::Type *OrigArgTy = OrigFnType->getParamType(ArgIdx);
+    llvm::Type *CloneArgTy = CloneFnType->getParamType(ArgIdx);
+    if (OrigArgTy->isPointerTy() && !CloneArgTy->isPointerTy()) {
+      AttributeSet ParamAttrs =
+          Attrs.getAttributes(ArgIdx + AttributeList::FirstArgIndex);
+      if (AttrBuilder(ParamAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
+        Attrs =
+            Attrs.removeAttributes(Ctx, ArgIdx + AttributeList::FirstArgIndex,
+                                   IndexInfo.IncompatibleTypeAttrs);
+        Changed = true;
+      }
+
+      if (TypeMetadataReader::removeDTransFuncIndexAttribute(
+              Ctx, ArgIdx + AttributeList::FirstArgIndex, Attrs))
+        Changed = true;
+    }
+  }
+
+  return Changed;
 }
 
 // Create an intermediate cast instruction to cast from a pointer to a
