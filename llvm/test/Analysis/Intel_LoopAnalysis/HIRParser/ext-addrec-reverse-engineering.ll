@@ -23,7 +23,7 @@
 ; CHECK: |   |      %g_t.promoted = (@g_t)[0];
 ; CHECK: |   |      %mul27156 = %g_t.promoted;
 ; CHECK: |   |
-; CHECK: |   |      + DO i3 = 0, trunc.i64.i32((((-5 + (-1 * zext.i32.i64(%v_pl.0157)) + (-1 * umin(1, (-5 + (-1 * zext.i32.i64(%v_pl.0157)) + %indvars.iv167))) + %indvars.iv167) /u 6) + umin(1, (-5 + (-1 * zext.i32.i64(%v_pl.0157)) + %indvars.iv167)))), 1   <DO_LOOP>  <MAX_TC_EST = 6>
+; CHECK: |   |      + DO i3 = 0, trunc.i64.i32((((-1 * zext.i32.i64(%v_pl.0157)) + %indvars.iv167) /u 6)), 1   <DO_LOOP>
 ; CHECK: |   |      |   %mul27156 = %mul27156  *  i1 + 1;
 ; CHECK: |   |      + END LOOP
 ; CHECK: |   |
