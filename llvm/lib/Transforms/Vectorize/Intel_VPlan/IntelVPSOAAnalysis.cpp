@@ -289,29 +289,33 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
     return AccessProfitabilityInfo[I] = IsProfitable;
   }
 
-  // We should have a GEP at this point. The safety-analysis rules out other
-  // instructions which were deemed unsafe for SOA-layout. This includes unsafe
-  // aliasing instuctions or function-calls. lifetime.start/end and
+  // We should have a GEP/Subscript at this point. The safety-analysis rules out
+  // other instructions which were deemed unsafe for SOA-layout. This includes
+  // unsafe aliasing instuctions or function-calls. lifetime.start/end and
   // invariant.start/end intrinsics should not appear here.
-  const VPGEPInstruction *GEP = dyn_cast<VPGEPInstruction>(I);
-  if (!GEP) {
+
+  VPValue *PtrOp = nullptr;
+  if (auto *MemRef = dyn_cast<VPGEPInstruction>(I))
+    PtrOp = MemRef->getPointerOperand();
+  else if (auto *MemRef = dyn_cast<VPSubscriptInst>(I))
+    PtrOp = MemRef->getPointerOperand();
+  else {
     // The assert is triggered in DEBUG compiler and we return false in the
     // release compiler.
-    assert(false && "Expect a GEP instruction at this point in the code.");
+    assert(false &&
+           "Expect a GEP/Subscript instruction at this point in the code.");
     return false;
   }
 
-  const VPValue *PtrOp = GEP->getPointerOperand();
-
-  if (isa<VPGEPInstruction>(PtrOp))
-    if (!isProfitableForSOA(cast<VPInstruction>(PtrOp)))
-      return AccessProfitabilityInfo[I] = false;
+  if ((isa<VPGEPInstruction>(PtrOp) || isa<VPSubscriptInst>(PtrOp)) &&
+      !isProfitableForSOA(cast<VPInstruction>(PtrOp)))
+    return AccessProfitabilityInfo[I] = false;
 
   auto *DA = Plan.getVPlanDA();
   // Uniform-access.
   // If all the indices are uniform, then the access under SOA-layout would be
   // unit-stride.
-  if (all_of(make_range(GEP->op_begin() + 1, GEP->op_end()),
+  if (all_of(make_range(I->op_begin() + 1, I->op_end()),
              [DA](const VPValue *V) { return !DA->isDivergent(*V); }))
     return AccessProfitabilityInfo[I] = true;
 

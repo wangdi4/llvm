@@ -57,6 +57,7 @@ extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
+extern bool EnableSOAAnalysisHIR;
 extern bool EnableNewCFGMerge;
 extern unsigned DefaultTripCount;
 

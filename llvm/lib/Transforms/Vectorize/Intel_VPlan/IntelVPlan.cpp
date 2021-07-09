@@ -871,8 +871,6 @@ void VPlanVector::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
-  assert(!isSOAAnalysisEnabled() &&
-         "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
 
