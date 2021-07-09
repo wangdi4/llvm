@@ -9898,6 +9898,8 @@ class HorizontalReduction {
   /// The type of reduction operation.
   RecurKind RdxKind;
 
+  const unsigned INVALID_OPERAND_INDEX = std::numeric_limits<unsigned>::max();
+
   static bool isCmpSelMinMax(Instruction *I) {
     return match(I, m_Select(m_Cmp(), m_Value(), m_Value())) &&
            RecurrenceDescriptor::isMinMaxRecurrenceKind(getRdxKind(I));
@@ -9932,7 +9934,7 @@ class HorizontalReduction {
       // in this case.
       // Do not perform analysis of remaining operands of ParentStackElem.first
       // instruction, this whole instruction is an extra argument.
-      ParentStackElem.second = getNumberOfOperands(ParentStackElem.first);
+      ParentStackElem.second = INVALID_OPERAND_INDEX;
     } else {
       // We ran into something like:
       // ParentStackElem.first += ... + ExtraArg + ...
@@ -10246,7 +10248,7 @@ public:
       bool IsReducedValue = TreeRdxKind != RdxKind;
 
       // Postorder visit.
-      if (IsReducedValue || EdgeToVisit == getNumberOfOperands(TreeN)) {
+      if (IsReducedValue || EdgeToVisit >= getNumberOfOperands(TreeN)) {
         if (IsReducedValue)
           ReducedVals.push_back(TreeN);
         else {
