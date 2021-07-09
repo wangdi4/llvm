@@ -130,6 +130,16 @@ add_spv_file(
   ${binary_dir}/libomp-fallback-cassert.spv
   DEPENDS wrapper.h device.h
   )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cstring.cpp
+  ${binary_dir}/libomp-fallback-cstring${objext}
+  DEPENDS wrapper.h device.h
+  )
+add_spv_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cstring.cpp
+  ${binary_dir}/libomp-fallback-cstring.spv
+  DEPENDS wrapper.h device.h
+  )
 
 # Standard math.
 add_obj_file(
