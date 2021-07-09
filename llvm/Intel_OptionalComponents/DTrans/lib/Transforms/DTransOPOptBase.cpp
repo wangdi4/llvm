@@ -413,6 +413,10 @@ bool DTransOPOptBase::run(Module &M) {
   // initializers of the variables that refer to a function address.
   createCloneFunctionDeclarations(M);
 
+  // Let the derived class do any work needed before variable and IR
+  // transformations begin.
+  prepareModule(M);
+
   // Remap global variables that have type changes to their new types.
   convertGlobalVariables(M, Mapper);
 

@@ -60,6 +60,7 @@
 #include "Intel_DTrans/Transforms/AOSToSOAOP.h"
 
 #include "Intel_DTrans/Analysis/DTrans.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
@@ -70,6 +71,7 @@
 
 using namespace llvm;
 using namespace dtransOP;
+using dtrans::DTransAnnotator;
 using dtrans::StructInfo;
 
 #define DEBUG_TYPE "dtrans-aostosoaop"
@@ -137,6 +139,17 @@ struct SOATypeInfoTy {
   llvm::StructType *SOAStructType = nullptr;
   DTransStructType *DTransSOAStructType = nullptr;
 
+  // The global variable of the SOAStructType that will hold the base addresses
+  // of the arrays.
+  GlobalVariable *SOAVar = nullptr;
+
+  // For transformations downstream of AOS-to-SOA, ptr.annotation intrinsics are
+  // inserted to represent where the Index value and the SOA variable allocation
+  // occur. These Value* objects are constant string GEPs that are used as
+  // arguments when those intrinsic calls are inserted.
+  Value *IndexAnnotationGEP = nullptr;
+  Value *AllocAnnotationGEP = nullptr;
+
   // A vector of types that the field members point to.
   //
   // For example:
@@ -170,6 +183,7 @@ public:
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
 
+  void prepareModule(Module &M) override;
   void processFunction(Function &F) override;
   void postprocessFunction(Function &OrigFunc, bool isCloned) override;
 
@@ -196,6 +210,10 @@ private: // data
   // type being transformed. When pointer shrinking is enabled, the size of
   // these structures and byte offsets of fields will be modified.
   SmallPtrSet<llvm::StructType *, 4> DepTypesToTransform;
+
+  // Value to use for the 3rd string argument of the ptr.annotation intrinsic.
+  // This argument is used to represent a filename, and will be ignored.
+  Value *AnnotationFilenameGEP = nullptr;
 
   // Information about the index type that will replace the pointer to the
   // structure being transformed.
@@ -341,6 +359,71 @@ void AOSToSOAOPTransformImpl::populateTypes(Module &M) {
     LLVM_DEBUG(dbgs() << "AOS-to-SOA: New structure body: " << *NewLLVMTy
                       << "\nDTrans structure body:" << *NewDTransTy << "\n");
   }
+}
+
+// Create a global variable for each of the transformed types, and variables
+// needed for the ptr.annotation calls that will be inserted during the
+// transformation.
+void AOSToSOAOPTransformImpl::prepareModule(Module &M) {
+  unsigned Count = 0;
+  for (auto &SOAType : SOATypes) {
+    StructType *StType = SOAType.OrigStructType;
+    StructType *SOAVarTy = SOAType.SOAStructType;
+
+    SOAType.SOAVar = new GlobalVariable(
+        M, SOAVarTy, false, GlobalValue::InternalLinkage,
+        /*init=*/ConstantAggregateZero::get(SOAVarTy),
+        "__soa_" + StType->getName(),
+        /*insertbefore=*/nullptr, GlobalValue::NotThreadLocal,
+        /*AddressSpace=*/0, /*isExternallyInitialized=*/false);
+    LLVM_DEBUG(dbgs() << "AOS-to-SOA: SOAVar: " << *SOAType.SOAVar
+                      << "\n");
+
+    std::string AllocationStr("{dtrans} AOS-to-SOA allocation");
+    std::string IndexStr("{dtrans} AOS-to-SOA index");
+    std::string ExtensionName = "";
+    std::string CountStr(std::to_string(Count));
+
+    // We normally only expect a single structure to be transformed,
+    // so don't append a unique extension on the first set of variable
+    // names.
+    if (Count != 0)
+      ExtensionName = CountStr;
+    Count++;
+
+    // Create the variables and a constant Value object that will be used in
+    // calls to llvm.ptr.annotation intrinsics to mark the memory block
+    // allocation and load/store of the index values that replace the pointers.
+    // Separate strings will be created for each structure transformed, where
+    // the 'id' element within the string can be used to pair the allocation
+    // annotation with the index annotations.
+    //
+    // This will create a Value object of the form:
+    // i8 *getelementptr inbounds([38 x i8],
+    //       [38 x i8]* @__intel_dtrans_aostosoa_alloc, i32 0, i32 0)
+    SOAType.AllocAnnotationGEP = DTransAnnotator::createConstantStringGEP(
+        DTransAnnotator::getAnnotationVariable(
+            M, DTransAnnotator::DPA_AOSToSOAAllocation,
+            AllocationStr + " {id:" + CountStr + "}", ExtensionName),
+        0);
+
+    // Create the object for the index annotations:
+    // i8* getelementptr inbounds ([33 x i8],
+    //       [33 x i8]* @__intel_dtrans_aostosoa_index
+    SOAType.IndexAnnotationGEP = DTransAnnotator::createConstantStringGEP(
+        DTransAnnotator::getAnnotationVariable(
+            M, DTransAnnotator::DPA_AOSToSOAIndex,
+            IndexStr + " {id:" + CountStr + "}", ExtensionName),
+        0);
+  }
+
+  // Create an empty string for the filename operand of the llvm.ptr.annotation
+  // call. This is a generic string, and not specific to the type being
+  // transformed.
+  AnnotationFilenameGEP = DTransAnnotator::createConstantStringGEP(
+      DTransAnnotator::createGlobalVariableString(
+          M, "__intel_dtrans_aostosoa_filename", ""),
+      0);
 }
 
 void AOSToSOAOPTransformImpl::processFunction(Function &F) {
