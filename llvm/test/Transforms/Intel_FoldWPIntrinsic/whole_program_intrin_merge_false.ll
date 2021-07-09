@@ -3,7 +3,7 @@
 ; llvm.intel.wholeprogramsafe should be removed and the wrapper should be removed.
 
 ; RUN: opt < %s -intel-fold-wp-intrinsic -simplifycfg -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic),function(simplify-cfg)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-fold-wp-intrinsic),function(simplifycfg)' -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 
