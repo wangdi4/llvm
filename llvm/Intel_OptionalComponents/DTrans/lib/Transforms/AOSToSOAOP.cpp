@@ -256,6 +256,7 @@ public:
   void visitReturnInst(ReturnInst &I);
   void visitPHINode(PHINode &I);
   void visitSelectInst(SelectInst &I);
+  void visitICmpInst(ICmpInst &I);
   // TODO: visit other instruction types
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
@@ -773,6 +774,36 @@ void AOSCollector::visitSelectInst(SelectInst &I) {
     FuncInfo.ConstantsToReplace.push_back({&I, 1, TypeInAddrSpace});
   if (isa<ConstantPointerNull>(I.getFalseValue()))
     FuncInfo.ConstantsToReplace.push_back({&I, 2, TypeInAddrSpace});
+}
+
+// If one of the operands of the 'icmp' is a pointer to a type being
+// transformed, and the other is a 'null' pointer, then we need to mark the
+// 'null' pointer as needing to be converted to the integer index 0.
+void AOSCollector::visitICmpInst(ICmpInst &I) {
+  Value *Op0 = I.getOperand(0);
+  Value *Op1 = I.getOperand(1);
+  bool IsNull0 = isa<ConstantPointerNull>(Op0);
+  bool IsNull1 = isa<ConstantPointerNull>(Op1);
+  if ((!IsNull0 && !IsNull1) || (IsNull0 && IsNull1))
+    return;
+
+  Value *NullOp = IsNull0 ? Op0 : Op1;
+  if (!NullOp->getType()->isOpaquePointerTy())
+    return;
+
+  Value *NonNullOp = IsNull0 ? Op1 : Op0;
+  DTransStructType *StructTy = getDTransStructTypeforValue(NonNullOp);
+  if (!StructTy)
+    return;
+
+  // If the structure type is being transformed, there will be an address space
+  // to use for the opaque pointer.
+  PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+  if (!TypeInAddrSpace)
+    return;
+
+  uint32_t NullOpIdx = IsNull0 ? 0 : 1;
+  FuncInfo.ConstantsToReplace.push_back({&I, NullOpIdx, TypeInAddrSpace});
 }
 
 // Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
