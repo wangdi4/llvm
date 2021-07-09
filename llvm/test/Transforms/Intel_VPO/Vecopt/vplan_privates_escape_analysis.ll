@@ -4,6 +4,10 @@
 ; RUN: opt -vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 ; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
+; HIR-run.
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-soa-hir -vplan-dump-soa-info\
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
+
 ; REQUIRES:asserts
 
 ; CHECK-DAG: SOASafe = arr.priv

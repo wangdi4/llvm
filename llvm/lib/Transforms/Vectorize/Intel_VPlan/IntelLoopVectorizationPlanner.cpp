@@ -158,6 +158,13 @@ static cl::opt<bool, true>
     EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
                          cl::location(EnableSOAAnalysis),
                          cl::desc("Enable VPlan SOAAnalysis."));
+// Flag to enable SOA-analysis for HIR.
+// TODO: Ideally, this should be in the IntelVPlanDriver file. In the future,
+// consider moving it there.
+static cl::opt<bool, true>
+    EnableSOAAnalysisHIROpt("vplan-enable-soa-hir", cl::Hidden,
+                            cl::location(EnableSOAAnalysisHIR),
+                            cl::desc("Enable VPlan SOAAnalysis for HIR."));
 
 static cl::opt<bool>
     PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
@@ -229,6 +236,7 @@ bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
+bool EnableSOAAnalysisHIR = false;
 bool EnableNewCFGMerge = false;
 } // namespace vpo
 } // namespace llvm
