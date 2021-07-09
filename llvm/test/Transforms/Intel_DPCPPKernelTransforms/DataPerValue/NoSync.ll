@@ -1,5 +1,5 @@
-; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s -S -o - | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis %s -S -o - | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -39,3 +39,7 @@ define void @main(i32 %x) nounwind {
 ; CHECK: +main : [0]
 ; CHECK: entry(0) : (0)
 ; CHECK: DONE
+
+!sycl.kernels = !{!0}
+
+!0 = !{void (i32)* @main}

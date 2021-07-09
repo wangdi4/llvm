@@ -8181,30 +8181,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
 
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
-  // Try to find average and maximum trip counts for the loop. If loop has
-  // static or dynamic schedule and known chunk then both average and maximum
-  // trip counts will be equal to the chunk value.
-  Optional<APInt> MaxTC;
-#if INTEL_CUSTOMIZATION
-  Optional<APInt> AvgTC;
-#endif // INTEL_CUSTOMIZATION
-  if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
-                               SchedKind == WRNScheduleOrderedStatic ||
-                               SchedKind == WRNScheduleDynamic ||
-                               SchedKind == WRNScheduleOrderedDynamic))
-    if (auto *Chunk =
-            dyn_cast_or_null<ConstantInt>(W->getSchedule().getChunkExpr()))
-      if (!Chunk->isZero() && !Chunk->isOne()) {
-        MaxTC = Chunk->getValue();
-#if INTEL_CUSTOMIZATION
-        AvgTC = Chunk->getValue();
-#endif // INTEL_CUSTOMIZATION
-      }
-
-  // Try to find loop's upper bound to get maximum trip count if it is not known
-  // yet.
+  // Try to find loop's upper bound to get maximum trip count.
   // TODO: add support for collapsed loops with more than one normalized UB.
-  if (!MaxTC && W->getWRNLoopInfo().getNormUBSize() == 1) {
+  Optional<APInt> MaxIV;
+  if (W->getWRNLoopInfo().getNormUBSize() == 1) {
     if (auto *UB = dyn_cast<AllocaInst>(W->getWRNLoopInfo().getNormUB(0))) {
       // Walk UB uses trying to find single store that initializes UB.
       StoreInst *SingleStore = nullptr;
@@ -8234,11 +8214,30 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       // constant integer then trip count is known.
       if (SingleStore)
         if (auto *CI = dyn_cast<ConstantInt>(SingleStore->getValueOperand()))
-          MaxTC = CI->getValue() + 1u;
+          MaxIV = CI->getValue() + 1u;
     }
   }
 
 #if INTEL_CUSTOMIZATION
+  // Try to find average and maximum trip counts for the loop. If loop has
+  // static or dynamic schedule and known chunk then both average and maximum
+  // trip counts will be equal to the chunk value.
+  Optional<APInt> MaxTC, AvgTC;
+  if (W->canHaveSchedule() && (SchedKind == WRNScheduleStatic ||
+                               SchedKind == WRNScheduleOrderedStatic ||
+                               SchedKind == WRNScheduleDynamic ||
+                               SchedKind == WRNScheduleOrderedDynamic))
+    if (auto *Chunk =
+            dyn_cast_or_null<ConstantInt>(W->getSchedule().getChunkExpr()))
+      if (!Chunk->isZero() && !Chunk->isOne()) {
+        MaxTC = Chunk->getValue();
+        AvgTC = Chunk->getValue();
+      }
+
+  // If UB is known can use it as a maximum TC.
+  if (!MaxTC && MaxIV)
+    MaxTC = MaxIV;
+
   if (MaxTC &&
       !findStringMetadataForLoop(L, "llvm.loop.intel.loopcount_maximum"))
     addStringMetadataToLoop(L, "llvm.loop.intel.loopcount_maximum",
@@ -8528,11 +8527,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(
       PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4), "ub.new");
 
   // If IV is signed add range metadata indicating that LB/UB are in positive
-  // range [0, MaxValue), where MaxValue is the original loop's TC+1 if loop
+  // range [0, MaxValue), where MaxValue is the original loop's UB+1 if loop
   // bounds are known, or the maximum signed value of the IV's type otherwise.
   if (!IsUnsigned) {
     APInt MaxValue =
-        MaxTC ? *MaxTC + 1u : APInt::getSignedMaxValue(IndValTy->getBitWidth());
+        MaxIV ? *MaxIV + 1u : APInt::getSignedMaxValue(IndValTy->getBitWidth());
     MDNode *RNode = MDBuilder(C).createRange(
         ConstantInt::get(IndValTy, 0),
         ConstantInt::get(IndValTy, MaxValue.getSExtValue()));
