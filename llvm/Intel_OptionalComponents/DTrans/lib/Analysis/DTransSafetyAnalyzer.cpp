@@ -4441,6 +4441,12 @@ void DTransSafetyInfo::analyzeModule(
   PtrAnalyzer->run(M);
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo: PtrTypeAnalyzer complete\n");
 
+  if (PtrAnalyzer->getUnsupportedAddressSpaceSeen()) {
+    LLVM_DEBUG(
+        dbgs() << "  DTransSafetyInfo: Unsupported address space seen\n");
+    return;
+  }
+
   dtrans::DTransAllocAnalyzer DTAA(GetTLI, M);
 
   // TODO: Enable the following code to check for user allocation/free wrapper
@@ -4452,6 +4458,7 @@ void DTransSafetyInfo::analyzeModule(
                                   *MDReader, DTAA, Log);
   Visitor.visit(M);
   PostProcessFieldValueInfo();
+  DTransSafetyAnalysisRan = true;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintSafetyAnalyzerIR) {

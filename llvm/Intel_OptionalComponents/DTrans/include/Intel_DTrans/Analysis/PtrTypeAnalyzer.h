@@ -486,6 +486,10 @@ public:
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
 
+  // Return 'true' if pointers were seen that are not part of the supported
+  // address space for DTrans.
+  bool getUnsupportedAddressSpaceSeen() const;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);
   void printDominantAggregateUsageType(raw_ostream &OS, ValueTypeInfo &Info);
