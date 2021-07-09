@@ -217,7 +217,7 @@ struct PerFunctionInfo {
   // Pointer subtracts followed by division of the structure size that need to
   // be transformed.
   SmallVector<std::pair<BinaryOperator *, DTransStructType *>, 4>
-    BinOpsToConvert;
+      BinOpsToConvert;
 
   // GetElementPtr instructions that access fields that are of the type being
   // transformed from a dependent type.
@@ -235,7 +235,7 @@ struct PerFunctionInfo {
   // Pointer subtracts followed by division on dependent types that have their
   // size changed.
   SmallVector<std::pair<BinaryOperator *, DTransStructType *>, 4>
-    DepBinOpsToConvert;
+      DepBinOpsToConvert;
 
   // A list of pointer conversion instructions inserted as part of the
   // processFunction routine (pointer to int, int to pointer, or pointer of
@@ -962,7 +962,7 @@ void AOSCollector::visitPtrToIntInst(PtrToIntInst &I) {
     return;
 
   if (Transform.isTypeToTransform(StructTy->getLLVMType()))
-    FuncInfo.PtrToIntToConvert.push_back({ &I, StructTy });
+    FuncInfo.PtrToIntToConvert.push_back({&I, StructTy});
 }
 
 void AOSCollector::visitBinaryOperator(BinaryOperator &I) {
@@ -1840,8 +1840,12 @@ void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
 void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
                                                 DTransStructType *OrigStructTy,
                                                 size_t FieldNum) {
-  // TODO: Handle byte-flattened GEPs on a dependent type.
-  llvm_unreachable("Dependent type ByteGEP conversion not implemented yet");
+  llvm::StructType *ReplTy = getDependentTypeReplacement(
+      cast<llvm::StructType>(OrigStructTy->getLLVMType()));
+  const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+  uint64_t NewOffset = SL->getElementOffset(FieldNum);
+  GEP->setOperand(1,
+                  ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
 }
 
 void AOSToSOAOPTransformImpl::convertBC(BitCastInst *BC,
@@ -1894,20 +1898,20 @@ void AOSToSOAOPTransformImpl::convertPtrToInt(PtrToIntInst *I,
   //   ptrtoint i32 to i32
   // which can be removed during post processing.
   CastInst *NewPTI = CastInst::CreateBitOrPointerCast(
-    I->getPointerOperand(), IndexInfo.LLVMType, "", I);
+      I->getPointerOperand(), IndexInfo.LLVMType, "", I);
   auto *ZExt = CastInst::Create(CastInst::ZExt, NewPTI, I->getType(), "", I);
   I->replaceAllUsesWith(ZExt);
   ZExt->takeName(I);
 
   LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPTI << "\n  " << *ZExt
-    << "\n");
+                    << "\n");
 
   FuncInfo->InstructionsToDelete.insert(I);
   FuncInfo->PtrConverts.push_back(NewPTI);
 }
 
 void AOSToSOAOPTransformImpl::convertBinaryOperator(
-  BinaryOperator *I, DTransStructType *StructTy) {
+    BinaryOperator *I, DTransStructType *StructTy) {
   // The analysis phase has resolved that the use of this subtract instruction
   // is used to divide by the structure size or some multiple of it.
   // Because the pointer to the structure has been converted to be an
@@ -2316,21 +2320,33 @@ void AOSToSOAOPTransformImpl::convertFreeCall(FreeCallInfo *CInfo,
 
 void AOSToSOAOPTransformImpl::convertDepAllocCall(AllocCallInfo *AInfo,
                                                   StructInfo *StInfo) {
-  // TODO: Handle resizing allocations on a dependent type.
-  llvm_unreachable("Dependent type alloc conversion not implemented yet");
+  llvm::StructType *OrigTy = cast<llvm::StructType>(StInfo->getLLVMType());
+  llvm::StructType *ReplTy = getDependentTypeReplacement(OrigTy);
+  const TargetLibraryInfo &TLI =
+      GetTLI(*AInfo->getInstruction()->getFunction());
+  dtrans::updateCallSizeOperand(AInfo->getInstruction(), AInfo, OrigTy, ReplTy,
+                                TLI);
 }
 
 void AOSToSOAOPTransformImpl::convertDepMemfuncCall(MemfuncCallInfo *CInfo,
                                                     StructInfo *StInfo) {
-  // TODO: Handle resizing memfuncs on a dependent type.
-  llvm_unreachable("Dependent type memfunc conversion not implemented yet");
+  assert(CInfo->getIsCompleteAggregate(0) &&
+         "Partial memfuncs currently not supported for dependent structure "
+         "types");
+
+  llvm::StructType *OrigTy = cast<llvm::StructType>(StInfo->getLLVMType());
+  llvm::StructType *ReplTy = getDependentTypeReplacement(OrigTy);
+  const TargetLibraryInfo &TLI =
+      GetTLI(*CInfo->getInstruction()->getFunction());
+  dtrans::updateCallSizeOperand(CInfo->getInstruction(), CInfo, OrigTy, ReplTy,
+                                TLI);
 }
 
 void AOSToSOAOPTransformImpl::convertDepBinaryOperator(
-  BinaryOperator *I, DTransStructType *StructTy) {
-  // TODO: Handle BinaryOperators on a dependent type.
-  llvm_unreachable(
-    "Dependent type BinaryOperator conversion not implemented yet");
+    BinaryOperator *I, DTransStructType *StructTy) {
+  auto *OrigLLVMTy = dyn_cast<llvm::StructType>(StructTy->getLLVMType());
+  llvm::Type *ReplTy = getDependentTypeReplacement(OrigLLVMTy);
+  dtrans::updatePtrSubDivUserSizeOperand(I, OrigLLVMTy, ReplTy, DL);
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
