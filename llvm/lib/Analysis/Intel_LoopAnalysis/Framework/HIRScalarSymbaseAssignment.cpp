@@ -418,7 +418,12 @@ void HIRScalarSymbaseAssignment::populateLoopSCCPhiLiveouts(
   assert(Lp && "SCC phi does not have parent loop!");
 
   HLLoop *DefLoop = LF.findHLLoop(Lp);
-  assert(DefLoop && "SCC phi does not have parent HLLoop!");
+
+  // The loop may have been optimized away during redundant HLIf elimination in
+  // HIRCleanup phase.
+  if (!DefLoop) {
+    return;
+  }
 
   if (Phi->getNumIncomingValues() == 1) {
 
