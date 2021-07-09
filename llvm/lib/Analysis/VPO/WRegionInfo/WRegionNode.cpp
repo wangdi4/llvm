@@ -1572,6 +1572,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       C.add(V);
       if (ClauseInfo.getIsPointerToPointer())
         C.back()->setIsPointerToPointer(true);
+#if INTEL_CUSTOMIZATION
+      if (ClauseInfo.getIsF90DopeVector())
+        C.back()->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
     }
     break;
   }

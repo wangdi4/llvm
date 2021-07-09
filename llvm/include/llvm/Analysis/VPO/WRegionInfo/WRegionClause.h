@@ -1393,14 +1393,42 @@ class NontemporalItem
   private:
     VAR Base;                // pointer or base of array
     bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
+#if INTEL_CUSTOMIZATION
+    bool IsF90DopeVector;    // true for a F90 dope vector
+#endif // INTEL_CUSTOMIZATION
 
   public:
-    NontemporalItem(VAR V = nullptr) : Base(V), IsPointerToPointer(false) {}
+    NontemporalItem(VAR V = nullptr)
+#if INTEL_CUSTOMIZATION
+        : Base(V), IsPointerToPointer(false), IsF90DopeVector(false) {}
+#else // INTEL_CUSTOMIZATION
+        : Base(V), IsPointerToPointer(false) {}
+#endif // INTEL_CUSTOMIZATION
+
     VAR getOrig() const { return Base; }
-    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    void setIsPointerToPointer(bool Flag) {
+#if INTEL_CUSTOMIZATION
+      assert((!Flag || !IsF90DopeVector) &&
+             "Unexpected: item has PTR_TO_PTR modifier with F90_DV.");
+#endif // INTEL_CUSTOMIZATION
+      IsPointerToPointer = Flag;
+    }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
+#if INTEL_CUSTOMIZATION
+    void setIsF90DopeVector(bool Flag) {
+      assert((!Flag || !IsPointerToPointer) &&
+             "Unexpected: item has F90_DV modifier with PTR_TO_PTR.");
+      IsF90DopeVector = Flag;
+    }
+    bool getIsF90DopeVector() const { return IsF90DopeVector; }
+#endif // INTEL_CUSTOMIZATION
+
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector())
+        OS << "F90_DV";
+#endif // INTEL_CUSTOMIZATION
       if (getIsPointerToPointer())
         OS << "PTR_TO_PTR";
       OS << "(";
