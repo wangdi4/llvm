@@ -29,7 +29,7 @@ protected:
     std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
 
     VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin(),
-                                  *Plan.get()->getLLVMContext(), DL.get());
+                                  *Plan->getLLVMContext(), DL.get());
     VPlanValueTrackingLLVM VT(VPSE, *DL, &*AC, &*DT);
 
     VPLoadStoreInst *Store = nullptr;
