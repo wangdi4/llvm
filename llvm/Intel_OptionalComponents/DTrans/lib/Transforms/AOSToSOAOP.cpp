@@ -222,6 +222,13 @@ struct PerFunctionInfo {
   // specific address space will be recognized as needing to be converted.
   SmallVector<std::pair<Instruction *, Type *>, 32> InstructionsToMutate;
 
+  // Set of constant null value pointers that need to have their type changed.
+  // In this case, we need to store the instruction and the operand number
+  // because with opaque pointers all 'ptr null' objects in the function will
+  // refer to the same Value object.
+  SmallVector<std::tuple<Instruction *, uint32_t, llvm::PointerType *>, 4>
+      ConstantsToReplace;
+
   // List of instructions to be annotated as being pointers to the index value
   // for subsequent DTrans passes. The structure type field stores the original
   // type of structure, not the type being created by this transformation.
@@ -239,6 +246,7 @@ public:
 
   void visitGetElementPtrInst(GetElementPtrInst &GEP);
   void visitLoadInst(LoadInst &I);
+  void visitStoreInst(StoreInst &I);
   // TODO: visit other instruction types
 
 private:
@@ -258,10 +266,12 @@ public:
                           AOSToSOAOPPass::GetTLIFuncType GetTLI,
                           SmallVectorImpl<dtrans::StructInfo *> &Types)
       : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePtrs, DepTypePrefix), DL(DL),
-        GetTLI(GetTLI) {
+        GetTLI(GetTLI), Materializer(*getTypeRemapper()) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
     PtrSizeIntLLVMType = Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
   }
+
+  ValueMaterializer *getMaterializer() override { return &Materializer; }
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -313,8 +323,49 @@ private: // methods
                                Instruction *InsertBefore);
 
 private: // data
+  // Class to handle changing the type of a 'null' Value object during this
+  // transformation. This is needed for creating the integer 0 that will be used
+  // as the index on the transformed type to represent 'null' pointer.
+  //
+  // The materialize() method of this class is invoked by the ValueMapper to
+  // check whether a value needs to be converted.
+  class AOSToSOAMaterializer : public ValueMaterializer {
+  public:
+    AOSToSOAMaterializer(ValueMapTypeRemapper &TypeRemapper)
+        : TypeRemapper(TypeRemapper) {}
+    virtual ~AOSToSOAMaterializer() {}
+
+    virtual Value *materialize(Value *V) override {
+      // Check if a null value of a different type needs to be generated.
+      // TODO: For generality, this should also be extended to handle 'undef'
+      // values.
+      auto *C = dyn_cast<Constant>(V);
+      if (!C)
+        return nullptr;
+
+      if (!C->isNullValue())
+        return nullptr;
+
+      // Use the TypeRemapper to check whether the pointer type is being
+      // changed. The change could be something like %struct.t* ->
+      // %__SOADT_struct.t* when using typed-pointers, or it could be for a
+      // pointer to the type being transformed that is going to be converted
+      // into an integer index.
+      Type *Ty = V->getType();
+      Type *ReTy = TypeRemapper.remapType(Ty);
+      if (Ty == ReTy)
+        return nullptr;
+
+      return Constant::getNullValue(ReTy);
+    }
+
+  private:
+    ValueMapTypeRemapper &TypeRemapper;
+  };
+
   const DataLayout &DL;
   AOSToSOAOPPass::GetTLIFuncType GetTLI;
+  AOSToSOAMaterializer Materializer;
 
   // The list of types to be transformed.
   SmallVector<dtrans::StructInfo *, 4> TypesToTransform;
@@ -472,8 +523,63 @@ void AOSCollector::visitLoadInst(LoadInst &I) {
   // change it to appear in an address space so that the type remapping will
   // convert it to the index type.
   PointerType *AddrSpacePtr = Transform.getAddrSpacePtrForType(StructTy);
-  if (AddrSpacePtr)
-    FuncInfo.InstructionsToMutate.push_back({&I, AddrSpacePtr});
+  assert(AddrSpacePtr &&
+         "Opaque pointer being transformed must have addr space");
+  FuncInfo.InstructionsToMutate.push_back({&I, AddrSpacePtr});
+}
+
+void AOSCollector::visitStoreInst(StoreInst &I) {
+  // TODO: Extend this to allow integers that represent pointers to be handled:
+  //   %x = ptrtoint %struct.node* to i64
+  //   store i64 %x, i64* %y
+  // For now, just look at storing a pointer type.
+  Value *Val = I.getValueOperand();
+  if (!Val->getType()->isPointerTy())
+    return;
+
+  // Get the type info for the value operand
+  auto *Info = PTA.getValueTypeInfo(&I, 0);
+  assert(Info && "Expected PointerTypeAnalyzer to collect type");
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (!Ty || !Ty->isPointerTy())
+    return;
+
+  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  if (!StructTy)
+    return;
+
+  auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
+  if (!Transform.isTypeToTransform(LLVMStructType))
+    return;
+
+  FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
+  if (!Val->getType()->isOpaquePointerTy())
+    return;
+
+  if (!isa<ConstantData>((Val)))
+    return;
+
+  // When a 'null' value is being stored for the type being transformed, it
+  // will need to be converted into storing the integer 0.
+  //   store ptr null, ptr %struct.t.ptr
+  // Modify this to be:
+  //   store ptr addrspace(1) 0, ptr %struct.t.ptr
+  //
+  // We only need to change the 'null' object of the store, because it is a
+  // compiler constant. Non-constant values will be handled when the
+  // definition of the value being stored is processed. Also, note we need to
+  // change the value stored, not just change it's type, because all 'null'
+  // values within the routine will use the same Value object for 'ptr null'
+  // After type remapping completes, the value 0 will be stored in the memory
+  // location of the index that %struct.t.ptr will correspond to because the
+  // materialize class will transform it.
+  if (isa<ConstantPointerNull>(Val)) {
+    PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+    assert(TypeInAddrSpace && "Expected type when opaque pointers are in use");
+    FuncInfo.ConstantsToReplace.push_back({&I, 0, TypeInAddrSpace});
+  } else {
+    llvm_unreachable("Unhandled constant type");
+  }
 }
 
 bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
@@ -644,8 +750,9 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     FuncInfo->ByteGEPsToConvert.clear();
     FuncInfo->DepGEPsToConvert.clear();
     FuncInfo->DepByteGEPsToConvert.clear();
-    FuncInfo->InstructionsToMutate.clear();
     FuncInfo->InstructionsToDelete.clear();
+    FuncInfo->InstructionsToMutate.clear();
+    FuncInfo->ConstantsToReplace.clear();
   };
 
   LLVM_DEBUG(dbgs() << "AOS-to-SOA: ProcessFunction: " << F.getName() << "\n");
@@ -680,6 +787,13 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
       Call->mutateFunctionType(cast<FunctionType>(KV.second));
     else
       KV.first->mutateType(KV.second);
+
+  for (auto &IOT : FuncInfo->ConstantsToReplace) {
+    Instruction *I = std::get<0>(IOT);
+    uint32_t OpNum = std::get<1>(IOT);
+    llvm::PointerType *Ty = std::get<2>(IOT);
+    I->setOperand(OpNum, ConstantPointerNull::get(Ty));
+  }
 
   for (auto *I : FuncInfo->InstructionsToDelete)
     I->eraseFromParent();
