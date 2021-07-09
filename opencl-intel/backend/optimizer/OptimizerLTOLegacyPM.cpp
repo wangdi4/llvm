@@ -145,7 +145,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createRedundantPhiNodeLegacyPass());
         MPM.add(createBarrierInFunctionLegacyPass());
         MPM.add(createSplitBBonBarrierLegacyPass());
-        MPM.add(createKernelBarrierLegacyPass(/*IsNativeDebug*/ false,
+        MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
                                               /*UseTLSGlobals*/ false));
         // Barrier passes end.
 
@@ -171,7 +171,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     MPM.add(createRedundantPhiNodeLegacyPass());
     MPM.add(createBarrierInFunctionLegacyPass());
     MPM.add(createSplitBBonBarrierLegacyPass());
-    MPM.add(createKernelBarrierLegacyPass(/*IsNativeDebug*/ false,
+    MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
                                           /*UseTLSGlobals*/ false));
     // Barrier passes end.
     MPM.add(createAddImplicitArgsLegacyPass());

@@ -19,7 +19,6 @@
 #include "OCLAliasAnalysis.h"
 #include "OclTune.h"
 #include "VecConfig.h"
-#include "debuggingservicetype.h"
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 
@@ -445,14 +444,12 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
-    bool IsSYCL, bool IsOMP, TStringToVFState &kernelVFStates) {
+    bool IsSYCL, bool IsOMP, TStringToVFState &kernelVFStates,
+    DebuggingServiceType debugType) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
-  DebuggingServiceType debugType =
-      getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
-                              pConfig->GetUseNativeDebuggerFlag());
   bool UseTLSGlobals = (debugType == intel::Native) && !isEyeQEmulator;
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
@@ -910,10 +907,11 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, m_RtlModules, OptLevel, pConfig,
-      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-      UnrollLoops, EnableVPlan, m_IsSYCL, IsOMP, m_kernelToVFState);
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_RtlModules,
+                              OptLevel, pConfig, m_undefinedExternalFunctions,
+                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+                              UnrollLoops, EnableVPlan, m_IsSYCL, IsOMP,
+                              m_kernelToVFState, m_debugType);
 }
 
 void OptimizerOCL::Optimize() {
@@ -963,6 +961,8 @@ Optimizer::Optimizer(llvm::Module *M,
       m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)) {
   assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
+  m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,
+                                        Config->GetUseNativeDebuggerFlag());
 }
 
 const TStringToVFState& Optimizer::GetKernelVFStates() const {

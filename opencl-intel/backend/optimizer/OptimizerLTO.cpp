@@ -120,7 +120,8 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
     MPM.addPass(BarrierInFunction());
     MPM.addPass(SplitBBonBarrier());
-    MPM.addPass(KernelBarrier(/*NativeDebug*/ false, /*UseTLSGlobals*/ false));
+    MPM.addPass(
+        KernelBarrier(m_debugType == intel::Native, /*UseTLSGlobals*/ false));
     // Barrier passes end.
     MPM.addPass(AddImplicitArgsPass());
     MPM.addPass(ResolveWICallPass());
