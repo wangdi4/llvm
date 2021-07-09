@@ -4062,12 +4062,7 @@ InstructionCost X86TTIImpl::getAddressComputationCost(Type *Ty,
 
 InstructionCost
 X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
-                                       bool IsPairwise,
                                        TTI::TargetCostKind CostKind) {
-  // Just use the default implementation for pair reductions.
-  if (IsPairwise)
-    return BaseT::getArithmeticReductionCost(Opcode, ValTy, IsPairwise, CostKind);
-
 #if INTEL_CUSTOMIZATION
   // If it is llvm.experimental.vector.reduce.or/and.vNi1, it can be replaced to
   // integer bitcast+cmp.
@@ -4150,7 +4145,7 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
     return getCastInstrCost(Instruction::ZExt, WideVecTy, ValTy,
                             TargetTransformInfo::CastContextHint::None,
                             CostKind) +
-           getArithmeticReductionCost(Opcode, WideVecTy, IsPairwise, CostKind);
+           getArithmeticReductionCost(Opcode, WideVecTy, CostKind);
   }
 
   InstructionCost ArithmeticCost = 0;
@@ -4246,8 +4241,7 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
       if (const auto *Entry = CostTableLookup(SSE2BoolReduction, ISD, MTy))
         return ArithmeticCost + Entry->Cost;
 
-    return BaseT::getArithmeticReductionCost(Opcode, ValVTy, IsPairwise,
-                                             CostKind);
+    return BaseT::getArithmeticReductionCost(Opcode, ValVTy, CostKind);
   }
 
   unsigned NumVecElts = ValVTy->getNumElements();
@@ -4256,8 +4250,7 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   // Special case power of 2 reductions where the scalar type isn't changed
   // by type legalization.
   if (!isPowerOf2_32(NumVecElts) || ScalarSize != MTy.getScalarSizeInBits())
-    return BaseT::getArithmeticReductionCost(Opcode, ValVTy, IsPairwise,
-                                             CostKind);
+    return BaseT::getArithmeticReductionCost(Opcode, ValVTy, CostKind);
 
   InstructionCost ReductionCost = 0;
 
@@ -4459,13 +4452,8 @@ InstructionCost X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy,
 
 InstructionCost
 X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
-                                   bool IsPairwise, bool IsUnsigned,
+                                   bool IsUnsigned,
                                    TTI::TargetCostKind CostKind) {
-  // Just use the default implementation for pair reductions.
-  if (IsPairwise)
-    return BaseT::getMinMaxReductionCost(ValTy, CondTy, IsPairwise, IsUnsigned,
-                                         CostKind);
-
   std::pair<InstructionCost, MVT> LT = TLI->getTypeLegalizationCost(DL, ValTy);
 
   MVT MTy = LT.second;
@@ -4583,8 +4571,7 @@ X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   // by type legalization.
   if (!isPowerOf2_32(ValVTy->getNumElements()) ||
       ScalarSize != MTy.getScalarSizeInBits())
-    return BaseT::getMinMaxReductionCost(ValTy, CondTy, IsPairwise, IsUnsigned,
-                                         CostKind);
+    return BaseT::getMinMaxReductionCost(ValTy, CondTy, IsUnsigned, CostKind);
 
   // Now handle reduction with the legal type, taking into account size changes
   // at each level.
