@@ -1,6 +1,8 @@
+// RUN: %libomptarget-compilexx-run-and-check-generic
+
 // INTEL_CUSTOMIZATION
 // Test Flaky need investigation (CMPLRLIBS-33319), disable x86 RUN lines.
-// NO-run: %libomptarget-compilexx-run-and-check-generic
+// UNSUPPORTED: x86_64-pc-linux-gnu
 // END INTEL_CUSTOMIZATION
 
 // Currently hangs on amdgpu

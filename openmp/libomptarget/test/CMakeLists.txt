@@ -14,8 +14,9 @@ endif()
 
 string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}")
 # INTEL_CUSTOMIZATION
-# Avoid spir64-unknown-unknown target duplication in some environments
-foreach(CURRENT_TARGET IN LISTS list(REMOVE_DUPLICATES ${SYSTEM_TARGETS}))
+# We do not test targets other than x86_64 with LIT
+list(FILTER SYSTEM_TARGETS INCLUDE REGEX "x86_64")
+foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
 # end INTEL_CUSTOMIZATION
   string(STRIP "${CURRENT_TARGET}" CURRENT_TARGET)
 # INTEL_CUSTOMIZATION
@@ -28,7 +29,7 @@ foreach(CURRENT_TARGET IN LISTS list(REMOVE_DUPLICATES ${SYSTEM_TARGETS}))
 if (INTEL_CUSTOMIZATION)
   configure_lit_site_cfg(
     "${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg"
+    "${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET}/lit.site.cfg"
     MAIN_CONFIG
     ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg
     )
