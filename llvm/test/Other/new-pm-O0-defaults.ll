@@ -13,6 +13,9 @@
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager -enable-matrix \
 ; RUN:     -passes='default<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-MATRIX
+; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager -new-pm-debug-info-for-profiling \
+; RUN:     -passes='default<O0>' -S %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DIS
 ; RUN: opt -disable-verify -verify-cfg-preserved=0 -debug-pass-manager \
 ; RUN:     -passes='thinlto-pre-link<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT,CHECK-PRE-LINK
@@ -26,6 +29,13 @@
 ; RUN:     -passes='lto<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-LTO
 
+; CHECK-DIS: Running analysis: InnerAnalysisManagerProxy
+; CHECK-DIS-NEXT: Running pass: AddDiscriminatorsPass
+; CHECK-DIS-NEXT: Running pass: InlineListsPass ;INTEL
+; CHECK-DIS-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-DIS-NEXT: Running analysis: ProfileSummaryAnalysis
+; CHECK-DIS-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-DIS-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-DEFAULT: Running pass: InlineListsPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running analysis: InnerAnalysisManagerProxy
