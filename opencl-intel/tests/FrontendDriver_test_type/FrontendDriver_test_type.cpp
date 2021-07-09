@@ -181,6 +181,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesLittleEndian) {
         SPIRVOpCapability,  spv::CapabilityInt64Atomics,
         SPIRVOpCapability,  spv::CapabilityAsmINTEL,
         SPIRVOpCapability,  spv::CapabilityVariableLengthArrayINTEL,
+        SPIRVOpCapability,  spv::internal::CapabilityMatrixINTEL,
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
     };
@@ -252,6 +253,7 @@ TEST_F(ClangCompilerTestType, DISABLED_Test_AcceptCommonSpirvCapabilitiesBigEndi
         SPIRVOpCapability,  spv::CapabilityInt64Atomics,
         SPIRVOpCapability,  spv::CapabilityAsmINTEL,
         SPIRVOpCapability,  spv::CapabilityVariableLengthArrayINTEL,
+        SPIRVOpCapability,  spv::internal::CapabilityMatrixINTEL,
         // Memory model
         SPIRVOpMemoryModel, spv::AddressingModelPhysical32, spv::MemoryModelOpenCL
     };

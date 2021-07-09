@@ -204,6 +204,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // SPV_INTEL_token_type
     case spv::internal::CapabilityTokenTypeINTEL:
     case spv::CapabilityDebugInfoModuleINTEL:
+      // SPV_INTEL_matrix
+    case spv::internal::CapabilityMatrixINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:
