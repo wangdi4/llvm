@@ -66,6 +66,7 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
@@ -207,6 +208,17 @@ struct PerFunctionInfo {
   SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 1> AllocsToConvert;
   SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 1> FreesToConvert;
 
+  // PtrToInt instructions need to be processed to either eliminate the
+  // conversion, or perform a size conversion based on whether pointer
+  // shrinking is enabled or not.
+  SmallVector<std::pair<PtrToIntInst *, DTransStructType *>, 4>
+      PtrToIntToConvert;
+
+  // Pointer subtracts followed by division of the structure size that need to
+  // be transformed.
+  SmallVector<std::pair<BinaryOperator *, DTransStructType *>, 4>
+    BinOpsToConvert;
+
   // GetElementPtr instructions that access fields that are of the type being
   // transformed from a dependent type.
   SmallVector<GetElementPtrInst *, 16> DepGEPsToConvert;
@@ -219,6 +231,11 @@ struct PerFunctionInfo {
   SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 1> DepAllocsToResize;
   SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 1>
       DepMemfuncsToResize;
+
+  // Pointer subtracts followed by division on dependent types that have their
+  // size changed.
+  SmallVector<std::pair<BinaryOperator *, DTransStructType *>, 4>
+    DepBinOpsToConvert;
 
   // A list of pointer conversion instructions inserted as part of the
   // processFunction routine (pointer to int, int to pointer, or pointer of
@@ -274,6 +291,8 @@ public:
   void visitSelectInst(SelectInst &I);
   void visitICmpInst(ICmpInst &I);
   void visitBitCastInst(BitCastInst &I);
+  void visitPtrToIntInst(PtrToIntInst &I);
+  void visitBinaryOperator(BinaryOperator &I);
   // TODO: visit other instruction types
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
@@ -345,11 +364,14 @@ private: // methods
                          size_t FieldNum);
   void convertBC(BitCastInst *BC, DTransStructType *StructTy);
   bool hasLiveUser(Instruction *I);
+  void convertPtrToInt(PtrToIntInst *I, DTransStructType *StructTy);
+  void convertBinaryOperator(BinaryOperator *I, DTransStructType *StructTy);
 
   void convertAllocCall(AllocCallInfo *AInfo, StructInfo *StInfo);
   void convertFreeCall(FreeCallInfo *CInfo, StructInfo *StInfo);
   void convertDepAllocCall(AllocCallInfo *AInfo, StructInfo *StInfo);
   void convertDepMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo);
+  void convertDepBinaryOperator(BinaryOperator *I, DTransStructType *StructTy);
 
   void updateCallAttributes(CallBase *Call);
   void updateFunctionAttributes(Function &OrigFn, Function &CloneFn);
@@ -933,6 +955,31 @@ void AOSCollector::visitBitCastInst(BitCastInst &I) {
   }
 }
 
+void AOSCollector::visitPtrToIntInst(PtrToIntInst &I) {
+  Value *PtrOp = I.getPointerOperand();
+  DTransStructType *StructTy = getDTransStructTypeforValue(PtrOp);
+  if (!StructTy)
+    return;
+
+  if (Transform.isTypeToTransform(StructTy->getLLVMType()))
+    FuncInfo.PtrToIntToConvert.push_back({ &I, StructTy });
+}
+
+void AOSCollector::visitBinaryOperator(BinaryOperator &I) {
+  if (I.getOpcode() != Instruction::Sub)
+    return;
+
+  DTransType *PtrSubTy = DTInfo.getResolvedPtrSubType(&I);
+  if (!PtrSubTy || !isa<DTransStructType>(PtrSubTy))
+    return;
+
+  auto *StTy = cast<DTransStructType>(PtrSubTy);
+  if (Transform.isTypeToTransform(StTy->getLLVMType()))
+    FuncInfo.BinOpsToConvert.push_back(std::make_pair(&I, StTy));
+  else if (Transform.isDependentTypeSizeChanged(StTy->getLLVMType()))
+    FuncInfo.DepBinOpsToConvert.push_back({ &I, StTy });
+}
+
 // Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
 // Instruction 'I' as a constant pointer of the type being transformed.
 void AOSCollector::checkForConstantToConvert(Instruction *I, uint32_t OpNum) {
@@ -1162,10 +1209,13 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     FuncInfo->BCsToConvert.clear();
     FuncInfo->AllocsToConvert.clear();
     FuncInfo->FreesToConvert.clear();
+    FuncInfo->PtrToIntToConvert.clear();
+    FuncInfo->BinOpsToConvert.clear();
     FuncInfo->DepGEPsToConvert.clear();
     FuncInfo->DepByteGEPsToConvert.clear();
     FuncInfo->DepAllocsToResize.clear();
     FuncInfo->DepMemfuncsToResize.clear();
+    FuncInfo->DepBinOpsToConvert.clear();
     FuncInfo->CallsToConvert.clear();
     FuncInfo->InstructionsToDelete.clear();
     FuncInfo->InstructionsToMutate.clear();
@@ -1198,6 +1248,12 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   for (auto &KV : FuncInfo->BCsToConvert)
     convertBC(KV.first, KV.second);
 
+  for (auto &KV : FuncInfo->PtrToIntToConvert)
+    convertPtrToInt(KV.first, KV.second);
+
+  for (auto &KV : FuncInfo->BinOpsToConvert)
+    convertBinaryOperator(KV.first, KV.second);
+
   // Process the instructions using dependent structure types.
   for (auto *GEP : FuncInfo->DepGEPsToConvert)
     convertDepGEP(GEP);
@@ -1213,6 +1269,9 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
 
   for (auto &MemCall : FuncInfo->DepMemfuncsToResize)
     convertDepMemfuncCall(MemCall.first, MemCall.second);
+
+  for (auto &KV : FuncInfo->DepBinOpsToConvert)
+    convertDepBinaryOperator(KV.first, KV.second);
 
   for (auto *Call : FuncInfo->CallsToConvert)
     updateCallAttributes(Call);
@@ -1809,6 +1868,57 @@ bool AOSToSOAOPTransformImpl::hasLiveUser(Instruction *I) {
   return false;
 }
 
+void AOSToSOAOPTransformImpl::convertPtrToInt(PtrToIntInst *I,
+                                              DTransStructType *StructTy) {
+  // An instruction of the form:
+  //   ptrtoint ptr addrspace(1) %x to i64
+  // will be remapped into either:
+  //   ptrtoint i64 %x to i64
+  // or
+  //   ptrtoint i32 %x to i64
+  // based on the value of 'PointerShrinkingEnabled'
+  if (!IndexInfo.PointerShrinkingEnabled) {
+    // The form: ptrtoint i64 %x to i64
+    // will be a meaningless cast, and should be removed during post processing.
+    FuncInfo->PtrConverts.push_back(I);
+    return;
+  }
+
+  // When shrinking is enabled, we need to create a replacement
+  // sequence to prepare for the type remapping, while maintaining the
+  // uses of the instruction as i64 types by converting it into:
+  //   %1 = ptrtoint ptr addrspace(1) %x to i32
+  //   %2 = zext i32 %1 to i64
+  //
+  // After type remapping, the ptrtoint replacement will be:
+  //   ptrtoint i32 to i32
+  // which can be removed during post processing.
+  CastInst *NewPTI = CastInst::CreateBitOrPointerCast(
+    I->getPointerOperand(), IndexInfo.LLVMType, "", I);
+  auto *ZExt = CastInst::Create(CastInst::ZExt, NewPTI, I->getType(), "", I);
+  I->replaceAllUsesWith(ZExt);
+  ZExt->takeName(I);
+
+  LLVM_DEBUG(dbgs() << "After convert:\n  " << *NewPTI << "\n  " << *ZExt
+    << "\n");
+
+  FuncInfo->InstructionsToDelete.insert(I);
+  FuncInfo->PtrConverts.push_back(NewPTI);
+}
+
+void AOSToSOAOPTransformImpl::convertBinaryOperator(
+  BinaryOperator *I, DTransStructType *StructTy) {
+  // The analysis phase has resolved that the use of this subtract instruction
+  // is used to divide by the structure size or some multiple of it.
+  // Because the pointer to the structure has been converted to be an
+  // integer index, the result of the subtract is the distance between
+  // the pointers that the divide was going to compute when the divisor
+  // equaled the structure size. Update the divide instruction to replace the
+  // divisor.
+  uint64_t OrigSize = DL.getTypeAllocSize(StructTy->getLLVMType());
+  dtrans::updatePtrSubDivUserSizeOperand(I, OrigSize, 1);
+}
+
 // The allocation call for a type being transformed into a structure of arrays
 // needs to be converted to initialize the SOA variable that stores the
 // addresses of the start of each array.
@@ -2214,6 +2324,13 @@ void AOSToSOAOPTransformImpl::convertDepMemfuncCall(MemfuncCallInfo *CInfo,
                                                     StructInfo *StInfo) {
   // TODO: Handle resizing memfuncs on a dependent type.
   llvm_unreachable("Dependent type memfunc conversion not implemented yet");
+}
+
+void AOSToSOAOPTransformImpl::convertDepBinaryOperator(
+  BinaryOperator *I, DTransStructType *StructTy) {
+  // TODO: Handle BinaryOperators on a dependent type.
+  llvm_unreachable(
+    "Dependent type BinaryOperator conversion not implemented yet");
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
