@@ -7648,10 +7648,12 @@ def _SLASH_MD : Option<["/", "-"], "MD", KIND_FLAG>, Group<_SLASH_M_Group>,
   Flags<[CLOption, NoXarchOption]>, HelpText<"Use DLL run-time">;
 def _SLASH_MDd : Option<["/", "-"], "MDd", KIND_FLAG>, Group<_SLASH_M_Group>,
   Flags<[CLOption, NoXarchOption]>, HelpText<"Use DLL debug run-time">;
+#if INTEL_CUSTOMIZATION
 def _SLASH_MT : Option<["/", "-"], "MT", KIND_FLAG>, Group<_SLASH_M_Group>,
-  Flags<[CLOption, NoXarchOption]>, HelpText<"Use static run-time">;
+  Flags<[CLOption, NoXarchOption, DpcppUnsupported]>, HelpText<"Use static run-time">;
 def _SLASH_MTd : Option<["/", "-"], "MTd", KIND_FLAG>, Group<_SLASH_M_Group>,
-  Flags<[CLOption, NoXarchOption]>, HelpText<"Use static debug run-time">;
+  Flags<[CLOption, NoXarchOption, DpcppUnsupported]>, HelpText<"Use static debug run-time">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_o : CLJoinedOrSeparate<"o">,
   HelpText<"Deprecated (set output file name); use /Fe or /Fe">,
   MetaVarName<"<file or dir/>">;

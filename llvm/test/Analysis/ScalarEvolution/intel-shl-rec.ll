@@ -94,9 +94,12 @@ do.end:                                           ; preds = %do.body1
 }
 
 ; Verify that we are able to compute max trip count when signed shl
-; recurrence has appropriate no-wrap flags.
+; recurrence has appropriate no-wrap flags even when an llvm.ssa.copy() is
+; involved.
+; Also verify that we are able to compute the right range info for %a.0.
 
 ; CHECK: foo4
+; CHECK:  -->  %a.0 U: [1,65) S: [1,65)
 ; CHECK: Loop %do.body1: Unpredictable backedge-taken count
 ; CHECK: Loop %do.body1: max backedge-taken count is 6
 
@@ -108,7 +111,8 @@ entry:
 do.body1:                                          ; preds = %do.body1, %entry
   %a.0 = phi i8 [ 1, %entry ], [ %shl, %do.body1 ]
   tail call void @bar()
-  %shl = shl nsw i8 %a.0, 1
+  %a.copy = call i8 @llvm.ssa.copy.i8(i8 %a.0)
+  %shl = shl nsw i8 %a.copy, 1
   %cmp = icmp slt i8 %a.0, %div
   br i1 %cmp, label %do.body1, label %do.end
 
@@ -117,3 +121,5 @@ do.end:                                           ; preds = %do.body1
 }
 
 declare void @bar()
+
+declare i8 @llvm.ssa.copy.i8(i8 returned)

@@ -167,6 +167,10 @@ static cl::opt<bool> EnableLoopBlockingNonConstTC(
     cl::desc("Enable " OPT_DESC
              " pass even when some trip counts are non-const"));
 
+// Flag to allow special sinking to occur for special loops
+static cl::opt<bool>
+    EnableSpecialSink(OPT_SWITCH "-enable-special-sink", cl::init(true),
+                      cl::Hidden, cl::desc(OPT_DESC "enable special sinking"));
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
 //      in one references of the innermost loop.
@@ -213,6 +217,12 @@ static cl::opt<int>
 static cl::opt<uint64_t> LoopBlockingTCThreshold(
     OPT_SWITCH "-tc-threshold", cl::init(384), cl::Hidden,
     cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
+
+// Does not greatly affect global behavior of hir loop blocking.
+static cl::opt<unsigned>
+    MajorityStencilGroupThreshold(OPT_SWITCH "-stencil-group-threshold",
+                                  cl::init(4), cl::Hidden,
+                                  cl::desc(" " OPT_DESC " pass"));
 
 // Upperbound for small stride in bytes.
 // This knob is mainly for KAndR algorithm.
@@ -1014,7 +1024,7 @@ public:
   // The mod blobs are pseudo stencil since they are IV +/- 1, but
   // we need to trace to the temp definition.
   bool hasMajorityStencilRefs(HIRDDAnalysis &DDA) {
-    if (Groups.size() < 5) {
+    if (Groups.size() < MajorityStencilGroupThreshold) {
       LLVM_DEBUG(dbgs() << "Under Group Threshold Count: " << Groups.size()
                         << "\n";);
       return false;
@@ -1654,8 +1664,9 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 // already unit-strided.
 // Blocking outer loop only doesn't help, because it is
 // mere strip-mining.
-bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
-                          unsigned InnermostLevel, unsigned OutermostLevel) {
+static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
+                                 unsigned InnermostLevel,
+                                 unsigned OutermostLevel) {
   if (InnermostLevel - OutermostLevel > 1)
     return false;
 
@@ -1674,6 +1685,41 @@ bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
   return Count / ((float)Refs.size()) >= 0.4;
 }
 
+// Find marked loops that we want to perform sinking so blocking analysis
+// will be triggered. These marked loops are likely profitable for
+// blocking, but were not made perfect in prior passes. After sinking is
+// done we return the outermost loop to be checked for blocking.
+static const HLLoop *getOuterLoopAfterSpecialSinking(HLLoop *InnermostLp,
+                                                     HIRDDAnalysis &DDA) {
+  HLLoop *OuterCandidate = nullptr;
+
+  // Check Loop for metadata
+  for (HLLoop *Lp = InnermostLp; Lp; Lp = Lp->getParentLoop()) {
+    if (Lp->getLoopStringMetadata(EnableSpecialLoopInterchangeMetaName)) {
+      Lp->removeLoopMetadata(EnableSpecialLoopInterchangeMetaName);
+      OuterCandidate = Lp;
+      LLVM_DEBUG(dbgs() << "Found Candidate for Special Sink!\n";);
+    }
+  }
+
+  if (!OuterCandidate) {
+    return nullptr;
+  }
+
+  if (HLNodeUtils::isPerfectLoopNest(OuterCandidate)) {
+    return OuterCandidate;
+  }
+
+  // Do Special-interchange specific sinking:
+  if (!HIRTransformUtils::doSpecialSinkForPerfectLoopnest(OuterCandidate,
+                                                          InnermostLp, DDA)) {
+    LLVM_DEBUG(dbgs() << "Special Sink Failed!\n";);
+    return nullptr;
+  }
+
+  return OuterCandidate;
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
@@ -1681,10 +1727,19 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
                             HLLoop *InnermostLoop, bool Advanced,
                             LoopMapTy &LoopMap) {
 
-  // Get the highest outermost ancestor of given InnermostLoop
-  // that can make a perfect loop nest.
-  const HLLoop *HighestAncestor =
-      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
+  const HLLoop *HighestAncestor = nullptr;
+  // Do sinking for special loops we want to block. Return ancestor for
+  // these marked loopnest.
+  if (EnableSpecialSink) {
+    HighestAncestor = getOuterLoopAfterSpecialSinking(InnermostLoop, DDA);
+  }
+
+  if (!HighestAncestor) {
+    // Get the highest outermost ancestor of given InnermostLoop
+    // that can make a perfect loop nest.
+    HighestAncestor =
+        HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
+  }
 
   if (!HighestAncestor) {
     // Blocking is not applied to depth-1 loop nest.

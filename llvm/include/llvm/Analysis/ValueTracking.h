@@ -783,6 +783,11 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
                              const APInt *&LowerBound, const APInt *&UpperBound,
                              Type *&Ty, Type *&ExtTy, bool &Signed,
                              unsigned &Opcode);
+
+  /// If \p Val is a Call with a 'returned' attribute argument, returns that
+  /// argument, else returns original value. This is helpful in tracing through
+  /// llvm.ssa.copy() insts added by HIR.
+  Value *traceThroughReturnedArgCall(Value *Val);
 #endif // INTEL_CUSTOMIZATION
   /// Determine the pattern that a select with the given compare as its
   /// predicate and given values as its true/false operands would match.
