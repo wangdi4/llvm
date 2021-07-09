@@ -521,8 +521,10 @@ private:
     std::string Name = "";
     raw_string_ostream SOS(Name);
     getOperandHIR()->print(SOS);
-    //We drop the leading '%'.
-    return Name.substr(1);
+    if (!Name.empty())
+      // We drop the leading '%'.
+      return Name.substr(1);
+    return Name;
   }
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
