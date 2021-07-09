@@ -1946,6 +1946,26 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 }
 
 bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskWaitCode\n");
+
+  DependClause const &DepClause = W->getDepend();
+  Instruction *InsertPt = W->getEntryBBlock()->getTerminator();
+  IRBuilder<> Builder(InsertPt);
+
+  if (!DepClause.empty()) {
+    AllocaInst *DummyTaskTDependRec = genDependInitForTask(W, InsertPt);
+
+    Value *BaseTaskTDependGep = Builder.CreateInBoundsGEP(
+        DummyTaskTDependRec->getAllocatedType(), DummyTaskTDependRec,
+        {Builder.getInt32(0), Builder.getInt32(0)});
+    LLVMContext &C = F->getContext();
+    Value *Dep =
+        Builder.CreateBitCast(BaseTaskTDependGep, Type::getInt8PtrTy(C));
+
+    VPOParoptUtils::genKmpcTaskWaitDeps(W, IdentTy, TidPtrHolder, Dep,
+                                        DepClause.size(), InsertPt);
+  }
+
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
                                   W->getEntryBBlock()->getTerminator());
   return true;
