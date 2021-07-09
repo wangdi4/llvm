@@ -281,8 +281,9 @@ static void getFactoredWeights(HIRTransformUtils::ProfInfo *Prof,
 
 HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, uint64_t NewTripCount,
-    const RegDDRef *NewTCRef, LoopOptReportBuilder &LORBuilder,
-    OptimizationType OptTy, HLIf *RuntimeCheck, ProfInfo *Prof) {
+    const RegDDRef *NewTCRef, bool NeedRemainderLoop,
+    LoopOptReportBuilder &LORBuilder, OptimizationType OptTy,
+    HLIf *RuntimeCheck, ProfInfo *Prof) {
   HLLoop *NewLoop = OrigLoop->cloneEmpty();
 
   // Number of exits do not change due to vectorization
@@ -379,9 +380,16 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   if (OptTy == OptimizationType::Unroll) {
 
-    // Loop has been unrolled by %d factor
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25536u,
-                                   UnrollOrVecFactor);
+    if (NeedRemainderLoop) {
+      // Loop unrolled with remainder by %d
+      LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25439u,
+                                     UnrollOrVecFactor);
+    } else {
+      // Loop unrolled without remainder by %d
+      LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25438u,
+                                     UnrollOrVecFactor);
+    }
+
   } else if (OptTy == OptimizationType::UnrollAndJam) {
 
     // Loop has been unrolled and jammed by %d
@@ -526,8 +534,8 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   // Create the main loop.
   // Profile data is calculated internally in createUnrollOrVecLoop
   HLLoop *MainLoop = createUnrollOrVecLoop(
-      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, LORBuilder, OptTy,
-      RuntimeCheck, ProfExists ? &Prof : nullptr);
+      OrigLoop, UnrollOrVecFactor, NewTripCount, NewTCRef, NeedRemainderLoop,
+      LORBuilder, OptTy, RuntimeCheck, ProfExists ? &Prof : nullptr);
 
   // Update the OrigLoop to remainder loop by setting bounds appropriately if
   // remainder loop is needed.
@@ -542,7 +550,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     if (OptTy == OptimizationType::Vectorizer) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
     } else if (OptTy == OptimizationType::Unroll) {
-      LORBuilder(*OrigLoop).addOrigin("Remainder loop for partial unrolling");
+      LORBuilder(*OrigLoop).addOrigin("Remainder");
     } else {
       assert(OptTy == OptimizationType::UnrollAndJam &&
              "Invalid optimization type!");

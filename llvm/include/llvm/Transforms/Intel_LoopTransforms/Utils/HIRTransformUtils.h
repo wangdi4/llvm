@@ -89,6 +89,7 @@ private:
   static HLLoop *
   createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                         uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        bool NeedRemainderLoop,
                         LoopOptReportBuilder &LORBuilder, OptimizationType,
                         HLIf *RTIf, ProfInfo *Prof);
 

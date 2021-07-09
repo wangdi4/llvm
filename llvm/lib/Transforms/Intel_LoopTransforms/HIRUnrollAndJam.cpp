@@ -1609,8 +1609,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
-    // Loop has been unrolled by %d factor
-    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25536u,
+    // While loop unrolled by %d
+    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
                                     UnrollFactor);
 
   } else {
