@@ -124,4 +124,59 @@ for.body:                                         ; preds = %entry, %for.body
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
 }
 
+; <20>         + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295> <nounroll>
+; <3>          |   %1 = (%B)[i1];
+; <6>          |   %2 = (%A)[%1];
+; <8>          |   (%E)[i1] = %0;
+; <12>         |   %0 = (%D)[i1]  +  %0;
+; <13>         |   (%A)[%1] = %2 + 1;
+; <20>         + END LOOP
+
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>          (%E)[i1] = %0;
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM10:[0-9]+]]>         (%A)[%1] = %2 + 1;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM11:[0-9]+]]>          %2 = (%A)[%1];
+; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+
+; CHECK-NO-VCONFLICT: No idioms detected.
+
+; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
+define dso_local void @_Z3foo4PiS_S_S_S_i(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture %p, i32* noalias nocapture readonly %D, i32* noalias nocapture %E, i32 %N) local_unnamed_addr #0 {
+entry:
+  %cmp25 = icmp sgt i32 %N, 0
+  br i1 %cmp25, label %for.body.lr.ph, label %for.cond.cleanup
+
+for.body.lr.ph:                                   ; preds = %entry
+  %p.promoted = load i32, i32* %p, align 4
+  %wide.trip.count27 = zext i32 %N to i64
+  br label %for.body
+
+for.cond.for.cond.cleanup_crit_edge:              ; preds = %for.body
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  store i32 %add.lcssa, i32* %p, align 4
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.cond.for.cond.cleanup_crit_edge, %entry
+  ret void
+
+for.body:                                         ; preds = %for.body.lr.ph, %for.body
+  %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
+  %0 = phi i32 [ %p.promoted, %for.body.lr.ph ], [ %add, %for.body ]
+  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %1 = load i32, i32* %arrayidx, align 4
+  %idxprom1 = sext i32 %1 to i64
+  %arrayidx2 = getelementptr inbounds i32, i32* %A, i64 %idxprom1
+  %2 = load i32, i32* %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i32, i32* %E, i64 %indvars.iv
+  store i32 %0, i32* %arrayidx4, align 4
+  %inc = add nsw i32 %2, 1
+  %arrayidx6 = getelementptr inbounds i32, i32* %D, i64 %indvars.iv
+  %3 = load i32, i32* %arrayidx6, align 4
+  %add = add nsw i32 %3, %0
+  store i32 %inc, i32* %arrayidx2, align 4
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, %wide.trip.count27
+  br i1 %exitcond.not, label %for.cond.for.cond.cleanup_crit_edge, label %for.body
+}
+
 attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }

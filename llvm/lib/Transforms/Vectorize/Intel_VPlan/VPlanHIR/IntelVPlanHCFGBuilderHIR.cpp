@@ -64,6 +64,9 @@
 using namespace llvm;
 using namespace vpo;
 
+static LoopVPlanDumpControl VPlanHIRDecomposerControl("hir-decomposer",
+                                                      "VPlanHIRDecomposer");
+
 /// Check if the incoming \p Ref matches the original SIMD descriptor DDRef \p
 /// DescrRef
 static bool isSIMDDescriptorDDRef(const RegDDRef *DescrRef, const DDRef *Ref) {
@@ -736,6 +739,8 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // VPExternalUses that have multiple operands i.e. multiple live-out
   // VPInstructions for single temp/symbase.
   Decomposer.fixExternalUses();
+
+  VPLAN_DUMP(VPlanHIRDecomposerControl, Plan);
   return;
 }
 
