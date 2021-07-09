@@ -23,7 +23,7 @@ using namespace llvm;
 INITIALIZE_PASS(
     BarrierInFunctionLegacy, DEBUG_TYPE,
     "Barrier Pass - Handle barrier instructions called from functions", false,
-    true)
+    false)
 
 char BarrierInFunctionLegacy::ID = 0;
 
