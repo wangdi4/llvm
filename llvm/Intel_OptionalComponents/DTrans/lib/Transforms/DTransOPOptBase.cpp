@@ -621,10 +621,22 @@ void DTransOPOptBase::prepareDependentTypes(
         if (!Processed.count(Depends))
           Worklist.insert(Depends);
     }
-    if (!UsingOpaquePtrs && TypeToPtrDependentTypes.count(Ty)) {
-      for (auto &Depends : TypeToPtrDependentTypes[Ty])
-        if (!Processed.count(Depends))
-          Worklist.insert(Depends);
+
+    if (TypeToPtrDependentTypes.count(Ty)) {
+      // Normally, opaque pointer dependent types do not need to be remapped
+      // because remapping an opaque pointer of type 'ptr' will still produce
+      // the type 'ptr'. However, if a pointer type is being remapped to a
+      // non-pointer type, then dependent types will need to be remapped.
+      bool RewritePointerDependentTypes = !UsingOpaquePtrs;
+      DTransType *PtrTy = TM.getOrCreatePointerType(Ty);
+      DTransType *ReplTy = TypeRemapper.lookupTypeMapping(PtrTy);
+      if (ReplTy && !ReplTy->isPointerTy())
+        RewritePointerDependentTypes = true;
+
+      if (RewritePointerDependentTypes)
+        for (auto &Depends : TypeToPtrDependentTypes[Ty])
+          if (!Processed.count(Depends))
+            Worklist.insert(Depends);
     }
 
     Processed.insert(Ty);
@@ -668,18 +680,9 @@ void DTransOPOptBase::populateDependentTypes(
       if (StructTy->isOpaque())
         continue;
 
-      SmallVector<Type *, 8> DataTypes;
-      for (auto *MemberTy : StructTy->elements())
-        DataTypes.push_back(TypeRemapper.remapType(MemberTy));
-
-      StructType *ReplStructTy = cast<StructType>(ReplTy);
-      ReplStructTy->setBody(DataTypes, StructTy->isPacked());
-
-      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New LLVM structure body: "
-                        << *ReplStructTy << "\n");
-
       // Set the body for the new DTransStructType that will be used to generate
       // the new metadata information.
+      StructType *ReplStructTy = cast<StructType>(ReplTy);
       DTransStructType *DTOrigTy = TM.getStructType(StructTy->getName());
       assert(DTOrigTy && "Expected original DTrans type to have been created");
       DTransStructType *DTReplTy = TM.getStructType(ReplStructTy->getName());
@@ -688,6 +691,7 @@ void DTransOPOptBase::populateDependentTypes(
       assert(DTReplTy->isOpaque() &&
              "Expected replacement to not have fields yet");
 
+      SmallVector<Type *, 8> DataTypes;
       SmallVector<DTransType *, 8> DTransDataTypes;
       for (auto &FieldMember : DTOrigTy->elements()) {
         DTransType *FieldTy = FieldMember.getType();
@@ -695,8 +699,13 @@ void DTransOPOptBase::populateDependentTypes(
         DTransType *ReplFieldTy = TypeRemapper.remapType(FieldTy);
         assert(ReplFieldTy && "Failed to create field replacement type");
         DTransDataTypes.push_back(ReplFieldTy);
+        DataTypes.push_back(ReplFieldTy->getLLVMType());
       }
       DTReplTy->setBody(DTransDataTypes);
+      ReplStructTy->setBody(DataTypes, StructTy->isPacked());
+
+      LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New LLVM structure body: "
+        << *ReplStructTy << "\n");
 
       LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: New DTrans structure body: "
                         << *DTReplTy << "\n";);

@@ -576,7 +576,11 @@ public:
   DTransType *getElementType() const { return DTType; }
 
   llvm::Type *getLLVMType() const {
-    return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
+    if (getTypeID() == DTransType::DTransArrayTypeID)
+      return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
+    else
+      return VectorType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements(),
+                             /*Scalable=*/false);
   }
 
   // Return a metadata node that describes the type.
