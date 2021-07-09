@@ -181,7 +181,7 @@ Address CodeGenFunction::CreateMemTemp(QualType Ty, CharUnits Align,
         Builder.CreateBitCast(Result.getPointer(), VectorTy->getPointerTo()),
         Result.getAlignment());
   }
-  return Result;
+  return CGM.addDTransInfoToMemTemp(Ty, Result); // INTEL
 }
 
 Address CodeGenFunction::CreateMemTempWithoutCast(QualType Ty, CharUnits Align,

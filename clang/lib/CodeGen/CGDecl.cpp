@@ -292,6 +292,7 @@ llvm::Constant *CodeGenModule::getOrCreateStaticVarDecl(
     setTLSMode(GV, D);
 
   setGVProperties(GV, &D);
+  GV = addDTransInfoToGlobal(&D, GV, LTy); // INTEL
 
   // Make sure the result is of the correct type.
   LangAS ExpectedAS = Ty.getAddressSpace();
@@ -1200,6 +1201,7 @@ Address CodeGenModule::createUnnamedGlobalFrom(const VarDecl &D,
         Constant, Name, InsertBefore, llvm::GlobalValue::NotThreadLocal, AS);
     GV->setAlignment(Align.getAsAlign());
     GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    GV = addDTransInfoToGlobal(&D, GV, Ty); // INTEL
     CacheEntry = GV;
   } else if (CacheEntry->getAlignment() < Align.getQuantity()) {
     CacheEntry->setAlignment(Align.getAsAlign());
@@ -1658,6 +1660,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
   }
 
   setAddrOfLocalVar(&D, address);
+  address = CGM.addDTransInfoToMemTemp(Ty, address); // INTEL
   emission.Addr = address;
   emission.AllocaAddr = AllocaAddr;
 

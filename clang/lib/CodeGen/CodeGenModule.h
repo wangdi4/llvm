@@ -342,6 +342,12 @@ private:
   // CQ#411303 Intel driver requires front-end to produce special file if
   // translation unit has any target code.
   bool HasTargetCode = false;
+
+  /// List of types used in the application, used later to generate DTrans
+  /// metadata. Some RecordDecl's can be emitted as a base class, so they can
+  /// have 2 representations, so we store/generate both.
+  llvm::MapVector<const RecordDecl *, llvm::SmallVector<llvm::StructType *, 2>>
+      DTransTypes;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   /// Non-zero if emitting code from a target region, including functions
@@ -1255,6 +1261,30 @@ public:
                      bool Local = false);
 
   void ConstructSVMLCallAttributes(StringRef Name, llvm::AttributeList &List);
+
+  void addDTransType(const RecordDecl *RD, llvm::StructType *STy) {
+    if (getCodeGenOpts().EmitDTransInfo) {
+      RD = cast<RecordDecl>(RD->getCanonicalDecl());
+      if (!llvm::is_contained(DTransTypes[RD], STy))
+        DTransTypes[RD].push_back(STy);
+    }
+  }
+
+  llvm::Function *addDTransInfoToFunc(GlobalDecl GD, StringRef MangledName,
+                                      llvm::FunctionType *FT,
+                                      llvm::Function *Func);
+  Address addDTransInfoToMemTemp(QualType Ty, Address Addr);
+  llvm::GlobalVariable *addDTransInfoToGlobal(const VarDecl *VD,
+                                              llvm::GlobalVariable *GV,
+                                              llvm::Type *LLVMType);
+  llvm::GlobalVariable *addDTransVTableInfo(llvm::GlobalVariable *GV,
+                                            const VTableLayout &Layout);
+  llvm::GlobalVariable *
+  addDTransTypeInfo(llvm::GlobalVariable *GV,
+                    const SmallVectorImpl<llvm::Constant *> &Fields);
+  llvm::CallBase *addDTransIndirectCallInfo(llvm::CallBase *CI,
+                                            const CGFunctionInfo &CallInfo);
+
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a new runtime global variable with the specified type and name.
@@ -1755,6 +1785,9 @@ private:
 
   /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
+
+  /// Emit the Intel DTrans type/function metadata.
+  void EmitIntelDTransMetadata();
 #endif // INTEL_CUSTOMIZATION
 
   /// Determine whether the definition must be emitted; if this returns \c

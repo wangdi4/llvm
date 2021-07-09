@@ -1952,6 +1952,7 @@ llvm::GlobalVariable *ItaniumCXXABI::getAddrOfVTable(const CXXRecordDecl *RD,
     }
   }
   CGM.setGVProperties(VTable, RD);
+  CGM.addDTransVTableInfo(VTable, VTLayout); // INTEL
 
   return VTable;
 }
@@ -3984,6 +3985,7 @@ llvm::Constant *ItaniumRTTIBuilder::BuildTypeInfo(
 
   TypeName->setPartition(CGM.getCodeGenOpts().SymbolPartition);
   GV->setPartition(CGM.getCodeGenOpts().SymbolPartition);
+  GV = CGM.addDTransTypeInfo(GV, Fields); // INTEL
 
 #if INTEL_COLLAB
   return llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(

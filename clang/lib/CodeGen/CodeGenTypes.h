@@ -136,10 +136,23 @@ public:
   /// memory representation is usually i8 or i32, depending on the target.
   llvm::Type *ConvertTypeForMem(QualType T, bool ForBitField = false);
 
-  /// GetFunctionType - Get the LLVM function type for \arg Info.
-  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info);
+#if INTEL_CUSTOMIZATION
+  // A type to hold the type-information for a function type, specifically for
+  // DTrans Metadata information.
+  struct DTransFuncInfo {
+    // Holds 2 items, since we sometimes use an anonymous struct for the return
+    // type.
+    std::array<QualType, 2> ResultTypes;
+    llvm::SmallVector<QualType> Params;
+  };
 
-  llvm::FunctionType *GetFunctionType(GlobalDecl GD);
+  /// GetFunctionType - Get the LLVM function type for \arg Info.
+  llvm::FunctionType *GetFunctionType(const CGFunctionInfo &Info,
+                                      DTransFuncInfo *DFI = nullptr);
+
+  llvm::FunctionType *GetFunctionType(GlobalDecl GD,
+                                      DTransFuncInfo *DFI = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// isFuncTypeConvertible - Utility to check whether a function type can
   /// be converted to an LLVM type (i.e. doesn't depend on an incomplete tag

@@ -5754,6 +5754,9 @@ def disable_cpudispatch_ifuncs : Flag<["-"], "disable-cpudispatch-ifuncs">,
   HelpText<"Forces cpu_dispatch resolver generation to not use ifuncs on ELF "
            "systems">,
   MarshallingInfoFlag<CodeGenOpts<"DisableCpuDispatchIFuncs">>;
+def emit_dtrans_info : Flag<["-"], "emit-dtrans-info">,
+  HelpText<"Causes the frontend to emit DTrans Type metadata">,
+  MarshallingInfoFlag<CodeGenOpts<"EmitDTransInfo">>;
 // endif INTEL_CUSTOMIZATION
 
 def disable_llvm_verifier : Flag<["-"], "disable-llvm-verifier">,
