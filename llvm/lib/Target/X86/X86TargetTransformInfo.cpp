@@ -5151,23 +5151,7 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
     unsigned Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     const Instruction *I = nullptr) {
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
-  unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
   PointerType *PtrTy = SrcVTy->getScalarType()->getPointerTo(AddressSpace);
-
-  bool Scalarize = false;
-  if ((Opcode == Instruction::Load &&
-       !isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
-      (Opcode == Instruction::Store &&
-       !isLegalMaskedScatter(SrcVTy, Align(Alignment))))
-    Scalarize = true;
-  // Gather / Scatter for vector 2 is not profitable on KNL / SKX
-  // Vector-4 of gather/scatter instruction does not exist on KNL.
-  // We can extend it to 8 elements, but zeroing upper bits of
-  // the mask vector will add more instructions. Right now we give the scalar
-  // cost of vector-4 for KNL. TODO: Check, maybe the gather/scatter instruction
-  // is better in the VariableMask case.
-  if (ST->hasAVX512() && (VF == 2 || (VF == 4 && !ST->hasVLX())))
-    Scalarize = true;
 
   if ((Opcode == Instruction::Load &&
        !isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
