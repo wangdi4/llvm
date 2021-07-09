@@ -16,6 +16,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LocalBufferAnalysis.cpp
   LocalBuffers.cpp
   LinearIdResolver.cpp
+  DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
   SplitBBonBarrierPass.cpp
