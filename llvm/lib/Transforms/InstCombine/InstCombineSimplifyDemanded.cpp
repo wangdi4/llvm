@@ -476,6 +476,12 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       //
       // Since %tmp3 is now a SExt instruction, it will converted again
       // to a Select instruction, producing an infinite loop.
+      //
+      // CMPLRLLVM-29659:
+      // Similar to above, but we have:
+      // %not.tobool38.not = xor i1 %tobool38.not, true
+      // sext i1 %not.tobool38.not to i64
+      // If we convert the sext to select, it will be reverted back to sext.
       bool ReplaceEnabled = true;
       if (auto *ICmp = dyn_cast<ICmpInst>(I->getOperand(0))) {
         ICmpInst::Predicate OuterPred;
@@ -488,6 +494,9 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
         if (match(ICmp, m_ICmp(OuterPred, m_Value(X), m_APInt(C1))) &&
             C1->isNegative())
           ReplaceEnabled = false;
+      }
+      else if (match(I->getOperand(0), m_Xor(m_Value(), m_One()))) {
+        ReplaceEnabled = false;
       }
 
       if (ReplaceEnabled) {
