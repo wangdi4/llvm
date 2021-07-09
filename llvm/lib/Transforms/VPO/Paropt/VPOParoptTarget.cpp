@@ -1059,8 +1059,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     }
 
     // Add noop GEP that renames the value.
+    auto *Ty = Orig->getType()->getScalarType()->getPointerElementType();
     auto *Copy = GetElementPtrInst::CreateInBounds(
-        nullptr, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+        Ty, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
         Orig->getName() + ".copy", CopyBlock->getTerminator());
 
     Item->setOrig(Copy);

@@ -212,7 +212,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (!VPGEP->isOpaque())
       // FIXME: SOA transformation cuts lots of corners and doesn't preserve
       // consistency in SourceElementType.
-      SourceElementType = nullptr;
+      SourceElementType =
+          GepBasePtr->getType()->getScalarType()->getPointerElementType();
 
     SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
     cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
@@ -1067,8 +1068,10 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
     // FIXME: SOA transformation cuts lots of corners and doesn't preserve
     // consistency in SourceElementType.
-    Type *SourceElementType =
-        GEP->isOpaque() ? GEP->getSourceElementType() : nullptr;
+    Type *SourceElementType = GEP->isOpaque() ? GEP->getSourceElementType()
+                                              : WideGepBasePtr->getType()
+                                                    ->getScalarType()
+                                                    ->getPointerElementType();
 
     Value *VectorGEP = Builder.CreateGEP(SourceElementType,
                                          WideGepBasePtr, OpsV, GepName);
