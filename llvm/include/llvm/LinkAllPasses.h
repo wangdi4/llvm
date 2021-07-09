@@ -416,6 +416,7 @@ namespace {
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();
+      (void)llvm::createGroupBuiltinLegacyPass();
       (void)llvm::createSplitBBonBarrierLegacyPass();
       (void)llvm::createWIRelatedValueWrapperPass();
       (void)llvm::createDataPerBarrierWrapperPass();

@@ -688,6 +688,7 @@ void initializeDPCPPKernelPostVecPass(PassRegistry&);
 void initializeDPCPPKernelWGLoopCreatorLegacyPass(PassRegistry &);
 void initializeDPCPPKernelAnalysisLegacyPass(PassRegistry &);
 void initializeDuplicateCalledKernelsLegacyPass(PassRegistry &);
+void initializeGroupBuiltinLegacyPass(PassRegistry &);
 void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeSplitBBonBarrierLegacyPass(PassRegistry &);

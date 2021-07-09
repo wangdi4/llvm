@@ -14,6 +14,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "ImplicitArgsUtils.h"
@@ -110,6 +112,28 @@ const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
 const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
 } // namespace
+
+static cl::list<std::string>
+    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
+                          cl::desc("Builtin declarations (bitcode) libraries"),
+                          cl::value_desc("filename1,filename2"));
+
+SmallVector<std::unique_ptr<Module>, 2>
+loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
+  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
+  for (auto &ModuleFile : OptBuiltinModuleFiles) {
+    if (ModuleFile.empty()) {
+      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
+    } else {
+      SMDiagnostic Err;
+      std::unique_ptr<Module> BuiltinModule =
+          getLazyIRFileModule(ModuleFile, Err, Ctx);
+      assert(BuiltinModule && "failed to load builtin lib from file");
+      BuiltinModules.push_back(std::move(BuiltinModule));
+    }
+  }
+  return BuiltinModules;
+}
 
 static unsigned CLVersionToVal(uint64_t Major, uint64_t Minor) {
   return Major * 100 + Minor * 10;
