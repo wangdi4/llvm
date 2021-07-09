@@ -18,7 +18,7 @@ define i8* @test1(i8* %0, i8* %1, i8* %2, i64 %3) {
   ret i8* %temp1
 }
 
-attributes #1 = { nofree nounwind readonly mustprogress }
+attributes #1 = { mustprogress nofree nounwind readonly }
 
 ; RUN: opt -wholeprogramanalysis -function-attrs -S %s | FileCheck %s --check-prefix=CHECK-TEST2
 ; TODO: Include the run command for the new pass manager once we fix the
@@ -38,7 +38,7 @@ define i8* @test2(i8* %0, i8* %1, i8* %2, i64 %3) {
   ret i8* %temp1
 }
 
-attributes #2 = { nofree nounwind readonly mustprogress }
+attributes #2 = { mustprogress nofree nounwind readonly }
 
 ; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST3
 ; TODO: Include the run command for the new pass manager once we fix the
@@ -69,7 +69,7 @@ attributes #3 = { nofree nounwind readonly }
 ; "readonly" is not set.
 
 ; CHECK-TEST4: declare dso_local i8* @libfunc4(i8*, i8*, i8*, i64) #[[T4:[0-9]+]]
-; CHECK-TEST4: attributes #[[T4]] = { nofree nounwind mustprogress }
+; CHECK-TEST4: attributes #[[T4]] = { mustprogress nofree nounwind }
 
 declare dso_local i8* @libfunc4(i8*, i8*, i8*, i64) #4
 
@@ -78,7 +78,7 @@ define i8* @test4(i8* %0, i8* %1, i8* %2, i64 %3) {
   ret i8* %temp1
 }
 
-attributes #4 = { nofree nounwind mustprogress }
+attributes #4 = { mustprogress nofree nounwind }
 
 ; RUN: opt -wholeprogramanalysis -function-attrs -whole-program-assume  -S %s | FileCheck %s --check-prefix=CHECK-TEST5
 ; TODO: Include the run command for the new pass manager once we fix the
@@ -89,7 +89,7 @@ attributes #4 = { nofree nounwind mustprogress }
 ; the libfunc is used in an invoke instruction.
 
 ; CHECK-TEST5: declare dso_local i8* @libfunc5(i8*, i8*, i8*, i64) #[[T5:[0-9]+]]
-; CHECK-TEST5: attributes #[[T5]] = { nofree readonly mustprogress }
+; CHECK-TEST5: attributes #[[T5]] = { mustprogress nofree readonly }
 
 declare dso_local i8* @libfunc5(i8*, i8*, i8*, i64) #5
 declare i32 @__gxx_personality_v0(...)
@@ -107,4 +107,4 @@ LPad:
   ret i8* null
 }
 
-attributes #5 = { nofree readonly mustprogress }
+attributes #5 = { mustprogress nofree readonly }
