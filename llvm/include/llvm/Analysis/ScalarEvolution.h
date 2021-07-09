@@ -1878,7 +1878,7 @@ protected: // INTEL
   /// less-than comparison will execute.  If not computable, return
   /// CouldNotCompute.
   ///
-  /// \p isSigned specifies whether the less-than is signed.
+  /// \p Pred specifies the kind of less-than comparison.
   ///
   /// \p ControlsExit is true when the LHS < RHS condition directly controls
   /// the branch (loops exits only if condition is true). In this case, we can
@@ -1887,14 +1887,14 @@ protected: // INTEL
   /// If \p AllowPredicates is set, this call will try to use a minimal set of
   /// SCEV predicates in order to return an exact answer.
   ExitLimit howManyLessThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
-                             bool isSigned, bool ControlsExit,
-                             bool AllowPredicates = false,  // INTEL
+                             ICmpInst::Predicate Pred, bool ControlsExit,
+                             bool AllowPredicates,          // INTEL
                              bool IVMaxValIsUB = false,     // INTEL
                              ICmpInst *ExitCond = nullptr); // INTEL
 
   ExitLimit howManyGreaterThans(const SCEV *LHS, const SCEV *RHS, const Loop *L,
                                 bool isSigned, bool IsSubExpr,
-                                bool AllowPredicates = false,  // INTEL
+                                bool AllowPredicates,          // INTEL
                                 ICmpInst *ExitCond = nullptr); // INTEL
 
   /// Return a predecessor of BB (which may not be an immediate predecessor)
