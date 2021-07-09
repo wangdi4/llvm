@@ -198,6 +198,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransDeleteFieldOPWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
+  initializeDTransAOSToSOAOPWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
   initializeDTransDynCloneWrapperPass(PR);
   initializeDTransAnnotatorCleanerWrapperPass(PR);
@@ -351,6 +352,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransDeleteFieldWrapperPass();
   (void)llvm::createDTransDeleteFieldOPWrapperPass();
   (void)llvm::createDTransAOSToSOAWrapperPass();
+  (void)llvm::createDTransAOSToSOAOPWrapperPass();
   (void)llvm::createDTransAnnotatorCleanerWrapperPass();
   (void)llvm::createDTransReorderFieldsWrapperPass();
   (void)llvm::createDTransPaddedMallocWrapperPass();
