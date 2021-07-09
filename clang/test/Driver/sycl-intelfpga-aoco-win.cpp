@@ -1,5 +1,4 @@
 /// -fintelfpga static lib (aoco)
-// [CMPLRLLVM-25333] INTEL UNSUPPORTED: i686-pc-windows
 // RUN:  echo "Dummy AOCO image" > %t.aoco
 // RUN:  echo "void foo() {}" > %t.c
 // RUN:  echo "void foo2() {}" > %t2.c
