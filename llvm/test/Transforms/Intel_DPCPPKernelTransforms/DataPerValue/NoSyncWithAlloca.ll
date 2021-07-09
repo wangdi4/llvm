@@ -1,5 +1,5 @@
-; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s -S -o - | FileCheck %s
-; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis %s -S -o - | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' -S < %s | FileCheck %s
+; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the DataPerValue pass
@@ -57,3 +57,7 @@ L2:
 ; CHECK: DONE
 
 declare i32 @_Z12get_local_idj(i32)
+
+!sycl.kernels = !{!0}
+
+!0 = !{void (i32)* @main}
