@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt -instcombine -disable-combine-upcasting=true < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-TRUE
 ; RUN: opt -instcombine -disable-combine-upcasting=false < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-FALSE
 
@@ -30,3 +33,5 @@ define void @foo(%class.Outer1* %0, i32 %1) {
 ; Check that the bitcast was generated since -disable-combine-upcasting is
 ; disabled
 ; CHECK-FALSE: %tmp5.cast = bitcast %class.Inner1* %tmp4 to %class.Outer2*
+
+; end INTEL_FEATURE_SW_DTRANS

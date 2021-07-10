@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
 ; RUN      -padded-pointer-prop \
 ; RUN:     -hir-ssa-deconstruction -hir-temp-cleanup \
@@ -18,14 +21,14 @@
 ; BEGIN REGION { }
 ;       @llvm.intel.directive(!0);
 ;       @llvm.intel.directive(!1);
-;       
+;
 ;       + DO i1 = 0, 9, 1   <DO_MULTI_EXIT_LOOP>
 ;       |   if ((%pv1)[i1] != (%pv2)[i1])
 ;       |   {
 ;       |      goto bb3;
 ;       |   }
 ;       + END LOOP
-;       
+;
 ;       @llvm.intel.directive(!2);
 ;       @llvm.intel.directive(!1);
 ; END REGION
@@ -112,3 +115,5 @@ declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*) #0
 attributes #0 = { nounwind }
 
 !0 = !{i32 32}
+
+; end INTEL_FEATURE_SW_DTRANS

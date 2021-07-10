@@ -2887,9 +2887,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     addLateDTransPasses(MPM);
     if (EnableIndirectCallConv) {
        MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
+#if INTEL_FEATURE_SW_DTRANS
        MPM.addPass(createModuleToFunctionPassAdaptor(
            IndirectCallConvPass(false /* EnableAndersen */,
                                 true /* EnableDTrans */)));
+#else // INTEL_FEATURE_SW_DTRANS
+       MPM.addPass(createModuleToFunctionPassAdaptor(
+           IndirectCallConvPass(false /* EnableAndersen */)));
+#endif // INTEL_FEATURE_SW_DTRANS
     }
   }
 #endif // INTEL_INCLUDE_DTRANS
@@ -2939,10 +2944,16 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
   // Indirect to direct call conversion.
+#if INTEL_FEATURE_SW_DTRANS
   if (EnableIndirectCallConv && EnableAndersen)
     MPM.addPass(createModuleToFunctionPassAdaptor(
         IndirectCallConvPass(true /* EnableAndersen */,
                              false /* EnableDTrans */)));
+#else // INTEL_FEATURE_SW_DTRANS
+  if (EnableIndirectCallConv && EnableAndersen)
+    MPM.addPass(createModuleToFunctionPassAdaptor(
+        IndirectCallConvPass(true /* EnableAndersen */)));
+#endif // INTEL_FEATURE_SW_DTRANS
 
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner.

@@ -1,7 +1,9 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: asserts, intel_feature_sw_dtrans
+
 ; This test verifies that %"XStringCachedAllocator" is considered as
 ; candidate for MemManageTrans.
 
-; REQUIRES: asserts
 
 ; RUN: opt < %s -disable-output  -inline -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='cgscc(inline)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
@@ -86,3 +88,5 @@ declare %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedEN
 declare void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEEC2ERN11xercesc_2_713MemoryManagerEt(%"ArenaAllocator"* nonnull dereferenceable(40) %this, %"MemoryManager"* nonnull align 8 dereferenceable(8) %theManager, i16 zeroext %theBlockSize)
 declare %"XStringCached"* @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv(%"ReusableArenaAllocator"* nonnull dereferenceable(41) %this)
 declare void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_(%"ReusableArenaAllocator"* nonnull dereferenceable(41) %this, %"XStringCached"* %theObject)
+
+; end INTEL_FEATURE_SW_DTRANS

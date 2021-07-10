@@ -25,12 +25,19 @@ namespace llvm {
 
 class IndirectCallConvPass : public PassInfoMixin<IndirectCallConvPass> {
   bool UseAndersen;
+#if INTEL_FEATURE_SW_DTRANS
   bool UseDTrans;
+#endif // INTEL_FEATURE_SW_DTRANS
 
 public:
+#if INTEL_FEATURE_SW_DTRANS
   explicit IndirectCallConvPass(bool UseAndersen = false,
                                 bool UseDTrans = false)
       : UseAndersen(UseAndersen), UseDTrans(UseDTrans) {}
+#else // INTEL_FEATURE_SW_DTRANS
+  explicit IndirectCallConvPass(bool UseAndersen = false)
+      : UseAndersen(UseAndersen) {}
+#endif // INTEL_FEATURE_SW_DTRANS
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
