@@ -1039,8 +1039,7 @@ define i32 @test_select(i32 %c) {
 ; IS__TUNIT____: Function Attrs: nofree nosync nounwind readnone willreturn
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@test_select
 ; IS__TUNIT____-SAME: (i32 [[C:%.*]]) #[[ATTR1]] {
-; IS__TUNIT____-NEXT:    [[CALL:%.*]] = call i32 @select() #[[ATTR1]]
-; IS__TUNIT____-NEXT:    ret i32 [[CALL]]
+; IS__TUNIT____-NEXT:    ret i32 42
 ;
 ; IS__CGSCC____: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@test_select
@@ -1052,11 +1051,6 @@ define i32 @test_select(i32 %c) {
 }
 
 define internal i32 @select(i1 %a, i32 %b, i32 %c) {
-; IS__TUNIT____: Function Attrs: nofree nosync nounwind readnone willreturn
-; IS__TUNIT____-LABEL: define {{[^@]+}}@select
-; IS__TUNIT____-SAME: () #[[ATTR1]] {
-; IS__TUNIT____-NEXT:    ret i32 42
-;
 ; IS__CGSCC____: Function Attrs: nofree norecurse nosync nounwind readnone willreturn
 ; IS__CGSCC____-LABEL: define {{[^@]+}}@select
 ; IS__CGSCC____-SAME: () #[[ATTR1]] {
@@ -1224,6 +1218,81 @@ define internal i1 @cmp_null_after_cast(i32 %a, i8 %b) {
   ret i1 %c
 }
 
+
+declare i8* @m()
+
+define i32 @test(i1 %c) {
+; CHECK-LABEL: define {{[^@]+}}@test
+; CHECK-SAME: (i1 [[C:%.*]]) {
+; CHECK-NEXT:    [[R1:%.*]] = call i32 @ctx_test1(i1 [[C]])
+; CHECK-NEXT:    [[R2:%.*]] = call i32 @ctx_test2(i1 [[C]]), !range [[RNG0:![0-9]+]]
+; CHECK-NEXT:    [[ADD:%.*]] = add i32 [[R1]], [[R2]]
+; CHECK-NEXT:    ret i32 [[ADD]]
+;
+  %r1 = call i32 @ctx_test1(i1 %c)
+  %r2 = call i32 @ctx_test2(i1 %c)
+  %add = add i32 %r1, %r2
+  ret i32 %add
+}
+
+define internal i32 @ctx_test1(i1 %c) {
+; CHECK-LABEL: define {{[^@]+}}@ctx_test1
+; CHECK-SAME: (i1 [[C:%.*]]) {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br i1 [[C]], label [[THEN:%.*]], label [[JOIN:%.*]]
+; CHECK:       then:
+; CHECK-NEXT:    [[M:%.*]] = tail call i8* @m()
+; CHECK-NEXT:    [[I:%.*]] = ptrtoint i8* [[M]] to i64
+; CHECK-NEXT:    br label [[JOIN]]
+; CHECK:       join:
+; CHECK-NEXT:    [[PHI:%.*]] = phi i64 [ [[I]], [[THEN]] ], [ undef, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RET:%.*]] = trunc i64 [[PHI]] to i32
+; CHECK-NEXT:    ret i32 [[RET]]
+;
+entry:
+  br i1 %c, label %then, label %join
+
+then:
+  %m = tail call i8* @m()
+  %i = ptrtoint i8* %m to i64
+  br label %join
+
+join:
+  %phi = phi i64 [ %i, %then ], [ undef, %entry ]
+  %ret = trunc i64 %phi to i32
+  ret i32 %ret
+}
+
+define internal i32 @ctx_test2(i1 %c) {
+; CHECK-LABEL: define {{[^@]+}}@ctx_test2
+; CHECK-SAME: (i1 [[C:%.*]]) {
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br i1 [[C]], label [[THEN:%.*]], label [[JOIN:%.*]]
+; CHECK:       then:
+; CHECK-NEXT:    [[M:%.*]] = tail call i8* @m()
+; CHECK-NEXT:    [[I:%.*]] = ptrtoint i8* [[M]] to i32
+; CHECK-NEXT:    br label [[JOIN]]
+; CHECK:       join:
+; CHECK-NEXT:    [[PHI:%.*]] = phi i32 [ [[I]], [[THEN]] ], [ undef, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[RET:%.*]] = lshr i32 [[PHI]], 1
+; CHECK-NEXT:    ret i32 [[RET]]
+;
+entry:
+  br i1 %c, label %then, label %join
+
+then:
+  %m = tail call i8* @m()
+  %i = ptrtoint i8* %m to i32
+  br label %join
+
+join:
+  %phi = phi i32 [ %i, %then ], [ undef, %entry ]
+  %ret = lshr i32 %phi, 1
+  ret i32 %ret
+
+  uselistorder label %join, { 1, 0 }
+}
+
 ;.
 ; IS__TUNIT_OPM: attributes #[[ATTR0]] = { nofree nosync nounwind willreturn }
 ; IS__TUNIT_OPM: attributes #[[ATTR1]] = { nofree nosync nounwind readnone willreturn }
@@ -1262,4 +1331,6 @@ define internal i1 @cmp_null_after_cast(i32 %a, i8 %b) {
 ; IS__CGSCC_NPM: attributes #[[ATTR6]] = { willreturn }
 ; IS__CGSCC_NPM: attributes #[[ATTR7]] = { readonly willreturn }
 ; IS__CGSCC_NPM: attributes #[[ATTR8]] = { nofree nosync nounwind readnone }
+;.
+; CHECK: [[RNG0]] = !{i32 0, i32 -2147483648}
 ;.
