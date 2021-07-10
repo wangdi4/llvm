@@ -33,6 +33,11 @@ void PipelinePrinter::printRegionHeader(llvm::raw_ostream &OS) const {
 json::Object PipelinePrinter::getJSONReportRegion() const {
   json::Object JO;
 
+  StringRef RegionName = "";
+  if (!Region.getDescription().empty())
+    RegionName = Region.getDescription();
+
+  JO.try_emplace("Name", RegionName);
   for (const auto &V : Views)
     if (V->isSerializable())
       JO.try_emplace(V->getNameAsString().str(), V->toJSON());
@@ -40,17 +45,43 @@ json::Object PipelinePrinter::getJSONReportRegion() const {
   return JO;
 }
 
+json::Object PipelinePrinter::getJSONTargetInfo() const {
+  json::Array Resources;
+  const MCSchedModel &SM = STI.getSchedModel();
+  StringRef MCPU = STI.getCPU();
+
+  for (unsigned I = 1, E = SM.getNumProcResourceKinds(); I < E; ++I) {
+    const MCProcResourceDesc &ProcResource = *SM.getProcResource(I);
+    unsigned NumUnits = ProcResource.NumUnits;
+    if (ProcResource.SubUnitsIdxBegin || !NumUnits)
+      continue;
+
+    for (unsigned J = 0; J < NumUnits; ++J) {
+      std::string ResourceName = ProcResource.Name;
+      if (NumUnits > 1) {
+        ResourceName +=  ".";
+        ResourceName += J;
+      }
+
+      Resources.push_back(ResourceName);
+    }
+  }
+
+  return json::Object({{"CPUName", MCPU}, {"Resources", std::move(Resources)}});
+}
+
 void PipelinePrinter::printReport(json::Object &JO) const {
   if (!RegionIdx)
-    JO.try_emplace("Resources", InstructionView::getJSONTargetInfo(STI));
+    JO.try_emplace("TargetInfo", getJSONTargetInfo());
 
-  StringRef RegionName;
-  if (Region.getDescription().empty())
-    RegionName = "main";
-  else
-    RegionName = Region.getDescription();
+  if (!RegionIdx) {
+    // Construct an array of regions.
+    JO.try_emplace("CodeRegions", json::Array());
+  }
 
-  JO.try_emplace(RegionName, getJSONReportRegion());
+  json::Array *Regions = JO.getArray("CodeRegions");
+  assert(Regions && "This array must exist!");
+  Regions->push_back(getJSONReportRegion());
 }
 
 void PipelinePrinter::printReport(llvm::raw_ostream &OS) const {
