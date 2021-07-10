@@ -37,8 +37,8 @@
 // RUN: %clang -### -fsycl-device-only -c -emit-llvm %s 2>&1 | FileCheck %s --check-prefix=COMBINED
 // RUN: %clangxx -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
 // RUN: %clang_cl -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=DEFAULT
-// RUN: %clangxx -### -fsycl-device-only -fsycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-LAMBDA
-// RUN: %clang_cl -### -fsycl-device-only -fsycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-LAMBDA
+// RUN: %clangxx -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
+// RUN: %clang_cl -### -fsycl-device-only -fno-sycl-unnamed-lambda %s 2>&1 | FileCheck %s --check-prefix=CHECK-NOT-LAMBDA
 
 // INTEL_CUSTOMIZATION
 // For 32-bit host compilers (xmainx86oclwin) the spir target defaults to
@@ -62,7 +62,7 @@
 // COMBINED: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // TEXTUAL: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
 // end INTEL_CUSTOMIZATION
-// CHECK-LAMBDA: "-fsycl-unnamed-lambda"
+// CHECK-NOT-LAMBDA: "-fno-sycl-unnamed-lambda"
 
 /// -fsycl-device-only triple checks
 // RUN: %clang -fsycl-device-only -target x86_64-unknown-linux-gnu -### %s 2>&1 \

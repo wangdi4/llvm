@@ -3343,8 +3343,13 @@ Sema::NamedReturnInfo Sema::getNamedReturnInfo(Expr *&E, bool ForceCXX2b) {
   if (!VD)
     return NamedReturnInfo();
   NamedReturnInfo Res = getNamedReturnInfo(VD);
+  // FIXME: We supress simpler implicit move here (unless ForceCXX2b is true)
+  //        in msvc compatibility mode just as a temporary work around,
+  //        as the MSVC STL has issues with this change.
+  //        We will come back later with a more targeted approach.
   if (Res.Candidate && !E->isXValue() &&
-      (ForceCXX2b || getLangOpts().CPlusPlus2b)) {
+      (ForceCXX2b ||
+       (getLangOpts().CPlusPlus2b && !getLangOpts().MSVCCompat))) {
     E = ImplicitCastExpr::Create(Context, VD->getType().getNonReferenceType(),
                                  CK_NoOp, E, nullptr, VK_XValue,
                                  FPOptionsOverride());
@@ -3405,7 +3410,7 @@ Sema::NamedReturnInfo Sema::getNamedReturnInfo(const VarDecl *VD) {
 
   // Variables with higher required alignment than their type's ABI
   // alignment cannot use NRVO.
-  if (!VDType->isDependentType() && VD->hasAttr<AlignedAttr>() &&
+  if (!VD->hasDependentAlignment() &&
       Context.getDeclAlign(VD) > Context.getTypeAlignInChars(VDType))
     Info.S = NamedReturnInfo::MoveEligible;
 

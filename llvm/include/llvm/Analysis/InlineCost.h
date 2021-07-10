@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/InlineModelFeatureMaps.h"
 #include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -528,6 +529,15 @@ Optional<int> getInliningCostEstimate(
     TargetLibraryInfo *TLI = nullptr,                       // INTEL
     InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
     WholeProgramInfo *WPI = nullptr);                       // INTEL
+
+/// Get the expanded cost features. The features are returned unconditionally,
+/// even if inlining is impossible.
+Optional<InlineCostFeatures> getInliningCostFeatures(
+    CallBase &Call, TargetTransformInfo &CalleeTTI,
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+    ProfileSummaryInfo *PSI = nullptr,
+    OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee);

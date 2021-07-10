@@ -79,8 +79,9 @@ public:
 /// Implementation of VPlanScalarEvolution for LLVM IR.
 class VPlanScalarEvolutionLLVM : public VPlanScalarEvolution {
 public:
-  VPlanScalarEvolutionLLVM(ScalarEvolution &SE, const Loop *MainLoop)
-      : SE(&SE), MainLoop(MainLoop) {}
+  VPlanScalarEvolutionLLVM(ScalarEvolution &SE, const Loop *MainLoop,
+                           LLVMContext &Context, const DataLayout *DL)
+      : SE(&SE), MainLoop(MainLoop), Context(Context), DL(DL) {}
 
   VPlanSCEV *computeAddressSCEV(const VPLoadStoreInst &LSI) override;
 
@@ -104,6 +105,8 @@ public:
 private:
   ScalarEvolution *SE;
   const Loop *MainLoop;
+  LLVMContext &Context;
+  const DataLayout *DL;
 };
 
 } // namespace vpo

@@ -502,6 +502,7 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
     // Link the fallback implementations as well, since
     // SPIR-V modules linking is not supported yet.
     { "libomp-fallback-cassert", LinkLibc },
+    { "libomp-fallback-cstring", LinkLibc },
     { "libomp-fallback-complex", LinkFP32 },
     { "libomp-fallback-complex-fp64", LinkFP64 },
     { "libomp-fallback-cmath", LinkFP32 },
@@ -4812,6 +4813,7 @@ class OffloadingActionBuilder final {
       // default too.
       SmallVector<DeviceLibOptInfo, 5> sycl_device_fallback_libs = {
           {"libsycl-fallback-cassert", "libc"},
+          {"libsycl-fallback-cstring", "libc"},
           {"libsycl-fallback-complex", "libm-fp32"},
           {"libsycl-fallback-complex-fp64", "libm-fp64"},
           {"libsycl-fallback-cmath", "libm-fp32"},

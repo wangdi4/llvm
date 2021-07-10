@@ -28,7 +28,8 @@ protected:
     BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
     std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
 
-    VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
+    VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin(),
+                                  *Plan->getLLVMContext(), DL.get());
     VPlanValueTrackingLLVM VT(VPSE, *DL, &*AC, &*DT);
 
     VPLoadStoreInst *Store = nullptr;

@@ -50,7 +50,11 @@ VPlanScalarEvolutionLLVM::computeAddressSCEV(const VPLoadStoreInst &LSI) {
 
 VPlanSCEV *VPlanScalarEvolutionLLVM::getMinusExpr(VPlanSCEV *LHS,
                                                   VPlanSCEV *RHS) {
-  const SCEV *Minus = SE->getMinusSCEV(toSCEV(LHS), toSCEV(RHS));
+  Type *PtrIntTy = Type::getIntNTy(Context, DL->getPointerSizeInBits());
+  // Pointers with different bases require explicit conversion to int.
+  auto LHSPtrToIntSCEV = SE->getPtrToIntExpr(toSCEV(LHS), PtrIntTy);
+  auto RHSPtrToIntSCEV = SE->getPtrToIntExpr(toSCEV(RHS), PtrIntTy);
+  const SCEV *Minus = SE->getMinusSCEV(LHSPtrToIntSCEV, RHSPtrToIntSCEV);
   return toVPlanSCEV(Minus);
 }
 

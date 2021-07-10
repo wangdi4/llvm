@@ -35,7 +35,7 @@
 ; CHECK:           |   %rem = i1  %u  5;
 ; CHECK:           |   (@A)[0][%rem] = i1;
 ; CHECK:           |   (@B)[0][i1] = i1;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 64]),  0,  3,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 60]),  0,  3,  1);
 ; CHECK:           + END LOOP
 ; CHECK:     END REGION
 ;

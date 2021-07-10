@@ -1761,8 +1761,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
 
     auto *WideLoad =
-        Builder.CreateMaskedLoad(CastedBase, VLSLoad->getAlignment(), LoadMask,
-                                 nullptr /* PassThru */, "vls.load");
+        Builder.CreateMaskedLoad(VecTy, CastedBase, VLSLoad->getAlignment(),
+                                 LoadMask, nullptr /* PassThru */, "vls.load");
     VPScalarMap[VLSLoad][0] = WideLoad;
     OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
     return;
@@ -2532,6 +2532,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
                                                 getGuaranteedPeeling());
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
       Ptr, VPLoad->getValueType(), IsNegOneStride);
+  Type *WidenedType = getWidenedType(LoadType, VF);
 
   // Masking not needed for privates.
   // TODO: This needs to be generalized for all "dereferenceable" pointers
@@ -2545,12 +2546,13 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
     ++OptRptStats.MaskedUnalignedUnitStrideLoads;
-    WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
-                                        nullptr, "wide.masked.load");
+    WideLoad =
+        Builder.CreateMaskedLoad(WidenedType, VecPtr, Alignment, RepMaskValue,
+                                 nullptr, "wide.masked.load");
   } else {
     ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
-    WideLoad = Builder.CreateAlignedLoad(getWidenedType(LoadType, VF), VecPtr,
-                                         Alignment, "wide.load");
+    WideLoad =
+        Builder.CreateAlignedLoad(WidenedType, VecPtr, Alignment, "wide.load");
   }
 
   // We don't need GuaranteedPeeling here. PreferredAlignmentMetadata is just a
@@ -2624,8 +2626,10 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                             ScalarPtrTy->getAddressSpace())));
   }
 
-  Instruction *NewLI = Builder.CreateMaskedGather(
-      GatherAddress, Alignment, RepMaskValue, nullptr, "wide.masked.gather");
+  Type *VecTy =  getWidenedType(LoadType, VF);
+  Instruction *NewLI =
+      Builder.CreateMaskedGather(VecTy, GatherAddress, Alignment, RepMaskValue,
+                                 nullptr, "wide.masked.gather");
   propagateLoadStoreInstAliasMetadata(NewLI, VPLoad);
 
   VPWidenMap[VPLoad] = NewLI;
@@ -4122,7 +4126,9 @@ void VPOCodeGen::vectorizeInductionInit(VPInductionInit *VPInst) {
   }
   Value *Ret =
       (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
-          ? Builder.CreateInBoundsGEP(BcastStart, {VectorStep}, "vector_gep")
+          ? Builder.CreateInBoundsGEP(
+                BcastStart->getType()->getScalarType()->getPointerElementType(),
+                BcastStart, VectorStep, "vector_gep")
           : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                 BcastStart, VectorStep);
   VPWidenMap[VPInst] = Ret;

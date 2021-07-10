@@ -82,7 +82,8 @@ protected:
   }
 
   void setupPeelingAnalysis() {
-    VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin());
+    VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(
+      *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
     VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
     VPPA = std::make_unique<VPlanPeelingAnalysis>(*VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);

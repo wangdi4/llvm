@@ -999,7 +999,7 @@ get_device_info_host<info::device::usm_restricted_shared_allocations>() {
 }
 
 template <>
-inline bool get_device_info_host<info::device::usm_system_allocator>() {
+inline bool get_device_info_host<info::device::usm_system_allocations>() {
   return true;
 }
 
@@ -1065,11 +1065,11 @@ struct get_device_info<bool, info::device::usm_restricted_shared_allocations> {
 };
 
 // Specialization for system usm query
-template <> struct get_device_info<bool, info::device::usm_system_allocator> {
+template <> struct get_device_info<bool, info::device::usm_system_allocations> {
   static bool get(RT::PiDevice dev, const plugin &Plugin) {
     pi_usm_capabilities caps;
     pi_result Err = Plugin.call_nocheck<PiApiKind::piDeviceGetInfo>(
-        dev, pi::cast<RT::PiDeviceInfo>(info::device::usm_system_allocator),
+        dev, pi::cast<RT::PiDeviceInfo>(info::device::usm_system_allocations),
         sizeof(pi_usm_capabilities), &caps, nullptr);
     return (Err != PI_SUCCESS) ? false : (caps & PI_USM_ACCESS);
   }
@@ -1131,6 +1131,14 @@ inline cl_ulong
 get_device_info_host<info::device::ext_intel_max_mem_bandwidth>() {
   throw runtime_error(
       "Obtaining the maximum memory bandwidth is not supported on HOST device",
+      PI_INVALID_DEVICE);
+}
+
+template <>
+inline detail::uuid_type
+get_device_info_host<info::device::ext_intel_device_info_uuid>() {
+  throw runtime_error(
+      "Obtaining the device uuid is not supported on HOST device",
       PI_INVALID_DEVICE);
 }
 

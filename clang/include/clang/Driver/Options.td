@@ -487,6 +487,7 @@ defvar hip = LangOpts<"HIP">;
 defvar gnu_mode = LangOpts<"GNUMode">;
 defvar asm_preprocessor = LangOpts<"AsmPreprocessor">;
 defvar cpp_modules = LangOpts<"CPlusPlusModules">;
+defvar sycl_ver = LangOpts<"SYCLVersion">;
 
 defvar std = !strconcat("LangStandard::getLangStandardForKind(", lang_std.KeyPath, ")");
 
@@ -2953,11 +2954,16 @@ def fsycl_link_EQ : Joined<["-"], "fsycl-link=">,
 def fsycl_link : Flag<["-"], "fsycl-link">, Alias<fsycl_link_EQ>,
   AliasArgs<["early"]>, Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Generate partially linked device object to be used with the host link">;
-def fsycl_unnamed_lambda : Flag<["-"], "fsycl-unnamed-lambda">,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Allow unnamed SYCL lambda kernels">,
-  MarshallingInfoFlag<LangOpts<"SYCLUnnamedLambda">>;
-def fno_sycl_unnamed_lambda : Flag<["-"], "fno-sycl-unnamed-lambda">,
-  Flags<[CC1Option, CoreOption, DpcppOption]>;
+defm sycl_unnamed_lambda
+    : BoolFOption<
+          "sycl-unnamed-lambda", LangOpts<"SYCLUnnamedLambda">,
+          Default<!strconcat(
+              sycl_ver.KeyPath,
+              " >= clang::LangOptions::SYCLMajorVersion::SYCL_2020")>,
+          PosFlag<SetTrue, [], "Allow">, NegFlag<SetFalse, [], "Disallow">,
+// if INTEL_CUSTOMIZATION
+          BothFlags<[CC1Option, CoreOption, DpcppOption], " unnamed SYCL lambda kernels">>;
+// endif // INTEL_CUSTOMIZATION
 def fsycl_help_EQ : Joined<["-"], "fsycl-help=">,
   Flags<[NoXarchOption, CoreOption, DpcppOption]>, HelpText<"Emit help information from the "
   "related offline compilation tool. Valid values: all, fpga, gen, x86_64.">,
@@ -6320,13 +6326,16 @@ def stats_file : Joined<["-"], "stats-file=">,
 def fdump_record_layouts_simple : Flag<["-"], "fdump-record-layouts-simple">,
   HelpText<"Dump record layout information in a simple form used for testing">,
   MarshallingInfoFlag<LangOpts<"DumpRecordLayoutsSimple">>;
+def fdump_record_layouts_canonical : Flag<["-"], "fdump-record-layouts-canonical">,
+  HelpText<"Dump record layout information with canonical field types">,
+  MarshallingInfoFlag<LangOpts<"DumpRecordLayoutsCanonical">>;
 def fdump_record_layouts_complete : Flag<["-"], "fdump-record-layouts-complete">,
   HelpText<"Dump record layout information for all complete types">,
   MarshallingInfoFlag<LangOpts<"DumpRecordLayoutsComplete">>;
 def fdump_record_layouts : Flag<["-"], "fdump-record-layouts">,
   HelpText<"Dump record layout information">,
   MarshallingInfoFlag<LangOpts<"DumpRecordLayouts">>,
-  ImpliedByAnyOf<[fdump_record_layouts_simple.KeyPath, fdump_record_layouts_complete.KeyPath]>;
+  ImpliedByAnyOf<[fdump_record_layouts_simple.KeyPath, fdump_record_layouts_complete.KeyPath, fdump_record_layouts_canonical.KeyPath]>;
 def fix_what_you_can : Flag<["-"], "fix-what-you-can">,
   HelpText<"Apply fix-it advice even in the presence of unfixable errors">,
   MarshallingInfoFlag<FrontendOpts<"FixWhatYouCan">>;
@@ -6821,9 +6830,6 @@ def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
   Flags<[CC1Option, NoArgumentUnused, CoreOption, DpcppOption]>,
   HelpText<"SYCL language standard to compile for.">,
   Values<"2020,2017,121,1.2.1,sycl-1.2.1">,
-  NormalizedValues<["SYCL_2020", "SYCL_2017", "SYCL_2017", "SYCL_2017", "SYCL_2017"]>,
-  NormalizedValuesScope<"LangOptions">,
-  MarshallingInfoEnum<LangOpts<"SYCLVersion">, "SYCL_None">,
   ShouldParseIf<!strconcat(fsycl_is_device.KeyPath, "||", fsycl_is_host.KeyPath)>;
 #endif // INTEL_CUSTOMIZATION
 

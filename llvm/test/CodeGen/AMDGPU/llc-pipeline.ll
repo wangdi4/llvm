@@ -22,8 +22,8 @@
 ; GCN-O0-NEXT: Target Transform Information
 ; GCN-O0-NEXT: Assumption Cache Tracker
 ; GCN-O0-NEXT: Profile summary info
-; GCN-O0-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O0-NEXT: Argument Register Usage Information Storage
+; GCN-O0-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O0-NEXT: Register Usage Information Storage
 ; GCN-O0-NEXT: Machine Branch Probability Analysis
 ; GCN-O0-NEXT:   ModulePass Manager
@@ -34,7 +34,6 @@
 ; GCN-O0-NEXT:     Fix function bitcasts for AMDGPU
 ; GCN-O0-NEXT:     FunctionPass Manager
 ; GCN-O0-NEXT:       Early propagate attributes from kernels to functions
-; GCN-O0-NEXT:       Expand Atomic instructions
 ; GCN-O0-NEXT:     AMDGPU Lower Intrinsics
 ; GCN-O0-NEXT:     AMDGPU Inline All Functions
 ; GCN-O0-NEXT:     CallGraph Construction
@@ -44,13 +43,7 @@
 ; GCN-O0-NEXT:     Lower OpenCL enqueued blocks
 ; GCN-O0-NEXT:     Lower uses of LDS variables from non-kernel functions
 ; GCN-O0-NEXT:     FunctionPass Manager
-; GCN-O0-NEXT:       Dominator Tree Construction
-; GCN-O0-NEXT:       Post-Dominator Tree Construction
-; GCN-O0-NEXT:       Natural Loop Information
-; GCN-O0-NEXT:       Legacy Divergence Analysis
-; GCN-O0-NEXT:       AMDGPU IR optimizations
-; GCN-O0-NEXT:       Lower Garbage Collection Instructions
-; GCN-O0-NEXT:       Shadow Stack GC Lowering
+; GCN-O0-NEXT:       Expand Atomic instructions
 ; GCN-O0-NEXT:       Lower constant intrinsics
 ; GCN-O0-NEXT:       Remove unreachable blocks from the CFG
 ; GCN-O0-NEXT:       Expand vector predication intrinsics
@@ -72,13 +65,11 @@
 ; GCN-O0-NEXT:       Function Alias Analysis Results
 ; GCN-O0-NEXT:       Flatten the CFG
 ; GCN-O0-NEXT:       Dominator Tree Construction
-; GCN-O0-NEXT:       Post-Dominator Tree Construction
-; GCN-O0-NEXT:       Natural Loop Information
-; GCN-O0-NEXT:       Legacy Divergence Analysis
-; GCN-O0-NEXT:       AMDGPU IR late optimizations
 ; GCN-O0-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; GCN-O0-NEXT:       Function Alias Analysis Results
+; GCN-O0-NEXT:       Natural Loop Information
 ; GCN-O0-NEXT:       Code sinking
+; GCN-O0-NEXT:       Post-Dominator Tree Construction
 ; GCN-O0-NEXT:       Legacy Divergence Analysis
 ; GCN-O0-NEXT:       Unify divergent function exit nodes
 ; GCN-O0-NEXT:       Lazy Value Information Analysis
@@ -100,7 +91,6 @@
 ; GCN-O0-NEXT:       Memory SSA
 ; GCN-O0-NEXT:       AMDGPU Annotate Uniform Values
 ; GCN-O0-NEXT:       SI annotate control flow
-; GCN-O0-NEXT:       Natural Loop Information
 ; GCN-O0-NEXT:       LCSSA Verifier
 ; GCN-O0-NEXT:       Loop-Closed SSA Form Pass
 ; GCN-O0-NEXT:       DummyCGSCCPass
@@ -172,8 +162,8 @@
 ; GCN-O1-NEXT: External Alias Analysis
 ; GCN-O1-NEXT: Type-Based Alias Analysis
 ; GCN-O1-NEXT: Scoped NoAlias Alias Analysis
-; GCN-O1-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O1-NEXT: Argument Register Usage Information Storage
+; GCN-O1-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O1-NEXT: Machine Branch Probability Analysis
 ; GCN-O1-NEXT: Register Usage Information Storage
 ; GCN-O1-NEXT:   ModulePass Manager
@@ -184,7 +174,6 @@
 ; GCN-O1-NEXT:     Fix function bitcasts for AMDGPU
 ; GCN-O1-NEXT:     FunctionPass Manager
 ; GCN-O1-NEXT:       Early propagate attributes from kernels to functions
-; GCN-O1-NEXT:       Expand Atomic instructions
 ; GCN-O1-NEXT:     AMDGPU Lower Intrinsics
 ; GCN-O1-NEXT:     AMDGPU Inline All Functions
 ; GCN-O1-NEXT:     CallGraph Construction
@@ -195,6 +184,7 @@
 ; GCN-O1-NEXT:     Lower uses of LDS variables from non-kernel functions
 ; GCN-O1-NEXT:     FunctionPass Manager
 ; GCN-O1-NEXT:       Infer address spaces
+; GCN-O1-NEXT:       Expand Atomic instructions
 ; GCN-O1-NEXT:       AMDGPU Promote Alloca
 ; GCN-O1-NEXT:       Dominator Tree Construction
 ; GCN-O1-NEXT:       SROA
@@ -216,8 +206,6 @@
 ; GCN-O1-NEXT:       Lazy Branch Probability Analysis
 ; GCN-O1-NEXT:       Lazy Block Frequency Analysis
 ; GCN-O1-NEXT:       Expand memcmp() to load/stores
-; GCN-O1-NEXT:       Lower Garbage Collection Instructions
-; GCN-O1-NEXT:       Shadow Stack GC Lowering
 ; GCN-O1-NEXT:       Lower constant intrinsics
 ; GCN-O1-NEXT:       Remove unreachable blocks from the CFG
 ; GCN-O1-NEXT:       Natural Loop Information
@@ -277,7 +265,6 @@
 ; GCN-O1-NEXT:       Memory SSA
 ; GCN-O1-NEXT:       AMDGPU Annotate Uniform Values
 ; GCN-O1-NEXT:       SI annotate control flow
-; GCN-O1-NEXT:       Natural Loop Information
 ; GCN-O1-NEXT:       LCSSA Verifier
 ; GCN-O1-NEXT:       Loop-Closed SSA Form Pass
 ; GCN-O1-NEXT:       DummyCGSCCPass
@@ -420,8 +407,8 @@
 ; GCN-O1-OPTS-NEXT: External Alias Analysis
 ; GCN-O1-OPTS-NEXT: Type-Based Alias Analysis
 ; GCN-O1-OPTS-NEXT: Scoped NoAlias Alias Analysis
-; GCN-O1-OPTS-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O1-OPTS-NEXT: Argument Register Usage Information Storage
+; GCN-O1-OPTS-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O1-OPTS-NEXT: Machine Branch Probability Analysis
 ; GCN-O1-OPTS-NEXT: Register Usage Information Storage
 ; GCN-O1-OPTS-NEXT:   ModulePass Manager
@@ -432,7 +419,6 @@
 ; GCN-O1-OPTS-NEXT:     Fix function bitcasts for AMDGPU
 ; GCN-O1-OPTS-NEXT:     FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:       Early propagate attributes from kernels to functions
-; GCN-O1-OPTS-NEXT:       Expand Atomic instructions
 ; GCN-O1-OPTS-NEXT:     AMDGPU Lower Intrinsics
 ; GCN-O1-OPTS-NEXT:     AMDGPU Inline All Functions
 ; GCN-O1-OPTS-NEXT:     CallGraph Construction
@@ -443,6 +429,7 @@
 ; GCN-O1-OPTS-NEXT:     Lower uses of LDS variables from non-kernel functions
 ; GCN-O1-OPTS-NEXT:     FunctionPass Manager
 ; GCN-O1-OPTS-NEXT:       Infer address spaces
+; GCN-O1-OPTS-NEXT:       Expand Atomic instructions
 ; GCN-O1-OPTS-NEXT:       AMDGPU Promote Alloca
 ; GCN-O1-OPTS-NEXT:       Dominator Tree Construction
 ; GCN-O1-OPTS-NEXT:       SROA
@@ -482,8 +469,6 @@
 ; GCN-O1-OPTS-NEXT:       Lazy Branch Probability Analysis
 ; GCN-O1-OPTS-NEXT:       Lazy Block Frequency Analysis
 ; GCN-O1-OPTS-NEXT:       Expand memcmp() to load/stores
-; GCN-O1-OPTS-NEXT:       Lower Garbage Collection Instructions
-; GCN-O1-OPTS-NEXT:       Shadow Stack GC Lowering
 ; GCN-O1-OPTS-NEXT:       Lower constant intrinsics
 ; GCN-O1-OPTS-NEXT:       Remove unreachable blocks from the CFG
 ; GCN-O1-OPTS-NEXT:       Natural Loop Information
@@ -550,7 +535,6 @@
 ; GCN-O1-OPTS-NEXT:       Memory SSA
 ; GCN-O1-OPTS-NEXT:       AMDGPU Annotate Uniform Values
 ; GCN-O1-OPTS-NEXT:       SI annotate control flow
-; GCN-O1-OPTS-NEXT:       Natural Loop Information
 ; GCN-O1-OPTS-NEXT:       LCSSA Verifier
 ; GCN-O1-OPTS-NEXT:       Loop-Closed SSA Form Pass
 ; GCN-O1-OPTS-NEXT:       DummyCGSCCPass
@@ -701,8 +685,8 @@
 ; GCN-O2-NEXT: External Alias Analysis
 ; GCN-O2-NEXT: Type-Based Alias Analysis
 ; GCN-O2-NEXT: Scoped NoAlias Alias Analysis
-; GCN-O2-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O2-NEXT: Argument Register Usage Information Storage
+; GCN-O2-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O2-NEXT: Machine Branch Probability Analysis
 ; GCN-O2-NEXT: Register Usage Information Storage
 ; GCN-O2-NEXT:   ModulePass Manager
@@ -713,7 +697,6 @@
 ; GCN-O2-NEXT:     Fix function bitcasts for AMDGPU
 ; GCN-O2-NEXT:     FunctionPass Manager
 ; GCN-O2-NEXT:       Early propagate attributes from kernels to functions
-; GCN-O2-NEXT:       Expand Atomic instructions
 ; GCN-O2-NEXT:     AMDGPU Lower Intrinsics
 ; GCN-O2-NEXT:     AMDGPU Inline All Functions
 ; GCN-O2-NEXT:     CallGraph Construction
@@ -724,6 +707,7 @@
 ; GCN-O2-NEXT:     Lower uses of LDS variables from non-kernel functions
 ; GCN-O2-NEXT:     FunctionPass Manager
 ; GCN-O2-NEXT:       Infer address spaces
+; GCN-O2-NEXT:       Expand Atomic instructions
 ; GCN-O2-NEXT:       AMDGPU Promote Alloca
 ; GCN-O2-NEXT:       Dominator Tree Construction
 ; GCN-O2-NEXT:       SROA
@@ -763,8 +747,6 @@
 ; GCN-O2-NEXT:       Lazy Branch Probability Analysis
 ; GCN-O2-NEXT:       Lazy Block Frequency Analysis
 ; GCN-O2-NEXT:       Expand memcmp() to load/stores
-; GCN-O2-NEXT:       Lower Garbage Collection Instructions
-; GCN-O2-NEXT:       Shadow Stack GC Lowering
 ; GCN-O2-NEXT:       Lower constant intrinsics
 ; GCN-O2-NEXT:       Remove unreachable blocks from the CFG
 ; GCN-O2-NEXT:       Natural Loop Information
@@ -831,7 +813,6 @@
 ; GCN-O2-NEXT:       Memory SSA
 ; GCN-O2-NEXT:       AMDGPU Annotate Uniform Values
 ; GCN-O2-NEXT:       SI annotate control flow
-; GCN-O2-NEXT:       Natural Loop Information
 ; GCN-O2-NEXT:       LCSSA Verifier
 ; GCN-O2-NEXT:       Loop-Closed SSA Form Pass
 ; GCN-O2-NEXT:       DummyCGSCCPass
@@ -983,8 +964,8 @@
 ; GCN-O3-NEXT: External Alias Analysis
 ; GCN-O3-NEXT: Type-Based Alias Analysis
 ; GCN-O3-NEXT: Scoped NoAlias Alias Analysis
-; GCN-O3-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O3-NEXT: Argument Register Usage Information Storage
+; GCN-O3-NEXT: Create Garbage Collector Module Metadata
 ; GCN-O3-NEXT: Machine Branch Probability Analysis
 ; GCN-O3-NEXT: Register Usage Information Storage
 ; GCN-O3-NEXT:   ModulePass Manager
@@ -995,7 +976,6 @@
 ; GCN-O3-NEXT:     Fix function bitcasts for AMDGPU
 ; GCN-O3-NEXT:     FunctionPass Manager
 ; GCN-O3-NEXT:       Early propagate attributes from kernels to functions
-; GCN-O3-NEXT:       Expand Atomic instructions
 ; GCN-O3-NEXT:     AMDGPU Lower Intrinsics
 ; GCN-O3-NEXT:     AMDGPU Inline All Functions
 ; GCN-O3-NEXT:     CallGraph Construction
@@ -1006,6 +986,7 @@
 ; GCN-O3-NEXT:     Lower uses of LDS variables from non-kernel functions
 ; GCN-O3-NEXT:     FunctionPass Manager
 ; GCN-O3-NEXT:       Infer address spaces
+; GCN-O3-NEXT:       Expand Atomic instructions
 ; GCN-O3-NEXT:       AMDGPU Promote Alloca
 ; GCN-O3-NEXT:       Dominator Tree Construction
 ; GCN-O3-NEXT:       SROA
@@ -1050,8 +1031,6 @@
 ; GCN-O3-NEXT:       Lazy Branch Probability Analysis
 ; GCN-O3-NEXT:       Lazy Block Frequency Analysis
 ; GCN-O3-NEXT:       Expand memcmp() to load/stores
-; GCN-O3-NEXT:       Lower Garbage Collection Instructions
-; GCN-O3-NEXT:       Shadow Stack GC Lowering
 ; GCN-O3-NEXT:       Lower constant intrinsics
 ; GCN-O3-NEXT:       Remove unreachable blocks from the CFG
 ; GCN-O3-NEXT:       Natural Loop Information
@@ -1126,7 +1105,6 @@
 ; GCN-O3-NEXT:       Memory SSA
 ; GCN-O3-NEXT:       AMDGPU Annotate Uniform Values
 ; GCN-O3-NEXT:       SI annotate control flow
-; GCN-O3-NEXT:       Natural Loop Information
 ; GCN-O3-NEXT:       LCSSA Verifier
 ; GCN-O3-NEXT:       Loop-Closed SSA Form Pass
 ; GCN-O3-NEXT:       DummyCGSCCPass

@@ -75,5 +75,10 @@ KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
     return KB;
   }
 
+  if (auto *ScevPtrToInt = dyn_cast<SCEVPtrToIntExpr>(Scev)) {
+    // SCEVPtrToIntExpr should not change the known bits number.
+    return getKnownBitsImpl(ScevPtrToInt->getOperand(), CtxI);
+  }
+
   return KnownBits(BitWidth);
 }

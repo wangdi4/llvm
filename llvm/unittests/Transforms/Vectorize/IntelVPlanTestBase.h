@@ -93,7 +93,9 @@ protected:
                                  SE.get());
     HCFGBuilder.buildHierarchicalCFG();
     Plan->setVPSE(
-        std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin()));
+        std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin(),
+                                                  *Plan->getLLVMContext(),
+                                                  DL.get()));
     auto &VPSE =
         *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
     Plan->setVPVT(

@@ -2751,7 +2751,9 @@ static Value *createGEPAtFrontInClonedFunction(Function *NewFn, Value *BaseAddr,
   for (unsigned I = 0; I < NumIndices; I++)
     Indices.push_back(ConstantInt::get(Int32Ty, 0));
 
-  Rep = GetElementPtrInst::CreateInBounds(BaseAddr, Indices, "", InsertPt);
+  Rep = GetElementPtrInst::CreateInBounds(
+      (BaseAddr->getType()->getScalarType())->getPointerElementType(), BaseAddr,
+      Indices, "", InsertPt);
   LLVM_DEBUG(dbgs() << "     Created New GEP: " << *Rep << "\n");
 
   return Rep;

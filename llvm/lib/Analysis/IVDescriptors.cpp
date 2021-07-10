@@ -659,6 +659,7 @@ bool RecurrenceDescriptor::hasMultipleUsesOf(
 
   return false;
 }
+
 bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
                                           RecurrenceDescriptor &RedDes,
                                           DemandedBits *DB, AssumptionCache *AC,
