@@ -320,6 +320,14 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       NewSI->setDebugLoc(SI->getDebugLoc());
       SI->replaceAllUsesWith(NewSI);
       SI->eraseFromParent();
+    } else if (auto *C = dyn_cast<ConstantVector>(U)) {
+      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
+      SmallVector<Constant *, 16> NewVec;
+      for (Value *Op : C->operand_values()) {
+        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
+        NewVec.push_back(NewElt);
+      }
+      C->replaceAllUsesWith(ConstantVector::get(NewVec));
     } else {
       // We should not be here.
       // Unhandled case except for SelectInst - they will be handled later.
