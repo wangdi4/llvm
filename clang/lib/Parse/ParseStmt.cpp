@@ -428,7 +428,12 @@ Retry:
     return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
   case tok::annot_pragma_openmp: {
+    // Prohibit attributes that are not OpenMP attributes, but only before
+    // processing a #pragma omp clause.
     ProhibitAttributes(Attrs);
+    LLVM_FALLTHROUGH;
+  case tok::annot_attr_openmp:
+    // Do not prohibit attributes if they were OpenMP attributes.
     if (isIgnoredOpenMPDirective())
       goto Retry;
     return ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
