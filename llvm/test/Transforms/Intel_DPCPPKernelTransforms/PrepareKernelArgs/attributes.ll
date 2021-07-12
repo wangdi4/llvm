@@ -25,5 +25,5 @@ attributes #0 = { noinline "sycl-kernel" }
 !0 = !{void (i32)* @test}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-37: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-36: WARNING: Instruction with empty DebugLoc in function test {{.*}}
 ; DEBUGIFY-NOT: WARNING

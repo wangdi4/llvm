@@ -61,5 +61,5 @@ attributes #0 = { "sycl-kernel" }
 !0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*)* @A}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-43: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-42: WARNING: Instruction with empty DebugLoc in function A {{.*}}
 ; DEBUGIFY-NOT: WARNING

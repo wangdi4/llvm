@@ -103,5 +103,5 @@ attributes #5 = { convergent nounwind }
 !6 = !{i32 128}
 !7 = !{i32 1}
 
-; DEBUGIFY-COUNT-39: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-38: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING
