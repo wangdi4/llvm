@@ -4153,10 +4153,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     Opts.OpenMPLateOutline =
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
-  if (Opts.OpenMPLateOutline && T.isSPIR())
-      Opts.UseAutoOpenCLAddrSpaceForOpenMP = true;
-#endif  // INTEL_COLLAB
 
   // Check if -fopenmp-simd is specified.
   bool IsSimdSpecified =
