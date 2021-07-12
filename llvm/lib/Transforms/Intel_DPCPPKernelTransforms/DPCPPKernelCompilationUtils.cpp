@@ -63,15 +63,23 @@ const StringRef NAME_GET_GID = "get_global_id";
 const StringRef NAME_GET_LID = "get_local_id";
 const StringRef NAME_GET_LINEAR_GID = "get_global_linear_id";
 const StringRef NAME_GET_LINEAR_LID = "get_local_linear_id";
+const StringRef NAME_GET_SUB_GROUP_LOCAL_ID = "get_sub_group_local_id";
 const StringRef NAME_GET_GLOBAL_SIZE = "get_global_size";
 const StringRef NAME_GET_LOCAL_SIZE = "get_local_size";
+const StringRef NAME_GET_SUB_GROUP_SIZE = "get_sub_group_size";
+const StringRef NAME_GET_MAX_SUB_GROUP_SIZE = "get_max_sub_group_size";
 const StringRef NAME_GET_GROUP_ID = "get_group_id";
+const StringRef NAME_GET_SUB_GROUP_ID = "get_sub_group_id";
 const StringRef NAME_GET_NUM_GROUPS = "get_num_groups";
+const StringRef NAME_GET_NUM_SUB_GROUPS = "get_num_sub_groups";
+const StringRef NAME_GET_ENQUEUED_NUM_SUB_GROUPS =
+    "get_enqueued_num_sub_groups";
 const StringRef NAME_GET_WORK_DIM = "get_work_dim";
 const StringRef NAME_GET_GLOBAL_OFFSET = "get_global_offset";
 const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
+const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
 
@@ -106,6 +114,26 @@ const StringRef NAME_WORK_GROUP_RESERVE_WRITE_PIPE =
 const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
     "__work_group_commit_write_pipe";
 const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
+
+// subgroup functions
+const StringRef NAME_SUB_GROUP_ALL = "sub_group_all";
+const StringRef NAME_SUB_GROUP_ANY = "sub_group_any";
+const StringRef NAME_SUB_GROUP_BROADCAST = "sub_group_broadcast";
+const StringRef NAME_SUB_GROUP_REDUCE_ADD = "sub_group_reduce_add";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD =
+    "sub_group_scan_exclusive_add";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD =
+    "sub_group_scan_inclusive_add";
+const StringRef NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN =
+    "sub_group_scan_exclusive_min";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN =
+    "sub_group_scan_inclusive_min";
+const StringRef NAME_SUB_GROUP_REDUCE_MAX = "sub_group_reduce_max";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX =
+    "sub_group_scan_exclusive_max";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
+    "sub_group_scan_inclusive_max";
 
 /// Not mangled names.
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
@@ -471,11 +499,97 @@ bool isWorkGroupBuiltin(StringRef S) {
   return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
 }
 
-bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module *pModule) {
-  return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
-         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(*pModule) &&
-          (isWorkGroupReserveReadPipe(S) || isWorkGroupCommitReadPipe(S) ||
-           isWorkGroupReserveWritePipe(S) || isWorkGroupCommitWritePipe(S)));
+/// Subgroup builtin functions
+
+bool isGetSubGroupSize(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
+}
+
+bool isGetMaxSubGroupSize(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
+}
+
+bool isGetNumSubGroups(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
+}
+
+bool isGetEnqueuedNumSubGroups(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
+}
+
+bool isGetSubGroupId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+}
+
+bool isGetSubGroupLocalId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
+}
+
+bool isSubGroupAll(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ALL); }
+
+bool isSubGroupAny(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ANY); }
+
+bool isSubGroupBroadCast(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_BROADCAST);
+}
+
+bool isSubGroupReduceAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_ADD);
+}
+
+bool isSubGroupScanExclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool isSubGroupScanInclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isSubGroupReduceMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MIN);
+}
+
+bool isSubGroupScanExclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool isSubGroupScanInclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool isSubGroupReduceMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MAX);
+}
+
+bool isSubGroupScanExclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool isSubGroupScanInclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool isSubGroupScan(StringRef S) {
+  return isSubGroupScanExclusiveAdd(S) || isSubGroupScanInclusiveAdd(S) ||
+         isSubGroupScanExclusiveMin(S) || isSubGroupScanInclusiveMin(S) ||
+         isSubGroupScanExclusiveMax(S) || isSubGroupScanInclusiveMax(S);
+}
+
+// TODO: add ballot function, refactor OCLVecClone - opencl-vec-uniform-return.
+bool isSubGroupUniform(StringRef S) {
+  return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
+         isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
+         isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
+         isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
+         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
+}
+
+bool isSubGroupDivergent(StringRef S) {
+  return isGetSubGroupLocalId(S) || isSubGroupScan(S);
+}
+
+bool isSubGroupBuiltin(StringRef S) {
+  return isSubGroupUniform(S) || isSubGroupDivergent(S);
 }
 
 template <reflection::TypePrimitiveEnum... ParamTys>
@@ -527,6 +641,20 @@ std::string mangledWGBarrier(BarrierType BT) {
   }
 
   llvm_unreachable("Unknown work_group_barrier version");
+  return "";
+}
+
+std::string mangledSGBarrier(BarrierType BT) {
+  switch (BT) {
+  case BarrierType::NoScope:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_SG_BARRIER);
+  case BarrierType::WithScope:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
+                                   reflection::PRIMITIVE_MEMORY_SCOPE>(
+        NAME_SG_BARRIER);
+  }
+
+  llvm_unreachable("Unknown sub_group_barrier version");
   return "";
 }
 
@@ -678,19 +806,29 @@ void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
   }
 }
 
-void getAllSyncBuiltinsDecls(FuncSet &FuncSet, Module *M) {
+void getAllSyncBuiltinsDecls(FuncSet &FSet, Module *M, bool IsWG) {
   // Clear old collected data!
-  FuncSet.clear();
+  FSet.clear();
 
-  // TODO: port handling of WG collectives here as well
-  std::string BarrierNames[] = {mangledBarrier(),
-                                mangledWGBarrier(BarrierType::NoScope),
-                                mangledWGBarrier(BarrierType::WithScope)};
-  for (const auto &BarrierName : BarrierNames) {
-    auto *F = M->getFunction(BarrierName);
-
-    if (F && F->isDeclaration())
-      FuncSet.insert(F);
+  for (Function &F : *M) {
+    if (!F.isDeclaration())
+      continue;
+    StringRef FName = F.getName();
+    if (IsWG) {
+      if (FName == mangledBarrier() ||
+          FName == mangledWGBarrier(BarrierType::NoScope) ||
+          FName == mangledWGBarrier(BarrierType::WithScope) ||
+          /* work group built-ins */
+          isWorkGroupBuiltin(FName) ||
+          /* built-ins synced as if were called by a single work item */
+          isWorkGroupAsyncOrPipeBuiltin(FName, *M))
+        FSet.insert(&F);
+    } else {
+      if (FName == mangledSGBarrier(BarrierType::NoScope) ||
+          FName == mangledSGBarrier(BarrierType::WithScope) ||
+          isSubGroupBuiltin(FName))
+        FSet.insert(&F);
+    }
   }
 }
 

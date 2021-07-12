@@ -1,18 +1,17 @@
-; RUN: opt -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
+; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
-define void @kernel_contains_barrier() #0 {
-; CHECK: define void @kernel_contains_barrier() #0 !no_barrier_path ![[NODE:[0-9]+]] {
+; CHECK: DPCPPKernelAnalysisPass
+; CHECK: kernel_contains_barrier no
+
+define void @kernel_contains_barrier() {
 entry:
   tail call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
-declare void @_Z18work_group_barrierj(i32) #1
+declare void @_Z18work_group_barrierj(i32) #0
 
-; CHECK: ![[NODE]] = !{i1 false}
-
-attributes #0 = { "sycl-kernel" }
-attributes #1 = { convergent }
+attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
 !0 = !{void ()* @kernel_contains_barrier}
