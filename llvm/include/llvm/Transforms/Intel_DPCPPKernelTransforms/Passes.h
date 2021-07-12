@@ -30,6 +30,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/CreateSimdVariantPropagation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/UpdateCallAttrs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantFillIn.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/VectorVariantLowering.h"

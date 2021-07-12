@@ -1,4 +1,5 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
   BuiltinCallToInst.cpp
   BuiltinImport.cpp
@@ -33,10 +34,10 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
+  VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/UpdateCallAttrs.cpp
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp
-  AddFunctionAttrs.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
