@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: asserts, intel_feature_sw_dtrans
+
 ; RUN: opt -padded-pointer-prop \
 ; RUN:     -dtrans-test-paddedmalloc -hir-ssa-deconstruction -hir-temp-cleanup \
 ; RUN:     -hir-last-value-computation -hir-vec-dir-insert \
@@ -6,7 +9,6 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
 ; RUN:     -dtrans-test-paddedmalloc -vplan-force-vf=4 -disable-output \
 ; RUN:     -debug-only=vplan-idioms -vplan-use-padding-info=true < %s 2>&1 | FileCheck %s
-; REQUIRES: asserts
 
 ; This test case tests padding propagation and use of it in vectorizer.
 ;
@@ -16,14 +18,14 @@
 ; BEGIN REGION { }
 ;       @llvm.intel.directive(!0);
 ;       @llvm.intel.directive(!1);
-;       
+;
 ;       + DO i1 = 0, 9, 1   <DO_MULTI_EXIT_LOOP>
 ;       |   if ((%pv1)[i1] != (%pv2)[i1])
 ;       |   {
 ;       |      goto bb3;
 ;       |   }
 ;       + END LOOP
-;       
+;
 ;       @llvm.intel.directive(!2);
 ;       @llvm.intel.directive(!1);
 ; END REGION
@@ -65,3 +67,5 @@ bb3:
 
 declare i32* @llvm.ptr.annotation.p0i32(i32*, i8*, i8*, i32, i8*)
 declare i8* @llvm.ptr.annotation.p0i8(i8*, i8*, i8*, i32)
+
+; end INTEL_FEATURE_SW_DTRANS

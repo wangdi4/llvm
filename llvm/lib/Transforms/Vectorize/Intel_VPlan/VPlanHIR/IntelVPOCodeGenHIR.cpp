@@ -41,9 +41,9 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #define DEBUG_TYPE "VPOCGHIR"
 
@@ -2732,7 +2732,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
   if (getSearchLoopType() != VPlanIdioms::SearchLoopStrEq)
     return;
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Generate runtime check __Intel_PaddedMallocCounter[0] < PaddedMallocLimit.
   // If condition is false, vector code is not safe to execute.
   if (GlobalVariable *PaddedMallocVariable =
@@ -2763,7 +2763,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
         Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
     RTChecks.push_back(Check);
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {

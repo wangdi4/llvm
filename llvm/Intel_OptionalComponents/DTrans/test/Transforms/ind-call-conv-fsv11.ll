@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv -intel-ind-call-conv-max-target=3 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt  -whole-program-assume -intel-ind-call-force-dtrans -passes='require<dtransanalysis>,function(indirectcallconv)' -intel-ind-call-conv-max-target=3 < %s  -S 2>&1 | FileCheck %s
 
@@ -91,3 +94,5 @@ if.end:                                           ; preds = %if.else, %if.then
   %add = add nsw i32 %call1, %call2
   ret i32 %add
 }
+
+; end INTEL_FEATURE_SW_DTRANS

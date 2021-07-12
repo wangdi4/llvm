@@ -93,9 +93,9 @@ add_llvm_component_library(LLVMVectorize
   )
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
   target_link_libraries(LLVMVectorize PRIVATE LLVMIntel_DTransOpt)
-endif(INTEL_INCLUDE_DTRANS)
+# end INTEL_FEATURE_SW_DTRANS
 
 # This is to fix the error (unused private field) with xmain self build about
 # the PeelTC data member of class VPlanRemainderEvaluator.

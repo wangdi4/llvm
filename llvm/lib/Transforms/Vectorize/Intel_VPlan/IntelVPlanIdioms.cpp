@@ -18,9 +18,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Support/CommandLine.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #define DEBUG_TYPE "vplan-idioms"
 
@@ -64,7 +64,7 @@ static bool canSpeculate(const RegDDRef *Ref, bool CheckPadding = true) {
     if (!CheckPadding)
       return true;
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     if (UsePaddingInformation)
       if (Value *Base = Ref->getTempBaseValue()) {
         // TODO: Need to look into data type, VF and return padded size.
@@ -83,7 +83,7 @@ static bool canSpeculate(const RegDDRef *Ref, bool CheckPadding = true) {
                 }
               }
       }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
     if (AllowMemorySpeculation)
       return true;

@@ -1173,7 +1173,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       CB.setCalledOperand(Callee);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       // If a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
       // analysis to treat the 'this' pointer argument as being the expected
@@ -1183,7 +1183,7 @@ void DevirtModule::applySingleImplDevirt(VTableSlotInfo &SlotInfo,
       if (TheFn->getType() != VCallSite.CB.getCalledOperand()->getType())
         (&VCallSite.CB)->setMetadata("_Intel.Devirt.Call",
          IntelDevirtMV.getDevirtCallMDNode());
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
       }
 #endif // INTEL_CUSTOMIZATION
       // This use is no longer unsafe.

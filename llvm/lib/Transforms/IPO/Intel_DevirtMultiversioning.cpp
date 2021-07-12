@@ -153,10 +153,10 @@ IntelDevirtMultiversion::IntelDevirtMultiversion(
     : M(M), WPInfo(WPInfo), GetTLI(GetTLI),
       EnableDevirtMultiversion(WPDevirtMultiversion) {
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   DevirtCallMDNode = MDNode::get(
       M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 }
 
 // Add a new target function into the list of targets. If the target is a
@@ -254,7 +254,7 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     if (TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
       NewCB->setCalledOperand(ConstantExpr::getBitCast(
           TargetFunc, VCallSite->getCalledOperand()->getType()));
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       // Because a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
       // analysis to treat the 'this' pointer argument as being the expected
@@ -262,7 +262,7 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
       NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
     } else {
       NewCB->setCalledFunction(TargetFunc);
     }
