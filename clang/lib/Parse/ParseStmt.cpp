@@ -426,14 +426,17 @@ Retry:
   case tok::annot_pragma_prefetch:
     ProhibitAttributes(Attrs);
     return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
-
-  case tok::annot_pragma_openmp: {
-    ProhibitAttributes(Attrs);
-    if (isIgnoredOpenMPDirective())
-      goto Retry;
-    return ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
-  }
 #endif // INTEL_CUSTOMIZATION
+  case tok::annot_pragma_openmp:
+    // Prohibit attributes that are not OpenMP attributes, but only before
+    // processing a #pragma omp clause.
+    ProhibitAttributes(Attrs);
+    LLVM_FALLTHROUGH;
+  case tok::annot_attr_openmp:
+    if (isIgnoredOpenMPDirective()) // INTEL
+      goto Retry; // INTEL
+    // Do not prohibit attributes if they were OpenMP attributes.
+    return ParseOpenMPDeclarativeOrExecutableDirective(StmtCtx);
 
   case tok::annot_pragma_ms_pointers_to_members:
     ProhibitAttributes(Attrs);
