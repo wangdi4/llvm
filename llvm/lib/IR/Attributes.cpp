@@ -91,6 +91,11 @@ static std::pair<unsigned, unsigned> unpackVScaleRangeArgs(uint64_t Value) {
 
 Attribute Attribute::get(LLVMContext &Context, Attribute::AttrKind Kind,
                          uint64_t Val) {
+  if (Val)
+    assert(Attribute::isIntAttrKind(Kind) && "Not an int attribute");
+  else
+    assert(Attribute::isEnumAttrKind(Kind) && "Not an enum attribute");
+
   LLVMContextImpl *pImpl = Context.pImpl;
   FoldingSetNodeID ID;
   ID.AddInteger(Kind);
@@ -235,15 +240,6 @@ StringRef Attribute::getNameFromAttrKind(Attribute::AttrKind AttrKind) {
   default:
     llvm_unreachable("invalid Kind");
   }
-}
-
-bool Attribute::doesAttrKindHaveArgument(Attribute::AttrKind AttrKind) {
-  return AttrKind == Attribute::Alignment ||
-         AttrKind == Attribute::StackAlignment ||
-         AttrKind == Attribute::Dereferenceable ||
-         AttrKind == Attribute::AllocSize ||
-         AttrKind == Attribute::DereferenceableOrNull ||
-         AttrKind == Attribute::VScaleRange;
 }
 
 bool Attribute::isExistingAttribute(StringRef Name) {
@@ -536,41 +532,23 @@ Type *AttributeImpl::getValueAsType() const {
 bool AttributeImpl::operator<(const AttributeImpl &AI) const {
   if (this == &AI)
     return false;
+
   // This sorts the attributes with Attribute::AttrKinds coming first (sorted
   // relative to their enum value) and then strings.
-  if (isEnumAttribute()) {
-    if (AI.isEnumAttribute()) return getKindAsEnum() < AI.getKindAsEnum();
-    if (AI.isIntAttribute()) return true;
-    if (AI.isStringAttribute()) return true;
-    if (AI.isTypeAttribute()) return true;
-  }
-
-  if (isTypeAttribute()) {
-    if (AI.isEnumAttribute()) return false;
-    if (AI.isTypeAttribute()) {
-      assert(getKindAsEnum() != AI.getKindAsEnum() &&
-             "Comparison of types would be unstable");
+  if (!isStringAttribute()) {
+    if (AI.isStringAttribute())
+      return true;
+    if (getKindAsEnum() != AI.getKindAsEnum())
       return getKindAsEnum() < AI.getKindAsEnum();
-    }
-    if (AI.isIntAttribute()) return true;
-    if (AI.isStringAttribute()) return true;
+    assert(!AI.isEnumAttribute() && "Non-unique attribute");
+    assert(!AI.isTypeAttribute() && "Comparison of types would be unstable");
+    // TODO: Is this actually needed?
+    assert(AI.isIntAttribute() && "Only possibility left");
+    return getValueAsInt() < AI.getValueAsInt();
   }
 
-  if (isIntAttribute()) {
-    if (AI.isEnumAttribute()) return false;
-    if (AI.isTypeAttribute()) return false;
-    if (AI.isIntAttribute()) {
-      if (getKindAsEnum() == AI.getKindAsEnum())
-        return getValueAsInt() < AI.getValueAsInt();
-      return getKindAsEnum() < AI.getKindAsEnum();
-    }
-    if (AI.isStringAttribute()) return true;
-  }
-
-  assert(isStringAttribute());
-  if (AI.isEnumAttribute()) return false;
-  if (AI.isTypeAttribute()) return false;
-  if (AI.isIntAttribute()) return false;
+  if (!AI.isStringAttribute())
+    return false;
   if (getKindAsString() == AI.getKindAsString())
     return getValueAsString() < AI.getValueAsString();
   return getKindAsString() < AI.getKindAsString();
@@ -1929,7 +1907,6 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
         .addDereferenceableOrNullAttr(1) // the int here is ignored
         .addAttribute(Attribute::ReadNone)
         .addAttribute(Attribute::ReadOnly)
-        .addAttribute(Attribute::InAlloca)
         .addPreallocatedAttr(Ty)
         .addInAllocaAttr(Ty)
         .addByValAttr(Ty)
