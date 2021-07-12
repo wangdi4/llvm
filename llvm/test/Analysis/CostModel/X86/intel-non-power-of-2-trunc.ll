@@ -5,15 +5,15 @@
 
 define i32 @trunc_vXi32() {
 ; X86_64-SSE-LABEL: 'trunc_vXi32'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i32>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i32>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i32>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'trunc_vXi32'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i32>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i32>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 20 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 25 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 91 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i32>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
@@ -34,27 +34,27 @@ define i32 @trunc_vXi32() {
 
 define i32 @trunc_vXi16() {
 ; X86_64-SSE-LABEL: 'trunc_vXi16'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i16>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i16>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i16>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'trunc_vXi16'
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 9 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 5 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 22 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 87 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i16>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i16>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 10 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 87 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 166 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i16>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
@@ -88,30 +88,30 @@ define i32 @trunc_vXi16() {
 
 define i32 @trunc_vXi8() {
 ; X86_64-SSE-LABEL: 'trunc_vXi8'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i8>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 7 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i32 = trunc <67 x i32> undef to <67 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = trunc <3 x i16> undef to <3 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i16 = trunc <7 x i16> undef to <7 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V67i32 = trunc <67 x i32> undef to <67 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i16 = trunc <3 x i16> undef to <3 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i16 = trunc <7 x i16> undef to <7 x i8>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %V9i16 = trunc <9 x i16> undef to <9 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i8>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i8>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i8>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret i32 undef
 ;
 ; X86_64-AVX2-LABEL: 'trunc_vXi8'
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i8>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i8>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 11 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i8>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i8>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i8>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 85 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i8>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 162 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i8>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 171 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i8>
@@ -176,24 +176,24 @@ define i32 @trunc_vXi8() {
 
 define i32 @trunc_vXi1() {
 ; X86_64-SSE-LABEL: 'trunc_vXi1'
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 6 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V3i64 = trunc <3 x i64> undef to <3 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V7i64 = trunc <7 x i64> undef to <7 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V9i64 = trunc <9 x i64> undef to <9 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V33i64 = trunc <33 x i64> undef to <33 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V63i64 = trunc <63 x i64> undef to <63 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 128 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i32 = trunc <67 x i32> undef to <67 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 64 for instruction: %V67i32 = trunc <67 x i32> undef to <67 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i16 = trunc <3 x i16> undef to <3 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %V7i16 = trunc <7 x i16> undef to <7 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i16 = trunc <9 x i16> undef to <9 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 66 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 126 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i1>
-; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 134 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %V9i16 = trunc <9 x i16> undef to <9 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V33i16 = trunc <33 x i16> undef to <33 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: %V63i16 = trunc <63 x i16> undef to <63 x i1>
+; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 32 for instruction: %V67i16 = trunc <67 x i16> undef to <67 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V3i8 = trunc <3 x i8> undef to <3 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %V7i8 = trunc <7 x i8> undef to <7 x i1>
 ; X86_64-SSE-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %V9i8 = trunc <9 x i8> undef to <9 x i1>
@@ -211,7 +211,7 @@ define i32 @trunc_vXi1() {
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 171 for instruction: %V67i64 = trunc <67 x i64> undef to <67 x i1>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %V3i32 = trunc <3 x i32> undef to <3 x i1>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %V7i32 = trunc <7 x i32> undef to <7 x i1>
-; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i1>
+; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 8 for instruction: %V9i32 = trunc <9 x i32> undef to <9 x i1>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 85 for instruction: %V33i32 = trunc <33 x i32> undef to <33 x i1>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 162 for instruction: %V63i32 = trunc <63 x i32> undef to <63 x i1>
 ; X86_64-AVX2-NEXT:  Cost Model: Found an estimated cost of 171 for instruction: %V67i32 = trunc <67 x i32> undef to <67 x i1>
