@@ -1681,8 +1681,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // We need to copy array from last private allocated memory into the
     // original array location.
     Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
-    ArrayType *ArrTy =
-        cast<ArrayType>(Orig->getType()->getPointerElementType());
+    Type *ElementType = Orig->getType()->getPointerElementType();
 
     VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
     if (Priv->isSOALayout()) {
@@ -1718,7 +1717,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
       Phi->addIncoming(Index, BBLoop);
       Value *Cond = Builder.CreateICmpULT(
-          Index, Builder.getInt64(ArrTy->getNumElements()));
+          Index,
+          Builder.getInt64(cast<ArrayType>(ElementType)->getNumElements()));
 
       Builder.CreateCondBr(Cond, BBLoop, BBExit);
       BBLoop->getTerminator()->eraseFromParent();
@@ -1734,8 +1734,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
           OrigLoop->getHeader()->getModule()->getDataLayout();
       Builder.CreateMemCpy(Orig, DL.getPrefTypeAlign(Orig->getType()), Res,
                            Priv->getOrigAlignment(),
-                           DL.getTypeAllocSize(ArrTy->getElementType()) *
-                               ArrTy->getNumElements());
+                           DL.getTypeAllocSize(ElementType));
     }
 
     return;
