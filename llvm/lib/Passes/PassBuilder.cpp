@@ -302,7 +302,9 @@
 #include "llvm/Transforms/Scalar/Intel_HandlePragmaVectorAligned.h"
 #include "llvm/Transforms/Scalar/Intel_LoopCarriedCSE.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_NontemporalStore.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Scalar/Intel_TransformSinAndCosCalls.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 #include "llvm/Transforms/Vectorize/IntelMFReplacement.h"

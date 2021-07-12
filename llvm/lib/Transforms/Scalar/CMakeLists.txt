@@ -34,7 +34,9 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp
   Intel_LowerSubscriptIntrinsic.cpp
+# INTEL_FEATURE_SW_ADVANCED
   Intel_NontemporalStore.cpp
+#end INTEL_FEATURE_SW_ADVANCED
   Intel_RemoveRegionDirectives.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp

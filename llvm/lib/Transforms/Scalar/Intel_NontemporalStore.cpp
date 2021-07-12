@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_NontemporalStore.cpp - Unaligned nontemporal store opts ------===//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -803,3 +804,5 @@ bool NontemporalStoreWrapperPass::runOnFunction(Function &F) {
   // changes.
   return true;
 }
+
+#endif // INTEL_FEATURE_SW_ADVANCED
