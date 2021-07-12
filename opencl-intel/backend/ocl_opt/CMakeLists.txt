@@ -88,11 +88,13 @@ add_opencl_executable(${OCL_OPT}
   ${OCL_BE_PASSES}
   ${OCL_BE_PASSES_DEPS}
   cl_sys_utils
+# INTEL_FEATURE_SW_DTRANS
   # Don't know why the following 3 components are not in LLVM_MODULE_LIBS. Add
   # them here as a workaround to resolve link issue.
   LLVMIntel_DTrans
   LLVMIntel_DTransOpt
   LLVMIntel_DTransAnalysis
+# end INTEL_FEATURE_SW_DTRANS
 )
 
 set_target_properties (oclopt PROPERTIES FOLDER ${BACKEND_FOLDER_NAME})

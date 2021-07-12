@@ -498,9 +498,9 @@ int main(int argc, char **argv) {
   initializeIntel_OpenCLTransforms(Registry);
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   initializeDTransAnalysisWrapperPass(Registry);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
