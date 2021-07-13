@@ -1631,6 +1631,31 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_signbit:
   case Builtin::BI__builtin_signbitf:
   case Builtin::BI__builtin_signbitl:
+#if INTEL_CUSTOMIZATION
+    switch (BuiltinID) {
+    default:
+      break;
+    case Builtin::BI__builtin_isinf:
+    case Builtin::BI__builtin_isinff:
+    case Builtin::BI__builtin_isinfl:
+    case Builtin::BI__builtin_isinf_sign: {
+      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+      if (FPO.getNoHonorInfs())
+        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+            << "infinity" << TheCall->getSourceRange();
+      break;
+    }
+    case Builtin::BI__builtin_isnan:
+    case Builtin::BI__builtin_isnanf:
+    case Builtin::BI__builtin_isnanl: {
+      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+      if (FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares())
+        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+            << "NaN" << TheCall->getSourceRange();
+      break;
+    }
+    }
+#endif // INTEL_CUSTOMIZATION
     if (SemaBuiltinFPClassification(TheCall, 1))
       return ExprError();
     break;
@@ -5967,6 +5992,9 @@ bool Sema::CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
 
   CheckAbsoluteValueFunction(TheCall, FDecl);
   CheckMaxUnsignedZero(TheCall, FDecl);
+#if INTEL_CUSTOMIZATION
+  CheckInfNaNFunction(TheCall, FDecl);
+#endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().ObjC)
     DiagnoseCStringFormatDirectiveInCFAPI(*this, FDecl, Args, NumArgs);
@@ -11604,6 +11632,24 @@ static bool IsStdFunction(const FunctionDecl *FDecl,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Warn when using isinf isnan in fast floating point modes.
+void Sema::CheckInfNaNFunction(const CallExpr *Call,
+                               const FunctionDecl *FDecl) {
+  if (Call->getNumArgs() != 1)
+    return;
+
+  FPOptions FPO = Call->getFPFeaturesInEffect(getLangOpts());
+  if (IsStdFunction(FDecl, "isnan") && FPO.getNoHonorNaNs() &&
+      !FPO.getHonorNaNCompares())
+    Diag(Call->getBeginLoc(), diag::warn_fast_floating_point_eq)
+        << "NaN" << Call->getSourceRange();
+  else if (IsStdFunction(FDecl, "isinf") && FPO.getNoHonorInfs())
+    Diag(Call->getBeginLoc(), diag::warn_fast_floating_point_eq)
+        << "infinity" << Call->getSourceRange();
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Warn when using the wrong abs() function.
 void Sema::CheckAbsoluteValueFunction(const CallExpr *Call,
                                       const FunctionDecl *FDecl) {
@@ -12566,19 +12612,52 @@ Sema::CheckReturnValExpr(Expr *RetValExp, QualType lhsType,
 
 //===--- CHECK: Floating-Point comparisons (-Wfloat-equal) ---------------===//
 
-/// Check for comparisons of floating point operands using != and ==.
-/// Issue a warning if these are no self-comparisons, as they are not likely
-/// to do what the programmer intended.
-void Sema::CheckFloatComparison(SourceLocation Loc, Expr* LHS, Expr *RHS) {
+#if INTEL_CUSTOMIZATION
+/// Check for comparisons of floating point operands
+/// Issue a warning (unless they are equality self-comparisons)
+/// since they are not likely to do what the programmer intended.
+void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
+                                bool IsEqualityOp) {
+#endif
   Expr* LeftExprSansParen = LHS->IgnoreParenImpCasts();
   Expr* RightExprSansParen = RHS->IgnoreParenImpCasts();
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
-  if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
-    if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
-      if (DRL->getDecl() == DRR->getDecl())
-        return;
+#if INTEL_CUSTOMIZATION
+  if (IsEqualityOp)
+    if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
+      if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
+        if (DRL->getDecl() == DRR->getDecl())
+          return;
+
+  // Diagnose comparison to NAN or INFINITY in fast fp modes,
+  // since comparison to NaN or INFINITY is always false in
+  // fast modes: float evaluation will not result in inf or nan.
+  FPOptions FPO = LHS->getFPFeaturesInEffect(getLangOpts());
+  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares();
+  bool NoHonorInfs = FPO.getNoHonorInfs();
+  llvm::APFloat Value(0.0);
+  bool IsConstant;
+  IsConstant = !LHS->isValueDependent() &&
+               LeftExprSansParen->EvaluateAsFloat(Value, Context,
+                                                  Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+  IsConstant = !RHS->isValueDependent() &&
+               RightExprSansParen->EvaluateAsFloat(Value, Context,
+                                                   Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+  if (!IsEqualityOp)
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   // Special case: check for comparisons against literals that can be exactly
   //  represented by APFloat.  In such cases, do not emit a warning.  This

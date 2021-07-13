@@ -7031,6 +7031,12 @@ def warn_left_shift_always : Warning<
   "converting the result of '<<' to a boolean always evaluates "
   "to %select{false|true}0">,
   InGroup<TautologicalConstantCompare>;
+// if INTEL_CUSTOMIZATION
+def warn_fast_floating_point_eq : Warning<
+  "comparison with %0 always evaluates to false in fast floating point modes">,
+  InGroup<TautologicalConstantCompare>;
+// endif INTEL_CUSTOMIZATION
+
 def warn_null_in_arithmetic_operation : Warning<
   "use of NULL in arithmetic operation">,
   InGroup<NullArithmetic>;
