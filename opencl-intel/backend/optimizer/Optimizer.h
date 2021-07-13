@@ -15,6 +15,7 @@
 #pragma once
 
 #include "Compiler.h"
+#include "debuggingservicetype.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -108,6 +109,7 @@ protected:
   // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
   // as an intermediate. These two cases are not supported now.
   bool m_IsSYCL;
+  intel::DebuggingServiceType m_debugType;
 };
 
 /**
