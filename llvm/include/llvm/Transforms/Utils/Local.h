@@ -258,7 +258,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
     // Stride is known to be divisible by ElementSize exactly.
     Stride = Builder->CreateExactSDiv(
-        Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
+      Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
   }
 
   auto ExpandToVector = [Builder](Value *V, unsigned VL) {
@@ -335,8 +335,8 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
   Type *BasePtrTy = BasePtr->getType();
 
-  if (IsExact) {
-    // Emit offset in terms of elements.
+  if (IsExact && ConstStride) {
+    // Emit offset in terms of elements. Avoids i8 bitcast overhead.
     Value *ElementOffset =
         emitBaseOffset(Builder, DL, ElTy, BasePtr, Lower, Index, Stride);
 
@@ -382,7 +382,8 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   }
 
   /// The following scheme uses intermediate "bitcast to i8*" to support
-  /// polymorphic types. After shifting the base pointer to a computed number of
+  /// polymorphic types and non-constant stride.
+  /// After shifting the base pointer to a computed number of
   /// bytes the pointer is casted to the ElTy* type.
 
   Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
@@ -392,11 +393,19 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
   }
 
-  Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8Ty);
-
   Value *ByteOffset =
       emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
+
+  // Do not create GEP instruction if the Offset is known zero and no type
+  // change is needed.
+  ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ByteOffset);
+  Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+  if (ConstOffset && ConstOffset->isZero() && BaseElTy == ElTy) {
+    return BasePtr;
+  }
+
+  Value *BasePtrI8 =
+      Builder->CreateBitCast(BasePtr, I8Ty);
 
   Value *NewBasePtr = InBounds
                           ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)

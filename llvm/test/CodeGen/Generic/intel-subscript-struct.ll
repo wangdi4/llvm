@@ -6,27 +6,6 @@
 ; RUN: opt -S -lower-subscript %s -o - | FileCheck -check-prefix=CHECK-LOWER %s
 ; Lowering of 2 intrinsics
 
-; CHECK-LOWER:      %{{.*}} = sdiv exact i32 %conv.i.i, 8
-; CHECK-LOWER-NEXT: %{{.*}} = sub nsw i32 1, %conv5.i.i
-; CHECK-LOWER-NEXT: %{{.*}} = sext i32 %{{.*}} to i64
-; CHECK-LOWER-NEXT: %{{.*}} = sext i32 %{{.*}} to i64
-; CHECK-LOWER-NEXT: %{{.*}} = mul nsw i64
-; CHECK-LOWER-NEXT: %{{.*}} = getelementptr inbounds %struct.A, %struct.A* %{{.*}}, i64
-; CHECK-LOWER-NEXT: %i5 = getelementptr inbounds %struct.A, %struct.A* %{{.*}}, i64 0, i32 1
-; CHECK-LOWER-NEXT: %{{.*}} = load i16, i16* %i5, align 4
-
-; CHECK-LOWER:       %{{.*}} = sdiv exact i32 %conv.i.i, 8
-; CHECK-LOWER-NEXT:  %{{.*}} = sext i16 %{{.*}} to i32
-; CHECK-LOWER-NEXT:  %{{.*}} = sub nsw i32 %{{.*}}, %conv5.i.i
-; CHECK-LOWER-NEXT:  %{{.*}} = sext i32 %{{.*}} to i64
-; CHECK-LOWER-NEXT:  %{{.*}} = sext i32 %{{.*}} to i64
-; CHECK-LOWER-NEXT:  %{{.*}} = mul nsw i64
-; CHECK-LOWER-NEXT:  %{{.*}} = getelementptr inbounds %struct.A, %struct.A* %0, i64
-; CHECK-LOWER-NEXT:  %f = getelementptr inbounds %struct.A, %struct.A* %{{.*}}, i64 0, i32 0
-; CHECK-LOWER-NEXT:  %15 = load float, float* %f, align 4
-; CHECK-LOWER-NEXT:  %conv10 = fadd float %15, 1.000000e+00
-; CHECK-LOWER-NEXT:  store float %conv10, float* %f, align 4
-
 ; icx -restrict -DEXECUTABLE -USIMPLE -std=c++11 -O3 llvm/tools/clang/test/CodeGenCXX/intel/builtin-intel-subscript.cpp -emit-llvm -S  -o intel-subscript-arr.ll
 ; ModuleID = 'llvm/tools/clang/test/CodeGenCXX/intel/builtin-intel-subscript.cpp'
 source_filename = "llvm/tools/clang/test/CodeGenCXX/intel/builtin-intel-subscript.cpp"
@@ -41,6 +20,48 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @_Z4testPK7ArrDescI1AEii(%struct.ArrDesc* noalias nocapture readonly %inout, i32 %N, i32 %K) local_unnamed_addr #0 {
+; CHECK-LOWER-LABEL: @_Z4testPK7ArrDescI1AEii(
+; First subscript. Load base, stride, lower bound.
+; CHECK-LOWER:         [[BASE_I:%.*]] = getelementptr inbounds [[STRUCT_ARRDESC:%.*]], %struct.ArrDesc* [[INOUT:%.*]], i64 0, i32 0
+; CHECK-LOWER-NEXT:    [[TMP0:%.*]] = load %struct.A*, %struct.A** [[BASE_I]], align 8
+; CHECK-LOWER-NEXT:    [[STRIDE_I_I:%.*]] = getelementptr inbounds [[STRUCT_ARRDESC]], %struct.ArrDesc* [[INOUT]], i64 0, i32 6, i64 0, i32 1
+; CHECK-LOWER-NEXT:    [[TMP1:%.*]] = load i64, i64* [[STRIDE_I_I]], align 8
+; CHECK-LOWER-NEXT:    [[CONV_I_I:%.*]] = trunc i64 [[TMP1]] to i32
+; CHECK-LOWER-NEXT:    [[LB_I_I:%.*]] = getelementptr inbounds [[STRUCT_ARRDESC]], %struct.ArrDesc* [[INOUT]], i64 0, i32 6, i64 0, i32 2
+; CHECK-LOWER-NEXT:    [[TMP2:%.*]] = load i64, i64* [[LB_I_I]], align 8
+
+; Compute offset in bytes, (index-lb)*stride.
+; Apply byte offset to i8* casted base pointer.
+; CHECK-LOWER-NEXT:    [[CONV5_I_I:%.*]] = trunc i64 [[TMP2]] to i32
+; CHECK-LOWER-NEXT:    [[TMP3:%.*]] = sub nsw i32 1, [[CONV5_I_I]]
+; CHECK-LOWER-NEXT:    [[TMP4:%.*]] = sext i32 [[CONV_I_I]] to i64
+; CHECK-LOWER-NEXT:    [[TMP5:%.*]] = sext i32 [[TMP3]] to i64
+; CHECK-LOWER-NEXT:    [[TMP6:%.*]] = mul nsw i64 [[TMP4]], [[TMP5]]
+; CHECK-LOWER-NEXT:    [[TMP7:%.*]] = bitcast %struct.A* [[TMP0]] to i8*
+; CHECK-LOWER-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i8, i8* [[TMP7]], i64 [[TMP6]]
+; Cast back to struct.A*.
+; CHECK-LOWER-NEXT:    [[TMP9:%.*]] = bitcast i8* [[TMP8]] to %struct.A*
+; Get the field address from the struct.A*.
+; CHECK-LOWER-NEXT:    [[I5:%.*]] = getelementptr inbounds [[STRUCT_A:%.*]], %struct.A* [[TMP9]], i64 0, i32 1
+
+; 2nd subscript. Base is 1st subscript address. Same pattern as 1st subscript.
+; CHECK-LOWER-NEXT:    [[TMP10:%.*]] = load i16, i16* [[I5]], align 4
+; CHECK-LOWER-NEXT:    [[TMP11:%.*]] = sext i16 [[TMP10]] to i32
+; CHECK-LOWER-NEXT:    [[TMP12:%.*]] = sub nsw i32 [[TMP11]], [[CONV5_I_I]]
+; CHECK-LOWER-NEXT:    [[TMP13:%.*]] = sext i32 [[CONV_I_I]] to i64
+; CHECK-LOWER-NEXT:    [[TMP14:%.*]] = sext i32 [[TMP12]] to i64
+; CHECK-LOWER-NEXT:    [[TMP15:%.*]] = mul nsw i64 [[TMP13]], [[TMP14]]
+; CHECK-LOWER-NEXT:    [[TMP16:%.*]] = bitcast %struct.A* [[TMP0]] to i8*
+; CHECK-LOWER-NEXT:    [[TMP17:%.*]] = getelementptr inbounds i8, i8* [[TMP16]], i64 [[TMP15]]
+; CHECK-LOWER-NEXT:    [[TMP18:%.*]] = bitcast i8* [[TMP17]] to %struct.A*
+; CHECK-LOWER-NEXT:    [[F:%.*]] = getelementptr inbounds [[STRUCT_A]], %struct.A* [[TMP18]], i64 0, i32 0
+
+; Fianlly, do the load.
+; CHECK-LOWER-NEXT:    [[TMP19:%.*]] = load float, float* [[F]], align 4
+; CHECK-LOWER-NEXT:    [[CONV10:%.*]] = fadd float [[TMP19]], 1.000000e+00
+; CHECK-LOWER-NEXT:    store float [[CONV10]], float* [[F]], align 4
+; CHECK-LOWER-NEXT:    ret void
+;
 entry:
   %Base.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 0
   %0 = load %struct.A*, %struct.A** %Base.i, align 8
