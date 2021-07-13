@@ -1485,7 +1485,7 @@ void HIRLoopInterchange::reportTransformation(
   }
   OS << ")";
   LORBuilder(*OutermostLp)
-      .addRemark(OptReportVerbosity::Low, 25578u, OS.str().c_str());
+      .addRemark(OptReportVerbosity::Low, 25444u, OS.str().c_str());
 
   // This is needed for lit-tests for now.
   LLVM_DEBUG(dbgs() << "Loopnest Interchanged: " << OS.str() << '\n');
