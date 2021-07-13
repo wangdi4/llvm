@@ -100,7 +100,9 @@ MODULE_PASS("cross-dso-cfi", CrossDSOCFIPass())
 MODULE_PASS("deadargelim", DeadArgumentEliminationPass())
 #if INTEL_INCLUDE_DTRANS
 MODULE_PASS("dtrans-aostosoa", dtrans::AOSToSOAPass())           // INTEL
+MODULE_PASS("dtrans-aostosoaop", dtransOP::AOSToSOAOPPass())     // INTEL
 MODULE_PASS("dtrans-deletefield", dtrans::DeleteFieldPass())     // INTEL
+MODULE_PASS("dtrans-deletefieldop", dtransOP::DeleteFieldOPPass()) // INTEL
 MODULE_PASS("dtrans-reorderfields", dtrans::ReorderFieldsPass()) // INTEL
 MODULE_PASS("dtrans-resolvetypes", dtrans::ResolveTypesPass())   // INTEL
 MODULE_PASS("dtrans-dynclone", dtrans::DynClonePass())           // INTEL
@@ -122,7 +124,6 @@ MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtransOP::DTransTypeMetadataReaderTestPass())          // INTEL
 MODULE_PASS("dtrans-ptrtypeanalyzertest",                        // INTEL
             dtransOP::DTransPtrTypeAnalyzerTestPass())             // INTEL
-MODULE_PASS("dtrans-deletefieldop", dtransOP::DeleteFieldOPPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL

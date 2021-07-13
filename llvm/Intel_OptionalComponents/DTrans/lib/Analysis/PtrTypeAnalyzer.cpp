@@ -392,6 +392,11 @@ public:
   using AggregateElementPair = std::pair<DTransType *, DTransType *>;
   Optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
 
+  void setUnsupportedAddressSpaceSeen() { UnsupportedAddressSpaceSeen = true; }
+  bool getUnsupportedAddressSpaceSeen() const {
+    return UnsupportedAddressSpaceSeen;
+  }
+
 private:
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
@@ -442,6 +447,12 @@ private:
   // Representation of a pointer to an integer type that is the same size as a
   // pointer in the DTransType system.
   DTransPointerType *DTransPtrSizedIntPtrType;
+
+  // Indicates that a pointer was seen that used the non-default address space.
+  // The DTrans analysis does not take into account pointers to different
+  // address spaces, so we need to detect this and disable DTrans in those
+  // cases.
+  bool UnsupportedAddressSpaceSeen = false;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1117,6 +1128,15 @@ private:
       printValue(dbgs(), V);
       dbgs() << "\n";
     });
+
+    if (auto *PtrTy = dyn_cast<PointerType>(V->getType()))
+      if (PtrTy->getAddressSpace() != 0) {
+        LLVM_DEBUG({
+          if (!PTA.getUnsupportedAddressSpaceSeen())
+            dbgs() << "Unsupported address space seen: " << *PtrTy << "\n";
+        });
+        PTA.setUnsupportedAddressSpaceSeen();
+      }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
@@ -3995,6 +4015,10 @@ bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {
+  return Impl->getUnsupportedAddressSpaceSeen();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
