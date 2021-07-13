@@ -13295,6 +13295,10 @@ private:
                             SourceLocation Loc, SourceRange range,
                             llvm::SmallBitVector &CheckedVarArgs);
 
+#if INTEL_CUSTOMIZATION
+  void CheckInfNaNFunction(const CallExpr *Call, const FunctionDecl *FDecl);
+#endif // INTEL_CUSTOMIZATION
+
   void CheckAbsoluteValueFunction(const CallExpr *Call,
                                   const FunctionDecl *FDecl);
 
@@ -13319,7 +13323,10 @@ private:
                           const FunctionDecl *FD = nullptr);
 
 public:
-  void CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS);
+#if INTEL_CUSTOMIZATION
+  void CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
+                            bool IsEqualityOp);
+#endif // INTEL_CUSTOMIZATION
 
 private:
   void CheckImplicitConversions(Expr *E, SourceLocation CC = SourceLocation());

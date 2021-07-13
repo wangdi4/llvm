@@ -2821,6 +2821,18 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
           Constant::getNullValue(CalleeF->getType()));
       return nullptr;
     }
+
+#if INTEL_CUSTOMIZATION
+    // Remove multiple sequential barrier calls if target is spirv.
+    // TODO: this should probably be done in the target-specifc instcombine
+    // (TTIImpl::instCombineIntrinsicfunction()) which does not exist because
+    // there is no spir target yet. Move it there once/if we add such target.
+    if (Triple(CalleeF->getParent()->getTargetTriple()).isSPIR() &&
+        CalleeF->getName() == "_Z22__spirv_ControlBarrieriii")
+      if (auto *PrevInst = Call.getPrevNonDebugInstruction())
+        if (PrevInst->isIdenticalTo(&Call))
+          return eraseInstFromFunction(Call);
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Calling a null function pointer is undefined if a null address isn't
