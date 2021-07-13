@@ -13482,7 +13482,10 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
       auto CondGT = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
       auto *StartMinusOne = getAddExpr(OrigStart,
                                        getMinusOne(OrigStart->getType()));
-      return isLoopEntryGuardedByCond(L, CondGT, OrigRHS, StartMinusOne);
+#if INTEL_CUSTOMIZATION
+      return isLoopEntryGuardedByCond(L, CondGT, OrigRHS, StartMinusOne,
+                                      ExitCond, &RHS);
+#endif // INTEL_CUSTOMIZATION
     };
 
     // If we know that RHS >= Start in the context of loop, then we know that
