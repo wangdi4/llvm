@@ -505,12 +505,17 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
 }
 
 void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
-  for (auto &BB : *F)
+  DebugLoc Loc;
+  for (auto &BB : *F) {
+    if (auto *RI = dyn_cast<ReturnInst>(BB.getTerminator()))
+      Loc = RI->getDebugLoc();
     BB.dropAllReferences();
+  }
   while (!F->empty())
     F->begin()->eraseFromParent();
   auto *BB = BasicBlock::Create(F->getContext(), "", F);
-  ReturnInst::Create(F->getContext(), BB);
+  auto *RI = ReturnInst::Create(F->getContext(), BB);
+  RI->setDebugLoc(Loc);
 }
 
 bool PrepareKernelArgsPass::runOnFunction(Function *F) {

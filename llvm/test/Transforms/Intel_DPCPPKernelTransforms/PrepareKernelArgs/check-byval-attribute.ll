@@ -32,5 +32,5 @@ attributes #0 = { "sycl-kernel" }
 !0 = !{void (%struct.struct1*, %struct.struct2*, <4 x i32>*)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-41: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-40: WARNING: Instruction with empty DebugLoc in function {{.*}}
 ; DEBUGIFY-NOT: WARNING

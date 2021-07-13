@@ -44,5 +44,5 @@ attributes #0 = { "sycl-kernel" }
 !0 = !{void (i8, <2 x i8>, double, <8 x float>, <16 x i64>)* @t1}
 
 ; DEBUGIFY-NOT: WARNING
-; DEBUGIFY-COUNT-48: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-COUNT-47: WARNING: Instruction with empty DebugLoc in function t1 {{.*}}
 ; DEBUGIFY-NOT: WARNING
