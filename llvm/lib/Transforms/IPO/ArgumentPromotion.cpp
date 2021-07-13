@@ -251,6 +251,11 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
 
+#if INTEL_CUSTOMIZATION
+  if (F->hasComdat())
+    NF->setComdat(F->getComdat());
+#endif // INTEL_CUSTOMIZATION
+
   // Loop over all of the callers of the function, transforming the call sites
   // to pass in the loaded pointers.
   //

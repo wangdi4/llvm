@@ -1,7 +1,6 @@
 ///
 /// tests specific to -fintelfpga -fsycl
 ///
-// [CMPLRLLVM-25333] INTEL UNSUPPORTED: i686-pc-windows
 // REQUIRES: clang-driver
 
 /// Check SYCL headers path

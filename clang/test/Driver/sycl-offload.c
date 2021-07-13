@@ -2,7 +2,6 @@
 /// Perform several driver tests for SYCL offloading
 ///
 
-// [CMPLRLLVM-25333] INTEL UNSUPPORTED: i686-pc-windows
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 
