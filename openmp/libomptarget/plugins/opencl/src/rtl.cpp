@@ -179,12 +179,10 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 
 // Get memory attributes for the given allocation size.
 static std::unique_ptr<std::vector<cl_mem_properties_intel>>
-getAllocMemProperties(size_t Size) {
+getAllocMemProperties(size_t Size, cl_ulong MaxSize) {
   std::vector<cl_mem_properties_intel> Properties;
 #if INTEL_CUSTOMIZATION
-  // FIXME: take the max size from OpenCL API/property, like
-  //        ze_device_properties_t::maxMemAllocSize in level0.
-  if (Size > 0xFFFFE000) {
+  if (Size > MaxSize) {
     Properties.push_back(CL_MEM_FLAGS_INTEL);
     Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
   }
@@ -588,8 +586,10 @@ public:
   std::vector<cl_device_id> Devices;
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
+  /// Device properties
   std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
+  std::vector<cl_ulong> MaxMemAllocSize;
 
   // A vector of descriptors of OpenCL extensions for each device.
   std::vector<ExtensionsTy> Extensions;
@@ -1272,7 +1272,8 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     cl_int rc;
     CALL_CL_EXT_RVRC(deviceId, memLB, clDeviceMemAllocINTEL, rc,
                      getContext(deviceId), Devices[deviceId],
-                     getAllocMemProperties(KernelDynamicMemorySize)->data(),
+                     getAllocMemProperties(KernelDynamicMemorySize,
+                                           MaxMemAllocSize[deviceId])->data(),
                      KernelDynamicMemorySize, 0);
   }
   if (memLB) {
@@ -1823,6 +1824,7 @@ int32_t __tgt_rtl_number_of_devices() {
     DeviceInfo->Contexts.resize(DeviceInfo->NumDevices);
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->NumDevices);
   DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->NumDevices);
+  DeviceInfo->MaxMemAllocSize.resize(DeviceInfo->NumDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->NumDevices);
   DeviceInfo->Queues.resize(DeviceInfo->NumDevices);
   DeviceInfo->QueuesInOrder.resize(DeviceInfo->NumDevices, nullptr);
@@ -1873,6 +1875,11 @@ int32_t __tgt_rtl_number_of_devices() {
                      sizeof(size_t), &DeviceInfo->maxWorkGroupSize[i], nullptr);
     DP("Maximum work group size for the device is %d\n",
        static_cast<int32_t>(DeviceInfo->maxWorkGroupSize[i]));
+    CALL_CL_RET_ZERO(clGetDeviceInfo, deviceId, CL_DEVICE_MAX_MEM_ALLOC_SIZE,
+                     sizeof(cl_ulong), &DeviceInfo->MaxMemAllocSize[i],
+                     nullptr);
+    DP("Maximum memory allocation size is %" PRIu64 "\n",
+       DeviceInfo->MaxMemAllocSize[i]);
     cl_uint addressmode;
     CALL_CL_RET_ZERO(clGetDeviceInfo, deviceId, CL_DEVICE_ADDRESS_BITS, 4,
                      &addressmode, nullptr);
@@ -2772,6 +2779,7 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
   void *base = nullptr;
   auto context = DeviceInfo->getContext(DeviceId);
   size_t allocSize = meaningfulSize + meaningfulOffset;
+  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
 
   ProfileIntervalTy dataAllocTimer("DataAlloc", DeviceId);
   dataAllocTimer.start();
@@ -2789,7 +2797,7 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
     cl_int rc;
     CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAllocINTEL, rc, context,
                      DeviceInfo->Devices[DeviceId],
-                     getAllocMemProperties(allocSize)->data(),
+                     getAllocMemProperties(allocSize, MaxSize)->data(),
                      allocSize, 0);
     if (rc != CL_SUCCESS)
       return nullptr;
@@ -2831,6 +2839,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   cl_int rc;
   void *mem = nullptr;
   auto &mutex = DeviceInfo->Mutexes[device_id];
+  auto MaxSize = DeviceInfo->MaxMemAllocSize[device_id];
   ProfileIntervalTy dataAllocTimer("DataAlloc", device_id);
   dataAllocTimer.start();
 
@@ -2844,9 +2853,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       DP("Host memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL,
-                     rc, context, getAllocMemProperties(size)->data(),
-                     size, 0);
+    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL, rc, context,
+                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
@@ -2863,9 +2871,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       DP("Shared memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL,
-                     rc, context, device, getAllocMemProperties(size)->data(),
-                     size, 0);
+    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL, rc, context, device,
+                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
