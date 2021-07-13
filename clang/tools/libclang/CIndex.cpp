@@ -2423,6 +2423,9 @@ void OMPClauseEnqueue::VisitOMPExclusiveClause(const OMPExclusiveClause *C) {
 void OMPClauseEnqueue::VisitOMPAllocateClause(const OMPAllocateClause *C) {
   VisitOMPClauseList(C);
   Visitor->AddStmt(C->getAllocator());
+#if INTEL_COLLAB
+  Visitor->AddStmt(C->getAlignment());
+#endif // INTEL_COLLAB
 }
 void OMPClauseEnqueue::VisitOMPPrivateClause(const OMPPrivateClause *C) {
   VisitOMPClauseList(C);

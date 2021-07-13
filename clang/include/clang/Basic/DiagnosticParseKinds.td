@@ -1351,6 +1351,8 @@ def err_omp_bad_device_selector : Error<
 def warn_omp_expected_nonneg_const_int : Warning<
   "expected nonnegative constant integer for level in '%0' clause - ignored">,
   InGroup<IgnoredPragmas>;
+def err_omp_more_one_modifier : Error<
+  "'%0' clause cannot contain more than one '%1' modifier">;
 // end INTEL_COLLAB
 def err_omp_map_type_missing : Error<
   "missing map type">;

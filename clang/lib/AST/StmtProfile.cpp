@@ -847,6 +847,10 @@ void OMPClauseProfiler::VisitOMPMapClause(const OMPMapClause *C) {
 void OMPClauseProfiler::VisitOMPAllocateClause(const OMPAllocateClause *C) {
   if (Expr *Allocator = C->getAllocator())
     Profiler->VisitStmt(Allocator);
+#if INTEL_COLLAB
+  if (Expr *Alignment = C->getAlignment())
+    Profiler->VisitStmt(Alignment);
+#endif // INTEL_COLLAB
   VisitOMPClauseList(C);
 }
 void OMPClauseProfiler::VisitOMPNumTeamsClause(const OMPNumTeamsClause *C) {

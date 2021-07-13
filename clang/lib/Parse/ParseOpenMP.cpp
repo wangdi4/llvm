@@ -4226,6 +4226,23 @@ ExprResult Parser::ParseOpenMPIteratorsExpr() {
                                       Data);
 }
 
+#if INTEL_COLLAB
+/// Checks if current token (immediately following the left-paren of the
+/// allocate clause) is either of the valid allocate clause modifiers.
+static bool hasAllocateModifiers(Parser &P, OpenMPClauseKind Kind) {
+  Token Tok = P.getCurToken();
+  Preprocessor &PP = P.getPreprocessor();
+
+  unsigned KindModifier = getOpenMPSimpleClauseType(
+      Kind, Tok.isAnnotation() ? "" : PP.getSpelling(Tok),
+      P.getLangOpts().OpenMP);
+  if (KindModifier == OMPC_ALLOCATE_allocator ||
+      KindModifier == OMPC_ALLOCATE_align)
+    return true;
+  return false;
+}
+#endif // INTEL_COLLAB
+
 /// Parses clauses with list.
 bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                                 OpenMPClauseKind Kind,
@@ -4430,6 +4447,11 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
   } else if (Kind == OMPC_allocate ||
              (Kind == OMPC_affinity && Tok.is(tok::identifier) &&
               PP.getSpelling(Tok) == "iterator")) {
+#if INTEL_COLLAB
+    // Parse as before if OpenMP version less than 51, or if no allocate
+    // modifiers have been used.
+    if (getLangOpts().OpenMP < 51 || !hasAllocateModifiers(*this, Kind)) {
+#endif // INTEL_COLLAB
     // Handle optional allocator expression followed by colon delimiter.
     ColonProtectionRAIIObject ColonRAII(*this);
     TentativeParsingAction TPA(*this);
@@ -4448,6 +4470,14 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
     Tail = Actions.ActOnFinishFullExpr(Tail.get(), T.getOpenLocation(),
                                        /*DiscardedValue=*/false);
     if (Tail.isUsable()) {
+#if INTEL_COLLAB
+      // An error prior to this point might return a recovery expr, which while
+      // considered usable, is also misleading. Revert and indicate failure.
+      if (Tail.get() && Tail.get()->containsErrors()) {
+        TPA.Revert();
+        return true;
+      }
+#endif // INTEL_COLLAB
       if (Tok.is(tok::colon)) {
         Data.DepModOrTailExpr = Tail.get();
         Data.ColonLoc = ConsumeToken();
@@ -4464,6 +4494,9 @@ bool Parser::ParseOpenMPVarList(OpenMPDirectiveKind DKind,
                 StopBeforeMatch);
     }
 #if INTEL_COLLAB
+    } else if (ParseOpenMPAllocateModifiers(DKind, Kind, Data,
+                                            T.getOpenLocation()))
+      return true;
   } else if (Kind == OMPC_adjust_args) {
     // Handle adjust-op for adjust_args clause.
     ColonProtectionRAIIObject ColonRAII(*this);
@@ -4635,6 +4668,9 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPDirectiveKind DKind,
       Data.ReductionOrMapperIdScopeSpec, Data.ReductionOrMapperId,
       Data.ExtraModifier, Data.MapTypeModifiers, Data.MapTypeModifiersLoc,
       Data.IsMapTypeImplicit, Data.ExtraModifierLoc, Data.MotionModifiers,
+#if INTEL_COLLAB
+      Data.AllocAlignModifier,
+#endif // INTEL_COLLAB
       Data.MotionModifiersLoc);
 }
 
@@ -4865,5 +4901,95 @@ OMPClause *Parser::ParseOpenMPDataClause(bool ParseOnly) {
   if (IsError || ParseOnly)
     return nullptr;
   return Actions.ActOnOpenMPDataClause(Addrs, Hints, NumElements, LLoc, RLoc);
+}
+
+/// Parses modifiers for allocate clause.
+///   allocate '(' allocate-modifier [ ',' allocate-modifier ] ':' var-list ')'
+///
+///   where allocate-modifier can be either:
+///     allocator '(' specific-allocator ')'
+///   or
+///     align '(' alignment ')'
+///
+/// Return false if modifiers parsed successfully (no errors). Otherwise true.
+bool Parser::ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
+                                          OpenMPClauseKind Kind,
+                                          OpenMPVarListDataTy &Data,
+                                          SourceLocation LParLoc) {
+  auto SkipPragmaAfterError = [this]() {
+    while (!SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch))
+      ;
+    return true;
+  };
+
+  ExprResult Allocator;
+  Expr *Alignment = nullptr;
+  do {
+    unsigned KindModifier =
+        getOpenMPSimpleClauseType(Kind,
+        Tok.isAnnotation() ? "" : PP.getSpelling(Tok), getLangOpts().OpenMP);
+    ConsumeAnyToken();
+    if (KindModifier == OMPC_ALLOCATE_allocator) {
+      BalancedDelimiterTracker T(*this, tok::l_paren,
+                                 tok::annot_pragma_openmp_end);
+      if (T.expectAndConsume(diag::err_expected_lparen_after, "allocator"))
+        return SkipPragmaAfterError();
+      ExprResult AllocatorVal = ParseAssignmentExpression();
+      if (AllocatorVal.isInvalid())
+        return SkipPragmaAfterError();
+      // OpenMP 5.1, 2.13.5 allocate Clause, Restrictions.
+      // At most one allocator allocate-modifier may be specified on the
+      // clause.
+      if (!Allocator.isUnset())
+        Diag(Tok, diag::err_omp_more_one_modifier) <<
+             getOpenMPClauseName(OMPC_allocate) <<
+             getOpenMPSimpleClauseTypeName(OMPC_allocate,
+                                           OMPC_ALLOCATE_allocator);
+      Allocator = AllocatorVal;
+      if (T.consumeClose())
+        return SkipPragmaAfterError();
+    } else {
+      assert(KindModifier == OMPC_ALLOCATE_align);
+      BalancedDelimiterTracker T(*this, tok::l_paren,
+                                 tok::annot_pragma_openmp_end);
+      if (T.expectAndConsume(diag::err_expected_lparen_after, "align"))
+        return SkipPragmaAfterError();
+      ExprResult Val = ParseConstantExpression();
+      if (Val.isInvalid())
+        return SkipPragmaAfterError();
+      // OpenMP 5.1, 2.13.5 allocate Clause, Restrictions.
+      // At most one align allocate-modifier may be specified on the clause.
+      if (Alignment)
+        Diag(Tok, diag::err_omp_more_one_modifier) <<
+             getOpenMPClauseName(OMPC_allocate) <<
+             getOpenMPSimpleClauseTypeName(OMPC_allocate,
+                                           OMPC_ALLOCATE_align);
+      Alignment = Val.get();
+      if (T.consumeClose())
+        return SkipPragmaAfterError();
+    }
+    // Get other clause modifier if we have one.
+    if (Tok.isNot(tok::comma))
+      break;
+    ConsumeAnyToken();
+  } while (Tok.isNot(tok::annot_pragma_openmp_end));
+
+  // Remember alignment modifier value, if specified.
+  Data.AllocAlignModifier = Alignment;
+
+  ColonProtectionRAIIObject ColonRAII(*this);
+  Allocator = Actions.CorrectDelayedTyposInExpr(Allocator);
+  Allocator = Actions.ActOnFinishFullExpr(Allocator.get(), LParLoc,
+                                          /*DiscardedValue=*/false);
+  assert (Allocator.isUsable() || Data.AllocAlignModifier);
+  // A colon should always follow modifier(s).
+  if (Tok.is(tok::colon)) {
+    Data.DepModOrTailExpr = Allocator.get();
+    Data.ColonLoc = ConsumeToken();
+  } else {
+    Diag(Tok, diag::err_expected) << tok::colon;
+    return SkipPragmaAfterError();
+  }
+  return false;
 }
 #endif // INTEL_COLLAB

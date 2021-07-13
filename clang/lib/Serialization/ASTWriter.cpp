@@ -6505,6 +6505,9 @@ void OMPClauseWriter::VisitOMPAllocateClause(OMPAllocateClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
   Record.AddSourceLocation(C->getColonLoc());
   Record.AddStmt(C->getAllocator());
+#if INTEL_COLLAB
+  Record.AddStmt(C->getAlignment());
+#endif // INTEL_COLLAB
   for (auto *VE : C->varlists())
     Record.AddStmt(VE);
 }

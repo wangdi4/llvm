@@ -2016,12 +2016,22 @@ public:
   ///
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
+#if INTEL_COLLAB
+  OMPClause *RebuildOMPAllocateClause(Expr *Allocate, Expr *Alignment,
+                                      ArrayRef<Expr *> VarList,
+#else // INTEL_COLLAB
   OMPClause *RebuildOMPAllocateClause(Expr *Allocate, ArrayRef<Expr *> VarList,
+#endif // INTEL_COLLAB
                                       SourceLocation StartLoc,
                                       SourceLocation LParenLoc,
                                       SourceLocation ColonLoc,
                                       SourceLocation EndLoc) {
+#if INTEL_COLLAB
+    return getSema().ActOnOpenMPAllocateClause(Allocate, Alignment, VarList,
+                                               StartLoc,
+#else // INTEL_COLLAB
     return getSema().ActOnOpenMPAllocateClause(Allocate, VarList, StartLoc,
+#endif // INTEL_COLLAB
                                                LParenLoc, ColonLoc, EndLoc);
   }
 
@@ -10272,6 +10282,15 @@ TreeTransform<Derived>::TransformOMPAllocateClause(OMPAllocateClause *C) {
       return nullptr;
     Allocator = AllocatorRes.get();
   }
+#if INTEL_COLLAB
+  Expr *Alignment = C->getAlignment();
+  if (Alignment) {
+    ExprResult AlignmentRes = getDerived().TransformExpr(Alignment);
+    if (AlignmentRes.isInvalid())
+      return nullptr;
+    Alignment = AlignmentRes.get();
+  }
+#endif // INTEL_COLLAB
   llvm::SmallVector<Expr *, 16> Vars;
   Vars.reserve(C->varlist_size());
   for (auto *VE : C->varlists()) {
@@ -10281,7 +10300,12 @@ TreeTransform<Derived>::TransformOMPAllocateClause(OMPAllocateClause *C) {
     Vars.push_back(EVar.get());
   }
   return getDerived().RebuildOMPAllocateClause(
+#if INTEL_COLLAB
+      Allocator, Alignment, Vars, C->getBeginLoc(), C->getLParenLoc(),
+      C->getColonLoc(),
+#else // INTEL_COLLAB
       Allocator, Vars, C->getBeginLoc(), C->getLParenLoc(), C->getColonLoc(),
+#endif // INTEL_COLLAB
       C->getEndLoc());
 }
 

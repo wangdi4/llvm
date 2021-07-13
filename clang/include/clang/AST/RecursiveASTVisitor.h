@@ -3106,6 +3106,9 @@ bool RecursiveASTVisitor<Derived>::VisitOMPAllocatorClause(
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPAllocateClause(OMPAllocateClause *C) {
   TRY_TO(TraverseStmt(C->getAllocator()));
+#if INTEL_COLLAB
+  TRY_TO(TraverseStmt(C->getAlignment()));
+#endif // INTEL_COLLAB
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }

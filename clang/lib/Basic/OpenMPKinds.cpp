@@ -194,6 +194,12 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
+#if INTEL_COLLAB
+    return llvm::StringSwitch<OpenMPAllocateClauseModifier>(Str)
+#define OPENMP_ALLOCATE_MODIFIER(Name) .Case(#Name, OMPC_ALLOCATE_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_ALLOCATE_unknown);
+#endif // INTEL_COLLAB
   case OMPC_collapse:
   case OMPC_tile: // INTEL
   case OMPC_private:
@@ -480,6 +486,17 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
+#if INTEL_COLLAB
+    switch (Type) {
+    case OMPC_ALLOCATE_unknown:
+      return "unknown";
+#define OPENMP_ALLOCATE_MODIFIER(Name)                                        \
+  case OMPC_ALLOCATE_##Name:                                                  \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'allocate' clause modifier");
+#endif // INTEL_COLLAB
   case OMPC_collapse:
   case OMPC_tile:    // INTEL
   case OMPC_private:

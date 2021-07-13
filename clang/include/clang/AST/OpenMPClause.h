@@ -406,6 +406,11 @@ class OMPAllocateClause final
   /// Allocator specified in the clause, or 'nullptr' if the default one is
   /// used.
   Expr *Allocator = nullptr;
+#if INTEL_COLLAB
+  /// Align modifier specified in the clause, or 'nullptr' if no align clause
+  /// used.
+  Expr *Alignment = nullptr;
+#endif // INTEL_COLLAB
   /// Position of the ':' delimiter in the clause;
   SourceLocation ColonLoc;
 
@@ -414,15 +419,26 @@ class OMPAllocateClause final
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param Allocator Allocator expression.
+#if INTEL_COLLAB
+  /// \param Alignment Alignment value.
+#endif // INTEL_COLLAB
   /// \param ColonLoc Location of ':' delimiter.
   /// \param EndLoc Ending location of the clause.
   /// \param N Number of the variables in the clause.
   OMPAllocateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
+#if INTEL_COLLAB
+                    Expr *Allocator, Expr *Alignment, SourceLocation ColonLoc,
+#else // INTEL_COLLAB
                     Expr *Allocator, SourceLocation ColonLoc,
+#endif // INTEL_COLLAB
                     SourceLocation EndLoc, unsigned N)
       : OMPVarListClause<OMPAllocateClause>(llvm::omp::OMPC_allocate, StartLoc,
                                             LParenLoc, EndLoc, N),
+#if INTEL_COLLAB
+        Allocator(Allocator), Alignment(Alignment), ColonLoc(ColonLoc) {}
+#else // INTEL_COLLAB
         Allocator(Allocator), ColonLoc(ColonLoc) {}
+#endif // INTEL_COLLAB
 
   /// Build an empty clause.
   ///
@@ -436,6 +452,9 @@ class OMPAllocateClause final
   void setColonLoc(SourceLocation CL) { ColonLoc = CL; }
 
   void setAllocator(Expr *A) { Allocator = A; }
+#if INTEL_COLLAB
+  void setAlignment(Expr *A) { Alignment = A; }
+#endif // INTEL_COLLAB
 
 public:
   /// Creates clause with a list of variables \a VL.
@@ -444,16 +463,27 @@ public:
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param Allocator Allocator expression.
+#if INTEL_COLLAB
+  /// \param Alignment Alignment value.
+#endif // INTEL_COLLAB
   /// \param ColonLoc Location of ':' delimiter.
   /// \param EndLoc Ending location of the clause.
   /// \param VL List of references to the variables.
   static OMPAllocateClause *Create(const ASTContext &C, SourceLocation StartLoc,
                                    SourceLocation LParenLoc, Expr *Allocator,
+#if INTEL_COLLAB
+                                   Expr *Alignment,
+#endif // INTEL_COLLAB
                                    SourceLocation ColonLoc,
                                    SourceLocation EndLoc, ArrayRef<Expr *> VL);
 
   /// Returns the allocator expression or nullptr, if no allocator is specified.
   Expr *getAllocator() const { return Allocator; }
+
+#if INTEL_COLLAB
+  /// Returns the alignment value or nullptr, if no alignment is specified.
+  Expr *getAlignment() const { return Alignment; }
+#endif // INTEL_COLLAB
 
   /// Returns the location of the ':' delimiter.
   SourceLocation getColonLoc() const { return ColonLoc; }

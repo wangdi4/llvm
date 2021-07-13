@@ -5445,12 +5445,9 @@ static void checkAllocateClauses(Sema &S, DSAStackTy *Stack,
       if (checkPreviousOMPAllocateAttribute(S, Stack, E, PrivateVD,
                                             AllocatorKind, AC->getAllocator()))
         continue;
-#if INTEL_COLLAB
-      Expr *Alignment = nullptr;
-#endif // INTEL_COLLAB
       applyOMPAllocateAttribute(S, PrivateVD, AllocatorKind, AC->getAllocator(),
 #if INTEL_COLLAB
-                                Alignment,
+                                AC->getAlignment(),
 #endif // INTEL_COLLAB
                                 E->getSourceRange());
     }
@@ -17296,6 +17293,9 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     ArrayRef<SourceLocation> MapTypeModifiersLoc, bool IsMapTypeImplicit,
     SourceLocation ExtraModifierLoc,
     ArrayRef<OpenMPMotionModifierKind> MotionModifiers,
+#if INTEL_COLLAB
+    Expr *AllocAlignModifier,
+#endif // INTEL_COLLAB
     ArrayRef<SourceLocation> MotionModifiersLoc) {
   SourceLocation StartLoc = Locs.StartLoc;
   SourceLocation LParenLoc = Locs.LParenLoc;
@@ -17392,7 +17392,12 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     Res = ActOnOpenMPIsDevicePtrClause(VarList, Locs);
     break;
   case OMPC_allocate:
+#if INTEL_COLLAB
+    Res = ActOnOpenMPAllocateClause(DepModOrTailExpr, AllocAlignModifier,
+                                    VarList, StartLoc,
+#else // INTEL_COLLAB
     Res = ActOnOpenMPAllocateClause(DepModOrTailExpr, VarList, StartLoc,
+#endif // INTEL_COLLAB
                                     LParenLoc, ColonLoc, EndLoc);
     break;
   case OMPC_nontemporal:
@@ -22821,7 +22826,12 @@ OMPClause *Sema::ActOnOpenMPIsDevicePtrClause(ArrayRef<Expr *> VarList,
 }
 
 OMPClause *Sema::ActOnOpenMPAllocateClause(
+#if INTEL_COLLAB
+    Expr *Allocator, Expr *Alignment, ArrayRef<Expr *> VarList,
+    SourceLocation StartLoc,
+#else // INTEL_COLLAB
     Expr *Allocator, ArrayRef<Expr *> VarList, SourceLocation StartLoc,
+#endif // INTEL_COLLAB
     SourceLocation ColonLoc, SourceLocation LParenLoc, SourceLocation EndLoc) {
   if (Allocator) {
     // OpenMP [2.11.4 allocate Clause, Description]
@@ -22849,6 +22859,20 @@ OMPClause *Sema::ActOnOpenMPAllocateClause(
         !DSAStack->hasRequiresDeclWithClause<OMPDynamicAllocatorsClause>())
       targetDiag(StartLoc, diag::err_expected_allocator_expression);
   }
+#if INTEL_COLLAB
+  if (Alignment &&
+      (!Alignment->isTypeDependent() && !Alignment->isValueDependent() &&
+       !Alignment->isInstantiationDependent() &&
+       !Alignment->containsUnexpandedParameterPack())) {
+      Optional<llvm::APSInt> Result =
+          Alignment->getIntegerConstantExpr(Context);
+      if (!Result->isPowerOf2()) {
+        Diag(Alignment->getBeginLoc(), diag::err_alignment_not_power_of_two)
+             << Alignment->getSourceRange();
+        return nullptr;
+      }
+  }
+#endif // INTEL_COLLAB
   // Analyze and build list of variables.
   SmallVector<Expr *, 8> Vars;
   for (Expr *RefExpr : VarList) {
@@ -22880,7 +22904,11 @@ OMPClause *Sema::ActOnOpenMPAllocateClause(
   if (Allocator)
     DSAStack->addInnerAllocatorExpr(Allocator);
   return OMPAllocateClause::Create(Context, StartLoc, LParenLoc, Allocator,
+#if INTEL_COLLAB
+                                   Alignment, ColonLoc, EndLoc, Vars);
+#else // INTEL_COLLAB
                                    ColonLoc, EndLoc, Vars);
+#endif // INTEL_COLLAB
 }
 
 OMPClause *Sema::ActOnOpenMPNontemporalClause(ArrayRef<Expr *> VarList,
