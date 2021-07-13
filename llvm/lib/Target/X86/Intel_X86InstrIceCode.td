@@ -227,9 +227,9 @@ let Predicates = [InIceCodeMode] in {
   let Uses = [RAX] in
     def IO_TICKLE_DEBUG : I<0x06, RawFrm, (outs), (ins), "io_tickle_debug\t{%rax|rax}", []>, TB;
 
-  def LOADVPHYS : I<0xc7, MRM6m, (outs), (ins anymem:$mem), "loaduphys\t$mem",
+  def LOADUPHYS : I<0xc7, MRM6m, (outs), (ins anymem:$mem), "loaduphys\t$mem",
                     [(int_x86_icecode_loaduphys addr:$mem)]>, NotMemoryFoldable;
-  def STOREVPHYS : I<0xc7, MRM7m, (outs), (ins anymem:$mem), "storeuphys\t$mem",
+  def STOREUPHYS : I<0xc7, MRM7m, (outs), (ins anymem:$mem), "storeuphys\t$mem",
                      [(int_x86_icecode_storeuphys addr:$mem)]>, NotMemoryFoldable;
 }
 // end INTEL_FEATURE_ICECODE
