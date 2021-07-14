@@ -2766,9 +2766,7 @@ bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands) {
               .Case("1to8", "{1to8}")
               .Case("1to16", "{1to16}")
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
               .Case("1to32", "{1to32}")
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
               .Default(nullptr);
       if (!BroadcastPrimitive)
@@ -3147,9 +3145,7 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   if ((PatchedName.startswith("cmp") || PatchedName.startswith("vcmp")) &&
       (PatchedName.endswith("ss") || PatchedName.endswith("sd") ||
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
        PatchedName.endswith("sh") || PatchedName.endswith("ph") ||
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
        PatchedName.endswith("ps") || PatchedName.endswith("pd"))) {
     bool IsVCMP = PatchedName[0] == 'v';
@@ -3214,12 +3210,10 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
       else if (PatchedName.endswith("pd"))
         PatchedName = IsVCMP ? "vcmppd" : "cmppd";
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       else if (PatchedName.endswith("sh"))
         PatchedName = IsVCMP ? "vcmpsh" : "cmpsh";
       else if (PatchedName.endswith("ph"))
         PatchedName = IsVCMP ? "vcmpph" : "cmpph";
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       else
         llvm_unreachable("Unexpected suffix!");
@@ -3934,7 +3928,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_FP16
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:
   case X86::VFCMADDCPHZm:
@@ -4105,7 +4098,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 

@@ -1434,7 +1434,6 @@ InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   static const CostTblEntry AVX512FP16ShuffleTbl[] = {
       {TTI::SK_Broadcast, MVT::v32f16, 1}, // vpbroadcastw
       {TTI::SK_Broadcast, MVT::v16f16, 1}, // vpbroadcastw
@@ -1457,7 +1456,6 @@ InstructionCost X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind,
     if (const auto *Entry =
             CostTableLookup(AVX512FP16ShuffleTbl, Kind, LT.second))
       return LT.first * Entry->Cost;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   static const CostTblEntry AVX512VBMIShuffleTbl[] = {
@@ -5220,10 +5218,8 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, Align Alignment) {
     return true;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   if (ScalarTy->isHalfTy() && ST->hasBWI() && ST->hasFP16())
     return true;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   if (!ScalarTy->isIntegerTy())
@@ -5967,23 +5963,15 @@ InstructionCost X86TTIImpl::getInterleavedMemoryOpCost(
     Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     bool UseMaskForCond, bool UseMaskForGaps) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   auto isSupportedOnAVX512 = [&](Type *VecTy, bool HasBW) {
-#else // INTEL_FEATURE_ISA_FP16
-  auto isSupportedOnAVX512 = [](Type *VecTy, bool HasBW) {
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     Type *EltTy = cast<VectorType>(VecTy)->getElementType();
     if (EltTy->isFloatTy() || EltTy->isDoubleTy() || EltTy->isIntegerTy(64) ||
         EltTy->isIntegerTy(32) || EltTy->isPointerTy())
       return true;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     if (EltTy->isIntegerTy(16) || EltTy->isIntegerTy(8) ||
         (!ST->useSoftFloat() && ST->hasFP16() && EltTy->isHalfTy()))
-#else // INTEL_FEATURE_ISA_FP16
-    if (EltTy->isIntegerTy(16) || EltTy->isIntegerTy(8))
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       return HasBW;
     return false;

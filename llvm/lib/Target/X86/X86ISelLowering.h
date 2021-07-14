@@ -287,11 +287,9 @@ namespace llvm {
     RCP14S,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     // AVX-512-FP16 scalar reciprocal approximations
     FRSQRTS,
     FRCPS,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     // Thread Local Storage.
@@ -469,9 +467,7 @@ namespace llvm {
     MOVSD,
     MOVSS,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     MOVSH,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     UNPCKL,
     UNPCKH,
@@ -578,7 +574,6 @@ namespace llvm {
     FMSUBADD_RND,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     // AVX-512-FP16 complex addition and multiplication
     VFMADDC,
     VFMADDC_RND,
@@ -599,7 +594,6 @@ namespace llvm {
     VFMULCSH_RND,
     VFCMULCSH,
     VFCMULCSH_RND,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1099,12 +1093,8 @@ namespace llvm {
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       return VT == MVT::f32 || VT == MVT::f64 || VT.isVector() ||
              (VT == MVT::f16 && X86ScalarAVXf16);
-#else // INTEL_FEATURE_ISA_FP16
-      return VT == MVT::f32 || VT == MVT::f64 || VT.isVector();
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1390,12 +1380,8 @@ namespace llvm {
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
              (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
              (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
-#else // INTEL_FEATURE_ISA_FP16
-             (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1565,9 +1551,7 @@ namespace llvm {
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     bool X86ScalarAVXf16;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     /// A list of legal FP immediates.

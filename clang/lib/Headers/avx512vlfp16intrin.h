@@ -1,4 +1,4 @@
-/* INTEL_FEATURE_ISA_FP16 */
+/* INTEL_CUSTOMIZATION */
 /*===--------------- avx512fp16intrin.h - FP16 intrinsics -----------------===
  *
  * Copyright (C) 2019 Intel Corporation. All rights reserved.
@@ -2347,5 +2347,4 @@ _mm_reduce_min_ph(__m128h __V) {
 #undef __DEFAULT_FN_ATTRS256
 
 #endif
-
-/* end INTEL_FEATURE_ISA_FP16 */
+/* end INTEL_CUSTOMIZATION */

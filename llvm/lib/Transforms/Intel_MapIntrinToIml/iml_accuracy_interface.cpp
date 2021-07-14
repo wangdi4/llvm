@@ -88,13 +88,9 @@
 //      19-Mar-2018, Adding recognition of zmm-low=true/false. CMPLRS-47343. NA
 //      21-Dec-2018, Pulldown from mainline with new fusa SVML attribute introduced.
 //                   Complete fusa mode support implemented. Andrey Kolesov
-#if INTEL_FEATURE_ISA_FP16
 //      25-Mar-2019, GLC\FP16 SVML support implemented. Andrey Kolesov
-#endif // INTEL_FEATURE_ISA_FP16
 //      26-Apr-2019, Reference implementations SVML support implemented. Andrey Kolesov
-#if INTEL_FEATURE_ISA_FP16
 //      16-Jul-2019, Sync 19.0 and mainline variants. FP16 is enabled in maniline. Andrey Kolesov
-#endif // INTEL_FEATURE_ISA_FP16
 //
 //--
 
@@ -227,11 +223,9 @@ typedef enum
     c_precision_single_complex,
     c_precision_double_complex,
     c_precision_long_double_complex,
-    c_precision_quad_complex
-#if INTEL_FEATURE_ISA_FP16
-    ,c_precision_half
-    ,c_precision_half_complex
-#endif // INTEL_FEATURE_ISA_FP16
+    c_precision_quad_complex,
+    c_precision_half,
+    c_precision_half_complex
 } PrecisionEnum;
 
 #if defined IML_DEBUG
@@ -253,11 +247,9 @@ static const char* valid_precision_names[] =
     "single_complex",
     "double_complex",
     "long_double_complex",
-    "quad_complex"
-#if INTEL_FEATURE_ISA_FP16
-    ,"half"
-    ,"half_complex"
-#endif // INTEL_FEATURE_ISA_FP16
+    "quad_complex",
+    "half",
+    "half_complex"
 };
 #endif
 
@@ -280,19 +272,15 @@ typedef enum
     c_cpu_avx2,
     c_cpu_micavx512,
     c_cpu_coreavx512,
-    c_cpu_coreavx512zmmlow
-#if INTEL_FEATURE_ISA_FP16
-    ,c_cpu_coreavx512glc
-#endif // INTEL_FEATURE_ISA_FP16
-    ,SUPPORTED_CPUS_NUMBER
+    c_cpu_coreavx512zmmlow,
+    c_cpu_coreavx512glc,
+    SUPPORTED_CPUS_NUMBER
 } SupportedCpusEnum;
 
 static const char* valid_configurations_names[SUPPORTED_CPUS_NUMBER] =
 {
-    "all", "x87", "sse", "sse2", "sse3", "ssse3", "sse41", "sse42", "avx", "avx2", "micavx512", "coreavx512", "coreavx512zmmlow"
-#if INTEL_FEATURE_ISA_FP16
-   ,"coreavx512glc"
-#endif // INTEL_FEATURE_ISA_FP16
+    "all", "x87", "sse", "sse2", "sse3", "ssse3", "sse41", "sse42", "avx", "avx2", "micavx512", "coreavx512", "coreavx512zmmlow",
+    "coreavx512glc"
 };
 
 #if defined IML_DEBUG
@@ -365,9 +353,7 @@ typedef enum
     c_attribute_absolute_error = 0,
     c_attribute_accurate_bits,
     c_attribute_accurate_bits_128,
-#if INTEL_FEATURE_ISA_FP16
     c_attribute_accurate_bits_16,
-#endif // INTEL_FEATURE_ISA_FP16
     c_attribute_accurate_bits_32,
     c_attribute_accurate_bits_64,
     c_attribute_accurate_bits_80,
@@ -390,7 +376,6 @@ static const char* valid_attributes_names[SUPPORTED_ATTRIBUTES_NUMBER] =
     "absolute-error",       // 0
     "accuracy-bits",        // 1
     "accuracy-bits-128",    // 2
-#if INTEL_FEATURE_ISA_FP16
     "accuracy-bits-16",     // 3
     "accuracy-bits-32",     // 4
     "accuracy-bits-64",     // 5
@@ -405,21 +390,6 @@ static const char* valid_attributes_names[SUPPORTED_ATTRIBUTES_NUMBER] =
     "use-svml",             // 14
     "valid-status-bits",    // 15
     "zmm-low"               // 16
-#else // INTEL_FEATURE_ISA_FP16
-    "accuracy-bits-32",     // 3
-    "accuracy-bits-64",     // 4
-    "accuracy-bits-80",     // 5
-    "arch-consistency",     // 6
-    "domain-exclusion",     // 7
-    "force-dynamic",        // 8
-    "fusa",                 // 9
-    "isa-set",              // 10
-    "max-error",            // 11
-    "precision",            // 12
-    "use-svml",             // 13
-    "valid-status-bits",    // 14
-    "zmm-low"               // 15
-#endif // INTEL_FEATURE_ISA_FP16
 };
 
 typedef union
@@ -481,12 +451,10 @@ static float attrBits2Ulps(float bits, PrecisionEnum precision)
     float p, ulps;
     switch(precision)
     {
-#if INTEL_FEATURE_ISA_FP16
         case c_precision_half:
         case c_precision_half_complex:
             p = 11.0f;
             break;
-#endif // INTEL_FEATURE_ISA_FP16
         case c_precision_single:
         case c_precision_single_complex:
             p = 24.0f;
@@ -517,7 +485,6 @@ static float attrBits2Ulps(float bits, PrecisionEnum precision)
 // into precision enumeration based on the first letter
 static PrecisionEnum attrMapPrecisionStr2Enum(const char* string_precision)
 {
-#if INTEL_FEATURE_ISA_FP16
     if (string_precision[0] == 'h')
     {
         return c_precision_half;
@@ -526,7 +493,6 @@ static PrecisionEnum attrMapPrecisionStr2Enum(const char* string_precision)
     {
         return c_precision_half_complex;
     }
-#endif // INTEL_FEATURE_ISA_FP16
     if (string_precision[0] == 's')
     {
         return c_precision_single;
@@ -683,10 +649,8 @@ static int attrExternal2InternalAttr(
 
         case c_attribute_accurate_bits_32:  aname = "c_attribute_accurate_bits_32"; attr_chosen = 1;
           LLVM_FALLTHROUGH;
-#if INTEL_FEATURE_ISA_FP16
         case c_attribute_accurate_bits_16:  if(!attr_chosen){aname = "c_attribute_accurate_bits_16"; attr_chosen = 1;}
           LLVM_FALLTHROUGH;
-#endif // INTEL_FEATURE_ISA_FP16
         case c_attribute_accurate_bits_64:  if(!attr_chosen){aname = "c_attribute_accurate_bits_64"; attr_chosen = 1;}
           LLVM_FALLTHROUGH;
         case c_attribute_accurate_bits_80:  if(!attr_chosen){aname = "c_attribute_accurate_bits_80"; attr_chosen = 1;}
@@ -768,11 +732,9 @@ static int attrUpdateFuncDescription(
     // have this mode, so we place 5.0ulp just to have more than 4.0 LA
     switch(working_precision)
     {
-#if INTEL_FEATURE_ISA_FP16
         case c_precision_half:
             EP_THRESHOLD = attrBits2Ulps(5, working_precision);
             break;
-#endif // INTEL_FEATURE_ISA_FP16
         case c_precision_single:
             EP_THRESHOLD = attrBits2Ulps(11, working_precision);
             break;
@@ -865,21 +827,17 @@ static int attrUpdateFuncDescription(
             }
             break;
 
-#if INTEL_FEATURE_ISA_FP16
         case c_attribute_accurate_bits_16:
-#endif // INTEL_FEATURE_ISA_FP16
         case c_attribute_accurate_bits_32:
         case c_attribute_accurate_bits_64:
         case c_attribute_accurate_bits_80:
         case c_attribute_accurate_bits_128:
             if (
                 // guard against precision mismatch
-#if INTEL_FEATURE_ISA_FP16
                 ((current_attribute_name == c_attribute_accurate_bits_16) &&
                 (working_precision != c_precision_half) &&
                 (working_precision != c_precision_half_complex))
                 ||
-#endif // INTEL_FEATURE_ISA_FP16
                 ((current_attribute_name == c_attribute_accurate_bits_32) &&
                 (working_precision != c_precision_single) &&
                 (working_precision != c_precision_single_complex))
@@ -1496,13 +1454,8 @@ static int svmlGetListForBaseName(const char * func_base_name, int is_svml, Func
 #if !defined LRB
     static const FunctionDescriptionType FunctionDescription_svml_table32[] =
     {
-#if INTEL_FEATURE_ISA_FP16
         #include "GLC/iml_table_svml_ia32_glc.inc"
         //#pragma message "IA32 GLC SVML TABLE LOADED"
-#else // INTEL_FEATURE_ISA_FP16
-        #include "iml_table_svml_ia32.inc"
-        //#pragma message "IA32 SVML TABLE LOADED"
-#endif // INTEL_FEATURE_ISA_FP16
     };
 
     static const FunctionDescriptionType FunctionDescription_libm_table32[] =
@@ -1519,13 +1472,8 @@ static int svmlGetListForBaseName(const char * func_base_name, int is_svml, Func
         #include "iml_table_svml_knc.inc"
         //#pragma message "KNC SVML TABLE LOADED"
 #else
-#if INTEL_FEATURE_ISA_FP16
         #include "GLC/iml_table_svml_em64t_glc.inc"
         //#pragma message "EFI2 GLC SVML TABLE LOADED"
-#else // INTEL_FEATURE_ISA_FP16
-        #include "iml_table_svml_em64t.inc"
-        //#pragma message "EFI2 SVML TABLE LOADED"
-#endif // INTEL_FEATURE_ISA_FP16
 #endif
     };
 

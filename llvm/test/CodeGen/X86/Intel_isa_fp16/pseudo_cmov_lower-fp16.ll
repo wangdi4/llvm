@@ -1,4 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
 ; RUN: llc < %s -mtriple=i386-linux-gnu -mattr=+avx512fp16 -mattr=+avx512vl -o - | FileCheck %s
 
 ; This test checks that only a single je gets generated in the final code

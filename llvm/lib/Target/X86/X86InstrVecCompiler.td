@@ -26,10 +26,8 @@ let Predicates = [NoAVX512] in {
 let Predicates = [HasAVX512] in {
   // A vector extract of the first f32/f64 position is a subregister copy
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   def : Pat<(f16 (extractelt (v8f16 VR128X:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v8f16 VR128X:$src), FR16X)>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   def : Pat<(f32 (extractelt (v4f32 VR128X:$src), (iPTR 0))),
             (COPY_TO_REGCLASS (v4f32 VR128X:$src), FR32X)>;
@@ -39,10 +37,8 @@ let Predicates = [HasAVX512] in {
 
 let Predicates = [NoVLX] in {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   def : Pat<(v8f16 (scalar_to_vector FR16X:$src)),
             (COPY_TO_REGCLASS FR16X:$src, VR128)>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   // Implicitly promote a 32-bit scalar to a vector.
   def : Pat<(v4f32 (scalar_to_vector FR32:$src)),
@@ -54,10 +50,8 @@ let Predicates = [NoVLX] in {
 
 let Predicates = [HasVLX] in {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   def : Pat<(v8f16 (scalar_to_vector FR16X:$src)),
             (COPY_TO_REGCLASS FR16X:$src, VR128X)>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   // Implicitly promote a 32-bit scalar to a vector.
   def : Pat<(v4f32 (scalar_to_vector FR32X:$src)),
@@ -93,9 +87,7 @@ defm : subvector_subreg_lowering<VR128, v2f64, VR256, v4f64,  sub_xmm>;
 defm : subvector_subreg_lowering<VR128, v8i16, VR256, v16i16, sub_xmm>;
 defm : subvector_subreg_lowering<VR128, v16i8, VR256, v32i8,  sub_xmm>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 defm : subvector_subreg_lowering<VR128, v8f16, VR256, v16f16, sub_xmm>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif //INTEL_CUSTOMIZATION
 
 // A 128-bit subvector extract from the first 512-bit vector position is a
@@ -109,9 +101,7 @@ defm : subvector_subreg_lowering<VR128, v2f64, VR512, v8f64,  sub_xmm>;
 defm : subvector_subreg_lowering<VR128, v8i16, VR512, v32i16, sub_xmm>;
 defm : subvector_subreg_lowering<VR128, v16i8, VR512, v64i8,  sub_xmm>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 defm : subvector_subreg_lowering<VR128, v8f16, VR512, v32f16, sub_xmm>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif //INTEL_CUSTOMIZATION
 
 // A 128-bit subvector extract from the first 512-bit vector position is a
@@ -125,9 +115,7 @@ defm : subvector_subreg_lowering<VR256, v4f64,  VR512, v8f64,  sub_ymm>;
 defm : subvector_subreg_lowering<VR256, v16i16, VR512, v32i16, sub_ymm>;
 defm : subvector_subreg_lowering<VR256, v32i8,  VR512, v64i8,  sub_ymm>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 defm : subvector_subreg_lowering<VR256, v16f16, VR512, v32f16, sub_ymm>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif //INTEL_CUSTOMIZATION
 
 
@@ -193,13 +181,11 @@ let Predicates = [HasAVX512, NoVLX] in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 let Predicates = [HasFP16, HasVLX] in {
   defm : subvec_zero_lowering<"APSZ128", VR128X, v16f16, v8f16, v8i32, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ128", VR128X, v32f16, v8f16, v16i32, sub_xmm>;
   defm : subvec_zero_lowering<"APSZ256", VR256X, v32f16, v16f16, v16i32, sub_ymm>;
 }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 class maskzeroupper<ValueType vt, RegisterClass RC> :

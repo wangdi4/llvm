@@ -1,4 +1,4 @@
-/* INTEL_FEATURE_ISA_FP16 */
+/* INTEL_CUSTOMIZATION */
 /*===--------------- avx512fp16intrin.h - FP16 intrinsics -----------------===
  *
  * Copyright (C) 2019 Intel Corporation. All rights reserved.
@@ -3748,4 +3748,4 @@ _mm512_permutexvar_ph (__m512i __A, __m512h __B)
 #undef __DEFAULT_FN_ATTRS512
 
 #endif
-/* end INTEL_FEATURE_ISA_FP16 */
+/* end INTEL_CUSTOMIZATION */

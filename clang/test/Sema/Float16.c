@@ -1,9 +1,7 @@
-// INTEL_CUSTOMIZATION
-// INTEL_FEATURE_ISA_FP16
-// UNSUPPORTED: intel_feature_isa_fp16
-// end INTEL_FEATURE_ISA_FP16
-// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -fsyntax-only -verify -triple x86_64-linux-pc %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -fsyntax-only -verify -triple x86_64-linux-pc -target-feature +avx512fp16 %s -DHAVE
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 -fsyntax-only -verify -triple spir-unknown-unknown %s -DHAVE
 // RUN: %clang_cc1 -fsyntax-only -verify -triple armv7a-linux-gnu %s -DHAVE
 // RUN: %clang_cc1 -fsyntax-only -verify -triple aarch64-linux-gnu %s -DHAVE
@@ -14,8 +12,10 @@
 _Float16 f;
 
 #ifdef HAVE
-// FIXME: Should this be valid?
-_Complex _Float16 a; // expected-error {{'_Complex _Float16' is invalid}}
+// INTEL_CUSTOMIZATION
+// FIXME: Should this be invalid?
+_Complex _Float16 a;
+// end INTEL_CUSTOMIZATION
 void builtin_complex() {
   _Float16 a = 0;
   (void)__builtin_complex(a, a); // expected-error {{'_Complex _Float16' is invalid}}

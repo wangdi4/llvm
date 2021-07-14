@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_fp16
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding < %s  | FileCheck %s
 
 // CHECK: vaddph %xmm3, %xmm2, %xmm1

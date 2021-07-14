@@ -313,7 +313,6 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_FP16 */
 /*
  * FIXME: _Float16 type is legal only when HW support float16 operation.
  * We use __AVX512FP16__ to identify if float16 is supported or not, so
@@ -327,7 +326,6 @@
 #if defined(__AVX512FP16__) && defined(__AVX512VL__)
 #include <avx512vlfp16intrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_FP16 */
 /* end INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)

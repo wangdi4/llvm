@@ -113,7 +113,6 @@ static const X86InstrFMA3Group RoundGroups[] = {
 };
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 
 #define FP16_FMA3GROUP_PACKED_WIDTHS(Name, Suf, Attrs) \
   FMA3GROUP_MASKED(Name, Suf##Z128m, Attrs) \
@@ -180,7 +179,6 @@ static const X86InstrFMA3Group FP16RoundGroups[] = {
   FP16_FMA3GROUP_SCALAR_AVX512_ROUND(VFNMSUB, rb, X86InstrFMA3Group::Intrinsic)
 };
 
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 static void verifyTables() {
@@ -190,11 +188,9 @@ static void verifyTables() {
     assert(llvm::is_sorted(Groups) && llvm::is_sorted(RoundGroups) &&
            llvm::is_sorted(BroadcastGroups) && "FMA3 tables not sorted!");
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     assert(llvm::is_sorted(FP16Groups) && llvm::is_sorted(FP16RoundGroups) &&
            llvm::is_sorted(FP16BroadcastGroups) &&
            "FP16 FMA3 tables not sorted!");
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     TableChecked.store(true, std::memory_order_relaxed);
   }
@@ -216,7 +212,6 @@ const X86InstrFMA3Group *llvm::getFMA3Group(unsigned Opcode, uint64_t TSFlags) {
                  (BaseOpcode >= 0xA6 && BaseOpcode <= 0xAF) ||
                  (BaseOpcode >= 0xB6 && BaseOpcode <= 0xBF));
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   bool IsFMA3H = (TSFlags & X86II::EncodingMask) == X86II::EVEX &&
                  (TSFlags & X86II::OpMapMask) == X86II::T_MAP6 &&
                  (TSFlags & X86II::OpPrefixMask) == X86II::PD &&
@@ -224,7 +219,6 @@ const X86InstrFMA3Group *llvm::getFMA3Group(unsigned Opcode, uint64_t TSFlags) {
                   (BaseOpcode >= 0xA6 && BaseOpcode <= 0xAF) ||
                   (BaseOpcode >= 0xB6 && BaseOpcode <= 0xBF));
   IsFMA3 |= IsFMA3H;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif //INTEL_CUSTOMIZATION
   if (!IsFMA3)
     return nullptr;
@@ -240,7 +234,6 @@ const X86InstrFMA3Group *llvm::getFMA3Group(unsigned Opcode, uint64_t TSFlags) {
     Table = makeArrayRef(Groups);
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   // If this is FP16 use the other tables.
   if (IsFMA3H) {
     if (TSFlags & X86II::EVEX_RC)
@@ -250,7 +243,6 @@ const X86InstrFMA3Group *llvm::getFMA3Group(unsigned Opcode, uint64_t TSFlags) {
     else
       Table = makeArrayRef(FP16Groups);
   }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif //INTEL_CUSTOMIZATION
 
   // FMA 132 instructions have an opcode of 0x96-0x9F

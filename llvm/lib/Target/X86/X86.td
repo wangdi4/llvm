@@ -206,7 +206,6 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
                                             "Enable AVX-512 vp2intersect",
                                             [FeatureAVX512]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 // FIXME: FP16 scalar intrinsics use the type v8f16, which is supposed to be
 // guarded under condition hasVLX. So we imply it in FeatureFP16 currently.
 // FIXME: FP16 conversion between f16 and i64 customise type v8i64, which is
@@ -215,7 +214,6 @@ def FeatureVP2INTERSECT  : SubtargetFeature<"avx512vp2intersect",
 def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
                            "Support 16-bit floating point",
                            [FeatureBWI, FeatureVLX, FeatureDQI]>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -1052,11 +1050,9 @@ def ProcessorFeatures {
 #define ENABLE_ISA_AVX256
   list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
 #endif // INTEL_FEATURE_ISA_AVX256
-#if INTEL_FEATURE_ISA_FP16
 #if ENABLE_ISA_AVX256
     FeatureFP16,
 #endif
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
 #if ENABLE_ISA_AVX256
     FeatureCONVERT,
@@ -1180,9 +1176,7 @@ def ProcessorFeatures {
                                                   FeatureWAITPKG,
                                                   FeaturePTWRITE,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
                                                   FeatureFP16,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureAVXVNNI,
                                                   FeatureTSXLDTRK,

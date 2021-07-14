@@ -1126,13 +1126,9 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
         break;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       MVT VecVT = VT == MVT::f64 ? MVT::v2f64 :
                   VT == MVT::f32 ? MVT::v4f32 :
                                    MVT::v8f16;
-#else // INTEL_FEATURE_ISA_FP16
-      MVT VecVT = VT == MVT::f64 ? MVT::v2f64 : MVT::v4f32;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       SDLoc dl(N);
       SDValue Op0 = CurDAG->getNode(ISD::SCALAR_TO_VECTOR, dl, VecVT,

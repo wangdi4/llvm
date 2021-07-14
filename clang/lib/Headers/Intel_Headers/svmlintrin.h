@@ -2899,7 +2899,6 @@ _mm512_mask_trunc_pd (__m512d __src, __mmask8 __k, __m512d __a)
 #undef __DEFAULT_FN_ATTRS
 
 #endif // defined(__AVX512FINTRIN_H)
-/* INTEL_FEATURE_ISA_FP16 */
 
 #if defined(__AVX512FP16INTRIN_H)
 
@@ -4141,7 +4140,6 @@ _mm512_mask_trunc_ph(__m512h __src, __mmask32 __k, __m512h __a)
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // defined(__AVX512FP16INTRIN_H)
-/* end INTEL_FEATURE_ISA_FP16 */
 
 #if defined(__cplusplus)
 } // extern "C"
