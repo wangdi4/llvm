@@ -33,6 +33,8 @@ ModulePass *createDPCPPKernelAnalysisLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
+ModulePass *createGroupBuiltinLegacyPass(
+    const SmallVector<Module *, 2> &BuiltinModules = {});
 ModulePass *createSplitBBonBarrierLegacyPass();
 ModulePass *createWIRelatedValueWrapperPass();
 ModulePass *createDataPerBarrierWrapperPass();

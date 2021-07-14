@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "CPUDetect.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
@@ -22,17 +21,13 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-builtin-import"
 
 static cl::opt<std::string>
     OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
-
-static cl::list<std::string>
-    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
-                          cl::desc("Builtin declarations (bitcode) libraries"),
-                          cl::value_desc("filename1,filename2"));
 
 namespace {
 
@@ -334,25 +329,6 @@ CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
   }
 
   return New;
-}
-
-/// Load builtin library modules from files specified by commandline option
-/// OptBuiltinModuleFiles.
-static SmallVector<std::unique_ptr<Module>, 2>
-loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
-  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
-  for (auto &ModuleFile : OptBuiltinModuleFiles) {
-    if (ModuleFile.empty()) {
-      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
-    } else {
-      SMDiagnostic Err;
-      std::unique_ptr<Module> BuiltinModule =
-          getLazyIRFileModule(ModuleFile, Err, Ctx);
-      assert(BuiltinModule && "failed to load builtin lib from file");
-      BuiltinModules.push_back(std::move(BuiltinModule));
-    }
-  }
-  return BuiltinModules;
 }
 
 bool BuiltinImportPass::runImpl(Module &M) {

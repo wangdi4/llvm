@@ -139,6 +139,11 @@ using FuncSet = SetVector<Function *>;
 /// Return true if this alloca instruction is created by ImplicitGID Pass.
 bool isImplicitGID(AllocaInst *AI);
 
+/// Load builtin modules from path specified by command line
+/// option(dpcpp-kernel-builtin-lib).
+SmallVector<std::unique_ptr<Module>, 2>
+loadBuiltinModulesFromCommandLine(LLVMContext &Ctx);
+
 /// Append the dimension string to S.
 std::string AppendWithDimension(StringRef S, int Dimension);
 std::string AppendWithDimension(StringRef S, const Value *Dimension);

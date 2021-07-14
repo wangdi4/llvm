@@ -19,6 +19,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
+  GroupBuiltinPass.cpp
   SplitBBonBarrierPass.cpp
   DPCPPKernelBarrierUtils.cpp
   KernelBarrierUtils.cpp
