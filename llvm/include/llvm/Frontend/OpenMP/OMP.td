@@ -569,6 +569,9 @@ def OMP_Target : Directive<"target"> {
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
@@ -667,6 +670,9 @@ def OMP_TargetParallel : Directive<"target parallel"> {
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_UsesAllocators, 50>
@@ -701,6 +707,9 @@ def OMP_TargetParallelFor : Directive<"target parallel for"> {
     VersionedClause<OMPC_ProcBind>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_tile>, // INTEL
     VersionedClause<OMPC_Schedule>,
@@ -1162,6 +1171,9 @@ def OMP_TargetParallelForSimd : Directive<"target parallel for simd"> {
     VersionedClause<OMPC_ProcBind>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_tile>, // INTEL
     VersionedClause<OMPC_Schedule>,
@@ -1222,6 +1234,9 @@ def OMP_TargetSimd : Directive<"target simd"> {
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
@@ -1393,6 +1408,9 @@ def OMP_TargetTeams : Directive<"target teams"> {
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_UsesAllocators, 50>,
     VersionedClause<OMPC_Shared>
@@ -1419,6 +1437,9 @@ def OMP_TargetTeamsDistribute : Directive<"target teams distribute"> {
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_IsDevicePtr>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocate>,
     VersionedClause<OMPC_UsesAllocators, 50>,
     VersionedClause<OMPC_Shared>,
@@ -1457,6 +1478,9 @@ def OMP_TargetTeamsDistributeParallelFor :
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_ThreadLimit>,
     VersionedClause<OMPC_LastPrivate>,
@@ -1522,6 +1546,9 @@ def OMP_TargetTeamsDistributeParallelForSimd :
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_NumTeams>,
     VersionedClause<OMPC_ThreadLimit>,
     VersionedClause<OMPC_LastPrivate>,
@@ -1594,6 +1621,9 @@ def OMP_TargetTeamsDistributeSimd :
     VersionedClause<OMPC_Order, 50>,
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_UsesAllocators, 50>
   ];
@@ -1798,6 +1828,9 @@ def OMP_target_teams_loop : Directive<"target teams loop"> {
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_LastPrivate>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Default>,
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_Shared>,
@@ -1827,6 +1860,9 @@ def OMP_parallel_loop : Directive<"parallel loop"> {
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_LastPrivate>,
     VersionedClause<OMPC_Reduction>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_InReduction, 50>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_Shared>,
     VersionedClause<OMPC_Copyin>,

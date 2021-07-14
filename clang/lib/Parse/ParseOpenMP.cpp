@@ -3276,12 +3276,17 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 
 #if INTEL_COLLAB
   // Not yet implemented with FE outlining. BE outlining only.
-  if (!getLangOpts().OpenMPLateOutline && DKind == OMPD_taskwait &&
-      (CKind == OMPC_depend || CKind == OMPC_nowait)) {
-    Diag(Tok, diag::err_omp_unexpected_clause)
-        << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
-    ErrorFound = true;
-    WrongDirective = true;
+  if (!getLangOpts().OpenMPLateOutline) {
+    bool IsUnsupportedClause = (DKind == OMPD_taskwait &&
+        (CKind == OMPC_depend || CKind == OMPC_nowait));
+    IsUnsupportedClause |= isOpenMPTargetExecutionDirective(DKind) &&
+        CKind == OMPC_in_reduction;
+    if (IsUnsupportedClause) {
+      Diag(Tok, diag::err_omp_unexpected_clause)
+          << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
+      ErrorFound = true;
+      WrongDirective = true;
+    }
   }
 #endif // INTEL_COLLAB
 
