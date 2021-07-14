@@ -261,9 +261,15 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   }
 
   // If underlying CallInst is not available for further analysis, serialize
-  // conservatively.
+  // conservatively if current decision is undefined.
   if (!UnderlyingCI) {
-    VPCall->setShouldBeSerialized();
+    if (VPCall->getVectorizationScenario() ==
+        VPCallInstruction::CallVecScenariosTy::Undefined) {
+      VPCall->setShouldBeSerialized();
+    } else {
+      assert(VPCall->getVFForScenario() == VF &&
+             "No known scenario for call without underlying CI.");
+    }
     return;
   }
 

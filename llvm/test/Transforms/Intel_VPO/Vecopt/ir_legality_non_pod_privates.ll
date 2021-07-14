@@ -1,7 +1,7 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
 ; RUN: opt -S -vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=HIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump -disable-vplan-codegen < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
 ; LLVMIR: VPOLegality PrivateList:
 ; LLVMIR-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4

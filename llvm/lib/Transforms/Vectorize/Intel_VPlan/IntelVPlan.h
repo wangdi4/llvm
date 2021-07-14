@@ -47,6 +47,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -1950,6 +1951,13 @@ public:
     // Record VF for which new vectorization scenario and properties will be
     // recorded.
     VecProperties.VF = NewVF;
+
+    // If call does not have any underlying IR, then it was emitted by
+    // intermediate VPlan transforms. Don't try to reset any decisions as the
+    // transform has specialized knowledge on how to handle these calls.
+    if (getUnderlyingCallInst() == nullptr)
+      return;
+
     // DoNotWiden is used for kernel uniform calls and for uniform calls without
     // side-effects today i.e. the property is not VF-dependent. Hence it need
     // not be reset here.
@@ -3670,6 +3678,40 @@ public:
     assert(LoadIndex->getType()->isIntegerTy() &&
            "Only integers are expected.");
     addOperand(LoadIndex);
+  }
+
+  // Utility to obtain the LLVM X86 conflict intrinsic that this VPInstruction
+  // will be lowered to. Returns Intrinsic::not_intrinsic if input size is
+  // unexpected.
+  Intrinsic::ID getConflictIntrinsic(unsigned VF) const {
+    unsigned TypeSize = getOperand(0)->getType()->getPrimitiveSizeInBits();
+    unsigned InputSize = TypeSize * VF;
+    if (TypeSize == 32) {
+      switch (InputSize) {
+      case 128:
+        return Intrinsic::x86_avx512_conflict_d_128;
+      case 256:
+        return Intrinsic::x86_avx512_conflict_d_256;
+      case 512:
+        return Intrinsic::x86_avx512_conflict_d_512;
+      default:
+        // Unexpected input size for conflict intrinsic
+        return Intrinsic::not_intrinsic;
+      }
+    } else {
+      assert(TypeSize == 64 && "Unexpected type size for load index.");
+      switch (InputSize) {
+      case 128:
+        return Intrinsic::x86_avx512_conflict_q_128;
+      case 256:
+        return Intrinsic::x86_avx512_conflict_q_256;
+      case 512:
+        return Intrinsic::x86_avx512_conflict_q_512;
+      default:
+        // Unexpected input size for conflict intrinsic
+        return Intrinsic::not_intrinsic;
+      }
+    }
   }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
