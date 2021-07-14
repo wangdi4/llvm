@@ -8544,10 +8544,10 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   LoadInst *LoadUB =
       PHBuilder.CreateAlignedLoad(IndValTy, UpperBnd, Align(4), "ub.new");
 
-  // If IV is signed add range metadata indicating that LB/UB are in positive
-  // range [0, MaxValue), where MaxValue is the original loop's UB+1 if loop
-  // bounds are known, or the maximum signed value of the IV's type otherwise.
-  if (!IsUnsigned) {
+  // If IV is signed or loop's UB is known, add range metadata indicating that
+  // LB/UB range is [0, MaxValue), where MaxValue is the original loop's UB+1
+  // if known, or the maximum signed value of the IV's type otherwise.
+  if (MaxIV || !IsUnsigned) {
     APInt MaxValue =
         MaxIV ? *MaxIV + 1u : APInt::getSignedMaxValue(IndValTy->getBitWidth());
     MDNode *RNode = MDBuilder(C).createRange(

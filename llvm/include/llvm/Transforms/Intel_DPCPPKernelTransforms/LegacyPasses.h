@@ -10,6 +10,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
+#include "llvm/Analysis/Intel_VectorVariant.h" // for VectorVariant::ISAClass
+
 namespace llvm {
 
 class FunctionPass;
@@ -50,6 +52,7 @@ ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();
 ModulePass *createVectorVariantFillInLegacyPass();
+ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
