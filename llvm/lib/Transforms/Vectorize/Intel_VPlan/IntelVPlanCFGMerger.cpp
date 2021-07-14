@@ -1625,13 +1625,19 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
     VPBasicBlock *End = &*find_if(*P.Plan, [](const VPBasicBlock &BB) {
       return BB.getNumSuccessors() == 0;
     });
-    Plan.getBasicBlockList().splice(P.FirstBB->getIterator(),
+    VPBasicBlock *VPFirstBB = P.FirstBB;
+    Plan.getBasicBlockList().splice(VPFirstBB->getIterator(),
                                     P.Plan->getBasicBlockList());
     // Relink blocks in CFG.
-    P.FirstBB->getSinglePredecessor()->replaceSuccessor(P.FirstBB, Begin);
-    End->setTerminator(P.FirstBB->getSingleSuccessor());
-    P.FirstBB->setTerminator();
-    Plan.getBasicBlockList().erase(P.FirstBB);
+    VPFirstBB->getSinglePredecessor()->replaceSuccessor(VPFirstBB, Begin);
+    End->setTerminator(VPFirstBB->getSingleSuccessor());
+    VPFirstBB->setTerminator();
+
+    // Add the instructions we're about to remove into the UnlinkedVPInsns.
+    for (auto &VPI : make_early_inc_range(reverse(*VPFirstBB)))
+      VPFirstBB->eraseInstruction(&VPI);
+
+    Plan.getBasicBlockList().erase(VPFirstBB);
     if (auto VecPlan = dyn_cast<VPlanVector>(P.Plan))
       mergeLoopInfo(*VecPlan);
   }
