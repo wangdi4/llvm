@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2010-2020 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -235,7 +233,7 @@ cl_dev_err_code ProgramBuildResult::GetBuildResult() const
 
 CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
     m_debugInfo(false),
-    m_useNativeDebugger(false),
+    m_useNativeDebugger(true),
     m_profiling(false),
     m_disableOpt(false),
     m_relaxedMath(false),
@@ -256,10 +254,6 @@ CompilerBuildOptions::CompilerBuildOptions(const char* pBuildOpts):
          m_profiling = true;
        else if (opt.equals("-g"))
          m_debugInfo = true;
-       else if (opt.equals("-gnative")) {
-         m_debugInfo = true;
-         m_useNativeDebugger = true;
-       }
        else if (opt.equals("-cl-fast-relaxed-math"))
          m_relaxedMath = true;
        else if (opt.equals("-cl-opt-disable"))
@@ -392,7 +386,7 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_dumpHeuristicIR(config.GetDumpHeuristicIRFlag()),
     m_debug(false),
     m_disableOptimization(false),
-    m_useNativeDebugger(false),
+    m_useNativeDebugger(true),
     m_streamingAlways(config.GetStreamingAlways()),
     m_expensiveMemOpts(config.GetExpensiveMemOpts()),
     m_passManagerType(config.GetPassManagerType()),
