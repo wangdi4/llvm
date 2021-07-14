@@ -3,16 +3,16 @@
 
 ; OPTREPORT: LOOP BEGIN at t1.c (6, 3)
 ; OPTREPORT:     LOOP BEGIN at t1.c (7, 5)
-; OPTREPORT:         remark #25577: Loops have been fused with (11,15)
+; OPTREPORT:         remark #25045: Fused Loops: 7,11,15
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t1.c (7, 5)
-; OPTREPORT:         remark #25575: Peeled loop after fusion
+; OPTREPORT:     <Peeled>
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t1.c (11, 5)
-; OPTREPORT:         remark #25576: Loop lost in Fusion
+; OPTREPORT:         remark #25046: Loop lost in Fusion
 ; OPTREPORT:     LOOP END
 ; OPTREPORT:     LOOP BEGIN at t1.c (15, 5)
-; OPTREPORT:         remark #25576: Loop lost in Fusion
+; OPTREPORT:         remark #25046: Loop lost in Fusion
 ; OPTREPORT:     LOOP END
 ; OPTREPORT: LOOP END
 
