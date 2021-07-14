@@ -1,0 +1,97 @@
+; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
+
+; CHECK: DPCPPKernelAnalysisPass
+; CHECK: kernel_contains_wg_all no
+; CHECK: kernel_contains_wg_any no
+; CHECK: kernel_contains_wg_broadcastij no
+; CHECK: kernel_contains_wg_broadcastijj no
+; CHECK: kernel_contains_wg_broadcastijjj no
+; CHECK: kernel_contains_wg_reduce_add no
+; CHECK: kernel_contains_wg_reduce_min no
+; CHECK: kernel_contains_wg_scan_exclusive_add no
+; CHECK: kernel_contains_wg_scan_exclusive_min no
+; CHECK: kernel_contains_wg_scan_inclusive_add no
+; CHECK: kernel_contains_wg_scan_inclusive_min no
+
+define void @kernel_contains_wg_all() {
+entry:
+  %0 = call spir_func i32 @_Z14work_group_alli(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_any() {
+entry:
+  %0 = call spir_func i32 @_Z14work_group_anyi(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_broadcastij() {
+entry:
+  %0 = call spir_func i32 @_Z20work_group_broadcastij(i32 1, i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_broadcastijj() {
+entry:
+  %0 = call spir_func i32 @_Z20work_group_broadcastijj(i32 1, i32 1, i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_broadcastijjj() {
+entry:
+  %0 = call spir_func i32 @_Z20work_group_broadcastijjj(i32 1, i32 1, i32 1, i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_reduce_add() {
+entry:
+  %0 = call spir_func i32 @_Z21work_group_reduce_addi(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_reduce_min() {
+entry:
+  %0 = call spir_func i32 @_Z21work_group_reduce_minj(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_scan_exclusive_add() {
+entry:
+  %0 = call spir_func i32 @_Z29work_group_scan_exclusive_addi(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_scan_exclusive_min() {
+entry:
+  %0 = call spir_func i32 @_Z29work_group_scan_exclusive_minj(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_scan_inclusive_add() {
+entry:
+  %0 = call spir_func i32 @_Z29work_group_scan_inclusive_addi(i32 1)
+  ret void
+}
+
+define void @kernel_contains_wg_scan_inclusive_min() {
+entry:
+  %0 = call spir_func i32 @_Z29work_group_scan_inclusive_minj(i32 1)
+  ret void
+}
+
+declare spir_func i32 @_Z14work_group_alli(i32) #0
+declare spir_func i32 @_Z14work_group_anyi(i32) #0
+declare spir_func i32 @_Z20work_group_broadcastij(i32, i32) #0
+declare spir_func i32 @_Z20work_group_broadcastijj(i32, i32, i32) #0
+declare spir_func i32 @_Z20work_group_broadcastijjj(i32, i32, i32, i32) #0
+declare spir_func i32 @_Z21work_group_reduce_addi(i32) #0
+declare spir_func i32 @_Z21work_group_reduce_minj(i32) #0
+declare spir_func i32 @_Z29work_group_scan_exclusive_addi(i32) #0
+declare spir_func i32 @_Z29work_group_scan_exclusive_minj(i32) #0
+declare spir_func i32 @_Z29work_group_scan_inclusive_addi(i32) #0
+declare spir_func i32 @_Z29work_group_scan_inclusive_minj(i32) #0
+
+attributes #0 = { convergent }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel_contains_wg_all, void ()* @kernel_contains_wg_any, void ()* @kernel_contains_wg_broadcastij, void ()* @kernel_contains_wg_broadcastijj, void ()* @kernel_contains_wg_broadcastijjj, void ()* @kernel_contains_wg_reduce_add, void ()* @kernel_contains_wg_reduce_min, void ()* @kernel_contains_wg_scan_exclusive_add, void ()* @kernel_contains_wg_scan_exclusive_min, void ()* @kernel_contains_wg_scan_inclusive_add, void ()* @kernel_contains_wg_scan_inclusive_min}

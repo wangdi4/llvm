@@ -308,6 +308,49 @@ std::string mangledBarrier();
 /// Returns the mangled name of the function work_group_barrier.
 std::string mangledWGBarrier(BarrierType BT);
 
+/// Returns the mangled name of the function sub_group_barrier.
+/// \param BT
+///   BarrierType::NoScope
+///     void sub_group_barrier (cl_mem_fence_flags flags)
+///   BarrierType::WithScope
+///     void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
+std::string mangledSGBarrier(BarrierType BT);
+
+/// \name subgroup builtins.
+/// \param S function name.
+/// @{
+bool isGetSubGroupSize(StringRef S);
+bool isGetMaxSubGroupSize(StringRef S);
+bool isGetNumSubGroups(StringRef S);
+bool isGetEnqueuedNumSubGroups(StringRef S);
+bool isGetSubGroupId(StringRef S);
+bool isGetSubGroupLocalId(StringRef S);
+bool isSubGroupAll(StringRef S);
+bool isSubGroupAny(StringRef S);
+bool isSubGroupBroadCast(StringRef S);
+bool isSubGroupReduceAdd(StringRef S);
+bool isSubGroupScanExclusiveAdd(StringRef S);
+bool isSubGroupScanInclusiveAdd(StringRef S);
+bool isSubGroupReduceMin(StringRef S);
+bool isSubGroupScanExclusiveMin(StringRef S);
+bool isSubGroupScanInclusiveMin(StringRef S);
+bool isSubGroupReduceMax(StringRef S);
+bool isSubGroupScanExclusiveMax(StringRef S);
+bool isSubGroupScanInclusiveMax(StringRef S);
+bool isSubGroupScan(StringRef S);
+/// }@
+
+/// Returns true if \p S is a name of subgroup builtin, and it's uniform inside
+/// a subgroup.
+bool isSubGroupUniform(StringRef S);
+
+/// Returns true if \p S is a name of subgroup builtin, and it's non-uniform
+/// (divergent) inside a subgroup.
+bool isSubGroupDivergent(StringRef S);
+
+// Returns true if \p S is a name of subgroup builtin.
+bool isSubGroupBuiltin(StringRef S);
+
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
   return DPCPPKernelMetadataAPI::KernelList(M);
@@ -361,7 +404,12 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs);
 /// Obtain CL version from "!opencl.ocl.version" named metadata.
 unsigned fetchCLVersionFromMetadata(const Module &M);
 
-void getAllSyncBuiltinsDecls(FuncSet &Set, Module *M);
+/// Collect built-ins declared in the module and force synchronization, i.e.
+/// implemented using barrier built-in.
+/// \param FSet output container to insert all synchronized built-ins into.
+/// \param M the module to search synchronize built-ins declarations in.
+/// \param IsWG true for workgroup, false for subgroup.
+void getAllSyncBuiltinsDecls(FuncSet &FSet, Module *M, bool IsWG = true);
 
 /// Retrieves the pointer to the implicit arguments added to the given function
 /// \param F The function for which implicit arguments need to be retrieved.
