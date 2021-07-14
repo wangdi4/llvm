@@ -49,20 +49,33 @@ class MemoryMapper {
 
   explicit MemoryMapper(const Allocator &allocator) : allocator_(allocator) {}
 
-  uptr GetReleasedRangesCount() const { return released_ranges_count_; }
+  ~MemoryMapper() {
+    if (buffer_)
+      UnmapOrDie(buffer_, buffer_size_);
+  }
 
-  uptr GetReleasedBytes() const { return released_bytes_; }
+  bool GetAndResetStats(uptr &ranges, uptr &bytes) {
+    ranges = released_ranges_count_;
+    released_ranges_count_ = 0;
+    bytes = released_bytes_;
+    released_bytes_ = 0;
+    return ranges != 0;
+  }
 
   void *MapPackedCounterArrayBuffer(uptr buffer_size) {
     // TODO(alekseyshl): The idea to explore is to check if we have enough
     // space between num_freed_chunks*sizeof(CompactPtrT) and
     // mapped_free_array to fit buffer_size bytes and use that space instead
     // of mapping a temporary one.
-    return MmapOrDieOnFatalError(buffer_size, "ReleaseToOSPageCounters");
-  }
-
-  void UnmapPackedCounterArrayBuffer(void *buffer, uptr buffer_size) {
-    UnmapOrDie(buffer, buffer_size);
+    if (buffer_size_ < buffer_size) {
+      if (buffer_)
+        UnmapOrDie(buffer_, buffer_size_);
+      buffer_ = MmapOrDieOnFatalError(buffer_size, "ReleaseToOSPageCounters");
+      buffer_size_ = buffer_size;
+    } else {
+      internal_memset(buffer_, 0, buffer_size);
+    }
+    return buffer_;
   }
 
   // Releases [from, to) range of pages back to OS.
@@ -79,6 +92,8 @@ class MemoryMapper {
   const Allocator &allocator_;
   uptr released_ranges_count_ = 0;
   uptr released_bytes_ = 0;
+  void *buffer_ = nullptr;
+  uptr buffer_size_ = 0;
 };
 
 template <class Params>
@@ -160,9 +175,10 @@ class SizeClassAllocator64 {
   }
 
   void ForceReleaseToOS() {
+    MemoryMapperT memory_mapper(*this);
     for (uptr class_id = 1; class_id < kNumClasses; class_id++) {
       BlockingMutexLock l(&GetRegionInfo(class_id)->mutex);
-      MaybeReleaseToOS(class_id, true /*force*/);
+      MaybeReleaseToOS(&memory_mapper, class_id, true /*force*/);
     }
   }
 
@@ -171,7 +187,8 @@ class SizeClassAllocator64 {
       alignment <= SizeClassMap::kMaxSize;
   }
 
-  NOINLINE void ReturnToAllocator(AllocatorStats *stat, uptr class_id,
+  NOINLINE void ReturnToAllocator(MemoryMapperT *memory_mapper,
+                                  AllocatorStats *stat, uptr class_id,
                                   const CompactPtrT *chunks, uptr n_chunks) {
     RegionInfo *region = GetRegionInfo(class_id);
     uptr region_beg = GetRegionBeginBySizeClass(class_id);
@@ -194,7 +211,7 @@ class SizeClassAllocator64 {
     region->num_freed_chunks = new_num_freed_chunks;
     region->stats.n_freed += n_chunks;
 
-    MaybeReleaseToOS(class_id, false /*force*/);
+    MaybeReleaseToOS(memory_mapper, class_id, false /*force*/);
   }
 
   NOINLINE bool GetFromAllocator(AllocatorStats *stat, uptr class_id,
@@ -402,11 +419,11 @@ class SizeClassAllocator64 {
   // For the performance sake, none of the accessors check the validity of the
   // arguments, it is assumed that index is always in [0, n) range and the value
   // is not incremented past max_value.
-  template <typename MemoryMapper>
   class PackedCounterArray {
    public:
+    template <typename MemoryMapper>
     PackedCounterArray(u64 num_counters, u64 max_value, MemoryMapper *mapper)
-        : n(num_counters), memory_mapper(mapper) {
+        : n(num_counters) {
       CHECK_GT(num_counters, 0);
       CHECK_GT(max_value, 0);
       constexpr u64 kMaxCounterBits = sizeof(*buffer) * 8ULL;
@@ -426,13 +443,8 @@ class SizeClassAllocator64 {
       buffer_size =
           (RoundUpTo(n, 1ULL << packing_ratio_log) >> packing_ratio_log) *
           sizeof(*buffer);
-      buffer = reinterpret_cast<u64*>(
-          memory_mapper->MapPackedCounterArrayBuffer(buffer_size));
-    }
-    ~PackedCounterArray() {
-      if (buffer) {
-        memory_mapper->UnmapPackedCounterArrayBuffer(buffer, buffer_size);
-      }
+      buffer = reinterpret_cast<u64 *>(
+          mapper->MapPackedCounterArrayBuffer(buffer_size));
     }
 
     bool IsAllocated() const {
@@ -470,7 +482,6 @@ class SizeClassAllocator64 {
     u64 packing_ratio_log;
     u64 bit_offset_mask;
 
-    MemoryMapper *const memory_mapper;
     u64 buffer_size;
     u64* buffer;
   };
@@ -562,8 +573,8 @@ class SizeClassAllocator64 {
       UNREACHABLE("All chunk_size/page_size ratios must be handled.");
     }
 
-    PackedCounterArray<MemoryMapper> counters(
-        allocated_pages_count, full_pages_chunk_count_max, memory_mapper);
+    PackedCounterArray counters(allocated_pages_count,
+                                full_pages_chunk_count_max, memory_mapper);
     if (!counters.IsAllocated())
       return;
 
@@ -866,7 +877,8 @@ class SizeClassAllocator64 {
   //
   // TODO(morehouse): Support a callback on memory release so HWASan can release
   // aliases as well.
-  void MaybeReleaseToOS(uptr class_id, bool force) {
+  void MaybeReleaseToOS(MemoryMapperT *memory_mapper, uptr class_id,
+                        bool force) {
     RegionInfo *region = GetRegionInfo(class_id);
     const uptr chunk_size = ClassIdToSize(class_id);
     const uptr page_size = GetPageSizeCached();
@@ -890,17 +902,16 @@ class SizeClassAllocator64 {
       }
     }
 
-    MemoryMapper<ThisT> memory_mapper(*this);
-
     ReleaseFreeMemoryToOS(
         GetFreeArray(GetRegionBeginBySizeClass(class_id)), n, chunk_size,
-        RoundUpTo(region->allocated_user, page_size) / page_size,
-        &memory_mapper, class_id);
+        RoundUpTo(region->allocated_user, page_size) / page_size, memory_mapper,
+        class_id);
 
-    if (memory_mapper.GetReleasedRangesCount() > 0) {
+    uptr ranges, bytes;
+    if (memory_mapper->GetAndResetStats(ranges, bytes)) {
       region->rtoi.n_freed_at_last_release = region->stats.n_freed;
-      region->rtoi.num_releases += memory_mapper.GetReleasedRangesCount();
-      region->rtoi.last_released_bytes = memory_mapper.GetReleasedBytes();
+      region->rtoi.num_releases += ranges;
+      region->rtoi.last_released_bytes = bytes;
     }
     region->rtoi.last_release_at_ns = MonotonicNanoTime();
   }
