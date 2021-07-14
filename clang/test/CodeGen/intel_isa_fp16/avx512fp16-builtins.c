@@ -4120,6 +4120,19 @@ __m128h test_mm_maskz_fcmadd_sch(__mmask8 __U, __m128h __A, __m128h __B,  __m128
   return _mm_maskz_fcmadd_sch(__U, __A, __B,__C );
 }
 
+__m128h test_mm_mask3_fcmadd_sch(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm_mask3_fcmadd_sch
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.sh(<4 x float> %{{.*}}, <4 x float> %{{.*}}, <4 x float> %{{.*}}, i8 %{{.*}}, i32 4)
+  // CHECK:  %{{.*}} = extractelement <4 x float> %{{.*}}, i32 0
+  // CHECK:  %{{.*}} = insertelement <4 x float> %{{.*}}, float %{{.*}}, i32 0
+  // CHECK:  %{{.*}} = bitcast <4 x float> %{{.*}} to <8 x half>
+  return _mm_mask3_fcmadd_sch(__A, __B, __C, __U);
+}
+
 __m128h test_mm_fcmadd_round_sch(__m128h __A, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_fcmadd_round_sch
   // CHECK: @llvm.x86.avx512fp16.mask.vfcmaddc.sh
@@ -4138,6 +4151,19 @@ __m128h test_mm_maskz_fcmadd_round_sch(__mmask8 __U, __m128h __A, __m128h __B, _
   // CHECK-LABEL: @test_mm_maskz_fcmadd_round_sch
   // CHECK: @llvm.x86.avx512fp16.maskz.vfcmaddc.sh
   return _mm_maskz_fcmadd_round_sch(__U, __A, __B,__C,  _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
+}
+
+__m128h test_mm_mask3_fcmadd_round_sch(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm_mask3_fcmadd_round_sch
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = bitcast <8 x half> %{{.*}} to <4 x float>
+  // CHECK:  %{{.*}} = call <4 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.sh(<4 x float> %{{.*}}, <4 x float> %{{.*}}, <4 x float> %{{.*}}, i8 %{{.*}}, i32 11)
+  // CHECK:  %{{.*}} = extractelement <4 x float> %{{.*}}, i32 0
+  // CHECK:  %{{.*}} = insertelement <4 x float> %{{.*}}, float %{{.*}}, i32 0
+  // CHECK:  %{{.*}} = bitcast <4 x float> %{{.*}} to <8 x half>
+  return _mm_mask3_fcmadd_round_sch(__A, __B, __C, __U, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
 }
 
 __m128h test_mm_fmadd_sch(__m128h __A, __m128h __B, __m128h __C) {
