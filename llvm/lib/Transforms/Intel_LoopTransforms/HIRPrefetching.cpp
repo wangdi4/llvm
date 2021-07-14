@@ -451,24 +451,10 @@ static bool hasPrefetchingPragma(HLLoop *Lp) {
   return !Info.empty();
 }
 
-static const BlobDDRef *getSingleNonLinearBlobRef(const RegDDRef *Ref) {
-  const BlobDDRef *NonLinearBlobRef = nullptr;
-
-  for (auto *BlobRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
-    if (BlobRef->isNonLinear()) {
-      if (NonLinearBlobRef) {
-        return nullptr;
-      }
-      NonLinearBlobRef = BlobRef;
-    }
-  }
-  return NonLinearBlobRef;
-}
-
 void HIRPrefetching::collectIndirectPrefetchingCandidates(
     HLLoop *Lp, const RegDDRef *CandidateRef, int Dist, int Hint,
     SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
-  const BlobDDRef *NonLinearBlobRef = getSingleNonLinearBlobRef(CandidateRef);
+  const BlobDDRef *NonLinearBlobRef = CandidateRef->getSingleNonLinearBlobRef();
 
   if (!NonLinearBlobRef) {
     return;
@@ -674,7 +660,8 @@ void HIRPrefetching::processIndirectPrefetching(
     int Hint = PrefCand.Hint;
     bool IsWrite = PrefCand.IsWrite;
 
-    const BlobDDRef *NonLinearBlobRef = getSingleNonLinearBlobRef(CandidateRef);
+    const BlobDDRef *NonLinearBlobRef =
+        CandidateRef->getSingleNonLinearBlobRef();
     assert(NonLinearBlobRef && "A BlobRef is expected.");
 
     RegDDRef *NewIndexRef = OrigIndexLoadRef->clone();

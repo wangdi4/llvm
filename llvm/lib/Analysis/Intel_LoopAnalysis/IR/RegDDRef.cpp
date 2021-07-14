@@ -1145,6 +1145,20 @@ const BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) const {
   return const_cast<RegDDRef *>(this)->getBlobDDRef(Index);
 }
 
+const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef() const {
+  const BlobDDRef *NonLinearBlobRef = nullptr;
+
+  for (auto *BlobRef : blobs()) {
+    if (BlobRef->isNonLinear()) {
+      if (NonLinearBlobRef) {
+        return nullptr;
+      }
+      NonLinearBlobRef = BlobRef;
+    }
+  }
+  return NonLinearBlobRef;
+}
+
 bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
                             bool AssumeLvalIfDetached) const {
 
