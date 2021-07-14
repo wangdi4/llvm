@@ -844,6 +844,14 @@ void SYCLToolChain::AddImpliedTargetArgs(
     if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
         (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
       BeArgs.push_back("-vc-codegen");
+    if (Arg *A = Args.getLastArg(options::OPT_fopenmp_target_buffers_EQ)) {
+      StringRef BufArg = A->getValue();
+      if (BufArg == "4GB")
+        BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
+      else if (BufArg != "default")
+        getDriver().Diag(diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << BufArg;
+    }
   }
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION

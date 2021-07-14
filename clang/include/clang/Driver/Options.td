@@ -2674,6 +2674,9 @@ def fno_openmp_device_lib_EQ : CommaJoined<["-"], "fno-openmp-device-lib=">, Fla
   "are libc, libm-fp32, libm-fp64, all">;
 def fiopenmp_offload : Flag<["-"], "fiopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
 def fno_iopenmp_offload : Flag<["-"], "fno-iopenmp-offload">, Flags<[NoXarchOption]>, Group<f_Group>;
+def fopenmp_target_buffers_EQ : Joined<["-"], "fopenmp-target-buffers=">,
+  Flags<[NoArgumentUnused]>, Values<"default, 4GB">, Group<f_Group>,
+  HelpText<"Allow access to target objects of 4GB or larger in target code.">;
 def fopenmp_target_simd : Flag<["-"], "fopenmp-target-simd">, Flags<[NoXarchOption,
   HelpHidden, CC1Option]>, Group<f_Group>,
   MarshallingInfoFlag<LangOpts<"OpenMPTargetSimd">>;
@@ -7209,6 +7212,11 @@ def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlag<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlag<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
+def _SLASH_Qopenmp_target_buffers_EQ : CLJoined<"Qopenmp-target-buffers=">,
+  Alias<fopenmp_target_buffers_EQ>;
+def _SLASH_Qopenmp_target_buffers_COL : CLJoined<"Qopenmp-target-buffers:">,
+  Alias<fopenmp_target_buffers_EQ>, HelpText<"Allow access to target objects "
+  "of 4GB or larger in target code.">;
 def _SLASH_Qopenmp_target_simd : CLFlag<"Qopenmp-target-simd">, Alias<fopenmp_target_simd>;
 def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
