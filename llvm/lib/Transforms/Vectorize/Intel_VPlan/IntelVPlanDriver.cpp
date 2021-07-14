@@ -1222,8 +1222,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
-  LVP.unroll(*cast<VPlanNonMasked>(Plan));
-
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     VPLoop *OuterMostVPLoop = Plan->getMainLoop(true);
@@ -1245,6 +1243,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
+      LVP.unroll(*cast<VPlanNonMasked>(Plan));
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(

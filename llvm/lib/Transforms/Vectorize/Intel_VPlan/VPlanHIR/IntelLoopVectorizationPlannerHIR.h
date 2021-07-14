@@ -124,6 +124,8 @@ public:
   /// \p Forced indicates that Unroll Factor is forced.
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
 
+  bool unroll(VPlanVector &Plan) override;
+
   /// Return a pair of the <min, max> types' width used in the underlying loop.
   std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const final {
     // FIXME: Implement this!
