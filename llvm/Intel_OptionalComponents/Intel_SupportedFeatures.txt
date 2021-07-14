@@ -325,6 +325,10 @@
 # INTEL_FEATURE_CPU_ADL
 @CPU_ADL:SECRET@
 # end INTEL_FEATURE_CPU_ADL
+
+# INTEL_FEATURE_CPU_GRT
+@CPU_GRT:SECRET@
+#end INTEL_FEATURE_CPU_GRT
 # === New CPU section end ===
 
 # Special software features section currently consist of

@@ -753,6 +753,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Tremont:
     defineCPUMacros(Builder, "tremont");
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GRT
+  case CK_Gracemont:
+    defineCPUMacros(Builder, "gracemont");
+    break;
+#endif // INTEL_FEATURE_CPU_GRT
+#endif // INTEL_CUSTOMIZATION
   case CK_Nehalem:
   case CK_Westmere:
   case CK_SandyBridge:
@@ -2243,6 +2250,11 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GRT
+    case CK_Gracemont:
+#endif // INTEL_FEATURE_CPU_GRT
+#endif // INTEL_CUSTOMIZATION
     case CK_Westmere:
     case CK_SandyBridge:
     case CK_IvyBridge:
