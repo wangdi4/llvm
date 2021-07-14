@@ -411,6 +411,9 @@ namespace llvm {
   /// the intrinsic for later emission to the StackMap.
   extern char &StackMapLivenessID;
 
+  /// RemoveRedundantDebugValues pass.
+  extern char &RemoveRedundantDebugValuesID;
+
   /// LiveDebugValues pass
   extern char &LiveDebugValuesID;
 
