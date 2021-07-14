@@ -157,6 +157,7 @@ set (OCL_CPU_BACKEND_SOURCE_FILES
     ocl_debug_builtins.cpp
     ocl_mutex.cpp
     opencl20_ext_execution.cpp
+    opencl_cpu_assert_ext.cpp
     opencl_cpu_printf_ext.cpp
     opencl_printf_ext.cpp
   )
