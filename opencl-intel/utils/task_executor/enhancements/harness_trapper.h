@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2020 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2021 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -24,7 +24,7 @@
     #define ASSERT __TBB_ASSERT
     #define __TBB_UNDEF_ASSERT
 #endif
-#include "harness_barrier.h"
+#include "spin_barrier.h"
 #include "task_group_with_reference.h"
 
 #include <tbb/task_arena.h>
@@ -35,27 +35,27 @@ namespace tbb { namespace Harness {
 class TbbWorkersTrapper {
     tbb::task_arena *m_arena;
     task_group_with_reference m_group;
-    Harness::SpinBarrier* my_barrier;
+    utils::SpinBarrier* my_barrier;
 
     class TrapperTaskRunner
     {
         task_group_with_reference *m_group;
-        Harness::SpinBarrier* m_barrier;
+        utils::SpinBarrier* m_barrier;
     public:
         TrapperTaskRunner(task_group_with_reference * group,
-                          Harness::SpinBarrier * barrier)
+                          utils::SpinBarrier * barrier)
             : m_group(group), m_barrier(barrier) {}
 
         void operator()() const
         {
             m_barrier->wait(); // Wait until all workers are ready
             m_group->wait();
-            m_barrier->signal_nowait();
+            m_barrier->signalNoWait();
         }
     };
 
     class TrapperReleaseRunner {
-        Harness::SpinBarrier*     barrier;
+        utils::SpinBarrier*     barrier;
     public:
         TrapperReleaseRunner( TbbWorkersTrapper& owner) :
           barrier(owner.my_barrier) {}
@@ -75,7 +75,7 @@ public:
           is_async(_is_async),
           is_trapped(false)
     {
-        my_barrier = new Harness::SpinBarrier;
+        my_barrier = new utils::SpinBarrier;
         my_barrier->initialize(num_threads + (is_async ? 1 : 0));
     }
 
