@@ -213,7 +213,7 @@ private:
   /// Store the information collected from the linker that is needed for the
   /// whole program analysis
   WholeProgramUtils WPUtils;
-#endif //INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
 public:
   PassManagerBuilder();

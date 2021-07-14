@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_dtrans, intel_feature_sw_advanced
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -disable-output -inline -inline-report=7                        \
 ; RUN:       -dtrans-inline-heuristics -inline-for-xmain -pre-lto-inline-cost   \
 ; RUN:  2>&1 | FileCheck --check-prefix=CHECK-SUPP  %s

@@ -78,10 +78,10 @@
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_CSA
 #include "Intel_CSA/CSAIRPasses.h"
 #endif  // INTEL_FEATURE_CSA
@@ -314,11 +314,12 @@ static cl::opt<bool>
   cl::init(true), cl::Hidden, cl::desc("Enable IPO Prefetch"));
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
 static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #if INTEL_FEATURE_SW_ADVANCED
 // Partial inline simple functions
@@ -326,7 +327,6 @@ static cl::opt<bool>
     EnableIntelPI("enable-intelpi", cl::init(true), cl::Hidden,
                     cl::desc("Enable partial inlining for simple functions"));
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
 
 // PGO based function splitting
 static cl::opt<bool> EnableFunctionSplitting("enable-function-splitting",
@@ -488,11 +488,11 @@ PassManagerBuilder::PassManagerBuilder() {
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
     AfterSLPVectorizer = false;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     DTransEnabled = EnableDTrans;
-#else
+#else // INTEL_FEATURE_SW_DTRANS
     DTransEnabled = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     CallGraphProfile = true;
 }
@@ -594,13 +594,13 @@ void PassManagerBuilder::addInstructionCombiningPass(
   // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
   bool EnableFcmpMinMaxCombine =
       (!PrepareForLTO && !SLPVectorize) || AfterSLPVectorizer;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.
-  bool PreserveForDTrans = (PrepareForLTO && EnableDTrans);
-#else
+  bool PreserveForDTrans = (PrepareForLTO && DTransEnabled);
+#else // INTEL_FEATURE_SW_DTRANS
   bool PreserveForDTrans = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
     // the instructions combining pass inserts value definitions
@@ -666,12 +666,10 @@ void PassManagerBuilder::populateFunctionPassManager(
   FPM.add(createCFGSimplificationPass());
   FPM.add(createSROAPass());
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
 #if INTEL_FEATURE_SW_ADVANCED
-  if (EnableDTrans)
+  if (DTransEnabled)
     FPM.add(createFunctionRecognizerLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   FPM.add(createEarlyCSEPass());
@@ -711,7 +709,7 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM,
 #if INTEL_CUSTOMIZATION
     // Combine silly seq's
     addInstructionCombiningPass(MPM, !DTransEnabled);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
     addExtensionsToPM(EP_Peephole, MPM);
   }
   if ((EnablePGOInstrGen && !IsCS) || (EnablePGOCSInstrGen && IsCS)) {
@@ -791,11 +789,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createPGOMemOPSizeOptLegacyPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  bool SkipRecProgression = PrepareForLTO && EnableDTrans;
-#else
+#if INTEL_FEATURE_SW_DTRANS
+  bool SkipRecProgression = PrepareForLTO && DTransEnabled;
+#else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   if (OptLevel > 1)
     MPM.add(createTailCallEliminationPass(SkipRecProgression));
@@ -897,17 +895,17 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createAggressiveDCEPass()); // Delete dead instructions
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
+#if INTEL_FEATURE_SW_DTRANS
+  // Skip MemCpyOpt when both PrepareForLTO and DTransEnabled flags are
   // true to simplify handling of memcpy/memset/memmov calls in DTrans
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
   // memset/memmov calls of struct types.
-  if (!PrepareForLTO || !EnableDTrans)
+  if (!PrepareForLTO || !DTransEnabled)
     MPM.add(createMemCpyOptPass());           // Remove memcpy / form memset
-#else
+#else // INTEL_FEATURE_SW_DTRANS
   MPM.add(createMemCpyOptPass());             // Remove memcpy / form memset
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   // TODO: Investigate if this is too expensive at O1.
   if (OptLevel > 1) {
@@ -1730,15 +1728,13 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_FEATURE_SW_ADVANCED
   // IP Cloning
   if (EnableIPCloning) {
-#if INTEL_INCLUDE_DTRANS
     // This pass is being added under DTRANS only at this point, because a
     // particular benchmark needs it to prove that the period of a recursive
-    // progression is constant. We can remove the test for EnableDTrans if
+    // progression is constant. We can remove the test for DTransEnabled if
     // we find IPSCCP to be generally useful here and we are willing to
     // tolerate the additional compile time.
-    if (EnableDTrans)
+    if (DTransEnabled)
       PM.add(createIPSCCPPass());
-#endif // INTEL_INCLUDE_DTRANS
     PM.add(createIPCloningLegacyPass(false, true));
   }
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1815,12 +1811,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     return;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled) {
     // This call adds the DTrans passes.
     addDTransLegacyPasses(PM);
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   PM.add(createDopeVectorConstPropLegacyPass());
   PM.add(createArgumentPromotionPass());
 #endif // INTEL_CUSTOMIZATION
@@ -1838,20 +1834,15 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createDeadArgEliminationPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
-    addLateDTransLegacyPasses(PM);
 #if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled) {
+    addLateDTransLegacyPasses(PM);
     if (EnableIndirectCallConv)
       PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */,
-                                              true /* EnableDTrans */));
-#else // INTEL_FEATURE_SW_DTRANS
-    if (EnableIndirectCallConv)
-      PM.add(createIndirectCallConvLegacyPass(false /* EnableAndersen */));
-#endif // INTEL_FEATURE_SW_DTRANS
+                                              true /* DTransEnabled */));
       // Indirect Call Conv
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
@@ -1865,29 +1856,17 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
 #if INTEL_CUSTOMIZATION
 
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
+#if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled) {
     // Compute the aligment of the argument
     PM.add(createIntelArgumentAlignmentLegacyPass());
-#if INTEL_FEATURE_SW_ADVANCED
     // Recognize Functions that implement qsort
     PM.add(createQsortRecognizerLegacyPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
     // Multiversion and mark for inlining functions for tiling
     PM.add(createTileMVInlMarkerLegacyPass());
   }
 
-#if INTEL_FEATURE_SW_ADVANCED
-  bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
-#endif // INTEL_FEATURE_SW_ADVANCED
-#else
-#if INTEL_FEATURE_SW_ADVANCED
-  bool EnableIntelPartialInlining = false;
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
-
-#if INTEL_FEATURE_SW_ADVANCED
-  // Partial inlining for simple functions
+  bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
   if (EnableIntelPartialInlining)
     PM.add(createIntelPartialInlineLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1941,17 +1920,17 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Optimize globals again if we ran the inliner.
   if (RunInliner) { // INTEL
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     // The global optimizer pass can convert function calls to use
     // the 'fastcc' calling convention. The following pass enables more
     // functions to be converted to this calling convention. This can improve
     // performance by having arguments passed in registers, and enable more
     // cases where pointer parameters are changed to pass-by-value parameters.
-    // We can remove the test for EnableDTrans if it is found to be useful
+    // We can remove the test for DTransEnabled if it is found to be useful
     // on other cases.
-    if (EnableDTrans)
+    if (DTransEnabled)
       PM.add(createIntelAdvancedFastCallWrapperPass());
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     PM.add(createGlobalOptimizerPass());
   } // INTEL
@@ -1959,11 +1938,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   if (RunLTOPartialInlining)
     PM.add(createPartialInliningPass(true /*RunLTOPartialInlining*/,
-#if INTEL_INCLUDE_DTRANS
-                                     EnableDTrans /*EnableSpecialCases*/));
-#else
+#if INTEL_FEATURE_SW_DTRANS
+                                     DTransEnabled /*EnableSpecialCases*/));
+#else // INTEL_FEATURE_SW_DTRANS
                                      false /*EnableSpecialCases*/));
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   if (
 #if INTEL_FEATURE_SW_ADVANCED
@@ -1973,11 +1952,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_FEATURE_SW_ADVANCED
     if (EnableIPCloning)
       // Enable generic IPCloning after Inlining.
-#if INTEL_INCLUDE_DTRANS
-      PM.add(createIPCloningLegacyPass(true, EnableDTrans));
-#else
-      PM.add(createIPCloningLegacyPass(true, false));
-#endif // INTEL_INCLUDE_DTRANS
+      PM.add(createIPCloningLegacyPass(true, DTransEnabled));
 #endif // INTEL_FEATURE_SW_ADVANCED
     if (EnableCallTreeCloning)
       // Do function cloning along call trees
@@ -2013,14 +1988,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     // 21914: If we ran cloning+MV+Dtrans, it is likely we have duplicate
     // code regions that need to be cleaned up. Community disabled hoisting
     // recently, we therefore need to run it explictly.
-    if (EnableDTrans)
+    if (DTransEnabled)
       PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
                                              .hoistCommonInsts(true)));
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   }
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to
@@ -2048,10 +2023,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableAndersen)
     PM.add(createAndersensAAWrapperPass());
 
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled)
     PM.add(createDTransFieldModRefAnalysisWrapperPass());
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));

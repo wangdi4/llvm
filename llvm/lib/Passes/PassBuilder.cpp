@@ -389,10 +389,10 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/DTransPasses.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #endif // INTEL_CUSTOMIZATION
@@ -491,11 +491,12 @@ static const Regex DefaultAliasRegex(
     "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
 static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #if INTEL_FEATURE_SW_ADVANCED
 // Partial inlining for simple functions
@@ -503,7 +504,6 @@ static cl::opt<bool>
     EnableIntelPI("enable-npm-intel-pi", cl::init(true), cl::Hidden,
                 cl::desc("Enable the partial inlining for simple functions"));
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 /// Flag to enable inline deferral during PGO.
@@ -747,11 +747,11 @@ PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
 #include "PassRegistry.def"
   }
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   DTransEnabled = EnableDTrans;
-#else
+#else // INTEL_FEATURE_SW_DTRANS
   DTransEnabled = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -810,13 +810,13 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
   // Enable it when SLP Vectorizer is off or after SLP Vectorizer pass.
   bool EnableFcmpMinMaxCombine =
       (!PrepareForLTO && !PTO.SLPVectorization) || AfterSLPVectorizer;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.
-  bool PreserveForDTrans = (PrepareForLTO && EnableDTrans);
-#else
+  bool PreserveForDTrans = (PrepareForLTO && DTransEnabled);
+#else // INTEL_FEATURE_SW_DTRANS
   bool PreserveForDTrans = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #if 0
   // FIXME: If this temporary workaround is still present in LPM pipeline at
   // the time when we are switching NPM by default, this code-block can be
@@ -868,12 +868,10 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
 #if INTEL_FEATURE_SW_ADVANCED
-  if (EnableDTrans)
+  if (DTransEnabled)
     FPM.addPass(FunctionRecognizerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Catch trivial redundancies
@@ -1043,12 +1041,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
 #if INTEL_FEATURE_SW_ADVANCED
-  if (EnableDTrans)
+  if (DTransEnabled)
     FPM.addPass(FunctionRecognizerPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Catch trivial redundancies
@@ -1097,11 +1093,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
     FPM.addPass(PGOMemOPSizeOpt());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  bool SkipRecProgression = PrepareForLTO && EnableDTrans;
-#else
+#if INTEL_FEATURE_SW_DTRANS
+  bool SkipRecProgression = PrepareForLTO && DTransEnabled;
+#else // INTEL_FEATURE_SW_DTRANS
   bool SkipRecProgression = false;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   // TODO: Investigate the cost/benefit of tail call elimination on debugging.
   FPM.addPass(TailCallElimPass(SkipRecProgression));
 #endif // INTEL_CUSTOMIZATION
@@ -1239,17 +1235,17 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Specially optimize memory movement as it doesn't look like dataflow in SSA.
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  // Skip MemCpyOpt when both PrepareForLTO and EnableDTrans flags are
+#if INTEL_FEATURE_SW_DTRANS
+  // Skip MemCpyOpt when both PrepareForLTO and DTransEnabled flags are
   // true to simplify handling of memcpy/memset/memmov calls in DTrans
   // implementation.
   // TODO: Remove this customization once DTrans handled partial memcpy/
   // memset/memmov calls of struct types.
-  if (!PrepareForLTO || !EnableDTrans)
+  if (!PrepareForLTO || !DTransEnabled)
     FPM.addPass(MemCpyOptPass());
-#else
+#else // INTEL_FEATURE_SW_DTRANS
   FPM.addPass(MemCpyOptPass());
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   FPM.addPass(DSEPass());
@@ -2332,10 +2328,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(RequireAnalysisPass<AndersensAA, Module>());
   }
 
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans)
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled)
     MPM.addPass(RequireAnalysisPass<DTransFieldModRefAnalysis, Module>());
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #endif // INTEL_CUSTOMIZATION
   // Re-require GloblasAA here prior to function passes. This is particularly
@@ -2765,15 +2761,13 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_FEATURE_SW_ADVANCED
   if (EnableIPCloning) {
-#if INTEL_INCLUDE_DTRANS
     // This pass is being added under DTRANS only at this point, because a
     // particular benchmark needs it to prove that the period of a recursive
-    // progression is constant. We can remove the test for EnableDTrans if
+    // progression is constant. We can remove the test for DTransEnabled if
     // we find IPSCCP to be generally useful here and we are willing to
     // tolerate the additional compile time.
-    if (EnableDTrans)
+    if (DTransEnabled)
       MPM.addPass(IPSCCPPass());
-#endif // INTEL_INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ false,
                               /*IFSwitchHeuristic*/ true));
   }
@@ -2825,15 +2819,15 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(ReversePostOrderFunctionAttrsPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled) {
     // These passes get the IR into a form that DTrans is able to analyze.
     MPM.addPass(createModuleToFunctionPassAdaptor(InstSimplifyPass()));
     MPM.addPass(createModuleToFunctionPassAdaptor(SimplifyCFGPass()));
     // This call adds the DTrans passes.
     addDTransPasses(MPM);
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   MPM.addPass(DopeVectorConstPropPass());
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
               ArgumentPromotionPass()));
@@ -2878,22 +2872,17 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(DeadArgumentEliminationPass());
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
+#if INTEL_FEATURE_SW_DTRANS
+  if (DTransEnabled) {
     addLateDTransPasses(MPM);
     if (EnableIndirectCallConv) {
        MPM.addPass(RequireAnalysisPass<DTransAnalysis, Module>());
-#if INTEL_FEATURE_SW_DTRANS
        MPM.addPass(createModuleToFunctionPassAdaptor(
            IndirectCallConvPass(false /* EnableAndersen */,
-                                true /* EnableDTrans */)));
-#else // INTEL_FEATURE_SW_DTRANS
-       MPM.addPass(createModuleToFunctionPassAdaptor(
-           IndirectCallConvPass(false /* EnableAndersen */)));
-#endif // INTEL_FEATURE_SW_DTRANS
+                                true /* DTransEnabled */)));
     }
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Reduce the code after globalopt and ipsccp.  Both can open up significant
@@ -2910,25 +2899,14 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_CUSTOMIZATION
 
-#if INTEL_INCLUDE_DTRANS
-  if (EnableDTrans) {
-    MPM.addPass(IntelArgumentAlignmentPass());
 #if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled) {
+    MPM.addPass(IntelArgumentAlignmentPass());
     MPM.addPass(QsortRecognizerPass());
-#endif // INTEL_FEATURE_SW_ADVANCED
     MPM.addPass(TileMVInlMarkerPass());
   }
 
-#if INTEL_FEATURE_SW_ADVANCED
-  bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
-#endif // INTEL_FEATURE_SW_ADVANCED
-#else
-#if INTEL_FEATURE_SW_ADVANCED
-  bool EnableIntelPartialInlining = false;
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_INCLUDE_DTRANS
-
-#if INTEL_FEATURE_SW_ADVANCED
+  bool EnableIntelPartialInlining = EnableIntelPI && DTransEnabled;
   // Partially inline small functions
   if (EnableIntelPartialInlining)
     MPM.addPass(IntelPartialInlinePass());
@@ -2963,18 +2941,18 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // invoke or a call.
   // Run the inliner now.
   MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level)));
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // The global optimizer pass can convert function calls to use
   // the 'fastcc' calling convention. The following pass enables more
   // functions to be converted to this calling convention. This can improve
   // performance by having arguments passed in registers, and enable more
   // cases where pointer parameters are changed to pass-by-value parameters. We
-  // can remove the test for EnableDTrans if it is found to be useful on other
+  // can remove the test for DTransEnabled if it is found to be useful on other
   // cases.
-  if (EnableDTrans)
+  if (DTransEnabled)
     MPM.addPass(IntelAdvancedFastCallPass());
 
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // Optimize globals again after we ran the inliner.
@@ -2993,13 +2971,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
 #if INTEL_FEATURE_SW_ADVANCED
   if (EnableIPCloning)
-#if INCLUDE_DTRANS
     MPM.addPass(IPCloningPass(/*AfterInl*/ true,
-                              /*IFSwitchHeuristic*/ EnableDTrans));
-#else
-    MPM.addPass(IPCloningPass(/*AfterInl*/ true,
-                              /*IFSwitchHeuristic*/ false));
-#endif // INCLUDE_DTRANS
+                              /*IFSwitchHeuristic*/ DTransEnabled));
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 

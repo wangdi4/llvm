@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_advanced,asserts
+; REQUIRES: intel_feature_sw_advanced,intel_feature_sw_dtrans,asserts
 ; UNSUPPORTED: linux
 ; RUN: opt < %s -enable-dtrans -functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s

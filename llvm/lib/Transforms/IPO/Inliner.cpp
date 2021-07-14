@@ -304,9 +304,9 @@ static bool inlineHistoryIncludes(
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
 static void collectDtransFuncs(Module &M) {
 
-#if INTEL_FEATURE_SW_DTRANS
   // Returns true if “Fn” is empty.
   auto IsEmptyFunction = [] (Function *Fn) {
     if (Fn->isDeclaration())
@@ -453,8 +453,8 @@ static void collectDtransFuncs(Module &M) {
   for (Function *F: MemManageInlineMethods)
     F->addFnAttr("prefer-inline-dtrans");
 
-#endif // INTEL_FEATURE_SW_DTRANS
 }
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
@@ -462,10 +462,12 @@ bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
     ImportedFunctionsStats.setModuleInfo(CG.getModule());
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_DTRANS
   // SimpleInliner provides InlineParams.
   if (auto *Params = getInlineParams())
     if (Params->PrepareForLTO.getValueOr(false))
       collectDtransFuncs(CG.getModule());
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
   return false; // No changes to CallGraph.
 }
@@ -1131,9 +1133,11 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #if INTEL_CUSTOMIZATION
   Report->beginSCC(InitialC, this);
   MDReport->beginSCC(InitialC);
+#if INTEL_FEATURE_SW_DTRANS
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
     collectDtransFuncs(M);
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We

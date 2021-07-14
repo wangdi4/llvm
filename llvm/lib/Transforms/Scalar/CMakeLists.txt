@@ -129,7 +129,10 @@ add_llvm_component_library(LLVMScalarOpts
 
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
   target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_DTransAnalysis)
+endif()
 # end INTEL_FEATURE_SW_DTRANS
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)

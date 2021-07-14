@@ -30,10 +30,8 @@ add_llvm_component_library(LLVMipo
 # INTEL_FEATURE_SW_ADVANCED
   Intel_DeadArrayOpsElimination.cpp
 #end INTEL_FEATURE_SW_ADVANCED
-#end INTEL_INCLUDE_DTRANS
-  Intel_DevirtMultiversioning.cpp # INTEL
-  Intel_DopeVectorConstProp.cpp   # INTEL
-#if INTEL_CUSTOMIZATION
+  Intel_DevirtMultiversioning.cpp
+  Intel_DopeVectorConstProp.cpp
 #if INTEL_FEATURE_SW_ADVANCED
   Intel_QsortRecognizer.cpp
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -119,9 +117,12 @@ add_llvm_component_library(LLVMipo
   )
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
   target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans LLVMIntel_DTransAnalysis)
-endif(INTEL_INCLUDE_DTRANS)
+endif()
+# end INTEL_FEATURE_SW_DTRANS
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
 if (p)

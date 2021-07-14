@@ -9,12 +9,6 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT %s
 // RUN: %clang_cl -Qopt-mem-layout-trans:2 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_DEFAULT %s
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-enable-dtrans"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-enable-npm-dtrans"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-mem-layout-level=2"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-outofboundsok=false"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-usecrulecompat=true"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-inline-heuristics=true"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-irmover-type-merging=false"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-spill-freq-boost=true"
 
@@ -23,42 +17,8 @@
 // RUN:  | FileCheck -DOPTION=-plugin-opt= -check-prefix=LAYOUT_TRANS_LTO %s
 // RUN: %clang_cl /Qopt-mem-layout-trans -flto -fuse-ld=lld -### %t.o 2>&1 \
 // RUN:  | FileCheck -DOPTION=-mllvm: -check-prefix=LAYOUT_TRANS_LTO %s
-// LAYOUT_TRANS_LTO: "[[OPTION]]-enable-dtrans"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-enable-npm-dtrans"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-mem-layout-level=2"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-outofboundsok=false"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-usecrulecompat=true"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-inline-heuristics=true"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-irmover-type-merging=false"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-spill-freq-boost=true"
-
-// RUN: %clang -qopt-mem-layout-trans=3 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_3 %s
-// RUN: %clang_cl -Qopt-mem-layout-trans=3 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_3 %s
-// LAYOUT_TRANS_3: "-mllvm" "-dtrans-mem-layout-level=3"
-
-// RUN: %clang -qopt-mem-layout-trans=4 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_4 %s
-// RUN: %clang_cl -Qopt-mem-layout-trans:4 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_4 %s
-// LAYOUT_TRANS_4: "-mllvm" "-dtrans-mem-layout-level=4"
-
-// RUN: %clang -qopt-mem-layout-trans=8 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_INVALID %s
-// RUN: %clang_cl -Qopt-mem-layout-trans:8 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_INVALID %s
-// LAYOUT_TRANS_INVALID: error: invalid argument '8'
-
-// RUN: %clang -qopt-mem-layout-trans=3 -qno-opt-mem-layout-trans -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
-// RUN: %clang_cl -Qopt-mem-layout-trans:3 -Qopt-mem-layout-trans- -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
-// RUN: %clang -qopt-mem-layout-trans=0 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
-// RUN: %clang_cl -Qopt-mem-layout-trans:0 -### -c %s 2>&1 \
-// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
-// LAYOUT_TRANS-NOT: "-mllvm" "-dtrans-mem-layout-level{{.+}}"
 
 // Behavior with -#x option
 // RUN: %clang -#x %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH-X

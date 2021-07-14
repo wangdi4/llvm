@@ -16,7 +16,9 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRArrayContractionUtils.h"
 
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -28,9 +30,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/IR/Instructions.h"
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
-#endif // INTEL_FEATURE_SW_DTRANS
 
 #include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
