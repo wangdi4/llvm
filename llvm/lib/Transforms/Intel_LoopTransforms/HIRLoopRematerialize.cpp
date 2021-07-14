@@ -1306,6 +1306,12 @@ bool HIRLoopRematerialize::materializeALoop(
   LLVM_DEBUG(NewLoop->getParent()->dump());
   LLVM_DEBUG(printRegionDetail(NewLoop->getParentRegion()));
 
+  // Materialized a loop with a trip count %d (RerollFactor)
+  LoopOptReportBuilder &LORBuilder =
+      NewLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25397u, RerollFactor);
+
   return true;
 }
 
