@@ -819,6 +819,8 @@ static void populatePassesPostFailCheck(
     PM.add(createPatchCallbackArgsPass(UseTLSGlobals));
 
   if (OptLevel > 0) {
+    // AddImplicitArgs pass may create dead implicit arguments.
+    PM.add(llvm::createDeadArgEliminationPass());
     PM.add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores

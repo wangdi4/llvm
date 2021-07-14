@@ -20,6 +20,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -128,6 +129,10 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(LocalBuffersPass(/*UseTLSGlobals*/ false));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
+    if (Level != PassBuilder::OptimizationLevel::O0) {
+      // AddImplicitArgs pass may create dead implicit arguments.
+      MPM.addPass(DeadArgumentEliminationPass());
+    }
     MPM.addPass(PrepareKernelArgsPass());
   });
 }

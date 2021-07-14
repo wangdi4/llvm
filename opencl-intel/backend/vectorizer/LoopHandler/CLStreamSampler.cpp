@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2019 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -375,9 +373,11 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
     if (!LI) continue;
 
     // Load from the buffer.
+    Type *Ty =
+        colorAllocas[i]->getType()->getScalarType()->getPointerElementType();
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
-                     colorAllocas[i], indicesArr, "calc.address", attr.m_call);
-    Type *Ty = cast<GetElementPtrInst>(colorPointer)->getResultElementType();
+        Ty, colorAllocas[i], indicesArr, "calc.address", attr.m_call);
+    Ty = cast<GetElementPtrInst>(colorPointer)->getResultElementType();
     Value *transpValueLoad = new LoadInst(Ty, colorPointer, "load.trnsp.val", false,
                                           Align(FLOAT_X_WIDTH__ALIGNMENT),
                                           attr.m_call);
@@ -572,8 +572,10 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
   ArrayRef<Value *> indicesArr = llvm::makeArrayRef(indices);
   for (unsigned i=0; i<4; ++i) {
     assert(attr.m_colors[i] && "NULL color argument");
+    Type *Ty =
+        colorAllocas[i]->getType()->getScalarType()->getPointerElementType();
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
-                     colorAllocas[i], indicesArr, "calc.address", attr.m_call);
+        Ty, colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,
                   Align(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
   }
@@ -627,7 +629,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
       arrTy, m_DL->getAllocaAddrSpace(), nullptr, Align(FLOAT_X_WIDTH__ALIGNMENT),
       "stream.read.alloca", loc);
     Instruction *ptr =
-        GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);
+        GetElementPtrInst::CreateInBounds(colorTy, AI, indicesArr, "ptr", loc);
     if (width != 4) {
       // Workaround : even for transpose 8 stream sampler, the buffers have <4 x float>*
       // type, so we bitcast to the pointer accordingly.
