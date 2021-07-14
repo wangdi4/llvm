@@ -1701,6 +1701,18 @@ let IntrProperties = [IntrNoMem] in {
                                          [llvm_anyvector_ty]>;
 }
 
+#if INTEL_CUSTOMIZATION
+//===----- Complex math intrinsics ----------------------------------------===//
+
+def int_intel_complex_fmul: DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+                                            [LLVMMatchType<0>,LLVMMatchType<0>],
+                                            [IntrNoMem]>;
+
+def int_intel_complex_fdiv: DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+                                            [LLVMMatchType<0>,LLVMMatchType<0>],
+                                            [IntrNoMem]>;
+#endif // INTEL_CUSTOMIZATION
+
 //===----- Matrix intrinsics ---------------------------------------------===//
 
 def int_matrix_transpose

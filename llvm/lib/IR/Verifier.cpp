@@ -5440,6 +5440,19 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
            &Call);
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::intel_complex_fdiv:
+  case Intrinsic::intel_complex_fmul: {
+    // Check that the vector type is a pair of floating-point types.
+    Type *ArgTy = Call.getArgOperand(0)->getType();
+    FixedVectorType *VectorTy = dyn_cast<FixedVectorType>(ArgTy);
+    Assert(VectorTy && VectorTy->getNumElements() % 2 == 0 &&
+             VectorTy->getElementType()->isFloatingPointTy(),
+           "complex intrinsic must use an even-length vector of floating-point types",
+           &Call);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   };
 }
 
