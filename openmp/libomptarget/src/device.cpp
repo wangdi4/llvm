@@ -261,16 +261,20 @@ DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase, int64_t Size,
     // are respected.
     // In addition to the mapping rules above, the close map modifier forces the
     // mapping of the variable to the device.
+#if !INTEL_COLLAB
     if (Size) {
+#endif // !INTEL_COLLAB
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
          "memory\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size);
 #if INTEL_COLLAB
       if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
-         IsHostPtr = true;
+        IsHostPtr = true;
       TargetPointer = HstPtrBegin;
+#if !INTEL_COLLAB
     }
+#endif // !INTEL_COLLAB
   } else if (HasPresentModifier) {
 #if INTEL_COLLAB
     DP("Mapping required by 'present' map type modifier does not exist for "
