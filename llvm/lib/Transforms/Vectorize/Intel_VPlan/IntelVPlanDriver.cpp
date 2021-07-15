@@ -1222,8 +1222,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
-  VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
-  LVP.unroll(*cast<VPlanNonMasked>(Plan), &VPInstUnrollPart);
+  LVP.unroll(*cast<VPlanNonMasked>(Plan));
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
@@ -1235,7 +1234,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            LORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef, VPInstUnrollPart);
+                           PeelArrayRef);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

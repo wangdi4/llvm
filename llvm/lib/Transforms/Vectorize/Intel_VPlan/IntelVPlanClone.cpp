@@ -29,8 +29,7 @@ void VPValueMapper::remapInstruction(VPUser *User) {
   }
 }
 
-void VPValueMapper::remapOperands(
-    VPBasicBlock *OrigVPBB, std::function<void(VPInstruction &)> UpdateFunc) {
+void VPValueMapper::remapOperands(VPBasicBlock *OrigVPBB) {
   auto *ClonedVPBB = cast<VPBasicBlock>(Value2ValueMap[OrigVPBB]);
 
   for (VPInstruction &Inst : *ClonedVPBB) {
@@ -53,7 +52,6 @@ void VPValueMapper::remapOperands(
     }
 
     remapInstruction(&Inst);
-    UpdateFunc(Inst);
   }
 
   // Fix cond predicate.
