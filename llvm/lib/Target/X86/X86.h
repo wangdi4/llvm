@@ -60,6 +60,8 @@ FunctionPass *createX86PadShortFunctions();
 FunctionPass *createX86CiscizationHelperPass();
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
+/// This pass performs peephole optimization for complex fma.
+FunctionPass *createX86CFMAPass();
 FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
@@ -179,6 +181,7 @@ void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
+void initializeX86CFMAPass(PassRegistry&);      // INTEL
 void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
