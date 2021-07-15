@@ -24,29 +24,34 @@
 ;   return C;
 ; }
 ;
-; CHECK-HOST:       remark:{{.*}} map clause for variable 'A' can be changed to firstprivate to reduce mapping overhead
-; CHECK-HOST:       remark:{{.*}} map clause for variable 'B' can be changed to firstprivate to reduce mapping overhead
+; CHECK-HOST:       remark:{{.*}} MAP:TO clause for variable 'A' on 'target' construct can be changed to FIRSTPRIVATE to reduce mapping overhead
+; CHECK-HOST:       remark:{{.*}} MAP:TOFROM clause for variable 'B' on 'target' construct can be changed to FIRSTPRIVATE to reduce mapping overhead
 ;
-; CHECK-DEVICE-NOT: remark:{{.*}} map clause for variable 'A' can be changed to firstprivate to reduce mapping overhead
-; CHECK-DEVICE-NOT: remark:{{.*}} map clause for variable 'B' can be changed to firstprivate to reduce mapping overhead
+; CHECK-DEVICE-NOT: remark:
 ;
 ; CHECK-YAML:      --- !Analysis
 ; CHECK-YAML-NEXT: Pass:            openmp
 ; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test1
 ; CHECK-YAML-NEXT: Args:
-; CHECK-YAML-NEXT:   - String:          'map clause for variable '''
+; CHECK-YAML-NEXT:   - String:          'MAP:TO'
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
 ; CHECK-YAML-NEXT:   - String:          A
-; CHECK-YAML-NEXT:   - String:          ''' can be changed to firstprivate to reduce mapping overhead'
+; CHECK-YAML-NEXT:   - String:          ''' on '''
+; CHECK-YAML-NEXT:   - String:          target
+; CHECK-YAML-NEXT:   - String:          ''' construct can be changed to FIRSTPRIVATE to reduce mapping overhead'
 ; CHECK-YAML-NEXT: ...
 ; CHECK-YAML-NEXT: --- !Analysis
 ; CHECK-YAML-NEXT: Pass:            openmp
 ; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test1
 ; CHECK-YAML-NEXT: Args:
-; CHECK-YAML-NEXT:   - String:          'map clause for variable '''
+; CHECK-YAML-NEXT:   - String:          'MAP:TOFROM'
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
 ; CHECK-YAML-NEXT:   - String:          B
-; CHECK-YAML-NEXT:   - String:          ''' can be changed to firstprivate to reduce mapping overhead'
+; CHECK-YAML-NEXT:   - String:          ''' on '''
+; CHECK-YAML-NEXT:   - String:          target
+; CHECK-YAML-NEXT:   - String:          ''' construct can be changed to FIRSTPRIVATE to reduce mapping overhead'
 ; CHECK-YAML-NEXT: ...
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
