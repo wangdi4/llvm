@@ -40,6 +40,14 @@ bool CodeGenModule::TryEmitBaseDestructorAsAlias(const CXXDestructorDecl *D) {
   if (getCodeGenOpts().OptimizationLevel == 0)
     return true;
 
+#if INTEL_COLLAB
+  // Don't do this when OpenMP offloading.  It doesn't work without significant
+  // changes here. Consider later if it becomes important.
+  if (getLangOpts().OpenMPLateOutline &&
+      !getLangOpts().OMPTargetTriples.empty())
+    return true;
+#endif // INTEL_COLLAB
+
   // If sanitizing memory to check for use-after-dtor, do not emit as
   //  an alias, unless this class owns no members.
   if (getCodeGenOpts().SanitizeMemoryUseAfterDtor &&
