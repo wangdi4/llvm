@@ -2734,6 +2734,12 @@ Instruction *InstCombinerImpl::foldICmpAddConstant(ICmpInst &Cmp,
   if (Pred == CmpInst::ICMP_ULT && C == *C2 + SMin)
     return new ICmpInst(ICmpInst::ICMP_SGT, X, ConstantInt::get(Ty, ~(*C2)));
 
+
+#if INTEL_CUSTOMIZATION
+  // Following combinations change signed comps into unsigned comps,
+  // which often can hinder loop trip count recognition.
+  if (!Cmp.getFunction()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
   // (X + C2) >s C --> X <u (SMAX - C) (if C == C2 - 1)
   if (Pred == CmpInst::ICMP_SGT && C == *C2 - 1)
     return new ICmpInst(ICmpInst::ICMP_ULT, X, ConstantInt::get(Ty, SMax - C));
@@ -2741,6 +2747,9 @@ Instruction *InstCombinerImpl::foldICmpAddConstant(ICmpInst &Cmp,
   // (X + C2) <s C --> X >u (C ^ SMAX) (if C == C2)
   if (Pred == CmpInst::ICMP_SLT && C == *C2)
     return new ICmpInst(ICmpInst::ICMP_UGT, X, ConstantInt::get(Ty, C ^ SMax));
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Disabling this particular optimization before loopopt as it interferes with
