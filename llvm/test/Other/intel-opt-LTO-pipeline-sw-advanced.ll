@@ -15,6 +15,8 @@
 ; CHECK-NEXT:         Scalar Evolution Analysis
 ; CHECK-NEXT:         Array Use Analysis
 
+; CHECK:            Unaligned Nontemporal Store Conversion
+
 ; CHECK: Pass Arguments:  -domtree -postdomtree
 ; CHECK-NEXT:   FunctionPass Manager
 ; CHECK-NEXT:     Dominator Tree Construction

@@ -1097,9 +1097,11 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 #if INTEL_CUSTOMIZATION
     if (!DisableUnrollLoops &&
         (!PrepareForLTO || !isLoopOptEnabled())) {
+#if INTEL_FEATURE_SW_ADVANCED
       // Make unaligned nontemporal stores use a wrapper function instead of
       // scalarizing them.
       PM.add(createNontemporalStoreWrapperPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
       // LoopUnroll may generate some redundency to cleanup.
       addInstructionCombiningPass(PM, !DTransEnabled);
 
@@ -1123,9 +1125,11 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
 
 #if INTEL_CUSTOMIZATION
   if (IsFullLTO) {
+#if INTEL_FEATURE_SW_ADVANCED
     // Make unaligned nontemporal stores use a wrapper function instead of
     // scalarizing them.
     PM.add(createNontemporalStoreWrapperPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
     addInstructionCombiningPass(PM, true /* EnableUpCasting */);  // INTEL
   }
 #endif // INTEL_CUSTOMIZATION

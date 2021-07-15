@@ -128,8 +128,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
 #if INTEL_FEATURE_SW_ADVANCED
   initializeFunctionRecognizerLegacyPassPass(Registry);
-#endif // INTEL_FEATURE_SW_ADVANCED
   initializeNontemporalStoreWrapperPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
   initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);

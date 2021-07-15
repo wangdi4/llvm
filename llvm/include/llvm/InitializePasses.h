@@ -716,7 +716,9 @@ void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 void initializeForcedCMOVGenerationLegacyPassPass(PassRegistry&);
 void initializeRAReportEmitterPass(PassRegistry&);
 void initializeVPOParoptOptimizeDataSharingPass(PassRegistry&);
+#if INTEL_FEATURE_SW_ADVANCED
 void initializeNontemporalStoreWrapperPassPass(PassRegistry&);
+#endif // INTEL_FEATURE_SW_ADVANCED
 void initializeVPOParoptSharedPrivatizationPass(PassRegistry&);
 // Transform sin and cos to sinpi, cospi, or sincospi pass
 void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);

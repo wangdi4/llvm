@@ -341,7 +341,9 @@ namespace {
       (void) llvm::createSNodeAnalysisPass();
       (void) llvm::createLoopOptMarkerLegacyPass();
       (void) llvm::createArrayUseWrapperPass();
+#if INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createNontemporalStoreWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
       // HIR passes
       (void) llvm::createHIRRegionIdentificationWrapperPass();
       (void) llvm::createHIRSCCFormationWrapperPass();

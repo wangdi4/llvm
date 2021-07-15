@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_NonTemporalStore.h - Unaligned nontemporal store ---*- C++ -*-===//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -25,3 +26,4 @@ public:
 }
 
 #endif //LLVM_TRANSFORMS_SCALAR_NONTEMPORALSTORE_H
+#endif // INTEL_FEATURE_SW_ADVANCED
