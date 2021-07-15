@@ -82,11 +82,6 @@ bool BarrierInFunction::runImpl(Module &M) {
         continue;
       }
 
-      // TBD: This neeeds whole CFG exploration.
-      // Skip handling of a kernel funciton unless it is a kernel.
-      if (llvm::find(Kernels, CI->getFunction()) == Kernels.end())
-        continue;
-
       // Add Barrier before function call instruction.
       Utils.createBarrier(CI);
 
@@ -94,7 +89,7 @@ bool BarrierInFunction::runImpl(Module &M) {
       Instruction *DummyBarrierCall = Utils.createDummyBarrier();
       DummyBarrierCall->insertAfter(CI);
 
-      Function *CallerFunc = CI->getParent()->getParent();
+      Function *CallerFunc = CI->getCaller();
 
       // Add caller function to FunctionsToHandle and FunctionsAddedToHandle containers.
       bool Inserted = FunctionsAddedToHandle.insert(CallerFunc);
