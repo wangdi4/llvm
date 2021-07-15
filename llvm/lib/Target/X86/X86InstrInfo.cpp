@@ -5064,6 +5064,61 @@ static bool hasPartialRegUpdate(unsigned Opcode,
   case X86::TZCNT64rm:
   case X86::TZCNT64rr:
     return Subtarget.hasLZCNTFalseDeps();
+#if INTEL_CUSTOMIZATION
+  case X86::VFCMULCPHZ128rm:
+  case X86::VFCMULCPHZ128rmb:
+  case X86::VFCMULCPHZ128rmbkz:
+  case X86::VFCMULCPHZ128rmkz:
+  case X86::VFCMULCPHZ128rr:
+  case X86::VFCMULCPHZ128rrkz:
+  case X86::VFCMULCPHZ256rm:
+  case X86::VFCMULCPHZ256rmb:
+  case X86::VFCMULCPHZ256rmbkz:
+  case X86::VFCMULCPHZ256rmkz:
+  case X86::VFCMULCPHZ256rr:
+  case X86::VFCMULCPHZ256rrkz:
+  case X86::VFCMULCPHZrm:
+  case X86::VFCMULCPHZrmb:
+  case X86::VFCMULCPHZrmbkz:
+  case X86::VFCMULCPHZrmkz:
+  case X86::VFCMULCPHZrr:
+  case X86::VFCMULCPHZrrb:
+  case X86::VFCMULCPHZrrbkz:
+  case X86::VFCMULCPHZrrkz:
+  case X86::VFMULCPHZ128rm:
+  case X86::VFMULCPHZ128rmb:
+  case X86::VFMULCPHZ128rmbkz:
+  case X86::VFMULCPHZ128rmkz:
+  case X86::VFMULCPHZ128rr:
+  case X86::VFMULCPHZ128rrkz:
+  case X86::VFMULCPHZ256rm:
+  case X86::VFMULCPHZ256rmb:
+  case X86::VFMULCPHZ256rmbkz:
+  case X86::VFMULCPHZ256rmkz:
+  case X86::VFMULCPHZ256rr:
+  case X86::VFMULCPHZ256rrkz:
+  case X86::VFMULCPHZrm:
+  case X86::VFMULCPHZrmb:
+  case X86::VFMULCPHZrmbkz:
+  case X86::VFMULCPHZrmkz:
+  case X86::VFMULCPHZrr:
+  case X86::VFMULCPHZrrb:
+  case X86::VFMULCPHZrrbkz:
+  case X86::VFMULCPHZrrkz:
+  case X86::VFCMULCSHZrm:
+  case X86::VFCMULCSHZrmkz:
+  case X86::VFCMULCSHZrr:
+  case X86::VFCMULCSHZrrb:
+  case X86::VFCMULCSHZrrbkz:
+  case X86::VFCMULCSHZrrkz:
+  case X86::VFMULCSHZrm:
+  case X86::VFMULCSHZrmkz:
+  case X86::VFMULCSHZrr:
+  case X86::VFMULCSHZrrb:
+  case X86::VFMULCSHZrrbkz:
+  case X86::VFMULCSHZrrkz:
+    return Subtarget.hasCMULFalseDeps();
+#endif // INTEL_CUSTOMIZATION
   }
 
   return false;
@@ -5485,6 +5540,25 @@ void X86InstrInfo::breakPartialRegDependency(
         .addReg(XReg, RegState::Undef)
         .addReg(Reg, RegState::ImplicitDefine);
     MI.addRegisterKilled(Reg, TRI, true);
+#if INTEL_CUSTOMIZATION
+  } else if (X86::VR128XRegClass.contains(Reg)) {
+    // These instructions are all floating point domain, so xorps is the best
+    // choice.
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
+        .addReg(Reg, RegState::Undef)
+        .addReg(Reg, RegState::Undef);
+    MI.addRegisterKilled(Reg, TRI, true);
+  } else if (X86::VR256XRegClass.contains(Reg) ||
+             X86::VR512RegClass.contains(Reg)) {
+    // Use vxorps to clear the full ymm/zmm register.
+    // It wants to read and write the xmm sub-register.
+    Register XReg = TRI->getSubReg(Reg, X86::sub_xmm);
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), XReg)
+        .addReg(XReg, RegState::Undef)
+        .addReg(XReg, RegState::Undef)
+        .addReg(Reg, RegState::ImplicitDefine);
+    MI.addRegisterKilled(Reg, TRI, true);
+#endif // INTEL_CUSTOMIZATION
   } else if (X86::GR64RegClass.contains(Reg)) {
     // Using XOR32rr because it has shorter encoding and zeros up the upper bits
     // as well.
