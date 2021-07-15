@@ -701,3 +701,10 @@
 // RUN: %clang_cl -### /Qextend-arguments=64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
 // RUN: %clang_cl -### /Qextend-arguments:64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
 // EXTEND_ARGS: "-cc1" {{.*}}"-fextend-arguments=64"
+
+// Verify /Qprotect-parens and /Qprotect-parens- are accepted
+// They are aliases to -f[no-]protect-parens and the functionality is tested in clang_f_opts.c
+// RUN: %clang_cl -### /Qprotect-parens -c %s 2>&1 | FileCheck -check-prefix=PROTECT-PARENS %s
+// RUN: %clang_cl -### /Qprotect-parens- -c %s 2>&1 | FileCheck -check-prefix=NO-PROTECT-PARENS %s
+// PROTECT-PARENS: "-fprotect-parens"
+// NO-PROTECT-PARENS-NOT: "-fprotect-parens"
