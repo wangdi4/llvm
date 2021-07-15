@@ -29,7 +29,7 @@ config.enable_shared = @ENABLE_SHARED@
 config.enable_backtrace = @ENABLE_BACKTRACES@
 config.host_arch = "@HOST_ARCH@"
 config.dtrans_obj_root = "@DTRANS_BINARY_DIR@"
-config.include_dtrans = @INTEL_INCLUDE_DTRANS@
+config.include_dtrans = @DTRANS_ENABLED@
 
 # Support substitution of the tools and libs dirs with user parameters. This is
 # used when we can't determine the tool dir at configuration time.

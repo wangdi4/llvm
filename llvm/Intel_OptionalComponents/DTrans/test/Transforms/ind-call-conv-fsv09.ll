@@ -1,6 +1,3 @@
-; INTEL_FEATURE_SW_DTRANS
-; REQUIRES: intel_feature_sw_dtrans
-
 ; RUN: opt -whole-program-assume  -intel-ind-call-force-dtrans -dtransanalysis -indirectcallconv < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -whole-program-assume  -intel-ind-call-force-dtrans -passes='require<dtransanalysis>,function(indirectcallconv)' < %s  -S 2>&1 | FileCheck %s
 
@@ -38,5 +35,3 @@ define dso_local i32 @main() {
   %add = add nsw i32 %call, %call1
   ret i32 %add
 }
-
-; end INTEL_FEATURE_SW_DTRANS

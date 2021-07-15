@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt -enable-intel-advanced-opts -enable-dtrans -O3 -S -debug-pass=Structure %s -o /dev/null 2>&1 | FileCheck %s -check-prefix=OLDPM
 ; RUN: opt -enable-intel-advanced-opts -enable-npm-dtrans -debug-pass-manager -passes='default<O3>' -o /dev/null %s 2>&1 | FileCheck %s -check-prefix=NEWPM
 
@@ -62,3 +65,4 @@ cleanup:                                          ; preds = %for.end, %if.then
   ret i32 %6
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

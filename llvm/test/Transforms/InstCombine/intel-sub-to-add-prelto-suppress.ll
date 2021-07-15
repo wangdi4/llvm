@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt < %s -enable-dtrans -O3 -prepare-for-lto -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-npm-dtrans -passes='lto-pre-link<O3>' -S 2>&1 | FileCheck %s
 
@@ -18,3 +21,4 @@ define i64 @t0(i8* %x, i8* %y, i64 %z) {
   %r = sub i64 %d, %z
   ret i64 %r
 }
+; end INTEL_FEATURE_SW_ADVANCED

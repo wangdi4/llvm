@@ -1,5 +1,5 @@
 ; INTEL_FEATURE_SW_ADVANCED
-; REQUIRES: intel_feature_sw_dtrans, intel_feature_sw_advanced
+; REQUIRES: intel_feature_sw_advanced
 ; This test verifies that calls in member functions of XStringCachedAllocator
 ; are not inlined and other calls in member functions of ReusableArenaAllocator
 ; are inlined.

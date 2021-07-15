@@ -766,6 +766,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
     MLTVal = A->getValue();
     if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
+#if INTEL_FEATURE_SW_DTRANS
       addllvmOption("-enable-dtrans");
       addllvmOption("-enable-npm-dtrans");
       addllvmOption(
@@ -773,6 +774,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-dtrans-outofboundsok=false");
       addllvmOption("-dtrans-usecrulecompat=true");
       addllvmOption("-dtrans-inline-heuristics=true");
+#endif // INTEL_FEATURE_SW_DTRANS
 #if INTEL_FEATURE_SW_ADVANCED
       addllvmOption("-dtrans-partial-inline=true");
 #endif // INTEL_FEATURE_SW_ADVANCED

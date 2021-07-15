@@ -1,6 +1,3 @@
-; INTEL_FEATURE_SW_DTRANS
-; REQUIRES: intel_feature_sw_dtrans
-
 ; This test is to check that the devirtualizer marks a devirtualized invoke that
 ; involves bitcasts with metadata for the DTrans analysis. This case checks the
 ; path where there are multiple direct calls produced.
@@ -97,5 +94,3 @@ define linkonce_odr hidden zeroext i1 @_ZN8Derived23fooEi(%class.Derived2* %this
 !4 = !{i64 16, !"_ZTS8Derived2"}
 !5 = !{i64 16, !"_ZTSM8Derived2FbiE.virtual"}
 !6 = !{i32 1, !"wchar_size", i32 4}
-
-; end INTEL_FEATURE_SW_DTRANS

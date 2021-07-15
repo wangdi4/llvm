@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt -whole-program-assume -dtrans-fieldmodref-analysis -hir-ssa-deconstruction -hir-lmm -print-before=hir-lmm -print-after=hir-lmm -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -whole-program-assume -passes='require<dtrans-fieldmodref-analysis>,function(hir-ssa-deconstruction,print<hir>,hir-lmm,print<hir>)' -aa-pipeline="basic-aa" -hir-cost-model-throttling=0 -hir-lmm-loopnest-hoisting=true < %s 2>&1 | FileCheck %s
@@ -109,3 +112,4 @@ for.end9:                                         ; preds = %for.end9.loopexit, 
   ret void
 }
 
+; end INTEL_FEATURE_SW_ADVANCED
