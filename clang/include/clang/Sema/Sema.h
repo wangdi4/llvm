@@ -13204,6 +13204,7 @@ private:
   bool SemaBuiltinComplex(CallExpr *TheCall);
   bool SemaBuiltinVSX(CallExpr *TheCall);
   bool SemaBuiltinOSLogFormat(CallExpr *TheCall);
+  bool SemaValueIsRunOfOnes(CallExpr *TheCall, unsigned ArgNum);
 
 #if INTEL_CUSTOMIZATION
   bool CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
