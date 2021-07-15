@@ -164,8 +164,8 @@ void VPPrivate::dump(raw_ostream &OS) const {
   if (hasPrivateTag()) {
     OS << "\n  Private tag: ";
     switch (getPrivateTag()) {
-    case PrivateTag::PTUndef:
-      OS << "(undef)";
+    case PrivateTag::PTRegisterized:
+      OS << "Registerized";
       break;
     case PrivateTag::PTArray:
       OS << "Array";
@@ -1900,7 +1900,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
                          AllocaInst);
-  else if (PTag == VPPrivate::PrivateTag::PTUndef) {
+  else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
                    isMemOnly());
@@ -1924,7 +1924,7 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
     }
   }
   if (ExitInst) {
-    PTag = VPPrivate::PrivateTag::PTUndef;
+    PTag = VPPrivate::PrivateTag::PTRegisterized;
     return;
   }
 
