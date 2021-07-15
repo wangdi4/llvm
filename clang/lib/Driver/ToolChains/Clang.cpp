@@ -6551,7 +6551,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
                    false)) {
     // FIXME: Add better interactions with -fopenmp-simd.
-    CmdArgs.push_back("-fopenmp-simd");
+    if (!JA.isDeviceOffloading(Action::OFK_SYCL))
+      CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
   }
   // When compiling for SPIR, we want to be sure that -fiopenmp is used
