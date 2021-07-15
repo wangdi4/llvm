@@ -1,5 +1,5 @@
-; RUN: %oclopt -ocl-syncfunctionattrs -simplifycfg -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -ocl-syncfunctionattrs -simplifycfg -verify -S < %s | FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-function-attrs -simplifycfg -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-add-function-attrs -simplifycfg -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the the LLVM pass SimplifyCFG does not add new barrier instructions.

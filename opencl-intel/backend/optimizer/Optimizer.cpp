@@ -137,7 +137,6 @@ llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createInternalizeNonKernelFuncPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
@@ -336,7 +335,7 @@ static void populatePassesPreFailCheck(
     PM.add(createInternalizeNonKernelFuncPass());
 
   PM.add(createFMASplitterPass());
-  PM.add(createOclSyncFunctionAttrsPass());
+  PM.add(llvm::createAddFunctionAttrsLegacyPass());
   PM.add(createPrintfArgumentsPromotionPass());
   if (isOcl20) {
     // OCL2.0 resolve block to static call

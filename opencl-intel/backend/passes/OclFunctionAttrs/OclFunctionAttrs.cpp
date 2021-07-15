@@ -30,12 +30,6 @@ extern "C" {
   }
 }
 
-extern "C" {
-  void* createOclSyncFunctionAttrsPass() {
-    return new intel::OclSyncFunctionAttrs();
-  }
-}
-
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Utils::OCLAddressSpace;
 namespace intel{
@@ -179,68 +173,4 @@ namespace intel{
       Changed = runOnFunction(*I, Kernels.count(&*I), SyncUsers) || Changed;
     return Changed;
   }
-
-/*****************************************************************/
-/*                     OclSyncFunctionAttrs                      */
-/*****************************************************************/
-
-  char OclSyncFunctionAttrs::ID = 0;
-
-  OclSyncFunctionAttrs::OclSyncFunctionAttrs() : ModulePass(ID) {}
-  OCL_INITIALIZE_PASS(OclSyncFunctionAttrs, "ocl-syncfunctionattrs",
-    "Mark and propagate synchronize function with relevent attributes", false, false)
-
-  bool OclSyncFunctionAttrs::runOnModule(Module &M) {
-    CompilationUtils::FunctionSet oclSyncBuiltins;
-    std::set<Function *> oclSyncBuiltinsSet;
-    std::set<Function *> oclSyncFunctions;
-
-    // Get all synchronize built-ins declared in module
-    CompilationUtils::getAllSyncBuiltinsDclsForNoDuplicateRelax(
-      oclSyncBuiltins, &M);
-    if (oclSyncBuiltins.empty()) {
-      // No synchronize functions to mark
-      return false;
-    }
-    // Get all function that calls synchronize built-ins in/direct
-    oclSyncBuiltinsSet.insert(oclSyncBuiltins.begin(), oclSyncBuiltins.end());
-    LoopUtils::fillFuncUsersSet(oclSyncBuiltinsSet, oclSyncFunctions);
-
-    // Relax noduplicate attribute into convergent.
-    // TODO: Renegotiate https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/109
-    // and remove this handling. clang already produces convergent.
-
-    bool Changed = false;
-    // process function (definitions and declaration attributes)
-    for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
-      Function* pFunc = &*I;
-      if (oclSyncFunctions.count(pFunc) || oclSyncBuiltins.count(pFunc)) {
-        pFunc->setAttributes(pFunc->getAttributes()
-          .addAttribute(pFunc->getContext(),
-                        AttributeList::FunctionIndex, Attribute::Convergent)
-          .addAttribute(pFunc->getContext(),
-                        AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL)
-          .addAttribute(pFunc->getContext(),
-                        AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CALL_ONCE)
-          .removeAttribute(pFunc->getContext(),
-                           AttributeList::FunctionIndex, Attribute::NoDuplicate));
-        Changed = true;
-      }
-    }
-    // process call sites
-    for (auto *F : oclSyncBuiltinsSet)
-      for (auto *U : F->users())
-        if (auto *CI = dyn_cast<CallInst>(U))
-          CI->setAttributes(CI->getAttributes()
-            .addAttribute(CI->getContext(),
-                          AttributeList::FunctionIndex, Attribute::Convergent)
-            .addAttribute(CI->getContext(),
-                          AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL)
-            .addAttribute(CI->getContext(),
-                          AttributeList::FunctionIndex, CompilationUtils::ATTR_KERNEL_CALL_ONCE)
-            .removeAttribute(CI->getContext(),
-                             AttributeList::FunctionIndex, Attribute::NoDuplicate));
-    return Changed;
-  }
-
 } // namespace intel

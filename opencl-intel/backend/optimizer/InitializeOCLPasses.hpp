@@ -61,7 +61,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeExternalizeGlobalVariablesPass(Registry);
     intel::initializeInternalizeGlobalVariablesPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);
-    intel::initializeOclSyncFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
     intel::initializeLocalBuffersPass(Registry);
     intel::initializeLocalBuffAnalysisPass(Registry);
