@@ -140,6 +140,10 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
   Int8PtrPtrTy = Int8PtrTy->getPointerTo(0);
   AllocaInt8PtrTy = Int8Ty->getPointerTo(
       M.getDataLayout().getAllocaAddrSpace());
+#if INTEL_COLLAB
+  TargetInt8PtrTy =
+      Int8Ty->getPointerTo(getContext().getTargetAddressSpace(LangAS::Default));
+#endif // INTEL_COLLAB
   ASTAllocaAddressSpace = getTargetCodeGenInfo().getASTAllocaAddressSpace();
 
   RuntimeCC = getTargetCodeGenInfo().getABIInfo().getRuntimeCC();
@@ -4775,10 +4779,17 @@ llvm::Constant *CodeGenModule::GetAddrOfGlobalVar(const VarDecl *D,
 llvm::Constant *
 CodeGenModule::CreateRuntimeVariable(llvm::Type *Ty,
                                      StringRef Name) {
+#if INTEL_COLLAB
+  auto AddrSpace =
+      getContext().getLangOpts().OpenCL
+          ? getContext().getTargetAddressSpace(LangAS::opencl_global)
+          : getContext().getTargetAddressSpace(LangAS::Default);
+#else // INTEL_COLLAB
   auto AddrSpace =
       getContext().getLangOpts().OpenCL
           ? getContext().getTargetAddressSpace(LangAS::opencl_global)
           : 0;
+#endif  // INTEL_COLLAB
   auto *Ret = GetOrCreateLLVMGlobal(Name, Ty, AddrSpace, nullptr);
   setDSOLocal(cast<llvm::GlobalValue>(Ret->stripPointerCasts()));
   return Ret;
@@ -7280,7 +7291,11 @@ llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
   if ((!ForEH && !getLangOpts().RTTI) || getLangOpts().CUDAIsDevice ||
       (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
        getTriple().isNVPTX()))
+#if INTEL_COLLAB
+    return llvm::Constant::getNullValue(TargetInt8PtrTy);
+#else // INTEL_COLLAB
     return llvm::Constant::getNullValue(Int8PtrTy);
+#endif // INTEL_COLLAB
 
   if (ForEH && Ty->isObjCObjectPointerType() &&
       LangOpts.ObjCRuntime.isGNUFamily())

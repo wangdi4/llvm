@@ -646,10 +646,20 @@ void CGRecordLowering::computeVolatileBitfields() {
 }
 
 void CGRecordLowering::accumulateVPtrs() {
+#if INTEL_COLLAB
+  unsigned VTableAS =
+        this->Types.getContext().getTargetAddressSpace(LangAS::Default);
+#endif // INTEL_COLLAB
   if (Layout.hasOwnVFPtr())
+#if INTEL_COLLAB
+    Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
+        llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
+            getPointerTo()->getPointerTo(VTableAS)));
+#else // INTEL_COLLAB
     Members.push_back(MemberInfo(CharUnits::Zero(), MemberInfo::VFPtr,
         llvm::FunctionType::get(getIntNType(32), /*isVarArg=*/true)->
             getPointerTo()->getPointerTo()));
+#endif  // INTEL_COLLAB
   if (Layout.hasOwnVBPtr())
     Members.push_back(MemberInfo(Layout.getVBPtrOffset(), MemberInfo::VBPtr,
         llvm::Type::getInt32PtrTy(Types.getLLVMContext())));
