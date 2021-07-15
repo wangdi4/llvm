@@ -10,8 +10,6 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 ; CHECK:       simd.begin.region:
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
-; CHECK:       vector.ph:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i1> poison, i1 [[UNIFORM:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP0:%.*]] = xor <2 x i1> [[BROADCAST_SPLAT]], <i1 true, i1 true>
@@ -69,21 +67,14 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], 4
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB26:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB26:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
-; CHECK:       middle.block:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH]], label [[VPLANNEDBB27:%.*]]
-; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[UNI_PHI28:%.*]] = phi i64 [ 4, [[MIDDLE_BLOCK]] ], [ 0, [[VPLANNEDBB]] ]
-; CHECK-NEXT:    br label [[VPLANNEDBB29:%.*]]
-; CHECK:       VPlannedBB29:
-; CHECK-NEXT:    br label [[SIMD_LOOP:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB27:%.*]]
 ; CHECK:       VPlannedBB27:
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LATCH:%.*]] ], [ 4, [[MIDDLE_BLOCK]] ]
-; CHECK-NEXT:    br label [[VPLANNEDBB31:%.*]]
-; CHECK:       VPlannedBB31:
+; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI28:%.*]] = phi i64 [ 4, [[VPLANNEDBB27]] ]
 ; CHECK-NEXT:    br label [[EXIT:%.*]]
 ; CHECK:       simd.loop:
-; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[UNI_PHI28]], [[VPLANNEDBB29]] ], [ [[IV_NEXT]], [[LATCH]] ]
+; CHECK-NEXT:    [[IV:%.*]] = phi i64 [ [[IV_NEXT:%.*]], [[LATCH:%.*]] ]
 ; CHECK-NEXT:    [[UNI_GEP32:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[ARR_SOA_PRIV32]], i64 0, i64 0
 ; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[UNI_GEP32]], align 4
 ; CHECK-NEXT:    [[COND:%.*]] = icmp sgt i64 [[IV]], 0
@@ -111,10 +102,10 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 ; CHECK:       uni.end:
 ; CHECK-NEXT:    br label [[LATCH]]
 ; CHECK:       latch:
-; CHECK-NEXT:    [[ST:%.*]] = phi i64 [ -1, [[SIMD_LOOP]] ], [ [[VAL]], [[UNI_END]] ]
+; CHECK-NEXT:    [[ST:%.*]] = phi i64 [ -1, [[SIMD_LOOP:%.*]] ], [ [[VAL]], [[UNI_END]] ]
 ; CHECK-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[IV_NEXT]], 4
-; CHECK-NEXT:    br i1 [[EXITCOND]], label [[VPLANNEDBB27]], label [[SIMD_LOOP]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    br label [[SIMD_LOOP]]
 ; CHECK:       exit:
 ; CHECK-NEXT:    ret void
 ;

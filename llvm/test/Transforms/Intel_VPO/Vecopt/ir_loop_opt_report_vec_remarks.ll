@@ -10,9 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %arr) local_unnamed_addr {
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:    remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:    remark #15305: vectorization support: vector length {{.*}}
-; OPTREPORT-NEXT: LOOP END
+; OPTREPORT-NEXT:  LOOP END
 
 ; CHECK-LABEL: define void @foo(
 ; CHECK: !llvm.loop [[FOO_LOOP_MD:!.*]]
@@ -50,23 +50,15 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
 }
 
 define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
-; OPTREPORT-LABEL:Global loop optimization report for : test_outer
+; OPTREPORT-LABEL:  Global loop optimization report for : test_outer
 ; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #15300: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:     remark #15305: vectorization support: vector length 4
+; OPTREPORT-NEXT:  LOOP BEGIN
+; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:      remark #15305: vectorization support: vector length 4
 ; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:     LOOP END
-; OPTREPORT-NEXT: LOOP END
-; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:     LOOP END
-; OPTREPORT-NEXT: LOOP END
-; OPTREPORT-NEXT: =================================================================
-
+; OPTREPORT-NEXT:      LOOP BEGIN
+; OPTREPORT-NEXT:      LOOP END
+; OPTREPORT-NEXT:  LOOP END
 ; CHECK-LABEL: define void @test_outer(
 ; CHECK: !llvm.loop [[TEST_OUTER_LOOP_MD:!.*]]
 entry:

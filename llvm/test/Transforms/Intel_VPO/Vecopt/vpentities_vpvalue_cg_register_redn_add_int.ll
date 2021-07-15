@@ -37,11 +37,11 @@
 
 ; CHECK-LLVMIR-LABEL: @foo_int
 ; CHECK-LLVMIR-LABEL: vector.body:
-; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ zeroinitializer, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
+; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ zeroinitializer, [[vectorph:%.*]] ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_ADD]] = add nsw <4 x i32> {{%.*}}, [[RED_PHI]]
-; CHECK-LLVMIR-LABEL: VPlannedBB5:
+; CHECK-LLVMIR-LABEL: VPlannedBB6:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[RED_ADD]])
-; CHECK-LLVMIR-LABEL: scalar.ph:
+; CHECK-LLVMIR-LABEL: merge.blk10:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi i32 [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 
 

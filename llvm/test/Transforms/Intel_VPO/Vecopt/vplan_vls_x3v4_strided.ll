@@ -29,9 +29,9 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:   #2 <4 x 128> SLoad
 ; CHECK-NEXT:   #3 <4 x 128> SLoad
 ; CHECK-NEXT:  Group#2
-; CHECK-NEXT:    Vector Length(in bytes): 64
-; CHECK-NEXT:    AccType: SStore, Stride (in bytes): 112
-; CHECK-NEXT:    AccessMask(per byte, R to L): 111111111111111111111111111111111111111111111111
+; CHECK-NEXT:      Vector Length(in bytes): 64
+; CHECK-NEXT:      AccType: SStore, Stride (in bytes): 112
+; CHECK-NEXT:      AccessMask(per byte, R to L): 111111111111111111111111111111111111111111111111
 ; CHECK-NEXT:   #4 <4 x 128> SStore
 ; CHECK-NEXT:   #5 <4 x 128> SStore
 ; CHECK-NEXT:   #6 <4 x 128> SStore
@@ -46,7 +46,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK:        call void @llvm.masked.scatter.v16i32.v16p0i32
 ; CHECK:        call void @llvm.masked.scatter.v16i32.v16p0i32
 ; CHECK-NOT:    call void @llvm.masked.scatter.v16i32.v16p0i32
-; CHECK-LABEL: VPlannedBB
+; CHECK-LABEL: VPlannedBB19
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

@@ -7,72 +7,82 @@ define void @foo2(i64 %N) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: foo2:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP0]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:       [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP_K_IV_IND_INIT]], vector.ph ],  [ i64 [[VP0:%.*]], [[BB3]] ]
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_IND_INIT:%.*]] = induction-init{add} i64 [[K_IV_B0:%.*]] i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:       [DA: Uni] br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV:%.*]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP1:%.*]], [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EE:%.*]] = icmp eq i64 [[VP_K_IV]] i64 43
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EE_NOT:%.*]] = not i1 [[VP_EE]]
-; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_EE_NOT]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_N2:%.*]] = add i64 [[VP_K_IV]] i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_EE]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_N1:%.*]] = add i64 [[VP_K_IV]] i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_EE_NOT]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_N2:%.*]] = add i64 [[VP_K_IV]] i64 1
+; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB5]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_EE]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_N1:%.*]] = add i64 [[VP_K_IV]] i64 1
+; CHECK-NEXT:       [DA: Uni] br [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_K_IV_NEXT_BLEND_BB3:%.*]] = blend [ i64 [[VP_K_IV_N2]], i1 [[VP_EE_NOT]] ], [ i64 [[VP_K_IV_N1]], i1 [[VP_EE]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP0]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP1]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 [[K_IV_B0:%.*]] i64 1
-; CHECK-NEXT:       [DA: Uni] br middle.block
-; CHECK-EMPTY:
-; CHECK-NEXT:      middle.block: # preds: [[BB6]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB7:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 [[K_IV_B0]], [[BB1]] ]
+; CHECK-NEXT:      [[BB7]]: # preds: [[BB4]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 [[K_IV_B0]] i64 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
+; CHECK-NEXT:      [[BB8]]: # preds: [[BB7]]
+; CHECK-NEXT:       [DA: Uni] popvf
+; CHECK-NEXT:       [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], final.merge, [[MERGE_BLK0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[MERGE_BLK0]]: # preds: [[BB9]], [[BB0]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP4:%.*]] = phi-merge  [ i64 live-out0, [[BB9]] ],  [ i64 [[K_IV_B0]], [[BB0]] ]
+; CHECK-NEXT:       [DA: Uni] br [[REMBLK0:RemBlk[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
+; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
 ; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i64 [[K_IV_B0]] in {  [[K_IV0:%.*]] = phi i64 [ [[K_IV_B0]], [[FOR_BODY_LR_PH0:%.*]] ], [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ]} -> i64 [[VP3]] }
-; CHECK-NEXT:         {label [[FOR_COND_CLEANUP_LOOPEXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_COND_CLEANUP_LOOPEXIT0]], label [[FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB7]] }
+; CHECK-NEXT:         {i64 [[K_IV_B0]] in {  [[K_IV0:%.*]] = phi i64 [ [[K_IV_B0]], [[FOR_BODY_LR_PH0:%.*]] ], [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ]} -> i64 [[VP4]] }
+; CHECK-NEXT:         {label [[FOR_COND_CLEANUP_LOOPEXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_COND_CLEANUP_LOOPEXIT0]], label [[FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB10:BB[0-9]+]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[K_IV_NEXT0]] = phi i64 [ [[K_IV_N10:%.*]], [[THEN0:%.*]] ], [ [[K_IV_N20:%.*]], [[ELSE0:%.*]] ]
-; CHECK-NEXT:       [DA: Uni] br [[BB7]]
+; CHECK-NEXT:       [DA: Uni] br [[BB10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB8]], middle.block
-; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB8]] ],  [ i64 live-out0, middle.block ]
-; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-NEXT:      [[BB10]]: # preds: [[REMBLK0]]
+; CHECK-NEXT:       [DA: Uni] popvf
+; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]: # preds: [[BB7]]
+; CHECK-NEXT:    final.merge: # preds: [[BB9]], [[BB10]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP5:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB10]] ],  [ i64 live-out0, [[BB9]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_K0:%.*]] = phi i64 [ [[K_IV_NEXT0]], [[LATCH0]] ] i64 [[VP4]] -> i64 [[K_IV_NEXT0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_K0:%.*]] = phi i64 [ [[K_IV_NEXT0]], [[LATCH0]] ] i64 [[VP5]] -> i64 [[K_IV_NEXT0]]
 ;
 entry:
   %k = alloca i64, align 4

@@ -13,8 +13,8 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    [[PRIVATE_VEC_BASE_ADDR:%.*]] = getelementptr i32, i32* [[PRIVATE_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br label [[DIR_OMP_SIMD_3:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[A:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
@@ -24,30 +24,22 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 3
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
-; CHECK:       middle.block:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VPLANNEDBB4:%.*]]
-; CHECK:       scalar.ph:
-; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i32 [ [[EXTRACTED_PRIV]], [[MIDDLE_BLOCK]] ], [ undef, [[VPLANNEDBB1:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ 1024, [[MIDDLE_BLOCK]] ], [ 0, [[VPLANNEDBB1]] ]
-; CHECK-NEXT:    br label [[VPLANNEDBB7:%.*]]
-; CHECK:       VPlannedBB7:
-; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi i32 [ [[PRIV_OUTGOING:%.*]], [[OMP_INNER_FOR_BODY]] ], [ [[EXTRACTED_PRIV]], [[MIDDLE_BLOCK]] ]
-; CHECK-NEXT:    [[UNI_PHI9:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[OMP_INNER_FOR_BODY]] ], [ 1024, [[MIDDLE_BLOCK]] ]
-; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
-; CHECK:       VPlannedBB10:
+; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i32 [ [[EXTRACTED_PRIV]], [[VPLANNEDBB4]] ]
+; CHECK-NEXT:    [[UNI_PHI6:%.*]] = phi i64 [ 1024, [[VPLANNEDBB4]] ]
 ; CHECK-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
 ; CHECK:       omp.inner.for.body:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[UNI_PHI6]], [[VPLANNEDBB7]] ], [ [[INDVARS_IV_NEXT]], [[OMP_INNER_FOR_BODY]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[OMP_INNER_FOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[A]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    [[PRIV_OUTGOING]] = load i32, i32* [[ARRAYIDX]], align 8
+; CHECK-NEXT:    [[PRIV_OUTGOING:%.*]] = load i32, i32* [[ARRAYIDX]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp ne i64 [[INDVARS_IV_NEXT]], 1024
-; CHECK-NEXT:    br i1 [[EXITCOND]], label [[OMP_INNER_FOR_BODY]], label [[VPLANNEDBB4]], !llvm.loop [[LOOP2:![0-9]+]]
+; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY]]
 ; CHECK:       omp.loop.exit:
-; CHECK-NEXT:    [[DOT_LCSSA:%.*]] = phi i32 [ [[UNI_PHI8]], [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[DOT_LCSSA:%.*]] = phi i32 [ [[UNI_PHI5]], [[FINAL_MERGE]] ]
 ; CHECK-NEXT:    store i32 [[DOT_LCSSA]], i32* [[PRIVATE]], align 8
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_1:%.*]]
 ; CHECK:       DIR.OMP.END.SIMD.1:

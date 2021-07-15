@@ -80,14 +80,11 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP2]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP2]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
@@ -107,7 +104,6 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[WIDE_LOAD_LCSSA0:%.*]] = phi <4 x i32> [ [[WIDE_LOAD0]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD_LCSSA0]], i64 3
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 DIR.OMP.SIMD.116:
   %i.linear.iv = alloca i32, align 4

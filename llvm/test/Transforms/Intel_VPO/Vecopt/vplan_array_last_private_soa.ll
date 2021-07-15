@@ -12,30 +12,30 @@ define void @foo() {
 ; CHECK-NEXT:    [[ARRAYIDX_I:%.*]] = getelementptr inbounds [12 x i16], [12 x i16]* undef, i64 0, i64 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
+; CHECK-NEXT:    br i1 true, label [[MERGE_BLK12:%.*]], label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    br i1 true, label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
-; CHECK:       vector.ph:
+; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
+; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [12 x <4 x i16>], [12 x <4 x i16>]* [[DOTSOA_VEC]], i64 0, i64 1
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VPLANNEDBB5:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i32 [ [[TMP1:%.*]], [[VPLANNEDBB5]] ], [ undef, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0:%.*]], [[VPLANNEDBB5]] ], [ undef, [[VECTOR_PH]] ]
-; CHECK-NEXT:    br i1 undef, label [[VPLANNEDBB4:%.*]], label [[VPLANNEDBB5]]
-; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, <4 x i16>* [[SOA_SCALAR_GEP]], align 2
-; CHECK-NEXT:    br label [[VPLANNEDBB5]]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP2:%.*]], [[VPLANNEDBB6:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP1:%.*]], [[VPLANNEDBB6]] ], [ undef, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP0:%.*]], [[VPLANNEDBB6]] ], [ undef, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    br i1 undef, label [[VPLANNEDBB5:%.*]], label [[VPLANNEDBB6]]
 ; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    store <4 x i16> <i16 1, i16 1, i16 1, i16 1>, <4 x i16>* [[SOA_SCALAR_GEP]], align 2
+; CHECK-NEXT:    br label [[VPLANNEDBB6]]
+; CHECK:       VPlannedBB6:
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i32 [[UNI_PHI3]], 4
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw i32 [[UNI_PHI4]], 4
 ; CHECK-NEXT:    [[TMP2]] = add i32 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i32 [[TMP2]], 0
-; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
-; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB7:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[ARRAY_LAST_PRIVATE_LOOP:%.*]]
 ; CHECK:       array.last.private.loop:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i64 [ 0, [[VPLANNEDBB6]] ], [ [[TMP8:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
+; CHECK-NEXT:    [[TMP4:%.*]] = phi i64 [ 0, [[VPLANNEDBB7]] ], [ [[TMP8:%.*]], [[ARRAY_LAST_PRIVATE_LOOP]] ]
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr [12 x <4 x i16>], [12 x <4 x i16>]* [[DOTSOA_VEC]], i64 0, i64 [[TMP4]], i64 3
 ; CHECK-NEXT:    [[TMP6:%.*]] = load i16, i16* [[TMP5]], align 2
 ; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr [12 x i16], [12 x i16]* undef, i64 0, i64 [[TMP4]]
@@ -44,7 +44,6 @@ define void @foo() {
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP8]], 12
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[ARRAY_LAST_PRIVATE_LOOP]], label [[ARRAY_LAST_PRIVATE_LOOP_EXIT:%.*]]
 ; CHECK:       array.last.private.loop.exit:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
 ;
 DIR.OMP.SIMD.1:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"([12 x i16]* undef) ]

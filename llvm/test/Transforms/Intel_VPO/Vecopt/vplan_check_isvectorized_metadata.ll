@@ -16,12 +16,9 @@ declare void @llvm.directive.region.exit(token) nounwind
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local void @test() local_unnamed_addr {
 ; CHECK:    br i1 [[TMP7:%.*]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
-; CHECK:    br i1 [[EXITCOND0:%.*]], label [[FOR_END0:%.*]], label [[FOR_BODY0:%.*]], !llvm.loop !2
 ;
 ; CHECK: !0 = distinct !{!0, !1}
 ; CHECK: !1 = !{!"llvm.loop.isvectorized", i32 1}
-; CHECK: !2 = distinct !{!2, !3, !1}
-; CHECK: !3 = !{!"llvm.loop.vectorize.enable", i32 1}
 ;
 entry:
   br label %preheader

@@ -169,7 +169,7 @@ for.end:
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE130]], true
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF300:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if29:
+; CHECK-NEXT:  pred.call.if26:
 ; CHECK-NEXT:    [[TMP12:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_140]], <4 x float> [[EXTRACTSUBVEC_150]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
@@ -177,7 +177,7 @@ for.end:
 ; CHECK-NEXT:    [[TMP14:%.*]] = phi <4 x float> [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF300]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE310:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue30:
+; CHECK-NEXT:  pred.call.continue27:
 ; CHECK-NEXT:    [[TMP15]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP16]] = add <2 x i64> [[VEC_PHI70]], [[VEC_PHI0]]
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult <2 x i64> [[TMP16]], [[BROADCAST_SPLAT0]]

@@ -14,8 +14,9 @@
 ; CHECK:          DO i1 = 0, %len + -1, 1
 ; CHECK-LABEL:    VPlan after importing plain CFG
 ; CHECK:          <4 x float> %vp{{.*}} = insertelement <4 x float> <float undef, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00> float %vp{{.*}} i32 0
-; CHECK-LABEL:    vector.ph:
-; CHECK-NEXT:       br label %vector.body
+; CHECK-LABEL:  VPlannedBB2:
+; CHECK-NEXT:    [[TMP2:%.*]] = and i32 [[LEN0:%.*]], -2
+; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 
 define dso_local void @vec_bf(float* nocapture readonly %f, i16* nocapture %bf, i32 %len) local_unnamed_addr #0 {
 entry:

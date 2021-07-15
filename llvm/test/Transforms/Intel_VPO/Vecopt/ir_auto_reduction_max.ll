@@ -15,17 +15,17 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       [[TMP0:%.*]] = load i32, i32* [[A:%.*]], align 4
-; CHECK:       vector.ph:
-; CHECK:       [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i32 0
-; CHECK:       [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
+; CHECK:       VPlannedBB2:
+; CHECK:         [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32> poison, i32 [[TMP0]], i32 0
+; CHECK:         [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT0]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK:       vector.body:
-; CHECK:       [[VEC_PHI1:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT]], [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK:       [[TMP2:%.*]] = icmp sgt <4 x i32> [[WIDE_MASKED_GATHER:%.*]], [[VEC_PHI1]]
-; CHECK:       [[TMP3]] = select <4 x i1> [[TMP2]], <4 x i32> [[WIDE_MASKED_GATHER]], <4 x i32> [[VEC_PHI1]]
-; CHECK:       {{VPlannedBB[0-9]+|[0-9]?}}:
-; CHECK:       [[TMP6:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[TMP3]])
-; CHECK:       scalar.ph:
-; CHECK-NEXT:  [[UNI_PHI7:%.*]] = phi i32 [ [[TMP6]], [[MIDDLE_BLOCK:%.*]] ], [ [[TMP0]], [[FOR_BODY_PH:%.*]] ]
+; CHECK:         [[VEC_PHI50:%.*]] = phi <4 x i32> [ [[BROADCAST_SPLAT0]], [[VPLANNEDBB20:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]
+; CHECK:         [[TMP6:%.*]] = icmp sgt <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI50]]
+; CHECK:         [[TMP7]] = select <4 x i1> [[TMP6]], <4 x i32> [[WIDE_LOAD0]], <4 x i32> [[VEC_PHI50]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[TMP7]])
+; CHECK:       final.merge:
+; CHECK:         [[UNI_PHI120:%.*]] = phi i32 [ [[DOTMAX_00:%.*]], [[VPLANNEDBB110:%.*]] ], [ [[TMP10]], [[VPLANNEDBB80:%.*]] ]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

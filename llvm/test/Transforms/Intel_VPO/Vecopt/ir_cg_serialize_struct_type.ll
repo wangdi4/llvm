@@ -5,7 +5,7 @@
 
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: simd_test:bb5
-; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB2]], [[VECTOR_PH:.*]]
+; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[VECTOR_PH:.*]], [[BB2]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INT_SEXT17:%.*]] = sext i32 [[VP_P0]] to i64 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
@@ -27,28 +27,28 @@
 define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) local_unnamed_addr {
 ; CHECK-LABEL: @simd_test(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VPLANNEDBB1]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <2 x i32> [[VEC_PHI]] to <2 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pR, [100 x %complex_64bit]* @pR>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = load [[COMPLEX_64BIT:%.*]], %complex_64bit* [[MM_VECTORGEP_EXTRACT_0_]], align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = load [[COMPLEX_64BIT]], %complex_64bit* [[MM_VECTORGEP_EXTRACT_1_]], align 4
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pS, [100 x %complex_64bit]* @pS>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP2_EXTRACT_1_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP2]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP2_EXTRACT_0_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP2]], i32 0
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %1, %complex_64bit* [[MM_VECTORGEP2_EXTRACT_0_]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %2, %complex_64bit* [[MM_VECTORGEP2_EXTRACT_1_]], align 4
+; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pS, [100 x %complex_64bit]* @pS>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_1_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP3]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP3_EXTRACT_0_:%.*]] = extractelement <2 x %complex_64bit*> [[MM_VECTORGEP3]], i32 0
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], %complex_64bit* [[MM_VECTORGEP3_EXTRACT_0_]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], %complex_64bit* [[MM_VECTORGEP3_EXTRACT_1_]], align 4
 ; CHECK-NEXT:    [[TMP3:%.*]] = load [[COMPLEX_64BIT]], %complex_64bit* [[UNI_SRC:%.*]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %3, %complex_64bit* [[UNI_DEST:%.*]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %3, %complex_64bit* [[UNI_DEST]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %1, %complex_64bit* [[UNI_DEST:%.*]], align 4
-; CHECK-NEXT:    store [[COMPLEX_64BIT]] %2, %complex_64bit* [[UNI_DEST]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], %complex_64bit* [[UNI_DEST:%.*]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP3]], %complex_64bit* [[UNI_DEST]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP1]], %complex_64bit* [[UNI_DEST]], align 4
+; CHECK-NEXT:    store [[COMPLEX_64BIT]] [[TMP2]], %complex_64bit* [[UNI_DEST]], align 4
 ; CHECK-NEXT:    [[TMP4]] = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
-; CHECK-NEXT:    [[TMP5]] = add nsw i32 [[UNI_PHI1]], 2
+; CHECK-NEXT:    [[TMP5]] = add nsw i32 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ule i32 [[TMP5]], 4
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
+; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB4:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 alloca:
   br label %simd.begin.region

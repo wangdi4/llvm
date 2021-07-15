@@ -27,6 +27,10 @@ class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
 
+namespace dtrans {
+class StructInfo;
+} // namespace dtrans
+
 namespace dtransOP {
 class DTransSafetyInfo;
 
@@ -37,11 +41,22 @@ public:
   using GetTLIFuncType =
       std::function<const TargetLibraryInfo &(const Function &)>;
 
+  using StructInfoVec = SmallVector<dtrans::StructInfo *, 8>;
+  using StructInfoVecImpl = SmallVectorImpl<dtrans::StructInfo *>;
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransSafetyInfo *DTInfo, WholeProgramInfo &WPInfo,
                GetTLIFuncType &GetTLI, DominatorTreeFuncType &GetDT);
+
+private:
+  void gatherCandidateTypes(DTransSafetyInfo *DTInfo,
+                            StructInfoVecImpl &CandidateTypes);
+
+  void qualifyCandidates(StructInfoVecImpl &CandidateTypes, Module &M,
+                         DTransSafetyInfo *DTInfo,
+                         DominatorTreeFuncType &GetDT);
 };
 
 } // namespace dtransOP

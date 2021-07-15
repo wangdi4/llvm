@@ -7,60 +7,59 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK:  define void @masked_divergent_div(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP17:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP16:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; CHECK-NEXT:    br i1 [[TMP5]], label [[PRED_SDIV_IF0:%.*]], label [[TMP8:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_SDIV_IF0:%.*]], label [[TMP9:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.if:
-; CHECK-NEXT:    [[TMP6:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x i32> undef, i32 [[TMP6]], i32 0
-; CHECK-NEXT:    br label [[TMP8]]
+; CHECK-NEXT:    [[TMP7:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_0_0]]
+; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
+; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  8:
-; CHECK-NEXT:    [[TMP9:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB30]] ], [ [[TMP7]], [[PRED_SDIV_IF0]] ]
+; CHECK-NEXT:  9:
+; CHECK-NEXT:    [[TMP10:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB40]] ], [ [[TMP8]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue:
-; CHECK-NEXT:    [[PREDICATE40:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE40]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_SDIV_IF120:%.*]], label [[TMP13:%.*]]
+; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE50]], true
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_SDIV_IF130:%.*]], label [[TMP14:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.sdiv.if12:
-; CHECK-NEXT:    [[TMP11:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_1_0]]
-; CHECK-NEXT:    [[TMP12:%.*]] = insertelement <2 x i32> [[TMP9]], i32 [[TMP11]], i32 1
-; CHECK-NEXT:    br label [[TMP13]]
+; CHECK-NEXT:  pred.sdiv.if13:
+; CHECK-NEXT:    [[TMP12:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_1_0]]
+; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[TMP12]], i32 1
+; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  13:
-; CHECK-NEXT:    [[TMP14:%.*]] = phi <2 x i32> [ [[TMP9]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP12]], [[PRED_SDIV_IF120]] ]
-; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE130:%.*]]
+; CHECK-NEXT:  14:
+; CHECK-NEXT:    [[TMP15:%.*]] = phi <2 x i32> [ [[TMP10]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP13]], [[PRED_SDIV_IF130]] ]
+; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE140:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.sdiv.continue13:
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP14]], <2 x i32>* [[TMP15]], i32 4, <2 x i1> [[TMP4]])
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP16]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[TMP0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
+; CHECK-NEXT:  pred.sdiv.continue14:
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP15]], <2 x i32>* [[TMP16]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 1, [[TMP0]]
-; CHECK-NEXT:    [[TMP20:%.*]] = add i64 0, [[TMP19]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP17]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP18]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP19:%.*]] = icmp uge i64 [[TMP18]], [[TMP2:%.*]]
+; CHECK-NEXT:    br i1 [[TMP19]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:    [[TMP20:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP21:%.*]] = add i64 0, [[TMP20]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -91,49 +90,48 @@ loopexit:
 define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK:  define void @masked_uniform_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[VAL0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP14:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP13:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP15:%.*]], [[VPLANNEDBB70:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP14:%.*]], [[VPLANNEDBB70]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i32 [[VAL0]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP3]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[VAL0]], 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i1> poison, i1 [[TMP4]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT0]], <2 x i1> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
-; CHECK-NEXT:    [[TMP5:%.*]] = or <2 x i1> [[BROADCAST_SPLAT0]], [[TMP4]]
-; CHECK-NEXT:    [[TMP6:%.*]] = xor <2 x i1> [[TMP5]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
+; CHECK-NEXT:    [[TMP6:%.*]] = or <2 x i1> [[BROADCAST_SPLAT0]], [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = xor <2 x i1> [[TMP6]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast <2 x i1> [[TMP6]] to i2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ne i2 [[TMP7]], 0
-; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_SDIV_IF0:%.*]], label [[TMP10:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <2 x i1> [[TMP7]] to i2
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne i2 [[TMP8]], 0
+; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_SDIV_IF0:%.*]], label [[TMP11:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.if:
-; CHECK-NEXT:    [[TMP9:%.*]] = sdiv i32 42, [[VAL0]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT40:%.*]] = insertelement <2 x i32> poison, i32 [[TMP9]], i32 0
-; CHECK-NEXT:    br label [[TMP10]]
+; CHECK-NEXT:    [[TMP10:%.*]] = sdiv i32 42, [[VAL0]]
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT50:%.*]] = insertelement <2 x i32> poison, i32 [[TMP10]], i32 0
+; CHECK-NEXT:    br label [[TMP11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  10:
-; CHECK-NEXT:    [[TMP11:%.*]] = phi <2 x i32> [ poison, [[VPLANNEDBB30]] ], [ [[BROADCAST_SPLATINSERT40]], [[PRED_SDIV_IF0]] ]
+; CHECK-NEXT:  11:
+; CHECK-NEXT:    [[TMP12:%.*]] = phi <2 x i32> [ poison, [[VPLANNEDBB40]] ], [ [[BROADCAST_SPLATINSERT50]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue:
-; CHECK-NEXT:    [[BROADCAST_SPLAT50:%.*]] = shufflevector <2 x i32> [[TMP11]], <2 x i32> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP12:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT50]], <2 x i32>* [[TMP12]], i32 4, <2 x i1> [[TMP6]])
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP13]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], [[TMP0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP15]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:    [[BROADCAST_SPLAT60:%.*]] = shufflevector <2 x i32> [[TMP12]], <2 x i32> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT60]], <2 x i32>* [[TMP13]], i32 4, <2 x i1> [[TMP7]])
+; CHECK-NEXT:    br label [[VPLANNEDBB70]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    [[TMP16:%.*]] = mul i64 1, [[TMP0]]
-; CHECK-NEXT:    [[TMP17:%.*]] = add i64 0, [[TMP16]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP14]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP15]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp uge i64 [[TMP15]], [[TMP2]]
+; CHECK-NEXT:    br i1 [[TMP16]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB8:
+; CHECK-NEXT:    [[TMP17:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP18:%.*]] = add i64 0, [[TMP17]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -166,31 +164,30 @@ loopexit:
 define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK:  define void @masked_safe_speculation_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP8:%.*]], [[VPLANNEDBB40:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP7:%.*]], [[VPLANNEDBB40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP8:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[TMP5:%.*]] = sdiv <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP5]], <2 x i32>* [[TMP6]], i32 4, <2 x i1> [[TMP4]])
-; CHECK-NEXT:    br label [[VPLANNEDBB40]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP7]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], [[TMP0]]
-; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:    [[TMP6:%.*]] = sdiv <2 x i32> [[WIDE_LOAD0]], <i32 42, i32 42>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP6]], <2 x i32>* [[TMP7]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP10:%.*]] = mul i64 1, [[TMP0:%.*]]
-; CHECK-NEXT:    [[TMP11:%.*]] = add i64 0, [[TMP10]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], [[TMP2]]
+; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB6:
+; CHECK-NEXT:    [[TMP11:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add i64 0, [[TMP11]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -222,60 +219,59 @@ loopexit:
 define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK:  define void @masked_unsafe_speculation_div(i32* [[P0:%.*]], i64 [[N0:%.*]], i32 [[M0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP17:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP16:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP18:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[VPLANNEDBB60]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], [[BROADCAST_SPLAT0]]
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; CHECK-NEXT:    br i1 [[TMP5]], label [[PRED_SDIV_IF0:%.*]], label [[TMP8:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_SDIV_IF0:%.*]], label [[TMP9:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.if:
-; CHECK-NEXT:    [[TMP6:%.*]] = sdiv i32 [[WIDE_LOAD_EXTRACT_0_0]], -1
-; CHECK-NEXT:    [[TMP7:%.*]] = insertelement <2 x i32> undef, i32 [[TMP6]], i32 0
-; CHECK-NEXT:    br label [[TMP8]]
+; CHECK-NEXT:    [[TMP7:%.*]] = sdiv i32 [[WIDE_LOAD_EXTRACT_0_0]], -1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
+; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  8:
-; CHECK-NEXT:    [[TMP9:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB30]] ], [ [[TMP7]], [[PRED_SDIV_IF0]] ]
+; CHECK-NEXT:  9:
+; CHECK-NEXT:    [[TMP10:%.*]] = phi <2 x i32> [ undef, [[VPLANNEDBB40]] ], [ [[TMP8]], [[PRED_SDIV_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.sdiv.continue:
-; CHECK-NEXT:    [[PREDICATE40:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE40]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_SDIV_IF120:%.*]], label [[TMP13:%.*]]
+; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE50]], true
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_SDIV_IF130:%.*]], label [[TMP14:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.sdiv.if12:
-; CHECK-NEXT:    [[TMP11:%.*]] = sdiv i32 [[WIDE_LOAD_EXTRACT_1_0]], -1
-; CHECK-NEXT:    [[TMP12:%.*]] = insertelement <2 x i32> [[TMP9]], i32 [[TMP11]], i32 1
-; CHECK-NEXT:    br label [[TMP13]]
+; CHECK-NEXT:  pred.sdiv.if13:
+; CHECK-NEXT:    [[TMP12:%.*]] = sdiv i32 [[WIDE_LOAD_EXTRACT_1_0]], -1
+; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[TMP12]], i32 1
+; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  13:
-; CHECK-NEXT:    [[TMP14:%.*]] = phi <2 x i32> [ [[TMP9]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP12]], [[PRED_SDIV_IF120]] ]
-; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE130:%.*]]
+; CHECK-NEXT:  14:
+; CHECK-NEXT:    [[TMP15:%.*]] = phi <2 x i32> [ [[TMP10]], [[PRED_SDIV_CONTINUE0]] ], [ [[TMP13]], [[PRED_SDIV_IF130]] ]
+; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE140:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.sdiv.continue13:
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP14]], <2 x i32>* [[TMP15]], i32 4, <2 x i1> [[TMP4]])
-; CHECK-NEXT:    br label [[VPLANNEDBB50]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP16]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[TMP0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:  pred.sdiv.continue14:
+; CHECK-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP15]], <2 x i32>* [[TMP16]], i32 4, <2 x i1> [[TMP5]])
+; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
-; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 1, [[TMP0]]
-; CHECK-NEXT:    [[TMP20:%.*]] = add i64 0, [[TMP19]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP17]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP18]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP19:%.*]] = icmp uge i64 [[TMP18]], [[TMP2]]
+; CHECK-NEXT:    br i1 [[TMP19]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:    [[TMP20:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP21:%.*]] = add i64 0, [[TMP20]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

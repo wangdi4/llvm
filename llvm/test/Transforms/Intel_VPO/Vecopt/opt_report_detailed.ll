@@ -10,20 +10,17 @@ target triple = "x86_64-unknown-linux-gnu"
 declare void @serial_call() nounwind
 
 define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
-; LLVM-LABEL: Global loop optimization report for : test_serialized
+; LLVM-LABEL:  Global loop optimization report for : test_serialized
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
-; LLVM:           remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 2
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
-; LLVM-EMPTY:
-; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
 ; FIXME: Call serialization isn't supported for HIR yet.
@@ -55,20 +52,17 @@ declare void @vec_func(i64) #0
 declare void @_ZGVBN4v_vec_func(i64)
 
 define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
-; LLVM-LABEL: Global loop optimization report for : test_vector_variant
+; LLVM-LABEL:  Global loop optimization report for : test_vector_variant
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; LLVM-NEXT:      remark #15305: vectorization support: vector length 4
-; LLVM:           remark #15475: --- begin vector loop cost summary ---
+; LLVM-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 0
 ; LLVM-NEXT:      remark #15484: vector function calls: 1
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
 ; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
-; LLVM-EMPTY:
-; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
 ; FIXME: Vector-variant isn't supported for HIR yet.
@@ -98,7 +92,7 @@ declare double @llvm.sqrt.f64(double %val) #1
 declare double @_Z4sqrtd(double %val) #1
 declare double @sqrt(double %val) #1
 define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
-; LLVM-LABEL: Global loop optimization report for : test_sqrt
+; LLVM-LABEL:  Global loop optimization report for : test_sqrt
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -107,11 +101,8 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      remark #15482: vectorized math library calls: 3
 ; LLVM-NEXT:      remark #15484: vector function calls: 0
 ; LLVM-NEXT:      remark #15485: serialized function calls: 0
-; LLVM-NEXT:      remark #15488: --- end vector loop cost summary ---
+; LLVM:           remark #15488: --- end vector loop cost summary ---
 ; LLVM:       LOOP END
-; LLVM-EMPTY:
-; LLVM-NEXT:  LOOP BEGIN
-; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
 ; HIR-LABEL: Function: test_sqrt
@@ -131,7 +122,7 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; HIR-NEXT:  LOOP BEGIN
 ; HIR-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; HIR-NEXT:      remark #15305: vectorization support: vector length 4
-; HIR:           remark #15475: --- begin vector loop cost summary ---
+; HIR-NEXT:      remark #15475: --- begin vector loop cost summary ---
 ; HIR-NEXT:      remark #15482: vectorized math library calls: 3
 ; HIR-NEXT:      remark #15484: vector function calls: 0
 ; HIR-NEXT:      remark #15485: serialized function calls: 0
@@ -161,7 +152,7 @@ loop.exit:
 }
 
 define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
-; LLVM-LABEL: Global loop optimization report for : test_nonvls_mem
+; LLVM-LABEL:  Global loop optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -176,9 +167,6 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; LLVM-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
 ; LLVM-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
 ; LLVM:           remark #15474: --- end vector loop memory reference summary ---
-; LLVM:       LOOP END
-; LLVM-EMPTY:
-; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
@@ -221,7 +209,7 @@ define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
 ; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 1
 ; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 1
 ; HIR:           remark #15474: --- end vector loop memory reference summary ---
-; HIR:       LOOP END
+; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -263,7 +251,7 @@ loop.exit:
 }
 
 define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
-; LLVM-LABEL: Global loop optimization report for : test_vls_mem
+; LLVM-LABEL:  Global loop optimization report for : test_vls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -283,9 +271,6 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; LLVM-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
 ; LLVM-NEXT:      remark #15474: --- end vector loop memory reference summary ---
-; LLVM:       LOOP END
-; LLVM-EMPTY:
-; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:  LOOP END
 ; LLVM-NEXT:  =================================================================
 
@@ -340,7 +325,7 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15474: --- end vector loop memory reference summary ---
-; HIR:       LOOP END
+; HIR-NEXT:  LOOP END
 ; HIR-NEXT:  =================================================================
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

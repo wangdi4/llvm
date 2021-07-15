@@ -64,14 +64,11 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
@@ -84,7 +81,6 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV0:%.*]] = extractelement <4 x i32> [[TMP2]], i64 3
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:
   %private = alloca i32, align 4

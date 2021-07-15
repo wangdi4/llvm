@@ -290,10 +290,10 @@ public:
   // An additional classification flag for privates without assigned exit
   // instruction.
   enum class PrivateTag {
-    PTUndef,    // Not specified.
-    PTArray,    // Private of an array type.
-    PTInMemory, // In-memory allocated private.
-    PTNonPod,   // Non-POD private.
+    PTRegisterized, // Not specified.
+    PTArray,        // Private of an array type.
+    PTInMemory,     // In-memory allocated private.
+    PTNonPod,       // Non-POD private.
   };
 
   // Explicit destructor to drop references to alias VPInstructions. This is
@@ -1193,7 +1193,7 @@ public:
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
-    PTag = VPPrivate::PrivateTag::PTUndef;
+    PTag = VPPrivate::PrivateTag::PTRegisterized;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1240,7 +1240,7 @@ private:
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;
-  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTUndef;
+  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTRegisterized;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
