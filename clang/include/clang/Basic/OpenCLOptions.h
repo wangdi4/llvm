@@ -67,8 +67,8 @@ static inline bool isOpenCLVersionContainedInMask(const LangOptions &LO,
 
 /// OpenCL supported extensions and optional core features
 class OpenCLOptions {
+
 public:
-#if INTEL_CUSTOMIZATION
   // OpenCL C v1.2 s6.5 - All program scope variables must be declared in the
   // __constant address space.
   // OpenCL C v2.0 s6.5.1 - Variables defined at program scope and static
@@ -83,7 +83,6 @@ public:
            (Opts.OpenCLVersion == 300 &&
             isSupported("__opencl_c_program_scope_global_variables", Opts));
   }
-#endif // INTEL_CUSTOMIZATION
 
   struct OpenCLOptionInfo {
     // Does this option have pragma.

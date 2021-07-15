@@ -6544,13 +6544,11 @@ void Sema::deduceOpenCLAddressSpace(ValueDecl *Decl) {
     if (Type->isSamplerT() || Type->isVoidType())
       return;
     LangAS ImplAS = LangAS::opencl_private;
-#if INTEL_CUSTOMIZATION
     // OpenCL C v3.0 s6.7.8 - For OpenCL C 2.0 or with the
     // __opencl_c_program_scope_global_variables feature, the address space
     // for a variable at program scope or a static or extern variable inside
     // a function are inferred to be __global.
     if (getOpenCLOptions().areProgramScopeVariablesSupported(getLangOpts()) &&
-#endif // INTEL_CUSTOMIZATION
         Var->hasGlobalStorage())
       ImplAS = LangAS::opencl_global;
 #if INTEL_CUSTOMIZATION
@@ -8265,8 +8263,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
 #if INTEL_CUSTOMIZATION
       bool IsChannel = Context.getBaseElementType(T)->isChannelType();
       bool IsPipe = Context.getBaseElementType(T)->isPipeType();
-      if (!T->isSamplerT() &&
-          !T->isDependentType() && !IsChannel &&
+      if (!T->isSamplerT() && !T->isDependentType() && !IsChannel &&
           // Pipes (used in program scope) have a better diagnostic
           // elsewhere. This diagnostic is misleading, since address space
           // cannot be set for a pipe anyway.
@@ -8275,10 +8272,10 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
 #endif // INTEL_CUSTOMIZATION
           !(T.getAddressSpace() == LangAS::opencl_constant ||
             (T.getAddressSpace() == LangAS::opencl_global &&
-             getOpenCLOptions().areProgramScopeVariablesSupported( // INTEL
-                 getLangOpts())))) {                               // INTEL
+             getOpenCLOptions().areProgramScopeVariablesSupported(
+                 getLangOpts())))) {
         int Scope = NewVD->isStaticLocal() | NewVD->hasExternalStorage() << 1;
-        if (getOpenCLOptions().areProgramScopeVariablesSupported(getLangOpts())) // INTEL
+        if (getOpenCLOptions().areProgramScopeVariablesSupported(getLangOpts()))
           Diag(NewVD->getLocation(), diag::err_opencl_global_invalid_addr_space)
               << Scope << "global or constant";
         else
