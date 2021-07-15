@@ -97,6 +97,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
       [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(DPCPPEqualizerPass());
+        MPM.addPass(DuplicateCalledKernelsPass());
         if (Level != PassBuilder::OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
         MPM.addPass(LinearIdResolverPass());
@@ -119,6 +120,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // Barrier passes begin.
     MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
     MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
+    MPM.addPass(GroupBuiltinPass(m_RtlModules));
     MPM.addPass(BarrierInFunction());
     MPM.addPass(SplitBBonBarrier());
     MPM.addPass(

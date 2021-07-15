@@ -105,6 +105,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
       EP, [](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
+        MPM.add(createDuplicateCalledKernelsLegacyPass());
         if (PMB.OptLevel > 0)
           MPM.add(createInternalizeNonKernelFuncLegacyPass());
         MPM.add(createLinearIdResolverPass());
@@ -143,6 +144,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         // Barrier passes begin.
         MPM.add(createPhiCanonicalizationLegacyPass());
         MPM.add(createRedundantPhiNodeLegacyPass());
+        MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
         MPM.add(createBarrierInFunctionLegacyPass());
         MPM.add(createSplitBBonBarrierLegacyPass());
         MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
@@ -171,6 +173,7 @@ void OptimizerLTOLegacyPM::registerLastPasses(
     // Barrier passes begin.
     MPM.add(createPhiCanonicalizationLegacyPass());
     MPM.add(createRedundantPhiNodeLegacyPass());
+    MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
     MPM.add(createBarrierInFunctionLegacyPass());
     MPM.add(createSplitBBonBarrierLegacyPass());
     MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,

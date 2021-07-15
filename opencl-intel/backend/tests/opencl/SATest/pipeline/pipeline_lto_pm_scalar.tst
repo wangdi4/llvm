@@ -3,6 +3,7 @@
 
 ; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
+; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
@@ -18,6 +19,7 @@
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis
 ; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
+; CHECK-NEXT: Running pass: GroupBuiltin
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
 ; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT: Running pass: Intel Kernel Barrier
