@@ -22,7 +22,7 @@ namespace llvm {
 class DuplicateCalledKernelsPass
     : public PassInfoMixin<DuplicateCalledKernelsPass> {
 public:
-  static StringRef name() { return "Intel Kernel DuplicateCalledKernels"; }
+  static StringRef name() { return "DuplicateCalledKernels"; }
 
   bool runImpl(Module &M);
 
@@ -38,7 +38,7 @@ public:
   DuplicateCalledKernelsLegacy();
 
   virtual llvm::StringRef getPassName() const override {
-    return "Intel OpenCL DuplicateCalledKernels";
+    return "DuplicateCalledKernels";
   }
 
   virtual bool runOnModule(Module &M) override;

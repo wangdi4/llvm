@@ -23,7 +23,7 @@ namespace llvm {
 /// It provides that their execution will be synchronized across all WIs
 class GroupBuiltinPass : public PassInfoMixin<GroupBuiltinPass> {
 public:
-  static StringRef name() { return "Intel OpenCL GroupBuiltinPass"; }
+  static StringRef name() { return "GroupBuiltin"; }
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
@@ -76,7 +76,7 @@ public:
 
   /// \brief Provides name of pass
   StringRef getPassName() const override {
-    return "Intel OpenCL GroupBuiltinPass";
+    return "GroupBuiltin";
   }
 
   /// \brief execute pass on given module
