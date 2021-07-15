@@ -2351,6 +2351,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
         HandleImplicitVar(UncollapsedIVs[I], ICK_normalized_iv);
         HandleImplicitVar(UncollapsedUpperBounds[I], ICK_normalized_ub);
         if (isOpenMPWorksharingDirective(CurrentDirectiveKind) ||
+            isOpenMPGenericLoopDirective(CurrentDirectiveKind) ||
             isOpenMPTaskLoopDirective(CurrentDirectiveKind) ||
             isOpenMPDistributeDirective(CurrentDirectiveKind)) {
           HandleImplicitVar(UncollapsedLowerBounds[I], ICK_firstprivate);
@@ -2363,6 +2364,7 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     HandleImplicitVar(LoopDir->getIterationVariable(), ICK_normalized_iv);
     HandleImplicitVar(LoopDir->getUpperBoundVariable(), ICK_normalized_ub);
     if (isOpenMPWorksharingDirective(CurrentDirectiveKind) ||
+        isOpenMPGenericLoopDirective(CurrentDirectiveKind) ||
         isOpenMPTaskLoopDirective(CurrentDirectiveKind) ||
         isOpenMPDistributeDirective(CurrentDirectiveKind)) {
       HandleImplicitVar(LoopDir->getLowerBoundVariable(), ICK_firstprivate);
