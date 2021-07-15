@@ -43,7 +43,6 @@ void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLWGLoopCreatorPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
-void initializeKernelAnalysisPass(llvm::PassRegistry&);
 void initializeIRInjectModulePass(llvm::PassRegistry&);
 void initializenameByInstTypePass(llvm::PassRegistry&);
 void initializeDuplicateCalledKernelsPass(llvm::PassRegistry&);

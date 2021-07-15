@@ -1,4 +1,4 @@
-; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -analyze -kernel-analysis -cl-loop-bound -verify %s -S -o %t.ll
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -analyze -dpcpp-kernel-analysis -cl-loop-bound -verify %s -S -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
 

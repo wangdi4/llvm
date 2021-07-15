@@ -128,7 +128,6 @@ llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
-llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createHandleVPlanMaskPass();
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
@@ -530,7 +529,7 @@ static void populatePassesPostFailCheck(
 
   if (OptLevel > 0) {
     PM.add(llvm::createCFGSimplificationPass());
-    PM.add(createKernelAnalysisPass());
+    PM.add(llvm::createDPCPPKernelAnalysisLegacyPass());
     PM.add(createCLWGLoopBoundariesPass());
     PM.add(llvm::createDeadCodeEliminationPass());
     PM.add(llvm::createCFGSimplificationPass());
