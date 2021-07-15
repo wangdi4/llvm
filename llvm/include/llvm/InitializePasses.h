@@ -680,6 +680,7 @@ void initializeFMASplitterLegacyPassPass(PassRegistry&);
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
 void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
 // DPCPP Kernel Transformation passes
+void initializeAddFunctionAttrsLegacyPass(PassRegistry &);
 void initializeBuiltinCallToInstLegacyPass(PassRegistry &);
 void initializeBuiltinImportLegacyPass(PassRegistry &);
 void initializeDPCPPEqualizerLegacyPass(PassRegistry &);

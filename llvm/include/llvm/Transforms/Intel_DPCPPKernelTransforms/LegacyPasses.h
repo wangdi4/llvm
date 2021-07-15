@@ -20,6 +20,7 @@ class Pass;
 template <typename T, unsigned N> class SmallVector;
 class StringRef;
 
+ModulePass *createAddFunctionAttrsLegacyPass();
 Pass *createParseAnnotateAttributesPass();
 FunctionPass *createBuiltinCallToInstLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(

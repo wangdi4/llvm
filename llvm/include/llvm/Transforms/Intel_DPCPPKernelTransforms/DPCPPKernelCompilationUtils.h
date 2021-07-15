@@ -28,22 +28,10 @@ enum class SyncType { None, Barrier, DummyBarrier, Fiber };
 
 namespace KernelAttribute {
 // Attributes
-extern const char *SyclKernel;
-extern const char *NoBarrierPath;
-extern const char *KernelWrapper;
-
-extern const char *BarrierBufferSize;
-extern const char *LocalBufferSize;
-extern const char *PrivateMemorySize;
-
-extern const char *ScalarKernel;
-extern const char *VectorizedKernel;
-extern const char *VectorizedMaskedKernel;
-extern const char *VectorizedWidth;
-extern const char *RecommendedVL;
-extern const char *VectorVariants;
-
-extern const char *BlockLiteralSize;
+extern const StringRef CallOnce;
+extern const StringRef ConvergentCall;
+extern const StringRef RecursionWithBarrier;
+extern const StringRef VectorVariants;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {
   assert(F.hasFnAttribute(Attr) && "Function doesn't have this attribute!");
@@ -76,8 +64,6 @@ inline int getAttributeAsInt(const Function &F, StringRef Attr, int Default) {
 } // namespace KernelAttribute
 
 namespace DPCPPKernelCompilationUtils {
-
-extern const char *ATTR_RECURSION_WITH_BARRIER;
 
 enum AddressSpace {
   ADDRESS_SPACE_PRIVATE = 0,
@@ -406,10 +392,17 @@ unsigned fetchCLVersionFromMetadata(const Module &M);
 
 /// Collect built-ins declared in the module and force synchronization, i.e.
 /// implemented using barrier built-in.
-/// \param FSet output container to insert all synchronized built-ins into.
 /// \param M the module to search synchronize built-ins declarations in.
 /// \param IsWG true for workgroup, false for subgroup.
-void getAllSyncBuiltinsDecls(FuncSet &FSet, Module *M, bool IsWG = true);
+/// \returns container to insert all synchronized built-ins into.
+FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG = true);
+
+/// Collect built-ins declared in the module that require relaxation of
+/// noduplicate attribute to convergent. Additionally assigns
+/// "kernel-convergent-call" and "kernel-call-once" attributes (see LangRef).
+/// \param M the module to search built-ins declarations in.
+/// \returns container of collected built-ins.
+FuncSet getAllSyncBuiltinsDclsForNoDuplicateRelax(Module *M);
 
 /// Retrieves the pointer to the implicit arguments added to the given function
 /// \param F The function for which implicit arguments need to be retrieved.
