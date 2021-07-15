@@ -92,6 +92,11 @@ static cl::opt<bool>
                                      "outlined target function arguments"));
 #endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> DisableParallelBarriers(
+    "vpo-paropt-disable-parallel-workgroup-barriers", cl::Hidden,
+    cl::init(false), cl::ZeroOrMore,
+    cl::desc("Disable adding workgroup barriers after parallel regions"));
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -598,7 +603,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
   SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallVector<Instruction *, 6> InsertBarrierAt;
+  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
@@ -683,7 +688,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       // from the region's exit. Note that we do not need a barrier
       // before the region, since we insert barriers after all side effect
       // instructions that may reach the region's entry.
-      InsertBarrierAt.push_back(ParDirectiveExit);
+      InsertBarrierAt.insert(ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -935,14 +940,79 @@ void VPOParoptTransform::guardSideEffectStatements(
     I = std::next(I);
   }
 
-  // Return true if W has more than one child in any nested region.
-  auto HasMoreThanOneChildAtAnyNestingLevel = [](WRegionNode *W) {
-    while (W) {
-      if (W->getNumChildren() > 1)
-        return true;
-      W = W->getFirstChild();
+  auto NeedBarriersAfterParallel = [&](WRegionNode *W) {
+    if (DisableParallelBarriers)
+      return false;
+
+    // With side-effects instructions barriers will be inserted after each
+    // parallel region, but if there are no such instructions we need to
+    // recompute places that require a barrier for correctness.
+    assert(SideEffectInstructions.empty() &&
+           "no side-effects instructions expected");
+    InsertBarrierAt.clear();
+
+    auto IsParallel = [](const WRegionNode *W) {
+      if (W)
+        switch (W->getDirID()) {
+        case DIR_OMP_PARALLEL:
+        case DIR_OMP_PARALLEL_LOOP:
+        case DIR_OMP_PARALLEL_SECTIONS:
+        case DIR_OMP_DISTRIBUTE_PARLOOP:
+          return true;
+        }
+      return false;
+    };
+
+    DenseMap<BasicBlock *, WRegionNode *> Exit2ParRegion;
+
+    // Find all parallel regions at any nesting level inside the target region,
+    // but skip parallel regions nested inside another parallel. Adding a
+    // barrier after such regions may cause a deadlock.
+    SmallVector<WRegionNode *, 8> Worklist;
+    copy(W->getChildren(), std::back_inserter(Worklist));
+    while (!Worklist.empty()) {
+      WRegionNode *W = Worklist.pop_back_val();
+      if (IsParallel(W)) {
+        if (IsParallel(W->getParent()))
+          continue;
+        Exit2ParRegion[W->getExitBBlock()] = W;
+      }
+      copy(W->getChildren(), std::back_inserter(Worklist));
     }
-    return false;
+
+    // No need to add barriers if there is only one or no parallel regions.
+    if (Exit2ParRegion.size() <= 1)
+      return false;
+
+    // Otherwise for each of parallel region walk predecessors to see if we can
+    // find any parallel region on all paths to the target region entry. All
+    // regions that we find require a barrier.
+    for (auto &P : Exit2ParRegion) {
+      SmallPtrSet<BasicBlock *, 8> Visited{W->getEntryBBlock()};
+      std::queue<BasicBlock *> Worklist;
+      auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
+        if (Visited.insert(BB).second)
+          for (BasicBlock *PredBB : predecessors(BB))
+            if (!Visited.contains(PredBB))
+              Worklist.push(PredBB);
+      };
+      GrowWorklist(P.second->getEntryBBlock());
+
+      while (!Worklist.empty()) {
+        BasicBlock *BB = Worklist.front();
+        Worklist.pop();
+
+        // If this is an exit block of a parallel region then this region
+        // needs a barrier.
+        auto It = Exit2ParRegion.find(BB);
+        if (It != Exit2ParRegion.end())
+          InsertBarrierAt.insert(It->second->getExitDirective());
+
+        GrowWorklist(BB);
+      }
+    }
+
+    return !InsertBarrierAt.empty();
   };
 
   if (!SideEffectInstructions.empty() ||
@@ -959,7 +1029,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        be to check if any load operation after a parallel region
       //        may read data that was potentially updated inside
       //        the parallel region. Can we use alias information for that?
-      HasMoreThanOneChildAtAnyNestingLevel(W)) {
+      NeedBarriersAfterParallel(W)) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "Insert Barrier at :" << *InsertPt << "\n");
       InsertWorkGroupBarrier(InsertPt);
