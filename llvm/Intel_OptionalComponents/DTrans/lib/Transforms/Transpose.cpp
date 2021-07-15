@@ -80,6 +80,12 @@ static cl::opt<std::string> TransposeOverride("dtrans-transpose-override",
 static cl::opt<uint64_t> TransposeMinDim("dtrans-transpose-min-dim",
                                          cl::init(8), cl::ReallyHidden);
 
+// If the percentage of references that are indirectly indexed on a dimension
+// is greater than this, this dimension will get a 0.0 gain in the transpose
+// profitability computation.
+static cl::opt<uint64_t> TransposeMinIIRatio("dtrans-transpose-min-ii-ratio",
+                                             cl::init(10), cl::ReallyHidden);
+
 namespace {
 
 // This is the class that manages the analysis and transformation
@@ -673,7 +679,8 @@ public:
     std::function<void(Instruction *, LoopInfo &,
                        std::array<Instruction *, FortranMaxRank> &,
                        std::array<unsigned, FortranMaxRank> &,
-                       std::array<bool, FortranMaxRank> &,
+                       std::array<unsigned, FortranMaxRank> &,
+                       std::array<unsigned, FortranMaxRank> &,
                        std::array<double, FortranMaxRank> &,
                        SmallPtrSetImpl<Instruction *> &)>
         ComputeGain;
@@ -682,7 +689,8 @@ public:
                       Instruction *I, LoopInfo &LI,
                       std::array<Instruction *, FortranMaxRank> &IndexChain,
                       std::array<unsigned, FortranMaxRank> &IndexVarianceDepth,
-                      std::array<bool, FortranMaxRank> &IsIndirectlyIndexed,
+                      std::array<unsigned, FortranMaxRank> &IICount,
+                      std::array<unsigned, FortranMaxRank> &NoIICount,
                       std::array<double, FortranMaxRank> &Gains,
                       SmallPtrSetImpl<Instruction *> &Visited) {
       if (!Visited.insert(I).second)
@@ -698,7 +706,7 @@ public:
         for (auto *UU : I->users())
           if (auto *I2 = dyn_cast<Instruction>(UU))
             ComputeGain(I2, LI, IndexChain, IndexVarianceDepth,
-                        IsIndirectlyIndexed, Gains, Visited);
+                        IICount, NoIICount, Gains, Visited);
         return;
       }
 
@@ -715,7 +723,11 @@ public:
 
       Value *Index = Subs->getIndex();
       Instruction *IndexInst = dyn_cast<Instruction>(Index);
-      IsIndirectlyIndexed[Dim] = IsIndirectIndex(IndexInst) ? true : false;
+      if (IsIndirectIndex(IndexInst))
+        IICount[Dim]++;
+      else
+        NoIICount[Dim]++;
+
       unsigned IndexLoopDepth =
           IndexInst ? LI.getLoopDepth(IndexInst->getParent()) : 0;
 
@@ -728,7 +740,7 @@ public:
         for (auto *UU : Subs->users())
           if (auto *I3 = dyn_cast<Instruction>(UU))
             ComputeGain(I3, LI, IndexChain, IndexVarianceDepth,
-                        IsIndirectlyIndexed, Gains, Visited);
+                        IICount, NoIICount, Gains, Visited);
       } else {
         // We are relying on the subscript calls being chained together
         // from highest dimension to lowest dimension, when we reach the
@@ -765,25 +777,18 @@ public:
             // walking one of the other dimensions, so we need to apply an
             // appropriate gain level to the loops that led to this loop.
             for (unsigned Idx = 0; Idx < ArrayRank; ++Idx) {
-              // If the array is indirectly indexed in some dimension, we
-              // do not want to count that toward the gain, as the indexing
-              // can bounce around in an unpredictable way.
-              if (!IsIndirectlyIndexed[Idx]) {
-                // Estimate a factor of 10 for each loop level based on the
-                // variance depth of the dimension's index.
-                double Gain = pow(10.0, IndexVarianceDepth[Idx]) *
-                    Subs->getNumUses();
-
-                DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
-                                dbgs() << "  Gain for dimension "
-                                       << Idx << ": " << Gain << "\n");
-
-                // Saturate to avoid numeric overflow.
-                double NewGain = Gains[Idx] + Gain;
-                Gains[Idx] = NewGain > Gains[Idx]
-                             ? NewGain
-                             : std::numeric_limits<double>::max();
-              }
+              // Estimate a factor of 10 for each loop level based on the
+              // variance depth of the dimension's index.
+              double Gain = pow(10.0, IndexVarianceDepth[Idx]) *
+                  Subs->getNumUses();
+              // Saturate to avoid numeric overflow.
+              double NewGain = Gains[Idx] + Gain;
+              Gains[Idx] = NewGain > Gains[Idx]
+                           ? NewGain
+                           : std::numeric_limits<double>::max();
+              DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                              dbgs() << "  Gain for dimension "
+                                     << Idx << ": " << Gain << "\n");
             }
           }
         }
@@ -821,10 +826,18 @@ public:
     // nested loop.
     std::array<unsigned, FortranMaxRank> IndexVarianceDepth = {};
 
-    // This is 'true' if the index value at a particular dimension is determined
-    // by indexing through an array (via a SubscriptInst).
-    std::array<bool, FortranMaxRank> IsIndirectlyIndexed = {};
+    // Number of times a reference to a particular dimension was indirectly
+    // indexed.
+    std::array<unsigned, FortranMaxRank> IICount = {};
 
+    // Number of times a reference to a particular dimension was directly
+    // indexed.
+    std::array<unsigned, FortranMaxRank> NoIICount = {};
+
+    for (unsigned I = 0; I < FortranMaxRank; ++I) {
+      IICount[I] = 0;
+      NoIICount[I] = 0;
+    }
     SmallPtrSet<Instruction *, 32> Visited;
     for (auto &KV : FuncToSubsVec) {
       auto &LI = (GetLI)(*KV.first);
@@ -833,7 +846,19 @@ public:
 
       for (auto *Subs : KV.second)
         ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth,
-                    IsIndirectlyIndexed, Gains, Visited);
+                    IICount, NoIICount, Gains, Visited);
+    }
+    // Ensure that we do not make an indirectly indexed dimension a fast
+    // moving one if the indirectly indexed references are a significant
+    // percentage of the total.
+    for (unsigned I = 0; I < FortranMaxRank; ++I) {
+      unsigned Total = IICount[I] + NoIICount[I];
+      unsigned Ratio = Total > 0 ? 100 * IICount[I] / Total : 0;
+      if (IICount[I] && (Ratio > TransposeMinIIRatio)) {
+        DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+          dbgs() << "Indirectly Indexed: Forcing Gain[" << I << "] to 0.0\n");
+        Gains[I] = 0.0;
+      }
     }
     double CurrentUnitStridedGain = Gains[0];
 
@@ -877,6 +902,7 @@ public:
       }
     }
   }
+
   // Transform the strides in the subscript calls and dope vector creation, if
   // the candidate is valid for being transposed.
   bool transform() {
