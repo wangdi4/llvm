@@ -780,6 +780,12 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
   case Attribute::EmptyKey:
   case Attribute::TombstoneKey:
     llvm_unreachable("Trying to encode EmptyKey/TombstoneKey");
+#if INTEL_CUSTOMIZATION
+  case Attribute::AlwaysInlineRecursive:
+    return bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE;
+  case Attribute::InlineHintRecursive:
+    return bitc::ATTR_KIND_INLINE_HINT_RECURSIVE;
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Trying to encode unknown attribute");

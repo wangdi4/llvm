@@ -1062,6 +1062,10 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::NoCfCheck:
       case Attribute::MustProgress:
       case Attribute::NoProfile:
+#if INTEL_CUSTOMIZATION
+      case Attribute::AlwaysInlineRecursive:
+      case Attribute::InlineHintRecursive:
+#endif // INTEL_CUSTOMIZATION
         break;
       }
 

@@ -678,9 +678,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         IR->beginUpdate(&CB);
         MDIR->beginUpdate(&CB);
         bool IsAlwaysInlineRecursive =
-            CB.hasFnAttr("always-inline-recursive");
+            CB.hasFnAttr(Attribute::AlwaysInlineRecursive);
         bool IsInlineHintRecursive =
-            CB.hasFnAttr("inline-hint-recursive");
+            CB.hasFnAttr(Attribute::InlineHintRecursive);
         // For a recursive call, save the number of the Callee's recursive
         // callsites.
         unsigned RecursiveCallCountOld = 0;
@@ -759,10 +759,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
             auto CB = cast<CallBase>(Ptr);
             if (IsAlwaysInlineRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
-                     "always-inline-recursive");
+                     Attribute::AlwaysInlineRecursive);
             if (IsInlineHintRecursive)
                 CB->addAttribute(AttributeList::FunctionIndex,
-                     "inline-hint-recursive");
+                     Attribute::InlineHintRecursive);
 #endif // INTEL_CUSTOMIZATION
             CallSites.push_back(
                 std::make_pair(dyn_cast<CallBase>(Ptr), NewHistoryID));

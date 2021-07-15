@@ -1571,14 +1571,14 @@ example:
 
 .. INTEL_CUSTOMIZATION
 
-``always-inline-recursive``
+``alwaysinline_recursive``
     This attribute indicates that the inliner should attempt to inline
     the current called function and its callees whenever possible,
     ignoring any active inlining size threshold for this caller. This attribute
     is propagated down the call chain, until either a call site marked by a
     noinline attibute, or a function declared with a noinline attribute. A
     callee marked with a noinline attribute, is not inlined. (This is now
-    implemented as a string attribute.)
+    implemented as an enum attribute.)
 
 .. END INTEL_CUSTOMIZATION
 
@@ -1651,7 +1651,7 @@ example:
 
 .. INTEL_CUSTOMIZATION
 
-``inline-hint-recursive``
+``inlinehint_recursive``
     This attribute indicates that the source code contained a hint that
     inlining the current called function and its callees is desirable (such
     as the "inline" keyword in C/C++). It is just a hint; it imposes no
@@ -1661,7 +1661,7 @@ example:
     noinline attribute, is not inlined. This attribute has a weaker
     precedence than the alwaysinline attribute. Meaning if it encounters a
     callsite with alwaysinline attribute, the alwaysinline attribute will
-    override the inlinehint attribute. (This is now implemented as a string
+    override the inlinehint attribute. (This is now implemented as an enum
     attribute.)
 
 .. END INTEL_CUSTOMIZATION

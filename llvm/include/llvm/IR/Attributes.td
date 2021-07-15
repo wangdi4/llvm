@@ -53,6 +53,11 @@ def AllocSize : IntAttr<"allocsize", [FnAttr]>;
 
 /// inline=always.
 def AlwaysInline : EnumAttr<"alwaysinline", [FnAttr]>;
+// if INTEL_CUSTOMIZATION
+
+/// Recursive counterpart of alwaysinline.
+def AlwaysInlineRecursive : EnumAttr<"alwaysinline_recursive", [FnAttr]>;
+// endif INTEL_CUSTOMIZATION
 
 /// Function can access memory only using pointers based on its arguments.
 def ArgMemOnly : EnumAttr<"argmemonly", [FnAttr]>;
@@ -102,6 +107,11 @@ def InAlloca : TypeAttr<"inalloca", [ParamAttr]>;
 
 /// Source said inlining was desirable.
 def InlineHint : EnumAttr<"inlinehint", [FnAttr]>;
+// if INTEL_CUSTOMIZATION
+
+/// Recursive counterpart of inlinhint.
+def InlineHintRecursive : EnumAttr<"inlinehint_recursive", [FnAttr]>;
+// endif INTEL_CUSTOMIZATION
 
 /// Force argument to be passed in register.
 def InReg : EnumAttr<"inreg", [ParamAttr, RetAttr]>;

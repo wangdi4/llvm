@@ -197,9 +197,9 @@ void RegionSplitter::setProperties(Function &NewF) {
   // Override any inlining directives, if present, and prevent the split out
   // routine from being inlined back to the original function.
   NewF.removeFnAttr(Attribute::AlwaysInline);
-  NewF.removeFnAttr("always-inline-recursive");
+  NewF.removeFnAttr(Attribute::AlwaysInlineRecursive);
   NewF.removeFnAttr(Attribute::InlineHint);
-  NewF.removeFnAttr("inline-hint-recursive");
+  NewF.removeFnAttr(Attribute::InlineHintRecursive);
   NewF.addFnAttr(Attribute::NoInline);
 }
 
