@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2013-2018 Intel Corporation.
+// Copyright 2013-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,9 +13,10 @@
 #ifndef __RUNTIME_SERVICE_H__
 #define __RUNTIME_SERVICE_H__
 
-#include "RefcountThreadSafe.h"
 #include "IBlockToKernelMapper.h"
+#include "RefcountThreadSafe.h"
 #include <assert.h>
+#include <mutex>
 
 /*
     Backend Runtime service
@@ -39,26 +38,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     
     /// dtor
     virtual ~RuntimeServiceImpl(){
-        delete m_pBlockToKernelMapper;
+      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
+      delete m_pBlockToKernelMapper;
     }
     
     /// getter for IBlockToKernelMapper
     IBlockToKernelMapper * GetBlockToKernelMapper() const {
+      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
       return m_pBlockToKernelMapper;
     }
     
     /// setter IBlockToKernelMapper
     void SetBlockToKernelMapper(IBlockToKernelMapper * p){
       assert(p && "IBlockToKernelMapper is NULL");
-      if (m_pBlockToKernelMapper)
-        delete m_pBlockToKernelMapper;
+      std::lock_guard<std::mutex> locked(m_BlockToKernelMapperMutex);
+      delete m_pBlockToKernelMapper;
       m_pBlockToKernelMapper = p;
     }
 
   private:
     /// IBlockToKernelMapper object. This class owns it and is responsible for deleting
     IBlockToKernelMapper * m_pBlockToKernelMapper;
-  private:
+    mutable std::mutex m_BlockToKernelMapperMutex;
+
     /// hide copy ctor
     RuntimeServiceImpl(const RuntimeServiceImpl& s);
     /// hide assignment

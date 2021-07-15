@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -77,13 +75,14 @@ public:
     void GetGlobalVariablePointers(const cl_prog_gv **GVs, size_t *GVCount)
         const override;
 
-private:
+    void CreateAndSetBlockToKernelMapper();
+
+  private:
     std::unique_ptr<llvm::ExecutionEngine> m_pExecutionEngine;
     std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::unique_ptr<ObjectCodeCache> m_ObjectCodeCache;
 
-private:
     // Disable copy ctor and assignment operator
     CPUProgram( const CPUProgram& );
     bool operator = (const CPUProgram& );
