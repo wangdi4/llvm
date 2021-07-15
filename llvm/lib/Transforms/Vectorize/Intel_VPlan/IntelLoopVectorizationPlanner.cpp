@@ -1040,13 +1040,11 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
   VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
 }
 
-void LoopVectorizationPlanner::unroll(
-    VPlanVector &Plan,
-    VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
+void LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
   unsigned UF = getLoopUnrollFactor();
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
-    Unroller.run(VPInstUnrollPart);
+    Unroller.run();
   }
 }
 

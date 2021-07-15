@@ -1436,13 +1436,11 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     }
   }
 
-  unsigned NestingLevel = OrigLoop->getNestingLevel();
-  if (CurrentVPInstUnrollPart > 0 && !EnableVPValueCodegenHIR)
-    WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
-
   // For unit stride ref, nothing else to do.
   if (isUnitStrideRef(Ref) || LaneZeroOnly)
     return WideRef;
+
+  unsigned NestingLevel = OrigLoop->getNestingLevel();
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
   RegDDRef::CanonExprsTy WideRefCEs;
@@ -5003,9 +5001,6 @@ bool VPOCodeGenHIR::targetHasIntelAVX512() const {
 }
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
-
-  auto It = VPInstUnrollPart.find(VPInst);
-  CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
 
   // Use VPValue based code generation if it is enabled and mixed CG has not
   // been forced

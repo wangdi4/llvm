@@ -77,9 +77,7 @@ public:
 
   // Updates the operands of cloned instructions and basic blocks by replacing
   // the original values with the cloned ones.
-  void remapOperands(VPBasicBlock *OrigVPBB,
-                     std::function<void(VPInstruction &)> UpdateFunc =
-                         [](VPInstruction &VPInst) {});
+  void remapOperands(VPBasicBlock *OrigVPBB);
 
   // Link \p OrigVal and its clone \p ClonedVal. There is only one clone for
   // each VPValue.

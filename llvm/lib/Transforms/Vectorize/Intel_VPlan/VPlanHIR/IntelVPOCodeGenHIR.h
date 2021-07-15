@@ -58,8 +58,7 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef,
-                const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart)
+                const RegDDRef *SearchLoopPeelArrayRef)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
@@ -70,8 +69,7 @@ public:
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()),
-        VPInstUnrollPart(VPInstUnrollPart) {
+        HLNodeUtilities(Loop->getHLNodeUtils()) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -642,12 +640,6 @@ private:
 
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
-
-  // Mapping of VPInstructions to their unrolled part numbers.
-  const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart;
-
-  // Unrolled part number for the VPInstruction currently being processed.
-  unsigned CurrentVPInstUnrollPart;
 
   // Track HIR temp created for each deconstructed PHI ID.
   SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;

@@ -20,7 +20,7 @@ using namespace llvm::vpo;
 
 static LoopVPlanDumpControl UnrollDumpControl("unroll", "VPlan loop unrolling");
 
-void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
+void VPlanLoopUnroller::run() {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
@@ -172,13 +172,8 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
     // Remap operands.
     VPValueMapper Mapper(ValueMap);
-    auto UnrollerPart = [VPInstUnrollPart, Part](VPInstruction &Inst) {
-      if (VPInstUnrollPart)
-        VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
-    };
-
     for (VPBasicBlock *Block : VPL->blocks())
-      Mapper.remapOperands(Block, UnrollerPart);
+      Mapper.remapOperands(Block);
 
     // Move forward latch's condition.
     VPValue *CondBit = CurrentLatch->getCondBit();
