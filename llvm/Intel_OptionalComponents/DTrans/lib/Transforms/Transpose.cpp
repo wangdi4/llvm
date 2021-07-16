@@ -95,21 +95,22 @@ public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
                      SmallVector<uint64_t, 4> &ArrayLength,
                      uint64_t ElementSize, llvm::Type *ElementType,
-                     bool IsGlobalDV, bool IsNestedField = false,
-                     uint64_t NestedFieldNumber = 0)
+                     DopeVectorInfo *DVI = nullptr,
+                     Optional<uint64_t> NestedFieldNum = None)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), IsGlobalDV(IsGlobalDV),
-        IsNestedField(IsNestedField), NestedFieldNumber(NestedFieldNumber),
-        IsValid(false), IsProfitable(false) {
+        ElementType(ElementType), IsGlobalDV(DVI),
+        NestedFieldNumber(NestedFieldNum), IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
       Strides.push_back(Stride);
       Stride *= ArrayLength[RankNum];
     }
+    if (DVI)
+      DVI->identifyPtrAddrSubs(SubscriptCalls);
   }
 
   ~TransposeCandidate() { cleanup(); }
@@ -119,9 +120,7 @@ public:
   StringRef getName() const { return GV->getName(); }
 
   Optional<uint64_t> getNestedFieldNumber() const {
-    if (IsNestedField)
-      return NestedFieldNumber;
-    return None;
+    return NestedFieldNumber;
   }
 
   uint32_t getArrayRank() const { return ArrayRank; }
@@ -147,90 +146,13 @@ public:
   // vector can be analyzed.
   //
   bool analyze(const DataLayout &DL) {
-    return IsGlobalDV ? analyzeGlobalDV(DL) : analyzeGlobalVar(DL);
-  }
-
-  // Analyze an array, represented by a global dope vector, for transpose.
-  // The correctness analysis has already been done by calling the
-  // GlobalDopeVector class's computeAndValidate() member function.
-  // At this point, we only need to collect up the SubscriptInsts indexing
-  // the array which is pointed to by the array_ptr of the dope vector, as
-  // they are needed by the profitability analysis.
-  //
-  bool analyzeGlobalDV(const DataLayout &DL) {
-
-    // Return 'true' if 'GEPO' indexes field 'NFN'.
-    //
-    auto IsMatchingGEPO = [](GEPOperator *GEPO, uint64_t NFN) -> bool {
-      if (GEPO->getNumIndices() != 2)
-        return false;
-      auto CI1 = dyn_cast<ConstantInt>(GEPO->getOperand(1));
-      if (!CI1 || !CI1->isZero())
-        return false;
-      auto CI2 = dyn_cast<ConstantInt>(GEPO->getOperand(2));
-      if (!CI2 || CI2->getZExtValue() != NFN)
-        return false;
+    if (IsGlobalDV) {
+      // The actual analysis was done during dope vector analysis.
+      // Nothing else to do here.
+      IsValid = true;
       return true;
-    };
-
-    // Load the nested subscripts reachable from 'U'.
-    //
-    auto LoadNestedDVSubUser = [this, &IsMatchingGEPO](User *U) {
-      if (auto GEPO = dyn_cast<GEPOperator>(U))
-        if (IsMatchingGEPO(GEPO, NestedFieldNumber))
-          for (User *X : GEPO->users())
-            if (auto GEPO1 = dyn_cast<GEPOperator>(X))
-              if (GEPO1->hasAllZeroIndices())
-                for (User *Y : GEPO1->users())
-                  if (auto LI = dyn_cast<LoadInst>(Y))
-                    for (User *Z : LI->users())
-                      if (auto SI1 = dyn_cast<SubscriptInst>(Z))
-                        SubscriptCalls.insert(SI1);
-    };
-
-    // For each User of 'A' which is a CallBase of a relatively simple
-    // Function, propagate 'A' to that Function's formal argument, and
-    // repeat the process. For each User of 'A' which is not propagatable,
-    // load the nested subscript calls.
-    //
-    std::function<void(Argument *)>
-        PropagateArgument = [&](Argument *A) -> void {
-      for (User *U : A->users())
-        if (Argument *NewA = isIPOPropagatable(A, U))
-          PropagateArgument(NewA);
-        else
-          LoadNestedDVSubUser(U);
-    };
-
-    // Load the subscripts of the TransposeCandidate for transposing.
-    // Note that if this is not a nested field, 'SI' is the candidate
-    // subscript itself. Otherwise, it is the subscript into the array
-    // of structures and must be further indexed and propagated through
-    // the call graph to get to the candidate subscripts.
-    //
-    auto LoadSubs = [&, this](SubscriptInst *SI) {
-      if (!IsNestedField) {
-        SubscriptCalls.insert(SI);
-        return;
-      }
-      for (User *U : SI->users())
-        if (Argument *A = isIPOPropagatable(SI, U))
-          PropagateArgument(A);
-        else
-          LoadNestedDVSubUser(U);
-    };
-
-    // Main code for analyzeGlobalDV()
-    for (User *U : GV->users())
-      if (auto GEPO = dyn_cast<GEPOperator>(U))
-        if (GEPO->hasAllZeroIndices())
-          for (User *V : GEPO->users())
-            if (auto *LI = dyn_cast<LoadInst>(V))
-              for (User *W : LI->users())
-                if (auto SI = dyn_cast<SubscriptInst>(W))
-                  LoadSubs(SI);
-    IsValid = true;
-    return true;
+    }
+    return analyzeGlobalVar(DL);
   }
 
   // Analyze a global variable array for transpose.
@@ -924,8 +846,8 @@ public:
     OS << "Element size : " << ElementSize << "\n";
     OS << "Element type : " << *ElementType << "\n";
     OS << "Dope vector  : " << IsGlobalDV << "\n";
-    if (IsNestedField)
-      OS << "Nested Field Number : " << NestedFieldNumber << "\n";
+    if (getNestedFieldNumber())
+      OS << "Nested Field Number : " << *getNestedFieldNumber() << "\n";
     OS << "Strides      :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << Strides[RankNum];
@@ -969,12 +891,8 @@ private:
   // 'true' if the candidate is represented by a global dope vector
   bool IsGlobalDV;
 
-  // 'true' if the candidate is the field of a structure in an array
-  bool IsNestedField;
-
-  // If 'IsNestedField' is 'true', the field in the structure containing
-  // the candidate
-  uint64_t NestedFieldNumber;
+  // If present, the field in the structure containing the candidate
+  Optional<uint64_t> NestedFieldNumber;
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
@@ -1302,11 +1220,9 @@ private:
           if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
                                NVArrayLength, NVElemSize))
             continue;
-          int64_t NFN = NestDVI->getFieldNum();
           TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
-                                       NVElemSize, NVElemType,
-                                       /*IsGlobalDV=*/true,
-                                       /*IsNestedField=*/true, NFN);
+                                       NVElemSize, NVElemType, NestDVI,
+                                       NestDVI->getFieldNum());
           Candidates.push_back(Candidate);
         }
         return true;
@@ -1317,7 +1233,7 @@ private:
       if (!IsGoodCandidate(DVI, DL, ArrayRank, ElemType, ArrayLength, ElemSize))
         return true;
       TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
-                                   ElemType, /*IsGlobalDV=*/true);
+                                   ElemType, DVI);
       Candidates.push_back(Candidate);
       return true;
     };
@@ -1367,7 +1283,7 @@ private:
           LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
           uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
           TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
-                                       ElemType, /*IsGlobalDV=*/false);
+                                       ElemType);
           Candidates.push_back(Candidate);
         }
       }

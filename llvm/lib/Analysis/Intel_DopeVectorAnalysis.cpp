@@ -1953,6 +1953,18 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   return true;
 }
 
+// Identify subscripts accessing the PtrAddr of the dope vector
+// and place them in 'SIS'.
+void DopeVectorInfo::identifyPtrAddrSubs(SubscriptInstSet &SIS) {
+  for (unsigned I = 0; I < PtrAddr.numFieldAddrs(); ++I)
+    for (User *U : PtrAddr.getFieldAddr(I)->users())
+      if (auto *LI = dyn_cast<LoadInst>(U))
+        for (User *W : LI->users())
+          if (auto SI = dyn_cast<SubscriptInst>(W))
+            if (SI && SI->getPointerOperand() == LI)
+              SIS.insert(SI);
+}
+
 // Analyze that all the dope vector fields are used to load and store data
 void NestedDopeVectorInfo::analyzeNestedDopeVector() {
 
