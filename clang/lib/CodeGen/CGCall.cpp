@@ -2751,6 +2751,9 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     unsigned FirstIRArg, NumIRArgs;
     std::tie(FirstIRArg, NumIRArgs) = IRFunctionArgs.getIRArgs(ArgNo);
 
+    if (Arg->hasAttr<SYCLAccessorReadonlyAttr>())
+      Fn->getArg(FirstIRArg)->addAttr(llvm::Attribute::ReadOnly);
+
     switch (ArgI.getKind()) {
     case ABIArgInfo::InAlloca: {
       assert(NumIRArgs == 0);
