@@ -3,7 +3,6 @@
 # RUN: llvm-mc --disassemble %s -triple=i686 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
 
 # isadb version: 6aa5c837365e1d1e6e53b3fc3d95ab184e9c06eb
-// FIXME: Adding dvpmuludllq and dvpmuldllq tests when XED support.
 
 # ATT:        dvpmacdhhq %xmm4, %xmm3, %xmm2
 # INTEL:      dvpmacdhhq xmm2, xmm3, xmm4
@@ -481,3 +480,58 @@
 # INTEL:      dvpnmacdllsq xmm2, xmm3, xmmword ptr [edx - 2048]
 0xc4,0xe8,0xe0,0xed,0x92,0x00,0xf8,0xff,0xff
 
+# ATT:   dvpmuldllq %xmm4, %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmm4
+0xc4,0xe8,0xe3,0xcc,0xd4
+
+# ATT:   dvpmuldllq  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe8,0xe3,0xcc,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:   dvpmuldllq  291(%edi,%eax,4), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [edi + 4*eax + 291]
+0xc4,0xe8,0xe3,0xcc,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:   dvpmuldllq  (%eax), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [eax]
+0xc4,0xe8,0xe3,0xcc,0x10
+
+# ATT:   dvpmuldllq  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe8,0xe3,0xcc,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:   dvpmuldllq  2032(%ecx), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [ecx + 2032]
+0xc4,0xe8,0xe3,0xcc,0x91,0xf0,0x07,0x00,0x00
+
+# ATT:   dvpmuldllq  -2048(%edx), %xmm3, %xmm2
+# INTEL: dvpmuldllq xmm2, xmm3, xmmword ptr [edx - 2048]
+0xc4,0xe8,0xe3,0xcc,0x92,0x00,0xf8,0xff,0xff
+
+# ATT:   dvpmuludllq %xmm4, %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmm4
+0xc4,0xe8,0xe3,0xcb,0xd4
+
+# ATT:   dvpmuludllq  268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456]
+0xc4,0xe8,0xe3,0xcb,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:   dvpmuludllq  291(%edi,%eax,4), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [edi + 4*eax + 291]
+0xc4,0xe8,0xe3,0xcb,0x94,0x87,0x23,0x01,0x00,0x00
+
+# ATT:   dvpmuludllq  (%eax), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [eax]
+0xc4,0xe8,0xe3,0xcb,0x10
+
+# ATT:   dvpmuludllq  -512(,%ebp,2), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [2*ebp - 512]
+0xc4,0xe8,0xe3,0xcb,0x14,0x6d,0x00,0xfe,0xff,0xff
+
+# ATT:   dvpmuludllq  2032(%ecx), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [ecx + 2032]
+0xc4,0xe8,0xe3,0xcb,0x91,0xf0,0x07,0x00,0x00
+
+# ATT:   dvpmuludllq  -2048(%edx), %xmm3, %xmm2
+# INTEL: dvpmuludllq xmm2, xmm3, xmmword ptr [edx - 2048]
+0xc4,0xe8,0xe3,0xcb,0x92,0x00,0xf8,0xff,0xff
