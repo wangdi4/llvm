@@ -149,6 +149,7 @@ public:
   DopeVectorFieldUse(bool AllowMultipleFieldAddresses = false)
       : IsBottom(false), IsRead(false), IsWritten(false),
         IsOnlyWrittenWithNull(false), ConstantValue(nullptr),
+        RequiresSingleNonNullValue(false),
         AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {}
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
@@ -165,6 +166,19 @@ public:
     if (!getIsSingleValue())
       return nullptr;
     return (*Stores.begin())->getValueOperand();
+  }
+  bool getIsSingleNonNullValue() const {
+    Optional<uint64_t> SIV = None;
+    for (StoreInst *SI : stores()) {
+      auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
+      if (!CI)
+        return false;
+      if (!SIV)
+        SIV = CI->getZExtValue();
+      else if (SIV && (*SIV != CI->getZExtValue()))
+        return false;
+    }
+    return SIV.hasValue();
   }
 
   void addFieldAddr(Value *V) {
@@ -216,6 +230,14 @@ public:
   // value for the current field
   void identifyConstantValue();
 
+  // Return whether the field can have have multiple values, but none must be
+  // non-null and all others must be null.
+  bool getRequiresSingleNonNullValue() { return RequiresSingleNonNullValue; }
+
+  // Indicate that the field can have have multiple values, but one must be
+  // non-null and all others must be null.
+  void setRequiresSingleNonNullValue() { RequiresSingleNonNullValue = true; }
+
   // Indicate that multiple field addresses are allowed.
   void setAllowMultipleFieldAddresses();
 
@@ -253,6 +275,10 @@ private:
 
   // Constant value collected for the current field
   ConstantInt *ConstantValue;
+
+  // Indicates that the field can have have multiple values, but one must be
+  // non-null and all others must be null.
+  bool RequiresSingleNonNullValue;
 
   // False if the DopeVectorFieldUse is limited to only one field address.
   // In the case of local dope vectors, we may have only one instruction
@@ -610,6 +636,8 @@ public:
     AR_NoAllocSite,                // Alloc site wasn't collected
     AR_AllocStoreIllegality,       // Couldn't prove that the store will always
                                    //   happen with the allocation
+    AR_NoSingleNonNullValue,       // Required to have a single non-null value,
+                                   //   but did not
     AR_CouldNotMerge,              // Could not merge dope vectors with
                                    //   multiple allocation sites
     AR_Pass                        // Analysis pass
@@ -634,6 +662,10 @@ public:
 
   // Check if one of more allocation sites were found.
   void validateAllocSite();
+
+  // Check if the dope vector field of the given type has a single non-null
+  // value.
+  void validateSingleNonNullValue(DopeVectorFieldType DVFT);
 
   // Given a dope vector field type, return the dope vector field. If the field
   // type is DV_ExtentBase, DV_StrideBase or DV_LowerBoundBase then the array
