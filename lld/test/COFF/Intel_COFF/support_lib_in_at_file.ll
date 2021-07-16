@@ -5,7 +5,7 @@
 ; RUN: llc %s -o %t.obj -filetype=obj
 ; RUN: echo "/lib /OUT:%t.lib %t.obj" > %t.lnk
 ; RUN: lld-link @%t.lnk
-; RUN: llvm-readobj -symbols %t.lib | FileCheck %s
+; RUN: llvm-readobj --symbols %t.lib | FileCheck %s
 
 ; CHECK: Format: COFF-x86
 ; CHECK: Arch: x86
