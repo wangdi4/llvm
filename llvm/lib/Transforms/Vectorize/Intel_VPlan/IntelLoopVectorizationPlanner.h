@@ -395,7 +395,7 @@ public:
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
 
   /// Perform VPlan loop unrolling if needed
-  void unroll(VPlanVector &Plan);
+  virtual bool unroll(VPlanVector &Plan);
 
   template <typename CostModelTy>
   void printCostModelAnalysisIfRequested(const std::string &Header);

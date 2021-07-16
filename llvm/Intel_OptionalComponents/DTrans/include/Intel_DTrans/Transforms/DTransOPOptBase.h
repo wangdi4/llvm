@@ -219,6 +219,12 @@ protected:
   // transformation.
   //===-------------------------------------------------------------------===//
 
+  // Derived classes may implement this to perform module level work that needs
+  // to be performed on global variables prior to beginning any function
+  // transformation work. For example, creating new global variables needed
+  // for the optimization.
+  virtual void prepareModule(Module &M) {};
+
   // Derived classes may implement this method to create the replacement
   // variable for an existing global variable. If a replacement is made, then
   // the new variable must be returned, and the derived class will be

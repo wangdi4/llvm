@@ -200,6 +200,20 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
+bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
+
+  bool Result = LoopVectorizationPlanner::unroll(Plan);
+
+  if (Result) {
+    TheLoop->removeLoopMetadata("llvm.loop.unroll.count");
+    TheLoop->addLoopMetadata(MDNode::get(
+        *Plan.getLLVMContext(),
+        MDString::get(*Plan.getLLVMContext(), "llvm.loop.unroll.disable")));
+  }
+
+  return Result;
+}
+
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();

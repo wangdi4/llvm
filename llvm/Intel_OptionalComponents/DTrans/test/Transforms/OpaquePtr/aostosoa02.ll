@@ -13,6 +13,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; CHECK-NONOPAQUE: %__SOA_struct.test01 = type { i32*, i64*, i32* }
 ; CHECK-OPAQUE: %__SOA_struct.test01 = type { ptr, ptr, ptr }
 
+; CHECK-DAG: @__soa_struct.test01 = internal global %__SOA_struct.test01 zeroinitializer
+; CHECK-DAG: @__intel_dtrans_aostosoa_alloc = private constant [38 x i8] c"{dtrans} AOS-to-SOA allocation {id:0}\00"
+; CHECK-DAG: @__intel_dtrans_aostosoa_index = private constant [33 x i8] c"{dtrans} AOS-to-SOA index {id:0}\00"
+; CHECK-DAG: @__intel_dtrans_aostosoa_filename = private constant [1 x i8] zeroinitializer
+
 define i32 @main() {
   ret i32 0
 }

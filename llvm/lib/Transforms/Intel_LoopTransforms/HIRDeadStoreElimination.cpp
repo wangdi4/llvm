@@ -659,6 +659,7 @@ canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
 
   for (auto *LoadRef : SubstitutibleLoads) {
     auto *LoadNode = LoadRef->getHLDDNode();
+
     if ((ParLoop != LoadNode->getLexicalParentLoop()) ||
         !HLNodeUtils::dominates(SInst, LoadNode)) {
       return false;
@@ -766,6 +767,14 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
       for (unsigned I = Index + 1; I != RefGroup.size();) {
         auto *PrevRef = RefGroup[I];
+        const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
+
+        // Detached nodes can be encountered because removeRedundantNodes() is
+        // run between the processing of ref groups
+        if (!PrevDDNode->isAttached()) {
+          RefGroup.erase(RefGroup.begin() + I);
+          continue;
+        }
 
         // Skip if we encounter a fake ref in between two stores.
         // Also skip if the PostDomRef's size is smaller than PrevRef as it does
@@ -793,7 +802,6 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         // Check whether the DDRef with a high top sort number (PostDomRef) post
         // dominates the DDRef with a lower top sort number (PrevRef).
         // If Yes, remove the store instruction on PrevRef.
-        const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
         if (!HLNodeUtils::postDominates(PostDomDDNode, PrevDDNode)) {
           ++I;
           continue;
