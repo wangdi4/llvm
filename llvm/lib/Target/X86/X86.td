@@ -849,6 +849,9 @@ def FeatureUseAA : SubtargetFeature<"use-aa", "UseAA", "true",
 // If the target has decoded stream buffer.
 def FeatureHasDSB : SubtargetFeature<"dsb", "HasDSB", "true",
                                     "Target has decoded stream buffer">;
+def FeatureCMULFalseDeps : SubtargetFeature<"false-deps-cmul",
+                                 "HasCMULFalseDeps", "true",
+                                 "CMUL have a false dependency on dest register">;
 #endif // INTEL_CUSTOMIZATION
 // Bonnell
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
@@ -1186,7 +1189,10 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureUINTR];
-  list<SubtargetFeature> SPRTuning = ICXTuning;
+#if INTEL_CUSTOMIZATION
+  list<SubtargetFeature> SPRAdditionalTuning = [FeatureCMULFalseDeps];
+  list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
+#endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> SPRFeatures =
     !listconcat(ICXFeatures, SPRAdditionalFeatures);
 

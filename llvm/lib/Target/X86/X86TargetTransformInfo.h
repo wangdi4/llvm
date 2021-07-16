@@ -65,6 +65,7 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::FeatureMacroFusion,
 #if INTEL_CUSTOMIZATION
       X86::FeatureHasDSB,
+      X86::FeatureCMULFalseDeps,
 #endif // INTEL_CUSTOMIZATION
       X86::FeaturePadShortFunctions,
       X86::FeaturePOPCNTFalseDeps,
