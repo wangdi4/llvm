@@ -70,17 +70,17 @@ const std::string DistributeLoopnestEnable =
 
 const unsigned OptReportMsg[Last] = {
     //"Distribute point pragma not processed",
-    25568u,
+    25481u,
     //"No Distribution as requested by pragma",
-    25569u,
+    25482u,
     //"Distribute point pragma processed",
-    25570u,
+    25483u,
     //"Distribute point pragma not processed: Unsupported constructs in loops",
-    25571u,
+    25484u,
     //"Distribute point pragma not processed: Loop is too complex",
-    25572u,
+    25485u,
     //"Distribute point pragma not processed: Too many Distribute points"
-    25573u};
+    25486u};
 
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
@@ -911,7 +911,7 @@ void HIRLoopDistribution::distributeLoop(
                                        OptReportMsg[Success]);
       }
       // Loop distributed (%d way)
-      ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25574u,
+      ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25426u,
                                      LoopCount);
     }
 
@@ -933,7 +933,7 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
 
-    ORBuilder(*LoopNode).addOrigin("Distributed chunk %d",
+    ORBuilder(*LoopNode).addOrigin("Distributed chunk%d",
                                    (int)CurLoopIndex + 1);
   }
 
