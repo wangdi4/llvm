@@ -412,19 +412,19 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ;
 ; INTEL_CUSTOMIZATION
 ; AVX512VL-LABEL: @gather_load_3(
-; AVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 11
-; AVX512VL-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32*> poison, i32* [[TMP1]], i32 0
-; AVX512VL-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32*> [[TMP4]], <2 x i32*> poison, <2 x i32> zeroinitializer
-; AVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr i32, <2 x i32*> [[TMP5]], <2 x i64> <i64 4, i64 15>
-; AVX512VL-NEXT:    [[TMP7:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i32 0
-; AVX512VL-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32*> [[TMP7]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; AVX512VL-NEXT:    [[TMP9:%.*]] = getelementptr i32, <4 x i32*> [[TMP8]], <4 x i64> <i64 18, i64 9, i64 6, i64 21>
+; AVX512VL-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1:%.*]], i32 0
+; AVX512VL-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; AVX512VL-NEXT:    [[TMP5:%.*]] = getelementptr i32, <4 x i32*> [[TMP4]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
+; AVX512VL-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32*> poison, i32* [[TMP1]], i32 0
+; AVX512VL-NEXT:    [[TMP7:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; AVX512VL-NEXT:    [[TMP8:%.*]] = getelementptr i32, <2 x i32*> [[TMP7]], <2 x i64> <i64 9, i64 6>
+; AVX512VL-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
 ; AVX512VL-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1]], i32 0
-; AVX512VL-NEXT:    [[TMP11:%.*]] = insertelement <8 x i32*> [[TMP10]], i32* [[TMP3]], i32 1
-; AVX512VL-NEXT:    [[TMP12:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP13:%.*]] = shufflevector <8 x i32*> [[TMP11]], <8 x i32*> [[TMP12]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32*> [[TMP9]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP15:%.*]] = shufflevector <8 x i32*> [[TMP13]], <8 x i32*> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX512VL-NEXT:    [[TMP11:%.*]] = shufflevector <4 x i32*> [[TMP5]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP12:%.*]] = shufflevector <8 x i32*> [[TMP10]], <8 x i32*> [[TMP11]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP13:%.*]] = shufflevector <2 x i32*> [[TMP8]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP14:%.*]] = shufflevector <8 x i32*> [[TMP12]], <8 x i32*> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; AVX512VL-NEXT:    [[TMP15:%.*]] = insertelement <8 x i32*> [[TMP14]], i32* [[TMP9]], i32 7
 ; AVX512VL-NEXT:    [[TMP16:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP15]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    [[TMP17:%.*]] = add <8 x i32> [[TMP16]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; AVX512VL-NEXT:    [[TMP18:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
@@ -565,19 +565,19 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512-LABEL: @gather_load_3(
-; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, i32* [[TMP1:%.*]], i64 11
-; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32*> poison, i32* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32*> [[TMP4]], <2 x i32*> poison, <2 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr i32, <2 x i32*> [[TMP5]], <2 x i64> <i64 4, i64 15>
-; XMAINAVX512-NEXT:    [[TMP7:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32*> [[TMP7]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr i32, <4 x i32*> [[TMP8]], <4 x i64> <i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1:%.*]], i32 0
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = getelementptr i32, <4 x i32*> [[TMP4]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32*> poison, i32* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr i32, <2 x i32*> [[TMP7]], <2 x i64> <i64 9, i64 6>
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
 ; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x i32*> [[TMP10]], i32* [[TMP3]], i32 1
-; XMAINAVX512-NEXT:    [[TMP12:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP13:%.*]] = shufflevector <8 x i32*> [[TMP11]], <8 x i32*> [[TMP12]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP14:%.*]] = shufflevector <4 x i32*> [[TMP9]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP15:%.*]] = shufflevector <8 x i32*> [[TMP13]], <8 x i32*> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = shufflevector <4 x i32*> [[TMP5]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = shufflevector <8 x i32*> [[TMP10]], <8 x i32*> [[TMP11]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP13:%.*]] = shufflevector <2 x i32*> [[TMP8]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP14:%.*]] = shufflevector <8 x i32*> [[TMP12]], <8 x i32*> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP15:%.*]] = insertelement <8 x i32*> [[TMP14]], i32* [[TMP9]], i32 7
 ; XMAINAVX512-NEXT:    [[TMP16:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP15]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), !tbaa [[TBAA0]]
 ; XMAINAVX512-NEXT:    [[TMP17:%.*]] = add <8 x i32> [[TMP16]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; XMAINAVX512-NEXT:    [[TMP18:%.*]] = bitcast i32* [[TMP0:%.*]] to <8 x i32>*
@@ -763,19 +763,19 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ;
 ; INTEL_CUSTOMIZATION
 ; AVX512VL-LABEL: @gather_load_4(
-; AVX512VL-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
-; AVX512VL-NEXT:    [[TMP1:%.*]] = insertelement <2 x i32*> poison, i32* [[T1]], i32 0
-; AVX512VL-NEXT:    [[TMP2:%.*]] = shufflevector <2 x i32*> [[TMP1]], <2 x i32*> poison, <2 x i32> zeroinitializer
-; AVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr i32, <2 x i32*> [[TMP2]], <2 x i64> <i64 4, i64 15>
-; AVX512VL-NEXT:    [[TMP4:%.*]] = insertelement <4 x i32*> poison, i32* [[T1]], i32 0
-; AVX512VL-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32*> [[TMP4]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; AVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr i32, <4 x i32*> [[TMP5]], <4 x i64> <i64 18, i64 9, i64 6, i64 21>
+; AVX512VL-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32*> poison, i32* [[T1:%.*]], i32 0
+; AVX512VL-NEXT:    [[TMP2:%.*]] = shufflevector <4 x i32*> [[TMP1]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; AVX512VL-NEXT:    [[TMP3:%.*]] = getelementptr i32, <4 x i32*> [[TMP2]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
+; AVX512VL-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32*> poison, i32* [[T1]], i32 0
+; AVX512VL-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32*> [[TMP4]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; AVX512VL-NEXT:    [[TMP6:%.*]] = getelementptr i32, <2 x i32*> [[TMP5]], <2 x i64> <i64 9, i64 6>
+; AVX512VL-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
 ; AVX512VL-NEXT:    [[TMP7:%.*]] = insertelement <8 x i32*> poison, i32* [[T1]], i32 0
-; AVX512VL-NEXT:    [[TMP8:%.*]] = insertelement <8 x i32*> [[TMP7]], i32* [[T6]], i32 1
-; AVX512VL-NEXT:    [[TMP9:%.*]] = shufflevector <2 x i32*> [[TMP3]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP10:%.*]] = shufflevector <8 x i32*> [[TMP8]], <8 x i32*> [[TMP9]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP11:%.*]] = shufflevector <4 x i32*> [[TMP6]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; AVX512VL-NEXT:    [[TMP12:%.*]] = shufflevector <8 x i32*> [[TMP10]], <8 x i32*> [[TMP11]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; AVX512VL-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP9:%.*]] = shufflevector <8 x i32*> [[TMP7]], <8 x i32*> [[TMP8]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; AVX512VL-NEXT:    [[TMP11:%.*]] = shufflevector <8 x i32*> [[TMP9]], <8 x i32*> [[TMP10]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; AVX512VL-NEXT:    [[TMP12:%.*]] = insertelement <8 x i32*> [[TMP11]], i32* [[T30]], i32 7
 ; AVX512VL-NEXT:    [[TMP13:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP12]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), !tbaa [[TBAA0]]
 ; AVX512VL-NEXT:    [[TMP14:%.*]] = add <8 x i32> [[TMP13]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; AVX512VL-NEXT:    [[TMP15:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
@@ -916,19 +916,19 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512-LABEL: @gather_load_4(
-; XMAINAVX512-NEXT:    [[T6:%.*]] = getelementptr inbounds i32, i32* [[T1:%.*]], i64 11
-; XMAINAVX512-NEXT:    [[TMP1:%.*]] = insertelement <2 x i32*> poison, i32* [[T1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP2:%.*]] = shufflevector <2 x i32*> [[TMP1]], <2 x i32*> poison, <2 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr i32, <2 x i32*> [[TMP2]], <2 x i64> <i64 4, i64 15>
-; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <4 x i32*> poison, i32* [[T1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i32*> [[TMP4]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr i32, <4 x i32*> [[TMP5]], <4 x i64> <i64 18, i64 9, i64 6, i64 21>
+; XMAINAVX512-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32*> poison, i32* [[T1:%.*]], i32 0
+; XMAINAVX512-NEXT:    [[TMP2:%.*]] = shufflevector <4 x i32*> [[TMP1]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr i32, <4 x i32*> [[TMP2]], <4 x i64> <i64 11, i64 4, i64 15, i64 18>
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <2 x i32*> poison, i32* [[T1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32*> [[TMP4]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr i32, <2 x i32*> [[TMP5]], <2 x i64> <i64 9, i64 6>
+; XMAINAVX512-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
 ; XMAINAVX512-NEXT:    [[TMP7:%.*]] = insertelement <8 x i32*> poison, i32* [[T1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP8:%.*]] = insertelement <8 x i32*> [[TMP7]], i32* [[T6]], i32 1
-; XMAINAVX512-NEXT:    [[TMP9:%.*]] = shufflevector <2 x i32*> [[TMP3]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP10:%.*]] = shufflevector <8 x i32*> [[TMP8]], <8 x i32*> [[TMP9]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP11:%.*]] = shufflevector <4 x i32*> [[TMP6]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP12:%.*]] = shufflevector <8 x i32*> [[TMP10]], <8 x i32*> [[TMP11]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = shufflevector <8 x i32*> [[TMP7]], <8 x i32*> [[TMP8]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = shufflevector <2 x i32*> [[TMP6]], <2 x i32*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = shufflevector <8 x i32*> [[TMP9]], <8 x i32*> [[TMP10]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x i32*> [[TMP11]], i32* [[T30]], i32 7
 ; XMAINAVX512-NEXT:    [[TMP13:%.*]] = call <8 x i32> @llvm.masked.gather.v8i32.v8p0i32(<8 x i32*> [[TMP12]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x i32> undef), !tbaa [[TBAA0]]
 ; XMAINAVX512-NEXT:    [[TMP14:%.*]] = add <8 x i32> [[TMP13]], <i32 1, i32 2, i32 3, i32 4, i32 1, i32 2, i32 3, i32 4>
 ; XMAINAVX512-NEXT:    [[TMP15:%.*]] = bitcast i32* [[T0:%.*]] to <8 x i32>*
@@ -1382,19 +1382,19 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX2-NEXT:    ret void
 ;
 ; XMAINAVX512F-LABEL: @gather_load_div(
-; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
-; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = insertelement <2 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = shufflevector <2 x float*> [[TMP4]], <2 x float*> poison, <2 x i32> zeroinitializer
-; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = getelementptr float, <2 x float*> [[TMP5]], <2 x i64> <i64 3, i64 14>
-; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = insertelement <4 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = shufflevector <4 x float*> [[TMP7]], <4 x float*> poison, <4 x i32> zeroinitializer
-; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr float, <4 x float*> [[TMP8]], <4 x i64> <i64 17, i64 8, i64 5, i64 20>
+; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <4 x float*> poison, float* [[TMP1:%.*]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = shufflevector <4 x float*> [[TMP3]], <4 x float*> poison, <4 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = getelementptr float, <4 x float*> [[TMP4]], <4 x i64> <i64 10, i64 3, i64 14, i64 17>
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = insertelement <2 x float*> poison, float* [[TMP1]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = shufflevector <2 x float*> [[TMP6]], <2 x float*> poison, <2 x i32> zeroinitializer
+; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = getelementptr float, <2 x float*> [[TMP7]], <2 x i64> <i64 8, i64 5>
+; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
 ; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
-; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = shufflevector <2 x float*> [[TMP6]], <2 x float*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = shufflevector <8 x float*> [[TMP11]], <8 x float*> [[TMP12]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = shufflevector <4 x float*> [[TMP9]], <4 x float*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = shufflevector <8 x float*> [[TMP13]], <8 x float*> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = shufflevector <4 x float*> [[TMP5]], <4 x float*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> [[TMP11]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = shufflevector <2 x float*> [[TMP8]], <2 x float*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = shufflevector <8 x float*> [[TMP12]], <8 x float*> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; XMAINAVX512F-NEXT:    [[TMP15:%.*]] = insertelement <8 x float*> [[TMP14]], float* [[TMP9]], i32 7
 ; XMAINAVX512F-NEXT:    [[TMP16:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP15]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !tbaa [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[TMP17:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> poison, <8 x i32> zeroinitializer
 ; XMAINAVX512F-NEXT:    [[TMP18:%.*]] = getelementptr float, <8 x float*> [[TMP17]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
@@ -1405,19 +1405,19 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX512F-NEXT:    ret void
 ;
 ; XMAINAVX512-LABEL: @gather_load_div(
-; XMAINAVX512-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
-; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <2 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP5:%.*]] = shufflevector <2 x float*> [[TMP4]], <2 x float*> poison, <2 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP6:%.*]] = getelementptr float, <2 x float*> [[TMP5]], <2 x i64> <i64 3, i64 14>
-; XMAINAVX512-NEXT:    [[TMP7:%.*]] = insertelement <4 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP8:%.*]] = shufflevector <4 x float*> [[TMP7]], <4 x float*> poison, <4 x i32> zeroinitializer
-; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr float, <4 x float*> [[TMP8]], <4 x i64> <i64 17, i64 8, i64 5, i64 20>
+; XMAINAVX512-NEXT:    [[TMP3:%.*]] = insertelement <4 x float*> poison, float* [[TMP1:%.*]], i32 0
+; XMAINAVX512-NEXT:    [[TMP4:%.*]] = shufflevector <4 x float*> [[TMP3]], <4 x float*> poison, <4 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP5:%.*]] = getelementptr float, <4 x float*> [[TMP4]], <4 x i64> <i64 10, i64 3, i64 14, i64 17>
+; XMAINAVX512-NEXT:    [[TMP6:%.*]] = insertelement <2 x float*> poison, float* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP7:%.*]] = shufflevector <2 x float*> [[TMP6]], <2 x float*> poison, <2 x i32> zeroinitializer
+; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr float, <2 x float*> [[TMP7]], <2 x i64> <i64 8, i64 5>
+; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
 ; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
-; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
-; XMAINAVX512-NEXT:    [[TMP12:%.*]] = shufflevector <2 x float*> [[TMP6]], <2 x float*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP13:%.*]] = shufflevector <8 x float*> [[TMP11]], <8 x float*> [[TMP12]], <8 x i32> <i32 0, i32 1, i32 8, i32 9, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP14:%.*]] = shufflevector <4 x float*> [[TMP9]], <4 x float*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; XMAINAVX512-NEXT:    [[TMP15:%.*]] = shufflevector <8 x float*> [[TMP13]], <8 x float*> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = shufflevector <4 x float*> [[TMP5]], <4 x float*> poison, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP12:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> [[TMP11]], <8 x i32> <i32 0, i32 8, i32 9, i32 10, i32 11, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP13:%.*]] = shufflevector <2 x float*> [[TMP8]], <2 x float*> poison, <8 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP14:%.*]] = shufflevector <8 x float*> [[TMP12]], <8 x float*> [[TMP13]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 8, i32 9, i32 undef>
+; XMAINAVX512-NEXT:    [[TMP15:%.*]] = insertelement <8 x float*> [[TMP14]], float* [[TMP9]], i32 7
 ; XMAINAVX512-NEXT:    [[TMP16:%.*]] = call <8 x float> @llvm.masked.gather.v8f32.v8p0f32(<8 x float*> [[TMP15]], i32 4, <8 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <8 x float> undef), !tbaa [[TBAA0]]
 ; XMAINAVX512-NEXT:    [[TMP17:%.*]] = shufflevector <8 x float*> [[TMP10]], <8 x float*> poison, <8 x i32> zeroinitializer
 ; XMAINAVX512-NEXT:    [[TMP18:%.*]] = getelementptr float, <8 x float*> [[TMP17]], <8 x i64> <i64 4, i64 13, i64 11, i64 44, i64 33, i64 30, i64 27, i64 23>
