@@ -83,10 +83,6 @@ private:
   /// only created by framework.
   CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
 
-  /// Returns a standalone blob canon expr. Level is the defined at level for
-  /// the blob.
-  CanonExpr *createStandAloneBlobCanonExpr(unsigned Index, unsigned Level);
-
   /// Returns true if constant canon expr type can be updated to match the
   /// source type. For any other types or non-mergeable cases, it returns false.
   static bool canMergeConstants(const CanonExpr *CE1, const CanonExpr *CE2,
@@ -153,6 +149,10 @@ public:
                                      unsigned Level = NonLinearLevel) {
     return createStandAloneBlobCanonExpr(Index, Level);
   }
+
+  /// Returns a standalone blob canon expr. Level is the defined at level for
+  /// the blob.
+  CanonExpr *createStandAloneBlobCanonExpr(unsigned Index, unsigned Level);
 
   /// Returns a standalone blob canon expr representing a constant like
   /// ConstantVector, Metadata or Undef.

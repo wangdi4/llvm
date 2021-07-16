@@ -1220,11 +1220,86 @@ DDTest::classifyPair(const CanonExpr *Src, const HLLoop *SrcLoopNest,
   return Subscript::MIV;
 }
 
+// Given a CE of the form-
+// 4 * sext(%t) or sext(4 * %t)
+//
+// It will return a new CE of this form if StripSExt is true-
+// 4 * %t
+const CanonExpr *DDTest::stripExt(const CanonExpr *CE, bool StripSExt,
+                                  bool StripZExt) {
+  assert((StripSExt || StripZExt) && "Invalid arguments!");
+
+  if (!CE->isSingleBlob(false)) {
+    return CE;
+  }
+
+  auto &BU = CE->getBlobUtils();
+  auto *Blob = BU.getBlob(CE->getSingleBlobIndex());
+
+  if (StripSExt && isa<SCEVSignExtendExpr>(Blob)) {
+    Blob = cast<SCEVSignExtendExpr>(Blob)->getOperand();
+  } else if (StripZExt && isa<SCEVZeroExtendExpr>(Blob)) {
+    Blob = cast<SCEVZeroExtendExpr>(Blob)->getOperand();
+  } else {
+    return CE;
+  }
+
+  int64_t BlobCoeff = CE->getSingleBlobCoeff();
+
+  if (auto *MulBlob = dyn_cast<SCEVMulExpr>(Blob)) {
+    if (MulBlob->getNumOperands() == 2) {
+      if (auto *ConstBlob = dyn_cast<SCEVConstant>(MulBlob->getOperand(0))) {
+        BlobCoeff *= ConstBlob->getAPInt().getSExtValue();
+        Blob = MulBlob->getOperand(1);
+      }
+    }
+  }
+
+  unsigned BlobIdx = BU.findOrInsertBlob(Blob);
+  auto *NewCE = CE->getCanonExprUtils().createStandAloneBlobCanonExpr(
+      BlobIdx, CE->getDefinedAtLevel());
+
+  if (BlobCoeff != 1) {
+    NewCE->setBlobCoeff(BlobIdx, BlobCoeff);
+  }
+
+  push(NewCE);
+
+  return NewCE;
+}
+
 // A wrapper around for dealing special cases of predicates
 // Looks for cases where we're interested in comparing for equality.
 
 bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
                               const CanonExpr *Y) {
+
+  auto *XSrcTy = X->getSrcType();
+  auto *YSrcTy = Y->getSrcType();
+  // If the src types of X and Y are different getMinus() call below will bail
+  // out so we first try stripping out extensions in an attempt to make the
+  // types equal. sext/zext are common occurences in 64 bit mode.
+  if (XSrcTy != YSrcTy) {
+
+    bool StripSExt = CmpInst::isSigned(Pred);
+
+    // Cannot strip extension without knowing type.
+    if (!StripSExt && !CmpInst::isUnsigned(Pred)) {
+      return false;
+    }
+
+    bool StripZExt = !StripSExt;
+
+    X = stripExt(X, StripSExt, StripZExt);
+
+    // We are testing X <s Y. Since zext(Y) >=s Y, it should be safe to replace
+    // zext(Y) with Y.
+    if (Pred == CmpInst::ICMP_SLE || Pred == CmpInst::ICMP_SLT) {
+      StripZExt = true;
+    }
+
+    Y = stripExt(Y, StripSExt, StripZExt);
+  }
 
   const CanonExpr *Delta = getMinus(X, Y);
   if (!Delta) {
