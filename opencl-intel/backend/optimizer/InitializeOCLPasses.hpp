@@ -34,7 +34,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeCleanupWrappedKernelsPass(Registry);
-    intel::initializeKernelAnalysisPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
     intel::initializeDuplicateCalledKernelsPass(Registry);

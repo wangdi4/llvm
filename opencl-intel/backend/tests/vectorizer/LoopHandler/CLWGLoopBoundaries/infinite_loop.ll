@@ -1,5 +1,5 @@
 ; cl-loop-bound pass hung on following code.
-; RUN: %oclopt -analyze -kernel-analysis -cl-loop-bound -verify %s -S -o - | FileCheck %s
+; RUN: %oclopt -analyze -dpcpp-kernel-analysis -cl-loop-bound -verify %s -S -o - | FileCheck %s
 
 ;; The IR is dumped at the beginning of CLWGLoopBoundaries::runOnModule()
 ;; when calling clBuildProgram from the following source.

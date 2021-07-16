@@ -66,7 +66,6 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/CLWGBoundDecoder.h
   LoopHandler/CLWGLoopBoundaries.h
   LoopHandler/CLWGLoopCreator.h
-  LoopHandler/KernelAnalysis.h
   LoopHandler/LoopPeeling.h
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
@@ -111,7 +110,6 @@ set(TARGET_SOURCE_FILES
   LoopHandler/CLWGBoundDecoder.cpp
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/CLWGLoopCreator.cpp
-  LoopHandler/KernelAnalysis.cpp
   LoopHandler/LoopPeeling.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
