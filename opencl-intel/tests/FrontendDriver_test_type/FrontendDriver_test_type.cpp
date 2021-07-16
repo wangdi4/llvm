@@ -454,6 +454,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::internal::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
       spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 
@@ -605,6 +606,7 @@ TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
       spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
       spv::internal::CapabilityFPGADSPControlINTEL, SPIRVOpCapability,
       spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL,
+      SPIRVOpCapability, spv::internal::CapabilityFPArithmeticFenceINTEL,
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 
