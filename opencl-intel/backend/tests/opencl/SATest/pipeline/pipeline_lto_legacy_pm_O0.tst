@@ -9,6 +9,7 @@
 
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
+; CHECK-NEXT:     DuplicateCalledKernels
 ; CHECK-NOT:      InternalizeNonKernelFuncLegacy
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
@@ -20,6 +21,7 @@
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization
 ; CHECK-NEXT:         Intel Kernel RedundantPhiNode
+; CHECK-NEXT:     GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
