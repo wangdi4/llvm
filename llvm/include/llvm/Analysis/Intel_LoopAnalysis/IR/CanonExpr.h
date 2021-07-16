@@ -432,16 +432,20 @@ public:
   /// It returns 0 if no IV is found with coeff different from 0.
   unsigned getFirstIVLevel() const;
 
+  /// Returns true if this canon expr looks something like (4 * %t).
+  /// If \p AllowConversion is true, src type to dst type conversion is allowed.
+  bool isSingleBlob(bool AllowConversion = true) const {
+    return ((AllowConversion || (getSrcType() == getDestType())) &&
+            !getConstant() && (getDenominator() == 1) && (numBlobs() == 1) &&
+            !hasIV());
+  }
+
   /// Returns true if this canon expr looks something like (1 * %t).
   /// This is a broader check than isSelfBlob() because it allows the blob to
   /// be a FP constant or even metadata.
-  /// If \p AllowConversion is true, conversions are allowed to be part of a
-  /// standalone blob. Otherwise, a blob with a conversion is not considered a
-  /// standalone blob.
+  /// If \p AllowConversion is true, src type to dst type conversion is allowed.
   bool isStandAloneBlob(bool AllowConversion = true) const {
-    return ((AllowConversion || (getSrcType() == getDestType())) &&
-            !getConstant() && (getDenominator() == 1) && (numBlobs() == 1) &&
-            (getSingleBlobCoeff() == 1) && !hasIV());
+    return isSingleBlob(AllowConversion) && (getSingleBlobCoeff() == 1);
   }
 
   /// Returns true if \p BlobIndex is a standalone blob (ex- 1 * %t) in the
