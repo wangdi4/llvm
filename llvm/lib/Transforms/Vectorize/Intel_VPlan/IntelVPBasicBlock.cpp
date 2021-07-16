@@ -249,6 +249,11 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
   setName(Name);
 }
 
+VPBasicBlock::VPBasicBlock(const Twine &Name, LLVMContext *C)
+    : VPValue(VPBasicBlockSC, Type::getLabelTy(*C)), Parent(nullptr) {
+  setName(Name);
+}
+
 VPBasicBlock::~VPBasicBlock() { dropAllReferences(); }
 
 template <class... Args> void VPBasicBlock::setTerminatorImpl(Args &&... args) {

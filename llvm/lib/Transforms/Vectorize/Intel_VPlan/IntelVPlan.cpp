@@ -373,6 +373,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-c-mem";
   case VPInstruction::PrivateFinalArray:
     return "private-final-array";
+  case VPInstruction::GeneralMemOptConflict:
+    return "vp-general-mem-opt-conflict";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -683,6 +685,19 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       auto *Insert = cast<VPVLSInsert>(this);
       O << ", group_size=" << Insert->getGroupSize()
         << ", offset=" << Insert->getOffset();
+      break;
+    }
+    case VPInstruction::GeneralMemOptConflict: {
+      auto *Conflict = cast<VPGeneralMemOptConflict>(this);
+      O << " -> VConflictRegion (";
+      auto *ConflictRegion = Conflict->getRegion();
+      for (VPValue *LIn : ConflictRegion->getLiveIns())
+        O << *LIn << " ";
+      O << ") {\n";
+      O << "    value : none \n";
+      O << "    mask : none \n";
+      ConflictRegion->dump(O);
+      O << "   }";
       break;
     }
     }
@@ -1369,6 +1384,17 @@ void VPValue::replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
   auto ShouldReplace = [&Loop](VPUser *U) {
     if (VPInstruction *I = dyn_cast<VPInstruction>(U))
       return Loop.contains(I);
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
+}
+
+void VPValue::replaceAllUsesWithInRegion(VPValue *NewVal,
+                                         ArrayRef<VPBasicBlock *> Region,
+                                         bool InvalidateIR) {
+  auto ShouldReplace = [&Region](VPUser *U) {
+    if (auto *I = dyn_cast<VPInstruction>(U))
+      return is_contained(Region, I->getParent());
     return false;
   };
   replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);

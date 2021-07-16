@@ -79,7 +79,7 @@ protected:
   // of the new loop, so the old one can become dead.
   // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  virtual void buildPlainCFG(VPLoopEntityConverterList &Cvts);
+  virtual bool buildPlainCFG(VPLoopEntityConverterList &Cvts);
 
   /// Translate loop metadata from underlying IR to VPLoop data structure.
   virtual void populateVPLoopMetadata(VPLoopInfo *VPLInfo);
@@ -95,7 +95,7 @@ public:
   virtual ~VPlanHCFGBuilder();
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
-  void buildHierarchicalCFG();
+  bool buildHierarchicalCFG();
 };
 
 } // namespace vpo

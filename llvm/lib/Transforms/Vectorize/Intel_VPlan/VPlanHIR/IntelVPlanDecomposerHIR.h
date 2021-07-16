@@ -65,6 +65,16 @@ public:
   typedef DenseMap<const loopopt::HLLoop *, std::unique_ptr<VPInductionHIRList>>
       VPLoopInductionsHIRMap;
 
+  // Get the load of VConflict idiom.
+  VPInstruction *getVPLoadConflict(DDRef *LoadRef) {
+    return RefToVPLoadConflict[LoadRef];
+  }
+
+  // Get the conflict index of VConflict idiom.
+  VPValue *getVPConflictIndex(DDRef *LoadRef) {
+    return RefToConflictingIndex[LoadRef];
+  }
+
 private:
   /// The VPlan we are working on.
   VPlanVector *Plan;
@@ -89,6 +99,13 @@ private:
 
   // HIR legality object
   HIRVectorizationLegality &HIRLegality;
+
+  // Maps Load RegDDRef to the generated load instruction that corresponds
+  // to VConflict idiom.
+  SmallDenseMap<DDRef *, VPInstruction *> RefToVPLoadConflict;
+
+  // Maps Load RegDDRef to the conflicting index of VConflict idiom.
+  SmallDenseMap<DDRef *, VPValue *> RefToConflictingIndex;
 
   // A map to track empty VPPhi nodes that are added during decomposition. We
   // know that there can be only one unique PHI node per VPBasicBlock for a

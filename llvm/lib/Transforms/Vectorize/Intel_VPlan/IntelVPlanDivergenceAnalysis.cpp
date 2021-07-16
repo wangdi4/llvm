@@ -619,7 +619,7 @@ void VPlanDivergenceAnalysis::computeImpl() {
 
 bool VPlanDivergenceAnalysis::isAlwaysUniform(const VPValue &V) const {
   if (isa<VPMetadataAsValue>(V) || isa<VPConstant>(V) ||
-      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V) ||
+      isa<VPExternalDef>(V) || isa<VPLiveInValue>(V) || isa<VPRegion>(V) ||
       V.getType()->isLabelTy())
     return true;
 
@@ -1580,6 +1580,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::VLSExtract)
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::VLSInsert)
+    NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::GeneralMemOptConflict)
     NewShape = getUniformVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);

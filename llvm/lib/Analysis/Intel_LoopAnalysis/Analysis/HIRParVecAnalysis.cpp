@@ -912,9 +912,17 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 // In this routine, we detect possible dependencies that can be resolved using
 // vconflict. I.e. we check each store if it has memory dependency only on the
 // load from the same address.
-// There are three possible ways to generate code for vconflict idiom depending
-// on OP and some_value classification from above. We don't consider/recognize
-// those different kinds of idiom here, the classification is done in VPlan.
+// There are four possible ways to generate code for vconflict idiom: i. general
+// conflict, ii. general conflict optimized, iii. tree-conflict, iv. histogram.
+// We don't consider/recognize those different kinds of idiom here, the
+// classification is done in VPlan. Moreover, we do not recognize general
+// conflict for now.
+// To detect VConflict idiom, we have to prove the following that:
+// - there is one backward flow dependency (backward dependencies do not have
+// linear memrefs),
+// - the load and store have the same memory reference,
+// In VPlan side, we also check if the intermediate values between load and
+// store have live-outs.
 bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   auto *StoreInst = dyn_cast<HLInst>(CurNode);
   if (!StoreInst)
@@ -932,6 +940,7 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
   // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
   int FlowDepCnt = 0;
+  DDRef *LoadRef = nullptr;
   for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
     if (E->isOutput()) {
       if (E->getSink() != StoreMemDDRef)
@@ -978,9 +987,10 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     //  %tmp0 = redefine
     //  A[%tmp0] = %ld + 42
     //
-    if (DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+    if (DDRefUtils::areEqual(SinkRef, StoreMemDDRef)) {
+      LoadRef = SinkRef;
       continue;
-
+    }
     return Mismatch("Wrong memory dependency.");
   }
 
@@ -988,7 +998,7 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     return Mismatch("Store address should have one flow-dependency.");
 
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
-  IdiomList.addIdiom(StoreInst, HIRVectorIdioms::VConflict);
+  IdiomList.recordVConflictIdiom(StoreInst, LoadRef);
   return true;
 }
 
