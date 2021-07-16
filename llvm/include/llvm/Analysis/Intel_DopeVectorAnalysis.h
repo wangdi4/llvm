@@ -179,6 +179,12 @@ public:
   // Check if the field address has been set.
   bool hasFieldAddr() const { return !FieldAddr.empty(); }
 
+  // Number of FieldAddrs for this DopeVectorFieldUse.
+  unsigned numFieldAddrs() { return FieldAddr.size(); }
+
+  // Return the I-th FieldAddrs for this DopeVectorFieldUse.
+  Value *getFieldAddr(unsigned I) { return FieldAddr[I]; }
+
   // Get the set of load instructions.
   iterator_range<LoadInstSetIter> loads() const {
     return iterator_range<LoadInstSetIter>(Loads);
@@ -611,8 +617,8 @@ public:
 
   // Constructor for DopeVectorInfo. Technically is the same constructor
   // as DopeVectorAnalyzer, but the classes have different purposes.
-  DopeVectorInfo (Value *DVObject, Type *DVType,
-                  bool AllowMultipleFieldAddresses = false);
+  DopeVectorInfo(Value *DVObject, Type *DVType,
+                 bool AllowMultipleFieldAddresses = false);
 
   ~DopeVectorInfo() {
     ExtentAddr.clear();
@@ -731,6 +737,9 @@ public:
         addAllocSite(CB);
   }
 
+  // Identify subscripts accessing the PtrAddr of the dope vector
+  void identifyPtrAddrSubs(SubscriptInstSet &SIS);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
   void print(uint64_t Indent);
@@ -790,6 +799,7 @@ public:
       Value *VBase, bool AllowMultipleFieldAddresses = false) :
       DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses),
       FieldNum(FieldNum), VBase(VBase) { }
+
   Value *getVBase() { return VBase; }
   void nullifyVBase() { VBase = nullptr; }
   uint64_t getFieldNum() { return FieldNum; }
