@@ -918,11 +918,13 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 // classification is done in VPlan. Moreover, we do not recognize general
 // conflict for now.
 // We bail-out if one of the following does not occut:
-// - there should be only one backward flow dependency (backward dependencies do not
+// - there should be only one backward flow dependency (backward dependencies do
+// not
 //   have linear memrefs)
 // - the load and store should have the same memory reference
 // - there should be only one output dependency
 // - the conflict index should not be redefined between load and store
+// - the load and store conflict should be array index (not pointer)
 //
 // In VPlan side, we also check the following:
 // - if the load and the store are in the same basic block
@@ -942,6 +944,9 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
 
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Looking at store candidate:";
              StoreInst->dump());
+
+  if (StoreMemDDRef->getBaseCE()->isNonLinear())
+    return Mismatch("Non-linear base address is not supported.");
 
   // The store address of the above example has two outgoing edges:
   // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
@@ -967,6 +972,7 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       return Mismatch("Too many dependencies.");
 
     FlowDepCnt++;
+
     // TODO: Update VConflict search to work with multi-dimensional arrays.
     // For now, we just bail-out.
     if (StoreMemDDRef->getNumDimensions() > 1)
