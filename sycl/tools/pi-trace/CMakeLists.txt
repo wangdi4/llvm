@@ -13,6 +13,10 @@ target_include_directories(pi_trace PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../xpti
 target_include_directories(pi_trace PRIVATE "${sycl_inc_dir}")
 target_include_directories(pi_trace PRIVATE "${sycl_src_dir}")
 
+# INTEL_CUSTOMIZATON
+  target_link_libraries(pi_trace PRIVATE OpenCL-Headers)
+# end INTEL_CUSTOMIZATON
+
 if(UNIX)
   target_link_libraries(pi_trace PRIVATE dl)
 endif()
