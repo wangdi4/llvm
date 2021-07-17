@@ -53,7 +53,7 @@ int main() {
           Obj.func();
           Obj.func1(1); // expected-warning {{function with 'unmasked' attribute can be called only by 'non_uniform_sub_group::invoke_unmasked()'}}
 
-          INTEL::non_uniform_sub_group G;
+          ext::intel::non_uniform_sub_group G;
           G.invoke_unmasked(Obj);
           G.invoke_unmasked(bar2);
 
