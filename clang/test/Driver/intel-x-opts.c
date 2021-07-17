@@ -209,6 +209,18 @@
 // RUN:  | FileCheck -check-prefixes=XSAPPHIRERAPIDS,ADV_OPT %s
 // XSAPPHIRERAPIDS: "-target-cpu" "sapphirerapids"
 
+// RUN: %clang -### -c -xALDERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XALDERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxALDERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XALDERLAKE,ADV_OPT %s
+// XALDERLAKE: "-target-cpu" "alderlake"
+
+// RUN: %clang -### -c -xROCKETLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XROCKETLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxROCKETLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XROCKETLAKE,ADV_OPT %s
+// XROCKETLAKE: "-target-cpu" "rocketlake"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \
