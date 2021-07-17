@@ -647,6 +647,12 @@ void LoopIdiomRecognize::collectStores(BasicBlock *BB) {
     if (!SI)
       continue;
 
+#if INTEL_CUSTOMIZATION
+    // 29768: x86 backend treats addrspace(256) as reserved for user defined
+    // segments. Intrinsics are not supported (with no plans to support).
+    if (SI->getPointerAddressSpace() == 256)
+      continue;
+#endif // INTEL_CUSTOMIZATION
     // Make sure this is a strided store with a constant stride.
     switch (isLegalStore(SI)) {
     case LegalStoreKind::None:
