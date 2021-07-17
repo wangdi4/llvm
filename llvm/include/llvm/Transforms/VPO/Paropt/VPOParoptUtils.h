@@ -196,6 +196,11 @@ public:
     SRC_LOC_FILE = 2,
     SRC_LOC_PATH = 3
   } SrcLocMode;
+
+  /// Get the global variable @"@tid.addr".
+  /// It expects that it is already created, and asserts if it is not.
+  static GlobalVariable *getTidPtrHolder(Module *M);
+
   /// \name Utilities for getting/creating named StructTypes.
   /// @{
 
@@ -1569,6 +1574,14 @@ public:
   /// \endcode
   static CallInst *genOmpAlloc(Value *Size, Value *Handle,
                                Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   void* __kmpc_aligned_alloc(int gtid, size_t Alignment, size_t Size,
+  ///                              omp_allocator_handle_t Handle);
+  /// \endcode
+  static CallInst *genKmpcAlignedAlloc(uint64_t Alignment, Value *Size,
+                                       Value *Handle, Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_task_reduction_get_th_data`. Prototype:
   /// \code

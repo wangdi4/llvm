@@ -1584,16 +1584,47 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_ALLOCATE: {
-    // IR:    "QUAL.OMP.ALLOCATE"(TYPE* %p, i64 %handle)
+    // The IR can have 3 or 2 operands:
+    //        "QUAL.OMP.ALLOCATE"(size_t alignment, TYPE* %p, i64 %handle)
+    //    or  "QUAL.OMP.ALLOCATE"(size_t alignment, TYPE* %p)
+    // where 'alignment' is a positive constant integer.
+    //
+    // Old IR:
+    // Currently FE still emits old IR without alignment, which can
+    // have 2 or 1 operands. We need to support it for now:
+    //        "QUAL.OMP.ALLOCATE"(TYPE* %p, i64 %handle)
     //    or  "QUAL.OMP.ALLOCATE"(TYPE* %p)
-    assert((NumArgs == 1 || NumArgs == 2) &&
-           "Expected 1 or 2 arguments for ALLOCATED clause");
-    Value *Var = Args[0];
+    //
+    // TODO: remove support of the old IR once FE emits the new form.
+
+    Value *Var;
     Value *AllocatorHandle = nullptr;
-    if (NumArgs==2)
-      AllocatorHandle = Args[1];
+    uint64_t Alignment = 0;
+    bool OldIR = true;
+    // If the first operand is not constant then it's the old IR.
+    if (isa<ConstantInt>(Args[0])) {
+      ConstantInt *CI = cast<ConstantInt>(Args[0]);
+      Alignment = CI->getZExtValue();
+      OldIR = false;
+    }
+
+    if (OldIR) {
+      assert((NumArgs == 2 || NumArgs == 1) &&
+             "Unexpected number of operands in ALLOCATE clause (old IR)");
+      Var = Args[0];
+      if (NumArgs == 2)
+        AllocatorHandle = Args[1];
+    } else {
+      assert((NumArgs == 3 || NumArgs == 2) &&
+             "Unexpected number of operands in ALLOCATE clause");
+      Var = Args[1];
+      if (NumArgs == 3)
+        AllocatorHandle = Args[2];
+    }
+
     AllocateClause &C = getAllocate();
     C.add(Var);
+    C.back()->setAlignment(Alignment);
     C.back()->setAllocator(AllocatorHandle);
     break;
   }

@@ -1458,17 +1458,20 @@ class AllocateItem
 {
   private:
     VAR   Var;
+    uint64_t Alignment;
     Value *Allocator; // intptr value for the Allocator handle (enum or pointer)
 
   public:
-    AllocateItem(VAR V = nullptr) : Var(V), Allocator(nullptr) {}
+    AllocateItem(VAR V = nullptr) : Var(V), Alignment(0), Allocator(nullptr) {}
     void setOrig(VAR V) { Var = V; }
+    void setAlignment(uint64_t A) { Alignment = A; }
     void setAllocator(Value *A) { Allocator = A; }
     VAR getOrig() const { return Var; }
+    uint64_t getAlignment() const { return Alignment; }
     Value *getAllocator() const { return Allocator; }
 
     void print(formatted_raw_ostream &OS, bool PrintType = true) const {
-      OS << "(";
+      OS << "(Align(" << getAlignment() << "), ";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", ";
       if (getAllocator())
