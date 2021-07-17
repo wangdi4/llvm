@@ -7,7 +7,7 @@
 ; Incoming HIR-
 ; + DO i1 = 0, 84, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 41, 1   <DO_LOOP>
-; |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 15>
+; |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 16>
 ; |   |   |   %t3 = (%a)[0][i2 + 1][i1 + i3 + 1];
 ; |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
 ; |   |   |   %add = %t4  +  %t3;
@@ -17,7 +17,7 @@
 ; + END LOOP
 
 ; CHECK: |   + DO i2 = 0, 4, 1   <DO_LOOP> <nounroll and jam>
-; CHECK: |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 15>
+; CHECK: |   |   + DO i3 = 0, -1 * i1 + 15, 1   <DO_LOOP>  <MAX_TC_EST = 16>
 ; CHECK: |   |   |   %t3 = (%a)[0][8 * i2 + 1][i1 + i3 + 1];
 ; CHECK: |   |   |   %t4 = (%vq8)[0][i1 + i3 + 1];
 ; CHECK: |   |   |   %temp = %t4  +  %t3;

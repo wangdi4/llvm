@@ -562,8 +562,43 @@ void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   }
 }
 
-bool isInRange(int64_t Val, int64_t LowerBound, int64_t UpperBound) {
+static bool isInRange(int64_t Val, int64_t LowerBound, int64_t UpperBound) {
   return (Val >= LowerBound) && (Val <= UpperBound);
+}
+
+// Returns true if \p ParentLp has a negative IV relationship with any of its
+// parent loops. For ex-
+//
+// DO i1 = 0, 10, 1
+//   DO i2 = 0, -1 * i1 + 10, 1
+static bool hasNegativeIVRelationship(const HLLoop *ParentLp) {
+
+  // If the immediate parent has no IVs or blobs it cannot have a negative
+  // relationship with parent loop IVs.
+  if (!ParentLp->isUnknown()) {
+    auto *Upper = ParentLp->getUpperCanonExpr();
+    if ((Upper->getDefinedAtLevel() == 0) && !Upper->hasIV()) {
+      return false;
+    }
+  }
+
+  // Return true if any parent loop in the loopnest has a negative IV term in
+  // the upper like (-1 * i1).
+  for (auto Lp = ParentLp; Lp != nullptr; Lp = Lp->getParentLoop()) {
+    if (Lp->isUnknown()) {
+      continue;
+    }
+
+    auto *Upper = Lp->getUpperCanonExpr();
+
+    for (auto IVTerm : make_range(Upper->iv_begin(), Upper->iv_end())) {
+      if (IVTerm.Coeff < 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
@@ -580,10 +615,11 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
   // The analysis is carried out based on the assumption that the range of the
   // subscript is [0, NumElements].
 
-  for (auto Lp = Node->getParentLoop(); Lp != nullptr;
-       Lp = Lp->getParentLoop()) {
+  auto *ParentLp = Node->getParentLoop();
+  for (auto Lp = ParentLp; Lp != nullptr; Lp = Lp->getParentLoop()) {
     unsigned Index;
-    int64_t Coeff, BlobVal = 1, NonIVVal = 0;
+    int64_t Coeff, BlobVal = 1;
+    int64_t NonIVVal = 0, MinNonIVVal = 0, MaxNonIVVal = 0;
     uint64_t MaxTC = 0;
 
     if (!Lp->isUnknown() && Lp->getUpperCanonExpr()->isIntConstant()) {
@@ -614,16 +650,43 @@ void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE,
     // Note: Avoiding post-domination check here to save compile time. Since
     // this is just an estimate, it is okay to not be very accurate.
 
-    // The max value of the rest of the CE gives a better estimate on max
-    // trip count so we check max value first. For example, A[i + j] will
-    // give a tighter bound on j for max value of i. Similarly, for A[i - j]
-    // max value of i gives max estimate for j.
-    // Ignore non-sensical values of NonIVVal. These are the result of
-    // overly-conservative blob/upper bound values.
-    if ((!HLNodeUtils::getExactMaxValue(CE, Node, NonIVVal) ||
-         !isInRange(NonIVVal, 0, NumElements)) &&
-        (!HLNodeUtils::getExactMinValue(CE, Node, NonIVVal) ||
-         !isInRange(NonIVVal, 0, NumElements))) {
+    // We compute the min/max value of the rest of the CE and use it like this-
+    //
+    // - If we have max value and there is a negative relationship between the
+    // IVs, we take the average. This prevents us from using a very aggressive
+    // bound for j using A[i + j] in cases like this-
+    //
+    // for (i=0; i < 10; i++)
+    //   for (j=10-i; j < 10; j++)
+    //     A[i + j] =
+    //
+    // - Else if we have max value, we use it because it gives a tigher bound on
+    // current IV.
+    // - Else if we have min value, we use it.
+    // - Otherwise, we use zero.
+    //
+    // We ignore non-sensical values of MinNonIVVal/MaxNonIVVal. These are the
+    // result of overly-conservative blob/upper bound values.
+
+    bool HasMinNonIVVal =
+        HLNodeUtils::getExactMinValue(CE, Node, MinNonIVVal) &&
+        isInRange(MinNonIVVal, 0, NumElements);
+    bool HasMaxNonIVVal =
+        HLNodeUtils::getExactMaxValue(CE, Node, MaxNonIVVal) &&
+        isInRange(MaxNonIVVal, 0, NumElements);
+
+    if (HasMaxNonIVVal) {
+      if (hasNegativeIVRelationship(ParentLp)) {
+        int64_t OtherVal = HasMinNonIVVal ? MinNonIVVal : 0;
+        NonIVVal = (MaxNonIVVal + OtherVal) / 2;
+      } else {
+        NonIVVal = MaxNonIVVal;
+      }
+
+    } else if (HasMinNonIVVal) {
+      NonIVVal = MinNonIVVal;
+
+    } else {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
     }
