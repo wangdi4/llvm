@@ -102,7 +102,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   // functions to be resolved in this pass are undefined.
   FuncSet RecursiveFunctions = Utils.getRecursiveFunctionsWithSync();
   for (Function *F : RecursiveFunctions)
-    F->addFnAttr(DPCPPKernelCompilationUtils::ATTR_RECURSION_WITH_BARRIER);
+    F->addFnAttr(KernelAttribute::RecursionWithBarrier);
 
   // Collect data for each function with synchronize instruction.
   for (Function *Func : FunctionsWithSync) {

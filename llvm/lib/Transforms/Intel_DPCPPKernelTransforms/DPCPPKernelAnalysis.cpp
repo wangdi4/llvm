@@ -66,15 +66,11 @@ ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
 }
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
-  FuncSet BarrierRootSet;
-  FuncSet SyncFunctions;
-
   // Get all synchronize built-ins declared in module
-  DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(SyncFunctions, M);
+  FuncSet SyncFunctions =
+      DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(M);
 
-  BarrierRootSet.insert(SyncFunctions.begin(), SyncFunctions.end());
-
-  DPCPPKernelLoopUtils::fillFuncUsersSet(BarrierRootSet, UnsupportedFuncs);
+  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs() {

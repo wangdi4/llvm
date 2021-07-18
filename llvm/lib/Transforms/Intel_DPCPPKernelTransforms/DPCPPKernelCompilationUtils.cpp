@@ -27,30 +27,12 @@ using namespace llvm::NameMangleAPI;
 
 namespace llvm {
 
-const char *KernelAttribute::SyclKernel = "sycl-kernel";
-const char *KernelAttribute::NoBarrierPath = "no-barrier-path";
-// TODO: We need to replace "kernel_wrapper" with "kernel-wrapper", but
-// RT retrieves kernel wrapper with "kernel_wrapper" attribute.
-const char *KernelAttribute::KernelWrapper = "kernel_wrapper";
-
-const char *KernelAttribute::BarrierBufferSize = "barrier-buffer-size";
-const char *KernelAttribute::LocalBufferSize = "local-buffer-size";
-const char *KernelAttribute::PrivateMemorySize = "private-memory-size";
-
-const char *KernelAttribute::ScalarKernel = "scalar-kernel";
-const char *KernelAttribute::VectorizedKernel = "vectorized-kernel";
-const char *KernelAttribute::VectorizedMaskedKernel =
-    "vectorized-masked-kernel";
-const char *KernelAttribute::VectorizedWidth = "vectorized-width";
-const char *KernelAttribute::RecommendedVL = "recommended-vector-length";
-const char *KernelAttribute::VectorVariants = "vector-variants";
-
-const char *KernelAttribute::BlockLiteralSize = "block-literal-size";
-
-const char *DPCPPKernelCompilationUtils::ATTR_RECURSION_WITH_BARRIER =
+// Attributes
+const StringRef KernelAttribute::CallOnce = "kernel-call-once";
+const StringRef KernelAttribute::ConvergentCall = "kernel-convergent-call";
+const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
-
-namespace DPCPPKernelCompilationUtils {
+const StringRef KernelAttribute::VectorVariants = "vector-variants";
 
 namespace {
 // Document what source language this module was translated from.
@@ -115,6 +97,10 @@ const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
     "__work_group_commit_write_pipe";
 const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
+// KMP acquire/release
+const StringRef NAME_IB_KMP_ACQUIRE_LOCK = "__builtin_IB_kmp_acquire_lock";
+const StringRef NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
+
 // subgroup functions
 const StringRef NAME_SUB_GROUP_ALL = "sub_group_all";
 const StringRef NAME_SUB_GROUP_ANY = "sub_group_any";
@@ -145,6 +131,8 @@ static cl::list<std::string>
     OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
                           cl::desc("Builtin declarations (bitcode) libraries"),
                           cl::value_desc("filename1,filename2"));
+
+namespace DPCPPKernelCompilationUtils {
 
 SmallVector<std::unique_ptr<Module>, 2>
 loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
@@ -372,6 +360,10 @@ bool isAsyncWorkGroupCopy(StringRef S) {
 
 bool isAsyncWorkGroupStridedCopy(StringRef S) {
   return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
+static bool isKMPAcquireReleaseLock(StringRef S) {
+  return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
 }
 
 PipeKind getPipeKind(StringRef S) {
@@ -806,9 +798,8 @@ void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
   }
 }
 
-void getAllSyncBuiltinsDecls(FuncSet &FSet, Module *M, bool IsWG) {
-  // Clear old collected data!
-  FSet.clear();
+FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG) {
+  FuncSet FSet;
 
   for (Function &F : *M) {
     if (!F.isDeclaration())
@@ -830,6 +821,25 @@ void getAllSyncBuiltinsDecls(FuncSet &FSet, Module *M, bool IsWG) {
         FSet.insert(&F);
     }
   }
+  return FSet;
+}
+
+FuncSet getAllSyncBuiltinsDclsForNoDuplicateRelax(Module *M) {
+  FuncSet FSet = getAllSyncBuiltinsDecls(M);
+
+  // Add sub_group_barrier separately. It does not require following Barrier
+  // compilation flow, but requires noduplicate relaxation.
+  for (Function &F : *M) {
+    if (!F.isDeclaration())
+      continue;
+    llvm::StringRef FName = F.getName();
+    if (FName == mangledSGBarrier(BarrierType::NoScope) ||
+        FName == mangledSGBarrier(BarrierType::WithScope) ||
+        isKMPAcquireReleaseLock(FName))
+      FSet.insert(&F);
+  }
+
+  return FSet;
 }
 
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
