@@ -120,8 +120,4 @@ namespace intel {
     return m_BPI->isEdgeHot(Src, Dst);
   }
 
-  const BasicBlock * OCLBranchProbability::getHotSucc(const BasicBlock *BB) const {
-    return m_BPI->getHotSucc(BB);
-  }
-
 } // namespace intel

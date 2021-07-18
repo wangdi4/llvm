@@ -77,8 +77,6 @@ namespace intel {
       // Test if an edge is hot relative to other out-edges of the Src
       // Check whether this edge out of the source block is 'hot'. We define hot as having a relative probability >= 80%.
       bool isEdgeHot(const BasicBlock *Src, const BasicBlock *Dst) const;
-      // Retrieve the hot successor of a block if one exists
-      const BasicBlock * getHotSucc(const BasicBlock *BB) const;
 
     private:
 
