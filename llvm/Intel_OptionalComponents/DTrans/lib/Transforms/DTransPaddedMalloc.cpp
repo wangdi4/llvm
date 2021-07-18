@@ -897,7 +897,8 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
   // Construct BB with a check
   Builder.SetInsertPoint(CheckBB);
   Value *GEP = Builder.CreateGEP(
-      Arg, {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
+      ArgType->getPointerElementType(), Arg,
+      {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
   Value *Load = Builder.CreateLoad(ElemType, GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);
