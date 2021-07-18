@@ -3439,6 +3439,7 @@ restructureOnePastTheEndGEP(const GEPOperator *GEPOrSubsOp) {
   IRBuilder<NoFolder> Builder(ArrTy->getContext());
 
   return cast<GEPOperator>(Builder.CreateGEP(
+      GEPOp->getSourceElementType(),
       const_cast<Value *>(GEPOp->getPointerOperand()), Indices));
 }
 

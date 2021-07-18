@@ -963,7 +963,9 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
 
-        GEPVal = Builder.CreateInBoundsGEP(GEPVal, IndexV);
+        GEPVal = Builder.CreateInBoundsGEP(
+            GEPVal->getType()->getScalarType()->getPointerElementType(), GEPVal,
+            IndexV);
       }
     }
   }
