@@ -4490,9 +4490,6 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     return false;
 
   BasicBlock *BB = BI->getParent();
-
-  bool Changed = false;
-
   TargetTransformInfo::TargetCostKind CostKind =
     BB->getParent()->hasMinSize() ? TargetTransformInfo::TCK_CodeSize
                                   : TargetTransformInfo::TCK_SizeAndLatency;
@@ -4504,7 +4501,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
       (!isa<CmpInst>(Cond) && !isa<BinaryOperator>(Cond) &&
        !isa<SelectInst>(Cond)) ||
       Cond->getParent() != BB || !Cond->hasOneUse())
-    return Changed;
+    return false;
 
   // Below code was moved from bottom of function, the original commit is:
   // https://reviews.llvm.org/rGb582202
@@ -4547,7 +4544,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   Function *F = BB->getParent();
   bool MayHaveOpenMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F);
   if (MayHaveOpenMP && TooManyInsts(pred_size(BB)))
-    return Changed;
+    return false;
 
   Value* Operands[2] = { nullptr, nullptr };
   if (isa<SelectInst>(Cond)) {
@@ -4580,14 +4577,14 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   // neither operand is a potentially-trapping constant expression.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[0]))  // INTEL
     if (CE->canTrap())
-      return Changed;
+      return false;
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[1]))  // INTEL
     if (CE->canTrap())
-      return Changed;
+      return false;
 
   // Finally, don't infinitely unroll conditional loops.
   if (is_contained(successors(BB), BB))
-    return Changed;
+    return false;
 
   // With which predecessors will we want to deal with?
   SmallVector<BasicBlock *, 8> Preds;
@@ -4628,7 +4625,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   // If there aren't any predecessors into which we can fold,
   // don't bother checking the cost.
   if (Preds.empty())
-    return Changed;
+    return false;
 
 #if INTEL_CUSTOMIZATION
   // Code from this commit:
@@ -4638,7 +4635,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   // For normal (non-OpenMP) cases, check the cost model after we know
   // how many preds will actually be affected.
   if (!MayHaveOpenMP && TooManyInsts(Preds.size()))
-    return Changed;
+    return false;
 #endif // INTEL_CUSTOMIZATION
 
   // Ok, we have the budget. Perform the transformation.
@@ -4646,7 +4643,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     auto *PBI = cast<BranchInst>(PredBlock->getTerminator());
     return performBranchToCommonDestFolding(BI, PBI, DTU, MSSAU, TTI);
   }
-  return Changed;
+  return false;
 }
 
 // If there is only one store in BB1 and BB2, return it, otherwise return
