@@ -1707,10 +1707,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
       // Loop body. Copying element in VF - 1 position from each vector.
       Value *Ptr = Builder.CreateGEP(
-          Res, {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
+          Res->getType()->getScalarType()->getPointerElementType(), Res,
+          {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
       Value *Val =
           Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr);
-      Value *Target = Builder.CreateGEP(Orig, {Builder.getInt64(0), Phi});
+      Value *Target =
+          Builder.CreateGEP(ElementType, Orig, {Builder.getInt64(0), Phi});
       Builder.CreateStore(Val, Target);
 
       // Increment of loop variable.
@@ -2145,7 +2147,8 @@ Value *VPOCodeGen::createVectorPrivatePtrs(VPAllocatePrivate *V) {
 
   auto Base =
       Builder.CreateBitCast(PtrToVec, PrivTy, PtrToVec->getName() + ".bc");
-  return Builder.CreateGEP(Base, Cv, PtrToVec->getName() + ".base.addr");
+  return Builder.CreateGEP(PrivTy->getScalarType()->getPointerElementType(),
+                           Base, Cv, PtrToVec->getName() + ".base.addr");
 }
 
 template <typename CastInstTy>
@@ -2851,10 +2854,11 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
     // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr = Reverse
-               ? Builder.CreateGEP(
-                     VecPtr, Builder.getInt32(1 - WideDataTy->getNumElements()))
-               : VecPtr;
+  VecPtr =
+      Reverse ? Builder.CreateGEP(
+                    VecPtr->getType()->getScalarType()->getPointerElementType(),
+                    VecPtr, Builder.getInt32(1 - WideDataTy->getNumElements()))
+              : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
@@ -4231,7 +4235,9 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     auto *Start = getScalarValue(VPStart, 0);
     LastValue =
         (VPInst->getType()->isPointerTy() || Opc == Instruction::GetElementPtr)
-            ? Builder.CreateInBoundsGEP(Start, {MulV}, "final_gep")
+            ? Builder.CreateInBoundsGEP(
+                  Start->getType()->getScalarType()->getPointerElementType(),
+                  Start, MulV, "final_gep")
             : Builder.CreateBinOp(static_cast<Instruction::BinaryOps>(Opc),
                                   Start, MulV);
   }

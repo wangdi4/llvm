@@ -136,11 +136,12 @@ IndirectCallCodeGenerator::generateIndirectCall(VPCallInstruction *VPCallInst,
   Type *VecRetTy = CallTy->isVoidTy() ? CallTy :  VectorType::get(CallTy, EC);
   FunctionType *VecFuncTy = FunctionType::get(VecRetTy, CallArgsTy, false);
   unsigned AS = OrigCall->getArgOperand(0)->getType()->getPointerAddressSpace();
+  Type *VecFuncPtrTy = VecFuncTy->getPointerTo(AS);
   Value *BitCast = State->Builder.CreateBitCast(
-      CurrentFuncPtr, VecFuncTy->getPointerTo(AS)->getPointerTo(AS));
+      CurrentFuncPtr, VecFuncPtrTy->getPointerTo(AS));
 
-  Value *VariantGep =
-      State->Builder.CreateConstGEP1_32(BitCast, MatchedVecVariantIdx);
+  Value *VariantGep = State->Builder.CreateConstGEP1_32(VecFuncPtrTy, BitCast,
+                                                        MatchedVecVariantIdx);
   LoadInst *LoadVariant =
       State->Builder.CreateLoad(VecFuncTy->getPointerTo(AS), VariantGep);
 
