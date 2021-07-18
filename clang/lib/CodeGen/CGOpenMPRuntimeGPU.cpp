@@ -2247,7 +2247,8 @@ static llvm::Value *emitInterWarpCopyFunction(CodeGenModule &CGM,
       Address ElemPtr = Address(ElemPtrPtr, Align);
       ElemPtr = Bld.CreateElementBitCast(ElemPtr, CopyType);
       if (NumIters > 1) {
-        ElemPtr = Address(Bld.CreateGEP(ElemPtr.getPointer(), Cnt),
+        ElemPtr = Address(Bld.CreateGEP(ElemPtr.getElementType(),
+                                        ElemPtr.getPointer(), Cnt),
                           ElemPtr.getAlignment());
       }
 
@@ -2316,7 +2317,8 @@ static llvm::Value *emitInterWarpCopyFunction(CodeGenModule &CGM,
       Address TargetElemPtr = Address(TargetElemPtrVal, Align);
       TargetElemPtr = Bld.CreateElementBitCast(TargetElemPtr, CopyType);
       if (NumIters > 1) {
-        TargetElemPtr = Address(Bld.CreateGEP(TargetElemPtr.getPointer(), Cnt),
+        TargetElemPtr = Address(Bld.CreateGEP(TargetElemPtr.getElementType(),
+                                              TargetElemPtr.getPointer(), Cnt),
                                 TargetElemPtr.getAlignment());
       }
 
