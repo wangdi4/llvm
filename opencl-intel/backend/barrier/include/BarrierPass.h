@@ -281,6 +281,7 @@ namespace intel {
       Indices.push_back(m_Zero);
       Indices.push_back(Dim);
       return B.CreateInBoundsGEP(
+          LocalIdValues->getType()->getScalarType()->getPointerElementType(),
           LocalIdValues, Indices,
           CompilationUtils::AppendWithDimension("pLocalId_", Dim));
     }

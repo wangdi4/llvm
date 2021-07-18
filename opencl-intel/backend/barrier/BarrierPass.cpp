@@ -1139,9 +1139,12 @@ namespace intel {
       Value *CurrSB = createGetCurrSBIndex(B);
       CurrSB = B.CreateNUWAdd(CurrSB, pOffsetVal, "SB_LocalId_Offset");
       Value *Idxs[1] = { CurrSB };
-      Value *pAddrInSBinBytes =
-          B.CreateInBoundsGEP(m_currBarrierKeyValues->m_pSpecialBufferValue,
-                              ArrayRef<Value *>(Idxs));
+      Value *pAddrInSBinBytes = B.CreateInBoundsGEP(
+          m_currBarrierKeyValues->m_pSpecialBufferValue->getType()
+              ->getScalarType()
+              ->getPointerElementType(),
+          m_currBarrierKeyValues->m_pSpecialBufferValue,
+          ArrayRef<Value *>(Idxs));
       //Bitcast pointer according to alloca type!
       Value *pAddrInSpecialBuffer =
           B.CreatePointerCast(pAddrInSBinBytes, pType, "pSB_LocalId");
