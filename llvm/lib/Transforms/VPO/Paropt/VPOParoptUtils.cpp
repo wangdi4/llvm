@@ -3581,10 +3581,12 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
   AllocaInst *DimsVec =
       Builder.CreateAlloca(DimsVecTy, NumLoopsVal, "dims.vec");
 
-  auto populateDimsVecAtIndex = [&](Value *Base, Value *Index, Value *Val) {
+  auto populateDimsVecAtIndex = [&](Value *Base, Value *Index,
+                                    Value *Val) {
     Value *ValCast = Builder.CreateSExtOrBitCast(Val, Int64Ty);
     Value *DstPtr = Builder.CreateInBoundsGEP(
-        Base, {Zero, Index});                     // (3) (5) (7) (10) (12) (14)
+        cast<GEPOperator>(Base)->getResultElementType(), Base,
+        {Zero, Index});                           // (3) (5) (7) (10) (12) (14)
     Builder.CreateStore(ValCast, DstPtr);         // (4) (6) (8) (11) (13) (15)
   };
 
@@ -3595,8 +3597,8 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
     Value *UBound = TripCounts[I];
 
     // First get a handle on the DimsVecTy struct for this loop from the array.
-    Value *DimsVecForLoopI =
-        Builder.CreateInBoundsGEP(DimsVec, {Builder.getInt32(I)}); //   (2) (9)
+    Value *DimsVecForLoopI = Builder.CreateInBoundsGEP(
+        DimsVecTy, DimsVec, Builder.getInt32(I)); //                    (2) (9)
 
     // Store lbound to index 0 of the struct.
     populateDimsVecAtIndex(DimsVecForLoopI, Zero, LBound); // (3) (4) (10) (11)
@@ -4856,9 +4858,9 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
            "Expected ArrayType alloca.");
     assert(!AI->isArrayAllocation() &&
            "Unexpected array alloca with array type.");
-    V = Builder.CreateInBoundsGEP(
-        AI, {Builder.getInt32(0), Builder.getInt32(0)},
-        AI->getName() + Twine(".gep"));
+    V = Builder.CreateInBoundsGEP(AI->getAllocatedType(), AI,
+                                  {Builder.getInt32(0), Builder.getInt32(0)},
+                                  AI->getName() + Twine(".gep"));
   }
 
   if (!ValueAddrSpace)
@@ -5180,7 +5182,10 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
     GepIndices.push_back(Zero);
   }
 
-  ArrayBegin = Builder.CreateInBoundsGEP(BaseAddr, GepIndices, "array.begin");
+  // TODO: OPAQUEPOINTER: element type needs to be passed in
+  ArrayBegin = Builder.CreateInBoundsGEP(
+      BaseAddr->getType()->getScalarType()->getPointerElementType(), BaseAddr,
+      GepIndices, "array.begin");
 
   return NumElements;
 }

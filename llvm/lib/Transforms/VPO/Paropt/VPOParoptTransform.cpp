@@ -3067,7 +3067,7 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
   assert(NumElements && "Null number of elements for reduction init/fini.");
   assert((IsInit || SrcBegin) && "Null source address for reduction fini.");
 
-  auto DestEnd = Builder.CreateGEP(DestBegin, NumElements);
+  auto DestEnd = Builder.CreateGEP(DestElementTy, DestBegin, NumElements);
   auto IsEmpty = Builder.CreateICmpEQ(
       DestBegin, DestEnd, IsInit ? "red.init.isempty" : "red.update.isempty");
 
@@ -3112,12 +3112,12 @@ bool VPOParoptTransform::genRedAggregateInitOrFini(
           W, RedI, DestElementPHI, SrcElementPHI, DestElementTy, Builder, DT);
   }
 
-  auto DestElementNext =
-      Builder.CreateConstGEP1_32(DestElementPHI, 1, "red.cpy.dest.inc");
+  auto DestElementNext = Builder.CreateConstGEP1_32(
+      DestElementTy, DestElementPHI, 1, "red.cpy.dest.inc");
   Value *SrcElementNext = nullptr;
   if (SrcElementPHI != nullptr)
-    SrcElementNext =
-        Builder.CreateConstGEP1_32(SrcElementPHI, 1, "red.cpy.src.inc");
+    SrcElementNext = Builder.CreateConstGEP1_32(DestElementTy, SrcElementPHI, 1,
+                                                "red.cpy.src.inc");
 
   auto Done = Builder.CreateICmpEQ(DestElementNext, DestEnd, "red.cpy.done");
 
@@ -4179,7 +4179,8 @@ void VPOParoptTransform::genFastRedAggregateCopy(
   assert(SrcBegin && "Null source address for fast reduction copy.");
 
   // Create copy loop to update variable for fast reduction
-  auto DestEnd = Builder.CreateGEP(DestBegin, NumElements); //             (5)
+  auto DestEnd = Builder.CreateGEP(DestElementTy, DestBegin,
+                                   NumElements); //                         (5)
   auto IsEmpty =
       Builder.CreateICmpEQ(DestBegin, DestEnd, "fastred.update.isempty"); // (6)
 
@@ -4209,17 +4210,17 @@ void VPOParoptTransform::genFastRedAggregateCopy(
   genFastRedScalarCopy(DestElementPHI, SrcElementPHI, Builder); //       (12~13)
 
   auto DestElementNext = Builder.CreateConstGEP1_32(
-      DestElementPHI, 1, "fastred.cpy.dest.inc"); // (14)
+      DestElementTy, DestElementPHI, 1, "fastred.cpy.dest.inc"); //      (14)
   Value *SrcElementNext = nullptr;
   if (SrcElementPHI != nullptr)
-    SrcElementNext = Builder.CreateConstGEP1_32(SrcElementPHI, 1,
+    SrcElementNext = Builder.CreateConstGEP1_32(DestElementTy, SrcElementPHI, 1,
                                                 "fastred.cpy.src.inc"); // (15)
 
   auto Done = Builder.CreateICmpEQ(DestElementNext, DestEnd,
                                    "fastred.cpy.done"); // (16)
 
   Builder.CreateCondBr(Done, DoneBB,
-                       BodyBB); //                             (17)
+                        BodyBB); //                             (17)
   DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
   if (SrcElementPHI != nullptr)
     SrcElementPHI->addIncoming(SrcElementNext, Builder.GetInsertBlock());
@@ -4312,13 +4313,12 @@ Value *VPOParoptTransform::genFastRedPrivateVariable(ReductionItem *RedI,
   // For array section with variable size V, the private reduction variable type
   // got from structure above is ElementType**, and a LOAD is created to get
   // ElementType* type as expected.
+  Type *Ty = cast<GEPOperator>(RecInst)->getResultElementType();
   if (dyn_cast_or_null<ConstantInt>(NumElements))
-    RecInst = Builder.CreateInBoundsGEP(RecInst, {ValueZero, ValueZero},
+    RecInst = Builder.CreateInBoundsGEP(Ty, RecInst, {ValueZero, ValueZero},
                                         RecInst->getName() + Twine(".gep"));
   else if (NumElements != nullptr)
-    RecInst = Builder.CreateLoad(
-        cast<GEPOperator>(RecInst)->getResultElementType(), RecInst,
-        RecInst->getName() + ".load");
+    RecInst = Builder.CreateLoad(Ty, RecInst, RecInst->getName() + ".load");
 
   return RecInst;
 }
@@ -4812,7 +4812,8 @@ Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
           ArrSecInfo.getElementType(),
           cast<PointerType>(BeginAddrPointerTy)->getAddressSpace()),
       BeginAddr->getName() + ".cast"); //                                 (2)
-  BeginAddr = Builder.CreateGEP(BeginAddr, ArrSecInfo.getOffset(),
+  BeginAddr = Builder.CreateGEP(ArrSecInfo.getElementType(), BeginAddr,
+                                ArrSecInfo.getOffset(),
                                 BeginAddr->getName() + ".plus.offset"); //(3)
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Gep for array section opnd '";
@@ -5125,8 +5126,9 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
   const ArraySectionInfo &ArrSecInfo = RedI.getArraySectionInfo();
   Value *Offset = ArrSecInfo.getOffset();
   Value *NegOffset = Builder.CreateNeg(Offset, "neg.offset");
-  Value *NewMinusOffset = Builder.CreateGEP(
-      NewRedInst, NegOffset, NewRedInst->getName() + ".minus.offset"); // (1)
+  Value *NewMinusOffset =
+      Builder.CreateGEP(ArrSecInfo.getElementType(), NewRedInst, NegOffset,
+                        NewRedInst->getName() + ".minus.offset"); //      (1)
 
   if (!ArrSecInfo.getBaseIsPointer()) {
     // To replace uses of original %y ( [10 x i32]* with %y.new.minus.offset
@@ -5778,7 +5780,8 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
 
     Value *Add = nullptr;
     if (isa<PointerType>(LinearTy))
-      Add = InitBuilder.CreateInBoundsGEP(LinearStart, {Mul});
+      Add = InitBuilder.CreateInBoundsGEP(LinearTy->getPointerElementType(),
+                                          LinearStart, Mul);
     else {
       Type *MulTy = Mul->getType();
 
@@ -7583,7 +7586,8 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
   else
     Prefix = "priv.cpyctor";
 
-  auto DestEnd = Builder.CreateGEP(DestBegin, NumElements); // (2)
+  auto DestEnd =
+      Builder.CreateGEP(DestElementTy, DestBegin, NumElements); //      (2)
   auto IsEmpty =
       Builder.CreateICmpEQ(DestBegin, DestEnd, Prefix + ".isempty"); // (3)
 
@@ -7610,13 +7614,13 @@ void VPOParoptTransform::genPrivAggregateInitOrFini(
     SrcElementPHI->addIncoming(SrcBegin, EntryBB);
   }
 
-  Instruction *DestElementNext =
-      cast<Instruction>(Builder.CreateConstGEP1_32(DestElementPHI, 1,
-                                                   "priv.cpy.dest.inc")); // (8)
+  Instruction *DestElementNext = cast<Instruction>(
+      Builder.CreateConstGEP1_32(DestElementTy, DestElementPHI, 1,
+                                 "priv.cpy.dest.inc")); //                (8)
   Value *SrcElementNext = nullptr;
   if (SrcElementPHI != nullptr)
-    SrcElementNext =
-        Builder.CreateConstGEP1_32(SrcElementPHI, 1, "priv.cpy.src.inc");
+    SrcElementNext = Builder.CreateConstGEP1_32(DestElementTy, SrcElementPHI, 1,
+                                                "priv.cpy.src.inc");
 
   if (FuncKind == FK_Ctor)
     VPOParoptUtils::genConstructorCall(Fn, DestElementPHI,
