@@ -3716,7 +3716,8 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
       cast<GetElementPtrInst>(Group0.BBPtr[0]->getPointerOperand());
   SmallVector<Value *, 8> Indices(BBPtrBase->indices());
   Indices[Indices.size() - 1] = BVIndexV;
-  auto *BBPtr = Builder.CreateInBoundsGEP(BBPtrBase->getPointerOperand(),
+  auto *BBPtr = Builder.CreateInBoundsGEP(BBPtrBase->getSourceElementType(),
+                                          BBPtrBase->getPointerOperand(),
                                           Indices, "BBPtr");
 
   auto *VecPtrTy = cast<VectorType>(BBPtr->getType());

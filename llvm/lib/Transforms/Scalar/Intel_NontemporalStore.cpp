@@ -302,9 +302,8 @@ void NontemporalStore::run() {
         PointerType::getUnqual(StoreBufferType),
         Name + ".nt_store_struct");
     Value *StoreBufferPtr = Builder.CreateBitCast(
-        Builder.CreateStructGEP(StoreStruct, SrcFieldOffset),
-        StoreArrayTy,
-        Name + ".nt_store_buffer");
+        Builder.CreateStructGEP(StoreBufferType, StoreStruct, SrcFieldOffset),
+        StoreArrayTy, Name + ".nt_store_buffer");
 
     // Save off alloca location for next alloca location. Once we're done with
     // the other locations, this will return to the list of allocas.
@@ -346,7 +345,7 @@ void NontemporalStore::run() {
       Builder.SetInsertPoint(SI.value());
       Builder.CreateAlignedStore(
           SI.value()->getValueOperand(),
-          Builder.CreateGEP(StoreBufferPtr,
+          Builder.CreateGEP(Block.BlockType, StoreBufferPtr,
                             {IndexPHI, Builder.getInt64(SI.index())}),
           MaybeAlign(DL.getABITypeAlignment(IntptrTy)));
     }

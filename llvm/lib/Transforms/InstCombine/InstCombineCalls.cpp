@@ -560,7 +560,9 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
   if (DestLen <= SrcLen) {
     Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, DestLen, IsVol);
   } else {
-    auto *PaddingAddr = Builder.CreateConstGEP1_64(Dest, SrcLen);
+    auto *PaddingAddr = Builder.CreateConstGEP1_64(
+        Dest->getType()->getScalarType()->getPointerElementType(), Dest,
+        SrcLen);
     auto *PaddingVal = Padding == 0 ? Builder.getInt8(' ') : Builder.getInt8(0);
     const int64_t PaddingLen = DestLen - SrcLen;
     MaybeAlign PaddingAlign;
@@ -668,7 +670,9 @@ Instruction *InstCombinerImpl::simplifyMaskedScatter(IntrinsicInst &II) {
       Type *IndexTy = DL.getIndexType(V->getType());
       IndexTy = VectorType::get(
           IndexTy, cast<VectorType>(Ptr->getType())->getElementCount());
-      Ptr = Builder.CreateGEP(V, Constant::getNullValue(IndexTy));
+      Ptr = Builder.CreateGEP(
+          V->getType()->getScalarType()->getPointerElementType(), V,
+          Constant::getNullValue(IndexTy));
       Builder.CreateCall(
           II.getCalledFunction(),
           {II.getArgOperand(0), Ptr, II.getArgOperand(2), II.getArgOperand(3)});
