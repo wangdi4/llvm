@@ -320,7 +320,8 @@ void SGValueWiden::runOnFunction(Function &F, const std::set<unsigned> &Sizes) {
       auto *Offset = ArraySize->getZExtValue() > 1
                          ? Builder.CreateMul(Idx, ArraySize)
                          : Idx;
-      auto *NewV = Builder.CreateGEP(WideAI, {ConstZero, Offset});
+      auto *NewV = Builder.CreateGEP(WideAI->getAllocatedType(), WideAI,
+                                     {ConstZero, Offset});
       Builder.CreateStore(NewV, DebugAI);
     }
   }
@@ -372,6 +373,7 @@ Value *SGValueWiden::getVectorValuePtr(Value *V, unsigned Size,
                                        Instruction *IP) {
   assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
   auto *WideValuePtr = cast<AllocaInst>(VecValueMap[V]);
+  auto *WideType = WideValuePtr->getAllocatedType();
   Type *DestType = getVectorType(V, Size);
   IRBuilder<> Builder(IP);
 
@@ -383,10 +385,9 @@ Value *SGValueWiden::getVectorValuePtr(Value *V, unsigned Size,
       IndVec.push_back(ConstantInt::get(Builder.getInt32Ty(), Ind));
     Constant *SequenceVec = ConstantVector::get(IndVec);
 
-    return Builder.CreateGEP(WideValuePtr, {ConstZero, SequenceVec});
+    return Builder.CreateGEP(WideType, WideValuePtr, {ConstZero, SequenceVec});
   }
 
-  auto *WideType = WideValuePtr->getAllocatedType();
   if (WideType->isVectorTy())
     return WideValuePtr;
 
@@ -408,7 +409,8 @@ static void storeVectorByVecElement(Value *Addr, Value *Data, Type *OrigValType,
       Value *ElemVal =
           Builder.CreateExtractElement(Data, Idx * OrigNumElem + Id);
       Value *ElemPtr = Builder.CreateGEP(
-          Addr, {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
+          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Builder.CreateStore(ElemVal, ElemPtr);
     }
   }
@@ -425,7 +427,8 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   for (unsigned Idx = 0; Idx < VF; ++Idx) {
     for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
       Value *ElemPtr = Builder.CreateGEP(
-          Addr, {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
+          Addr->getType()->getScalarType()->getPointerElementType(), Addr,
+          {ConstZero, Builder.getInt32(Idx), Builder.getInt32(Id)});
       Value *ElemVal = Builder.CreateLoad(ScalarEleType, ElemPtr);
       Res = Builder.CreateInsertElement(Res, ElemVal, Idx * OrigNumElem + Id);
     }
@@ -514,8 +517,8 @@ Value *SGValueWiden::getScalarValue(Value *V, Instruction *IP) {
     return V;
 
   auto *WideValuePtr = cast<AllocaInst>(VecValueMap[V]);
-  auto *ScalarValuePtr =
-      Builder.CreateGEP(WideValuePtr, {ConstZero, ConstZero});
+  auto *ScalarValuePtr = Builder.CreateGEP(
+      WideValuePtr->getAllocatedType(), WideValuePtr, {ConstZero, ConstZero});
   return Builder.CreateLoad(OrigValType, ScalarValuePtr);
 }
 
@@ -555,7 +558,8 @@ Value *SGValueWiden::getWIOffset(Instruction *IP, Value *Src) {
   assert(Src->getType()->isPointerTy() && "get offest for a non-pointer value");
   auto *Idx = Helper.createGetSubGroupLId(IP);
   IRBuilder<> Builder(IP);
-  return Builder.CreateGEP(Src, {ConstZero, Idx});
+  return Builder.CreateGEP(Src->getType()->getPointerElementType(), Src,
+                           {ConstZero, Idx});
 }
 
 Instruction *SGValueWiden::getInsertPoint(Instruction *I, Value *V) {
@@ -793,7 +797,8 @@ void SGValueWiden::widenAlloca(Instruction *V, Instruction *FirstI,
     Builder.SetInsertPoint(IP);
     auto *Offset =
         ArraySize->getZExtValue() > 1 ? Builder.CreateMul(Idx, ArraySize) : Idx;
-    auto *NewV = Builder.CreateGEP(WideValue, {ConstZero, Offset});
+    auto *NewV = Builder.CreateGEP(WideValue->getAllocatedType(), WideValue,
+                                   {ConstZero, Offset});
     UI->replaceUsesOfWith(V, NewV);
   }
 
