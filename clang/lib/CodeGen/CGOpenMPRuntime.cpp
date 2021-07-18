@@ -8175,7 +8175,7 @@ public:
             llvm::Value *Idx =
                 llvm::ConstantInt::getNullValue(CGF.CGM.IntPtrTy);
             CombinedInfo.Pointers.push_back(CGF.Builder.CreateInBoundsGEP(
-                LB.getPointer(), Idx, "arrayidx"));
+                LB.getElementType(), LB.getPointer(), Idx, "arrayidx"));
           } else
 #endif //INTEL_COLLAB
           CombinedInfo.Pointers.push_back(LB.getPointer());
