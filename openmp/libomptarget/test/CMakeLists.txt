@@ -22,7 +22,11 @@ foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.
-  add_openmp_testsuite(check-libomptarget-${CURRENT_TARGET} "Running libomptarget tests" ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET} DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS})
+  add_openmp_testsuite(check-libomptarget-${CURRENT_TARGET}
+    "Running libomptarget tests"
+    ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET}
+    DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS}
+    ARGS ${LIBOMPTARGET_LIT_ARGS})
 # end INTEL_CUSTOMIZATION
   list(APPEND LIBOMPTARGET_LIT_TESTSUITES ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET})
 
@@ -44,5 +48,10 @@ endforeach()
 # INTEL_CUSTOMIZATION
 # Do not add omp as a dependency since Intel specific OpenMP runtime is being
 # used.
-add_openmp_testsuite(check-libomptarget "Running libomptarget tests" ${LIBOMPTARGET_LIT_TESTSUITES} EXCLUDE_FROM_CHECK_ALL DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS})
+add_openmp_testsuite(check-libomptarget
+  "Running libomptarget tests"
+  ${LIBOMPTARGET_LIT_TESTSUITES}
+  EXCLUDE_FROM_CHECK_ALL
+  DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS}
+  ARGS ${LIBOMPTARGET_LIT_ARGS})
 # end INTEL_CUSTOMIZATION
