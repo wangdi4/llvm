@@ -7448,6 +7448,11 @@ def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_Qoverride_limits : CLFlag<"Qoverride-limits">, Alias<qoverride_limits>,
   HelpText<"Enables the user to skip throttling of loops in framework and DD.">;
+def _SLASH_Qprotect_parens : CLFlag<"Qprotect-parens">,
+  Alias<fprotect_parens>, HelpText<"Determines whether the optimizer honors "
+  "parentheses when floating-point expressions are evaluated">;
+def _SLASH_Qprotect_parens_ : CLFlag<"Qprotect-parens-">,
+  Alias<fno_protect_parens>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">;
