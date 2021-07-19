@@ -793,9 +793,16 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       if (!Value.empty()) {
         int ValInt = 0;
         if (!Value.getAsInteger(0, ValInt))
-          if (ValInt > 0)
+          if (ValInt > 0) {
             addllvmOption(Args.MakeArgString(
                 Twine("-hir-general-unroll-max-factor=") + Value));
+            addllvmOption(Args.MakeArgString(
+                Twine("-hir-complete-unroll-loop-trip-threshold=") + Value));
+            addllvmOption(Args.MakeArgString(
+                Twine("-unroll-max-count=") + Value));
+            addllvmOption(Args.MakeArgString(
+                Twine("-unroll-full-max-count=") + Value));
+          }
       }
     }
   }
