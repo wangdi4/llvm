@@ -11,6 +11,7 @@
 ; CHECK:          DPCPPEqualizerLegacy
 ; CHECK-NEXT:     DuplicateCalledKernels
 ; CHECK-NEXT:     InternalizeNonKernelFuncLegacy
+; CHECK-NEXT:     AddFunctionAttrs
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
