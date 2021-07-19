@@ -1193,13 +1193,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // VPlan Predicator
   LVP.predicate();
 
-  for (auto &Pair : LVP.getAllVPlans()) {
-    unsigned VF = Pair.first;
-    std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
-    if (!processVConflictIdiom(*Plan.get(), Fn, VF)) {
-      LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
-      return 0;
-    }
+  // It is enough to update the VPlan for VF=1 since all the different vector
+  // factors share the same VPlan.
+  assert(std::equal(std::next(LVP.getAllVPlans().begin()),
+                    LVP.getAllVPlans().end(), LVP.getAllVPlans().begin(),
+                    [](const auto &P1, const auto &P2) {
+                      return P1.second.MainPlan.get() ==
+                             P2.second.MainPlan.get();
+                    }) &&
+         "All the VPlans with different vector factor are expected to be the "
+         "same.");
+  if (!processVConflictIdiom(*LVP.getAllVPlans().begin()->second.MainPlan.get(),
+                             Fn)) {
+    LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
+    return false;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -22,11 +22,10 @@ class VPInstruction;
 class VPlan;
 
 // Checks if the Plan has a VPConflict isntruction.
-bool processVConflictIdiom(VPlan &, Function &Fn, unsigned VF);
+bool processVConflictIdiom(VPlan &, Function &Fn);
 
 // Checks the type of VConflict idiom and calls the right lowering method.
-bool processVConflictIdiom(VPGeneralMemOptConflict *, Function &Fn,
-                           unsigned VF);
+bool processVConflictIdiom(VPGeneralMemOptConflict *, Function &Fn);
 } // namespace vpo
 } // namespace llvm
 
