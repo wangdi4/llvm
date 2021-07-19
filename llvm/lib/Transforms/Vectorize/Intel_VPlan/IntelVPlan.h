@@ -566,6 +566,7 @@ public:
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
     PrivateFinalArray,
+    PrivateLastValueNonPOD,
     GeneralMemOptConflict,
     ConflictInsn,
   };
@@ -911,6 +912,41 @@ private:
       return Instruction::FCmp;
     llvm_unreachable("Integer/Float predicate expected");
   }
+};
+
+/// Concrete class to represent last value calculation for private nonPODs in
+/// VPlan.
+class VPPrivateLastValueNonPODInst : public VPInstruction {
+public:
+  /// Create VPPrivateLastValueNonPODInst with its BaseType, operands and
+  /// private object copyassign function pointer.
+  VPPrivateLastValueNonPODInst(Type *BaseTy, ArrayRef<VPValue *> Operands,
+                               Function *CopyAssign)
+      : VPInstruction(VPInstruction::PrivateLastValueNonPOD, BaseTy, Operands),
+        CopyAssign(CopyAssign) {}
+
+  /// Return the copyassign function stored by this instruction
+  Function *getCopyAssign() const { return CopyAssign; }
+
+  /// Methods for supporting type inquiry through isa, cast, and
+  /// dyn_cast:
+  static bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::PrivateLastValueNonPOD;
+  }
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  virtual VPPrivateLastValueNonPODInst *cloneImpl() const final {
+    SmallVector<VPValue *, 2> Ops;
+    for (auto &O : operands())
+      Ops.push_back(O);
+    return new VPPrivateLastValueNonPODInst(getType(), Ops, getCopyAssign());
+  }
+
+private:
+  Function *CopyAssign = nullptr;
 };
 
 /// Concrete class to represent branch instruction in VPlan.

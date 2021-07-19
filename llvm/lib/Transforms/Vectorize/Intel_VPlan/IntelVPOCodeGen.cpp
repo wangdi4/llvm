@@ -1757,6 +1757,18 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     return;
   }
+  case VPInstruction::PrivateLastValueNonPOD: {
+    // We need to copy private from last private allocated memory into the
+    // original private location.
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    Value *Res = getScalarValue(Priv, VF - 1);
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(VPInst)->getCopyAssign();
+    Builder.CreateCall(CopyAssignFn, {Orig, Res});
+    return;
+  }
+
   case VPInstruction::VLSLoad: {
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
     assert(DA->isUniform(*VLSLoad) &&

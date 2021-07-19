@@ -377,6 +377,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vp-general-mem-opt-conflict";
   case VPInstruction::ConflictInsn:
     return "vpconflict-insn";
+  case VPInstruction::PrivateLastValueNonPOD:
+    return "private-last-value-nonpod";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -531,6 +533,13 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case Instruction::FCmp: {
     O << getOpcodeName(getOpcode()) << ' '
       << CmpInst::getPredicateName(cast<VPCmpInst>(this)->getPredicate());
+    break;
+  }
+  case VPInstruction::PrivateLastValueNonPOD: {
+    O << getOpcodeName(getOpcode()) << ' ';
+    auto *CopyAssignFn =
+        cast<VPPrivateLastValueNonPODInst>(this)->getCopyAssign();
+    O << "CopyAssign: " << CopyAssignFn->getName();
     break;
   }
   default:
