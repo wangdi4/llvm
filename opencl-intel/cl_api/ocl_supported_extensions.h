@@ -60,5 +60,6 @@
 #define OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY             "cl_intel_mem_channel_property"
 
 #define OCL_EXT_INTEL_VEC_LEN_HINT                     "cl_intel_vec_len_hint"
+#define OCL_EXT_INTEL_DEVICELIB_ASSERT                 "cl_intel_devicelib_assert"
 
 #define OCL_EXT_ES_KHR_INT64                           "cles_khr_int64"
