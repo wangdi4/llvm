@@ -727,6 +727,12 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
   }
 }
 
+// Dumps bail-out messages when the legality checks of VConflict idiom fail.
+static bool reportMatchFail(StringRef Reason) {
+  LLVM_DEBUG(dbgs() << Reason << '\n');
+  return false;
+}
+
 // Creates VPConflict idiom and its region. First, we form the region by
 // collecting the uses of VConflictLoad until we reach VConflictStore. All these
 // instructions will be removed from the original VPlan and they will be placed
@@ -782,16 +788,16 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
 // VPGeneralMemOptConflict. For example, %vp.load.A and %vp.load.C operands of
 // VPGeneralMemOptConflict correspond to %vp.live.in0 and %vp.line.in1
 // respectively.
+//
 bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
   for (auto &T : VConflictStoreLoadIndexInsns) {
     VPInstruction *VConflictStore;
     VPInstruction *VConflictLoad;
     VPValue *VConflictIndex;
     std::tie(VConflictStore, VConflictLoad, VConflictIndex) = T;
+    assert(VConflictLoad && "VConflict load is expected.");
+    assert(VConflictIndex && "Conflict index is expected.");
     VConflictIndex->setName("vconflict.index");
-
-    if (!VConflictLoad)
-      return false;
 
     // Collect the instructions of VConflict region by checking the uses of
     // VConflictLoad. In the simplest case, one value of the data of store
@@ -817,7 +823,8 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // TODO: Remove redundant instructions from VConflict pattern.
 
     if (VConflictLoad->getParent() != VConflictStore->getParent())
-      return false;
+      return reportMatchFail(
+          "VConflict load and store are in different basic blocks.");
 
     // First, we collect all the instructions between VConflictLoad and
     // VConflcitStore.
@@ -829,7 +836,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
                [InsnsBetweenLoadStore](const VPUser *U) {
                  return !InsnsBetweenLoadStore.count(cast<VPInstruction>(U));
                }))
-      return false;
+      return reportMatchFail("VConflict load has uses outside of the region.");
 
     // Next, we start from VConflictLoad uses and we collect all the uses until
     // we reach VConflictStore.
@@ -845,17 +852,19 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
         It++;
       }
 
-    // In Histogram, all the pattern insns belong to the same basic block.
-    // TODO: Remove this check when we add support for general conflict,
-    // tree-conflict, unoptimized histogram.
-    bool PatternHasControlFlow =
-        any_of(RegionInsns, [VConflictStore, VConflictLoad](VPInstruction *I) {
-          return I->getParent() != VConflictStore->getParent() &&
-                 I->getParent() != VConflictLoad->getParent();
-        });
-
-    if (PatternHasControlFlow)
-      return false;
+    // Check if any of the RegionInsns has uses outside of VConflict pattern.
+    // Such uses need a special processing which is not implemented yet. Hence,
+    // we need to bail-out.
+    for (auto *I : RegionInsns) {
+      if ((any_of(I->users(), [&](VPUser *U) {
+            return !is_contained(RegionInsns, U) && (U != VConflictStore);
+          })))
+        return reportMatchFail("VConflict region should not have instructions "
+                        "with uses outside of the region.");
+      if (I->mayHaveSideEffects())
+        return reportMatchFail(
+            "VConflict region should not have instructions with side effects.");
+    }
 
     // Collect the live-ins of VConflict region. We check if any operands of the
     // VConflct region's instructions have definition outside of the region.
