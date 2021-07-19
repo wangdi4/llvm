@@ -375,6 +375,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-array";
   case VPInstruction::GeneralMemOptConflict:
     return "vp-general-mem-opt-conflict";
+  case VPInstruction::ConflictInsn:
+    return "vpconflict-insn";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -1586,4 +1588,15 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
 
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
+}
+
+VPCallInstruction::VPCallInstruction(FunctionCallee Callee,
+                                     ArrayRef<VPValue *> ArgList, VPlan *Plan)
+    : VPInstruction(Instruction::Call,
+                    Callee.getFunctionType()->getReturnType(), ArgList),
+      OrigCall(nullptr) {
+  assert(Callee && "Call instruction does not have Callee");
+  // Add called value to end of operand list for def-use chain.
+  addOperand(Plan->getVPConstant(cast<Constant>(Callee.getCallee())));
+  resetVecScenario(0 /*Initial VF*/);
 }

@@ -50,6 +50,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanTTIWrapper.cpp
   Intel_VPlan/IntelVPlanValueTracking.cpp
+  Intel_VPlan/IntelVPlanVConflictTransformation.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
   Intel_VPlan/IntelVPlanVLSTransform.cpp

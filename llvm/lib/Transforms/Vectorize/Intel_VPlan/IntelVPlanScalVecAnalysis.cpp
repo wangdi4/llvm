@@ -570,6 +570,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::ConflictInsn: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Wide value is shared across all lanes.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -869,6 +879,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::VLSStore:
   case VPInstruction::InvSCEVWrapper:
   case VPInstruction::GeneralMemOptConflict:
+  case VPInstruction::ConflictInsn:
     return true;
   default:
     return false;
