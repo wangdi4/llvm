@@ -1,9 +1,4 @@
 add_subdirectory(sycl-ls)
-# INTEL_CUSTOMIZATIOn
-if (SYCL_ENABLE_XPTI_TRACING)
-  add_subdirectory(pi-trace)
-endif()
-# end INTEL_CUSTOMIZATON
 
 # TODO: move each tool in its own sub-directory
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
