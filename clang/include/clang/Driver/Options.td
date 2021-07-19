@@ -1966,9 +1966,12 @@ def fno_honor_infinities : Flag<["-"], "fno-honor-infinities">, Group<f_Group>;
 // This option was originally misspelt "infinites" [sic].
 def : Flag<["-"], "fhonor-infinites">, Alias<fhonor_infinities>;
 def : Flag<["-"], "fno-honor-infinites">, Alias<fno_honor_infinities>;
+#if INTEL_CUSTOMIZATION
 def frounding_math : Flag<["-"], "frounding-math">, Group<f_Group>, Flags<[CC1Option]>,
   MarshallingInfoFlag<LangOpts<"FPRoundingMode">, "llvm::RoundingMode::NearestTiesToEven">,
-  Normalizer<"makeFlagToValueNormalizer(llvm::RoundingMode::Dynamic)">;
+  Normalizer<"makeFlagToValueNormalizer(llvm::RoundingMode::Dynamic)">,
+  HelpText<"Disable floating point optimizations that assume the default rounding mode.">;
+#endif // INTEL_CUSTOMIZATION
 def fno_rounding_math : Flag<["-"], "fno-rounding-math">, Group<f_Group>, Flags<[CC1Option]>;
 def ftrapping_math : Flag<["-"], "ftrapping-math">, Group<f_Group>;
 def fno_trapping_math : Flag<["-"], "fno-trapping-math">, Group<f_Group>;
