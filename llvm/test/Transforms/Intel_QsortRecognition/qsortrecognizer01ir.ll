@@ -13,6 +13,7 @@
 %__SOADT___DFR___DFT_struct.arc = type { i64, i32, i32, i64, i64, i32, i16 }
 
 define internal i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** nocapture readonly %0, %__SOADT___DFR___DFT_struct.arc** nocapture readonly %1) #2 {
+  call void @llvm.dbg.value(metadata %__SOADT___DFR___DFT_struct.arc** %0, metadata !13, metadata !DIExpression()), !dbg !14
   %3 = load %__SOADT___DFR___DFT_struct.arc*, %__SOADT___DFR___DFT_struct.arc** %0, align 8
   %4 = getelementptr %__SOADT___DFR___DFT_struct.arc, %__SOADT___DFR___DFT_struct.arc* %3, i64 0, i32 0
   %5 = load i64, i64* %4, align 8
@@ -497,5 +498,31 @@ define internal fastcc void @spec_qsort.40(i8* %0, i64 %1) unnamed_addr #0 {
 attributes #0 = { "is-qsort-spec_qsort" }
 attributes #1 = { "must-be-qsort-compare" }
 attributes #2 = { "is-qsort-compare" }
+
+declare void @llvm.dbg.value(metadata, metadata, metadata)
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!3, !4, !5}
+!llvm.dbg.intel.emit_class_debug_always = !{!6}
+!llvm.ident = !{!7}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
+!1 = !DIFile(filename: "test", directory: ".")
+!2 = !{}
+!3 = !{i32 2, !"Dwarf Version", i32 4}
+!4 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = !{i32 1, !"wchar_size", i32 4}
+!6 = !{!"true"}
+!7 = !{!""}
+!8 = distinct !DISubprogram(name: "na", linkageName: "na", scope: !1, file: !1, line: 1, type: !9, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, retainedNodes: !2)
+; int(void*) type.
+!9 = !DISubroutineType(types: !10)
+!10 = !{!11, !12}
+!11 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!12 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: null, size: 64)
+!13 = !DILocalVariable(name: "na", arg: 1, scope: !8, file: !1, line: 1, type: !12)
+!14 = !DILocation(line: 1, column: 1, scope: !8)
+!15 = !DILocation(line: 1, column: 1, scope: !8)
+!16 = !DILocation(line: 1, column: 1, scope: !8)
 
 ; end INTEL_FEATURE_SW_ADVANCED
