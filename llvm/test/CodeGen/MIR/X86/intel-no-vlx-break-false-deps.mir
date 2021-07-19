@@ -34,7 +34,7 @@ body:             |
   bb.0.alloca_11:
     liveins: $rdi, $rdx, $rsi
     ; CHECK-LABEL: si2float
-    ; CHECK: xor
+    ; CHECK-NOT: xor
     renamable $xmm22 = VMOVSDZrm_alt killed renamable $rsi, 1, $noreg, 0, $noreg :: (load (s64) from %ir.ld_f64)
     VMOVSDZmr killed renamable $rdx, 1, $noreg, 0, $noreg, killed renamable $xmm22 :: (store (s64) into %ir.st)
     renamable $eax = MOV32rm killed renamable $rdi, 1, $noreg, 0, $noreg :: (load (s32) from %ir.ld_i32)
