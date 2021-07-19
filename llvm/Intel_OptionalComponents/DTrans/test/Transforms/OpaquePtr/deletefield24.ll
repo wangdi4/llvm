@@ -1,5 +1,7 @@
 ; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; This test verifies that the DTrans delete pass is able to handle global
 ; variables dependent types that have an initializer list.
@@ -9,16 +11,16 @@
 @g_del = private global %struct.test { i32 100, i64 1000, i32 10000 }, align 4
 @g_dep = private global %struct.dep { i32 1, %struct.test* @g_del }, align 4
 
-; CHECK-NONOPAQUE: %__DFT_struct.test = type { i32, i32 }
-; CHECK-NONOPAQUE: %__DFDT_struct.dep = type { i32, %__DFT_struct.test* }
-; CHECK-NONOPAQUE: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
-; CHECK-NONOPAQUE: @g_dep = private global %__DFDT_struct.dep { i32 1, %__DFT_struct.test* @g_del }, align 4
+; CHECK-NONOPAQUE-DAG: %__DFT_struct.test = type { i32, i32 }
+; CHECK-NONOPAQUE-DAG: %__DFDT_struct.dep = type { i32, %__DFT_struct.test* }
+; CHECK-NONOPAQUE-DAG: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
+; CHECK-NONOPAQUE-DAG: @g_dep = private global %__DFDT_struct.dep { i32 1, %__DFT_struct.test* @g_del }, align 4
 
 ; Check order with opaque pointers is different because only one variable is cloned.
-; CHECK-OPAQUE: %struct.dep = type { i32, ptr }
-; CHECK-OPAQUE: %__DFT_struct.test = type { i32, i32 }
-; CHECK-OPAQUE: @g_dep = private global %struct.dep { i32 1, ptr @g_del }, align 4
-; CHECK-OPAQUE: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
+; CHECK-OPAQUE-DAG: %struct.dep = type { i32, ptr }
+; CHECK-OPAQUE-DAG: %__DFT_struct.test = type { i32, i32 }
+; CHECK-OPAQUE-DAG: @g_dep = private global %struct.dep { i32 1, ptr @g_del }, align 4
+; CHECK-OPAQUE-DAG: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
 
 define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
   ; read dep.A
