@@ -220,14 +220,14 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
 // the pass, if requested.
 template <typename PassT>
 static void addPass(ModulePassManager &MPM, DumpModuleDTransValues Phase,
-                    PassT P) {
+                    PassT &&P) {
   assert(Phase <= late && "Phase value out of range");
   if (hasDumpModuleBeforeDTransValue(Phase))
     MPM.addPass(PrintModulePass(
         dbgs(),
         "; Module Before " + std::string(DumpModuleDTransNames[Phase]) + "\n"));
 
-  MPM.addPass(P);
+  MPM.addPass(std::forward<PassT>(P));
 
   if (hasDumpModuleAfterDTransValue(Phase))
     MPM.addPass(PrintModulePass(
