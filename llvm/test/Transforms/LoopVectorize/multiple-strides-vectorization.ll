@@ -41,7 +41,7 @@ define void @Test(%struct.s* nocapture %obj, i64 %z) #0 {
 ; CHECK-NEXT:    [[SCEVGEP23:%.*]] = bitcast i32* [[SCEVGEP2]] to i8*
 ; CHECK-NEXT:    [[SCEVGEP7:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[I]]
 ; CHECK-NEXT:    [[SCEVGEP78:%.*]] = bitcast i32* [[SCEVGEP7]] to i8*
-; CHECK-NEXT:    [[TMP1:%.*]] = add i64 [[I]], 1
+; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i64 [[I]], 1 ;INTEL
 ; CHECK-NEXT:    [[SCEVGEP9:%.*]] = getelementptr [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[TMP1]]
 ; CHECK-NEXT:    [[SCEVGEP910:%.*]] = bitcast i32* [[SCEVGEP9]] to i8*
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.s* [[OBJ]], i64 0, i32 1, i64 [[I]]
