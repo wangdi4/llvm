@@ -2854,11 +2854,10 @@ Value *VPOCodeGen::createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
     // correct operand for widened load/store.
     VecPtr = getScalarValue(Ptr, 0);
 
-  VecPtr =
-      Reverse ? Builder.CreateGEP(
-                    VecPtr->getType()->getScalarType()->getPointerElementType(),
-                    VecPtr, Builder.getInt32(1 - WideDataTy->getNumElements()))
-              : VecPtr;
+  VecPtr = Reverse ? Builder.CreateGEP(
+                         WideDataTy->getScalarType(), VecPtr,
+                         Builder.getInt32(1 - WideDataTy->getNumElements()))
+                   : VecPtr;
   VecPtr = Builder.CreateBitCast(VecPtr, WideDataTy->getPointerTo(AddrSpace));
   return VecPtr;
 }
