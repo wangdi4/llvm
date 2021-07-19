@@ -12,6 +12,10 @@ else()
   set(LIBOMPTARGET_DEBUG False)
 endif()
 
+# Replace the space from user's input with ";" in case that CMake add escape
+# char into the lit command.
+string(REPLACE " " ";" LIBOMPTARGET_LIT_ARG_LIST "${LIBOMPTARGET_LIT_ARGS}")
+
 string(REGEX MATCHALL "([^\ ]+\ |[^\ ]+$)" SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS}")
 # INTEL_CUSTOMIZATION
 # We do not test targets other than x86_64 with LIT
@@ -26,7 +30,7 @@ foreach(CURRENT_TARGET IN LISTS SYSTEM_TARGETS)
     "Running libomptarget tests"
     ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET}
     DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS}
-    ARGS ${LIBOMPTARGET_LIT_ARGS})
+    ARGS ${LIBOMPTARGET_LIT_ARG_LIST})
 # end INTEL_CUSTOMIZATION
   list(APPEND LIBOMPTARGET_LIT_TESTSUITES ${CMAKE_CURRENT_BINARY_DIR}/${CURRENT_TARGET})
 
@@ -53,5 +57,5 @@ add_openmp_testsuite(check-libomptarget
   ${LIBOMPTARGET_LIT_TESTSUITES}
   EXCLUDE_FROM_CHECK_ALL
   DEPENDS omptarget ${LIBOMPTARGET_TESTED_PLUGINS}
-  ARGS ${LIBOMPTARGET_LIT_ARGS})
+  ARGS ${LIBOMPTARGET_LIT_ARG_LIST})
 # end INTEL_CUSTOMIZATION
