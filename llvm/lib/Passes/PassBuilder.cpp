@@ -1959,7 +1959,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
       // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
       // SIMD loops
       bool FPMConsumed =
-          addVPOPassesPreOrPostLoopOpt(MPM, FPM, /*IsPostLoopOptPass=*/false);
+          addVPlanVectorizer(MPM, FPM, /*IsPostLoopOptPass=*/false);
 
       if (FPMConsumed) {
         // TODO: Check whether this re-creation is needed, or it's ok to
@@ -1972,7 +1972,7 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
       // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
       // vectorized after createVPlanDriverHIRPass
       FPMConsumed =
-          addVPOPassesPreOrPostLoopOpt(MPM, FPM, /*IsPostLoopOptPass=*/true);
+          addVPlanVectorizer(MPM, FPM, /*IsPostLoopOptPass=*/true);
 
       if (!FPMConsumed && !FPM.isEmpty())
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
@@ -2005,9 +2005,9 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 
-bool PassBuilder::addVPOPassesPreOrPostLoopOpt(ModulePassManager &MPM,
-                                               FunctionPassManager &FPM,
-                                               bool IsPostLoopOptPass) {
+bool PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
+                                     FunctionPassManager &FPM,
+                                     bool IsPostLoopOptPass) {
   if (!RunVPOOpt || !EnableVPlanDriver)
     return false;
   if (!IsPostLoopOptPass && !RunPreLoopOptVPOPasses)
