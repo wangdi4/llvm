@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Intel Corporation
+// Copyright (c) 2020-2021 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -69,7 +69,8 @@ const std::map<std::string, cl_version> extRefCPU = {
     {"cl_intel_subgroups_char", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_subgroups_long", CL_MAKE_VERSION(1, 0, 0)},
     {"cl_intel_subgroups_short", CL_MAKE_VERSION(1, 0, 0)},
-    {"cl_intel_devicelib_assert", CL_MAKE_VERSION(1, 0, 0)}};
+    {"cl_intel_devicelib_assert", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_spirv_linkonce_odr", CL_MAKE_VERSION(1, 0, 0)}};
 
 TEST_F(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo

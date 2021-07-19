@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -63,3 +61,5 @@
 #define OCL_EXT_INTEL_DEVICELIB_ASSERT                 "cl_intel_devicelib_assert"
 
 #define OCL_EXT_ES_KHR_INT64                           "cles_khr_int64"
+
+#define OCL_EXT_KHR_SPIRV_LINKONCE_ODR                 "cl_khr_spirv_linkonce_odr"
