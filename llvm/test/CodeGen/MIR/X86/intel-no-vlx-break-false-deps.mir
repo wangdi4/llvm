@@ -1,0 +1,45 @@
+# RUN: llc -o - %s -march=x86-64 -start-after=x86-execution-domain-fix 2>&1 | FileCheck %s
+
+--- |
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-linux-gnu"
+  
+  ; Function Attrs: nofree nounwind uwtable
+  define double @si2float(i32* %ld_i32, double* %ld_f64, double* %st) local_unnamed_addr #0 {
+  alloca_11:
+    %d0 = load double, double* %ld_f64, align 8
+    store double %d0, double* %st, align 8
+    %d1 = load i32, i32* %ld_i32, align 4
+    %in = add i32 %d1, 5
+    %out = sitofp i32 %in to double
+    ret double %out
+  }
+  
+  attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "target-cpu"="common-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512cd,+avx512f,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" }
+
+...
+---
+name:            si2float
+alignment:       16
+tracksRegLiveness: true
+liveins:
+  - { reg: '$rdi' }
+  - { reg: '$rsi' }
+  - { reg: '$rdx' }
+frameInfo:
+  maxAlignment:    1
+  maxCallFrameSize: 0
+machineFunctionInfo: {}
+body:             |
+  bb.0.alloca_11:
+    liveins: $rdi, $rdx, $rsi
+    ; CHECK-LABEL: si2float
+    ; CHECK: xor
+    renamable $xmm22 = VMOVSDZrm_alt killed renamable $rsi, 1, $noreg, 0, $noreg :: (load (s64) from %ir.ld_f64)
+    VMOVSDZmr killed renamable $rdx, 1, $noreg, 0, $noreg, killed renamable $xmm22 :: (store (s64) into %ir.st)
+    renamable $eax = MOV32rm killed renamable $rdi, 1, $noreg, 0, $noreg :: (load (s32) from %ir.ld_i32)
+    renamable $eax = ADD32ri8 killed renamable $eax, 5, implicit-def dead $eflags
+    renamable $xmm0 = VCVTSI2SDZrr undef $xmm22, killed renamable $eax
+    RETQ $xmm0
+
+...
