@@ -118,11 +118,14 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
     assert(SE && "SCEV has not been calculated.");
-    if (auto KnownTC = SE->getSmallConstantMaxTripCount(Lp)) {
+    if (auto KnownTC = SE->getSmallConstantTripCount(Lp)) {
       VPL->setKnownTripCount(KnownTC);
       LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getLoopDepth()
                         << " is " << KnownTC << "\n";);
       continue;
+    } else {
+      LLVM_DEBUG(dbgs() << "Could not estimate trip count for loop "
+                        << Lp->getLoopDepth() << " using ScalarEvolution\n";);
     }
     TripCountInfo TCInfo = readIRLoopMetadata(Lp);
     TCInfo.calculateEstimatedTripCount();
