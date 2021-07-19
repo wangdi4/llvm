@@ -74,6 +74,21 @@ set(UNUSED_LLVM_LIBS
 )
 list(REMOVE_ITEM LLVM_MODULE_LIBS ${UNUSED_LLVM_LIBS})
 
+
+# INTEL_FEATURE_SW_DTRANS
+# Don't know why the following 3 components are not in LLVM_MODULE_LIBS. Add
+# them here as a workaround to resolve link issue.
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
+  set(INTEL_DTRANS_LIBS
+      LLVMIntel_DTrans
+      LLVMIntel_DTransOpt
+      LLVMIntel_DTransAnalysis)
+else()
+  set(INTEL_DTRANS_LIBS)
+endif()
+# end INTEL_FEATURE_SW_DTRANS
+
 add_opencl_executable(${OCL_OPT}
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
@@ -89,11 +104,7 @@ add_opencl_executable(${OCL_OPT}
   ${OCL_BE_PASSES_DEPS}
   cl_sys_utils
 # INTEL_FEATURE_SW_DTRANS
-  # Don't know why the following 3 components are not in LLVM_MODULE_LIBS. Add
-  # them here as a workaround to resolve link issue.
-  LLVMIntel_DTrans
-  LLVMIntel_DTransOpt
-  LLVMIntel_DTransAnalysis
+  ${INTEL_DTRANS_LIBS}
 # end INTEL_FEATURE_SW_DTRANS
 )
 
