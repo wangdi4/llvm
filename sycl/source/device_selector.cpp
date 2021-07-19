@@ -21,6 +21,7 @@
 #ifdef INTEL_CUSTOMIZATION
 #include <detail/config.hpp>
 #endif // INTEL_CUSTOMIZATION
+#include <sycl/ext/oneapi/filter_selector.hpp>
 
 // 4.6.1 Device selection class
 

@@ -116,6 +116,17 @@ static cl::opt<bool> EnableAsyncHelperThread(
     "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(false),
     cl::desc("Enable hidden helper threads for async offloading execution"));
 
+
+// Get the TidPtrHolder global variable @tid.addr.
+// Assert if the variable is not found or is not i32.
+GlobalVariable *VPOParoptUtils::getTidPtrHolder(Module *M) {
+  GlobalVariable *TidPtrHolder = M->getGlobalVariable("@tid.addr");
+  assert(TidPtrHolder && "Global variable @tid.addr not found.");
+  assert(TidPtrHolder->getValueType()->isIntegerTy(32) &&
+         "Global variable @tid.addr should be of i32 type");
+  return TidPtrHolder;
+}
+
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
 StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
@@ -1330,6 +1341,52 @@ CallInst *VPOParoptUtils::genOmpAlloc(Value *Size, Value *Handle,
     Handle = genOmpGetDefaultAllocator(InsertPt);
   CallInst *Call = genCall("omp_alloc", Int8PtrTy, {SizeCast, Handle},
                            {IntPtrTy, IntPtrTy}, InsertPt);
+  return Call;
+}
+
+// Generate a call to
+//   void* __kmpc_aligned_alloc(int gtid, size_t Alignment, size_t Size,
+//                             omp_allocator_handle_t Handle);
+// where omp_allocator_handle_t is uintptr_t
+//
+// If the input 'Handle' is null, then use omp_get_default_allocator()
+// for this parameter.
+CallInst *VPOParoptUtils::genKmpcAlignedAlloc(uint64_t Alignment, Value *Size,
+                                              Value *Handle,
+                                              Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = InsertPt->getModule();
+
+  // Thread-id
+  auto *TidPtr = getTidPtrHolder(M);
+  Type *Int32Ty = Builder.getInt32Ty();
+  LoadInst *Tid = Builder.CreateLoad(Int32Ty, TidPtr);
+  Tid->setName("my.tid");
+  Tid->setAlignment(Align(4));
+
+  // Alignment
+  const auto &DL = M->getDataLayout();
+  const unsigned PtrSz = DL.getPointerSizeInBits();
+  Value *AlignVal = Builder.getIntN(PtrSz, Alignment);
+
+  // size_t and omp_allocator_handle_t are both IntPtr
+  Type *IntPtrTy = GeneralUtils::getSizeTTy(F);
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  // Size cast to IntPtrTy
+  auto *SizeCast = Builder.CreateZExtOrBitCast(Size, IntPtrTy);
+
+  // Allocator Handle cast to IntPtrTy
+  if (Handle)
+    Handle = Builder.CreateZExtOrBitCast(Handle, IntPtrTy);
+  else
+    Handle = genOmpGetDefaultAllocator(InsertPt);
+
+  CallInst *Call = genCall("__kmpc_aligned_alloc", Int8PtrTy,
+                           {Tid,     AlignVal, SizeCast, Handle},
+                           {Int32Ty, IntPtrTy, IntPtrTy, IntPtrTy}, InsertPt);
   return Call;
 }
 
@@ -4793,10 +4850,13 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     assert(ConstNumElements > 0 && "Invalid size for new alloca.");
   }
 
-  // If AllocItem is not null, then call omp_alloc(Size, AllocHandle) to
-  // allocate memory according to the allocate clause.
+  // If AllocItem is not null, then call
+  //     __kmpc_aligned_alloc(int gtid, size_t align, size_t size,
+  //                          omp_allocator_handle_t alloc_handle);
+  // to allocate memory according to the allocate clause.
   // This clause is currently not supported for spir64 target compilation.
   if (!IsTargetSPIRV && AllocItem) {
+    uint64_t Alignment = AllocItem->getAlignment();
     Value *AllocHandle = AllocItem->getAllocator();
     Value *ElementSize = Builder.getIntN(DL.getPointerSizeInBits(),
                                          DL.getTypeSizeInBits(ElementType) / 8);
@@ -4806,8 +4866,10 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       // so we compute TotalSize = NumElements * ElementSize.
       TotalSize = Builder.CreateMul(NumElements, ElementSize);
 
-    CallInst *AllocCall = genOmpAlloc(TotalSize, AllocHandle, InsertPt);
-    Value *AllocCast = Builder.CreateBitCast(AllocCall, ElementType->getPointerTo());
+    CallInst *AllocCall =
+        genKmpcAlignedAlloc(Alignment, TotalSize, AllocHandle, InsertPt);
+    Value *AllocCast =
+        Builder.CreateBitCast(AllocCall, ElementType->getPointerTo());
     AllocCast->setName(VarName);
     return AllocCast;
   }

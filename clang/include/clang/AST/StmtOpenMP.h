@@ -1204,6 +1204,9 @@ protected:
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
+#if INTEL_COLLAB
+        isOpenMPGenericLoopDirective(Kind) ||
+#endif // INTEL_COLLAB
         isOpenMPDistributeDirective(Kind))
       return WorksharingEnd;
     return DefaultEnd;
@@ -1253,24 +1256,34 @@ protected:
   }
 #endif // INTEL_COLLAB
   void setIsLastIterVariable(Expr *IL) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[IsLastIterVariableOffset] = IL;
   }
   void setLowerBoundVariable(Expr *LB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[LowerBoundVariableOffset] = LB;
   }
   void setUpperBoundVariable(Expr *UB) {
 #if INTEL_COLLAB
     assert(isOpenMPLoopDirective(getDirectiveKind()) &&
            "expected loop directive");
-#else
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
@@ -1279,38 +1292,63 @@ protected:
     Data->getChildren()[UpperBoundVariableOffset] = UB;
   }
   void setStrideVariable(Expr *ST) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[StrideVariableOffset] = ST;
   }
   void setEnsureUpperBound(Expr *EUB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[EnsureUpperBoundOffset] = EUB;
   }
   void setNextLowerBound(Expr *NLB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NextLowerBoundOffset] = NLB;
   }
   void setNextUpperBound(Expr *NUB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NextUpperBoundOffset] = NUB;
   }
   void setNumIterations(Expr *NI) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NumIterationsOffset] = NI;
   }
   void setPrevLowerBoundVariable(Expr *PrevLB) {
@@ -1431,24 +1469,34 @@ public:
   }
   Stmt *getPreInits() { return Data->getChildren()[PreInitsOffset]; }
   Expr *getIsLastIterVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[IsLastIterVariableOffset]);
   }
   Expr *getLowerBoundVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[LowerBoundVariableOffset]);
   }
   Expr *getUpperBoundVariable() const {
 #if INTEL_COLLAB
     assert(isOpenMPLoopDirective(getDirectiveKind()) &&
            "expected loop directive");
-#else
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
@@ -1457,38 +1505,63 @@ public:
     return cast<Expr>(Data->getChildren()[UpperBoundVariableOffset]);
   }
   Expr *getStrideVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[StrideVariableOffset]);
   }
   Expr *getEnsureUpperBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[EnsureUpperBoundOffset]);
   }
   Expr *getNextLowerBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NextLowerBoundOffset]);
   }
   Expr *getNextUpperBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NextUpperBoundOffset]);
   }
   Expr *getNumIterations() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NumIterationsOffset]);
   }
   Expr *getPrevLowerBoundVariable() const {

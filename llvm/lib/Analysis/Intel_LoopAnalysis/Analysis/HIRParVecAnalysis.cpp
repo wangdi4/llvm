@@ -922,6 +922,7 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 //   have linear memrefs)
 // - the load and store should have the same memory reference
 // - there should be only one output dependency
+// - the conflict index should not be redefined between load and store
 //
 // In VPlan side, we also check the following:
 // - if the load and the store are in the same basic block
@@ -986,18 +987,42 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
       return Mismatch("Nodes are not in the right order.");
 
     // Check if both source and sink nodes have the same memory reference.
-    // TODO:  We need to make ensure that the index hasn't been modified between
-    // the load and store, i.e.
+    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+      return Mismatch("Wrong memory dependency.");
+
+    LoadRef = SinkRef;
+
+    // Checks to ensure that index has not been modified betwen the load and
+    // store, i.e. reject patterns like -
     //
     //  %ld = A[%tmp0]
     //  %tmp0 = redefine
     //  A[%tmp0] = %ld + 42
-    //
-    if (DDRefUtils::areEqual(SinkRef, StoreMemDDRef)) {
-      LoadRef = SinkRef;
+
+    // If the store memref has only linear blobs then we know that their uses
+    // are defined outside current loop and hence index of such memrefs cannot
+    // be redefined.
+    if (StoreMemDDRef->isLinear())
       continue;
-    }
-    return Mismatch("Wrong memory dependency.");
+
+    // Check that store memref has only one non-linear blob.
+    auto *NonLinearBlob = StoreMemDDRef->getSingleNonLinearBlobRef();
+    if (!NonLinearBlob)
+      return Mismatch("Multiple non-linear blobs in store memref.");
+
+    if (DDG.getNumIncomingEdges(NonLinearBlob) != 1)
+      return Mismatch(
+          "Multiple incoming edges to conflicting memref's non-linear blob.");
+
+    DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
+    HLDDNode *NonLinBlobDefNode =
+        NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
+    // Check if the node where non-linear blob for store is defined precedes the
+    // load as well.
+    if (NonLinBlobDefNode->getTopSortNum() >=
+        LoadRef->getHLDDNode()->getTopSortNum())
+      return Mismatch(
+          "Non-linear blob operand of store does not precede the load.");
   }
 
   if (FlowDepCnt == 0)

@@ -4552,7 +4552,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
            "Cannot find call vectorization scenario for VF.");
 
     // Skip ignored calls (for example, lifetime intrinsics).
-    if (!VPCall->getUnderlyingCallInst() ||
+    if (VPCall->getUnderlyingCallInst() &&
         isIgnoredCall(VPCall->getUnderlyingCallInst()))
       return;
 
@@ -4786,6 +4786,19 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
+    break;
+  }
+
+  case VPInstruction::ConflictInsn: {
+    auto *VPConflict = cast<VPConflictInsn>(VPInst);
+    Intrinsic::ID ConflictIntrin = VPConflict->getConflictIntrinsic(getVF());
+    assert(ConflictIntrin != Intrinsic::not_intrinsic &&
+           "Valid conflict intrinsic expected here.");
+    Function *ConflictFunc =
+        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(), ConflictIntrin);
+    LLVM_DEBUG(dbgs() << "Conflict func: "; ConflictFunc->dump());
+    // TODO: FMF for these conflict intrinsics?
+    NewInst = HLNodeUtilities.createCall(ConflictFunc, {RefOp0}, "conflicts");
     break;
   }
 

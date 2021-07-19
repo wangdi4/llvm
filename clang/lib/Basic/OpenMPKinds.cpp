@@ -597,14 +597,6 @@ bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_single || DKind == OMPD_parallel_for ||
          DKind == OMPD_parallel_for_simd || DKind == OMPD_parallel_sections ||
          DKind == OMPD_target_parallel_for ||
-#if INTEL_COLLAB
-         // To get the needed late-outlining loop expressions.
-         DKind == OMPD_loop ||
-         DKind == OMPD_teams_loop ||
-         DKind == OMPD_target_teams_loop ||
-         DKind == OMPD_parallel_loop ||
-         DKind == OMPD_target_parallel_loop ||
-#endif // INTEL_COLLAB
          DKind == OMPD_distribute_parallel_for ||
          DKind == OMPD_distribute_parallel_for_simd ||
          DKind == OMPD_target_parallel_for_simd ||

@@ -769,6 +769,9 @@ public:
   const_blob_iterator blob_begin() const { return BlobDDRefs.begin(); }
   const_blob_iterator blob_end() const { return BlobDDRefs.end(); }
 
+  auto blobs() { return make_range(blob_begin(), blob_end()); }
+  auto blobs() const { return make_range(blob_begin(), blob_end()); }
+
   reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
   reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
 
@@ -1055,6 +1058,10 @@ public:
   /// It returns null if the blob DDRef is not found.
   BlobDDRef *getBlobDDRef(unsigned Index);
   const BlobDDRef *getBlobDDRef(unsigned Index) const;
+
+  // Returns the single non-linear blob that is seen in this RegDDRef. Returns
+  // nullptr if zero or multiple non-linear blob is found.
+  const BlobDDRef *getSingleNonLinearBlobRef() const;
 
   /// Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
