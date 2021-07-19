@@ -48,10 +48,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
-      IsInitTargetSync(false), IsInitPrefer(false), IsTask(false) {
+      IsInitTargetSync(false), IsInitPrefer(false), IsTask(false),
+      IsTyped(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
-
   // Split Name into the BaseName and Modifier substrings
   SmallVector<StringRef, 2> SubString;
   Name.split(SubString, getClauseSeparator());
@@ -149,6 +149,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsArraySection();
         else if (ModSubString[i] == "BYREF")
           setIsByRef();
+        else if (ModSubString[i] == "TYPED")
+          setIsTyped();
 #if INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "F90_DV")
           setIsF90DopeVector();
