@@ -7,8 +7,6 @@ target triple = "x86_64-unknown-linux-gnu"
 ; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=2 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF2
 ; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF4
 ; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=8 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF8
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=16 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF16
-; RUN: opt -mattr=+avx512vl,+avx512cd -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -hir-vplan-vec -disable-vplan-codegen -disable-output -vplan-cost-model-print-analysis-for-vf=32 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VF32
 
 define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr {
 ;
@@ -16,8 +14,6 @@ define dso_local void @foo1(float* noalias nocapture %A, i32* noalias nocapture 
 ; CHECK-VF2:    Cost 3000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
 ; CHECK-VF4:    Cost 15000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
 ; CHECK-VF8:    Cost 22000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
-; CHECK-VF16:   Cost 1000000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
-; CHECK-VF32:   Cost 1000000 for i64 {{.*}} = vpconflict-insn i64 {{.*}}
 ;
 entry:
 ;   for (int i=0; i<N; i++){
