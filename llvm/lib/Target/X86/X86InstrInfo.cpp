@@ -5594,7 +5594,10 @@ void X86InstrInfo::breakPartialRegDependency(
     MI.addRegisterKilled(Reg, TRI, true);
 #if INTEL_CUSTOMIZATION
   } else if (X86::VR128XRegClass.contains(Reg)) {
-    // These instructions are all floating point domain, so xorps is the best
+    // Only handle VLX targets.
+    if (!Subtarget.hasVLX())
+      return;
+    // These instructions are all floating point domain, so vpxord is the best
     // choice.
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
         .addReg(Reg, RegState::Undef)
@@ -5602,7 +5605,10 @@ void X86InstrInfo::breakPartialRegDependency(
     MI.addRegisterKilled(Reg, TRI, true);
   } else if (X86::VR256XRegClass.contains(Reg) ||
              X86::VR512RegClass.contains(Reg)) {
-    // Use vxorps to clear the full ymm/zmm register.
+    // Only handle VLX targets.
+    if (!Subtarget.hasVLX())
+      return;
+    // Use vpxord to clear the full ymm/zmm register.
     // It wants to read and write the xmm sub-register.
     Register XReg = TRI->getSubReg(Reg, X86::sub_xmm);
     BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), XReg)
