@@ -4891,7 +4891,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     }
 
     // Turn on Dead Parameter Elimination Optimization with early optimizations
-    if (!RawTriple.isNVPTX() &&
+    if (!(RawTriple.isNVPTX() || RawTriple.isAMDGCN()) &&
         Args.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization, false))
       CmdArgs.push_back("-fenable-sycl-dae");
@@ -9783,7 +9783,8 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_CUSTOMIZATION
   // Turn on Dead Parameter Elimination Optimization with early optimizations
-  if (!getToolChain().getTriple().isNVPTX() &&
+  if (!(getToolChain().getTriple().isNVPTX() ||
+        getToolChain().getTriple().isAMDGCN()) &&
       TCArgs.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization, false))
     addArgs(CmdArgs, TCArgs, {"-emit-param-info"});
