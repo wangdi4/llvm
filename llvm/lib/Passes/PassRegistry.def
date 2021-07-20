@@ -179,6 +179,7 @@ MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())
 MODULE_PASS("intel-math-libraries-decl", IntelMathLibrariesDeclarationPass())
+MODULE_PASS("intel-ipo-dead-arg-elimination", IntelIPODeadArgEliminationPass())
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("iroutliner", IROutlinerPass())

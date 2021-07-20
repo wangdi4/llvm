@@ -2031,6 +2031,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (DTransEnabled)
     PM.add(createDTransFieldModRefAnalysisWrapperPass());
 #endif // INTEL_FEATURE_SW_DTRANS
+  PM.add(createIntelIPODeadArgEliminationWrapperPass());
 #endif // INTEL_CUSTOMIZATION
 
   PM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));

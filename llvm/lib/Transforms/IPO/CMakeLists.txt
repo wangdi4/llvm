@@ -40,6 +40,7 @@ add_llvm_component_library(LLVMipo
   Inliner.cpp
   Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
+  Intel_IPODeadArgElimination.cpp #INTEL
   Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPArrayTranspose.cpp     # INTEL
 # INTEL_CUSTOMIZATION

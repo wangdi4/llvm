@@ -115,23 +115,22 @@
 #include "llvm/Transforms/IPO/IROutliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
-#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_AggInliner.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
 #if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h"
+#include "llvm/Transforms/IPO/Intel_AggInliner.h"
+#include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h"
+#include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h"
+#include "llvm/Transforms/IPO/Intel_CallTreeCloning.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
-#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
-#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
-#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
+#include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
+#include "llvm/Transforms/IPO/Intel_InlineLists.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
+#include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
+#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h"
+#include "llvm/Transforms/IPO/Intel_IPODeadArgElimination.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
@@ -142,9 +141,9 @@
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
+#include "llvm/Transforms/IPO/Intel_VTableFixup.h"
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_VTableFixup.h" // INTEL
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/IPO/LoopExtractor.h"
 #include "llvm/Transforms/IPO/LowerTypeTests.h"
@@ -3037,6 +3036,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // GlobalsAA.
   MPM.addPass(
       createModuleToFunctionPassAdaptor(InvalidateAnalysisPass<AAManager>()));
+
+  MPM.addPass(IntelIPODeadArgEliminationPass()); // INTEL
 
   FunctionPassManager MainFPM;
   MainFPM.addPass(createFunctionToLoopPassAdaptor(

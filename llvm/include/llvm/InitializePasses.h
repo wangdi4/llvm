@@ -728,6 +728,8 @@ void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);
 void initializeIntelLoopAttrsWrapperPass(PassRegistry&);
 // Add math function declarations
 void initializeIntelMathLibrariesDeclarationWrapperPass(PassRegistry&);
+// Simplifed dead argument elimination with IPO analysis
+void initializeIntelIPODeadArgEliminationWrapperPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
