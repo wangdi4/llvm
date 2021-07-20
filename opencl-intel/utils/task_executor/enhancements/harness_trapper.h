@@ -19,16 +19,16 @@
 */
 
 #ifndef HARNESS_TRAPPER_H
-
-#ifndef ASSERT
-    #define ASSERT __TBB_ASSERT
-    #define __TBB_UNDEF_ASSERT
-#endif
 #include "spin_barrier.h"
 #include "task_group_with_reference.h"
 
 #include <tbb/task_arena.h>
 #include <tbb/task_group.h>
+
+#ifndef ASSERT
+    #define ASSERT __TBB_ASSERT
+    #define __TBB_UNDEF_ASSERT
+#endif
 
 namespace tbb { namespace Harness {
 
