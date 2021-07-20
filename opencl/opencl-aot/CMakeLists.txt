@@ -12,6 +12,11 @@ set(OPENCL_AOT_PROJECT_NAME opencl-aot)
 
 add_llvm_tool(${OPENCL_AOT_PROJECT_NAME} ${TARGET_SOURCES})
 
+if(MSVC AND LLVM_BUILD_32_BITS)
+  # MSVC can't expand variadic macros correctly. Add compile flag to around this.
+  target_compile_options(${OPENCL_AOT_PROJECT_NAME} PRIVATE "/experimental:preprocessor")
+endif()
+
 if(NOT MSVC)
   # FIXME: when built with clang it produces a warning.
   target_compile_options(${OPENCL_AOT_PROJECT_NAME} PRIVATE "-Wno-unused-parameter")
