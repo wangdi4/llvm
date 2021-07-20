@@ -696,6 +696,83 @@ unsigned VPlanTTICostModel::getTTICostForVF(
 
     return getIntrinsicInstrCost(ID, VPCall, VF);
   }
+  case VPInstruction::ConflictInsn: {
+    // TODO:
+    // The code calculating the cost of Conflict HW instruction is temporarily
+    // is in VPlan cost model. Long term plan is to establish llvm intrinsic
+    // corresponding to the instruction and delegate cost calculation of the
+    // intrinsic to TTI module.
+    //
+    // For time being and for consistency we take uops number of vpconflictd/q
+    // instruction, which are:
+    // VPCONFLICTD xmm, xmm 15 (VF = 4)
+    // VPCONFLICTD ymm, ymm 22 (VF = 8)
+    // VPCONFLICTD zmm, zmm 37 (VF = 16)
+    // VPCONFLICTQ xmm, xmm 3  (VF = 2)
+    // VPCONFLICTQ ymm, ymm 15 (VF = 4)
+    // VPCONFLICTQ zmm, zmm 22 (VF = 8)
+    //
+    // VF = 1 might be seen if we make cost estimation for scalar VPlan late
+    // enough so Conflict idiom is recognized and lowered already. Thereby
+    // return 0 for VF = 1 for now. The long term plan is either to move Scalar
+    // VPlan cost calculation earlier, before vector specific transformations
+    // happen or clone and keep Scalar VPlan separately from other VPlans.
+    if (VF == 1)
+      return 0;
+
+    // Check for unsupported by CG cases and return high cost if the case is
+    // unsupported to impede the vectorization.
+    // CM doesn't have machinery to disable the vectorization and VF can be
+    // enforced with a knob. 'High cost' approach is tolerated as a temporal
+    // solution.
+    if (cast<VPConflictInsn>(VPInst)->getConflictIntrinsic(VF) ==
+        Intrinsic::not_intrinsic)
+      return VPlanTTIWrapper::Multiplier * 1000;
+
+    const Type *Ty = VPInst->getOperand(0)->getType();
+    assert(dyn_cast<VectorType>(Ty) == nullptr &&
+           "revectorization of ConflictInst is not supported.");
+
+    unsigned NumberOfElements = VF;
+    unsigned ElementSizeBits = Ty->getPrimitiveSizeInBits();
+
+    assert((ElementSizeBits == 32 || ElementSizeBits == 64) &&
+           "Unsupported element size for VPCONFLICT.");
+
+    if (ElementSizeBits == 32)
+      switch (NumberOfElements) {
+      // VF = 2 for 32-bit element type can be implemented with
+      // 4 elements VPCONFLICTD.
+      case 2:
+      case 4:
+        return VPlanTTIWrapper::Multiplier * 15;
+      case 8:
+        return VPlanTTIWrapper::Multiplier * 22;
+      case 16:
+        return VPlanTTIWrapper::Multiplier * 37;
+      case 32:
+        return VPlanTTIWrapper::Multiplier * 37 * 2;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTD.");
+      }
+    else
+      switch (NumberOfElements) {
+      case 2:
+        return VPlanTTIWrapper::Multiplier * 3;
+      case 4:
+        return VPlanTTIWrapper::Multiplier * 15;
+      case 8:
+        return VPlanTTIWrapper::Multiplier * 22;
+      case 16:
+        return VPlanTTIWrapper::Multiplier * 22 * 2;
+      case 32:
+        return VPlanTTIWrapper::Multiplier * 22 * 4;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTQ.");
+      }
+
+    llvm_unreachable("Unreachable code during VPCONFLICT handling.");
+  }
   }
 }
 
