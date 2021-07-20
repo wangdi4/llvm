@@ -52,6 +52,14 @@ static const bool CopyEngineRequested = [] {
   return UseCopyEngine;
 }();
 
+// This is an experimental option to test performance of device to device copy
+// operations on copy engines (versus compute engine)
+static const bool UseCopyEngineForD2DCopy = [] {
+  const char *CopyEngineForD2DCopy =
+      std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE_FOR_D2D_COPY");
+  return (CopyEngineForD2DCopy && (std::stoi(CopyEngineForD2DCopy) != 0));
+}();
+
 // This class encapsulates actions taken along with a call to Level Zero API.
 class ZeCall {
 private:
@@ -5061,6 +5069,10 @@ pi_result piEnqueueMemBufferCopy(pi_queue Queue, pi_mem SrcBuffer,
   // Copy engine is preferred only for host to device transfer.
   // Device to device transfers run faster on compute engines.
   bool PreferCopyEngine = (SrcBuffer->OnHost || DstBuffer->OnHost);
+
+  // Temporary option added to use copy engine for D2D copy
+  PreferCopyEngine |= UseCopyEngineForD2DCopy;
+
   return enqueueMemCopyHelper(
       PI_COMMAND_TYPE_MEM_BUFFER_COPY, Queue,
       pi_cast<char *>(DstBuffer->getZeHandle()) + DstOffset,
@@ -6309,6 +6321,10 @@ pi_result piextUSMEnqueueMemcpy(pi_queue Queue, pi_bool Blocking, void *DstPtr,
   // (versus compute engine).
   bool PreferCopyEngine = !IsDevicePointer(Queue->Context, SrcPtr) ||
                           !IsDevicePointer(Queue->Context, DstPtr);
+
+  // Temporary option added to use copy engine for D2D copy
+  PreferCopyEngine |= UseCopyEngineForD2DCopy;
+
   return enqueueMemCopyHelper(
       // TODO: do we need a new command type for this?
       PI_COMMAND_TYPE_MEM_BUFFER_COPY, Queue, DstPtr, Blocking, Size, SrcPtr,
