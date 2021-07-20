@@ -2095,8 +2095,12 @@ public:
       return Intrinsic::getName(VecID).str();
 
     assert(!getType()->isVoidTy() && "Expected non-void function");
+    unsigned VF = getVFForScenario();
+    if (VF == 0)
+      return Intrinsic::getBaseName(VecID).str();
+
     SmallVector<Type *, 1> TysForName;
-    TysForName.push_back(getWidenedType(getType(), getVFForScenario()));
+    TysForName.push_back(getWidenedType(getType(), VF));
     Function *F = getCalledFunction();
     assert(F && "Indirect calls not expected here.");
     return Intrinsic::getName(VecID, TysForName, F->getParent());

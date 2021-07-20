@@ -81,8 +81,7 @@ namespace vpo {
 // Store the result:
 // store i32 %res i32* %A.subscript
 //
-static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn,
-                           unsigned VF) {
+static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   assert(VPConflict->getNumOperands() == 4 && "Histogram has 4 operands.");
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(VPConflict);
@@ -102,7 +101,6 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn,
                                 {ConflictInst->getType()}),
       {ConflictInst}, Plan);
   Plan->getVPlanDA()->markUniform(*PopCountCall->getCalledValue());
-  PopCountCall->resetVecScenario(VF);
   PopCountCall->setVectorizeWithIntrinsic(Intrinsic::ctpop);
   EmittedInsns.push_back(PopCountCall);
 
@@ -174,8 +172,7 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn,
 // Checks what kind of VConflict type we have and it lowers it accordingly.
 // TODO: Add support for all kinds of general conflict, general conflict
 // optimized, tree-conflict, multiple histograms and histogram with loop.
-bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn,
-                           unsigned VF) {
+bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   // Check if the opcode of the instrution in Histogram is a reduction
   // operation. This is a requirement for both tree-conflict and histogram.
   SmallVector<VPInstruction *, 1> RgnInsns;
@@ -221,17 +218,17 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn,
   // The VConflict idiom is histogram when its region has only live-in which is
   // uniform.
   if (HasUniformValue)
-    return lowerHistogram(VPConflict, Fn, VF);
+    return lowerHistogram(VPConflict, Fn);
 
   return false;
 }
 
-bool processVConflictIdiom(VPlan &Plan, Function &Fn, unsigned VF) {
-  for (auto &VPInst : make_early_inc_range(vpinstructions(&Plan))) {
+bool processVConflictIdiom(VPlan &Plan, Function &Fn) {
+  for (auto &VPInst : make_early_inc_range(vpinstructions(&Plan)))
     if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst))
-      if (!processVConflictIdiom(VPConflict, Fn, VF))
+      if (!processVConflictIdiom(VPConflict, Fn))
         return false;
-  }
+
   VPLAN_DUMP(VPlanLowerVConflictIdiomControl, Plan);
   return true;
 }
