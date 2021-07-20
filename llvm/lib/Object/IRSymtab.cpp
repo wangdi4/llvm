@@ -208,6 +208,7 @@ Expected<int> Builder::getComdatIndex(const Comdat *C, const Module *M) {
 
     storage::Comdat Comdat;
     setStr(Comdat.Name, Saver.save(Name));
+    Comdat.SelectionKind = C->getSelectionKind();
     Comdats.push_back(Comdat);
   }
 
