@@ -14,6 +14,7 @@
 #include "Intel_DTrans/Transforms/DeleteFieldOP.h"
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
@@ -93,9 +94,10 @@ public:
 class DeleteFieldOPImpl : public DTransOPOptBase {
 public:
   DeleteFieldOPImpl(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                    StringRef DepTypePrefix, const DataLayout &DL,
-                    DeleteFieldOPPass::GetTLIFn GetTLI)
-      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI) {}
+                    bool UsingOpaquePointers, StringRef DepTypePrefix,
+                    const DataLayout &DL, DeleteFieldOPPass::GetTLIFn GetTLI)
+      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePointers, DepTypePrefix),
+        DL(DL), GetTLI(GetTLI) {}
 
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
@@ -1163,7 +1165,13 @@ PreservedAnalyses dtransOP::DeleteFieldOPPass::run(Module &M,
 bool dtransOP::DeleteFieldOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
                                           WholeProgramInfo &WPInfo,
                                           GetTLIFn GetTLI) {
-  DeleteFieldOPImpl Transformer(M.getContext(), DTInfo, "__DFDT_",
-                                M.getDataLayout(), GetTLI);
+  if (!DTInfo->useDTransSafetyAnalysis()) {
+    LLVM_DEBUG(dbgs() << "  DTransSafetyAnalyzer results not available\n");
+    return false;
+  }
+
+  DeleteFieldOPImpl Transformer(M.getContext(), DTInfo,
+                                DTInfo->getPtrTypeAnalyzer().sawOpaquePointer(),
+                                "__DFDT_", M.getDataLayout(), GetTLI);
   return Transformer.run(M);
 }

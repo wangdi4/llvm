@@ -25,9 +25,6 @@ class LLVMContext;
 namespace dtransOP {
 class DTransType;
 
-// Return 'true' if pointer types are opaque.
-bool areOpaquePtrsEnabled(LLVMContext &Ctx);
-
 // Returns 'true' if a pointer type can be reached from 'Ty', with
 // the exception of a pointer that is a named structure's field member.
 bool hasPointerType(DTransType *Ty);

@@ -253,10 +253,12 @@ private:
 class AOSToSOAOPTransformImpl : public DTransOPOptBase {
 public:
   AOSToSOAOPTransformImpl(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                          StringRef DepTypePrefix, const DataLayout &DL,
+                          bool UsingOpaquePtrs, StringRef DepTypePrefix,
+                          const DataLayout &DL,
                           AOSToSOAOPPass::GetTLIFuncType GetTLI,
                           SmallVectorImpl<dtrans::StructInfo *> &Types)
-      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI) {
+      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePtrs, DepTypePrefix), DL(DL),
+        GetTLI(GetTLI) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
     PtrSizeIntLLVMType = Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
   }
@@ -1371,9 +1373,9 @@ bool AOSToSOAOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
   if (CandidateTypes.empty())
     return false;
 
-  AOSToSOAOPTransformImpl Transformer(M.getContext(), DTInfo, "__SOADT_",
-                                      M.getDataLayout(), GetTLI,
-                                      CandidateTypes);
+  AOSToSOAOPTransformImpl Transformer(
+      M.getContext(), DTInfo, DTInfo->getPtrTypeAnalyzer().sawOpaquePointer(),
+      "__SOADT_", M.getDataLayout(), GetTLI, CandidateTypes);
   return Transformer.run(M);
 }
 

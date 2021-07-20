@@ -342,6 +342,11 @@ public:
     return DTransPtrSizedIntPtrType;
   }
 
+  void setSawOpaquePointer() { SawOpaquePointer = true; }
+  bool getSawOpaquePointer() const { return SawOpaquePointer; }
+  void setSawNonOpaquePointer() { SawNonOpaquePointer = true; }
+  bool getSawNonOpaquePointer() const { return SawNonOpaquePointer; }
+
   // If the type is used for a single aggregate type, return the type, provided
   // that any other pointer types are generic equivalents for the type, such as
   // i8* or a pointer-sized integer pointer, or they are equivalent types that
@@ -453,6 +458,12 @@ private:
   // address spaces, so we need to detect this and disable DTrans in those
   // cases.
   bool UnsupportedAddressSpaceSeen = false;
+
+  // 'true' if an Opaque pointer was seen during the analysis.
+  bool SawOpaquePointer = false;
+
+  // 'true' if a Non-opaque pointer was seen during the analysis.
+  bool SawNonOpaquePointer = false;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1129,7 +1140,7 @@ private:
       dbgs() << "\n";
     });
 
-    if (auto *PtrTy = dyn_cast<PointerType>(V->getType()))
+    if (auto *PtrTy = dyn_cast<PointerType>(V->getType())) {
       if (PtrTy->getAddressSpace() != 0) {
         LLVM_DEBUG({
           if (!PTA.getUnsupportedAddressSpaceSeen())
@@ -1137,6 +1148,12 @@ private:
         });
         PTA.setUnsupportedAddressSpaceSeen();
       }
+
+      if (PtrTy->isOpaquePointerTy())
+        PTA.setSawOpaquePointer();
+      else
+        PTA.setSawNonOpaquePointer();
+    }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
@@ -4019,6 +4036,13 @@ PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
 
 bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {
   return Impl->getUnsupportedAddressSpaceSeen();
+}
+
+bool PtrTypeAnalyzer::sawOpaquePointer() const {
+  return Impl->getSawOpaquePointer();
+}
+bool PtrTypeAnalyzer::sawNonOpaquePointer() const {
+  return Impl->getSawNonOpaquePointer();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

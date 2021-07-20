@@ -22,6 +22,7 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -388,9 +389,9 @@ void DTransOPTypeRemapper::dump() const {
 //===----------------------------------------------------------------------===//
 
 DTransOPOptBase::DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                                 StringRef DepTypePrefix)
+                                 bool UsingOpaquePtrs, StringRef DepTypePrefix)
     : DTInfo(DTInfo), TM(DTInfo->getTypeManager()),
-      DepTypePrefix(DepTypePrefix), UsingOpaquePtrs(areOpaquePtrsEnabled(Ctx)),
+      DepTypePrefix(DepTypePrefix), UsingOpaquePtrs(UsingOpaquePtrs),
       TypeRemapper(TM, UsingOpaquePtrs) {}
 
 bool DTransOPOptBase::run(Module &M) {
