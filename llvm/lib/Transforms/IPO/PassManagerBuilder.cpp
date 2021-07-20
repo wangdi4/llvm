@@ -2175,16 +2175,21 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
       if (OptLevel > 0) {
         addFunctionSimplificationPasses(PM);
 
-        // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
-        // SIMD loops
-        addVPlanVectorizer(PM, false /* IsPostLoopOptPass */);
+        if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses)
+          // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all
+          // explicit SIMD loops
+          addVPlanVectorizer(PM);
 
         addLoopOptPasses(PM, false /*IsLTO*/);
       }
 
-      // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
-      // vectorized after createVPlanDriverHIRPass
-      addVPlanVectorizer(PM, true /* IsPostLoopOptPass */);
+      if (RunVPOOpt && EnableVPlanDriver && RunPostLoopOptVPOPasses) {
+        if (OptLevel > 0)
+          PM.add(createLoopSimplifyPass());
+        // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+        // vectorized after createVPlanDriverHIRPass
+        addVPlanVectorizer(PM);
+      }
     }
 
     PM.add(createVPODirectiveCleanupPass());
@@ -2212,19 +2217,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 
 #if INTEL_CUSTOMIZATION // HIR passes
 
-void PassManagerBuilder::addVPlanVectorizer(
-    legacy::PassManagerBase &PM, const bool IsPostLoopOptPass) const {
-
-  if (!RunVPOOpt || !EnableVPlanDriver)
-    return;
-  if (!IsPostLoopOptPass && !RunPreLoopOptVPOPasses)
-    return;
-  if (IsPostLoopOptPass && !RunPostLoopOptVPOPasses)
-    return;
-
-  if (IsPostLoopOptPass && OptLevel > 0)
-    PM.add(createLoopSimplifyPass());
-
+void PassManagerBuilder::addVPlanVectorizer(legacy::PassManagerBase &PM) const {
   if (OptLevel > 0) {
     PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
     // Add LCSSA pass before VPlan driver
@@ -2507,15 +2500,20 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     PM.add(createEarlyCSEPass());
   }
 
-  // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
-  // SIMD loops
-  addVPlanVectorizer(PM, false /* IsPostLoopOptPass */);
+  if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses)
+    // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+    // SIMD loops
+    addVPlanVectorizer(PM);
 
   addLoopOptPasses(PM, IsLTO);
 
-  // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
-  // vectorized after createVPlanDriverHIRPass
-  addVPlanVectorizer(PM, true /* IsPostLoopOptPass */);
+  if (RunVPOOpt && EnableVPlanDriver && RunPostLoopOptVPOPasses) {
+    if (OptLevel > 0)
+      PM.add(createLoopSimplifyPass());
+    // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+    // vectorized after createVPlanDriverHIRPass
+    addVPlanVectorizer(PM);
+  }
 
   // Process directives inserted by LoopOpt Autopar.
   // Call with RunVec==true (2nd argument) to cleanup any vec directives
