@@ -27,3 +27,31 @@ entry:
   store i16 %conv2, i16* @tf_1_var_168, align 2
   ret void
 }
+
+; This case has xor X,-1 / select xor, 0, 1 being re-written back into select.
+; If we suppress the select transform, IC can actually remove most of the code.
+; CHECK-LABEL: flex128_encode_int
+; CHECK-NOT: xor
+; CHECK-NOT: sext
+; CHECK: ret void
+define void @flex128_encode_int(i16 %type, i8* %src) {
+entry:
+  %type.off = add i16 %type, -10
+  %switch = icmp ult i16 %type.off, 1
+  br i1 %switch, label %do.body33, label %if.end68
+
+do.body33:                                        ; preds = %entry
+  %__tbuf34.0..sroa_cast8 = bitcast i8* %src to i64*
+  %__tbuf34.0.copyload = load i64, i64* %__tbuf34.0..sroa_cast8, align 1
+  %tobool38.not = icmp sgt i64 %__tbuf34.0.copyload, -1
+  %neg40 = xor i64 %__tbuf34.0.copyload, -1
+  %spec.select52 = select i1 %tobool38.not, i64 %__tbuf34.0.copyload, i64 %neg40
+  %spec.select53 = select i1 %tobool38.not, i64 0, i64 1
+  %shl42 = shl i64 %spec.select52, 1
+  %add44 = or i64 %shl42, %spec.select53
+  br label %if.end68
+
+if.end68:                                         ; preds = %do.body33, %entry
+  %tmp.3.ph = phi i64 [ %add44, %do.body33 ], [ undef, %entry ]
+  ret void
+}

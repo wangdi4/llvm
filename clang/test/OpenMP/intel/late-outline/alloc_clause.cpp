@@ -22,19 +22,19 @@ typedef enum omp_allocator_handle_t {
 
 int main() {
   int i;
-  int v1 = 0;
-  int v2 = 10;
+  char v1 = 0;
+  short v2 = 10;
   int v3 = 20;
 
   // CHECK: DIR.OMP.PARALLEL
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v1)
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 1, i8* %v1)
   // CHECK: DIR.OMP.END.PARALLEL
 #pragma omp parallel allocate(v1) firstprivate(v1, v2)
   { v1 = v2; }
 
   // CHECK: "DIR.OMP.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v1, i64 5)
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v2, i64 5)
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 1, i8* %v1, i64 5)
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 2, i16* %v2, i64 5)
   // CHECK: DIR.OMP.END.LOOP
 #pragma omp for allocate(omp_low_lat_mem_alloc: v1, v2) private(v1, v2)
   for(i=0; i < 10; i++)
@@ -43,11 +43,11 @@ int main() {
   // CHECK: store i64 2, i64* %MyAlloc
   // CHECK-NEXT:[[L1:%[0-9]+]] = load i64, i64* %MyAlloc
   // CHECK: DIR.OMP.SINGLE
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v1, i64 [[L1]])
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v2, i64 [[L1]])
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v3, i64 [[L1]])
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v1)
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v2)
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 1, i8* %v1, i64 [[L1]])
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 2, i16* %v2, i64 [[L1]])
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i64 4, i32* %v3, i64 [[L1]])
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i8* %v1)
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i16* %v2)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v3)
   // CHECK: DIR.OMP.END.SINGLE
   omp_allocator_handle_t MyAlloc = omp_large_cap_mem_alloc;

@@ -435,6 +435,28 @@ void DopeVectorFieldUse::setAllowMultipleFieldAddresses() {
 }
 
 bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
+
+
+  //
+  // Return 'true' if after checking the stores() of 'DVFU', 'SIV' could
+  // have multiple values. If not, set 'SIV' to the current single value.
+  //
+  auto CouldHaveMultipleValues = [](const DopeVectorFieldUse &DVFU,
+                                    Optional<uint64_t> &SIV) -> bool {
+    for (StoreInst *SI : DVFU.stores()) {
+       auto CI = dyn_cast<ConstantInt>(SI->getValueOperand());
+       if (!CI)
+         return true;
+       if (CI->isZero())
+         continue;
+       if (!SIV)
+         SIV = CI->getZExtValue();
+       else if (SIV && (*SIV != CI->getZExtValue()))
+         return true;
+    }
+    return false;
+  };
+
   if (getIsBottom() != Other.getIsBottom())
     return false;
   if (AllowMultipleFieldAddresses != Other.AllowMultipleFieldAddresses)
@@ -442,6 +464,20 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
   if ((!AllowMultipleFieldAddresses || !Other.AllowMultipleFieldAddresses) &&
       (FieldAddr.size() + Other.FieldAddr.size() > 1))
     return false;
+  if (RequiresSingleNonNullValue != Other.RequiresSingleNonNullValue)
+    return false;
+  //
+  // NOTE: This test must be done here, because we need to determine while
+  // merging the NestedDopeVectorInfos for a single field in a structure
+  // whether there is still only one written non-null value.
+  //
+  if (RequiresSingleNonNullValue) {
+    Optional<uint64_t> SIV = None;
+    if (CouldHaveMultipleValues(*this, SIV))
+      return false;
+    if (CouldHaveMultipleValues(Other, SIV))
+      return false;
+  }
   if (!getIsWritten() || !Other.getIsWritten())
     return true;
   if (!getConstantValue() || !Other.getConstantValue())
@@ -1377,6 +1413,8 @@ DopeVectorInfo::DopeVectorInfo(Value *DVObject, Type *DVType,
   ExtentAddr.resize(Rank);
   StrideAddr.resize(Rank);
   LowerBoundAddr.resize(Rank);
+  ElementSizeAddr.setRequiresSingleNonNullValue();
+  CodimAddr.setRequiresSingleNonNullValue();
 
   if (AllowMultipleFieldAddresses) {
     PtrAddr.setAllowMultipleFieldAddresses();
@@ -1557,19 +1595,21 @@ void DopeVectorInfo::validateDopeVector() {
                                             true /* NullWriteAllowed */,
                                             true /* ReadAllowed */);
 
-  // The element size, co-dimension, flags and dimensions should be
-  // written but not read. This is for storing information that the
-  // compiler can use for analysis.
+  // The element size and co-dimension should have a single non-null
+  // value that is written and can also be read.
+  // The flags and dimensions should be written but not read.
+  // These fields is for storing information that the compiler can use
+  // for analysis.
   PassValidation &= ValidateDopeVectorField(ElementSizeAddr,
                                             true /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            false /* ReadAllowed */);
+                                            true /* ReadAllowed */);
   PassValidation &= ValidateDopeVectorField(CodimAddr,
                                             true /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            false /* ReadAllowed */);
+                                            true /* ReadAllowed */);
 
   // NOTE: The FE can generate a load to the flags field, then do some
   // operations and followed by a store to the same field. In summary,
@@ -1629,6 +1669,16 @@ void DopeVectorInfo::validateAllocSite() {
   AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoAllocSite;
 }
 
+void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
+  if (getAnalysisResult() != DopeVectorInfo::AnalysisResult::AR_Pass)
+    return;
+  DopeVectorFieldUse *DVFU = getDopeVectorField(DVFT);
+  assert(DVFU->getRequiresSingleNonNullValue() &&
+    "RequiresSingleNonNullValue expected");
+  if (!DVFU->getIsSingleNonNullValue())
+    AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoSingleNonNullValue;
+}
+
 // Return true if all pointers that access the dope vector fields were
 // collected correctly by tracing the users of V, else return false. V
 // represents a pointer to a nested dope vector (could come from a BitCast,
@@ -1637,7 +1687,8 @@ void DopeVectorInfo::validateAllocSite() {
 // found is treated as an ilegal access and the function will return false.
 static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-    SetVector<Value *> &ValueChecked, bool AllowCheckForAllocSite) {
+    SetVector<Value *> &ValueChecked, const DataLayout &DL,
+    bool AllowCheckForAllocSite) {
 
   // Return true if the users of the input GEP are subscript instructions.
   // The subscript instructions represents the access to the per dimension
@@ -1751,7 +1802,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // pointer. This conservative, we may want to relax this in the future.
   auto CollectAccessFromCall = [NestedDV](CallBase *Call, Value *Val,
       std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-      SetVector<Value *> &ValueChecked) -> bool {
+      const DataLayout &DL, SetVector<Value *> &ValueChecked) -> bool {
 
     // Indirect calls or declarations aren't allowed
     // NOTE: In case of declarations, we may be able to mark the
@@ -1760,7 +1811,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     if (Call->isIndirectCall())
       return false;
 
-    Function *F = Call->getCalledFunction();
+    auto F = dyn_cast<Function>(Call->getCalledOperand()->stripPointerCasts());
     if (!F || F->isDeclaration())
       return false;
 
@@ -1784,6 +1835,8 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
 
     // Collect the formal argument
     auto *Arg = F->getArg(ArgNo);
+    if (ValueChecked.contains(Arg))
+      return true;
 
     // Should be marked as "ptrnoalias", "assume_shape", "readonly" and
     // "noalias"
@@ -1795,7 +1848,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
 
     // Recurse, arg represents now the pointer to the nested dope vector
     if (!collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
-        ValueChecked, false))
+        ValueChecked, DL, false))
       return false;
 
     return true;
@@ -1910,6 +1963,99 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     return DVFieldType < DopeVectorFieldType::DV_Invalid;
   };
 
+  //
+  // Return 'true' if 'GEPO' stores a null value to a dope vector field.
+  // Such stores are generally the product of a 'nullify' initialiation and
+  // can be ignored for the purposes of dope vector analysis.
+  //
+  auto IsNullStoreToDVField = [](GEPOperator *GEPO) -> bool {
+    if (GEPO->getNumIndices() != 2)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(GEPO->getOperand(1));
+    if (!CI1 || !CI1->isZero())
+      return false;
+    auto CI2 = dyn_cast<ConstantInt>(GEPO->getOperand(2));
+    if (!CI2)
+      return false;
+    if (CI2->getZExtValue() > DV_PerDimensionArray)
+      return false;
+    if (!GEPO->hasOneUser())
+      return false;
+    auto SI = dyn_cast<StoreInst>(GEPO->user_back());
+    if (!SI || SI->getPointerOperand() != GEPO)
+      return false;
+    auto CV = dyn_cast<Constant>(SI->getValueOperand());
+    if (!CV || !CV->isNullValue())
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'BC' is a bit cast between two identical dope vector
+  // types.
+  //
+  auto IsNullDVBitCast = [](BitCastOperator *BC,
+                            const DataLayout &DL) -> bool {
+    uint32_t SArrayRank = 0;
+    uint32_t DArrayRank = 0;
+    Type *SElementType = nullptr;
+    Type *DElementType = nullptr;
+    auto STy = BC->getSrcTy();
+    if (!STy->isPointerTy())
+      return false;
+    // Will need to be updated for opaque pointers.
+    auto SPTy = STy->getPointerElementType();
+    if (!isDopeVectorType(SPTy, DL, &SArrayRank, &SElementType))
+      return false;
+    auto DTy = BC->getDestTy();
+    if (!DTy->isPointerTy())
+      return false;
+    // Will need to be updated for opaque pointers.
+    auto DPTy = DTy->getPointerElementType();
+    if (!isDopeVectorType(DPTy, DL, &DArrayRank, &DElementType))
+      return false;
+    return SArrayRank == DArrayRank && SElementType == DElementType;
+  };
+
+  //
+  // Return 'true' if User 'U' is a valid Use of 'V', which is a pointer
+  // to a dope vector. 'ValueChecked' is used to avoid repeatedly analyzing
+  // a Value that has already been analyzed.
+  //
+  std::function<bool(Value *V, User *U, const DataLayout &DL,
+                NestedDopeVectorInfo *NestedDV,
+                SetVector<Value *> &ValueChecked)>
+      GoodDVPUser = [&](Value *V, User *U, const DataLayout &DL,
+                        NestedDopeVectorInfo *NestedDV,
+                        SetVector<Value *> &ValueChecked) -> bool {
+    // GEP should be accessing dope vector fields
+    if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+      if (!CollectAccessFromGEP(GEP, 0, GetTLI))
+        return false;
+    } else if (auto *BC = dyn_cast<BitCastOperator>(U)) {
+      // BitCast should be only used for allocating data
+      if (IsNullDVBitCast(BC, DL)) {
+         for (User *UU : BC->users())
+           if (!GoodDVPUser(BC, UU, DL, NestedDV, ValueChecked))
+             return false;
+         return true;
+      }
+      if (!AllowCheckForAllocSite)
+        return false;
+      CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
+      if (!Call)
+        return false;
+      NestedDV->addAllocSite(Call);
+    } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
+      // Calls should only load data
+      if (!CollectAccessFromCall(Call, V, GetTLI, DL, ValueChecked))
+        return false;
+    } else {
+      return false;
+    }
+    return true;
+  };
+
   if (!V)
     return false;
 
@@ -1922,32 +2068,18 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // the dope vector.
   auto *GEPOp = dyn_cast<GEPOperator>(V);
   if (GEPOp && IsGEPUsedForAccessingField(GEPOp) &&
-      CollectAccessFromGEP(GEPOp, 2, GetTLI))
+      (IsNullStoreToDVField(GEPOp) ||
+      CollectAccessFromGEP(GEPOp, 2, GetTLI)))
     return true;
 
   // If we reach this point then it means that V represents a pointer to
   // a dope vector. Go through the users of V to identify how the fields of
   // the dope vector are used.
   for (auto *U : V->users()) {
-    // GEP should be accessing dope vector fields
-    if(auto *GEP = dyn_cast<GEPOperator>(U)) {
-      if (!CollectAccessFromGEP(GEP, 0, GetTLI))
-        return false;
-    } else if(auto *BC = dyn_cast<BitCastOperator>(U)) {
-      // BitCast should be only used for allocating data
-      if (!AllowCheckForAllocSite)
-        return false;
-      CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
-      if (!Call)
-        return false;
-      NestedDV->addAllocSite(Call);
-    } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
-      // Calls should only load data
-      if (!CollectAccessFromCall(Call, V, GetTLI, ValueChecked))
-        return false;
-    } else {
+    if (ValueChecked.contains(U))
+      continue;
+    if (!GoodDVPUser(V, U, DL, NestedDV, ValueChecked))
       return false;
-    }
   }
 
   return true;
@@ -2380,6 +2512,205 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
+  //
+  // Return 'true' if 'A' can be propagated up to an AllocaInst. Use
+  // 'ValueChecked' to ensure that we don't get in a recursive loop
+  // by checking for a Value twice. As an example, consider:
+  //
+  //   subroutine bigloop(tau, krh)
+  //   real tau(pcols, pver, nswbands)
+  //   integer krh(pcols, pver)
+  //   real, pointer :: h_ext(:,:)
+  //   do id = 1, numphysprops
+  //     call physprop_get(id, h_ext)
+  //     call get_hygro_rad_props(krh, h_ext, tau)
+  //   end do
+  //   end subroutine
+  //
+  // Here if 'A' represents the second argument of 'physprop_get',
+  // and 'h_ext' is represented by an AllocaInst in 'bigloop', we return
+  // 'true' noting that 'h_ext' can be propagated down through
+  // 'get_hygro_rad_props'.
+  //
+  std::function<bool(Argument *A, const DataLayout &DL,
+                     NestedDopeVectorInfo *NDVInfo, bool &AllocSiteFound,
+                     SetVector<Value *> &ValueChecked)>
+      CanPropUp = [&](Argument *A, const DataLayout &DL,
+                      NestedDopeVectorInfo *NDVInfo,
+                      bool &AllocSiteFound,
+                      SetVector<Value *> &ValueChecked) -> bool {
+    Function *F = A->getParent();
+    unsigned FArgNo = A->getArgNo();
+    ValueChecked.insert(A);
+    if (F->hasAddressTaken() || F->isVarArg())
+      return false;
+    for (User *U : F->users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB || CB->getCalledFunction() != F)
+        return false;
+      Value *AA = CB->getArgOperand(FArgNo);
+      if (auto C = dyn_cast<Constant>(AA)) {
+        if (C->isNullValue())
+          continue;
+        return false;
+      }
+      Value *V = CB;
+      if (auto BC = dyn_cast<BitCastInst>(AA)) {
+        ValueChecked.insert(A);
+        V = BC;
+        AA = BC->getOperand(0);
+      }
+      if (auto FA = dyn_cast<Argument>(AA)) {
+        if (!CanPropUp(FA, DL, NDVInfo, AllocSiteFound, ValueChecked))
+          return false;
+        continue;
+      }
+      if (auto AI = dyn_cast<AllocaInst>(AA)) {
+       if (!collectNestedDopeVectorFieldAddress(NDVInfo, AI, GetTLI,
+                                                ValueChecked, DL, true))
+          return false;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if 'U' is assigned through a pointer assigment to
+  // a dummy argument. For example, in:
+  //
+  //   subroutine physprop_get(id, sw_hygro_ext)
+  //   integer, intent(in) :: id
+  //   real, pointer :: sw_hygro_ext(:,:)
+  //   sw_hygro_ext => physprop(id)%sw_hygro_ext
+  //   end subroutine physprop_get
+  //
+  // Let 'U' be 'physprop(id)%sw_hygro_ext'.  Note that it is assigned
+  // through a pointer assignment to 'sw_hygro_ext', which is the second
+  // argument of 'physprop_get'.
+  //
+  auto PropPtrAssignToArgument = [](User *U,
+                                    const DataLayout &DL) -> Argument * {
+    if (!U->hasOneUser())
+      return nullptr;
+    U = U->user_back();
+    if (auto BC = dyn_cast<BitCastInst>(U)) {
+      uint32_t SArrayRank;
+      Type *SElementType = nullptr;
+      Type *STy = BC->getSrcTy();
+      if (!STy->isPointerTy())
+        return nullptr;
+      // Will need to be updated for opaque pointers.
+      Type *SPETy = STy->getPointerElementType();
+      if (!isDopeVectorType(SPETy, DL, &SArrayRank, &SElementType))
+        return nullptr;
+      uint32_t DArrayRank;
+      Type *DElementType = nullptr;
+      Type *DTy = BC->getDestTy();
+      if (!DTy->isPointerTy())
+        return nullptr;
+      Type *DPETy = DTy->getPointerElementType();
+      if (!isDopeVectorType(DPETy, DL, &DArrayRank, &DElementType))
+        return nullptr;
+      if (SArrayRank != DArrayRank || SElementType != DElementType)
+        return nullptr;
+      if (!BC->hasOneUser())
+        return nullptr;
+      U = U->user_back();
+    }
+    auto LI = dyn_cast<LoadInst>(U);
+    if (!LI)
+      return nullptr;
+    if (!LI->hasOneUser())
+      return nullptr;
+    auto SI = dyn_cast<StoreInst>(LI->user_back());
+    if (!SI)
+      return nullptr;
+    if (SI->getValueOperand() != LI)
+      return nullptr;
+    auto A = dyn_cast<Argument>(SI->getPointerOperand());
+    if (!A)
+      return nullptr;
+    for (User *U : A->users()) {
+      if (auto IC = dyn_cast<ICmpInst>(U)) {
+         if (IC->getPredicate() != ICmpInst::ICMP_EQ)
+           return nullptr;
+         if (IC->getOperand(0) != A)
+           return nullptr;
+         auto C = dyn_cast<Constant>(IC->getOperand(1));
+         if (!C || !C->isNullValue())
+           return nullptr;
+      } else if (U != SI) {
+         return nullptr;
+      }
+    }
+    return A;
+  };
+
+  //
+  // Return 'true' if the 'U' can be propagated through a pointer
+  // assigment up the call chain to a AllocaInst and then down the
+  // call chain to subscripts.
+  //
+  // As an example, consider the following Fortran code:
+  //
+  //   parameter n1=19, n2=1000, n3=100
+  //   integer, parameter :: nswbands = 19
+  //   integer, parameter :: pcols = 4
+  //   integer, parameter :: pver = 26
+  //   type :: physprop_type
+  //   real, pointer :: sw_hygro_ext(:,:)
+  //   endtype physprop_type
+  //   type (physprop_type), pointer :: physprop(:)
+  //
+  //   subroutine physprop_get(id, sw_hygro_ext)
+  //   integer, intent(in) :: id
+  //   real, pointer :: sw_hygro_ext(:,:)
+  //   sw_hygro_ext => physprop(id)%sw_hygro_ext
+  //   end subroutine physprop_get
+  //
+  //   subroutine get_hygro_rad_props(krh, ext, tau)
+  //   integer, intent(in) :: krh(pcols,pver)
+  //   real, intent(in) :: ext(:,:)
+  //   real, intent(out) :: tau(pcols,pver,nswbands)
+  //   do iswband = 1, nswbands
+  //     do icol = 1, pcols
+  //       do ilev = 1, pver
+  //         tau(icol,ilev,iswband) = &
+  //           ext(krh(icol,ilev)+1,iswband) + ext(krh(icol,ilev)+1,iswband)
+  //       end do
+  //     end do
+  //   end do
+  //   end subroutine
+  //
+  //   subroutine bigloop(tau, krh)
+  //   real tau(pcols, pver, nswbands)
+  //   integer krh(pcols, pver)
+  //   real, pointer :: h_ext(:,:)
+  //   do id = 1, numphysprops
+  //     call physprop_get(id, h_ext)
+  //     call get_hygro_rad_props(krh, h_ext, tau)
+  //   end do
+  //   end subroutine
+  //
+  // Here, 'physprop(id)%sw_hygro_ext' is assigned to the pointer
+  // 'sw_hygro_ext' in 'physprop_get', can be propagated up the call chain
+  // to 'h_ext' in 'bigloop' and then propagated back down to 'ext' in
+  // 'get_hygro_rad_props'.
+  //
+  auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL,
+                                NestedDopeVectorInfo *NDVInfo,
+                                bool &AllocSiteFound) -> bool {
+    Argument *A = PropPtrAssignToArgument(U, DL);
+    if (!A)
+      return false;
+    SetVector<Value *> ValueChecked;
+    if (!CanPropUp(A, DL, NDVInfo, AllocSiteFound, ValueChecked))
+      return false;
+    return true;
+  };
+
   // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
   // set to exclude recursive descent on Arguments that have already been
   // evaluated.
@@ -2424,6 +2755,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   //
   auto CanCollectNDVSubscriptUser = [&, this](Value *V, User *U,
                                               const DataLayout &DL,
+                                              NestedDopeVectorInfo *NDVInfo,
                                               bool &AllocSiteFound) -> bool {
     if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
       // A BitCast can used for allocating the array for the
@@ -2465,9 +2797,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         SetVector<Value *> ValueChecked;
 
         // Nested dope vector found, now collect the fields access
-        if (!collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
-                                                 ValueChecked, true))
-          return false;
+        if (collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
+                                                ValueChecked, DL, true))
+          return true;
+        if (CanPropThruPtrAssn(U, DL, NestedDVInfo, AllocSiteFound))
+          return true;
+        return false;
       } else if (PropagatesToLoadOrStore(U)) {
          return true;
       } else if (!IsSafeIntrinOrLibFuncUser(V, U)) {
@@ -2497,14 +2832,17 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // inside its Function as usual. Update 'AllocSiteFound' if the alloc site
   // for the dope vector is found.
   //
-  std::function<bool(Argument *, const DataLayout &, bool &)>
+  std::function<bool(Argument *, const DataLayout &,
+                NestedDopeVectorInfo *, bool &)>
       PropagateArgument = [&](Argument *A, const DataLayout &DL,
+                              NestedDopeVectorInfo *NDVInfo,
                               bool &AllocSiteFound) -> bool {
     for (User *U : A->users()) {
       if (Argument *NewA = isIPOPropagatable(A, U)) {
-        if (!PropagateArgument(NewA, DL, AllocSiteFound))
+        if (!PropagateArgument(NewA, DL, NDVInfo, AllocSiteFound))
           return false;
-      } else if (!CanCollectNDVSubscriptUser(A, U, DL, AllocSiteFound)) {
+      } else if (!CanCollectNDVSubscriptUser(A, U, DL, NDVInfo,
+                                             AllocSiteFound)) {
         return false;
       }
     }
@@ -2530,9 +2868,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // related to the nested dope vectors
   for (User *U : SI->users()) {
     if (Argument *A = isIPOPropagatable(SI, U)) {
-      if (!PropagateArgument(A, DL, AllocSiteFound))
+      if (!PropagateArgument(A, DL, nullptr, AllocSiteFound))
         return false;
-    } else if (!CanCollectNDVSubscriptUser(SI, U, DL, AllocSiteFound)) {
+    } else if (!CanCollectNDVSubscriptUser(SI, U, DL, nullptr,
+                                           AllocSiteFound)) {
       return false;
     }
   }
@@ -2584,8 +2923,8 @@ GlobalDopeVector::mergeNestedDopeVectors() {
     }
     NestedDopeVectorInfo* MergeDV = NDVSubset[0];
     MergeDV->nullifyVBase();
+    auto AR_Pass = DopeVectorInfo::AnalysisResult::AR_Pass;
     if (HasMismatch(NDVSubset)) {
-      auto AR_Pass = DopeVectorInfo::AnalysisResult::AR_Pass;
       bool Passed = MergeDV->getAnalysisResult() == AR_Pass;
       for (auto NestedDV : NDVSubset) {
         if (NestedDV != MergeDV) {
@@ -2649,8 +2988,11 @@ GlobalDopeVector::mergeNestedDopeVectors() {
     MergeNDVSubset(NestedDVSubset);
     LoadNDVSubset(NestedDVSubset);
   }
-  for (auto *NestedDV : NestedDopeVectors)
+  for (auto *NestedDV : NestedDopeVectors) {
     NestedDV->validateAllocSite();
+    NestedDV->validateSingleNonNullValue(DV_ElementSize);
+    NestedDV->validateSingleNonNullValue(DV_Codim);
+  }
   LLVM_DEBUG(DumpNestedDopeVectors("AFTER"));
 }
 
@@ -2892,7 +3234,7 @@ void DopeVectorInfo::print(uint64_t Indent) {
   assert(AnalysisRes <= DopeVectorInfo::AnalysisResult::AR_Pass &&
          "Invalid dope vector analysis result");
 
-  switch(AnalysisRes) {
+  switch (AnalysisRes) {
     case DopeVectorInfo::AnalysisResult::AR_Top:
       dbgs() << "Incomplete data collection";
       break;
@@ -2910,6 +3252,9 @@ void DopeVectorInfo::print(uint64_t Indent) {
       break;
     case DopeVectorInfo::AnalysisResult::AR_AllocStoreIllegality:
       dbgs() << "Store won't execute with alloc site";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_NoSingleNonNullValue:
+      dbgs() << "Single non-null value expected";
       break;
     case DopeVectorInfo::AnalysisResult::AR_CouldNotMerge:
       dbgs() << "Could not merge dope vectors with multiple allocations";

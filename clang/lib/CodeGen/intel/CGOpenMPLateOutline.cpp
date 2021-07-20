@@ -2045,17 +2045,36 @@ void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
 }
 
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
-  const Expr *A = Cl->getAllocator();
   llvm::Value *Allocator = nullptr;
   // Allocator must always be i64.
-  if (A) {
+  if (auto *A = Cl->getAllocator()) {
     A = A->IgnoreImpCasts();
     Allocator = CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(A), CGF.Int64Ty,
                                           /*isSigned=*/false);
   }
+
+  unsigned UserAlign = 0;
+  if (auto *Align = Cl->getAlignment())
+    UserAlign = Align->EvaluateKnownConstInt(CGF.getContext()).getExtValue();
+
+  // OpenMP5.1 pg 185 lines 7-10
+  //   Each item in the align modifier list must be aligned to the maximum
+  //   of the specified alignment and the type's natural alignment.
+  //
+  // For IR consistency, if no alignment specified then use the natural
+  // alignment.
+  auto ChooseAlignValue = [this] (QualType ListItemTy, unsigned UserAlign) {
+    CharUnits NaturalAlign = CGF.CGM.getNaturalTypeAlignment(ListItemTy);
+    if (!UserAlign || UserAlign <= NaturalAlign.getQuantity())
+      return llvm::ConstantInt::get(CGF.Int64Ty, NaturalAlign.getQuantity());
+    else
+      return llvm::ConstantInt::get(CGF.Int64Ty, UserAlign);
+  };
+
   for (const auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_allocate);
     addArg("QUAL.OMP.ALLOCATE");
+    addArg(ChooseAlignValue(E->getType(), UserAlign));
     addArg(E);
     if (Allocator)
       addArg(Allocator);
