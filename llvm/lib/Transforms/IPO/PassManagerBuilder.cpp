@@ -367,6 +367,10 @@ static cl::opt<bool> EnableArgNoAliasProp(
 cl::opt<bool> EnableVPOParoptSharedPrivatization(
     "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
+
+static cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
+                                    cl::Hidden, cl::ZeroOrMore,
+                                    cl::desc("Add LSR pass before code gen."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1583,6 +1587,10 @@ void PassManagerBuilder::populateModulePassManager(
   // LoopSink pass needs to be a very late IR pass to avoid undoing LICM
   // result too early.
   MPM.add(createLoopSinkPass());
+#if INTEL_CUSTOMIZATION
+  if (DisableIntelProprietaryOpts && EnableEarlyLSR)
+    MPM.add(createLoopStrengthReducePass());
+#endif // INTEL_CUSTOMIZATION
   // Get rid of LCSSA nodes.
   MPM.add(createInstSimplifyLegacyPass());
 
