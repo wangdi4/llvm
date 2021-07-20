@@ -328,6 +328,10 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       // setIsTask();
     }
   }
+  assert((getWRegionKindID() != WRNTask || !getIsTaskwaitNowaitTask() ||
+          !getDepend().empty()) &&
+         "taskwait construct cannot have a nowait clause without a depend "
+         "clause.");
 }
 
 // Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -674,9 +678,13 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
     setDefaultmap(Category, Behavior);
     break;
   }
-  case QUAL_OMP_NOWAIT:
-    setNowait(true);
+  case QUAL_OMP_NOWAIT: {
+    // "taskwait depend nowait" is parsed internally as "task depend". In this
+    // case we can't set nowait.
+    if (!(getDirID() == DIR_OMP_TASK && getIsTaskwaitNowaitTask()))
+      setNowait(true);
     break;
+  }
   case QUAL_OMP_UNTIED:
     setUntied(true);
     setTaskFlag(getTaskFlag() & ~WRNTaskFlag::Tied);

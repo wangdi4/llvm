@@ -1907,6 +1907,8 @@ bool VPOParoptTransform::paroptTransforms() {
             RemoveDirectives = true;
             break;
           }
+          if (W->getIsTaskwaitNowaitTask())
+            Changed |= removeCompilerGeneratedFences(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
@@ -10704,6 +10706,14 @@ bool VPOParoptTransform::removeCompilerGeneratedFences(WRegionNode *W) {
     if (auto *BB = W->getEntryBBlock()->getSingleSuccessor())
       Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
                                   AtomicOrdering::AcquireRelease);
+    break;
+  case WRegionNode::WRNTask:
+    if (W->getIsTaskwaitNowaitTask() &&
+        W->getEntryBBlock()->getSingleSuccessor()) {
+      auto *BB = W->getEntryBBlock()->getSingleSuccessor();
+      Changed |= removeFirstFence(make_range(BB->begin(), BB->end()),
+                                  AtomicOrdering::AcquireRelease);
+    }
     break;
   default:
     llvm_unreachable("unexpected work region kind");

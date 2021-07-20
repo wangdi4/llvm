@@ -460,6 +460,8 @@ public:
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}
   virtual bool getMergeable()             const {WRNERROR(QUAL_OMP_MERGEABLE);}
+  virtual void setIsTaskwaitNowaitTask(bool Flag)  {WRNERROR(QUAL_OMP_NOWAIT);}
+  virtual bool getIsTaskwaitNowaitTask() const     {WRNERROR(QUAL_OMP_NOWAIT);}
   virtual void setNocontext(EXPR E)             {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual EXPR getNocontext()             const {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual void setNogroup(bool Flag)            {WRNERROR(QUAL_OMP_NOGROUP);  }
