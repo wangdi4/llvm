@@ -75,6 +75,24 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
       Multiplier(computeMultiplierForPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPlanDynamicPeeling::print(raw_ostream &OS) const {
+  OS << "VPlanDynamicPeeling: \n"
+     << '\t' << "Memref: ";
+  if (Memref)
+    Memref->dump();
+  else
+    OS << "nullptr\n";
+  OS << '\t' << "InvariantBase: ";
+  // VPlanSCEV is an opaque pointer. Just print the hex value.
+  // During the debugging pointer can be casted and explored further.
+  (OS << "0x").write_hex(reinterpret_cast<size_t>(InvariantBase)) << '\n';
+  OS << '\t' << "RequiredAlignment: " << RequiredAlignment.value() << '\n'
+     << '\t' << "TargetAlignment: " << TargetAlignment.value() << '\n'
+     << '\t' << "Multiplier: " << Multiplier << '\n';
+}
+#endif
+
 int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
                                          Align Alignment) {
   auto Size = DL->getTypeAllocSize(Mrf->getValueType());
