@@ -8168,3 +8168,18 @@ bool clang::driver::willEmitRemarks(const ArgList &Args) {
 #endif // INTEL_CUSTOMIZATION
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+Arg * clang::driver::getLastArchArg(const ArgList &Args, bool claimArg) {
+  Arg *Res = nullptr;
+  for (Arg *A : Args.filtered(options::OPT_march_EQ, options::OPT_x)) {
+    if (A->getOption().matches(options::OPT_x) &&
+        types::lookupTypeForTypeSpecifier(A->getValue()))
+      continue;
+    Res = A;
+    if (claimArg)
+      Res->claim();
+  }
+  return Res;
+}
+#endif // INTEL_CUSTOMIZATION

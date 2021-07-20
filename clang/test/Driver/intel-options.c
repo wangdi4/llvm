@@ -708,3 +708,12 @@
 // RUN: %clang_cl -### /Qprotect-parens- -c %s 2>&1 | FileCheck -check-prefix=NO-PROTECT-PARENS %s
 // PROTECT-PARENS: "-fprotect-parens"
 // NO-PROTECT-PARENS-NOT: "-fprotect-parens"
+
+// -x<code> should not be overriden by following -x <language> options
+// RUN: %clang -### -xAVX -x c -c %s 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-C %s
+// RUN: %clang -### -xAVX -x c++ -c %s 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-CPP %s
+// RUN: %clang -### -x c %s -xAVX -c 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-C %s
+// RUN: %clang -### -x c++ %s -xAVX -c 2>&1 | FileCheck -check-prefix=TARGET-CPU-FILE-TYPE-CPP %s
+// TARGET-CPU-FILE-TYPE-C: "corei7-avx" {{.*}}"-x" "c"
+// TARGET-CPU-FILE-TYPE-CPP: "corei7-avx" {{.*}}"-x" "c++"
+
