@@ -886,6 +886,8 @@ def Availability : InheritableAttr {
              .Case("macos_app_extension", "macOS (App Extension)")
              .Case("tvos_app_extension", "tvOS (App Extension)")
              .Case("watchos_app_extension", "watchOS (App Extension)")
+             .Case("maccatalyst", "macCatalyst")
+             .Case("maccatalyst_app_extension", "macCatalyst (App Extension)")
              .Case("swift", "Swift")
              .Default(llvm::StringRef());
 }
@@ -899,6 +901,8 @@ static llvm::StringRef getPlatformNameSourceSpelling(llvm::StringRef Platform) {
              .Case("macos_app_extension", "macOSApplicationExtension")
              .Case("tvos_app_extension", "tvOSApplicationExtension")
              .Case("watchos_app_extension", "watchOSApplicationExtension")
+             .Case("maccatalyst", "macCatalyst")
+             .Case("maccatalyst_app_extension", "macCatalystApplicationExtension")
              .Case("zos", "z/OS")
              .Default(Platform);
 }
@@ -912,6 +916,8 @@ static llvm::StringRef canonicalizePlatformName(llvm::StringRef Platform) {
              .Case("macOSApplicationExtension", "macos_app_extension")
              .Case("tvOSApplicationExtension", "tvos_app_extension")
              .Case("watchOSApplicationExtension", "watchos_app_extension")
+             .Case("macCatalyst", "maccatalyst")
+             .Case("macCatalystApplicationExtension", "maccatalyst_app_extension")
              .Default(Platform);
 } }];
   let HasCustomParsing = 1;

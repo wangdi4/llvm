@@ -4605,8 +4605,8 @@ void Comdat::print(raw_ostream &ROS, bool /*IsForDebug*/) const {
   case Comdat::Largest:
     ROS << "largest";
     break;
-  case Comdat::NoDuplicates:
-    ROS << "noduplicates";
+  case Comdat::NoDeduplicate:
+    ROS << "nodeduplicate";
     break;
   case Comdat::SameSize:
     ROS << "samesize";
