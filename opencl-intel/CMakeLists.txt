@@ -372,11 +372,13 @@ set( CL_API_HEADERS ${OpenCL_INCLUDE_DIR}
                     ${OCL_SOURCE_DIR}/framework/inc )
 set( CL_LOADER ${OpenCL_LOADER_DIR})
 
+get_property(SPIRV_HEADERS_DIR GLOBAL PROPERTY spirv_headers_dir_property)
 include_directories( BEFORE
         utils/cl_logger/export
         utils/cl_hw_utils/export
         utils/cl_sys_utils/export
         devices/device_commands/export
+        ${SPIRV_HEADERS_DIR}/include
         ${TBB_INCLUDE_DIRS}
     )
 

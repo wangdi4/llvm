@@ -539,7 +539,7 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::CapabilityIndirectReferencesINTEL, SPIRVOpCapability,
       spv::CapabilityAsmINTEL, SPIRVOpCapability,
       spv::CapabilityVariableLengthArrayINTEL, SPIRVOpCapability,
-      spv::CapabilityVectorVariantsINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityVectorVariantsINTEL, SPIRVOpCapability,
       spv::CapabilityExpectAssumeKHR, SPIRVOpCapability,
       spv::CapabilityVectorAnyINTEL, SPIRVOpCapability,
       spv::CapabilityUnstructuredLoopControlsINTEL, SPIRVOpCapability,
