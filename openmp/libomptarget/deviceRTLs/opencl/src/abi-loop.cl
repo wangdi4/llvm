@@ -18,6 +18,7 @@
 /// For static scheduling
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 #define FOR_STATIC_CHUNK(DT, PtrLast, PtrLb, PtrUb, PtrStride, Chunk, Id, Num) \
   do {                                                                         \
     *(PtrStride) = (Num) * (Chunk);                                            \
@@ -219,5 +220,6 @@ EXTERN void __kmpc_for_static_init_8u_generic(ident_t *loc, int gtid,
 EXTERN void __kmpc_for_static_fini(ident_t *loc, int gtid) {
   // nothing to be done
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 #endif // INTEL_COLLAB

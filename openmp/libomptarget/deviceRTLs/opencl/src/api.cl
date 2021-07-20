@@ -32,6 +32,9 @@ EXTERN int omp_get_num_teams(void) {
 }
 
 EXTERN int omp_get_team_size(int level) {
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return __kmp_get_local_size();
+#else
   bool is_spmd_mode = __kmp_is_spmd_mode();
   if (is_spmd_mode)
     return level == 1 ? __kmp_get_local_size() : 1;
@@ -60,6 +63,7 @@ EXTERN int omp_get_team_size(int level) {
 
   // Gray area
   return KMP_UNSPECIFIED;
+#endif
 }
 
 EXTERN int omp_get_thread_num(void) {
@@ -181,6 +185,7 @@ EXTERN int omp_pause_resource_all(omp_pause_resource_t kind) {
   return -1;
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 // Initialize global barrier
 EXTERN void kmp_global_barrier_init(void) {
 // TODO: decide default implementation based on performance
@@ -200,6 +205,7 @@ EXTERN void kmp_global_barrier(void) {
   __kmp_barrier_counting(&__omp_spirv_global_data.g_barrier);
 #endif
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 EXTERN void ompx_nbarrier_init(uint nbarrier_count) {
   __kmpc_nbarrier_init(nbarrier_count);
