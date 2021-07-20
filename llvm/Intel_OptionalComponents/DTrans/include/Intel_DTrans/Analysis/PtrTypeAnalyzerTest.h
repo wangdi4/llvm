@@ -16,8 +16,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
-#if !INTEL_INCLUDE_DTRANS
-#error PtrTypeAnalyzerTest.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error PtrTypeAnalyzerTest.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 namespace llvm {

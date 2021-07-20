@@ -13,8 +13,8 @@
 // compiler front-end to assist DTrans to recover pointer types when using
 // opaque pointers.
 
-#if !INTEL_INCLUDE_DTRANS
-#error TypeMetadataReader.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error TypeMetadataReader.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_TYPEMETADATAREADER_H

@@ -16,19 +16,12 @@
 
 set(DTRANS_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-# INTEL_FEATURE_SW_DTRANS
-# TODO: The SW_DTRANS directive should be removed once we guard the whole
-# DTrans directory. For now it will be used to prevent running all the
-# test cases.
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
 if (p)
   set(DTRANS_ENABLED 1)
 else()
-#end INTEL_FEATURE_SW_DTRANS
   set(DTRANS_ENABLED 0)
-# INTEL_FEATURE_SW_DTRANS
 endif()
-# end INTEL_FEATURE_SW_DTRANS
 
 set(DTRANS_TEST_PARAMS
   dtrans_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py

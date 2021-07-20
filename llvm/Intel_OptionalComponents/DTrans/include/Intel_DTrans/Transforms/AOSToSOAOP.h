@@ -12,8 +12,8 @@
 // non-opaque pointers.
 //===---------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error AOSToSOAOP.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error AOSToSOAOP.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_TRANSFORMS_AOSTOSOAOP_H

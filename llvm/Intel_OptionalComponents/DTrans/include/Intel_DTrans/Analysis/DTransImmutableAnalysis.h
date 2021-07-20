@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransImmutableAnalysis.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransImmutableAnalysis.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef LLVM_DTRANS_ANALYSIS_DTRANSIMMUTABLE_H

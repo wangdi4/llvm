@@ -789,25 +789,6 @@ if(INTEL_CUSTOMIZATION)
     -DINTEL_CUSTOMIZATION
     )
 
-  option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
-  if(INTEL_INCLUDE_DTRANS)
-    # When there are multiple optional components, each of them should
-    # set this when included. This causes the Intel_OptionalComponents
-    # directory to be added as a subdirectory.
-    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
-    set(INTEL_DTRANS_INCLUDE_DIR
-        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
-    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=1")
-    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
-                               Intel_DTrans
-                               Intel_DTransOpt
-                               Intel_DTransAnalysis)
-
-  else()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
-  endif()
-
 # INTEL_FEATURE_CSA
   if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
     set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
@@ -894,17 +875,23 @@ if(INTEL_CUSTOMIZATION)
 # end INTEL_FEATURE_SW_ADVANCED
 
 # INTEL_FEATURE_SW_DTRANS
-  # TODO: We need to move the directories and set commands from
-  # INTEL_INCLUDE_DTRANS to here. This should happen when we are ready
-  # to swap INTEL_INCLUDE_DTRANS to FEATURE_SW_DTRANS.
-  if(INTEL_INCLUDE_DTRANS)
-    option(INTEL_ENABLE_SW_DTRANS "Include DTrans optimizations" ON)
-    if (INTEL_ENABLE_SW_DTRANS)
-      list(APPEND features_enabled_by_default
-         "${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS"
-      )
-    endif(INTEL_ENABLE_SW_DTRANS)
-  endif(INTEL_INCLUDE_DTRANS)
+  option(INTEL_ENABLE_SW_DTRANS "Include DTrans optimizations" ON)
+  if (INTEL_ENABLE_SW_DTRANS)
+    list(APPEND features_enabled_by_default
+       "${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS"
+    )
+    # When there are multiple optional components, each of them should
+    # set this when included. This causes the Intel_OptionalComponents
+    # directory to be added as a subdirectory.
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_DTRANS_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
+    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_DTrans
+                               Intel_DTransOpt
+                               Intel_DTransAnalysis)
+  endif(INTEL_ENABLE_SW_DTRANS)
 # end INTEL_FEATURE_SW_DTRANS
 
   # Force adding features enabled by default to CMake cache.
@@ -1351,7 +1338,7 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
   include_directories(${TENSORFLOW_AOT_PATH}/include)
   add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
     ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
-  install(TARGETS tf_xla_runtime EXPORT LLVMExports 
+  install(TARGETS tf_xla_runtime EXPORT LLVMExports
     ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT tf_xla_runtime)
   set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS tf_xla_runtime)
 endif()
