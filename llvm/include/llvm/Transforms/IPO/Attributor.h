@@ -168,6 +168,17 @@ combineOptionalValuesInAAValueLatice(const Optional<Value *> &A,
 /// Return the initial value of \p Obj with type \p Ty if that is a constant.
 Constant *getInitialValueForObj(Value &Obj, Type &Ty);
 
+/// Collect all potential underlying objects of \p Ptr at position \p CtxI in
+/// \p Objects. Assumed information is used and dependences onto \p QueryingAA
+/// are added appropriately.
+///
+/// \returns True if \p Objects contains all assumed underlying objects, and
+///          false if something went wrong and the objects could not be
+///          determined.
+bool getAssumedUnderlyingObjects(Attributor &A, const Value &Ptr,
+                                 SmallVectorImpl<Value *> &Objects,
+                                 const AbstractAttribute &QueryingAA,
+                                 const Instruction *CtxI);
 } // namespace AA
 
 /// The value passed to the line option that defines the maximal initialization
@@ -985,7 +996,9 @@ struct InformationCache {
     if (Iter != PotentiallyReachableMap.end())
       return Iter->second;
     const Function &F = *From.getFunction();
-    bool Result = isPotentiallyReachable(
+    bool Result = true;
+    if (From.getFunction() == To.getFunction())
+      Result = isPotentiallyReachable(
         &From, &To, nullptr, AG.getAnalysis<DominatorTreeAnalysis>(F),
         AG.getAnalysis<LoopAnalysis>(F));
     PotentiallyReachableMap.insert(std::make_pair(KeyPair, Result));
@@ -4489,9 +4502,9 @@ struct AAPointerInfo : public AbstractAttribute {
   /// Call \p CB on all accesses that might interfere with \p LI and return true
   /// if all such accesses were known and the callback returned true for all of
   /// them, false otherwise.
-  virtual bool forallInterfearingAccesses(
+  virtual bool forallInterferingAccesses(
       LoadInst &LI, function_ref<bool(const Access &, bool)> CB) const = 0;
-  virtual bool forallInterfearingAccesses(
+  virtual bool forallInterferingAccesses(
       StoreInst &SI, function_ref<bool(const Access &, bool)> CB) const = 0;
 
   /// This function should return true if the type of the \p AA is AAPointerInfo
