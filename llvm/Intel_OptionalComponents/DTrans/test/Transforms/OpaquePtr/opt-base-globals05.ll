@@ -1,5 +1,7 @@
 ; RUN: opt -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
 
 ; Test that global variables get their type changed when types are remapped
 ; for cases where the global variable type is a pointer type to check that
@@ -24,8 +26,8 @@
 ; but the metadata attached to the them needs to be updated, because the
 ; tracked pointer types for DTrans is changing.
 
-; CHECK-OPAQUE-DAG: @globPtr01a = internal global p0 null, !intel_dtrans_type ![[PTR_S01A:[0-9]+]]
-; CHECK-OPAQUE-DAG: @globalPtrPtr01a = internal global p0 @globPtr01a, !intel_dtrans_type ![[PTRPTR_S01A:[0-9]+]]
+; CHECK-OPAQUE-DAG: @globPtr01a = internal global ptr null, !intel_dtrans_type ![[PTR_S01A:[0-9]+]]
+; CHECK-OPAQUE-DAG: @globalPtrPtr01a = internal global ptr @globPtr01a, !intel_dtrans_type ![[PTRPTR_S01A:[0-9]+]]
 
 ; CHECK: define void @test01()
 
