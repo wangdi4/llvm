@@ -86,7 +86,7 @@ class X86LowerAMXType {
   // In AMX intrinsics we let Shape = {Row, Col}, but the
   // RealCol = Col / ElementSize. We may use the RealCol
   // as a new Row for other new created AMX intrinsics.
-  std::map<Value *, Value *> Col2Row;
+  std::map<Value *, Value *> Col2Row, Row2Col;  // Intel
 
 public:
   X86LowerAMXType(Function &F, TargetMachine *TargetM) : Func(F), TM(TargetM) {}
@@ -96,6 +96,7 @@ public:
   bool transformBitcast(BitCastInst *Bitcast);
   std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo);
   Value *getRowFromCol(Instruction *II, Value *V, unsigned Granularity);
+  Value *getColFromRow(Instruction *II, Value *V, unsigned Granularity);// Intel
 };
 
 Value *X86LowerAMXType::getRowFromCol(Instruction *II, Value *V,
@@ -114,6 +115,25 @@ Value *X86LowerAMXType::getRowFromCol(Instruction *II, Value *V,
   return RealRow;
 }
 
+#if INTEL_CUSTOMIZATION
+Value *X86LowerAMXType::getColFromRow(Instruction *II, Value *V,
+                                      unsigned Granularity) {
+  if (Row2Col.count(V))
+    return Row2Col[V];
+  IRBuilder<> Builder(&*II->getParent()->getFirstInsertionPt());
+  if (auto *I = dyn_cast<Instruction>(V)) {
+    BasicBlock::iterator Iter = I->getIterator();
+    ++Iter;
+    Builder.SetInsertPoint(&*Iter);
+  }
+  ConstantInt *Gran = Builder.getInt16(Granularity);
+  Value *RealCol = Builder.CreateNSWMul(V, Gran);
+  Row2Col[V] = RealCol;
+  return RealCol;
+}
+
+// TODO: Refine the row and col-in-bytes of tile to row and col of matrix.
+#endif // INTEL_CUSTOMIZATION
 std::pair<Value *, Value *> X86LowerAMXType::getShape(IntrinsicInst *II,
                                                       unsigned OpNo) {
   Value *Row = nullptr, *Col = nullptr;
@@ -129,6 +149,15 @@ std::pair<Value *, Value *> X86LowerAMXType::getShape(IntrinsicInst *II,
   }
   // a * b + c
   // The shape depends on which operand.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_FP19
+  case Intrinsic::x86_tmmulfp19ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  case Intrinsic::x86_tcmmimfp16ps_internal:
+  case Intrinsic::x86_tcmmrlfp16ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::x86_tdpbssd_internal:
   case Intrinsic::x86_tdpbsud_internal:
   case Intrinsic::x86_tdpbusd_internal:
@@ -157,6 +186,85 @@ std::pair<Value *, Value *> X86LowerAMXType::getShape(IntrinsicInst *II,
     }
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_FP19
+  case Intrinsic::x86_ttmmulfp19ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  case Intrinsic::x86_tconjcmmimfp16ps_internal:
+  case Intrinsic::x86_ttcmmimfp16ps_internal:
+  case Intrinsic::x86_ttcmmrlfp16ps_internal:
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_LNC
+  // Fixme: Here suppose feature amx_lnc is base of amx_fp19 and amx_complex.
+  case Intrinsic::x86_ttdpbf16ps_internal:
+  case Intrinsic::x86_ttdpfp16ps_internal:
+  {
+    switch (OpNo) {
+    case 3:
+      Row = II->getArgOperand(0);
+      Col = II->getArgOperand(1);
+      break;
+    case 4:
+      Row = II->getArgOperand(2);
+      Col = II->getArgOperand(0);
+      if (TM->getOptLevel() == CodeGenOpt::None) {
+        Row = getRowFromCol(II, Row, 4);
+        Col = getColFromRow(II, Col, 4);
+      }
+      break;
+    case 5:
+      Row = II->getArgOperand(2);
+      if (TM->getOptLevel() == CodeGenOpt::None)
+        Row = getRowFromCol(II, Row, 4);
+      Col = II->getArgOperand(1);
+      break;
+    }
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  case Intrinsic::x86_tconjfp16_internal:
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_LNC
+  case Intrinsic::x86_ttransposed_internal:
+  {
+    assert((OpNo == 3 || OpNo == 4) && "Illegal Operand Number.");
+    switch (OpNo) {
+    case 3:
+      Row = II->getArgOperand(0);
+      Col = II->getArgOperand(1);
+      break;
+    case 4:
+      Row = II->getArgOperand(1);
+      Col = II->getArgOperand(0);
+      if (TM->getOptLevel() == CodeGenOpt::None) {
+        Row = getRowFromCol(II, Row, 4);
+        Col = getColFromRow(II, Col, 4);
+      }
+      break;
+    }
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+  case Intrinsic::x86_tcvtrowps2pbf16hee_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16hei_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16lee_internal:
+  case Intrinsic::x86_tcvtrowps2pbf16lei_internal:
+  case Intrinsic::x86_tcvtrowps2phhee_internal:
+  case Intrinsic::x86_tcvtrowps2phhei_internal:
+  case Intrinsic::x86_tcvtrowps2phlee_internal:
+  case Intrinsic::x86_tcvtrowps2phlei_internal:
+  case Intrinsic::x86_tcvtrowd2psee_internal:
+  case Intrinsic::x86_tcvtrowd2psei_internal: {
+    assert(OpNo == 3 && "Illegal Operand Number.");
+    Row = II->getArgOperand(0);
+    Col = II->getArgOperand(1);
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#endif // INTEL_CUSTOMIZATION
   }
 
   return std::make_pair(Row, Col);

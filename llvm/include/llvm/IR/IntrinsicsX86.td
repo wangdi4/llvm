@@ -6747,6 +6747,33 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_ttransposed">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
                   [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
+
+  def int_x86_ttransposed_internal :
+              GCCBuiltin<"__builtin_ia32_ttransposed_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty], []>;
+  def int_x86_ttdpbf16ps_internal :
+              GCCBuiltin<"__builtin_ia32_ttdpbf16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_ttdpfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_ttdpfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_tilemovrowei_internal :
+              GCCBuiltin<"__builtin_ia32_tilemovrowei_internal">,
+              Intrinsic<[llvm_v16f32_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                        [ImmArg<ArgIndex<3>>]>;
+  def int_x86_tilemovrowee_internal :
+              GCCBuiltin<"__builtin_ia32_tilemovrowee_internal">,
+              Intrinsic<[llvm_v16f32_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                        []>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
@@ -7006,6 +7033,41 @@ let TargetPrefix = "x86" in {
   def int_x86_ttcmmrlfp16ps : GCCBuiltin<"__builtin_ia32_ttcmmrlfp16ps">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_tcmmimfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_tcmmimfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_tcmmrlfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_tcmmrlfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_tconjcmmimfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_tconjcmmimfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_tconjfp16_internal :
+              GCCBuiltin<"__builtin_ia32_tconjfp16_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty], []>;
+  def int_x86_ttcmmimfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_ttcmmimfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_ttcmmrlfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_ttcmmrlfp16ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 
@@ -7017,6 +7079,19 @@ let TargetPrefix = "x86" in {
   def int_x86_ttmmulfp19ps : GCCBuiltin<"__builtin_ia32_ttmmulfp19ps">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
+
+  def int_x86_tmmulfp19ps_internal :
+              GCCBuiltin<"__builtin_ia32_tmmulfp19ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
+  def int_x86_ttmmulfp19ps_internal :
+              GCCBuiltin<"__builtin_ia32_ttmmulfp19ps_internal">,
+              Intrinsic<[llvm_x86amx_ty],
+                        [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
+                         llvm_x86amx_ty, llvm_x86amx_ty,
+                         llvm_x86amx_ty], []>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_FP19
 
@@ -7280,6 +7355,57 @@ def int_x86_tcvtrowps2phlee : GCCBuiltin<"__builtin_ia32_tcvtrowps2phlee">,
 def int_x86_tcvtrowps2phlei : GCCBuiltin<"__builtin_ia32_tcvtrowps2phlei">,
         Intrinsic<[llvm_v32f16_ty], [llvm_i8_ty, llvm_i32_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
+
+def int_x86_tcvtrowd2psei_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowd2psei_internal">,
+            Intrinsic<[llvm_v16f32_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      [ImmArg<ArgIndex<3>>]>;
+def int_x86_tcvtrowd2psee_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowd2psee_internal">,
+            Intrinsic<[llvm_v16f32_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      []>;
+def int_x86_tcvtrowps2pbf16hei_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2pbf16hei_internal">,
+            Intrinsic<[llvm_v32i16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      [ImmArg<ArgIndex<3>>]>;
+def int_x86_tcvtrowps2pbf16hee_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2pbf16hee_internal">,
+            Intrinsic<[llvm_v32i16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      []>;
+def int_x86_tcvtrowps2pbf16lei_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2pbf16lei_internal">,
+            Intrinsic<[llvm_v32i16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      [ImmArg<ArgIndex<3>>]>;
+def int_x86_tcvtrowps2pbf16lee_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2pbf16lee_internal">,
+            Intrinsic<[llvm_v32i16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      []>;
+def int_x86_tcvtrowps2phhei_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2phhei_internal">,
+            Intrinsic<[llvm_v32f16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      [ImmArg<ArgIndex<3>>]>;
+def int_x86_tcvtrowps2phhee_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2phhee_internal">,
+            Intrinsic<[llvm_v32f16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      []>;
+def int_x86_tcvtrowps2phlei_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2phlei_internal">,
+            Intrinsic<[llvm_v32f16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      [ImmArg<ArgIndex<3>>]>;
+def int_x86_tcvtrowps2phlee_internal :
+            GCCBuiltin<"__builtin_ia32_tcvtrowps2phlee_internal">,
+            Intrinsic<[llvm_v32f16_ty],
+                      [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty, llvm_i32_ty],
+                      []>;
 }
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW

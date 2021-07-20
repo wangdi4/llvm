@@ -226,11 +226,6 @@ static __inline__ void __DEFAULT_FN_ATTRS_TILE _tile_release(void) {
 #define _tile_dpbf16ps(dst, src0, src1)                                        \
   __builtin_ia32_tdpbf16ps((dst), (src0), (src1))
 
-/// AMX tile register size can be configured, the maximum size is 16x64=1024
-/// bytes. Since there is no 2D type in llvm IR, we use vector type to
-/// represent 2D tile and the fixed size is maximum amx tile register size.
-typedef int _tile1024i __attribute__((__vector_size__(1024), __aligned__(64)));
-
 /// This is internal intrinsic. C/C++ user should avoid calling it directly.
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_INT8
 _tile_loadd_internal(unsigned short m, unsigned short n, const void *base,
@@ -289,16 +284,6 @@ _tile_dpbf16ps_internal(unsigned short m, unsigned short n, unsigned short k,
                         _tile1024i dst, _tile1024i src1, _tile1024i src2) {
   return __builtin_ia32_tdpbf16ps_internal(m, n, k, dst, src1, src2);
 }
-
-/// This struct pack the shape and tile data together for user. We suggest
-/// initializing the struct as early as possible, because compiler depends
-/// on the shape information to do configure. The constant value is preferred
-/// for optimization by compiler.
-typedef struct __tile1024i_str {
-  const unsigned short row;
-  const unsigned short col;
-  _tile1024i tile;
-} __tile1024i;
 
 /// Load tile rows from memory specifieid by "base" address and "stride" into
 /// destination tile "dst".
