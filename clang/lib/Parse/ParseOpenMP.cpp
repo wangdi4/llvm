@@ -48,6 +48,7 @@ enum OpenMPDirectiveKindEx {
   OMPD_update,
 #if INTEL_COLLAB
   OMPD_target_variant,
+  OMPD_function,
 #endif // INTEL_COLLAB
   OMPD_distribute_parallel,
   OMPD_teams_distribute_parallel,
@@ -116,6 +117,9 @@ static unsigned getOpenMPDirectiveKindEx(StringRef S) {
       .Case("mapper", OMPD_mapper)
       .Case("variant", OMPD_variant)
       .Case("begin", OMPD_begin)
+#if INTEL_COLLAB
+      .Case("function", OMPD_function)
+#endif // INTEL_COLLAB
       .Default(OMPD_unknown);
 }
 
@@ -174,6 +178,7 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       {OMPD_target_teams, OMPD_loop, OMPD_target_teams_loop},
       {OMPD_target_parallel, OMPD_loop, OMPD_target_parallel_loop},
       {OMPD_parallel, OMPD_loop, OMPD_parallel_loop},
+      {OMPD_declare_target, OMPD_function, OMPD_declare_target_function},
 #endif // INTEL_COLLAB
       {OMPD_target_teams_distribute, OMPD_parallel,
        OMPD_target_teams_distribute_parallel},
@@ -1891,6 +1896,60 @@ parseOpenMPSimpleClause(Parser &P, OpenMPClauseKind Kind) {
   return SimpleClauseData(Type, Loc, LOpen, TypeLoc, RLoc);
 }
 
+#if INTEL_COLLAB
+/// Parse clauses for '#pragma omp declare target function'.
+void Parser::ParseOMPXDeclareTargetFunctionClauses(
+    Sema::DeclareTargetContextInfo &DTCI, CachedTokens &Toks) {
+  PP.EnterToken(Tok, /*IsReinject*/ true);
+  PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/true,
+                      /*IsReinject*/ true);
+  // Consume the previously pushed token.
+  ConsumeAnyToken(/*ConsumeCodeCompletionTok=*/true);
+  ConsumeAnyToken(/*ConsumeCodeCompletionTok=*/true);
+
+  SourceLocation DeviceTypeLoc;
+  while (Tok.is(tok::identifier)) {
+    StringRef ClauseName = Tok.getIdentifierInfo()->getName();
+    if (getOpenMPClauseKind(ClauseName) == OMPC_device_type) {
+      Optional<SimpleClauseData> DevTypeData =
+          parseOpenMPSimpleClause(*this, OMPC_device_type);
+      if (DevTypeData.hasValue()) {
+        if (DeviceTypeLoc.isValid()) {
+          // We already saw another device_type clause, diagnose it.
+          Diag(DevTypeData.getValue().Loc,
+               diag::warn_omp_more_one_device_type_clause);
+          break;
+        }
+        switch (static_cast<OpenMPDeviceType>(DevTypeData.getValue().Type)) {
+        case OMPC_DEVICE_TYPE_any:
+          DTCI.DT = OMPDeclareTargetDeclAttr::DT_Any;
+          break;
+        case OMPC_DEVICE_TYPE_host:
+          DTCI.DT = OMPDeclareTargetDeclAttr::DT_Host;
+          break;
+        case OMPC_DEVICE_TYPE_nohost:
+          DTCI.DT = OMPDeclareTargetDeclAttr::DT_NoHost;
+          break;
+        case OMPC_DEVICE_TYPE_unknown:
+          llvm_unreachable("Unexpected device_type");
+        }
+        DeviceTypeLoc = DevTypeData.getValue().Loc;
+      }
+    } else {
+      Diag(Tok, diag::err_omp_declare_target_unexpected_clause)
+          << ClauseName << 0;
+      break;
+    }
+
+    // Consume optional ','.
+    if (Tok.is(tok::comma))
+      ConsumeToken();
+  }
+  SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
+  ConsumeAnnotationToken();
+}
+#endif // INTEL_COLLAB
+
 void Parser::ParseOMPDeclareTargetClauses(
     Sema::DeclareTargetContextInfo &DTCI) {
   SourceLocation DeviceTypeLoc;
@@ -2044,6 +2103,22 @@ void Parser::ParseOMPEndDeclareTargetDirective(OpenMPDirectiveKind BeginDKind,
     ConsumeAnnotationToken();
 }
 
+#if INTEL_COLLAB
+static bool checkOpenMPExtension(Parser &P, OpenMPDirectiveKind DKind,
+                                 bool IsExtension) {
+  Token Tok = P.getCurToken();
+  if (!IsExtension && DKind == OMPD_declare_target_function) {
+    P.Diag(Tok, diag::err_omp_extension_mismatch) << 1;
+    return false;
+  }
+  if (IsExtension && DKind != OMPD_declare_target_function) {
+    P.Diag(Tok, diag::err_omp_extension_mismatch) << 0;
+    return false;
+  }
+  return true;
+}
+#endif // INTEL_COLLAB
+
 /// Parsing of declarative OpenMP directives.
 ///
 ///       threadprivate-directive:
@@ -2085,6 +2160,10 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     DeclSpec::TST TagType, Decl *Tag) {
   assert(Tok.isOneOf(tok::annot_pragma_openmp, tok::annot_attr_openmp) &&
          "Not an OpenMP directive!");
+#if INTEL_COLLAB
+  bool IsExtension =
+      static_cast<bool>(reinterpret_cast<uintptr_t>(Tok.getAnnotationValue()));
+#endif // INTEL_COLLAB
   ParsingOpenMPDirectiveRAII DirScope(*this);
   ParenBraceBracketBalancer BalancerRAIIObj(*this);
 
@@ -2121,6 +2200,16 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     Loc = ConsumeAnnotationToken();
     DKind = parseOpenMPDirectiveKind(*this);
   }
+
+#if INTEL_COLLAB
+  if (!checkOpenMPExtension(*this, DKind, IsExtension)) {
+    ConsumeToken();
+    skipUntilPragmaOpenMPEnd(DKind);
+    // Skip the last annot_pragma_openmp_end.
+    ConsumeAnnotationToken();
+    return nullptr;
+  }
+#endif // INTEL_COLLAB
 
   switch (DKind) {
   case OMPD_threadprivate: {
@@ -2309,6 +2398,9 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     break;
   }
   case OMPD_declare_variant:
+#if INTEL_COLLAB
+  case OMPD_declare_target_function:
+#endif // INTEL_COLLAB
   case OMPD_declare_simd: {
     // The syntax is:
     // { #pragma omp declare {simd|variant} }
@@ -2341,12 +2433,38 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
       }
     }
     if (!Ptr) {
+#if INTEL_COLLAB
+      if (DKind == OMPD_declare_target_function)
+        Diag(Loc, diag::err_omp_decl_in_declare_target_function);
+      else
+#endif // INTEL_COLLAB
       Diag(Loc, diag::err_omp_decl_in_declare_simd_variant)
           << (DKind == OMPD_declare_simd ? 0 : 1);
       return DeclGroupPtrTy();
     }
     if (DKind == OMPD_declare_simd)
       return ParseOMPDeclareSimdClauses(Ptr, Toks, Loc);
+#if INTEL_COLLAB
+    else if (DKind == OMPD_declare_target_function) {
+      Sema::DeclareTargetContextInfo DTCI(OMPD_declare_target_function, Loc);
+      ParseOMPXDeclareTargetFunctionClauses(DTCI, Toks);
+      Actions.ActOnStartOpenMPDeclareTargetContext(DTCI);
+      if (!Ptr.get().isSingleDecl()) {
+        Diag(Loc, diag::err_omp_decl_in_declare_target_function);
+        return DeclGroupPtrTy();
+      }
+      auto *FD = dyn_cast<FunctionDecl>(Ptr.get().getSingleDecl());
+      if (!FD) {
+        Diag(Loc, diag::err_omp_decl_in_declare_target_function);
+        return DeclGroupPtrTy();
+      }
+      Actions.ActOnOpenMPDeclareTargetName(
+          FD, Loc, OMPDeclareTargetDeclAttr::MT_To, DTCI.DT);
+      Actions.ActOnFinishedOpenMPDeclareTargetContext(DTCI);
+      Actions.ActOnOpenMPEndDeclareTargetDirective();
+      return Ptr;
+    }
+#endif // INTEL_COLLAB
     assert(DKind == OMPD_declare_variant &&
            "Expected declare variant directive only");
     ParseOMPDeclareVariantClauses(Ptr, Toks, Loc);

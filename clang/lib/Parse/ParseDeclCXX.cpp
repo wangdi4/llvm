@@ -4157,6 +4157,9 @@ IdentifierInfo *Parser::TryParseCXX11AttributeIdentifier(SourceLocation &Loc) {
 }
 
 void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+#if INTEL_COLLAB
+                                      bool IsExtension,
+#endif // INTEL_COLLAB
                                       CachedTokens &OpenMPTokens) {
   // Both 'sequence' and 'directive' attributes require arguments, so parse the
   // open paren for the argument list.
@@ -4174,6 +4177,11 @@ void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
     OMPBeginTok.startToken();
     OMPBeginTok.setKind(tok::annot_attr_openmp);
     OMPBeginTok.setLocation(Tok.getLocation());
+#if INTEL_COLLAB
+    // Use annotation value to mark this as the extension spelling.
+    OMPBeginTok.setAnnotationValue(
+        reinterpret_cast<void *>(static_cast<uintptr_t>(IsExtension)));
+#endif // INTEL_COLLAB
     OpenMPTokens.push_back(OMPBeginTok);
 
     ConsumeAndStoreUntil(tok::r_paren, OpenMPTokens, /*StopAtSemi=*/false,
@@ -4196,21 +4204,38 @@ void Parser::ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
       SourceLocation IdentLoc;
       IdentifierInfo *Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
 
+#if INTEL_COLLAB
+      // If there is an identifier and it is 'omp' or 'ompx', a double colon is
+      // required followed by the actual identifier we're after.
+      bool InnerIsExtension = (Ident && Ident->isStr("ompx"));
+      if (Ident && (Ident->isStr("omp") || Ident->isStr("ompx")) &&
+          !ExpectAndConsume(tok::coloncolon))
+#else // INTEL_COLLAB
       // If there is an identifier and it is 'omp', a double colon is required
       // followed by the actual identifier we're after.
       if (Ident && Ident->isStr("omp") && !ExpectAndConsume(tok::coloncolon))
+#endif // INTEL_COLLAB
         Ident = TryParseCXX11AttributeIdentifier(IdentLoc);
 
       // If we failed to find an identifier (scoped or otherwise), or we found
       // an unexpected identifier, diagnose.
+#if INTEL_COLLAB
+      if (!Ident || (!Ident->isStr("directive") && !Ident->isStr("sequence")) ||
+          (InnerIsExtension && Ident->isStr("sequence"))) {
+#else // INTEL_COLLAB
       if (!Ident || (!Ident->isStr("directive") && !Ident->isStr("sequence"))) {
+#endif // INTEL_COLLAB
         Diag(Tok.getLocation(), diag::err_expected_sequence_or_directive);
         SkipUntil(tok::r_paren, StopBeforeMatch);
         continue;
       }
       // We read an identifier. If the identifier is one of the ones we
       // expected, we can recurse to parse the args.
+#if INTEL_COLLAB
+      ParseOpenMPAttributeArgs(Ident, InnerIsExtension, OpenMPTokens);
+#else // INTEL_COLLAB
       ParseOpenMPAttributeArgs(Ident, OpenMPTokens);
+#endif // INTEL_COLLAB
 
       // There may be a comma to signal that we expect another directive in the
       // sequence.
@@ -4286,12 +4311,20 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
     return true;
   }
 
+#if INTEL_COLLAB
+  if (ScopeName && (ScopeName->isStr("omp") || ScopeName->isStr("ompx"))) {
+#else // INTEL_COLLAB
   if (ScopeName && ScopeName->isStr("omp")) {
+#endif // INTEL_COLLAB
     Diag(AttrNameLoc, getLangOpts().OpenMP >= 51
                           ? diag::warn_omp51_compat_attributes
                                     : diag::ext_omp_attributes);
 
+#if INTEL_COLLAB
+    ParseOpenMPAttributeArgs(AttrName, ScopeName->isStr("ompx"), OpenMPTokens);
+#else //INTEL_COLLAB
     ParseOpenMPAttributeArgs(AttrName, OpenMPTokens);
+#endif // INTEL_COLLAB
 
     // We claim that an attribute was parsed and added so that one is not
     // created for us by the caller.

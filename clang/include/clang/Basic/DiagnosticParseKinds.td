@@ -1327,6 +1327,13 @@ def err_omp_expected_punc_after_iterator : Error<
   "expected ',' or ')' after iterator specifier">;
 def err_omp_decl_in_declare_simd_variant : Error<
   "function declaration is expected after 'declare %select{simd|variant}0' directive">;
+#if INTEL_COLLAB
+def err_omp_decl_in_declare_target_function : Error<
+  "single function declaration is expected after "
+  "'declare target function' directive">;
+def err_omp_extension_mismatch : Error<
+  "use '#pragma ompx'%select{ only|}0 for OpenMP extensions">;
+#endif // INTEL_COLLAB
 def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<

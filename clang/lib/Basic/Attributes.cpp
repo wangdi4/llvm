@@ -25,8 +25,13 @@ int clang::hasAttribute(AttrSyntax Syntax, const IdentifierInfo *Scope,
   // machinery that goes through TableGen. We support this in all OpenMP modes
   // so long as double square brackets are enabled.
   if (LangOpts.OpenMP && LangOpts.DoubleSquareBracketAttributes &&
+#if INTEL_COLLAB
+      (ScopeName == "omp" || ScopeName == "ompx"))
+    return (Name == "directive" || (Name == "sequence" && ScopeName != "ompx"));
+#else // INTEL_COLLAB
       ScopeName == "omp")
     return (Name == "directive" || Name == "sequence") ? 1 : 0;
+#endif // INTEL_COLLAB
 
 #include "clang/Basic/AttrHasAttributeImpl.inc"
 
