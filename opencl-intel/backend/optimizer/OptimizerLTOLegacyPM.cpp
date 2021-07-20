@@ -108,6 +108,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createDuplicateCalledKernelsLegacyPass());
         if (PMB.OptLevel > 0)
           MPM.add(createInternalizeNonKernelFuncLegacyPass());
+        MPM.add(createAddFunctionAttrsLegacyPass());
         MPM.add(createLinearIdResolverPass());
         MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createDPCPPKernelAnalysisLegacyPass());

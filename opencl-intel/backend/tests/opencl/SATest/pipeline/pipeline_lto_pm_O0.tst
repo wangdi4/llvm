@@ -4,6 +4,7 @@
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NOT:  Running pass: InternalizeNonKernelFuncPass
+; CHECK-NEXT: Running pass: AddFunctionAttrsPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
