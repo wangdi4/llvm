@@ -643,10 +643,15 @@ class DDTest {
   const CanonExpr *stripExt(const CanonExpr *CE, bool StripSExt,
                             bool StripZExt);
 
-  /// isKnownPredicate - Compare X and Y using the predicate Pred.
-  /// Basically a wrapper for CanonExpr::isKnownPredicate,
+  /// isKnownPredicateImpl - Compare X and Y using the predicate Pred.
+  /// Basically a wrapper for HLNodeUtils::isKnownPredicate,
   /// but tries harder, especially in the presence of sign and zero
   /// extensions and symbolics.
+  bool isKnownPredicateImpl(ICmpInst::Predicate Pred, const CanonExpr *X,
+                            const CanonExpr *Y);
+
+  /// A wrapper function. Makes two attempts to figure out a result. First
+  /// attempt is with original X and Y. Second is with stripped ZExt/SExt.
   bool isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
                         const CanonExpr *Y);
 
