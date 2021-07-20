@@ -253,8 +253,8 @@ private:
 #if INTEL_CUSTOMIZATION // HIR passes
   // Temporary utility function to add all passes needed for vectorizing SIMD
   // loops using VPlanDriver
-  void addVPOPassesPreOrPostLoopOpt(legacy::PassManagerBase &PM,
-                                    bool IsPostLoopOptPass) const;
+  void addVPlanVectorizer(legacy::PassManagerBase &PM,
+                          bool IsPostLoopOptPass) const;
   bool isLoopOptEnabled() const;
   void addLoopOptPasses(legacy::PassManagerBase &PM, bool IsLTO) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;

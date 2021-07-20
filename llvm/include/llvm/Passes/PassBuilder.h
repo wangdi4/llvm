@@ -542,9 +542,8 @@ public:
                     bool RunVec, bool Simplify = false);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-  bool addVPOPassesPreOrPostLoopOpt(ModulePassManager &MPM,
-                                    FunctionPassManager &FPM,
-                                    bool IsPostLoopOptPass);
+  bool addVPlanVectorizer(ModulePassManager &MPM, FunctionPassManager &FPM,
+                          bool IsPostLoopOptPass);
 
   /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
   /// simplifying load instructions into bitcast instructions that could
