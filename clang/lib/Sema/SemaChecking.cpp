@@ -5175,6 +5175,10 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
   case X86::BI__builtin_ia32_mpsadbw512:
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_DSPV1
+  case X86::BI__builtin_ia32_dvpcmulwrs:
+  case X86::BI__builtin_ia32_dvpccmulwrs:
+#endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
     i = 2; l = 0; u = 255;
     break;

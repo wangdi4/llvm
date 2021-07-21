@@ -1,5 +1,7 @@
 ; RUN: opt -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a < %s 2>&1 | FileCheck %s -check-prefix=CHECK-OPAQUE
 
 ; Test that global variables get their type changed when types are remapped
 ; for cases with pointer types within the structure.
@@ -32,11 +34,11 @@
 ; The following checks will replace the above checks when opaque pointers are used.
 ; In this case, the types of structures that contain pointers to types being
 ; changed do not change.
-; CHECK-OPAQUE-DAG: @globVar01a = internal global %__DTT_struct.test01a { p0 @globInt, p0 @globInt, p0 @globInt }
-; CHECK-OPAQUE-DAG: @globVar02a = internal global %__DTT_struct.test02a { i32 1, p0 @globVar02b }
+; CHECK-OPAQUE-DAG: @globVar01a = internal global %__DTT_struct.test01a { ptr @globInt, ptr @globInt, ptr @globInt }
+; CHECK-OPAQUE-DAG: @globVar02a = internal global %__DTT_struct.test02a { i32 1, ptr @globVar02b }
 ; CHECK-OPAQUE-DAG: @globVar02b = internal global %struct.test02b { i32 2 }
 ; CHECK-OPAQUE-DAG: @globVar03a = internal global %__DTT_struct.test03a { i32 3 }
-; CHECK-OPAQUE-DAG: @globVar03b = internal global %struct.test03b { i32 4, p0 @globVar03a }
+; CHECK-OPAQUE-DAG: @globVar03b = internal global %struct.test03b { i32 4, ptr @globVar03a }
 
 !intel.dtrans.types = !{!5, !6, !7, !8, !9}
 

@@ -12,3 +12,11 @@ __m128i test_mm_dsp_plutsincosw_epi16(__m128i __A) {
 __m128i test_mm_dsp_pcr2bfrsw_epi16(__m128i __A, __m128i __B, __m128i __C) {
   return _mm_dsp_pcr2bfrsw_epi16(__A, __B, __C, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
 }
+
+__m128i test_mm_dsp_pcmulwrs_epi16(__m128i __A, __m128i __B) {
+  return _mm_dsp_pcmulwrs_epi16(__A, __B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}
+
+__m128i test_mm_dsp_pccmulwrs_epi16(__m128i __A, __m128i __B) {
+  return _mm_dsp_pccmulwrs_epi16(__A, __B, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
+}

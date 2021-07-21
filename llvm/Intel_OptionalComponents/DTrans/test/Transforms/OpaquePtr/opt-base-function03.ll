@@ -1,5 +1,7 @@
 ; RUN: opt -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 
 ; Test that the base class clones functions which have parameter
 ; types or return values modified as a result of replacing types.
@@ -39,14 +41,14 @@ define void @test01callee(%struct.test01a* "intel_dtrans_func_index"="1" %in) !i
 ; No clones are made when opaque pointers are in use, but metadata information should
 ; get updated.
 ; CHECK-OPAQUE-LABEL: define void @test01caller()
-; CHECK-OPAQUE: %a = call p0 @test01getter()
-; CHECK-OPAQUE call void @test01callee(p0 %a)
+; CHECK-OPAQUE: %a = call ptr @test01getter()
+; CHECK-OPAQUE call void @test01callee(ptr %a)
 
-; CHECK-OPAQUE: define "intel_dtrans_func_index"="1" p0 @test01getter() !intel.dtrans.func.type ![[GETTER_MD:[0-9]+]]
+; CHECK-OPAQUE: define "intel_dtrans_func_index"="1" ptr @test01getter() !intel.dtrans.func.type ![[GETTER_MD:[0-9]+]]
 ; CHECK-OPAQUE %local = alloca %__DTT_struct.test01a, align 8
-; CHECK-OPAQUE ret p0 %local
+; CHECK-OPAQUE ret ptr %local
 
-; CHECK-OPAQUE: define void @test01callee(p0 "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[CALLEE_MD:[0-9]+]]
+; CHECK-OPAQUE: define void @test01callee(ptr "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type ![[CALLEE_MD:[0-9]+]]
 
 ; The types within the metadata should be updated to use the remapped types.
 ; CHECK: ![[GETTER_MD]] = distinct !{![[PTR_S01A:[0-9]+]]}
