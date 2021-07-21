@@ -406,7 +406,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   }
 
   Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8Ty);
+      Builder->CreateBitCast(BasePtr, I8PtrTy);
 
   Value *NewBasePtr =
       InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtrI8, ByteOffset)
