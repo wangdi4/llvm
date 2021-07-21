@@ -188,5 +188,77 @@ _mm_dsp_pndpbssd_epi32(__m128i __A, __m128i __B, __m128i __C) {
                                             (__v16qu)__C);
 }
 
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pdpwuuq_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpdpwuuq((__v2du)__A, (__v8hu)__B,
+                                           (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pdpwssq_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpdpwssq((__v2du)__A, (__v8hu)__B,
+                                           (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pdpwsuq_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpdpwsuq((__v2du)__A, (__v8hu)__B,
+                                           (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pdpwusq_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpdpwusq((__v2du)__A, (__v8hu)__B,
+                                           (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pndpwssq_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpndpwssq((__v2du)__A, (__v8hu)__B,
+                                            (__v8hu)__C);
+}
+
+#define _mm_dsp_pcmulwrs_epi16(A, B, C)                                        \
+  (__m128i) __builtin_ia32_dvpcmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C))
+
+#define _mm_dsp_pccmulwrs_epi16(A, B, C)                                       \
+  (__m128i) __builtin_ia32_dvpccmulwrs((__v8hu)(A), (__v8hu)(B), (int)(C))
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pcdpwqre_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpcdpwqre((__v2du)__A, (__v8hu)__B,
+                                            (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pcdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpcdpwqimm((__v2du)__A, (__v8hu)__B,
+                                             (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pncdpwqre_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpncdpwqre((__v2du)__A, (__v8hu)__B,
+                                             (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pncdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpncdpwqimm((__v2du)__A, (__v8hu)__B,
+                                              (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pccdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpccdpwqimm((__v2du)__A, (__v8hu)__B,
+                                              (__v8hu)__C);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pnccdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
+  return (__m128i)__builtin_ia32_dvpnccdpwqimm((__v2du)__A, (__v8hu)__B,
+                                               (__v8hu)__C);
+}
+
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H
