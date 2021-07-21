@@ -62,11 +62,13 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;
@@ -75,6 +77,7 @@ using dtrans::DTransAnnotator;
 using dtrans::StructInfo;
 
 #define DEBUG_TYPE "dtrans-aostosoaop"
+#define AOSTOSOA_VERBOSE "dtrans-aostosoaop-verbose"
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // For testing purposes, this flag allows the types to be transformed to be
@@ -103,6 +106,8 @@ static cl::opt<bool> DTransAOSToSOAOPIndex32("dtrans-aostosoaop-index32",
                                              cl::init(true), cl::ReallyHidden);
 
 namespace {
+// Forward references
+class AOSToSOAOPTransformImpl;
 
 // This structure describes information about the index variable that will be
 // used for accesses into the array. The index type is used to replace pointers
@@ -167,6 +172,80 @@ struct SOATypeInfoTy {
   // recognize locations where the pointer needs to be converted into the
   // integer index type.
   unsigned AddrSpaceForType = 0;
+
+  llvm::Type *getTransformedFieldType(uint32_t FieldIdx) {
+    return LLVMStructRemappedFieldsTypes[FieldIdx];
+  }
+};
+
+// This structure holds information about the instructions that will need to be
+// processed during the transformation. A visitor class will identify
+// instructions, and then the processFunction and postProcessFunction methods of
+// the transformation will use this information to update the IR.
+struct PerFunctionInfo {
+  using ByteGEPInfo =
+      std::tuple<GetElementPtrInst *, DTransStructType *, size_t>;
+  // Identifiers for extracting elements from the ByteGEPInfo tuple.
+  static const int ByteGEPInfoGEPMember = 0;
+  static const int ByteGEPInfoTypeMember = 1;
+  static const int ByteGEPInfoFieldMember = 2;
+
+  // GetElementPtr instructions that need to be converted because of a structure
+  // type being transformed.
+  SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
+  SmallVector<ByteGEPInfo, 16> ByteGEPsToConvert;
+
+  // GetElementPtr instructions that access fields that are of the type being
+  // transformed from a dependent type.
+  SmallVector<GetElementPtrInst *, 16> DepGEPsToConvert;
+
+  // GetElementPtr instructions using the byte flattened form to access a
+  // dependent type.
+  SmallVector<ByteGEPInfo, 16> DepByteGEPsToConvert;
+
+  // A list of pointer conversion instructions inserted as part of the
+  // processFunction routine (pointer to int, int to pointer, or pointer of
+  // original type to a pointer of the remapped type) that after the type
+  // remapping process should have the same source and destination types, and
+  // must be removed during postProcessFunction routine.
+  SmallVector<CastInst *, 16> PtrConverts;
+
+  // Instructions from the input IR that need to be removed at the end of
+  // processFunction().
+  SmallVector<Instruction *, 16> InstructionsToDelete;
+
+  // Instructions that need to have their type changed prior to the type
+  // remapping of the IR. In order to recognize the pointers that are going to
+  // be converted to integer index values by the ValueMapper class, we are going
+  // to put those pointers into a specific address space. When the ValueMapper
+  // passes a llvm::Type object to our TypeMapper object, the pointer in the
+  // specific address space will be recognized as needing to be converted.
+  SmallVector<std::pair<Instruction *, Type *>, 32> InstructionsToMutate;
+
+  // List of instructions to be annotated as being pointers to the index value
+  // for subsequent DTrans passes. The structure type field stores the original
+  // type of structure, not the type being created by this transformation.
+  SmallVector<std::pair<Instruction *, llvm::StructType *>, 16>
+      InstructionsToAnnotate;
+};
+
+// This visitor will collect the instructions that need to be converted.
+class AOSCollector : public InstVisitor<AOSCollector> {
+public:
+  AOSCollector(AOSToSOAOPTransformImpl &Transform, DTransSafetyInfo &DTInfo,
+               PerFunctionInfo &FuncInfo)
+      : Transform(Transform), DTInfo(DTInfo), PTA(DTInfo.getPtrTypeAnalyzer()),
+        FuncInfo(FuncInfo) {}
+
+  void visitGetElementPtrInst(GetElementPtrInst &GEP);
+  void visitLoadInst(LoadInst &I);
+  // TODO: visit other instruction types
+
+private:
+  AOSToSOAOPTransformImpl &Transform;
+  DTransSafetyInfo &DTInfo;
+  PtrTypeAnalyzer &PTA;
+  PerFunctionInfo &FuncInfo;
 };
 
 // This class is responsible for all the transformation work for the AOS to SOA
@@ -179,7 +258,9 @@ public:
                           SmallVectorImpl<dtrans::StructInfo *> &Types)
       : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix), DL(DL), GetTLI(GetTLI) {
     std::copy(Types.begin(), Types.end(), std::back_inserter(TypesToTransform));
+    PtrSizeIntLLVMType = Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
   }
+
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
 
@@ -187,13 +268,47 @@ public:
   void processFunction(Function &F) override;
   void postprocessFunction(Function &OrigFunc, bool isCloned) override;
 
+  bool isTypeToTransform(llvm::Type *Ty) const;
+  bool isDependentType(llvm::Type *Ty) const;
+  bool isDependentTypeSizeChanged(llvm::Type *Ty) const;
+  StructType *getDependentTypeReplacement(llvm::StructType *OrigTy);
+  DTransStructType *getDependentDTransType(llvm::StructType *OrigTy);
+
+  PointerType *getAddrSpacePtrForType(llvm::StructType *OrigStructTy);
+  PointerType *getAddrSpacePtrForType(DTransStructType *OrigStructTy);
+
   struct SOATypeInfoTy &getSOATypeInfo(llvm::StructType *Ty);
 
 private: // methods
+  llvm::Type *getPtrSizedIntLLVMType() const { return PtrSizeIntLLVMType; }
   void qualifyDependentTypes(unsigned PointerSizeInBits);
   void initializeIndexType(LLVMContext &Ctx, unsigned BitWidth);
   llvm::Type *getIndexLLVMType() const;
   DTransType *getIndexDTransType() const;
+
+  uint32_t getAddrSpaceForType(llvm::StructType *OrigStructTy);
+  uint32_t getAddrSpaceForType(DTransStructType *OrigStructTy);
+
+  void convertGEP(GetElementPtrInst *GEP);
+  void convertByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
+                      size_t FieldNum);
+  void convertDepGEP(GetElementPtrInst *GEP);
+  void convertDepByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
+                         size_t FieldNum);
+
+  CastInst *createCastToIndexType(Value *V,
+                                  Instruction *InsertBefore = nullptr);
+
+  Value *promoteOrTruncValueToWidth(Value *V, uint64_t DstWidth,
+                                    Instruction *InsertBefore);
+
+  GetElementPtrInst *
+  createGEPFieldAddressReplacement(SOATypeInfoTy &SOAType, Value *IndexAsIntTy,
+                                   Value *GEPBaseIdx, Value *GEPFieldNum,
+                                   Instruction *InsertBefore);
+
+  LoadInst *createSOAFieldLoad(SOATypeInfoTy &SOAType, Value *FieldNumVal,
+                               Instruction *InsertBefore);
 
 private: // data
   const DataLayout &DL;
@@ -212,6 +327,8 @@ private: // data
   SmallVector<std::pair<llvm::StructType *, DTransStructType *>, 4>
       DepTypesToTransform;
 
+  llvm::Type *PtrSizeIntLLVMType = nullptr;
+
   // Value to use for the 3rd string argument of the ptr.annotation intrinsic.
   // This argument is used to represent a filename, and will be ignored.
   Value *AnnotationFilenameGEP = nullptr;
@@ -219,6 +336,10 @@ private: // data
   // Information about the index type that will replace the pointer to the
   // structure being transformed.
   struct SOAIndexInfoTy IndexInfo;
+
+  // This object will be used to share information between the processFunction
+  // and postProcessFunction about instructions that need to be processed.
+  std::unique_ptr<PerFunctionInfo> FuncInfo;
 };
 
 class DTransAOSToSOAOPWrapper : public ModulePass {
@@ -265,6 +386,93 @@ public:
   }
 };
 } // end anonymous namespace
+
+void AOSCollector::visitGetElementPtrInst(GetElementPtrInst &GEP) {
+  // The only cases that need to be converted are GEPs with 1 or 2 indices
+  // because the type being transformed cannot contain any aggregate types, and
+  // it cannot be nested within another type.
+  unsigned NumIndices = GEP.getNumIndices();
+  if (NumIndices > 2)
+    return;
+
+  Type *ElementTy = GEP.getSourceElementType();
+  if (Transform.isTypeToTransform(ElementTy)) {
+    FuncInfo.GEPsToConvert.push_back(&GEP);
+    return;
+  }
+
+  // Check for byte-flattened GEP
+  auto InfoPair = DTInfo.getByteFlattenedGEPElement(&GEP);
+  if (InfoPair.first) {
+    llvm::Type *Ty = InfoPair.first->getLLVMType();
+    if (Transform.isTypeToTransform(Ty))
+      FuncInfo.ByteGEPsToConvert.push_back(std::make_tuple(
+          &GEP, cast<DTransStructType>(InfoPair.first), InfoPair.second));
+    else if (Transform.isDependentTypeSizeChanged(Ty))
+      FuncInfo.DepByteGEPsToConvert.push_back(std::make_tuple(
+          &GEP, cast<DTransStructType>(InfoPair.first), InfoPair.second));
+    return;
+  }
+
+  // Check for a GEP on a dependent type that is to a field which is the type
+  // being transformed. In this case, the GEP ResultElementType member will
+  // need to be modified for the case where it is an opaque pointer type.
+  if (NumIndices == 2 && Transform.isDependentType(ElementTy)) {
+    Value *FieldNum = GEP.getOperand(2);
+    auto *FieldNumConst = dyn_cast<ConstantInt>(FieldNum);
+    if (!FieldNumConst)
+      return;
+
+    uint32_t FieldIdx = FieldNumConst->getLimitedValue();
+    auto *OrigStructTy = cast<llvm::StructType>(ElementTy);
+    llvm::Type *OrigFieldType = OrigStructTy->getElementType(FieldIdx);
+    if (!OrigFieldType->isPointerTy())
+      return;
+
+    if (!OrigFieldType->isOpaquePointerTy())
+      return;
+
+    llvm::StructType *NewStructTy =
+        Transform.getDependentTypeReplacement(OrigStructTy);
+    llvm::Type *NewFieldType = NewStructTy->getElementType(FieldIdx);
+    if (NewFieldType->isIntegerTy())
+      FuncInfo.DepGEPsToConvert.push_back(&GEP);
+  }
+}
+
+void AOSCollector::visitLoadInst(LoadInst &I) {
+  // TODO: Extend this to allow integers that represent pointers to be handled:
+  //   %y = bitcast %struct.node* %x to i64*
+  //   load i64, i64* %y
+  // For now, just look at loading a pointer type.
+  if (!I.getType()->isPointerTy())
+    return;
+
+  auto *Info = PTA.getValueTypeInfo(&I);
+  assert(Info && "Expected PointerTypeAnalyzer to collect type");
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (!Ty || !Ty->isPointerTy())
+    return;
+
+  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  if (!StructTy)
+    return;
+
+  auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
+  if (!Transform.isTypeToTransform(LLVMStructType))
+    return;
+
+  FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
+  if (!I.getType()->isOpaquePointerTy())
+    return;
+
+  // If the type loaded is a pointer to the transformed type, we want to
+  // change it to appear in an address space so that the type remapping will
+  // convert it to the index type.
+  PointerType *AddrSpacePtr = Transform.getAddrSpacePtrForType(StructTy);
+  if (AddrSpacePtr)
+    FuncInfo.InstructionsToMutate.push_back({&I, AddrSpacePtr});
+}
 
 bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
   unsigned PointerSizeInBits = DL.getPointerSizeInBits();
@@ -377,8 +585,7 @@ void AOSToSOAOPTransformImpl::prepareModule(Module &M) {
         "__soa_" + StType->getName(),
         /*insertbefore=*/nullptr, GlobalValue::NotThreadLocal,
         /*AddressSpace=*/0, /*isExternallyInitialized=*/false);
-    LLVM_DEBUG(dbgs() << "AOS-to-SOA: SOAVar: " << *SOAType.SOAVar
-                      << "\n");
+    LLVM_DEBUG(dbgs() << "AOS-to-SOA: SOAVar: " << *SOAType.SOAVar << "\n");
 
     std::string AllocationStr("{dtrans} AOS-to-SOA allocation");
     std::string IndexStr("{dtrans} AOS-to-SOA index");
@@ -428,13 +635,196 @@ void AOSToSOAOPTransformImpl::prepareModule(Module &M) {
 }
 
 void AOSToSOAOPTransformImpl::processFunction(Function &F) {
-  // TODO: Transform the statements the need to be done prior to type remapping.
+  // Lambda to clear the FuncInfo state that is no longer used after this
+  // function completes.
+  auto FuncInfoProcessFunctionComplete = [this]() {
+    FuncInfo->GEPsToConvert.clear();
+    FuncInfo->ByteGEPsToConvert.clear();
+    FuncInfo->DepGEPsToConvert.clear();
+    FuncInfo->DepByteGEPsToConvert.clear();
+    FuncInfo->InstructionsToMutate.clear();
+    FuncInfo->InstructionsToDelete.clear();
+  };
+
+  LLVM_DEBUG(dbgs() << "AOS-to-SOA: ProcessFunction: " << F.getName() << "\n");
+
+  // The PerFunctionInfo data will be needed by this function and the
+  // postProcessFunction.
+  FuncInfo = std::make_unique<PerFunctionInfo>();
+  AOSCollector Collector(*this, *DTInfo, *FuncInfo);
+  Collector.visit(F);
+
+  for (auto *GEP : FuncInfo->GEPsToConvert)
+    convertGEP(GEP);
+  for (auto &GEPInfo : FuncInfo->ByteGEPsToConvert)
+    convertByteGEP(std::get<PerFunctionInfo::ByteGEPInfoGEPMember>(GEPInfo),
+                   std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
+                   std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
+
+  // Process the instructions using dependent structure types.
+  for (auto *GEP : FuncInfo->DepGEPsToConvert)
+    convertDepGEP(GEP);
+
+  for (auto &GEPInfo : FuncInfo->DepByteGEPsToConvert)
+    convertDepByteGEP(
+        std::get<PerFunctionInfo::ByteGEPInfoGEPMember>(GEPInfo),
+        std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
+        std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
+
+  // Convert 'ptr' objects to be 'ptr addrspace(n)' objects so the type
+  // remapping will recognize them.
+  for (auto KV : FuncInfo->InstructionsToMutate)
+    if (auto *Call = dyn_cast<CallInst>(KV.first))
+      Call->mutateFunctionType(cast<FunctionType>(KV.second));
+    else
+      KV.first->mutateType(KV.second);
+
+  for (auto *I : FuncInfo->InstructionsToDelete)
+    I->eraseFromParent();
+
+  FuncInfoProcessFunctionComplete();
+  DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
+                  dbgs() << "\nIR Before type-remapping:\n"
+                         << F
+                         << "---------------------------------------------\n");
 }
 
 void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
-                                                  bool isCloned) {
-  // TODO: Cleanup statements inserted during processFunction that are no longer
-  // necessary after type remapping.
+                                                  bool IsCloned) {
+  LLVM_DEBUG(dbgs() << "AOS-to-SOA: postprocessFunction: " << OrigFunc.getName()
+                    << "\n");
+
+  Function *Func = &OrigFunc;
+  if (IsCloned)
+    Func = cast<Function>(VMap[&OrigFunc]);
+
+  DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
+                  dbgs() << "\nIR after type-remapping:\n"
+                         << *Func
+                         << "---------------------------------------------\n");
+
+  // We need to get rid of all the cast instructions that were inserted to help
+  // the type remapping because they are not valid after the type remapping
+  // changed a pointer type to be an integer type.
+  SmallVector<Instruction *, 16> InstructionsToDelete;
+  for (auto *Conv : FuncInfo->PtrConverts) {
+    if (IsCloned)
+      Conv = cast<CastInst>(VMap[Conv]);
+    if (Conv->user_empty()) {
+      InstructionsToDelete.push_back(Conv);
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Post process deleting: " << *Conv << "\n");
+    assert(Conv->getType() == Conv->getOperand(0)->getType() &&
+           "Expected self-type in cast after remap");
+    Conv->replaceAllUsesWith(Conv->getOperand(0));
+    Conv->eraseFromParent();
+  }
+
+  // Insert the annotations that help the dynamic cloning recognize the new
+  // "array index" variables.
+  for (auto &InstTyPair : FuncInfo->InstructionsToAnnotate) {
+    auto *I = InstTyPair.first;
+    auto *Ty = InstTyPair.second;
+    if (IsCloned)
+      I = cast<Instruction>(VMap[I]);
+
+    Value *Ptr = nullptr;
+    if (auto *SI = dyn_cast<StoreInst>(I))
+      Ptr = SI->getPointerOperand();
+    else if (auto *LI = dyn_cast<LoadInst>(I))
+      Ptr = LI->getPointerOperand();
+    else
+      llvm_unreachable("Instruction expected to be load/store");
+
+    Module *M = I->getModule();
+    SOATypeInfoTy &SOAType = getSOATypeInfo(Ty);
+    Value *Annot = DTransAnnotator::createPtrAnnotation(
+        *M, *Ptr, *SOAType.IndexAnnotationGEP, *AnnotationFilenameGEP, 0,
+        "alloc_idx", I);
+    (void)Annot;
+    LLVM_DEBUG(dbgs() << "Adding annotation for pointer: " << *Ptr
+                      << "\n  in: " << *I << "\n  " << *Annot << "\n");
+  }
+
+  for (auto *I : InstructionsToDelete)
+    I->eraseFromParent();
+
+  FuncInfo.reset();
+  DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
+                  dbgs() << "\nAOS-to-SOA: Final IR:\n"
+                         << *Func
+                         << "---------------------------------------------\n");
+}
+
+bool AOSToSOAOPTransformImpl::isTypeToTransform(llvm::Type *Ty) const {
+  if (!Ty->isStructTy())
+    return false;
+
+  for (auto &SOAType : SOATypes)
+    if (SOAType.OrigStructType == Ty)
+      return true;
+
+  return false;
+}
+
+bool AOSToSOAOPTransformImpl::isDependentType(llvm::Type *Ty) const {
+  if (!Ty->isStructTy())
+    return false;
+
+  for (auto &P : DepTypesToTransform)
+    if (P.first == Ty)
+      return true;
+
+  return false;
+}
+
+bool AOSToSOAOPTransformImpl::isDependentTypeSizeChanged(llvm::Type *Ty) const {
+  // Dependent types only need size adjustments when the pointer is 64-bits wide
+  // and the index type is 32-bits wide.
+  if (!IndexInfo.PointerShrinkingEnabled)
+    return false;
+
+  return isDependentType(Ty);
+}
+
+// Get the replacement type of a dependent structure type
+StructType *
+AOSToSOAOPTransformImpl::getDependentTypeReplacement(llvm::StructType *OrigTy) {
+  return cast<llvm::StructType>(TypeRemapper.remapType(OrigTy));
+}
+
+// Get the DTransType that corresponds to the llvm::Type that was identified as
+// a dependent type.
+DTransStructType *
+AOSToSOAOPTransformImpl::getDependentDTransType(llvm::StructType *OrigTy) {
+  for (auto &P : DepTypesToTransform)
+    if (P.first == OrigTy)
+      return P.second;
+  return nullptr;
+}
+
+// Get an opaque pointer in the address space that will be used for
+// transformations on 'OrigStructTy'. If 'OrigStructTy' is not one of the
+// structure types being transformed into an index by this transformation,
+// returns nullptr.
+PointerType *AOSToSOAOPTransformImpl::getAddrSpacePtrForType(
+    llvm::StructType *OrigStructTy) {
+  uint32_t AddrSpace = getAddrSpaceForType(OrigStructTy);
+  if (!AddrSpace)
+    return nullptr;
+  return PointerType::get(OrigStructTy->getContext(), AddrSpace);
+}
+
+// Overload of getAddrSpacePtrForType that uses the DTransStructType as the
+// lookup key.
+PointerType *AOSToSOAOPTransformImpl::getAddrSpacePtrForType(
+    DTransStructType *OrigStructTy) {
+  uint32_t AddrSpace = getAddrSpaceForType(OrigStructTy);
+  if (!AddrSpace)
+    return nullptr;
+  return PointerType::get(OrigStructTy->getContext(), AddrSpace);
 }
 
 struct SOATypeInfoTy &
@@ -503,7 +893,7 @@ void AOSToSOAOPTransformImpl::qualifyDependentTypes(
   for (auto *StInfo : TypesToTransform) {
     bool DepQualified = true;
     SmallVector<std::pair<llvm::StructType *, DTransStructType *>, 4>
-      LocalDepTypesToTransform;
+        LocalDepTypesToTransform;
     auto *OrigTy = cast<DTransStructType>(StInfo->getDTransType());
     for (auto &DepTy : TypeToPtrDependentTypes[OrigTy]) {
       auto *DepStructTy = dyn_cast<DTransStructType>(DepTy);
@@ -584,6 +974,356 @@ llvm::Type *AOSToSOAOPTransformImpl::getIndexLLVMType() const {
 DTransType *AOSToSOAOPTransformImpl::getIndexDTransType() const {
   assert(IndexInfo.DTType && IndexInfo.Width && "Index type/width not set");
   return IndexInfo.DTType;
+}
+
+// Get the address space to use for pointers to a structure of the specified
+// StructType when preparing for type remapping. OrigStructTy needs to be one of
+// the original llvm types, not one being produced by this transformation.
+uint32_t
+AOSToSOAOPTransformImpl::getAddrSpaceForType(llvm::StructType *OrigStructTy) {
+  for (auto &SOAType : SOATypes)
+    if (SOAType.OrigStructType == OrigStructTy)
+      return SOAType.AddrSpaceForType;
+
+  return 0;
+}
+
+// Overload of getAddrSpaceForType that uses the DTransStructType as the lookup
+// key.
+uint32_t
+AOSToSOAOPTransformImpl::getAddrSpaceForType(DTransStructType *OrigStructTy) {
+  for (auto &SOAType : SOATypes)
+    if (SOAType.OrigDTransType == OrigStructTy)
+      return SOAType.AddrSpaceForType;
+
+  return 0;
+}
+
+void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
+  LLVM_DEBUG(dbgs() << "Replacing GEP: " << *GEP << "\n");
+
+  // There are 2 cases that need to be converted by this routine.
+  // 1: Getting the address of a structure relative to a pointer to the
+  // structure type.
+  //    %addr1 = getelementptr %struct.t, ptr %base, i64 %n
+  //
+  // 2: Getting the address of a structure field.
+  //    %addr2 = getelementptr %struct.t, ptr %base, i64 %n, i32 1
+  //
+  // These need to be processed prior to the type remapping process because
+  // the type remapping will change field members within the dependent structure
+  // to be an integer type, so we need to make sure that when value mapping and
+  // function cloning are performed the types will match up.
+
+  // There will not be more than 2 indices because nested structures are
+  // disqualified during the safety checks.
+  unsigned NumIndices = GEP->getNumIndices();
+  assert(NumIndices <= 2 && "Unexpected index count for GEP");
+  if (NumIndices == 1) {
+    // This will convert the GEP of case 1 from:
+    //    %addr1 = getelementptr %struct.t, ptr %base, i64 %base_idx
+    //
+    // When the index is not being shrunk, the index will be the same
+    // bit width as a pointer:
+    //    %soa_idx = ptrtoint ptr addrspace(1) %base to i64
+    //    %add = add i64 %soa_idx, %base_idx
+    //    %addr1 = inttoptr i64 %add to ptr addrspace(1)
+    //
+    // When the index is being shrunk to 32-bits, create:
+    //    %soa_idx = ptrtoint ptr %base addrspace(1) to i32
+    //    %base_idx.typed = trunc i64 %base_idx to i32
+    //    %add = add i32 %soa_idx, %base_idx.typed
+    //    %addr1 = inttoptr i32 %add to ptr addrspace(1)
+    //
+    // The ptrtoint and inttoptr instructions and the address space uses are
+    // temporary. They are just used in order to support the type remapping
+    // process. During the type remapping process, the pointer type within the
+    // address space in those instructions will be converted into an integer
+    // type, resulting in the ptrtoint/inttoptr instructions having the same
+    // source and destination types. These will be removed during the function
+    // post processing. The use of the conversion instruction here allows for
+    // values into and out of affected instructions to be replaced without
+    // violating the type matching.
+    //
+    // After the post processing function, the IR left will be:
+    //    %addr1 = add i64 %soa_idx, %base_idx
+    // or:
+    //    %base_idx.typed = trunc i64 %base_idx to i32
+    //    %addr1 = add i32 %soa_idx, %base_idx.typed
+
+    // We should never have a GEP index member that is wider than the bit width
+    // of a pointer. If we do, then the indexing calculations will not work.
+    Value *BaseIdx = GEP->getOperand(1);
+    assert(DL.getTypeSizeInBits(BaseIdx->getType()) <=
+               DL.getTypeSizeInBits(getPtrSizedIntLLVMType()) &&
+           "Unsupported GEP index type");
+
+    // Match the GEP index value to the bit width of the index type being used.
+    Value *Src = GEP->getPointerOperand();
+    Value *IdxAsInt = createCastToIndexType(Src, GEP);
+    Value *IdxIn = promoteOrTruncValueToWidth(BaseIdx, IndexInfo.Width, GEP);
+    Value *Add = BinaryOperator::CreateAdd(IdxAsInt, IdxIn, "", GEP);
+
+    // We will steal the name of the GEP and put it on this instruction
+    // because even though uses of the GEP are going to be replaced with a
+    // cast instruction, the cast is going to eventually be eliminated during
+    // post processing of the function.
+    Add->takeName(GEP);
+
+    // Cast the computed index back to the original pointer type, and
+    // substitute this into the users. When the type remapping occurs, the
+    // users will be converted to an integer type, and the cast instruction
+    // will be removed during post-processing.
+    llvm::Type *GEPSrcTy = GEP->getSourceElementType();
+    assert(GEPSrcTy->isStructTy());
+    auto *OrigStructTy = cast<llvm::StructType>(GEPSrcTy);
+    CastInst *ArrayIdx =
+        CastInst::CreateBitOrPointerCast(Add, OrigStructTy->getPointerTo());
+    ArrayIdx->insertBefore(GEP);
+    FuncInfo->PtrConverts.push_back(ArrayIdx);
+    GEP->replaceAllUsesWith(ArrayIdx);
+
+    // When opaque pointers are in use, we need the pointer to be in an
+    // address space to recognize it during type remapping.
+    llvm::Type *TypeInAddrSpace = getAddrSpacePtrForType(OrigStructTy);
+    if (TypeInAddrSpace)
+      FuncInfo->InstructionsToMutate.push_back({ArrayIdx, TypeInAddrSpace});
+    FuncInfo->InstructionsToDelete.push_back(GEP);
+    return;
+  }
+
+  // This will convert the GEP of case 2 from:
+  //    %elem_addr = getelementptr %struct.t, ptr %base, i64 %base_idx, i32 1
+  //
+  // When the index is not being shrunk, create:
+  //    %soa_field_addr = getelementptr % __soa_struct.t, ptr @__soa_struct.t,
+  //                        i64 0, i32 1
+  //    %soa_addr = load ptr, ptr %soa_field_addr
+  //    %soa_idx = ptrtoint ptr addrspace(1) %base to i64
+  //    %array_idx = add i64 %soa_idx, %base_idx
+  //    %elem_addr = getelementptr i32, ptr %soa_addr, i64 %array_idx
+  //
+  // When the index is being shrunk to 32-bits, create:
+  //    %soa_field_addr = getelementptr % __soa_struct.t, ptr @__soa_struct.t,
+  //                        i64 0, i32 1
+  //    %soa_addr = load ptr, ptr %soa_field_addr
+  //    %soa_idx = ptrtoint ptr  addrspace(1) %base to i32
+  //    %base_idx.typed = trunc i64 %base_idx to i32
+  //    %array_idx = add i32 %soa_idx, %base_idx.typed
+  //    %array_idx.typed = zext i32 %adjusted_idx to i64
+  //    %elem_addr = getelementptr i32, ptr %soa_addr, i64 %array_idx.typed
+  //
+  Type *ElementTy = GEP->getSourceElementType();
+  assert(ElementTy->isStructTy() &&
+         "Collector should only get structure type GEP");
+
+  // Create and insert the instructions that get the address of the field in
+  // the transformed structure.
+  SOATypeInfoTy &SOAType = getSOATypeInfo(cast<llvm::StructType>(ElementTy));
+  CastInst *SOAIdx = createCastToIndexType(GEP->getPointerOperand(), GEP);
+  Value *FieldNum = GEP->getOperand(2);
+  GetElementPtrInst *FieldGEP = createGEPFieldAddressReplacement(
+      SOAType, SOAIdx, GEP->getOperand(1), FieldNum, GEP);
+
+  // We will steal the name of the GEP and put it on this instruction
+  // because even if the replacement value used prior to type remapping is done
+  // via a cast statement, the cast is going to be eliminated during function
+  // post processing.
+  FieldGEP->takeName(GEP);
+
+  // If the field type is pointer to a structure type that is being changed,
+  // generate a temporary cast to the original type so that the users will have
+  // expected types. These casts will become casts from/to the same type
+  // after the remapping happens, and will be removed during post-processing.
+  // After type remapping, the cast will be eliminated. For example: %struct.a*
+  // is now %__AOSDT_struct.a*.
+  //
+  // When only opaque pointers are supported, this should no longer be
+  // necessary.
+  //
+  unsigned FieldIdx = cast<ConstantInt>(FieldNum)->getLimitedValue();
+  llvm::Type *SOAFieldTy = SOAType.SOAStructType->getElementType(FieldIdx);
+  Type *OrigFieldTy = GEP->getType();
+  Value *ReplVal = FieldGEP;
+  if (SOAFieldTy != OrigFieldTy) {
+    CastInst *CastToPtr =
+        CastInst::CreateBitOrPointerCast(FieldGEP, OrigFieldTy);
+    CastToPtr->insertBefore(GEP);
+    FuncInfo->PtrConverts.push_back(CastToPtr);
+    ReplVal = CastToPtr;
+  }
+
+  GEP->replaceAllUsesWith(ReplVal);
+  FuncInfo->InstructionsToDelete.push_back(GEP);
+}
+
+void AOSToSOAOPTransformImpl::convertByteGEP(GetElementPtrInst *GEP,
+                                             DTransStructType *OrigStructTy,
+                                             size_t FieldNum) {
+  // TODO: Handle byte-flattened GEPs on the type being transformed.
+  llvm_unreachable("ByteGEP conversion not implemented yet");
+}
+
+// Update the GEP result element type on the GEPs because now the result of a
+// GEP will be an integer index instead of a pointer type.
+void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
+  auto *LLVMStructTy = cast<llvm::StructType>(GEP->getSourceElementType());
+  Value *FieldNum = GEP->getOperand(2);
+  uint32_t FieldIdx = dyn_cast<ConstantInt>(FieldNum)->getLimitedValue();
+  DTransStructType *DTransStructTy = getDependentDTransType(LLVMStructTy);
+  assert(DTransStructTy && "DTransStructType missing for dependent type");
+  DTransType *FieldTy = DTransStructTy->getFieldType(FieldIdx);
+  assert(FieldTy->isPointerTy() &&
+         FieldTy->getPointerElementType()->isStructTy() &&
+         "Expect field to be pointer to structure");
+  auto *FieldPointeeType =
+      cast<DTransStructType>(FieldTy->getPointerElementType());
+  Type *AddrSpaceForType = getAddrSpacePtrForType(FieldPointeeType);
+  if (AddrSpaceForType)
+    GEP->setResultElementType(AddrSpaceForType);
+}
+
+void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
+                                                DTransStructType *OrigStructTy,
+                                                size_t FieldNum) {
+  // TODO: Handle byte-flattened GEPs on a dependent type.
+  llvm_unreachable("Dependent type ByteGEP conversion not implemented yet");
+}
+
+// Create an intermediate cast instruction to cast from a pointer to a
+// structure type into the index type. If 'InsertBefore' is non-null the
+// instruction will be inserted into the IR before it. This cast is added to the
+// list of casts that are to be removed during post processing.
+CastInst *
+AOSToSOAOPTransformImpl::createCastToIndexType(Value *V,
+                                               Instruction *InsertBefore) {
+  CastInst *ToInt =
+      CastInst::CreateBitOrPointerCast(V, IndexInfo.LLVMType, "", InsertBefore);
+  FuncInfo->PtrConverts.push_back(ToInt);
+  return ToInt;
+}
+
+// Create a load of the array address for a specific field of the SOA
+// structure.
+//
+// SOAType is the SOA structure type descriptor.
+// FieldNumVal is a constant integer for the field number.
+// Instructions are inserted before 'InsertBefore'
+//
+// For example:
+// If the SOA structure type represents: { i64*, i32*, struct.foo** }
+// and the array for field 1 is desired. This generates the following
+// to load the base address for that array:
+//    %soa_field_addr = getelementptr % __soa_struct.t, ptr @__soa_struct.t,
+//                   i64 0, i32 1
+//    %soa_addr = load ptr, ptr %soa_field_addr
+//
+LoadInst *AOSToSOAOPTransformImpl::createSOAFieldLoad(
+    SOATypeInfoTy &SOAType, Value *FieldNumVal, Instruction *InsertBefore) {
+  assert(FieldNumVal && isa<ConstantInt>(FieldNumVal) &&
+         "Need FieldNumVal must be constant integer value");
+  assert(InsertBefore && "InsertBefore is not optional");
+
+  uint32_t FieldIdx = cast<ConstantInt>(FieldNumVal)->getLimitedValue();
+  GetElementPtrInst *SOAFieldAddr = GetElementPtrInst::Create(
+      SOAType.SOAStructType, SOAType.SOAVar,
+      {ConstantInt::get(getPtrSizedIntLLVMType(), 0), FieldNumVal}, "",
+      InsertBefore);
+  llvm::Type *FieldType = SOAType.SOAStructType->getElementType(FieldIdx);
+  LoadInst *SOAAddr =
+      new LoadInst(FieldType, SOAFieldAddr, "", false /*volatile*/,
+                   DL.getABITypeAlign(FieldType));
+
+  // Mark the load of the structure of arrays field member as being invariant.
+  // When the memory allocation for the object was done, the address of each
+  // array was stored within the members of the structure of arrays, and will
+  // never be changed. Marking these are invariant allows other
+  // optimizations to hoist these accesses to prevent repetitive accesses.
+  SOAAddr->setMetadata(LLVMContext::MD_invariant_load,
+                       MDNode::get(InsertBefore->getContext(), {}));
+  SOAAddr->insertBefore(InsertBefore);
+  return SOAAddr;
+}
+
+// If the bit width of the type for 'V' is different than 'DstWidth', create a
+// sign-extend or truncate instruction that will allow 'V' be able to be used
+// for arithmetic expressions of the requested bit width. Otherwise, just return
+// 'V'.
+Value *
+AOSToSOAOPTransformImpl::promoteOrTruncValueToWidth(Value *V, uint64_t DstWidth,
+                                                    Instruction *InsertBefore) {
+  assert(V->getType()->isIntegerTy() && "Must be integer type");
+  uint64_t SrcWidth = DL.getTypeSizeInBits(V->getType());
+  if (SrcWidth == DstWidth)
+    return V;
+
+  llvm::Type *DstTy = llvm::Type::getIntNTy(V->getContext(), DstWidth);
+  if (SrcWidth < DstWidth)
+    return CastInst::Create(CastInst::SExt, V, DstTy, "", InsertBefore);
+
+  return CastInst::Create(CastInst::Trunc, V, DstTy, "", InsertBefore);
+}
+
+// Create and insert the instruction sequence that gets the address of a
+// specific element in the peeled structure.
+//
+// SOAType is the description of the type being transformed.
+// FieldNumVal is a constant integer for the field number.
+// GEPBaseIdx and GEPFieldNum are the two GEP indices.
+//
+// The set of instructions will be inserted immediately before
+// 'InsertBefore'.
+// Returns the getelementptr instruction that represents the address.
+//
+// When the index is not being shrunk, creates:
+//    %soa_field_addr = getelementptr % __soa_struct.t, ptr @__soa_struct.t,
+//                        i64 0, i32 1
+//    %soa_addr = load ptr, ptr %soa_field_addr
+//    %soa_idx = ptrtoint ptr addrspace(1) %base to i64
+//    %array_idx = add i64 %soa_idx, %base_idx
+//    %elem_addr = getelementptr i32, ptr %soa_addr, i64 %array_idx
+//
+// When the index is being shrunk to 32-bits, creates:
+//    %soa_field_addr = getelementptr % __soa_struct.t, ptr @__soa_struct.t,
+//                        i64 0, i32 1
+//    %soa_addr = load ptr, ptr %soa_field_addr
+//    %soa_idx = ptrtoint ptr  addrspace(1) %base to i32
+//    %base_idx.typed = trunc i64 %base_idx to i32
+//    %array_idx = add i32 %soa_idx, %base_idx.typed
+//    %array_idx.typed = zext i32 %adjusted_idx to i64
+//    %elem_addr = getelementptr i32, ptr %soa_addr, i64 %array_idx.typed
+GetElementPtrInst *AOSToSOAOPTransformImpl::createGEPFieldAddressReplacement(
+    SOATypeInfoTy &SOAType, Value *PeelIdxAsInt, Value *GEPBaseIdx,
+    Value *GEPFieldNum, Instruction *InsertBefore) {
+  LoadInst *SOAAddr = createSOAFieldLoad(SOAType, GEPFieldNum, InsertBefore);
+
+  // If first index is not constant 0, then we need to offset the index by that
+  // amount.
+  Value *AdjustedPeelIdxAsInt = PeelIdxAsInt;
+  if (!dtrans::isValueEqualToSize(GEPBaseIdx, 0)) {
+    uint64_t PeelIdxWidth = IndexInfo.Width;
+    GEPBaseIdx =
+        promoteOrTruncValueToWidth(GEPBaseIdx, PeelIdxWidth, InsertBefore);
+    BinaryOperator *Add =
+        BinaryOperator::CreateAdd(PeelIdxAsInt, GEPBaseIdx, "", InsertBefore);
+    AdjustedPeelIdxAsInt = Add;
+  }
+
+  // Identify the type in the new structure for the field being accessed.
+  uint32_t FieldIdx = cast<ConstantInt>(GEPFieldNum)->getLimitedValue();
+  Type *FieldElementTy = SOAType.getTransformedFieldType(FieldIdx);
+
+  // Extend the index back to a 64-bit value for use in the GEP instruction
+  // because the pointer-type size used as the base is a 64-bit type.
+  if (IndexInfo.PointerShrinkingEnabled)
+    AdjustedPeelIdxAsInt =
+        CastInst::Create(CastInst::ZExt, AdjustedPeelIdxAsInt,
+                         getPtrSizedIntLLVMType(), "", InsertBefore);
+
+  GetElementPtrInst *FieldGEP = GetElementPtrInst::Create(
+      FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt, "", InsertBefore);
+
+  return FieldGEP;
 }
 
 char DTransAOSToSOAOPWrapper::ID = 0;
