@@ -46,18 +46,18 @@ static const pi_uint32 ZeSerialize = [] {
   return SerializeModeValue;
 }();
 
-static const bool CopyEngineRequested = [] {
-  const char *CopyEngine = std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE");
-  bool UseCopyEngine = (!CopyEngine || (std::stoi(CopyEngine) != 0));
-  return UseCopyEngine;
-}();
-
 // This is an experimental option to test performance of device to device copy
 // operations on copy engines (versus compute engine)
 static const bool UseCopyEngineForD2DCopy = [] {
   const char *CopyEngineForD2DCopy =
       std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE_FOR_D2D_COPY");
   return (CopyEngineForD2DCopy && (std::stoi(CopyEngineForD2DCopy) != 0));
+}();
+
+static const bool CopyEngineRequested = [] {
+  const char *CopyEngine = std::getenv("SYCL_PI_LEVEL_ZERO_USE_COPY_ENGINE");
+  bool UseCopyEngine = (!CopyEngine || (std::stoi(CopyEngine) != 0));
+  return UseCopyEngine;
 }();
 
 // This class encapsulates actions taken along with a call to Level Zero API.
