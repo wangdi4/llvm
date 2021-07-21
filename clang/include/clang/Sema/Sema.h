@@ -37,6 +37,7 @@
 #include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/BitmaskEnum.h"
 #include "clang/Basic/Builtins.h"
+#include "clang/Basic/DarwinSDKInfo.h"
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/ExpressionTraits.h"
 #include "clang/Basic/Module.h"
@@ -1779,6 +1780,8 @@ public:
   /// assignment.
   llvm::DenseMap<const VarDecl *, int> RefsMinusAssignments;
 
+  Optional<std::unique_ptr<DarwinSDKInfo>> CachedDarwinSDKInfo;
+
 public:
   Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
        TranslationUnitKind TUKind = TU_Complete,
@@ -1806,6 +1809,8 @@ public:
   ASTConsumer &getASTConsumer() const { return Consumer; }
   ASTMutationListener *getASTMutationListener() const;
   ExternalSemaSource* getExternalSource() const { return ExternalSource; }
+  DarwinSDKInfo *getDarwinSDKInfoForAvailabilityChecking(SourceLocation Loc,
+                                                         StringRef Platform);
 
   const FPOptions &getCurFPFeatures() const { return CurFPFeatures; }
   void setCurFPFeatures(FPOptions FPO) {
