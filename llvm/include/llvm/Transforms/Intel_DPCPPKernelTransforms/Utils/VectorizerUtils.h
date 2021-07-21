@@ -11,11 +11,43 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_VECTORIZER_UTILS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_UTILS_VECTORIZER_UTILS_H
 
-#include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 namespace llvm {
 
 namespace VectorizerUtils {
+
+class CanVectorize {
+public:
+  /// Checks whether we can (as opposed to should) vectorize this function
+  /// for VPO. \param F Function to check. \param UnsupportedFuncs
+  /// Unsupported function obtained from getNonInlineUnsupportedFunctions.
+  /// \param EnableDirectCallVectorization Whether to enable direct function
+  /// call vectorization.
+  /// \param EnableSGDirectCallVectorization Whether to enable direct
+  /// subgroup function call vectorization. \returns true if the function
+  /// can be vectorized.
+  static bool
+  canVectorizeForVPO(Function &F,
+                     DPCPPKernelCompilationUtils::FuncSet &UnsupportedFuncs,
+                     bool EnableDirectCallVectorization = false,
+                     bool EnableSGDirectCallVectorization = false);
+
+  // Check if the function has variable access to get_global/loval_id(X)
+  static bool hasVariableGetTIDAccess(Function &F);
+
+  // Get unsupported function in a module.
+  // An unsupported function is function that contains
+  // barrier/get_local_id/get_global_id or a call to unsupported function.
+  // Vectorize of kernel that calls non-inline function is done today by
+  // calling the scalar version of called function VecWidth times.
+  // This means that the implict arguments sent to the vectorized kernel
+  // that is respone for calculating the barrier/get_local_id/get_global_id
+  // cannot passed as is to the scalar function, what make it too difficult
+  // to support these cases.
+  static DPCPPKernelCompilationUtils::FuncSet
+  getNonInlineUnsupportedFunctions(Module &M);
+};
 
 /// Generate type-conversion and place in given location
 ///  but on debug accpets only cases size(orig) >= size(target).

@@ -14,45 +14,26 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PREPARE_FOR_VEC_CLONE_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PREPARE_FOR_VEC_CLONE_H
 
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 namespace llvm {
-
-class Function;
 
 class DPCPPPrepareKernelForVecClone {
 
 private:
-  TargetTransformInfo &TTI;
-  Function *F;
-
-  /// Kind of parameter in a function with 'declare simd' directive.
-  enum ParamKindTy { LinearWithVarStride, Linear, Uniform, Vector };
-
-  /// Attribute set of the parameter.
-  struct ParamAttrTy {
-    ParamKindTy Kind = Uniform;
-    unsigned StrideOrArg;
-    unsigned Alignment;
-
-    ParamAttrTy(ParamKindTy Kind, unsigned StrideOrArg = 0,
-                unsigned Alignment = 0)
-        : Kind(Kind), StrideOrArg(StrideOrArg), Alignment(Alignment) {}
-  };
-
-  enum MaskTy { MT_UndefinedMask = 0, MT_NonMask, MT_Mask };
+  VectorVariant::ISAClass ISA;
 
   /// Adds vector-variant attributes to each kernel.
-  void addVectorVariantAttrsToKernel();
+  void addVectorVariantAttrsToKernel(Function &F);
 
   /// Encodes vector-variants.
-  void createEncodingForVectorVariants(Function *Fn, unsigned VlenVal,
-                                       ArrayRef<ParamAttrTy> ParamAttrs,
-                                       MaskTy State);
+  void createEncodingForVectorVariants(Function &F, unsigned VF,
+                                       ArrayRef<VectorKind> ParamAttrs,
+                                       bool NeedMaskedVariant);
 
 public:
-  DPCPPPrepareKernelForVecClone(Function *F, TargetTransformInfo &TTI);
-  void run();
+  explicit DPCPPPrepareKernelForVecClone(VectorVariant::ISAClass ISA);
+  void run(Function &F);
 
 }; // end pass class
 

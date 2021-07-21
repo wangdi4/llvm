@@ -53,7 +53,7 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
   using namespace DPCPPKernelCompilationUtils;
 
   // Get all synchronize built-ins declared in module.
-  FuncSet SyncBuiltins = getAllSyncBuiltinsDclsForNoDuplicateRelax(&M);
+  FuncSet SyncBuiltins = getAllSyncBuiltinsDeclsForNoDuplicateRelax(M);
   if (SyncBuiltins.empty()) {
     // No synchronize functions to mark.
     return false;

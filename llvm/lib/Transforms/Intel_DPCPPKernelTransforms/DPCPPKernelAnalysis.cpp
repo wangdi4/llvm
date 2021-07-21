@@ -68,7 +68,7 @@ ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   // Get all synchronize built-ins declared in module
   FuncSet SyncFunctions =
-      DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(M);
+      DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(*M);
 
   DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }

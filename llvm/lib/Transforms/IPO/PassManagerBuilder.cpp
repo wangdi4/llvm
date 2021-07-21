@@ -1520,7 +1520,6 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createParseAnnotateAttributesPass());
       MPM.add(createDPCPPEqualizerLegacyPass());
       MPM.add(createDPCPPKernelAnalysisLegacyPass());
-      MPM.add(createDPCPPKernelVecClonePass());
     }
 
     // In LTO mode, loopopt needs to run in link phase along with community
