@@ -349,7 +349,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
@@ -389,7 +388,10 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixSubstitution.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayScalarizationTestLauncherPass.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/Intel_LoopTransforms/HIRCrossLoopArrayContraction.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -2146,15 +2148,18 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRPragmaLoopBlockingPass());
       FPM.addPass(HIRLoopDistributionForLoopNestPass());
 
+#if INTEL_FEATURE_SW_ADVANCED
       if (Level.getSpeedupLevel() > 2 && IsLTO &&
           (ThroughputModeOpt != ThroughputMode::SingleJob))
         FPM.addPass(HIRCrossLoopArrayContractionPass());
-
+#endif // INTEL_FEATURE_SW_ADVANCED
       FPM.addPass(HIRLoopInterchangePass());
       FPM.addPass(HIRGenerateMKLCallPass());
 
+#if INTEL_FEATURE_SW_ADVANCED
       if (Level.getSpeedupLevel() > 2 && IsLTO)
         FPM.addPass(HIRInterLoopBlockingPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
       FPM.addPass(HIRLoopBlockingPass());
       FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());

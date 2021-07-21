@@ -38,7 +38,6 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRLoopConcatenation.cpp
         HIRArrayTranspose.cpp
         HIRAosToSoa.cpp
-        HIRInterLoopBlocking.cpp
         Utils/HIRTransformUtils.cpp
         Utils/HIRArrayContractionUtils.cpp
         HIRLoopFusion.cpp
@@ -65,7 +64,10 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRIdentityMatrixSubstitution.cpp
         HIRArrayScalarizationTestLauncher.cpp
         HIRArrayScalarization.cpp
+# INTEL_FEATURE_SW_ADVANCED
+        HIRInterLoopBlocking.cpp
         HIRCrossLoopArrayContraction.cpp
+# end INTEL_FEATURE_SW_ADVANCED
 
         ADDITIONAL_HEADER_DIRS
         ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

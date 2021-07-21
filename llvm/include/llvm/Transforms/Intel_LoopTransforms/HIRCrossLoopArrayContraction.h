@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----------- HIRCrossLoopArrayContraction.h ----------------*- C++-*---===//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -31,4 +32,5 @@ public:
 
 } // namespace llvm
 
-#endif //LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
+#endif // LLVM_HIRCROSSLOOPARRAYCONTRACTION_H
+#endif // INTEL_FEATURE_SW_ADVANCED
