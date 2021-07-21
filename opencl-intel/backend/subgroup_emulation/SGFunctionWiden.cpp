@@ -161,7 +161,7 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attribute::ZExt);
     AB.addAttribute(Attribute::SExt);
     // For <VF x pointer> sret.
-    AB.addAttribute(Attribute::StructRet);
+    AB.addStructRetAttr(ArgType);
     AttributeSet ParamAttr = Attrs.getParamAttributes(Pair.index());
     ParamAttrs.push_back(ParamAttr.removeAttributes(Context, AB));
   }
