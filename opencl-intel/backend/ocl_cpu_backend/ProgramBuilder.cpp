@@ -305,9 +305,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
             pProgram->SetKernelSet( pKernels );
         }
 
-        // call post build method
-        PostBuildProgramStep( pProgram, pOptions );
-
         BuildProgramCachedExecutable(objCache.get(), pProgram);
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

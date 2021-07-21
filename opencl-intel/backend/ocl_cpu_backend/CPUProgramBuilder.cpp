@@ -1,5 +1,3 @@
-// INTEL CONFIDENTIAL
-//
 // Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -13,7 +11,6 @@
 // License.
 
 #include "CPUProgramBuilder.h"
-#include "CPUBlockToKernelMapper.h"
 #include "CPUJITContainer.h"
 #include "CompilationUtils.h"
 #include "CompilerConfig.h"
@@ -227,8 +224,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     // update kernels with RuntimeService
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
-    // update kernel mapper (OCL2.0) and run global ctors
-    PostBuildProgramStep( pProgram, nullptr );
     return true;
 }
 
@@ -531,22 +526,4 @@ void CPUProgramBuilder::JitProcessing(
   }
 }
 
-IBlockToKernelMapper * CPUProgramBuilder::CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const
-{
-    return new CPUBlockToKernelMapper(pProgram, pModule);
-}
-
-void CPUProgramBuilder::PostBuildProgramStep(
-    Program *pProgram, const ICLDevBackendOptions * /*pOptions*/) const {
-  assert(pProgram && "Invalid program");
-  llvm::Module* pModule = pProgram->GetModule();
-  assert(pModule && "Invalid module");
-
-  // create block to kernel mapper
-  IBlockToKernelMapper * pMapper = CreateBlockToKernelMapper(pProgram, pModule);
-  assert(pMapper && "IBlockToKernelMapper object is NULL");
-  assert(!pProgram->GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
-  // set in RuntimeService new BlockToKernelMapper object
-  pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
-}
 }}} // namespace

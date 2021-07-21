@@ -94,21 +94,6 @@ protected:
     // builds object binary for the built program
     virtual void BuildProgramCachedExecutable(ObjectCodeCache* pCache, Program* pProgram) const = 0;
 
-    /// @brief abstract factory method to create mapper from block to Kernel.
-    /// Can be implemented differently for CPU and MIC.
-    /// MIC will probably call this inside deserialization step
-    /// CPU calls it inside PostBuildProgramStep step
-    /// When Block static resolution pass is ready we can implement is std::vector storage
-    /// this will increase mapping performance in comparison to std::map
-    /// @param pProgram
-    /// @param pModule LLVM module
-    /// @return IBlockToKernelMapper object
-    virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram, const llvm::Module* pModule) const = 0;
-
-    /// @brief Post build step. Called inside BuildProgram() before exit
-    virtual void PostBuildProgramStep(Program* pProgram,
-      const ICLDevBackendOptions* pOptions) const = 0;
-
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
     std::unique_ptr<ICompilerConfig> m_config;

@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -74,19 +72,6 @@ public:
                        const ICLDevBackendOptions* options,
                        std::unique_ptr<llvm::TargetMachine> targetMachine,
                        ObjectCodeCache *objCache) override;
-
-    /// @brief inherited method. create mapper from block to Kernel
-    /// @param pProgram
-    /// @param llvm module
-    /// @return IBlockToKernelMapper object
-    virtual IBlockToKernelMapper *
-    CreateBlockToKernelMapper(Program *pProgram,
-                              const llvm::Module *pModule) const override;
-
-    /// @brief Post build step. For CPU it is used for creating
-    /// IBlockToKernelMapper object and running global ctors
-    virtual void PostBuildProgramStep(Program* pProgram,
-      const ICLDevBackendOptions* pOptions) const override;
 
     // reloads the program container from the cached binary object
     virtual bool ReloadProgramFromCachedExecutable(Program *pProgram) override;

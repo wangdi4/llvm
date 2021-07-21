@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2010-2018 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +12,12 @@
 
 #define NOMINMAX
 
-#include "BitCodeContainer.h"
-#include "CompilationUtils.h"
 #include "CPUProgram.h"
+#include "BitCodeContainer.h"
+#include "CPUBlockToKernelMapper.h"
+#include "CompilationUtils.h"
 #include "Kernel.h"
 #include "ObjectCodeCache.h"
-
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -130,6 +128,12 @@ cl_dev_err_code CPUProgram::Finalize() {
     gv.pointer = GetPointerToGlobalValue(gv.name);
     assert(gv.pointer && "failed to get address of global variable");
   }
+
+  // The BlockToKernelMapper must be created after finalizing object/loading
+  // dll, since it needs to find symbol address of block invoke kernel. The
+  // later is available after finalizing object/loading dll if native debugger
+  // is enabled on Windows.
+  CreateAndSetBlockToKernelMapper();
   return CL_DEV_SUCCESS;
 }
 
@@ -146,4 +150,16 @@ void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {
   m_ObjectCodeCache.reset(oc);
 }
 
+void CPUProgram::CreateAndSetBlockToKernelMapper() {
+  llvm::Module *pModule = this->GetModule();
+  assert(pModule && "Invalid module");
+
+  // create block to kernel mapper
+  IBlockToKernelMapper *pMapper =
+      new CPUBlockToKernelMapper((Program *)this, pModule);
+  assert(pMapper && "IBlockToKernelMapper object is NULL");
+  assert(!GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
+  // set in RuntimeService new BlockToKernelMapper object
+  GetRuntimeService()->SetBlockToKernelMapper(pMapper);
+}
 }}} // namespace

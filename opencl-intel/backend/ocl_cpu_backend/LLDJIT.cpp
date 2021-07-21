@@ -179,12 +179,23 @@ void LLDJIT::mapDllFunctions(void *DLLHandle) {
 }
 
 void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
-  for (auto &GV : M->globals()) {
-    unsigned AS = GV.getAddressSpace();
-    if ((IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS)) &&
-        !GV.hasInternalLinkage() && !GV.hasDLLImportStorageClass() &&
-        !GV.hasPrivateLinkage())
-      GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
+  for (auto &GV : M->global_objects()) {
+    if (GV.hasInternalLinkage() || GV.hasDLLImportStorageClass() ||
+        GV.hasPrivateLinkage())
+      continue;
+
+    // we need to find symbol of block invoke kernel so we need to set the
+    // function with DLLExportStorageClass here. And the mapping between the
+    // symbol and address will be done in mapDllFunctions.
+    if (Function *F = dyn_cast<Function>(&GV)) {
+      if (F->getName().contains("_block_invoke_") &&
+          F->getName().endswith("_kernel"))
+        F->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
+    } else {
+      unsigned AS = GV.getAddressSpace();
+      if (IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS))
+        GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
+    }
   }
 }
 
