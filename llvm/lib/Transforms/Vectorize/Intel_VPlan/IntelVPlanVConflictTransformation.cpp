@@ -123,7 +123,7 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   // Add 1 to pop count.
   VPValue *Add = nullptr;
   if (CalcTy->isFloatingPointTy())
-    Add = VPBldr.createAdd(
+    Add = VPBldr.createFAdd(
         PopCountCallCast ? PopCountCallCast : PopCountCall,
         Plan->getVPConstant(ConstantFP::get(MulVal->getType(), 1)));
   else
