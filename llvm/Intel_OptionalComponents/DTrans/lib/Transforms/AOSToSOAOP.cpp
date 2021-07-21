@@ -204,6 +204,13 @@ struct PerFunctionInfo {
   SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
   SmallVector<ByteGEPInfo, 16> ByteGEPsToConvert;
 
+  // Load/Store cases where the pointer to structure being transformed is
+  // loaded/stored as a pointer-sized integer.
+  SmallVector<std::pair<LoadInst *, DTransStructType *>, 2>
+      PtrSizedIntLoadsToConvert;
+  SmallVector<std::pair<StoreInst *, DTransStructType *>, 2>
+      PtrSizedIntStoresToConvert;
+
   SmallVector<std::pair<BitCastInst *, DTransStructType *>, 4> BCsToConvert;
 
   // Memory allocation and free calls for the type being transformed that need
@@ -246,6 +253,18 @@ struct PerFunctionInfo {
   // remapping process should have the same source and destination types, and
   // must be removed during postProcessFunction routine.
   SmallVector<CastInst *, 16> PtrConverts;
+
+  // When some instructions are converted for shrinking the index to 32-bits, cast
+  // instructions are generated during processFunction around the replacement
+  // instructions to convert the original type to be compatible with the
+  // value type before it is remapped. During post-processing, it may be
+  // possible to remove these casts because the type remapping has modified
+  // operand types to make the casts cancel out. This helps avoid instructions
+  // that could cause safety flags to be set on subsequent runs of the
+  // DTransSafetyAnalyzer. For example:
+  //    %53 = ptrtoint i32* %52 to i64
+  //    %54 = inttoptr i64 %53 to i32*
+  SmallVector<Instruction *, 4> IntermediateConverts;
 
   // Set of call sites in the function that may need to have attributes on the
   // return or parameter types updated.
@@ -349,6 +368,10 @@ public:
 
   struct SOATypeInfoTy &getSOATypeInfo(llvm::StructType *Ty);
 
+  bool isPointerSizedIntType(llvm::Type *Ty) const {
+    return Ty == PtrSizeIntLLVMType;
+  }
+
 private: // methods
   llvm::Type *getPtrSizedIntLLVMType() const { return PtrSizeIntLLVMType; }
   void qualifyDependentTypes(unsigned PointerSizeInBits);
@@ -362,6 +385,8 @@ private: // methods
   void convertGEP(GetElementPtrInst *GEP);
   void convertByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
                       size_t FieldNum);
+  void convertPtrSizedIntLoad(LoadInst *LI, DTransStructType *DTransTy);
+  void convertPtrSizedIntStore(StoreInst *SI, DTransStructType *DTransTy);
   void convertDepGEP(GetElementPtrInst *GEP);
   void convertDepByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
                          size_t FieldNum);
@@ -572,26 +597,40 @@ void AOSCollector::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 }
 
 void AOSCollector::visitLoadInst(LoadInst &I) {
-  // TODO: Extend this to allow integers that represent pointers to be handled:
-  //   %y = bitcast %struct.node* %x to i64*
-  //   load i64, i64* %y
-  // For now, just look at loading a pointer type.
-  if (!I.getType()->isPointerTy())
+  // Check for integer loads that represent pointers to a structure type being
+  // transformed:
+  //   %x = bitcast %struct.node* to i64
+  //   load i64, i64* %x
+  llvm::Type *Ty = I.getType();
+  bool PtrSizedIntLoad = Transform.isPointerSizedIntType(Ty);
+  if (!I.getType()->isPointerTy() && !PtrSizedIntLoad)
     return;
 
   auto *Info = PTA.getValueTypeInfo(&I);
-  assert(Info && "Expected PointerTypeAnalyzer to collect type");
-  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
-  if (!Ty || !Ty->isPointerTy())
+  if (!Info) {
+    if (PtrSizedIntLoad)
+      return;
+    else
+      llvm_unreachable("Expected PointerTypeAnalyzer to collect type");
+  }
+
+  DTransType *DTransTy = PTA.getDominantAggregateUsageType(*Info);
+  if (!DTransTy || !DTransTy->isPointerTy())
     return;
 
-  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  auto *StructTy =
+      dyn_cast<DTransStructType>(DTransTy->getPointerElementType());
   if (!StructTy)
     return;
 
   auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
   if (!Transform.isTypeToTransform(LLVMStructType))
     return;
+
+  if (PtrSizedIntLoad) {
+    FuncInfo.PtrSizedIntLoadsToConvert.push_back({&I, StructTy});
+    return;
+  }
 
   FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
   if (!I.getType()->isOpaquePointerTy())
@@ -607,28 +646,42 @@ void AOSCollector::visitLoadInst(LoadInst &I) {
 }
 
 void AOSCollector::visitStoreInst(StoreInst &I) {
-  // TODO: Extend this to allow integers that represent pointers to be handled:
+  // Check for integer stores that represent pointers to a structure type
+  // being transformed:
   //   %x = ptrtoint %struct.node* to i64
   //   store i64 %x, i64* %y
-  // For now, just look at storing a pointer type.
   Value *Val = I.getValueOperand();
-  if (!Val->getType()->isPointerTy())
+  llvm::Type *Ty = Val->getType();
+  bool PtrSizedIntStore = Transform.isPointerSizedIntType(Ty);
+  if (!Ty->isPointerTy() && !PtrSizedIntStore)
     return;
 
   // Get the type info for the value operand
   auto *Info = PTA.getValueTypeInfo(&I, 0);
-  assert(Info && "Expected PointerTypeAnalyzer to collect type");
-  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
-  if (!Ty || !Ty->isPointerTy())
+  if (!Info) {
+    if (PtrSizedIntStore)
+      return;
+    else
+      llvm_unreachable("Expected PointerTypeAnalyzer to collect type");
+  }
+
+  DTransType *DTransTy = PTA.getDominantAggregateUsageType(*Info);
+  if (!DTransTy || !DTransTy->isPointerTy())
     return;
 
-  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  auto *StructTy =
+      dyn_cast<DTransStructType>(DTransTy->getPointerElementType());
   if (!StructTy)
     return;
 
   auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
   if (!Transform.isTypeToTransform(LLVMStructType))
     return;
+
+  if (PtrSizedIntStore) {
+    FuncInfo.PtrSizedIntStoresToConvert.push_back({&I, StructTy});
+    return;
+  }
 
   FuncInfo.InstructionsToAnnotate.push_back({&I, LLVMStructType});
   if (!Val->getType()->isOpaquePointerTy())
@@ -1235,6 +1288,8 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   auto FuncInfoProcessFunctionComplete = [this]() {
     FuncInfo->GEPsToConvert.clear();
     FuncInfo->ByteGEPsToConvert.clear();
+    FuncInfo->PtrSizedIntLoadsToConvert.clear();
+    FuncInfo->PtrSizedIntStoresToConvert.clear();
     FuncInfo->BCsToConvert.clear();
     FuncInfo->AllocsToConvert.clear();
     FuncInfo->FreesToConvert.clear();
@@ -1273,6 +1328,10 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     convertByteGEP(std::get<PerFunctionInfo::ByteGEPInfoGEPMember>(GEPInfo),
                    std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
                    std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
+  for (auto &KV : FuncInfo->PtrSizedIntLoadsToConvert)
+    convertPtrSizedIntLoad(KV.first, KV.second);
+  for (auto &KV : FuncInfo->PtrSizedIntStoresToConvert)
+    convertPtrSizedIntStore(KV.first, KV.second);
 
   for (auto &KV : FuncInfo->BCsToConvert)
     convertBC(KV.first, KV.second);
@@ -1362,6 +1421,25 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
                          << "---------------------------------------------\n");
 }
 
+// Return 'true' if Instruction 'I' is a conversion instruction of the type
+// UseConv, and the operand being converted is from an instruction of type
+// DefConv, and the operand into the DefConv instruction is the same type that
+// is being created by the UseConv instruction.
+//
+// For example:
+//      %val = inttoptr i32 %4 to i8*
+//      %5 = ptrtoint i8* %val to i32
+//
+template <typename DefConv, typename UseConv>
+static bool isCancellingConvert(Instruction *I) {
+  if (auto *Conv = dyn_cast<UseConv>(I))
+    if (auto *SrcConv = dyn_cast<DefConv>(Conv->getOperand(0)))
+      if (SrcConv->getSrcTy() == Conv->getType())
+        return true;
+
+  return false;
+}
+
 void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
                                                   bool IsCloned) {
   LLVM_DEBUG(dbgs() << "AOS-to-SOA: postprocessFunction: " << OrigFunc.getName()
@@ -1388,6 +1466,31 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
     if (Conv->user_empty()) {
       InstructionsToDelete.push_back(Conv);
       continue;
+    }
+
+    // Check for cast instructions generated that cancel out another cast.
+    // These instructions would have eventually been removed by the instcombine
+    // pass, but we cannot run instcombine between transformations now because
+    // it would produce other IR instruction patterns that are not currently
+    // recognized by DTransAnalysis, such as shift instructions.
+    for (auto *Conv : FuncInfo->IntermediateConverts) {
+      if (IsCloned)
+        Conv = cast<Instruction>(VMap[Conv]);
+
+      bool NotNeeded = isCancellingConvert<IntToPtrInst, PtrToIntInst>(Conv) ||
+                       isCancellingConvert<PtrToIntInst, IntToPtrInst>(Conv) ||
+                       isCancellingConvert<ZExtInst, TruncInst>(Conv);
+      if (NotNeeded) {
+        Instruction *SrcOperand = cast<Instruction>(Conv->getOperand(0));
+        Conv->replaceAllUsesWith(SrcOperand->getOperand(0));
+        Conv->eraseFromParent();
+
+        // Check if the source is now dead, but defer deletion
+        // until processing all the elements of this loop, in case
+        // the instruction is contained in the vector being iterated.
+        if (SrcOperand->user_empty())
+          InstructionsToDelete.push_back(SrcOperand);
+      }
     }
 
     LLVM_DEBUG(dbgs() << "Post process deleting: " << *Conv << "\n");
@@ -1877,8 +1980,104 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
                   ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset));
 }
 
+// A load of a pointer to the structure done as a pointer sized integer load
+// needs to handle the case where the index bit width does not match the
+// size of the pointer bit width.
+void AOSToSOAOPTransformImpl::convertPtrSizedIntLoad(
+    LoadInst *LI, DTransStructType *DTransTy) {
+  if (!IndexInfo.PointerShrinkingEnabled)
+    return;
+
+  // Replace a load of the form:
+  //    %val_i64 = load i64, i64* %p_i64
+  //
+  // To be one of the following forms:
+  // (non-opaque pointers)
+  //    %1 = bitcast i64* %p_i64 to i32*
+  //    %2 = load i32, i32* %1
+  //    %val_i64 = zext i32 %2 to i64
+  //
+  // (opaque pointers)
+  //    %2 = load i32, ptr %1
+  //    %val_i64 = zext i32 %2 to i64
+  //
+  Value *PtrOp = LI->getPointerOperand();
+  if (!PtrOp->getType()->isOpaquePointerTy()) {
+    auto *NewPtrOp = CastInst::CreateBitOrPointerCast(
+        PtrOp, IndexInfo.LLVMType->getPointerTo(), "", LI);
+    FuncInfo->IntermediateConverts.push_back(NewPtrOp);
+    PtrOp = NewPtrOp;
+  }
+
+  // Create a new load with the same attributes as the original instruction,
+  // except for the alignment field. Because pointers to the structure are
+  // being changed to an integer the original alignment may no longer be
+  // valid, so set it to the ABI default for the type that the load will be
+  // once type remapping occurs.
+  Align Alignment = DL.getABITypeAlign(IndexInfo.LLVMType);
+  Instruction *NewLI =
+      new LoadInst(IndexInfo.LLVMType, PtrOp, "", LI->isVolatile(), Alignment,
+                   LI->getOrdering(), LI->getSyncScopeID(), LI);
+  Instruction *Repl = CastInst::Create(CastInst::ZExt, NewLI, LI->getType(), "", LI);
+  LI->replaceAllUsesWith(Repl);
+  Repl->takeName(LI);
+  FuncInfo->IntermediateConverts.push_back(Repl);
+  FuncInfo->InstructionsToDelete.insert(LI);
+
+  FuncInfo->InstructionsToAnnotate.push_back(
+      {NewLI, cast<llvm::StructType>(DTransTy->getLLVMType())});
+}
+
+// A store of a pointer to the structure done as a pointer sized integer store
+// needs to handle the case where the index bit width does not match the
+// size of the pointer bit width.
+void AOSToSOAOPTransformImpl::convertPtrSizedIntStore(
+    StoreInst *SI, DTransStructType *DTransTy) {
+  if (!IndexInfo.PointerShrinkingEnabled)
+    return;
+
+  // Replace a store of the form:
+  //    store i64 %val_i64, i64* %p_i64
+  //
+  // To be one of the following forms:
+  // (non-opaque pointers)
+  //    %1 = trunc i64 %val_i64 to i32
+  //    %2 = bitcast i32* %p_i64 to i32*
+  //    store i32 %1, i32* %2
+  //
+  // (opaque pointers)
+  //    %1 = trunc i64 %val_i64 to i32
+  //    store i32 %1,ptr %2
+  Instruction *NewValOp = CastInst::Create(
+      CastInst::Trunc, SI->getValueOperand(), IndexInfo.LLVMType, "", SI);
+  FuncInfo->IntermediateConverts.push_back(NewValOp);
+
+  Value *PtrOp = SI->getPointerOperand();
+  Value *NewPtrOp = nullptr;
+  if (auto *C = dyn_cast<Constant>(PtrOp))
+    NewPtrOp = ConstantExpr::getBitCast(C, IndexInfo.LLVMType->getPointerTo());
+  else {
+    NewPtrOp = CastInst::CreateBitOrPointerCast(
+      PtrOp, IndexInfo.LLVMType->getPointerTo(), "", SI);
+    FuncInfo->IntermediateConverts.push_back(cast<Instruction>(NewPtrOp));
+  }
+  // Create a new store with the same attributes as the original instruction,
+  // except for the alignment field. Because the field type in the structure
+  // is changing, the original alignment may no longer be valid, so set it
+  // to the ABI default for the type that the load will be once type remapping
+  // occurs.
+  Align Alignment = DL.getABITypeAlign(IndexInfo.LLVMType);
+  Instruction *NewSI =
+      new StoreInst(NewValOp, NewPtrOp, SI->isVolatile(), Alignment,
+                    SI->getOrdering(), SI->getSyncScopeID(), SI);
+  FuncInfo->InstructionsToDelete.insert(SI);
+
+  FuncInfo->InstructionsToAnnotate.push_back(
+      {NewSI, cast<llvm::StructType>(DTransTy->getLLVMType())});
+}
+
 void AOSToSOAOPTransformImpl::convertBC(BitCastInst *BC,
-                                           DTransStructType *StructTy) {
+                                        DTransStructType *StructTy) {
   // The bitcast should no longer be needed after processing other instructions.
   if (!hasLiveUser(BC)) {
     LLVM_DEBUG(dbgs() << "Deleting bitcast: " << *BC << "\n");
