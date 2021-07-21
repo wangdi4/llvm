@@ -38,6 +38,9 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
+extern std::vector<std::tuple<const char *, const char *, const char *>>
+    VectInfos;
+
 class Optimizer {
 public:
   Optimizer(llvm::Module *M,
@@ -109,6 +112,10 @@ protected:
   // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
   // as an intermediate. These two cases are not supported now.
   bool m_IsSYCL;
+
+  /// Indicates whether the module comes from OpenMP.
+  bool m_IsOMP;
+
   intel::DebuggingServiceType m_debugType;
 };
 

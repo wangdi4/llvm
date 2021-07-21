@@ -186,6 +186,11 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
+// Load Table-Gen'erated VectInfo.gen
+std::vector<std::tuple<const char *, const char *, const char *>> VectInfos = {
+#include "VectInfo.gen"
+};
+
 // Several PMs are populated in the Optimizer flow:
 // Materializer, PreFail and PostFail PMs.
 // In order to dump IR for debug purposes one can schedule PrintModulePass
@@ -899,7 +904,6 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
   m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
 
-  bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_RtlModules, OptLevel,
                              pConfig, isOcl20, m_IsFpgaEmulator, UnrollLoops,
@@ -910,7 +914,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_RtlModules,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
                               isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableVPlan, m_IsSYCL, IsOMP,
+                              UnrollLoops, EnableVPlan, m_IsSYCL, m_IsOMP,
                               m_kernelToVFState, m_debugType);
 }
 
@@ -958,7 +962,8 @@ Optimizer::Optimizer(llvm::Module *M,
                      llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                      const intel::OptimizerConfig *Config)
     : m_M(M), m_RtlModules(RtlModules), Config(Config),
-      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)) {
+      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)),
+      m_IsOMP(CompilationUtils::generatedFromOMP(*M)) {
   assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
   CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
   m_debugType = getDebuggingServiceType(Config->GetDebugInfoFlag(), M,

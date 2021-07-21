@@ -1,12 +1,13 @@
 use_rtti( FALSE )
 set( TARGET_NAME LLVMVectorizer)
 
+set(VECTORIZATION_INFO_GEN ${OCL_BINARY_DIR}/include/VectInfo.gen)
 add_custom_command(
-  OUTPUT VectInfo.gen
+  OUTPUT ${VECTORIZATION_INFO_GEN}
   COMMAND ocl-tblgen -gen-vectorization-info
   -I ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/GENERIC_CPU.td
-  -o ${CMAKE_CURRENT_BINARY_DIR}/VectInfo.gen
+  -o ${OCL_BINARY_DIR}/include/VectInfo.gen
   DEPENDS ocl-tblgen
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/soa_relational.td
   ${OCL_SOURCE_DIR}/backend/libraries/ocl_builtins/GENERIC/opencl-v1.2.td
@@ -17,7 +18,10 @@ add_custom_command(
   VERBATIM
 )
 
-set(VECTORIZATION_INFO_GEN VectInfo.gen)
+add_custom_target(VectorizationInfoGen ALL
+  DEPENDS ${VECTORIZATION_INFO_GEN}
+  VERBATIM
+)
 
 include_directories(BEFORE "Heuristic")
 include_directories(BEFORE "PostDominanceFrontier")
@@ -41,6 +45,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/metadata_api
   ${CMAKE_BINARY_DIR}/include
+  ${OCL_BINARY_DIR}/include
 )
 
 set(TARGET_EXTRA_SOURCE_FILES
@@ -143,7 +148,6 @@ set(TARGET_SOURCE_FILES
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   ${TARGET_EXTRA_SOURCE_FILES}
-  ${VECTORIZATION_INFO_GEN}
 )
 
 add_opencl_library(
@@ -153,7 +157,7 @@ add_opencl_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-add_dependencies(${TARGET_NAME} LoopUtils OclBackendUtils)
+add_dependencies(${TARGET_NAME} LoopUtils OclBackendUtils VectorizationInfoGen)
 
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
