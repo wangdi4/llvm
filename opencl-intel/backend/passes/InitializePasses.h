@@ -72,7 +72,6 @@ void initializeInternalizeNonKernelFuncPass(llvm::PassRegistry&);
 void initializeExternalizeGlobalVariablesPass(llvm::PassRegistry &);
 void initializeInternalizeGlobalVariablesPass(llvm::PassRegistry&);
 void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
-void initializeOclSyncFunctionAttrsPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializeLoopStridedCodeMotionPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);

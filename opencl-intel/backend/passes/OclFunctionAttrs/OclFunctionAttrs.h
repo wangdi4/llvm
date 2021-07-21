@@ -38,24 +38,6 @@ public:
   virtual bool runOnModule(Module &M) override;
 };
 
-
-/// OclSyncFunctionAttrs - This pass intended to mark synchronize built-ins of
-/// OpenCL language and all functions that calls them direct or indirect,
-/// in order to prevent LLVM Standard passes from brake their symantic. Currently,
-/// the it is only propogate NoDuplicate attribute to all synchronize built-ins.
-class OclSyncFunctionAttrs : public ModulePass {
-
-public:
-  static char ID;
-
-  OclSyncFunctionAttrs();
-
-  virtual llvm::StringRef getPassName() const override {
-    return "OclSyncFunctionAttrs";
-  }
-  virtual bool runOnModule(Module &M) override;
-};
-
 } // namespace intel
 
 #endif // __OCL_FUNCTION_ATTRS_H__
