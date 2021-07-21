@@ -17,12 +17,6 @@
 namespace llvm {
 namespace dtransOP {
 
-bool areOpaquePtrsEnabled(LLVMContext &Ctx) {
-  llvm::Type *I8Ptr = llvm::Type::getInt8Ty(Ctx)->getPointerTo();
-  llvm::Type *I16Ptr = llvm::Type::getInt16Ty(Ctx)->getPointerTo();
-  return I8Ptr == I16Ptr;
-}
-
 bool hasPointerType(DTransType *Ty) {
   if (Ty->isPointerTy())
     return true;

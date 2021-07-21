@@ -490,6 +490,12 @@ public:
   // address space for DTrans.
   bool getUnsupportedAddressSpaceSeen() const;
 
+  // Return 'true' if opaque pointer types were seen.
+  bool sawOpaquePointer() const;
+
+  // Return 'true' if non-opaque pointer types were seen.
+  bool sawNonOpaquePointer() const;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);
   void printDominantAggregateUsageType(raw_ostream &OS, ValueTypeInfo &Info);

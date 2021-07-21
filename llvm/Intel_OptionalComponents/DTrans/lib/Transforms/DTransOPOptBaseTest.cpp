@@ -21,8 +21,10 @@
 
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
@@ -65,8 +67,8 @@ public:
 class DTransOptBaseTest : public DTransOPOptBase {
 public:
   DTransOptBaseTest(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                    StringRef DepTypePrefix)
-      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix) {}
+                    bool UsingOpaquePtrs, StringRef DepTypePrefix)
+      : DTransOPOptBase(Ctx, DTInfo, UsingOpaquePtrs, DepTypePrefix) {}
 
   virtual bool prepareTypes(Module &M) override {
     SmallVector<StringRef, 16> SubStrings;
@@ -157,8 +159,29 @@ dtransOP::DTransOPOptBaseTestPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool dtransOP::DTransOPOptBaseTestPass::runImpl(Module &M,
                                                 DTransSafetyInfo *DTInfo) {
+  auto CheckForOpaquePointers = [](Module &M, DTransSafetyInfo *DTInfo) {
+    if (DTInfo->useDTransSafetyAnalysis())
+      return DTInfo->getPtrTypeAnalyzer().sawOpaquePointer();
+
+    // If the DTrans pointer type analyzer did not run, then we need to scan for
+    // opaque pointers being present here.
+    for (auto &GV : M.globals())
+      if (GV.getType()->isOpaquePointerTy())
+        return true;
+
+    for (auto &F : M) {
+      if (F.getType()->isOpaquePointerTy())
+        return true;
+      for (auto &I : instructions(F))
+        if (I.getType()->isOpaquePointerTy())
+          return true;
+    }
+    return false;
+  };
+
   assert(DTInfo && "DTransSafetyInfo is required");
-  DTransOptBaseTest Transformer(M.getContext(), DTInfo, "__DDT_");
+  DTransOptBaseTest Transformer(M.getContext(), DTInfo,
+                                CheckForOpaquePointers(M, DTInfo), "__DDT_");
   return Transformer.run(M);
 }
 
