@@ -9,9 +9,10 @@
 ; CHECK-NEXT:          |   %conflicts = @llvm.x86.avx512.conflict.q.256(%.vec);
 ; CHECK-NEXT:          |   %llvm.ctpop.v4i64 = @llvm.ctpop.v4i64(%conflicts);
 ; CHECK-NEXT:          |   %.vec2 = sitofp.<4 x i64>.<4 x float>(%llvm.ctpop.v4i64);
-; CHECK-NEXT:          |   %.vec3 = %.vec2 + 1.000000e+00  *  2.000000e+00;
-; CHECK-NEXT:          |   %.vec4 = %.vec1  +  %.vec3;
-; CHECK-NEXT:          |   (<4 x float>*)(%A)[%.vec] = %.vec4;
+; CHECK-NEXT:          |   %.vec3 = %.vec2  +  1.000000e+00;
+; CHECK-NEXT:          |   %.vec4 = %.vec3  *  2.000000e+00;
+; CHECK-NEXT:          |   %.vec5 = %.vec1  +  %.vec4;
+; CHECK-NEXT:          |   (<4 x float>*)(%A)[%.vec] = %.vec5;
 ; CHECK-NEXT:          + END LOOP
 
 ; CHECK:               + DO i1 = 1024, 1026, 1   <DO_LOOP> <novectorize>
