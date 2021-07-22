@@ -23,7 +23,7 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
-; CHECK:          DPCPPKernelVecClone pass
+; CHECK:          DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs

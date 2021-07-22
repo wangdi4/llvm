@@ -13,6 +13,7 @@
 #include "OptimizerLTOLegacyPM.h"
 #include "LLVMSPIRVLib.h"
 #include "VecConfig.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
@@ -122,7 +123,10 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
         if (Config->GetTransposeSize() == 1)
           return;
-        MPM.add(createDPCPPKernelVecClonePass());
+        VectorVariant::ISAClass ISA =
+            Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
+        MPM.add(createDPCPPKernelVecClonePass(VectInfos, ISA,
+                                              !m_IsSYCL && !m_IsOMP));
         MPM.add(createVectorVariantFillInLegacyPass());
         MPM.add(createUpdateCallAttrsLegacyPass());
       });

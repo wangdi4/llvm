@@ -9,7 +9,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes
   ${BACKEND_ROOT_DIR}/utils
   ${BACKEND_ROOT_DIR}/barrier/include
-  ${OCL_BINARY_DIR}/backend/vectorizer
+  ${OCL_BINARY_DIR}/include
 )
 
 set(
