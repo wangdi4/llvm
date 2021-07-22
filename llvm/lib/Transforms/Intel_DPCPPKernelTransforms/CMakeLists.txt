@@ -44,6 +44,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/ImplicitArgsUtils.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
+  Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
 

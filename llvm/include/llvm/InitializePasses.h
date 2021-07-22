@@ -693,7 +693,7 @@ void initializeDataPerValueWrapperPass(PassRegistry &);
 void initializeDPCPPEqualizerLegacyPass(PassRegistry &);
 void initializeDPCPPKernelAnalysisLegacyPass(PassRegistry &);
 void initializeDPCPPKernelPostVecPass(PassRegistry&);
-void initializeDPCPPKernelVecClonePass(PassRegistry &);
+void initializeDPCPPKernelVecCloneLegacyPass(PassRegistry &);
 void initializeDPCPPKernelWGLoopCreatorLegacyPass(PassRegistry &);
 void initializeDuplicateCalledKernelsLegacyPass(PassRegistry &);
 void initializeGroupBuiltinLegacyPass(PassRegistry &);

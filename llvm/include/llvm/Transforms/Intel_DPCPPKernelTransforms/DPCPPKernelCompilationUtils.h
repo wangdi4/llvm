@@ -29,7 +29,9 @@ enum class SyncType { None, Barrier, DummyBarrier, Fiber };
 namespace KernelAttribute {
 // Attributes
 extern const StringRef CallOnce;
+extern const StringRef CallParamNum;
 extern const StringRef ConvergentCall;
+extern const StringRef HasVPlanMask;
 extern const StringRef RecursionWithBarrier;
 extern const StringRef VectorVariants;
 
@@ -285,8 +287,14 @@ std::string mangledGetGlobalOffset();
 /// Return the mangled name of the function get_local_id.
 std::string mangledGetLID();
 
-/// Returns the mangled name of the function get_local_size.
+/// Returns the mangled name of the function get_group_id.
+std::string mangledGetGroupID();
+
+/// Returns the mangled name of the function get_local_size
 std::string mangledGetLocalSize();
+
+/// Returns the mangled name of the function get_enqueued_local_size.
+std::string mangledGetEnqueuedLocalSize();
 
 /// Returns the mangled name of the function barrier.
 std::string mangledBarrier();
@@ -301,6 +309,18 @@ std::string mangledWGBarrier(BarrierType BT);
 ///   BarrierType::WithScope
 ///     void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
 std::string mangledSGBarrier(BarrierType BT);
+
+/// Returns the mangled name of the function get_sub_group_size.
+std::string mangledGetSubGroupSize();
+
+/// Returns the mangled name of the function get_sub_group_local_id.
+std::string mangledGetSubGroupLocalId();
+
+/// Returns the mangled name of the function get_global_linear_id.
+std::string mangledGetGlobalLinearId();
+
+/// Returns the mangled name of the function get_local_linear_id.
+std::string mangledGetLocalLinearId();
 
 /// \name subgroup builtins.
 /// \param S function name.
@@ -395,14 +415,18 @@ unsigned fetchCLVersionFromMetadata(const Module &M);
 /// \param M the module to search synchronize built-ins declarations in.
 /// \param IsWG true for workgroup, false for subgroup.
 /// \returns container to insert all synchronized built-ins into.
-FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG = true);
+FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG = true);
 
 /// Collect built-ins declared in the module that require relaxation of
 /// noduplicate attribute to convergent. Additionally assigns
 /// "kernel-convergent-call" and "kernel-call-once" attributes (see LangRef).
 /// \param M the module to search built-ins declarations in.
 /// \returns container of collected built-ins.
-FuncSet getAllSyncBuiltinsDclsForNoDuplicateRelax(Module *M);
+FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M);
+
+/// Collect built-ins declared in the module that require assigning of
+/// "kernel-uniform-call" attribute (see LangRef for details).
+FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M);
 
 /// Retrieves the pointer to the implicit arguments added to the given function
 /// \param F The function for which implicit arguments need to be retrieved.

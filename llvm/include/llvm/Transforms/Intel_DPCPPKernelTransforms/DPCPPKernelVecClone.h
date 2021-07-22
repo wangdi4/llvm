@@ -15,13 +15,27 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H
 
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 namespace llvm {
+
+// A tuple of three strings:
+// 1. scalar variant name
+// 2. "kernel-call-once" | ""
+// 3. mangled vector variant name
+using VecItem = std::tuple<const char *, const char *, const char *>;
+
 class DPCPPKernelVecCloneImpl : public VecCloneImpl {
+public:
+  DPCPPKernelVecCloneImpl(ArrayRef<VecItem> VectInfos,
+                          VectorVariant::ISAClass ISA, bool IsOCL);
+
 private:
   // Configuration options
+  ArrayRef<VecItem> VectInfos;
+  VectorVariant::ISAClass ISA;
+  bool IsOCL;
 
   // Kernel-related code transformation: 1. updates all the uses of TID calls
   // OpenCL example:
@@ -37,33 +51,25 @@ private:
 
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
-
-public:
-  TargetTransformInfoWrapperPass *TTIWP;
-  DPCPPKernelVecCloneImpl();
 };
 
-class DPCPPKernelVecClone : public ModulePass {
+class DPCPPKernelVecClonePass : public PassInfoMixin<DPCPPKernelVecClonePass> {
 private:
   DPCPPKernelVecCloneImpl Impl;
 
-protected:
-  bool runOnModule(Module &M) override;
-
 public:
-  static char ID;
+  explicit DPCPPKernelVecClonePass(
+      ArrayRef<VecItem> VectInfos = {},
+      VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
 
-  DPCPPKernelVecClone();
+  static StringRef name() { return "DPCPPKernelVecClonePass"; }
 
-  /// Returns the name of the pass.
-  llvm::StringRef getPassName() const override {
-    return "DPCPPKernelVecClone pass";
-  }
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-  }
+  // Glue for old PM.
+  bool runImpl(Module &M);
 };
 
 } // namespace llvm
+
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_VEC_CLONE_H

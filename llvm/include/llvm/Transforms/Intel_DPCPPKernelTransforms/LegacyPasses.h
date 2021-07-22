@@ -28,7 +28,10 @@ ModulePass *createBuiltinImportLegacyPass(
     StringRef CPUPrefix = "");
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
 ModulePass *createDPCPPEqualizerLegacyPass();
-ModulePass *createDPCPPKernelVecClonePass();
+ModulePass *createDPCPPKernelVecClonePass(
+    ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
+        {},
+    VectorVariant::ISAClass ISA = VectorVariant::XMM, bool IsOCL = false);
 ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();

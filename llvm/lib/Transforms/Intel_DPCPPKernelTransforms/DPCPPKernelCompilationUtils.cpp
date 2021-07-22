@@ -29,7 +29,9 @@ namespace llvm {
 
 // Attributes
 const StringRef KernelAttribute::CallOnce = "kernel-call-once";
+const StringRef KernelAttribute::CallParamNum = "call-params-num";
 const StringRef KernelAttribute::ConvergentCall = "kernel-convergent-call";
+const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
 const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
 const StringRef KernelAttribute::VectorVariants = "vector-variants";
@@ -588,10 +590,17 @@ template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
   FD.Name = N.str();
-  for (auto PT : {ParamTys...}) {
-    reflection::RefParamType UI(new reflection::PrimitiveType(PT));
-    FD.Parameters.push_back(UI);
-  }
+  for (auto PT : {ParamTys...})
+    FD.Parameters.push_back(new reflection::PrimitiveType(PT));
+  return mangle(FD);
+}
+
+template <reflection::TypePrimitiveEnum Ty>
+static std::string mangleWithParam(StringRef N, unsigned NumOfParams) {
+  reflection::FunctionDescriptor FD;
+  FD.Name = N.str();
+  for (unsigned I = 0; I < NumOfParams; ++I)
+    FD.Parameters.push_back(new reflection::PrimitiveType(Ty));
   return mangle(FD);
 }
 
@@ -613,9 +622,18 @@ std::string mangledGetLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID);
 }
 
+std::string mangledGetGroupID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GROUP_ID);
+}
+
 std::string mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
       NAME_GET_LOCAL_SIZE);
+}
+
+std::string mangledGetEnqueuedLocalSize() {
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_ENQUEUED_LOCAL_SIZE, 1);
 }
 
 std::string mangledBarrier() {
@@ -648,6 +666,26 @@ std::string mangledSGBarrier(BarrierType BT) {
 
   llvm_unreachable("Unknown sub_group_barrier version");
   return "";
+}
+
+std::string mangledGetSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_SIZE);
+}
+
+std::string mangledGetSubGroupLocalId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_LOCAL_ID);
+}
+
+std::string mangledGetGlobalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_GID);
+}
+
+std::string mangledGetLocalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_LID);
 }
 
 StructType *getStructFromTypePtr(Type *Ty) {
@@ -798,10 +836,10 @@ void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
   }
 }
 
-FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG) {
+FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
   FuncSet FSet;
 
-  for (Function &F : *M) {
+  for (Function &F : M) {
     if (!F.isDeclaration())
       continue;
     StringRef FName = F.getName();
@@ -812,7 +850,7 @@ FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG) {
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
-          isWorkGroupAsyncOrPipeBuiltin(FName, *M))
+          isWorkGroupAsyncOrPipeBuiltin(FName, M))
         FSet.insert(&F);
     } else {
       if (FName == mangledSGBarrier(BarrierType::NoScope) ||
@@ -824,12 +862,12 @@ FuncSet getAllSyncBuiltinsDecls(Module *M, bool IsWG) {
   return FSet;
 }
 
-FuncSet getAllSyncBuiltinsDclsForNoDuplicateRelax(Module *M) {
+FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M) {
   FuncSet FSet = getAllSyncBuiltinsDecls(M);
 
   // Add sub_group_barrier separately. It does not require following Barrier
   // compilation flow, but requires noduplicate relaxation.
-  for (Function &F : *M) {
+  for (Function &F : M) {
     if (!F.isDeclaration())
       continue;
     llvm::StringRef FName = F.getName();
@@ -839,6 +877,26 @@ FuncSet getAllSyncBuiltinsDclsForNoDuplicateRelax(Module *M) {
       FSet.insert(&F);
   }
 
+  return FSet;
+}
+
+FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
+  FuncSet FSet;
+
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    llvm::StringRef FName = F.getName();
+    if (FName == mangledBarrier() ||
+        FName == mangledWGBarrier(BarrierType::NoScope) ||
+        FName == mangledWGBarrier(BarrierType::WithScope) ||
+        FName == mangledSGBarrier(BarrierType::NoScope) ||
+        FName == mangledSGBarrier(BarrierType::WithScope) ||
+        isKMPAcquireReleaseLock(FName) ||
+        isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
+      FSet.insert(&F);
+    }
+  }
   return FSet;
 }
 

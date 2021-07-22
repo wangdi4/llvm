@@ -10,10 +10,13 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/VectorizerUtils.h"
 #include "NameMangleAPI.h"
+#include "RuntimeService.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-using namespace llvm;
+namespace llvm {
 
 namespace {
 
@@ -357,15 +360,90 @@ static bool isShuffleVectorTruncate(ShuffleVectorInst *SVI) {
   return true;
 }
 
-Instruction *VectorizerUtils::extendValToType(Value *Orig, Type *TargetType,
-                                              Instruction *InsertPoint) {
+namespace VectorizerUtils {
+
+bool CanVectorize::canVectorizeForVPO(Function &F, FuncSet &UnsupportedFuncs,
+                                      bool EnableDirectCallVectorization,
+                                      bool EnableSGDirectCallVectorization) {
+  if (hasVariableGetTIDAccess(F))
+    return false;
+
+  if (!EnableDirectCallVectorization) {
+    auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    bool HasSG =
+        KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get();
+    if (!(EnableSGDirectCallVectorization && HasSG))
+      if (UnsupportedFuncs.count(&F))
+        return false;
+  }
+
+  return true;
+}
+
+bool CanVectorize::hasVariableGetTIDAccess(Function &F) {
+  for (auto &I : instructions(F)) {
+    if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+      bool Err;
+      std::tie(std::ignore, Err) = RuntimeService::isTIDGenerator(CI);
+      // We are unable to vectorize this code because get_global_id is messed
+      // up.
+      if (Err)
+        return true;
+    }
+  }
+
+  // TID access is okay.
+  return false;
+}
+
+FuncSet CanVectorize::getNonInlineUnsupportedFunctions(Module &M) {
+  using namespace llvm::DPCPPKernelCompilationUtils;
+
+  // Add all kernels to root functions.
+  // Kernels assumes to have implicit barrier.
+  auto Kernels = DPCPPKernelMetadataAPI::KernelList(&M);
+  FuncSet Roots;
+  Roots.insert(Kernels.begin(), Kernels.end());
+
+  // Find all functions that contains synchronize/get_local_id/get_global_id to
+  // root functions.
+
+  // Get all synchronize built-ins declared in module.
+  FuncSet FSet = getAllSyncBuiltinsDecls(M);
+
+  // Get get_local_id built-in if declared in module.
+  if (Function *LID = M.getFunction(mangledGetLID())) {
+    FSet.insert(LID);
+  }
+
+  // Get get_global_id built-in if declared in module.
+  if (Function *GID = M.getFunction(mangledGetGID())) {
+    FSet.insert(GID);
+  }
+
+  for (Function *F : FSet) {
+    for (User *U : F->users())
+      if (CallInst *CI = dyn_cast<CallInst>(U))
+        Roots.insert(CI->getCaller());
+  }
+
+  // Fill UnsupportedFuncs set with all functions that calls directly or
+  // undirectly functions from the root functions set.
+  FuncSet UnsupportedFuncs;
+  DPCPPKernelLoopUtils::fillFuncUsersSet(Roots, UnsupportedFuncs);
+
+  return UnsupportedFuncs;
+}
+
+Instruction *extendValToType(Value *Orig, Type *TargetType,
+                             Instruction *InsertPoint) {
   assert(Orig->getType()->getPrimitiveSizeInBits() <=
              TargetType->getPrimitiveSizeInBits() &&
          "expanding when souce is bigger than target");
   return bitCastValToType(Orig, TargetType, InsertPoint);
 }
 
-bool VectorizerUtils::isOpaquePtrPair(Type *X, Type *Y) {
+bool isOpaquePtrPair(Type *X, Type *Y) {
   PointerType *XPtr = dyn_cast<PointerType>(X);
   PointerType *YPtr = dyn_cast<PointerType>(Y);
   if (XPtr && YPtr) {
@@ -384,8 +462,7 @@ bool VectorizerUtils::isOpaquePtrPair(Type *X, Type *Y) {
   return false;
 }
 
-Value *VectorizerUtils::rootInputArgument(Value *Arg, Type *RootTy,
-                                          CallInst *CI) {
+Value *rootInputArgument(Value *Arg, Type *RootTy, CallInst *CI) {
   LLVMContext &Ctx = CI->getContext();
   // Is the argument already in the correct type?
   Type *ArgTy = Arg->getType();
@@ -535,9 +612,8 @@ Value *VectorizerUtils::rootInputArgument(Value *Arg, Type *RootTy,
   return CurrVal;
 }
 
-Value *VectorizerUtils::rootInputArgumentBySignature(Value *Arg,
-                                                     unsigned int ParamNum,
-                                                     CallInst *CI) {
+Value *rootInputArgumentBySignature(Value *Arg, unsigned int ParamNum,
+                                    CallInst *CI) {
   assert(ParamNum <= CI->getNumArgOperands() &&
          "Requested type of parameter that does not exist");
 
@@ -549,8 +625,7 @@ Value *VectorizerUtils::rootInputArgumentBySignature(Value *Arg,
       Arg, reflectionToLLVM(CI->getContext(), FD.Parameters[ParamNum]), CI);
 }
 
-Value *VectorizerUtils::rootReturnValue(Value *RetVal, Type *RootType,
-                                        CallInst *CI) {
+Value *rootReturnValue(Value *RetVal, Type *RootType, CallInst *CI) {
   LLVMContext &Ctx = CI->getContext();
   // Check maybe the return value is of the right type - no need for rooting.
   if (RetVal->getType() == RootType)
@@ -696,3 +771,6 @@ Value *VectorizerUtils::rootReturnValue(Value *RetVal, Type *RootType,
   }
   return ConvertedVal;
 }
+
+} // namespace VectorizerUtils
+} // namespace llvm
