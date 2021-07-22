@@ -263,10 +263,11 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
     Value *LocalMem = CallArgs[ImplicitArgsUtils::IA_SLM_BUFFER];
     Twine ValName = "LocalMem_" + Name;
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual
-    // type (not using type from pointer as this functionality is planned to
+    // type (not using type from pointer as this functionality is planned o
     // be removed.
+    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
     Value *NewLocalMem = GetElementPtrInst::Create(
-        nullptr, LocalMem,
+        Ty, LocalMem,
         ConstantInt::get(IntegerType::get(F->getContext(), 32),
                          DirectLocalSize),
         ValName, CI);

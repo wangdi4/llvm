@@ -260,6 +260,7 @@ private:
     Indices.push_back(ConstZero);
     Indices.push_back(Dim);
     return B.CreateInBoundsGEP(
+        LocalIdValues->getType()->getScalarType()->getPointerElementType(),
         LocalIdValues, Indices,
         DPCPPKernelCompilationUtils::AppendWithDimension("pLocalId_", Dim));
   }

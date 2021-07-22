@@ -1875,7 +1875,9 @@ private:
       // Compute the address in the memory block where the array for this field
       // will begin:
       //   %BlockAddr = getelementptr i8, i8* %AllocCallInst, i64/i32 %Offset
-      Value *BlockAddr = IRB.CreateGEP(AllocCallInst, AddrOffset);
+      Value *BlockAddr = IRB.CreateGEP(
+          AllocCallInst->getType()->getScalarType()->getPointerElementType(),
+          AllocCallInst, AddrOffset);
 
       // Annotate the GEP into the allocated block to allow subsequent runs
       // of DTransAnalysis to resolve the type as a pointer to an array of
@@ -2140,17 +2142,18 @@ private:
       Instruction *FieldAddr =
           createPeelFieldLoad(PeelTy, PeelVar, FieldNumVal, I);
 
-      // Offset the address from the start of the array to the index
-      Value *DestPtrAddr = IRB.CreateGEP(FieldAddr, DestPeelIndex);
-      Value *DestPtrI8 = IRB.CreateBitCast(DestPtrAddr, getInt8PtrType());
-
-      // The source element is from the same array as the destination
-      Value *SrcPtrAddr = IRB.CreateGEP(FieldAddr, SrcPeelIndex);
-      Value *SrcPtrI8 = IRB.CreateBitCast(SrcPtrAddr, getInt8PtrType());
-
       llvm::Type *FieldType =
           cast<llvm::PointerType>(PeelTy->getElementType(FieldNum))
               ->getPointerElementType();
+
+      // Offset the address from the start of the array to the index
+      Value *DestPtrAddr = IRB.CreateGEP(FieldType, FieldAddr, DestPeelIndex);
+      Value *DestPtrI8 = IRB.CreateBitCast(DestPtrAddr, getInt8PtrType());
+
+      // The source element is from the same array as the destination
+      Value *SrcPtrAddr = IRB.CreateGEP(FieldType, FieldAddr, SrcPeelIndex);
+      Value *SrcPtrI8 = IRB.CreateBitCast(SrcPtrAddr, getInt8PtrType());
+
       Value *BytesToSet = IRB.CreateMul(
           CountToSet, ConstantInt::get(CountToSet->getType(),
                                        DL.getTypeStoreSize(FieldType)));

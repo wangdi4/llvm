@@ -539,7 +539,7 @@ public:
         return createFileError(File, EC);
       OS.write(Contents->data(), Contents->size());
     }
-    return Files.front();
+    return Files.front().str();
   }
 
 private:

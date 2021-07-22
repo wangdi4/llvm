@@ -244,8 +244,9 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
         NewArg0->setTargetDeclare(true);
 
         // Relink the newly generated string to printf
-        FnArgs[0] = Builder.CreateInBoundsGEP(NewArg0, Indices,
-                                              NewArg0->getName() + ".gep");
+        FnArgs[0] =
+            Builder.CreateInBoundsGEP(NewArg0->getValueType(), NewArg0, Indices,
+                                      NewArg0->getName() + ".gep");
         LLVM_DEBUG(dbgs() << "New argument 0 of printf: " << *FnArgs[0]
                           << "\n");
       }
@@ -1129,8 +1130,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     }
 
     // Add noop GEP that renames the value.
+    auto *Ty = Orig->getType()->getScalarType()->getPointerElementType();
     auto *Copy = GetElementPtrInst::CreateInBounds(
-        nullptr, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
+        Ty, Orig, ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
         Orig->getName() + ".copy", CopyBlock->getTerminator());
 
     Item->setOrig(Copy);
@@ -2009,7 +2011,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
       // For F90_DVs, the map needs to be added for the data pointer, i.e.
       // load i32*, i32** (getelementptr (%dv, 0, 0)).
       auto *Zero = LoadBuilder.getInt32(0);
-      auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(UDP, {Zero, Zero},
+      auto *DVType = UDPI->getOrigElemType();
+      auto *Addr0GEP = LoadBuilder.CreateInBoundsGEP(DVType, UDP, {Zero, Zero},
                                                      UDP->getName() + ".addr0");
       MappedVal = LoadBuilder.CreateLoad(
           cast<GEPOperator>(Addr0GEP)->getResultElementType(),
@@ -2410,8 +2413,9 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
                                     ".new"); //                             (2)
       genCopyByAddr(UDPI, NewV, OrigV, &*Builder.GetInsertPoint()); //      (7)
       auto *Zero = Builder.getInt32(0);
-      auto *Addr0GEP = Builder.CreateInBoundsGEP(NewV, {Zero, Zero}, //     (8)
-                                                 NewV->getName() + ".addr0");
+      auto *Addr0GEP =
+          Builder.CreateInBoundsGEP(OrigElemTy, NewV, {Zero, Zero}, //      (8)
+                                    NewV->getName() + ".addr0");
       Builder.CreateStore(UpdatedUDPVal, Addr0GEP); //                      (5)
     } else if (UDPI->getIsCptr()) {
       NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,

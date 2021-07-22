@@ -1376,10 +1376,11 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
     GetElementPtrInst *GEP = cast<GetElementPtrInst>(Inst);
     assert(GEP->hasAllZeroIndices() && "Expected all zero indices!!!");
 
+    auto *ElementTy = Ptr->getType()->getScalarType()->getPointerElementType();
     SmallVector<Value*, 8> IdxList(GEP->idx_begin(), GEP->idx_end());
     Value *NewGEP = GEP->isInBounds()
-          ? IRB.CreateInBoundsGEP(Ptr, IdxList)
-          : IRB.CreateGEP(Ptr, IdxList);
+          ? IRB.CreateInBoundsGEP(ElementTy, Ptr, IdxList)
+          : IRB.CreateGEP(ElementTy, Ptr, IdxList);
 
     for (auto *U : Inst->users())
       injectGEPsLoads(IRB, cast<Instruction>(U), NewGEP, NewLoads);
@@ -2986,7 +2987,7 @@ private:
 
     // If the memset has a variable size, it cannot be split, just adjust the
     // pointer to the new alloca.
-    if (!isa<Constant>(II.getLength())) {
+    if (!isa<ConstantInt>(II.getLength())) {
       assert(!IsSplit);
       assert(NewBeginOffset == BeginOffset);
       II.setDest(getNewAllocaSlicePtr(IRB, OldPtr->getType()));

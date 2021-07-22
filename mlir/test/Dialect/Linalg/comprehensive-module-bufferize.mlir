@@ -1,5 +1,19 @@
 // RUN: mlir-opt %s -linalg-comprehensive-module-bufferize -split-input-file | FileCheck %s
 
+// CHECK-LABEL: func @transfer_read(%{{.*}}: memref<?xf32, #map>) -> vector<4xf32> {
+func @transfer_read(%A : tensor<?xf32>) -> (vector<4xf32>) {
+  %c0 = constant 0 : index
+  %f0 = constant 0.0 : f32
+
+//       CHECK: %[[RES:.*]] = vector.transfer_read {{.*}} : memref<?xf32, #{{.*}}>, vector<4xf32>
+  %0 = vector.transfer_read %A[%c0], %f0 : tensor<?xf32>, vector<4xf32>
+
+//       CHECK: return %[[RES]] : vector<4xf32>
+  return %0 : vector<4xf32>
+}
+
+// -----
+
 // CHECK-DAG: #[[$map_1d_dyn:.*]] = affine_map<(d0)[s0, s1] -> (d0 * s1 + s0)>
 
 // CHECK-LABEL: func @fill_inplace(
@@ -16,6 +30,19 @@ func @fill_inplace(%A : tensor<?xf32> {linalg.inplaceable = true}) -> tensor<?xf
   //     CHECK: return
   // CHECK-NOT: tensor
   return %r: tensor<?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func @tensor_extract(%{{.*}}: memref<?xf32, #{{.*}}>) -> f32 {
+func @tensor_extract(%A : tensor<?xf32>) -> (f32) {
+  %c0 = constant 0 : index
+
+//       CHECK: %[[RES:.*]] = memref.load {{.*}} : memref<?xf32, #{{.*}}>
+  %0 = tensor.extract %A[%c0] : tensor<?xf32>
+
+//       CHECK: return %[[RES]] : f32
+  return %0 : f32
 }
 
 // -----
@@ -554,4 +581,87 @@ func @tiled_dot(%A: tensor<?xf32>, %B: tensor<?xf32>, %c: tensor<f32> {linalg.in
   //     CHECK: return
   // CHECK-NOT: tensor
   return %1 : tensor<f32>
+}
+
+// -----
+
+#TILE_MAP = affine_map<(d0)[s0] -> (3, -d0 + s0)>
+
+//  CHECK-DAG: #[[$DYN_MAP:.*]] = affine_map<(d0)[s0, s1] -> (d0 * s1 + s0)>
+
+//      CHECK:  func @tiled_fill(
+// CHECK-SAME:    %[[A:[a-zA-Z0-9]*]]: memref<?xf32, #[[$DYN_MAP]]>
+func @tiled_fill(%A: tensor<?xf32> {linalg.inplaceable = true}) -> tensor<?xf32> {
+  %c3 = constant 3 : index
+  %c0 = constant 0 : index
+  %f0 = constant 0.0 : f32
+
+  //     CHECK: %[[M:.*]] = memref.dim %[[A]], {{.*}} : memref<?xf32, #[[$DYN_MAP:.*]]>
+  %0 = tensor.dim %A, %c0 : tensor<?xf32>
+
+  //     CHECK: linalg.tiled_loop {{.*}} to (%[[M]]) {{.*}} outs{{.*}}%[[A]]
+  %1 = linalg.tiled_loop (%arg3) = (%c0) to (%0) step (%c3)
+      outs (%arg1 = %A: tensor<?xf32>)
+      iterators["parallel"]
+  {
+    // CHECK-NOT:   alloc
+
+    %2 = tensor.dim %arg1, %c0 : tensor<?xf32>
+    %3 = affine.min #TILE_MAP(%arg3)[%2]
+
+    //     CHECK:   %[[SV_A:.*]] = memref.subview {{.*}}
+    %4 = tensor.extract_slice %arg1[%arg3] [%3] [1] : tensor<?xf32> to tensor<?xf32>
+
+    //     CHECK:   linalg.fill(%{{.*}}, %[[SV_A]]) : f32, memref<?xf32, #[[$DYN_MAP:.*]]>
+    %5 = linalg.fill(%f0, %4) : f32, tensor<?xf32> -> tensor<?xf32>
+    %6 = tensor.insert_slice %5 into %arg1[%arg3] [%3] [1] : tensor<?xf32> into tensor<?xf32>
+
+    linalg.yield %6 : tensor<?xf32>
+    //     CHECK:   linalg.yield
+    // CHECK-NOT:   tensor
+  }
+
+  //     CHECK: return
+  // CHECK-NOT: tensor
+  return %1 : tensor<?xf32>
+}
+
+// -----
+
+// CHECK: #[[$DYNAMIC:.*]] = affine_map<(d0)[s0, s1] -> (d0 * s1 + s0)>
+
+// CHECK: func private @external_func(memref<?xf32, #[[$DYNAMIC]]>)
+func private @external_func(tensor<?xf32>)
+
+//      CHECK: func @callee(
+// CHECK-SAME:   %[[A:[0-9a-zA-Z]*]]: memref<?xf32>
+// CHECK-SAME:   %[[B:[0-9a-zA-Z]*]]: memref<?xf32, #[[$DYNAMIC]]>
+// CHECK-SAME:   %[[C:[0-9a-zA-Z]*]]: memref<?xf32, #[[$DYNAMIC]]>
+func @callee(%A : tensor<?xf32> {linalg.buffer_layout = affine_map<(i)[s0, s1] -> (i)>},
+             %B : tensor<?xf32>,
+             %C : tensor<?xf32>) {
+// CHECK-NEXT: %[[CASTED:.*]] = memref.cast %[[A]] : memref<?xf32> to memref<?xf32, #[[$DYNAMIC]]>
+// CHECK-NEXT: call @external_func(%[[CASTED]]) : (memref<?xf32, #[[$DYNAMIC]]>) -> ()
+  call @external_func(%A) : (tensor<?xf32>) -> ()
+
+// CHECK-NEXT: call @external_func(%[[B]]) : (memref<?xf32, #[[$DYNAMIC]]>) -> ()
+  call @external_func(%B) : (tensor<?xf32>) -> ()
+
+// CHECK-NEXT: call @external_func(%[[C]]) : (memref<?xf32, #[[$DYNAMIC]]>) -> ()
+  call @external_func(%C) : (tensor<?xf32>) -> ()
+
+  return
+}
+
+//      CHECK: func @entry(
+// CHECK-SAME:   %[[A:[0-9a-zA-Z]*]]: memref<?xf32>
+// CHECK-SAME:   %[[B:[0-9a-zA-Z]*]]: memref<?xf32>
+// CHECK-SAME:   %[[C:[0-9a-zA-Z]*]]: memref<?xf32, #[[$DYNAMIC]]>
+func @entry(%A : tensor<?xf32> {linalg.buffer_layout = affine_map<(i)[s0, s1] -> (i)>},
+            %B : tensor<?xf32> {linalg.buffer_layout = affine_map<(i)[s0, s1] -> (i)>},
+            %C : tensor<?xf32>) {
+// CHECK-NEXT: %[[CASTED_B:.*]] = memref.cast %[[B]] : memref<?xf32> to memref<?xf32, #[[$DYNAMIC]]>
+// CHECK-NEXT: call @callee(%[[A]], %[[CASTED_B]], %[[C]])
+  call @callee(%A, %B, %C) : (tensor<?xf32>, tensor<?xf32>, tensor<?xf32>) -> ()
+  return
 }

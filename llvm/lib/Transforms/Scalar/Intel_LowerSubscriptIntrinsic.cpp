@@ -251,7 +251,9 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
       // Minor optimization: "gep base, 0" == base
       if (StructOffs.size() != 1 || !isa<ConstantInt>(StructOffs[0]) ||
           !cast<ConstantInt>(StructOffs[0])->isZero())
-        Res = Builder.CreateInBoundsGEP(Res, StructOffs);
+        Res = Builder.CreateInBoundsGEP(
+            Res->getType()->getScalarType()->getPointerElementType(), Res,
+            StructOffs);
       // Reset BaseIt after new GEP generated.
       BaseIt = It;
       ++BaseIt;

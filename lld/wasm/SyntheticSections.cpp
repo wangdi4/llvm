@@ -125,6 +125,8 @@ void ImportSection::writeBody() {
 
   writeUleb128(os, getNumImports(), "import count");
 
+  bool is64 = config->is64.getValueOr(false);
+
   if (config->importMemory) {
     WasmImport import;
     import.Module = defaultModule;
@@ -138,26 +140,15 @@ void ImportSection::writeBody() {
     }
     if (config->sharedMemory)
       import.Memory.Flags |= WASM_LIMITS_FLAG_IS_SHARED;
-    if (config->is64.getValueOr(false))
+    if (is64)
       import.Memory.Flags |= WASM_LIMITS_FLAG_IS_64;
     writeImport(os, import);
   }
 
   for (const Symbol *sym : importedSymbols) {
     WasmImport import;
-    if (auto *f = dyn_cast<UndefinedFunction>(sym)) {
-      import.Field = f->importName ? *f->importName : sym->getName();
-      import.Module = f->importModule ? *f->importModule : defaultModule;
-    } else if (auto *g = dyn_cast<UndefinedGlobal>(sym)) {
-      import.Field = g->importName ? *g->importName : sym->getName();
-      import.Module = g->importModule ? *g->importModule : defaultModule;
-    } else if (auto *t = dyn_cast<UndefinedTable>(sym)) {
-      import.Field = t->importName ? *t->importName : sym->getName();
-      import.Module = t->importModule ? *t->importModule : defaultModule;
-    } else {
-      import.Field = sym->getName();
-      import.Module = defaultModule;
-    }
+    import.Field = sym->importName.getValueOr(sym->getName());
+    import.Module = sym->importModule.getValueOr(defaultModule);
 
     if (auto *functionSym = dyn_cast<FunctionSymbol>(sym)) {
       import.Kind = WASM_EXTERNAL_FUNCTION;
@@ -180,7 +171,8 @@ void ImportSection::writeBody() {
   for (const Symbol *sym : gotSymbols) {
     WasmImport import;
     import.Kind = WASM_EXTERNAL_GLOBAL;
-    import.Global = {WASM_TYPE_I32, true};
+    auto ptrType = is64 ? WASM_TYPE_I64 : WASM_TYPE_I32;
+    import.Global = {static_cast<uint8_t>(ptrType), true};
     if (isa<DataSymbol>(sym))
       import.Module = "GOT.mem";
     else
@@ -317,12 +309,11 @@ void GlobalSection::addInternalGOTEntry(Symbol *sym) {
 }
 
 void GlobalSection::generateRelocationCode(raw_ostream &os) const {
-  unsigned opcode_ptr_const = config->is64.getValueOr(false)
-                                  ? WASM_OPCODE_I64_CONST
-                                  : WASM_OPCODE_I32_CONST;
-  unsigned opcode_ptr_add = config->is64.getValueOr(false)
-                                ? WASM_OPCODE_I64_ADD
-                                : WASM_OPCODE_I32_ADD;
+  bool is64 = config->is64.getValueOr(false);
+  unsigned opcode_ptr_const = is64 ? WASM_OPCODE_I64_CONST
+                                   : WASM_OPCODE_I32_CONST;
+  unsigned opcode_ptr_add = is64 ? WASM_OPCODE_I64_ADD
+                                 : WASM_OPCODE_I32_ADD;
 
   for (const Symbol *sym : internalGotSymbols) {
     if (auto *d = dyn_cast<DefinedData>(sym)) {

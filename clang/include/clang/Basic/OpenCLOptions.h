@@ -19,6 +19,9 @@
 
 namespace clang {
 
+class DiagnosticsEngine;
+class TargetInfo;
+
 namespace {
 // This enum maps OpenCL version(s) into value. These values are used as
 // a mask to indicate in which OpenCL version(s) extension is a core or
@@ -64,8 +67,8 @@ static inline bool isOpenCLVersionContainedInMask(const LangOptions &LO,
 
 /// OpenCL supported extensions and optional core features
 class OpenCLOptions {
+
 public:
-#if INTEL_CUSTOMIZATION
   // OpenCL C v1.2 s6.5 - All program scope variables must be declared in the
   // __constant address space.
   // OpenCL C v2.0 s6.5.1 - Variables defined at program scope and static
@@ -80,7 +83,6 @@ public:
            (Opts.OpenCLVersion == 300 &&
             isSupported("__opencl_c_program_scope_global_variables", Opts));
   }
-#endif // INTEL_CUSTOMIZATION
 
   struct OpenCLOptionInfo {
     // Does this option have pragma.
@@ -237,6 +239,16 @@ public:
                                         Args &&... args) {
     return OpenCLOptionInfo(std::forward<Args>(args)...).isAvailableIn(LO);
   }
+
+  // Diagnose feature dependencies for OpenCL C 3.0. Return false if target
+  // doesn't follow these requirements.
+  static bool diagnoseUnsupportedFeatureDependencies(const TargetInfo &TI,
+                                                     DiagnosticsEngine &Diags);
+
+  // Diagnose that features and equivalent extension are set to same values.
+  // Return false if target doesn't follow these requirements.
+  static bool diagnoseFeatureExtensionDifferences(const TargetInfo &TI,
+                                                  DiagnosticsEngine &Diags);
 
 private:
   // Option is enabled via pragma

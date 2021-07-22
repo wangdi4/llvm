@@ -17,6 +17,7 @@
 #include <detail/filter_selector_impl.hpp>
 #include <detail/force_device.hpp>
 #include <detail/global_handler.hpp>
+#include <sycl/ext/oneapi/filter_selector.hpp>
 #ifdef INTEL_CUSTOMIZATION
 #include <detail/config.hpp>
 #endif // INTEL_CUSTOMIZATION

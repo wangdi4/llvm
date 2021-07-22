@@ -37,7 +37,7 @@ config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 # INTEL_CUSTOMIZATION
 def getAdditionalFlags():
-    flags = []
+    flags = config.sycl_clang_extra_flags.split(' ')
     # Propagate --gcc-toolchain if we are overriding system installed gcc.
     if 'ICS_GCCBIN' in os.environ:
         flags += ['--gcc-toolchain='
@@ -86,8 +86,6 @@ if platform.system() == "Linux":
         config.available_features.add('libcxx')
     llvm_config.with_system_environment('LD_LIBRARY_PATH')
     llvm_config.with_environment('LD_LIBRARY_PATH', config.sycl_libs_dir, append_path=True)
-    llvm_config.with_system_environment('CFLAGS')
-    llvm_config.with_environment('CFLAGS', config.sycl_clang_extra_flags)
 
 elif platform.system() == "Windows":
     config.available_features.add('windows')

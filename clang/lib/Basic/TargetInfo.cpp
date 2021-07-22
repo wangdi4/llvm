@@ -397,7 +397,6 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
     FloatFormat = &llvm::APFloat::IEEEsingle();
     LongDoubleFormat = &llvm::APFloat::IEEEquad();
 
-#if INTEL_CUSTOMIZATION
     // OpenCL C v3.0 s6.7.5 - The generic address space requires support for
     // OpenCL C 2.0 or OpenCL C 3.0 with the __opencl_c_generic_address_space
     // feature
@@ -409,10 +408,13 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
       Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
           OpenCLFeaturesMap, "__opencl_c_generic_address_space");
-      Opts.Blocks = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
-      Opts.OpenCLPipe = hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
-    }
+#if INTEL_CUSTOMIZATION
+      Opts.Blocks =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
+      Opts.OpenCLPipe =
+          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
 #endif // INTEL_CUSTOMIZATION
+    }
   }
 
   if (Opts.DoubleSize) {

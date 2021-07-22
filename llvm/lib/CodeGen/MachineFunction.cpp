@@ -973,9 +973,7 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
                                                  unsigned Subreg) {
   // Catch any accidental self-loops.
   assert(A.first != B.first);
-  auto Result = DebugValueSubstitutions.insert({A, {B, Subreg}});
-  (void)Result;
-  assert(Result.second && "Substitution for an already substituted value?");
+  DebugValueSubstitutions.push_back({A, B, Subreg});
 }
 
 void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
@@ -992,7 +990,7 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   // MIR output.
   // Examine all the operands, or the first N specified by the caller.
   MaxOperand = std::min(MaxOperand, Old.getNumOperands());
-  for (unsigned int I = 0; I < Old.getNumOperands(); ++I) {
+  for (unsigned int I = 0; I < MaxOperand; ++I) {
     const auto &OldMO = Old.getOperand(I);
     auto &NewMO = New.getOperand(I);
     (void)NewMO;

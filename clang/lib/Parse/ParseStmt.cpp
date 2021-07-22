@@ -426,6 +426,7 @@ Retry:
   case tok::annot_pragma_prefetch:
     ProhibitAttributes(Attrs);
     return ParsePragmaPrefetch(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
 #endif // INTEL_CUSTOMIZATION
   case tok::annot_pragma_openmp:
     // Prohibit attributes that are not OpenMP attributes, but only before

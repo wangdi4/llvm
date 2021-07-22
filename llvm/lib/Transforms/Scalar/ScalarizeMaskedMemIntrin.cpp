@@ -563,7 +563,9 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
   }
 
   // Create a GEP from the scalar components.
-  return Builder.CreateGEP(Base, Indices, "Ptr" + Twine(Element));
+  return Builder.CreateGEP(
+      Base->getType()->getScalarType()->getPointerElementType(), Base, Indices,
+      "Ptr" + Twine(Element));
 }
 
 static Value *getScalarAddress(Value *Ptrs, unsigned Element,

@@ -1095,6 +1095,15 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
     return true;
   }
 
+  Type *OrigType = OrigSCEV->getType();
+  Type *NewType = NewSCEV->getType();
+
+  // Give up on int/ptr or ptr/ptr type mismatch.
+  if ((NewType != OrigType) &&
+      (!NewType->isIntegerTy() || !OrigType->isIntegerTy())) {
+    return false;
+  }
+
   auto OrigAddRec = dyn_cast<SCEVAddRecExpr>(OrigSCEV);
   auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSCEV);
 
@@ -1124,9 +1133,6 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
     return false;
   }
 
-  Type *NewType = NewAddRec->getType();
-  Type *OrigType = OrigAddRec->getType();
-
   // Wrap flags may get modified during truncation/negation so we store the
   // orignal ones and pass them for comparison.
   auto WrapFlags = NewAddRec->getNoWrapFlags();
@@ -1139,10 +1145,6 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
   //
   // To catch this case we need to compare the truncated form of NewSCEV.
   if (NewType != OrigType) {
-
-    if (!NewType->isIntegerTy() || !OrigType->isIntegerTy()) {
-      return false;
-    }
 
     if (NewType->getPrimitiveSizeInBits() <
         OrigType->getPrimitiveSizeInBits()) {
@@ -3437,6 +3439,7 @@ restructureOnePastTheEndGEP(const GEPOperator *GEPOrSubsOp) {
   IRBuilder<NoFolder> Builder(ArrTy->getContext());
 
   return cast<GEPOperator>(Builder.CreateGEP(
+      GEPOp->getSourceElementType(),
       const_cast<Value *>(GEPOp->getPointerOperand()), Indices));
 }
 

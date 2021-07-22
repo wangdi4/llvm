@@ -3,7 +3,7 @@
 ; Remove domtree checking for now
 ; RUN: opt < %s -chr -instcombine -simplifycfg -S -enable-new-pm=0 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
-; RUN: opt < %s -passes='require<profile-summary>,function(chr,instcombine,simplify-cfg)' -S | FileCheck %s
+; RUN: opt < %s -passes='require<profile-summary>,function(chr,instcombine,simplifycfg)' -S | FileCheck %s
 
 declare void @foo()
 declare void @bar()

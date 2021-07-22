@@ -246,8 +246,9 @@ void LocalBuffersPass::parseLocalBuffers(Function *F, Value *LocalMem) {
     size_t ArraySize = DL.getTypeAllocSize(GV->getType()->getElementType());
     assert(0 != ArraySize && "zero array size!");
     // Now retrieve to the offset of the local buffer
+    Type *Ty = LocalMem->getType()->getScalarType()->getPointerElementType();
     GetElementPtrInst *AddrOfLocal = GetElementPtrInst::Create(
-        nullptr, LocalMem,
+        Ty, LocalMem,
         ConstantInt::get(IntegerType::get(*Context, 32), CurrLocalOffset), "",
         InsertPoint);
 

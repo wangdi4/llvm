@@ -629,7 +629,8 @@ GetElementPtrInst *RegDDRef::getOrCreateLocationGEP() const {
   auto *Reg = getHLDDNode()->getParentRegion();
   auto *RegEntryInsertPt = &*Reg->getEntryBBlock()->getFirstInsertionPt();
 
-  auto *GepLoc = GetElementPtrInst::Create(nullptr, BaseVal, IdxList,
+  auto *Ty = BaseVal->getType()->getScalarType()->getPointerElementType();
+  auto *GepLoc = GetElementPtrInst::Create(Ty, BaseVal, IdxList,
                                            "dummygep", RegEntryInsertPt);
 
   GepLoc->setIsInBounds(IsInBounds);

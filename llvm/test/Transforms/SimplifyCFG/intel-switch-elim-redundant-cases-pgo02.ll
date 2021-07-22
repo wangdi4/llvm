@@ -6,7 +6,7 @@
 ; so this case verifies the weights are normalized to 32-bits.
 
 ; RUN: opt -S -simplifycfg %s | FileCheck %s
-; RUN: opt -S -passes=simplify-cfg %s | FileCheck %s
+; RUN: opt -S -passes=simplifycfg %s | FileCheck %s
 
 declare void @func2()
 declare void @func3()

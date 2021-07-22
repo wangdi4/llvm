@@ -1834,7 +1834,9 @@ private:
         ConstantInt::get(Context, APInt(DL.getPointerSizeInBits(0), 0)),
         ConstantInt::get(Context, APInt(32, Offset))};
 
-    return Builder.CreateInBoundsGEP(Base, ArrayRef<Value *>(Idx), "elem");
+    return Builder.CreateInBoundsGEP(
+        Base->getType()->getScalarType()->getPointerElementType(), Base,
+        ArrayRef<Value *>(Idx), "elem");
   }
 
   const DataLayout &DL;

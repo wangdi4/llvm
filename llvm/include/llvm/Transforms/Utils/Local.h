@@ -386,10 +386,11 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   /// After shifting the base pointer to a computed number of
   /// bytes the pointer is casted to the ElTy* type.
 
-  Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
+  Type *I8Ty = Builder->getInt8Ty();
+  Type *I8PtrTy = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
   Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
   if (BasePtrTy->isVectorTy()) {
-    I8Ty = VectorType::get(I8Ty, cast<VectorType>(BasePtrTy));
+    I8PtrTy = VectorType::get(I8PtrTy, cast<VectorType>(BasePtrTy));
     DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
   }
 
@@ -405,11 +406,11 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   }
 
   Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8Ty);
+      Builder->CreateBitCast(BasePtr, I8PtrTy);
 
-  Value *NewBasePtr = InBounds
-                          ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)
-                          : Builder->CreateGEP(BasePtrI8, ByteOffset);
+  Value *NewBasePtr =
+      InBounds ? Builder->CreateInBoundsGEP(I8Ty, BasePtrI8, ByteOffset)
+               : Builder->CreateGEP(I8Ty, BasePtrI8, ByteOffset);
 
   return Builder->CreateBitCast(NewBasePtr, DestType);
 }

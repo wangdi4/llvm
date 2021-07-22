@@ -141,19 +141,6 @@ static std::vector<PlatformInfo> getPlatformInfos(const InputFile *input) {
   return platformInfos;
 }
 
-static PlatformKind removeSimulator(PlatformKind platform) {
-  // Mapping of platform to simulator and vice-versa.
-  static const std::map<PlatformKind, PlatformKind> platformMap = {
-      {PlatformKind::iOSSimulator, PlatformKind::iOS},
-      {PlatformKind::tvOSSimulator, PlatformKind::tvOS},
-      {PlatformKind::watchOSSimulator, PlatformKind::watchOS}};
-
-  auto iter = platformMap.find(platform);
-  if (iter == platformMap.end())
-    return platform;
-  return iter->second;
-}
-
 static bool checkCompatibility(const InputFile *input) {
   std::vector<PlatformInfo> platformInfos = getPlatformInfos(input);
   if (platformInfos.empty())
@@ -560,11 +547,10 @@ template <class NList>
 static macho::Symbol *createAbsolute(const NList &sym, InputFile *file,
                                      StringRef name) {
   if (sym.n_type & N_EXT) {
-    return symtab->addDefined(name, file, nullptr, sym.n_value, /*size=*/0,
-                              /*isWeakDef=*/false, sym.n_type & N_PEXT,
-                              sym.n_desc & N_ARM_THUMB_DEF,
-                              /*isReferencedDynamically=*/false,
-                              sym.n_desc & N_NO_DEAD_STRIP);
+    return symtab->addDefined(
+        name, file, nullptr, sym.n_value, /*size=*/0,
+        /*isWeakDef=*/false, sym.n_type & N_PEXT, sym.n_desc & N_ARM_THUMB_DEF,
+        /*isReferencedDynamically=*/false, sym.n_desc & N_NO_DEAD_STRIP);
   }
   return make<Defined>(name, file, nullptr, sym.n_value, /*size=*/0,
                        /*isWeakDef=*/false,
@@ -599,6 +585,11 @@ macho::Symbol *ObjFile::parseNonSectionSymbol(const NList &sym,
   }
 }
 
+template <class NList>
+static bool isUndef(const NList &sym) {
+  return (sym.n_type & N_TYPE) == N_UNDF && sym.n_value == 0;
+}
+
 template <class LP>
 void ObjFile::parseSymbols(ArrayRef<typename LP::section> sectionHeaders,
                            ArrayRef<typename LP::nlist> nList,
@@ -608,6 +599,7 @@ void ObjFile::parseSymbols(ArrayRef<typename LP::section> sectionHeaders,
   // Groups indices of the symbols by the sections that contain them.
   std::vector<std::vector<uint32_t>> symbolsBySection(subsections.size());
   symbols.resize(nList.size());
+  SmallVector<unsigned, 32> undefineds;
   for (uint32_t i = 0; i < nList.size(); ++i) {
     const NList &sym = nList[i];
 
@@ -623,6 +615,8 @@ void ObjFile::parseSymbols(ArrayRef<typename LP::section> sectionHeaders,
       if (subsecMap.empty())
         continue;
       symbolsBySection[sym.n_sect - 1].push_back(i);
+    } else if (isUndef(sym)) {
+      undefineds.push_back(i);
     } else {
       symbols[i] = parseNonSectionSymbol(sym, name);
     }
@@ -716,6 +710,18 @@ void ObjFile::parseSymbols(ArrayRef<typename LP::section> sectionHeaders,
       subsecMap.push_back({sym.n_value - sectionAddr, nextIsec});
       subsecEntry = subsecMap.back();
     }
+  }
+
+  // Undefined symbols can trigger recursive fetch from Archives due to
+  // LazySymbols. Process defined symbols first so that the relative order
+  // between a defined symbol and an undefined symbol does not change the
+  // symbol resolution behavior. In addition, a set of interconnected symbols
+  // will all be resolved to the same file, instead of being resolved to
+  // different files.
+  for (unsigned i : undefineds) {
+    const NList &sym = nList[i];
+    StringRef name = strtab + sym.n_strx;
+    symbols[i] = parseNonSectionSymbol(sym, name);
   }
 }
 
@@ -968,6 +974,8 @@ DylibFile::DylibFile(MemoryBufferRef mb, DylibFile *umbrella,
   if (!checkCompatibility(this))
     return;
 
+  checkAppExtensionSafety(hdr->flags & MH_APP_EXTENSION_SAFE);
+
   for (auto *cmd : findCommands<rpath_command>(hdr, LC_RPATH)) {
     StringRef rpath{reinterpret_cast<const char *>(cmd) + cmd->path};
     rpaths.push_back(rpath);
@@ -1056,6 +1064,8 @@ DylibFile::DylibFile(const InterfaceFile &interface, DylibFile *umbrella,
           std::string(config->platformInfo.target));
     return;
   }
+
+  checkAppExtensionSafety(interface.isApplicationExtensionSafe());
 
   exportingFile = isImplicitlyLinked(installName) ? this : umbrella;
   auto addSymbol = [&](const Twine &name) -> void {
@@ -1183,6 +1193,11 @@ void DylibFile::handleLDInstallNameSymbol(StringRef name,
     warn("failed to parse os version, symbol '" + originalName + "' ignored");
   else if (version == config->platformInfo.minimum)
     this->installName = saver.save(installName);
+}
+
+void DylibFile::checkAppExtensionSafety(bool dylibIsAppExtensionSafe) const {
+  if (config->applicationExtension && !dylibIsAppExtensionSafe)
+    warn("using '-application_extension' with unsafe dylib: " + toString(this));
 }
 
 ArchiveFile::ArchiveFile(std::unique_ptr<object::Archive> &&f)

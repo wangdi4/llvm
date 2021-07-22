@@ -1077,6 +1077,7 @@ define i8 @reduction_and_trunc(i8* noalias nocapture %A) {
 ; CHECK-NEXT:    [[SUM_0_LCSSA:%.*]] = phi i32 [ undef, [[DOTLR_PH]] ], [ [[TMP5]], [[MIDDLE_BLOCK]] ]
 ; CHECK-NEXT:    [[RET:%.*]] = trunc i32 [[SUM_0_LCSSA]] to i8
 ; CHECK-NEXT:    ret i8 [[RET]]
+;
 ; end INTEL_CUSTOMIZATION
 entry:
   br label %.lr.ph

@@ -292,7 +292,8 @@ typedef enum {
   PI_DEVICE_INFO_GPU_EU_COUNT_PER_SUBSLICE = 0x10025,
   PI_DEVICE_INFO_MAX_MEM_BANDWIDTH = 0x10026,
   PI_DEVICE_INFO_IMAGE_SRGB = 0x10027,
-  PI_DEVICE_INFO_ATOMIC_64 = 0x10110
+  PI_DEVICE_INFO_ATOMIC_64 = 0x10110,
+  PI_DEVICE_INFO_ATOMIC_MEMORY_ORDER_CAPABILITIES = 0x10111
 } _pi_device_info;
 
 typedef enum {
@@ -312,6 +313,8 @@ typedef enum {
   PI_CONTEXT_INFO_NUM_DEVICES = CL_CONTEXT_NUM_DEVICES,
   PI_CONTEXT_INFO_PROPERTIES = CL_CONTEXT_PROPERTIES,
   PI_CONTEXT_INFO_REFERENCE_COUNT = CL_CONTEXT_REFERENCE_COUNT,
+  // Atomics capabilities extensions
+  PI_CONTEXT_INFO_ATOMIC_MEMORY_ORDER_CAPABILITIES = 0x10010
 } _pi_context_info;
 
 typedef enum {
@@ -509,6 +512,13 @@ constexpr pi_sampler_properties PI_SAMPLER_PROPERTIES_ADDRESSING_MODE =
 constexpr pi_sampler_properties PI_SAMPLER_PROPERTIES_FILTER_MODE =
     CL_SAMPLER_FILTER_MODE;
 
+using pi_memory_order_capabilities = pi_bitfield;
+constexpr pi_memory_order_capabilities PI_MEMORY_ORDER_RELAXED = 0x01;
+constexpr pi_memory_order_capabilities PI_MEMORY_ORDER_ACQUIRE = 0x02;
+constexpr pi_memory_order_capabilities PI_MEMORY_ORDER_RELEASE = 0x04;
+constexpr pi_memory_order_capabilities PI_MEMORY_ORDER_ACQ_REL = 0x08;
+constexpr pi_memory_order_capabilities PI_MEMORY_ORDER_SEQ_CST = 0x10;
+
 typedef enum {
   PI_PROFILING_INFO_COMMAND_QUEUED = CL_PROFILING_COMMAND_QUEUED,
   PI_PROFILING_INFO_COMMAND_SUBMIT = CL_PROFILING_COMMAND_SUBMIT,
@@ -691,8 +701,15 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 #define __SYCL_PI_PROPERTY_SET_DEVICELIB_REQ_MASK "SYCL/devicelib req mask"
 /// PropertySetRegistry::SYCL_KERNEL_PARAM_OPT_INFO defined in PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_KERNEL_PARAM_OPT_INFO "SYCL/kernel param opt"
+/// PropertySetRegistry::SYCL_KERNEL_PROGRAM_METADATA defined in PropertySetIO.h
+#define __SYCL_PI_PROPERTY_SET_PROGRAM_METADATA "SYCL/program metadata"
 /// PropertySetRegistry::SYCL_MISC_PROP defined in PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_SYCL_MISC_PROP "SYCL/misc properties"
+
+/// Program metadata tags recognized by the PI backends. For kernels the tag
+/// must appear after the kernel name.
+#define __SYCL_PI_PROGRAM_METADATA_TAG_REQD_WORK_GROUP_SIZE                    \
+  "@reqd_work_group_size"
 
 /// This struct is a record of the device binary information. If the Kind field
 /// denotes a portable binary type (SPIR-V or LLVM IR), the DeviceTargetSpec
@@ -1113,9 +1130,26 @@ __SYCL_EXPORT pi_result piclProgramCreateWithSource(pi_context context,
                                                     const size_t *lengths,
                                                     pi_program *ret_program);
 
+/// Creates a PI program for a context and loads the given binary into it.
+///
+/// \param context is the PI context to associate the program with.
+/// \param num_devices is the number of devices in device_list.
+/// \param device_list is a pointer to a list of devices. These devices must all
+///                    be in context.
+/// \param lengths is an array of sizes in bytes of the binary in binaries.
+/// \param binaries is a pointer to a list of program binaries.
+/// \param num_metadata_entries is the number of metadata entries in metadata.
+/// \param metadata is a pointer to a list of program metadata entries. The
+///                 use of metadata entries is backend-defined.
+/// \param binary_status returns whether the program binary was loaded
+///                      succesfully or not, for each device in device_list.
+///                      binary_status is ignored if it is null and otherwise
+///                      it must be an array of num_devices elements.
+/// \param program is the PI program created from the program binaries.
 __SYCL_EXPORT pi_result piProgramCreateWithBinary(
     pi_context context, pi_uint32 num_devices, const pi_device *device_list,
     const size_t *lengths, const unsigned char **binaries,
+    size_t num_metadata_entries, const pi_device_binary_property *metadata,
     pi_int32 *binary_status, pi_program *ret_program);
 
 __SYCL_EXPORT pi_result piProgramGetInfo(pi_program program,

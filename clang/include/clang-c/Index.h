@@ -33,7 +33,7 @@
  * compatible, thus CINDEX_VERSION_MAJOR is expected to remain stable.
  */
 #define CINDEX_VERSION_MAJOR 0
-#define CINDEX_VERSION_MINOR 61
+#define CINDEX_VERSION_MINOR 62
 
 #define CINDEX_VERSION_ENCODE(major, minor) (((major)*10000) + ((minor)*1))
 
@@ -3447,9 +3447,10 @@ enum CXCallingConv {
   CXCallingConv_PreserveMost = 14,
   CXCallingConv_PreserveAll = 15,
   CXCallingConv_AArch64VectorCall = 16,
+  CXCallingConv_SwiftAsync = 17,
 #if INTEL_CUSTOMIZATION
-  CXCallingConv_IntelOclBiccAVX = 17,
-  CXCallingConv_IntelOclBiccAVX512 = 18,
+  CXCallingConv_IntelOclBiccAVX = 18,
+  CXCallingConv_IntelOclBiccAVX512 = 19,
 #endif /* INTEL_CUSTOMIZATION */
 
   CXCallingConv_Invalid = 100,

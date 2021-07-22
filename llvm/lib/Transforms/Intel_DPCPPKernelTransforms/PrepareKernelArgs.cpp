@@ -159,10 +159,12 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
   // Handle explicit arguments
+  Type *ArgsBufferElementTy =
+      ArgsBuffer->getType()->getScalarType()->getPointerElementType();
   for (unsigned ArgNo = 0; ArgNo < Arguments.size(); ++ArgNo) {
     KernelArgument KArg = Arguments[ArgNo];
     //  %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-    Value *GEP = Builder.CreateGEP(ArgsBuffer,
+    Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
                                    ConstantInt::get(I32Ty, KArg.OffsetInBytes));
 
     Value *Arg;
@@ -293,7 +295,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
         Builder.Insert(slmBuffer);
         Value *CastBuf =
             Builder.CreatePointerCast(slmBuffer, PointerType::get(I8Ty, 3));
-        Arg = Builder.CreateGEP(CastBuf,
+        Arg = Builder.CreateGEP(I8Ty, CastBuf,
                                 ConstantInt::get(I32Ty, STACK_PADDING_BUFFER));
       }
     } break;
@@ -398,8 +400,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       const ImplicitArgProperties &ImplicitArgProp =
           ImplicitArgsUtils::getImplicitArgProps(I);
       // %0 = getelementptr i8* %pBuffer, i32 CurrOffset
-      Value *GEP =
-          Builder.CreateGEP(ArgsBuffer, ConstantInt::get(I32Ty, CurrOffset));
+      Value *GEP = Builder.CreateGEP(ArgsBufferElementTy, ArgsBuffer,
+                                     ConstantInt::get(I32Ty, CurrOffset));
       Arg = Builder.CreatePointerCast(GEP, IAInfo->getArgType(I));
       WGInfo = Arg;
       // Advance the ArgsBuffer offset based on the size
