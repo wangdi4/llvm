@@ -230,7 +230,8 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
       ConstantInt::get(BSIndexTy, i * BSItemSize)
     };
     Value *BSElemPtr = Builder.CreateGEP(
-        BS, ArrayRef<Value *>(IndexListForBSElem, 2));
+        BS->getType()->getScalarType()->getPointerElementType(), BS,
+        ArrayRef<Value *>(IndexListForBSElem, 2));
 
     // convert current indices list to GEP indices
     convertToGEPIndicesList(IndicesListForPipeElem,
@@ -239,8 +240,9 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
     incrementIndicesList(IndicesListForPipeElem, Dimensions);
 
     // create GEP from pipe array
-    Value *PipeElemPtr = Builder.CreateGEP(
-        PipeArrayGlobal, ArrayRef<Value *>(GEPIndicesListForPipeElem));
+    Value *PipeElemPtr =
+        Builder.CreateGEP(PipePtrArrayTy, PipeArrayGlobal,
+                          ArrayRef<Value *>(GEPIndicesListForPipeElem));
     Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
                         Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
 

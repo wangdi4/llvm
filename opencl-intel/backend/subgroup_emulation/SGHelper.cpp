@@ -363,7 +363,7 @@ void SGHelper::insertPrintf(const Twine &Prefix, Instruction *IP,
       "format.str.", 0, GlobalVariable::NotThreadLocal, StrAddrSpace);
 
   SmallVector<Value *, 2> Idx(2, Builder.getInt32(0));
-  auto *StrPtr = GetElementPtrInst::Create(nullptr, FormatStrGV, Idx, "", IP);
+  auto *StrPtr = GetElementPtrInst::Create(ArrayType, FormatStrGV, Idx, "", IP);
 
   // Insert call.
   SmallVector<Value *, 4> Args{StrPtr};

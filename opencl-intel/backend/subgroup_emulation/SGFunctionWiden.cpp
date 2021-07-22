@@ -161,7 +161,7 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attribute::ZExt);
     AB.addAttribute(Attribute::SExt);
     // For <VF x pointer> sret.
-    AB.addAttribute(Attribute::StructRet);
+    AB.addStructRetAttr(ArgType);
     AttributeSet ParamAttr = Attrs.getParamAttributes(Pair.index());
     ParamAttrs.push_back(ParamAttr.removeAttributes(Context, AB));
   }
@@ -408,7 +408,8 @@ void FunctionWidener::expandReturn(Function *Clone) {
       auto *Idx = Helper.createGetSubGroupLId(IP);
 
       auto *EleIdx = Builder.CreateMul(Idx, Builder.getInt32(OrigNumElements));
-      auto *ElePtr = Builder.CreateGEP(ReturnPtr, {Helper.getZero(), EleIdx});
+      auto *ElePtr =
+          Builder.CreateGEP(ReturnType, ReturnPtr, {Helper.getZero(), EleIdx});
       ElePtr =
           Builder.CreateBitCast(ElePtr, PointerType::get(VecReturnType, 0));
       // Will we encounter iN / type3 issue here?
@@ -423,7 +424,8 @@ void FunctionWidener::expandReturn(Function *Clone) {
       Instruction *IP = getInsertPoint(RI, OrigVal);
       Builder.SetInsertPoint(IP);
       auto *Idx = Helper.createGetSubGroupLId(IP);
-      auto *ElePtr = Builder.CreateGEP(ReturnPtr, {Helper.getZero(), Idx});
+      auto *ElePtr =
+          Builder.CreateGEP(ReturnType, ReturnPtr, {Helper.getZero(), Idx});
       Builder.CreateStore(OrigVal, ElePtr);
       auto *WideRet = fixIntNVector(ReturnType, ReturnPtr, RI);
       RI->setOperand(0, WideRet);

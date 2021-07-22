@@ -218,8 +218,9 @@ namespace intel{
       size_t uiArraySize = DL.getTypeAllocSize(GV->getType()->getElementType());
       assert(0 != uiArraySize && "zero array size!");
       // Now retrieve to the offset of the local buffer
+      Type *Ty = pLocalMem->getType()->getScalarType()->getPointerElementType();
       GetElementPtrInst *pLocalAddr = GetElementPtrInst::Create(
-          nullptr, pLocalMem,
+          Ty, pLocalMem,
           ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
                            currLocalOffset),
           "", m_pInsertPoint);

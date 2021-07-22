@@ -368,9 +368,10 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
     // (not using type from pointer as this functionality is planned to be removed.
-    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
+    Type *Ty = Ptr->getType()->getScalarType()->getPointerElementType();
+    Instruction *GEP = GetElementPtrInst::Create(Ty, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Type *Ty = cast<GetElementPtrInst>(GEP)->getResultElementType();
+    Ty = cast<GetElementPtrInst>(GEP)->getResultElementType();
     Instruction *loader = new LoadInst(Ty, GEP, "vload", false,
                                        align ? Align(align) : Align(), caller);
     Instruction* inserter = InsertElementInst::Create(
@@ -501,7 +502,8 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
     Constant *Idx = ConstantInt::get(Type::getInt32Ty(Elem->getContext()), i);
     // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
     // (not using type from pointer as this functionality is planned to be removed.
-    Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vstore", caller);
+    Type *Ty = Ptr->getType()->getScalarType()->getPointerElementType();
+    Instruction *GEP = GetElementPtrInst::Create(Ty, Ptr, Idx, "vstore", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
     Instruction *storer = new StoreInst(DataElem, GEP, false,

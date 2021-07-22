@@ -119,8 +119,9 @@ void AddTLSGlobals::runOnFunction(Function *pFunc) {
           std::string ValName("pLocalMem_");
           ValName += pCallee->getName();
           Value *GEP = B.CreateGEP(
-              Load, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
-                                     directLocalSize),
+              Load->getType()->getScalarType()->getPointerElementType(), Load,
+              ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32),
+                               directLocalSize),
               ValName);
           B.CreateStore(GEP, m_pLocalMemBase);
           B.SetInsertPoint(pCall->getNextNode());

@@ -14,7 +14,7 @@
 ; CHECK-NOT:  Running pass: VecClonePass
 
 ; CHECK:      Running pass: UnifyFunctionExitNodesPass
-; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
 
 ; CHECK:      Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: PhiCanonicalization

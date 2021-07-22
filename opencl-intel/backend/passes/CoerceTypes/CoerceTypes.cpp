@@ -201,24 +201,24 @@ bool CoerceTypes::runOnFunction(Function *F) {
           // %4 = getelementptr %struct.coerced, %1, i32 0, i32 1
           // %5 = load double, double* %4
           // call void @foo(i64 %3, double %5)
+          Type *PointeeTy =
+              getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
           Value *BC = Builder.CreateBitCast(
               CI->getArgOperand(I),
-              PointerType::get(
-                  getCombinedCoercedType(NewArgTypePair, OldStructT->getName()),
-                  OldArgT->getAddressSpace()));
+              PointerType::get(PointeeTy, OldArgT->getAddressSpace()));
           Value *LoadSrc = BC;
           SmallVector<Value *, 2> Indices(
               2, ConstantInt::get(IntegerType::get(m_pModule->getContext(), 32),
                                   0));
           if (NewArgTypePair.second)
-            LoadSrc = Builder.CreateGEP(BC, Indices);
+            LoadSrc = Builder.CreateGEP(PointeeTy, BC, Indices);
 
           Value *Load = Builder.CreateLoad(NewArgTypePair.first, LoadSrc);
           Args.push_back(Load);
           if (NewArgTypePair.second) {
             Indices[1] = ConstantInt::get(
                 IntegerType::get(m_pModule->getContext(), 32), 1);
-            LoadSrc = Builder.CreateGEP(BC, Indices);
+            LoadSrc = Builder.CreateGEP(PointeeTy, BC, Indices);
             Load = Builder.CreateLoad(NewArgTypePair.second, LoadSrc);
             Args.push_back(Load);
           }
@@ -542,24 +542,24 @@ void CoerceTypes::moveFunctionBody(Function *OldF, Function *NewF,
       return AllocaRes;
     }();
     auto OldStructT = cast<StructType>(OldArgT->getElementType());
+    Type *PointeeTy =
+        getCombinedCoercedType(NewArgTypePair, OldStructT->getName());
     Value *BC = Builder.CreateBitCast(
-        Alloca, PointerType::get(getCombinedCoercedType(NewArgTypePair,
-                                                        OldStructT->getName()),
-                                 OldArgT->getAddressSpace()));
+        Alloca, PointerType::get(PointeeTy, OldArgT->getAddressSpace()));
 
     // If the combined coerced type is a struct itself, insert GEPs
     Value *StoreDest = BC;
     SmallVector<Value *, 2> Indices(
         2, ConstantInt::get(IntegerType::get(m_pModule->getContext(), 32), 0));
     if (NewArgTypePair.second)
-      StoreDest = Builder.CreateGEP(BC, Indices);
+      StoreDest = Builder.CreateGEP(PointeeTy, BC, Indices);
     Builder.CreateStore(&*NewArgI, StoreDest);
     ++NewArgI;
 
     if (NewArgTypePair.second) {
       Indices[1] =
           ConstantInt::get(IntegerType::get(m_pModule->getContext(), 32), 1);
-      StoreDest = Builder.CreateGEP(BC, Indices);
+      StoreDest = Builder.CreateGEP(PointeeTy, BC, Indices);
       Builder.CreateStore(&*NewArgI, StoreDest);
       ++NewArgI;
     }

@@ -859,7 +859,8 @@ void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **d
       for (unsigned i = 0; i < m_packetWidth; i++) {
         // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
         // (not using type from pointer as this functionality is planned to be removed.
-        duplicateInsts[i] = GetElementPtrInst::Create(nullptr, multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
+        Type *Ty = multiPtrOperand[i]->getType()->getScalarType()->getPointerElementType();
+        duplicateInsts[i] = GetElementPtrInst::Create(Ty, multiPtrOperand[i], makeArrayRef(Idx), pGEP->getName());
       }
     }
     else if (AddrSpaceCastInst *pBC = dyn_cast<AddrSpaceCastInst>(I)) {
@@ -923,7 +924,8 @@ void PacketizeFunction::fixSoaAllocaLoadStoreOperands(Instruction *I, unsigned i
       Constant *laneVal = ConstantInt::get(Type::getInt32Ty(I->getContext()), i);
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      multiOperands[i] = GetElementPtrInst::Create(nullptr, multiOperands[i], laneVal, "GEP[Lane]", I);
+      Type *Ty = multiOperands[i]->getType()->getScalarType()->getPointerElementType();
+      multiOperands[i] = GetElementPtrInst::Create(Ty, multiOperands[i], laneVal, "GEP[Lane]", I);
     }
   }
 }

@@ -1012,8 +1012,9 @@ void ScalarizeFunction::scalarizeInstruction(GetElementPtrInst *GI) {
     for (unsigned dup = 0; dup < numElements; dup++) {
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
+      Type *Ty = multiPtrOperand[dup]->getType()->getScalarType()->getPointerElementType();
       newScalarizedInsts[dup] = GetElementPtrInst::Create(
-              nullptr,
+              Ty,
               multiPtrOperand[dup],
               makeArrayRef(Idx),
               GI->getName(),
@@ -1100,12 +1101,14 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
       Constant *laneVal = ConstantInt::get(indexType, dup);
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      Value *pGEP = B.CreateGEP(nullptr, operandBase, laneVal, "GEP_lane");
+      Type *Ty = operandBase->getType()->getScalarType()->getPointerElementType();
+      Value *pGEP = B.CreateGEP(Ty, operandBase, laneVal, "GEP_lane");
       Value *pIndex =
           B.CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s");
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      pGEP = B.CreateGEP(nullptr, pGEP, pIndex, "GEP_s");
+      Ty = pGEP->getType()->getScalarType()->getPointerElementType();
+      pGEP = B.CreateGEP(Ty, pGEP, pIndex, "GEP_s");
       newScalarizedInsts[dup] =
           B.CreateLoad(cast<GetElementPtrInst>(pGEP)->getResultElementType(),
                        pGEP, LI->getName());
@@ -1188,12 +1191,14 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
       Constant *laneVal = ConstantInt::get(indexType, dup);
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      Value *pGEP = B.CreateGEP(nullptr, operandBase, laneVal, "GEP_s");
+      Type *Ty = operandBase->getType()->getScalarType()->getPointerElementType();
+      Value *pGEP = B.CreateGEP(Ty, operandBase, laneVal, "GEP_s");
       Value *pIndex =
           B.CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s");
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      pGEP = B.CreateGEP(nullptr, pGEP, pIndex, "GEP_s");
+      Ty = pGEP->getType()->getScalarType()->getPointerElementType();
+      pGEP = B.CreateGEP(Ty, pGEP, pIndex, "GEP_s");
       B.CreateStore(operand0[dup], pGEP);
     }
 

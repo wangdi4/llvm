@@ -49,7 +49,6 @@ void OptimizerLTO::Optimize() {
   PTO.SLPVectorization = false;
   PTO.MergeFunctions = false;
   PTO.CallGraphProfile = true;
-  PTO.Coroutines = false;
 
   Optional<PGOOptions> PGOOpt;
   PassInstrumentationCallbacks PIC;
