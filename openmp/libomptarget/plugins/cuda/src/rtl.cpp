@@ -78,9 +78,10 @@ struct FuncOrGblEntryTy {
 };
 
 enum ExecutionModeType {
-  SPMD, // constructors, destructors,
-  // combined constructs (`teams distribute parallel for [simd]`)
-  GENERIC, // everything else
+  SPMD,         // constructors, destructors,
+                // combined constructs (`teams distribute parallel for [simd]`)
+  GENERIC,      // everything else
+  SPMD_GENERIC, // Generic kernel with SPMD execution
   NONE
 };
 
@@ -91,6 +92,7 @@ struct KernelTy {
   // execution mode of kernel
   // 0 - SPMD mode (without master warp)
   // 1 - Generic mode (with master warp)
+  // 2 - SPMD mode execution with Generic mode semantics.
   int8_t ExecutionMode;
 
   /// Maximal number of threads per block for this kernel.
@@ -804,7 +806,7 @@ public:
           return nullptr;
         }
 
-        if (ExecModeVal < 0 || ExecModeVal > 1) {
+        if (ExecModeVal < 0 || ExecModeVal > 2) {
           DP("Error wrong exec_mode value specified in cubin file: %d\n",
              ExecModeVal);
           return nullptr;
@@ -1053,7 +1055,7 @@ public:
           // will execute one iteration of the loop. round up to the nearest
           // integer
           CudaBlocksPerGrid = ((LoopTripCount - 1) / CudaThreadsPerBlock) + 1;
-        } else {
+        } else if (KernelInfo->ExecutionMode == GENERIC) {
           // If we reach this point, then we have a non-combined construct, i.e.
           // `teams distribute` with a nested `parallel for` and each team is
           // assigned one iteration of the `distribute` loop. E.g.:
@@ -1066,6 +1068,14 @@ public:
           //
           // Threads within a team will execute the iterations of the `parallel`
           // loop.
+          CudaBlocksPerGrid = LoopTripCount;
+        } else if (KernelInfo->ExecutionMode == SPMD_GENERIC) {
+          // If we reach this point, then we are executing a kernel that was
+          // transformed from Generic-mode to SPMD-mode. This kernel has
+          // SPMD-mode execution, but needs its blocks to be scheduled
+          // differently because the current loop trip count only applies to the
+          // `teams distribute` region and will create var too few blocks using
+          // the regular SPMD-mode method.
           CudaBlocksPerGrid = LoopTripCount;
         }
         DP("Using %d teams due to loop trip count %" PRIu32
@@ -1091,7 +1101,9 @@ public:
              ? getOffloadEntry(DeviceId, TgtEntryPtr)->name
              : "(null)",
          CudaBlocksPerGrid, CudaThreadsPerBlock,
-         (KernelInfo->ExecutionMode == SPMD) ? "SPMD" : "Generic");
+         (KernelInfo->ExecutionMode != SPMD 
+             ? (KernelInfo->ExecutionMode == GENERIC ? "Generic" : "SPMD-Generic")
+             : "SPMD"));
 
     CUstream Stream = getStream(DeviceId, AsyncInfo);
     Err = cuLaunchKernel(KernelInfo->Func, CudaBlocksPerGrid, /* gridDimY */ 1,
