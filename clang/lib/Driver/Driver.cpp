@@ -2278,6 +2278,14 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
 }
 
 llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
+#if INTEL_CUSTOMIZATION
+  // "x86_64" means non-spirv CPU AOT device, replace it with "spir64_x86_64"
+  // (spirv CPU AOT) to let CFE properly treat it as a SYCL device.
+  // e.g. _Float16 is supported on SPIR targets while not on "x86_64".
+  // e.g. there's only one addrspace (0) for "x86_64".
+  if (TargetArch.startswith("x86_64"))
+    TargetArch = "spir64_x86_64";
+#endif // INTEL_CUSTOMIZATION
   SmallVector<StringRef, 5> SYCLAlias = {"spir", "spir64", "spir64_fpga",
                                          "spir64_x86_64", "spir64_gen"};
   if (std::find(SYCLAlias.begin(), SYCLAlias.end(), TargetArch) !=
@@ -4381,6 +4389,11 @@ class OffloadingActionBuilder final {
     /// Flag to signal if the user requested device code split.
     bool DeviceCodeSplit = false;
 
+#if INTEL_CUSTOMIZATION
+    /// Flag to signal if the user intended for the non-spirv CPU target.
+    bool NonSpirvCPU = false;
+#endif // INTEL_CUSTOMIZATION
+
     /// The SYCL actions for the current input.
     ActionList SYCLDeviceActions;
 
@@ -5060,6 +5073,12 @@ class OffloadingActionBuilder final {
                                                       false /*drop titles*/);
           Action *BuildCodeAction = C.MakeAction<SPIRVTranslatorJobAction>(
               ExtractIRFilesAction, types::TY_Tempfilelist);
+#if INTEL_CUSTOMIZATION
+          // Skip SPIRV generation for non-spirv CPU device.
+          if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 &&
+              NonSpirvCPU)
+            BuildCodeAction = ExtractIRFilesAction;
+#endif // INTEL_CUSTOMIZATION
 
           // After the Link, wrap the files before the final host link
           if (isSpirvAOT) {
@@ -5231,6 +5250,16 @@ class OffloadingActionBuilder final {
             SYCLTripleList.push_back(TT);
             if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga)
               SYCLfpgaTriple = true;
+#if INTEL_CUSTOMIZATION
+            // Record that whether the non-spirv path is the real intention.
+            // "NonSpirvCPU" is later used to determine whether "llvm-spirv"
+            // is involved in the toolchain for SPIRV generation.
+            // We keep the triple as "spir64_x86_64" to minimize the risks in
+            // CFE, SYCL runtime & OCL CPU BE.
+            if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64 &&
+                StringRef(Val).startswith("x86_64"))
+              NonSpirvCPU = true;
+#endif // INTEL_CUSTOMIZATION
           }
         }
         if (SYCLAddTargets) {

@@ -13,8 +13,8 @@
 // from opaque pointers in order to identify the types of object that a pointer
 // may be referring to.
 
-#if !INTEL_INCLUDE_DTRANS
-#error PtrTypeAnalyzer.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error PtrTypeAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H

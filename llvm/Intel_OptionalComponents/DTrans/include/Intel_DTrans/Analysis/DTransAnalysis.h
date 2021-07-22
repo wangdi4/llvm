@@ -10,8 +10,8 @@
 // Data Transformation Analysis
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransAnalysis.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransAnalysis.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSANALYSIS_H

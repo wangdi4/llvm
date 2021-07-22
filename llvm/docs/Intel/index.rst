@@ -25,9 +25,17 @@ Xmain
    Analysis/index
    CodeGen/index
    Clang/index
-   DTrans/index
    GapAnalysis/index
    Tools/index
+
+.. INTEL_FEATURE_SW_DTRANS
+
+.. toctree::
+   :hidden:
+
+   DTrans/index
+
+.. end INTEL_FEATURE_SW_DTRANS
 
 .. INTEL_FEATURE_CSA
 
@@ -118,8 +126,12 @@ Major Components
 :doc:`Clang <Clang/index>`
    Container for Clang documents.
 
+.. INTEL_FEATURE_SW_DTRANS
+
 :doc:`DTrans <DTrans/index>`
    Describes data layout transformations and analysis.
+
+.. end INTEL_FEATURE_SW_DTRANS
 
 :doc:`GapAnalysis <GapAnalysis/index>`
    Documents xmain performance and functional gaps for replacing ICC.

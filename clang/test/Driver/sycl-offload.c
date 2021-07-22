@@ -22,11 +22,13 @@
 /// ###########################################################################
 
 /// Check whether an invalid SYCL target is specified:
-// RUN:   %clang -### -fsycl -fsycl-targets=x86_64 %s 2>&1 \
+// INTEL_CUSTOMIZATION
+// RUN:   %clang -### -fsycl -fsycl-targets=amd64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-INVALID-REAL-TARGET %s
-// RUN:   %clang_cl -### -fsycl -fsycl-targets=x86_64 %s 2>&1 \
+// RUN:   %clang_cl -### -fsycl -fsycl-targets=amd64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-INVALID-REAL-TARGET %s
-// CHK-INVALID-REAL-TARGET: error: SYCL target is invalid: 'x86_64'
+// CHK-INVALID-REAL-TARGET: error: SYCL target is invalid: 'amd64'
+// end INTEL_CUSTOMIZATION
 
 /// ###########################################################################
 

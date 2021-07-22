@@ -11,11 +11,12 @@
 #    Configures build for project.
 #
 
-# TODO: The DTrans subdirectory needs to be guarded FEATURE_SW_DTRANS.
-# This will be done after fully moving INCLUDE_DTRANS to FEATURE_SW_DTRANS.
-if (INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if(p)
   add_subdirectory(DTrans)
 endif()
+# end INTEL_FEATURE_SW_DTRANS
 
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)

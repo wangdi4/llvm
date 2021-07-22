@@ -12,8 +12,8 @@
 // intrinsics) pass which removes annotations created by the DTransAnnotator
 // class.
 //
-#if !INTEL_INCLUDE_DTRANS
-#error AnnotatorCleaner.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error AnnotatorCleaner.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_TRANSFORMS_ANNOTATORCLEANER_H

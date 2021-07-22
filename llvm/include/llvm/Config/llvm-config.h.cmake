@@ -18,8 +18,10 @@
 #cmakedefine LLVM_ENABLE_DUMP
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_SW_DTRANS */
 /* Define if we want to include DTrans in the builds */
-#cmakedefine01 INTEL_INCLUDE_DTRANS
+#cmakedefine01 INTEL_ENABLE_SW_DTRANS
+/* end INTEL_FEATURE_SW_DTRANS */
 /* end INTEL_CUSTOMIZATION */
 
 /* Target triple LLVM will generate code for by default */

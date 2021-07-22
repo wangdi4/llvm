@@ -12,8 +12,8 @@
 // implement the DTrans safety checking required to determine whether structure
 // types can be transformed.
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransSafetyAnalyzer.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransSafetyAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
