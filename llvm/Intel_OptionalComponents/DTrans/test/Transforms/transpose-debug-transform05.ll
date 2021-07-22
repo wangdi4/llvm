@@ -19,9 +19,9 @@
 
 ; CHECK-LABEL: Transform candidate: main_$PHYSPROP[0]
 ; CHECK-NEXT: Before: MAIN__:  %i[[N0:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %i[[I0:[0-9]+]],
-; CHECK-NEXT: After : MAIN__:  %i[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %i[[I0]], i64 4
+; CHECK-NEXT: After : MAIN__:  %i[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4
 ; CHECK-NEXT: Before: MAIN__:  %i[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %i[[I1:[0-9]+]],
-; CHECK-NEXT: After : MAIN__:  %i[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %i[[I1]], i64 76,
+; CHECK-NEXT: After : MAIN__:  %i[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000,
 
 
 ; Check that the array represented by the 1st field of main_$PHYSPROP

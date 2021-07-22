@@ -21,9 +21,9 @@
 
 ; CHECK-LABEL: Transform candidate: physpropmod_mp_physprop_[2]
 ; CHECK-NEXT: Before: MAIN__: %[[N0:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I0:[0-9]+]],
-; CHECK-NEXT: After : MAIN__: %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I0]], i64 4,
+; CHECK-NEXT: After : MAIN__: %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4,
 ; CHECK-NEXT: Before: MAIN__: %[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I1:[0-9]+]],
-; CHECK-NEXT: After : MAIN__: %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I1]], i64 76,
+; CHECK-NEXT: After : MAIN__: %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000,
 
 ; Check that the array through which the indirect subscripting is not
 ; transposed.

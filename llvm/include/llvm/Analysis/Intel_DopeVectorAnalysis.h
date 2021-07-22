@@ -772,6 +772,15 @@ public:
   // Identify subscripts accessing the PtrAddr of the dope vector
   void identifyPtrAddrSubs(SubscriptInstSet &SIS);
 
+  // Identify stores to the strides of the dope vector
+  void identifyStrideStores(DopeVectorFieldUse::StoreInstSet SIS[]) {
+    auto DVFT = DopeVectorFieldType::DV_StrideBase;
+    for (unsigned I = 0; I < Rank; ++I) {
+      DopeVectorFieldUse *DVFU = getDopeVectorField(DVFT, I);
+      SIS[I].insert(DVFU->stores().begin(), DVFU->stores().end());
+    }
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
   void print(uint64_t Indent);

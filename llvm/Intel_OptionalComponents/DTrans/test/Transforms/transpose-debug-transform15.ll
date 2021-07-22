@@ -10,7 +10,7 @@
 ; CHECK: Before: get_hygro_rad_props_:  %[[N0:[0-9]+]]  = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %[[X0:[0-9]+]], float* %[[I0:[0-9]+]], i64 %[[J0:[0-9]+]])
 ; CHECK: After : get_hygro_rad_props_:  %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %[[I0]], i64 %[[J0]])
 ; CHECK: Before: get_hygro_rad_props_:  %[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %[[X1:[0-9]+]], float* %[[I1:[0-9]+]], i64 %[[J1:[0-9]+]])
-; CHECK: After : get_hygro_rad_props_:  %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000, float* %[[I1]], i64 %[[J1]])
+; CHECK: After : get_hygro_rad_props_:  %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 76, float* %[[I1]], i64 %[[J1]])
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
