@@ -219,6 +219,12 @@ protected:
   // transformation.
   //===-------------------------------------------------------------------===//
 
+  // The ValueMapper takes a materializer object that will be called with
+  // certain Value objects (functions, basic blocks, and constants) during the
+  // type remapping process. This function allows the derived classes to supply
+  // a Materializer to use during the type remapping process.
+  virtual ValueMaterializer* getMaterializer() { return nullptr; }
+
   // Derived classes may implement this to perform module level work that needs
   // to be performed on global variables prior to beginning any function
   // transformation work. For example, creating new global variables needed
