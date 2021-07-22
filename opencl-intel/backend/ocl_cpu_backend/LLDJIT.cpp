@@ -387,6 +387,13 @@ int LLDJIT::compileSymbolJumpTable(
   AsmCode << ".text\n"
              ".balign 4\n";
 
+#if defined(_WIN32) && !defined(_WIN64)
+  // Enable SafeSEH on x86 windows, otherwise lld will report "incompatible with
+  // SEH" error
+  AsmCode << ".globl @feat.00\n.def @feat.00\n.scl 3\n.type 0\n.endef\n"
+          << "@feat.00 = 0x1\n";
+#endif
+
   for (const std::string &Sym : ExternalSymbols) {
     std::string Name = Sym;
     assert(!Name.empty());
@@ -440,7 +447,7 @@ int LLDJIT::compileSymbolJumpTable(
 
 #if 0 // Enable this to dump the asm code to disk for debugging.
   std::ofstream jumptableDump("jumptable.S");
-  jumptableDump << asmCodeStdStr;
+  jumptableDump << AsmCodeStdStr;
   jumptableDump.close();
 #endif
 
