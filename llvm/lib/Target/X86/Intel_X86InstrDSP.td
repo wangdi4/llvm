@@ -171,4 +171,17 @@ defm DVPDPBSUD :  dspv1_3op_rw<0xc1, "dvpdpbsud", loadv16i8>, T_MAP8XS;
 defm DVPDPBSUDS : dspv1_3op_rw<0xc2, "dvpdpbsuds", loadv16i8>, T_MAP8XS;
 defm DVPNDPBSSD : dspv1_3op_rw<0xde, "dvpndpbssd", loadv16i8>, T_MAP8XS, VEX_W;
 // end Chapter 8
+
+// Chapter 12
+let Uses = [MXCSR] in {
+  defm DVPSRARD :  dspv1_2op_imm8_w<0xa2, "dvpsrard", loadv4i32>, TAXD;
+  defm DVPSRAVRD : dspv1_3op_w<0xe2, "dvpsravrd", loadv4i32>, T_MAP8XD;
+  defm DVPSRRUD :  dspv1_2op_imm8_w<0xa2, "dvpsrrud", loadv4i32>, TAPS;
+  defm DVPSRVRUD : dspv1_3op_w<0xe2, "dvpsrvrud", loadv4i32>, T_MAP8PS;
+}
+defm DVPSLVSD :  dspv1_3op_w<0xe2, "dvpslvsd", loadv4i32>, T_MAP8XS;
+defm DVPSLSD :   dspv1_2op_imm8_w<0xa2, "dvpslsd", loadv4i32>, TAXS;
+defm DVPSLSUD :  dspv1_2op_imm8_w<0xa2, "dvpslsud", loadv4i32>, TAPD;
+defm DVPSLVSUD : dspv1_3op_w<0xe2, "dvpslvsud", loadv4i32>, T_MAP8PD;
+// end Chapter 12
 #endif // INTEL_FEATURE_ISA_DSPV1
