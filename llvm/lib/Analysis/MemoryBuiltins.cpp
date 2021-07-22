@@ -560,7 +560,7 @@ bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
 bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   unsigned ExpectedNumParams;
 #if INTEL_CUSTOMIZATION
-  if (TLIFn == LibFunc___kmpc_free_shared || // OpenMP Offloading RTL free
+  if (
 #endif // INTEL_CUSTOMIZATION
       TLIFn == LibFunc_ZdlPv || // operator delete(void*)
       TLIFn == LibFunc_ZdaPv || // operator delete[](void*)
@@ -584,7 +584,8 @@ bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
            TLIFn == LibFunc_msvc_delete_array_ptr32_int ||      // delete[](void*, uint)
            TLIFn == LibFunc_msvc_delete_array_ptr64_longlong || // delete[](void*, ulonglong)
            TLIFn == LibFunc_msvc_delete_array_ptr32_nothrow || // delete[](void*, nothrow)
-           TLIFn == LibFunc_msvc_delete_array_ptr64_nothrow)   // delete[](void*, nothrow)
+           TLIFn == LibFunc_msvc_delete_array_ptr64_nothrow || // delete[](void*, nothrow)
+           TLIFn == LibFunc___kmpc_free_shared) // OpenMP Offloading RTL free
     ExpectedNumParams = 2;
   else if (TLIFn == LibFunc_ZdaPvSt11align_val_tRKSt9nothrow_t || // delete(void*, align_val_t, nothrow)
            TLIFn == LibFunc_ZdlPvSt11align_val_tRKSt9nothrow_t || // delete[](void*, align_val_t, nothrow)

@@ -1669,8 +1669,10 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_mktime:
   case LibFunc_times:
   case LibFunc_vec_free:
-  case LibFunc___kmpc_free_shared:
     return (NumParams != 0 && FTy.getParamType(0)->isPointerTy());
+  case LibFunc___kmpc_free_shared:
+    return (NumParams == 2 && FTy.getParamType(0)->isPointerTy() &&
+            IsSizeTTy(FTy.getParamType(1)));
 
 #if INTEL_CUSTOMIZATION
   case LibFunc_cpow:
