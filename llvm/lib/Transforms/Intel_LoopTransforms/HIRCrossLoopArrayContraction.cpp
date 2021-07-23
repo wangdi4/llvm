@@ -1237,7 +1237,7 @@ static const RegDDRef *findIdentityMatrixDef(HLRegion &Region, DDGraph &DDG,
 static bool canMergeCorrectly(const HLLoop *Lp, unsigned MergeLevels) {
   SmallVector<const HLLoop *, 6> InnerLoops;
 
-  Lp->getHLNodeUtils().gatherAllLoops(Lp, InnerLoops);
+  HLNodeUtils::gatherAllLoops(Lp, InnerLoops);
 
   for (auto *InnerLp : InnerLoops) {
     if ((InnerLp != Lp) && (InnerLp->getNestingLevel() <= MergeLevels)) {

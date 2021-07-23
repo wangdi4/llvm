@@ -575,7 +575,7 @@ void CGVisitor::preprocess(HLRegion *Reg) {
 
   // Gather all loops for processing.
   SmallVector<HLLoop *, 64> Loops;
-  Reg->getHLNodeUtils().gatherAllLoops(Reg, Loops);
+  HLNodeUtils::gatherAllLoops(Reg, Loops);
 
   // Extract ztt, preheader and postexit.
   for (auto &I : Loops) {

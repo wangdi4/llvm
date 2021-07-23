@@ -3080,12 +3080,25 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
   LoopOptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  if (Loop->isInnermost()) {
-    // Loop completely unrolled.
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25532u);
-  } else {
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                "Loopnest completely unrolled");
+  if (LORBuilder.isLoopOptReportOn()) {
+    SmallVector<HLLoop *, 4> UnrollLoops;
+
+    HLNodeUtils::gatherAllLoops(Loop, UnrollLoops);
+
+    for (auto *Lp : UnrollLoops) {
+      uint64_t TC;
+
+      if (Lp->isConstTripLoop(&TC)) {
+        // Loop completely unrolled by %d
+        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25436u,
+                                  (unsigned)TC);
+      } else {
+        // This is some inner loop of triangular loopnest.
+
+        // Loop completely unrolled
+        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25508u);
+      }
+    }
   }
 
   LORBuilder(*Loop).preserveLostLoopOptReport();

@@ -747,7 +747,7 @@ bool HIRUnrollAndJam::hasNonInnermostChildrenLoop(HLLoop *Lp) const {
 static bool isCompleteUnrollCandidate(HLLoop *OuterLp) {
   SmallVector<HLLoop *, 8> Loops;
 
-  OuterLp->getHLNodeUtils().gatherAllLoops(OuterLp, Loops);
+  HLNodeUtils::gatherAllLoops(OuterLp, Loops);
 
   uint64_t TC;
   for (auto Lp : Loops) {

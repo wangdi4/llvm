@@ -24,7 +24,7 @@
 ; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length 4{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN
-; OPTREPORT-NEXT:             remark #25532: Loop completely unrolled
+; OPTREPORT-NEXT:             remark #25436: Loop completely unrolled by 10
 ; OPTREPORT-NEXT:         LOOP END
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -41,7 +41,7 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 ; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
 ; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}

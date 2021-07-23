@@ -66,7 +66,7 @@ public:
   static void invalidateLoopNestBody(const HLLoop *Loop) {
     SmallVector<const HLLoop *, 4> Loops;
 
-    Loop->getHLNodeUtils().gatherAllLoops(Loop, Loops);
+    HLNodeUtils::gatherAllLoops(Loop, Loops);
 
     for (auto *Lp : Loops) {
       HIRAnalysisProvider::Invoke<Exclude...>(
