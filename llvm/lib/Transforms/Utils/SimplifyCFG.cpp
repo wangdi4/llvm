@@ -2764,14 +2764,13 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     BasicBlock *Pred = BBPreds[i];
 
     BasicBlock *IfTrue = nullptr, *IfFalse = nullptr;
-    Value *IfCond = GetIfCondition(BB, Pred, IfTrue, IfFalse);
-
-    if (!IfCond ||
-        // Don't bother if the branch will be constant folded trivially.
-        isa<ConstantInt>(IfCond)) {
-      // continue to look for next "if condition".
+    BranchInst *DomBI = GetIfCondition(BB, Pred, IfTrue, IfFalse);
+    if (!DomBI)
       continue;
-    }
+    Value *IfCond = DomBI->getCondition();
+    // Don't bother if the branch will be constant folded trivially.
+    if (isa<ConstantInt>(IfCond))
+      continue; // continue to look for next "if condition".
 
     // Don't try to fold an unreachable block. For example, the phi node itself
     // can't be the candidate if-condition for a select that we want to form.

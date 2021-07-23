@@ -523,26 +523,24 @@ void SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
 /// (does not have be an immediate predecessor) check to see if the merge at
 /// BB is due to an "if condition" that is post-dominated by BB and Pred is
 /// either the conditional block or the block that is taken if the condition is
-/// true or false.  If so, return the boolean condition that determines which
+/// true or false.  If so, return the branch instruction that determines which
 /// entry into BB will be taken.  Also, return by references the block that
 /// will be entered from if the condition is true, and the block that will be
 /// entered from if the condition is false.
-Value *GetIfCondition(BasicBlock *BB,
-                      BasicBlock *Pred,
-                      BasicBlock *&IfTrue,
-                      BasicBlock *&IfFalse);
+BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *Pred,
+                           BasicBlock *&IfTrue, BasicBlock *&IfFalse);
 #endif // INTEL_CUSTOMIZATION
 
 /// Check whether BB is the merge point of a if-region.
-/// If so, return the boolean condition that determines which entry into
+/// If so, return the branch instruction that determines which entry into
 /// BB will be taken.  Also, return by references the block that will be
 /// entered from if the condition is true, and the block that will be
 /// entered if the condition is false.
 ///
 /// This does no checking to see if the true/false blocks have large or unsavory
 /// instructions in them.
-Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
-                      BasicBlock *&IfFalse);
+BranchInst *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
+                           BasicBlock *&IfFalse);
 
 // Split critical edges where the source of the edge is an indirectbr
 // instruction. This isn't always possible, but we can handle some easy cases.
