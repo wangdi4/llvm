@@ -3694,7 +3694,12 @@ public:
 
   VPValue *getConflictLoad() const { return getOperand(2); }
 
-  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  // Returns VPGeneralMemOptConflict live-ins.
+  inline decltype(auto) getliveins() {
+    return make_range(op_begin() + 3, op_end());
+  }
+
+  // Methods for supporting type inquiry through isa, cast and dyn_cast:
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == VPInstruction::GeneralMemOptConflict;
   }
