@@ -1244,10 +1244,6 @@ def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>,
 def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>,
   HelpText<"Align the start of functions on a 2 (DEFAULT) or <n> byte boundary "
   "where <n> is a power of 2.">;
-#endif // INTEL_CUSTOMIZATION
-def falign_loops_EQ : Joined<["-"], "falign-loops=">, Group<f_Group>,
-  MarshallingInfoInt<CodeGenOpts<"LoopAlignment">>;
-#if INTEL_CUSTOMIZATION
 def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
   HelpText<"Aligns on a 2-byte boundary">;
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
@@ -5162,6 +5158,7 @@ def ld_path_EQ : Joined<["--"], "ld-path=">, Group<Link_Group>;
 defm align_labels : BooleanFFlag<"align-labels">, Group<clang_ignored_gcc_optimization_f_Group>;
 def falign_labels_EQ : Joined<["-"], "falign-labels=">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm align_loops : BooleanFFlag<"align-loops">, Group<clang_ignored_gcc_optimization_f_Group>;
+def falign_loops_EQ : Joined<["-"], "falign-loops=">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm align_jumps : BooleanFFlag<"align-jumps">, Group<clang_ignored_gcc_optimization_f_Group>;
 def falign_jumps_EQ : Joined<["-"], "falign-jumps=">, Group<clang_ignored_gcc_optimization_f_Group>;
 
