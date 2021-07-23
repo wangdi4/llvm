@@ -178,7 +178,8 @@ void LLDJIT::mapDllFunctions(void *DLLHandle) {
   }
 }
 
-void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
+/// Change DLLStorageClass of global objects to dllexport
+static void dllExportGlobalVariables(Module *M) {
   for (auto &GV : M->global_objects()) {
     if (GV.hasInternalLinkage() || GV.hasDLLImportStorageClass() ||
         GV.hasPrivateLinkage())
@@ -196,6 +197,21 @@ void LLDJIT::dllExportGlobalVariables(llvm::Module *M) {
       if (IS_ADDR_SPACE_GLOBAL(AS) || IS_ADDR_SPACE_CONSTANT(AS))
         GV.setDLLStorageClass(GlobalValue::DLLExportStorageClass);
     }
+  }
+}
+
+/// Change DLLStorageClass of global ctors to dllexport
+static void dllExportGlobalCtors(Module *M) {
+  GlobalVariable *GV = M->getGlobalVariable("llvm.global_ctors");
+  if (!GV)
+    return;
+
+  auto *Ctors = dyn_cast<ConstantArray>(GV->getInitializer());
+
+  for (Value *CtorVal : Ctors->operand_values()) {
+    Constant *Ctor = cast<Constant>(CtorVal);
+    auto *CtorFn = cast<Function>(Ctor->getOperand(1));
+    CtorFn->setDLLStorageClass(GlobalValue::DLLExportStorageClass);
   }
 }
 
@@ -292,6 +308,11 @@ void LLDJIT::generateCodeForModule(Module *M) {
 
   // Change DLLStorageClass to dllexport for global variables.
   dllExportGlobalVariables(M);
+
+  // Global ctors need to be manually called outside the .dll, because we don't
+  // have a real _DllMainCRTStartup function to call them, so we need to export
+  // them.
+  dllExportGlobalCtors(M);
 
   // Try to load the pre-compiled object from cache if possible
   if (ObjCache) {
@@ -568,6 +589,14 @@ Module *LLDJIT::findModuleForSymbol(const std::string &Name,
 
 uint64_t LLDJIT::getSymbolAddress(const std::string &Name,
                                   bool CheckFunctionsOnly) {
+  // If the dll has already been loaded, directly look up symbols from it,
+  // because the IR may be the one saved in aot binary and isn't reliable, as
+  // it comes from clang front end and isn't processed by OpenCL optimizer, and
+  // some symbols (e.g., fpga pipes) are missing.
+  if (DLLHandle)
+    return reinterpret_cast<uintptr_t>(
+        GetProcAddress(reinterpret_cast<HMODULE>(DLLHandle), Name.data()));
+
   std::string MangledName = Name;
   if (auto Sym = findSymbol(MangledName, CheckFunctionsOnly)) {
     if (auto AddrOrErr = Sym.getAddress())
