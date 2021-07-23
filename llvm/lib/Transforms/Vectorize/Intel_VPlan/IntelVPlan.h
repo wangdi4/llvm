@@ -3596,6 +3596,8 @@ public:
                      });
   }
 
+  int getSize() const { return BBs.size(); }
+
   void
   addRgnLiveInsOuts(SmallVector<std::unique_ptr<VPValue>> RgnLiveIns,
                     SmallVector<std::unique_ptr<VPRegionLiveOut>> RgnLiveOuts) {
@@ -3672,7 +3674,7 @@ public:
   // the region.
   VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
                           std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
-                          const SmallVector<VPValue *, 2> &Params)
+                          ArrayRef<VPValue *> Params)
       : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
         Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
     // Add conflicting index as operand.
@@ -3695,7 +3697,7 @@ public:
   VPValue *getConflictLoad() const { return getOperand(2); }
 
   // Returns VPGeneralMemOptConflict live-ins.
-  inline decltype(auto) getliveins() {
+  inline decltype(auto) getLiveIns() const {
     return make_range(op_begin() + 3, op_end());
   }
 
@@ -3709,11 +3711,9 @@ public:
   }
 
   VPGeneralMemOptConflict *cloneImpl() const override {
-    SmallVector<VPValue *, 2> NewParams;
-    for (unsigned i = 2; i < getNumOperands(); i++)
-      NewParams.push_back(getOperand(i));
     return new VPGeneralMemOptConflict(
-        getType(), getOperand(0), Region->clone(), getOperand(2), NewParams);
+        getType(), getOperand(0), Region->clone(), getOperand(2),
+        ArrayRef<VPValue *>(op_begin() + 3, op_end()));
   }
 
 private:

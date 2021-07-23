@@ -832,25 +832,22 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     for (auto *I = VConflictLoad; I != VConflictStore; I = I->getNextNode())
       InsnsBetweenLoadStore.insert(I);
 
-    if (any_of(VConflictLoad->users(),
-               [InsnsBetweenLoadStore](const VPUser *U) {
-                 return !InsnsBetweenLoadStore.count(cast<VPInstruction>(U));
-               }))
-      return reportMatchFail("VConflict load has uses outside of the region.");
-
     // Next, we start from VConflictLoad uses and we collect all the uses until
     // we reach VConflictStore.
     SmallVector<VPInstruction *, 2> RegionInsns;
-    for (auto *U : VConflictLoad->users())
-      for (auto It = df_begin(U), End = df_end(U); It != End;) {
-        if (*It == VConflictStore ||
-            !InsnsBetweenLoadStore.count(cast<VPInstruction>(*It))) {
-          It.skipChildren();
-          continue;
-        }
-        RegionInsns.push_back(cast<VPInstruction>(*It));
-        It++;
+    using df_iter = df_iterator<VPUser *>;
+    for (auto It = std::next(df_iter::begin(VConflictLoad)),
+              End = df_iter::end(VConflictLoad);
+         It != End;) {
+      if (*It == VConflictStore) {
+        It.skipChildren();
+        continue;
       }
+      if (!InsnsBetweenLoadStore.count(cast<VPInstruction>(*It)))
+        return reportMatchFail("VConflict load's use-chain escapes the region.");
+      RegionInsns.push_back(cast<VPInstruction>(*It));
+      It++;
+    }
 
     // Check if any of the RegionInsns has uses outside of VConflict pattern.
     // Such uses need a special processing which is not implemented yet. Hence,
@@ -860,7 +857,7 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
             return !is_contained(RegionInsns, U) && (U != VConflictStore);
           })))
         return reportMatchFail("VConflict region should not have instructions "
-                        "with uses outside of the region.");
+                               "with uses outside of the region.");
       if (I->mayHaveSideEffects())
         return reportMatchFail(
             "VConflict region should not have instructions with side effects.");
@@ -868,22 +865,19 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
 
     // Collect the live-ins of VConflict region. We check if any operands of the
     // VConflct region's instructions have definition outside of the region.
-    SmallVector<VPValue *, 2> RgnLiveIns;
+    SetVector<VPValue *> RgnLiveIns;
     for (auto *VPInst : RegionInsns) {
       for (auto *Op : VPInst->operands()) {
-        if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op)) {
-          RgnLiveIns.push_back(Op);
+        if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op))
+          continue;
+        if (is_contained(RegionInsns, Op))
+          continue;
+        if (cast<VPInstruction>(Op) == VConflictLoad) {
+          // We want VConflictLoad to be the third operand of VConflict
+          // instruction.
           continue;
         }
-        if (!is_contained(RegionInsns, Op))
-          if (!is_contained(RgnLiveIns, Op)) {
-            if (cast<VPInstruction>(Op) == VConflictLoad) {
-              // We want VConflictLoad to be the third operand of VConflict
-              // instruction.
-              continue;
-            }
-            RgnLiveIns.push_back(Op);
-          }
+        RgnLiveIns.insert(Op);
       }
     }
 
@@ -925,12 +919,11 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
       LInIt++;
     }
     // Generate new live-out. Its operand is the original live-out.
-    VPUser *User = cast<VPRegionLiveOut>(VConflictStore->getOperand(0));
     SmallVector<std::unique_ptr<VPRegionLiveOut>, 2> RgnLiveOuts;
-    auto NewLiveOut = std::make_unique<VPRegionLiveOut>(
-        User, Type::getVoidTy(*Plan->getLLVMContext()));
+    VPValue *LiveOutUse = VConflictStore->getOperand(0);
+    auto NewLiveOut =
+        std::make_unique<VPRegionLiveOut>(LiveOutUse, LiveOutUse->getType());
     RgnLiveOuts.push_back(std::move(NewLiveOut));
-
     Region->addRgnLiveInsOuts(std::move(RenamedLiveIns),
                               std::move(RgnLiveOuts));
 
@@ -939,7 +932,8 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     VPBldr.setInsertPoint(VConflictStore);
     auto *Conflict = VPBldr.create<VPGeneralMemOptConflict>(
         "vp.general.mem.opt.conflict", VConflictStore->getOperand(0)->getType(),
-        VConflictIndex, std::move(Region), VConflictLoad, RgnLiveIns);
+        VConflictIndex, std::move(Region), VConflictLoad,
+        RgnLiveIns.getArrayRef());
     // Update VPConflictStore's first operand with VPGeneralMemOptConflict.
     VConflictStore->setOperand(0, Conflict);
   }

@@ -411,6 +411,11 @@ public:
     return OS;
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPRegionLiveOutSC;
+  }
+
   // VPUser's destructor won't drop references.
   ~VPRegionLiveOut() { dropAllReferences(); }
 };
