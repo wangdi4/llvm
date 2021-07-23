@@ -548,12 +548,11 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     LORBuilder(*MainLoop).moveSiblingsTo(*OrigLoop);
     if (OptTy == OptimizationType::Vectorizer) {
       LORBuilder(*OrigLoop).addOrigin("Remainder loop for vectorization");
-    } else if (OptTy == OptimizationType::Unroll) {
-      LORBuilder(*OrigLoop).addOrigin("Remainder");
     } else {
-      assert(OptTy == OptimizationType::UnrollAndJam &&
+      assert(((OptTy == OptimizationType::Unroll) ||
+              (OptTy == OptimizationType::UnrollAndJam)) &&
              "Invalid optimization type!");
-      LORBuilder(*OrigLoop).addOrigin("Remainder loop for unroll-and-jam");
+      LORBuilder(*OrigLoop).addOrigin("Remainder");
     }
   } else
     assert((!RuntimeChecks || RuntimeChecks->empty()) &&

@@ -917,7 +917,7 @@ OptReportDiag OptReportDiag::Diags[] = {
     {25537, ""},
     {25538, ""},
     {25539, ""},
-    {25540, "Loop has been unrolled and jammed by %d"},
+    {25540, "Loop unrolled and jammed by %d"},
     {25541, ""},
     {25542, ""},
     {25543, ""},
