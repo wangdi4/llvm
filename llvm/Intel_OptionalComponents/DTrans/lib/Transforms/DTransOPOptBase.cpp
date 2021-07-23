@@ -1060,7 +1060,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
              "CloneFuncToOrigFuncMap is invalid");
 
       CloneFunctionInto(CloneFunc, &F, VMap,
-                        CloneFunctionChangeType::LocalChangesOnly, Returns, "",
+                        CloneFunctionChangeType::GlobalChanges, Returns, "",
                         &CodeInfo, &TypeRemapper, getMaterializer());
       UpdateCallInfoForFunction(&F, /* IsCloned=*/true);
 
