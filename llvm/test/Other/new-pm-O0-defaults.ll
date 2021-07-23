@@ -60,6 +60,7 @@
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
 ; CHECK-LTO: Running pass: Annotation2MetadataPass
+; CHECK-LTO-NEXT: Running pass: CrossDSOCFIPass on [module]
 ; INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis
