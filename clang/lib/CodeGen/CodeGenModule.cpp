@@ -1874,7 +1874,20 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
   if (LangOpts.SYCLIsDevice && !IsEsimdFunction)
     Fn->setMetadata("kernel_arg_buffer_location",
                     llvm::MDNode::get(VMContext, argSYCLBufferLocationAttr));
-  else {
+#if INTEL_CUSTOMIZATION
+  // kernel_arg_addr_space, kernel_arg_access_qual, ... are required for CPU
+  // backend to work properly.
+  // FIXME:
+  // Theoretically these OpenCL specific kernel arg metadata are not needed for
+  // SYCL kernels. Stop emitting these in SYCL mode when the CPU device backend
+  // doesn't require them anymore.
+  bool IsCPUDevice =
+      getTriple().isSPIR() &&
+      getTriple().getSubArch() == llvm::Triple::SPIRSubArch_x86_64;
+  // "!(LangOpts.SYCLIsDevice && !IsEsimdFunction)" is equivalent to the
+  // original "else" condition.
+  if (!(LangOpts.SYCLIsDevice && !IsEsimdFunction) || IsCPUDevice) {
+#endif // INTEL_CUSTOMIZATION
     Fn->setMetadata("kernel_arg_addr_space",
                     llvm::MDNode::get(VMContext, addressQuals));
     Fn->setMetadata("kernel_arg_access_qual",

@@ -164,4 +164,8 @@
 // RUN:  | FileCheck %s -check-prefixes=STATIC_ARCHIVE_UNBUNDLE
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fsycl -fsycl-targets=spir64_x86_64-unknown-unknown-sycldevice %t.a -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefixes=STATIC_ARCHIVE_UNBUNDLE
+// INTEL_CUSTOMIZATION
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fsycl -fsycl-targets=x86_64-unknown-unknown-sycldevice %t.a -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=STATIC_ARCHIVE_UNBUNDLE
+// end INTEL_CUSTOMIZATION
 // STATIC_ARCHIVE_UNBUNDLE: clang-offload-bundler{{.*}}

@@ -1,5 +1,7 @@
 ; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; This test verifies that the DTrans delete field pass correctly transforms
 ; a global variable that is a pointer to types being changed. Also, checks that
@@ -9,13 +11,13 @@
 
 @g_test = private global %struct.test zeroinitializer
 @g_ptr = private global %struct.test* @g_test, !intel_dtrans_type !3
-; CHECK-NONOPAQUE: @g_test = private global %__DFT_struct.test zeroinitializer
-; CHECK-NONOPAQUE: @g_ptr = private global %__DFT_struct.test* @g_test, !intel_dtrans_type ![[MD_PTR1:[0-9]+]]
+; CHECK-NONOPAQUE-DAG: @g_test = private global %__DFT_struct.test zeroinitializer
+; CHECK-NONOPAQUE-DAG: @g_ptr = private global %__DFT_struct.test* @g_test, !intel_dtrans_type ![[MD_PTR1:[0-9]+]]
 
 ; Variable print order differs because with opaque pointers only one variable
 ; is changed during the transformation.
-; CHECK-OPAQUE: @g_ptr = private global p0 @g_test, !intel_dtrans_type ![[MD_PTR1:[0-9]+]]
-; CHECK-OPAQUE: @g_test = private global %__DFT_struct.test zeroinitializer
+; CHECK-OPAQUE-DAG: @g_ptr = private global ptr @g_test, !intel_dtrans_type ![[MD_PTR1:[0-9]+]]
+; CHECK-OPAQUE-DAG: @g_test = private global %__DFT_struct.test zeroinitializer
 
 define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
   %p_test_A = getelementptr %struct.test, %struct.test* @g_test, i64 0, i32 0

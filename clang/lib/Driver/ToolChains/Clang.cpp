@@ -2335,8 +2335,7 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
     TuneCPU = "generic";
 #if INTEL_CUSTOMIZATION
   // Reset TuneCPU if a valid -x or /Qx is specified.
-  if (const Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ,
-                                            options::OPT_x))
+  if (const Arg *A = clang::driver::getLastArchArg(Args, false))
     if (A->getOption().matches(options::OPT_x))
       if (x86::isValidIntelCPU(A->getValue(), getToolChain().getTriple()))
         TuneCPU.clear();
@@ -8033,7 +8032,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-fintel-advanced-optim");
   };
   // Given -x, turn on advanced optimizations
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+  if (Arg *A = clang::driver::getLastArchArg(Args, false))
     addAdvancedOptimFlag(*A, options::OPT_x);
   // Additional handling for /arch and /Qx
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,

@@ -5399,21 +5399,38 @@ static void BreakEHToBlock(BasicBlock *BB,
     if (BBSet.find(PredBB) != BBSet.end()) {
       // PredBB is in the region and precedes the bad exit block.
       // (lpad_loop_exit in the below example)
-      // Find out if there is an EH pad that dominates PredBB.
+      // Find out if there is an exception path leading to PredBB.
       // If there is, this is an undefined path and we can terminate it
       // before it hits BB.
       LLVM_DEBUG(dbgs() << "In-set pred is " << PredBB->getName() << "\n");
-      auto *DomNode = DT->getNode(PredBB);
-      while (DomNode) {
-        auto *DomBB = DomNode->getBlock();
-        if (DomBB->isEHPad() && (BBSet.find(DomBB) != BBSet.end())) {
-          LLVM_DEBUG(dbgs() << "Found EH pad at " << DomBB->getName()
-                            << " dominates " << PredBB->getName() << "\n");
-          BreakEdge(PredBB, BB, DT);
-          // Stop searching.
+      bool Found = false;
+      // If BB is an EH pad, it must be reached through an exception path.
+      // All preds of the EH pad are EH paths.
+      if (BB->isEHPad())
+        Found = true;
+
+      // BB could also be cleanup code after a handler has executed.
+      // Find out if there is an EH path through PredBB. Do a DFS
+      // starting at PredBB, looking for EH pads.
+      df_iterator_default_set<BasicBlock*> Visited;
+      for (BasicBlock *CurrBB : inverse_depth_first_ext(PredBB, Visited)) {
+        // Only interested in region blocks, mark outside blocks as visited.
+        if (BBSet.find(CurrBB) == BBSet.end())
+          for (auto *CurrBBPred : predecessors(CurrBB))
+            Visited.insert(CurrBBPred);
+
+        if (CurrBB->isEHPad()) {
+          LLVM_DEBUG(dbgs() << "Found EH pad at " << CurrBB->getName()
+                            << " leading to" << PredBB->getName() << "\n");
+          Found = true;
           break;
         }
-        DomNode = DomNode->getIDom();
+      }
+      if (Found) {
+        BreakEdge(PredBB, BB, DT);
+      } else {
+        // need braces for non-debug build
+        LLVM_DEBUG(dbgs() << "Did not find EH path to block.\n");
       }
     }
   }

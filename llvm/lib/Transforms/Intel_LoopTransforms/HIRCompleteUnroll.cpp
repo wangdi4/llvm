@@ -1959,10 +1959,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::canEliminate(
 
 // Returns true if \p StoreRef is a store which looks like a candidate for
 // memset/memcpy and has no use within the region.
-static bool isMemIdiomStore(const RegDDRef *StoreRef) {
-  // Non-alloca stores are unlikely to be optimized away by LLVM passes.
-  // TODO: Treat noalias pointers like alloca for profitability.
-  if (!StoreRef->isLval() || StoreRef->accessesAlloca()) {
+static bool isMemIdiomStore(const RegDDRef *StoreRef, const HLLoop *OuterLoop) {
+  if (!StoreRef->isLval()) {
     return false;
   }
 
@@ -1974,11 +1972,28 @@ static bool isMemIdiomStore(const RegDDRef *StoreRef) {
 
   auto *ParentLoop = Inst->getParentLoop();
 
-  // Approximate check to determine whether there is a use of store inside
+  // Approximate checks to determine whether there is a use of store inside
   // region after the current loop without actually traversing the HIR.
-  // TODO: extend check to perfect loopnests.
-  if (!ParentLoop->isInnermost() || ParentLoop->hasPostexit() ||
-      (ParentLoop != ParentLoop->getParentRegion()->getLastChild())) {
+  if (!ParentLoop->isInnermost() || ParentLoop->hasPostexit()) {
+    return false;
+  }
+  auto *PerfectLoopnestParent =
+      HLNodeUtils::getHighestAncestorForPerfectLoopNest(ParentLoop);
+
+  if (PerfectLoopnestParent) {
+    // Allow unrolling of entire perfect loopnest.
+    // Collapsing + memset/memcpy is more profitable than complete unrolling of
+    // partial perfect loopnests.
+    if (HLNodeUtils::contains(OuterLoop, PerfectLoopnestParent)) {
+      return false;
+    }
+
+    // This check assumes that allocas can be optimized away by scalar-opt even
+    // if complete unroller's cost model wasn't able to determine its
+    // profitability.
+    // TODO: Treat noalias pointers like alloca for profitability.
+  } else if (StoreRef->accessesAlloca() ||
+             (ParentLoop != ParentLoop->getParentRegion()->getLastChild())) {
     return false;
   }
 
@@ -2082,7 +2097,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
         // double the saving.
         GEPSavings += (2 * UniqueOccurences * BaseCost);
 
-      } else if (HCU.IsPreVec && isMemIdiomStore(Ref)) {
+      } else if (HCU.IsPreVec && isMemIdiomStore(Ref, OuterLoop)) {
         // Add extra cost for memset/memcpy like stores in pre-vec pass so that
         // the loops are left for idiom recognition/vectorizer pass to process.
         GEPCost += (UniqueOccurences * BaseCost);

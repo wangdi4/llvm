@@ -15,8 +15,8 @@
 // transformation that depends on constant values and DTrans.
 //===---------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransArraysWithConstant.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransArraysWithConstant.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSARRAYSWITHCONSTANT_H

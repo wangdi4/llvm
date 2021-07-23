@@ -158,7 +158,7 @@ void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
     return isa<VPLoadStoreInst>(U) || isa<VPPHINode>(U) || isa<VPBlendInst>(U);
   };
 
-  auto SOAUnitStridedPHIUsersToProcess = [=](const VPUser *U) -> bool {
+  auto SOAUnitStridedPHIUsersToProcess = [&](const VPUser *U) -> bool {
     return (isa<VPPHINode>(U) &&
             !DA.isUnitStridePtr(
                 // FIXME: Get access type from the memory op.

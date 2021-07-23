@@ -12,8 +12,8 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransOPUtils.h included in a non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransOPUtils.h included in a non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSOPUTILS_H

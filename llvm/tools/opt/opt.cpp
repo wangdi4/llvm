@@ -59,9 +59,9 @@
 #include "llvm/Transforms/Utils/Debugify.h"
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #include <algorithm>
@@ -640,9 +640,9 @@ int main(int argc, char **argv) {
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   initializeDTransPasses(Registry);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
   initializeOptimizeDynamicCastsWrapperPass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 

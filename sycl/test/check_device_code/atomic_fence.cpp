@@ -1,11 +1,9 @@
 // RUN: %clangxx -fsycl-device-only -fsycl-unnamed-lambda -S -Xclang -emit-llvm %s -o - | FileCheck %s
 
-#if INTEL_CUSTOMIZATION
+/* INTEL_CUSTOMIZATION */
 // Use legacy path for xmain compiler
 #include <CL/sycl.hpp>
-#else
-#include <sycl/sycl.hpp>
-#endif // INTEL_CUSTOMIZATION
+/* end INTEL_CUSTOMIZATION */
 
 int main() {
   sycl::queue Q;

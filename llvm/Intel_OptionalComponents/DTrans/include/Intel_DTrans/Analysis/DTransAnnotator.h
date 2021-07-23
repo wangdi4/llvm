@@ -14,8 +14,8 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransAnnot.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransAnnot.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSANNOTOR_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSANNOTOR_H
