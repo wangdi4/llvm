@@ -18,15 +18,15 @@
 
 ; CHECK-LABEL: Transform candidate: main_$MYB
 ; CHECK-NEXT: Before: MAIN__:  %[[N0:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I0:[0-9]+]],
-; CHECK-NEXT: After : MAIN__:  %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I0]], i64 4,
+; CHECK-NEXT: After : MAIN__:  %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4,
 ; CHECK-NEXT: Before: MAIN__:  %[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I1:[0-9]+]], i64 4,
-; CHECK-NEXT: After : MAIN__:  %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I1]], i64 76,
+; CHECK-NEXT: After : MAIN__:  %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000,
 
 ; CHECK-LABEL: Transform candidate: main_$MYA
 ; CHECK-NEXT: Before: MAIN__:  %[[N3:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I2:[0-9]+]],
-; CHECK-NEXT: After : MAIN__:  %[[N3]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I2]], i64 4,
-; CHECK-NEXT: Before: MAIN__:  %[[N4:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I3:[0-9]+]],
-; CHECK-NEXT: After : MAIN__:  %[[N4]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %[[I3]], i64 76,
+; CHECK-NEXT: After : MAIN__:  %[[N3]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4,
+; CHECK-NEXT: Before: MAIN__:  %[[N4:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %[[I3:[0-9]+]], i64 4
+; CHECK-NEXT: After : MAIN__:  %[[N4]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000,
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

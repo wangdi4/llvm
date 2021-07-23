@@ -404,6 +404,23 @@ OptReportDiag OptReportDiag::Diags[] = {
             "separately): %s"},
     {15557, "Masked VLS-optimized stores (each part of the group counted "
             "separately): %s"},
+    // Entries below semantically belong to  "vector loop cost summary".
+    // Remarks for reasons of generated serialized code and scalar instructions.
+    {15558, "Call to function '%s' was serialized due to no suitable vector "
+            "variants were found."},
+    {15559, "Call to function '%s' was serialized due to no vector variants "
+            "were found. Consider adding #pragma omp declare simd."},
+    {15560, "Indirect call cannot be vectorized."},
+    {15561, "Call to function '%s' was serialized due to operating on scalar operand(s)."},
+    {15562, "Call '%s' cannot be vectorized for current context."},
+    {15563, "Load/store instruction was serilalized due to operating on non-vectorizable types."},
+    {15564, "Extract/Insert element instruction was serialized due to non-const index."},
+    {15565, "Masked Extract/Insert element instruction is serialized."},
+    {15566, "'%s': division was scalarized due to fp-model requirements."},
+    // Entries below semantically belong to "vector loop memory reference summary".
+    // Remarks for reasons of generated gather/scatter instructions.
+    {15567, "Gathers are generated due to non-unit stride index of the corresponding loads."},
+    {15568, "Scatters are generated due to non-unit stride index of the corresponding stores."},
 
     {25045, "Fused Loops: %s"},
     {25046, "Loop lost in Fusion"},

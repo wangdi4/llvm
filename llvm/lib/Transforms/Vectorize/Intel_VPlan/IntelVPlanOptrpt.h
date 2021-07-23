@@ -1,6 +1,6 @@
 //===-- IntelVPlanOptrpt.h --------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -24,18 +24,32 @@ namespace vpo {
 struct OptReportStatsTracker {
   // Fields.
 #define VPLAN_OPTRPT_HANDLE(ID, NAME) int NAME = 0;
+#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
+  SmallVector<std::pair<unsigned, std::string>, 32> VEC;
 #include "IntelVPlanOptrpt.inc"
 
 public:
   template <class LoopTy>
   void emitRemarks(VPlanOptReportBuilder &Builder, LoopTy *Lp) const {
+    int Gathers = MaskedGathers + UnmaskedGathers;
+    int Scatters = MaskedScatters + UnmaskedScatters;
+#define VPLAN_OPTRPT_GS(Gathers, Scatters)                                     \
+  if (Gathers) Builder.addRemark(Lp, OptReportVerbosity::High, 15567);         \
+  if (Scatters) Builder.addRemark(Lp, OptReportVerbosity::High, 15568);
 #define VPLAN_OPTRPT_HANDLE_GROUP_BEGIN(ID)                                    \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
 #define VPLAN_OPTRPT_HANDLE(ID, NAME)                                          \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID, Twine(NAME).str());
 #define VPLAN_OPTRPT_HANDLE_GROUP_END(ID)                                      \
   Builder.addRemark(Lp, OptReportVerbosity::High, ID);
-
+#define VPLAN_OPTRPT_VEC_HANDLE(VEC)                                           \
+  for (auto &Itr : VEC) {                                                      \
+   if (Itr.second.empty())                                                     \
+     Builder.addRemark(Lp, OptReportVerbosity::High, Itr.first);               \
+   else                                                                        \
+     Builder.addRemark(Lp, OptReportVerbosity::High, Itr.first,                \
+                       Itr.second);                                            \
+  } // end of definition
 #include "IntelVPlanOptrpt.inc"
   }
 };

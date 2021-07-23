@@ -10,28 +10,20 @@
 ; CHECK-NEXT: After : foo_:  %[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1,
 ; CHECK-NEXT: Before: foo_:  %[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1,
 ; CHECK-NEXT: After : foo_:  %[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1,
-; CHECK-NEXT: Before:   store i64 4,
-; CHECK-NEXT: After :   store i64 400,
-; CHECK-NEXT: Before:   store i64 100,
-; CHECK-NEXT: After :   store i64 200,
 ; CHECK-NEXT: Before:   store i64 400,
 ; CHECK-NEXT: After :   store i64 4,
-; CHECK-NEXT: Before:   store i64 200,
-; CHECK-NEXT: After :   store i64 100,
+; CHECK-NEXT: Before:   store i64 4,
+; CHECK-NEXT: After :   store i64 800,
 
 ; CHECK-LABEL: Transform candidate: main_$MYB
 ; CHECK-NEXT: Before: foo_:  %[[N2:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1,
 ; CHECK-NEXT: After : foo_:  %[[N2]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1,
 ; CHECK-NEXT: Before: foo_:  %[[N3:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1,
 ; CHECK-NEXT: After : foo_:  %[[N3]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1,
-; CHECK-NEXT: Before:   store i64 4,
-; CHECK-NEXT: After :   store i64 400,
-; CHECK-NEXT: Before:   store i64 100,
-; CHECK-NEXT: After :   store i64 200,
 ; CHECK-NEXT: Before:   store i64 400,
 ; CHECK-NEXT: After :   store i64 4,
-; CHECK-NEXT: Before:   store i64 200,
-; CHECK-NEXT: After :   store i64 100,
+; CHECK-NEXT: Before:   store i64 4,
+; CHECK-NEXT: After :   store i64 800,
 
 ; Check that the array through which the indirect subscripting is occurring
 ; is not transposed.

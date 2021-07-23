@@ -1,23 +1,23 @@
 ; RUN: opt < %s -S -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
-; Check that the stride and extent stores are updated after the transpose of main_$MYA and
+; Check that the stride stores are updated after the transpose of main_$MYA and
 ; main_$MYB is performed.
 
 ; CHECK: %[[D1:[0-9]+]] = alloca %"QNCA_a0$float*$rank2$", align 8
 ; CHECK: %[[D2:[0-9]+]] = alloca %"QNCA_a0$float*$rank2$", align 8
 ; CHECK: %[[D8:[0-9]+]] = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %[[D1]], i64 0, i32 6, i64 0
-; CHECK: %[[D13:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[D8]], i64 0, i32 0
+; CHECK: %[[D13:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[D8]], i64 0, i32 1
 ; CHECK: %[[D14:[0-9]+]] = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %[[D13]], i32 0)
-; CHECK: store i64 1000, i64* %[[D14]], align 1
+; CHECK: store i64 4000, i64* %[[D14]], align 1
 ; CHECK: %[[D17:[0-9]+]] = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %[[D13]], i32 1)
-; CHECK: store i64 19, i64* %[[D17]], align 1
+; CHECK: store i64 4, i64* %[[D17]], align 1
 ; CHECK: %[[D23:[0-9]+]] = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %[[D2]], i64 0, i32 6, i64 0
-; CHECK: %[[D28:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[D23]], i64 0, i32 0
+; CHECK: %[[D28:[0-9]+]] = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %[[D23]], i64 0, i32 1
 ; CHECK: %[[D29:[0-9]+]] = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %[[D28]], i32 0)
-; CHECK: store i64 1000, i64* %[[D29]], align 1
+; CHECK: store i64 4000, i64* %[[D29]], align 1
 ; CHECK: %[[D32:[0-9]+]] = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %[[D28]], i32 1)
-; CHECK: store i64 19, i64* %[[D32]], align 1
+; CHECK: store i64 4, i64* %[[D32]], align 1
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -58,7 +58,8 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef)
+                const RegDDRef *SearchLoopPeelArrayRef,
+                bool IsOmpSIMD)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
@@ -69,7 +70,8 @@ public:
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()) {
+        HLNodeUtilities(Loop->getHLNodeUtils()),
+        IsOmpSIMD(IsOmpSIMD) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -111,6 +113,7 @@ public:
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+  bool getIsOmpSIMD() const { return IsOmpSIMD; }
 
   OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
@@ -643,6 +646,9 @@ private:
 
   // Track HIR temp created for each deconstructed PHI ID.
   SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
+
+  // True if #pragma omp simd defined for OrigLoop
+  bool IsOmpSIMD;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }

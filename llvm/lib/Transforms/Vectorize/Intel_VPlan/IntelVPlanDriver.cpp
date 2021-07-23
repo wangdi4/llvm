@@ -426,7 +426,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                     << "\n");
 
   VPOCodeGen VCodeGen(Lp, Fn.getContext(), PSE, LI, DT, TLI, VF, UF, &LVL,
-                      &VLSA, Plan, FatalErrorHandler);
+                      &VLSA, Plan, isOmpSIMDLoop, FatalErrorHandler);
   VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
 
   // Run VLS analysis before IR for the current loop is modified.
@@ -1249,7 +1249,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
                            LORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
-                           PeelArrayRef);
+                           PeelArrayRef, isOmpSIMDLoop);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the

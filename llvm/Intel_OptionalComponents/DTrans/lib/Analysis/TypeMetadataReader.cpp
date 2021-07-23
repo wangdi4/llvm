@@ -51,6 +51,12 @@ const char *MDDeclTypesTag = "dtrans_decl_types";
 // and parameters.
 const char *DTransFuncTypeMDTag = "intel.dtrans.func.type";
 
+// String attribute name that is set on return type and parameters to provide
+// indexing into the DTransFuncTypeMD metadata.
+// TODO: This will be removed when the front-end implements an entry in the
+// enumerated attribute list to store this information.
+const char *DTransFuncIndexTag = "intel_dtrans_func_index";
+
 NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
   if (DTMDTypes)
@@ -105,6 +111,27 @@ void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
     G->setMetadata(MDDTransTypeTag, MD);
   else
     llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
+}
+
+bool TypeMetadataReader::removeDTransFuncIndexAttribute(LLVMContext &Ctx,
+                                                        unsigned Index,
+                                                        AttributeList &Attrs) {
+#if defined(DTRANS_FUNC_INDEX_ATTR_AVAILABLE)
+  if (Attrs.hasAttribute(Index, Attribute::DTransFuncIndex)) {
+    Attrs = Attrs.removeAttribute(Ctx, Index, Attribute::DTransFuncIndex);
+    return true;
+  }
+#endif // DTRANS_FUNC_INDEX_ATTR_AVAILABLE
+
+  // Temporary fallback to the use a string attribute for testing.
+  // TODO: Remove this when the front-end changes are in to use a non-string
+  // attribute type.
+  if (Attrs.hasAttribute(Index, DTransFuncIndexTag)) {
+    Attrs = Attrs.removeAttribute(Ctx, Index, DTransFuncIndexTag);
+    return true;
+  }
+
+  return false;
 }
 
 bool TypeMetadataReader::initialize(Module &M) {
@@ -842,9 +869,9 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
 #endif // DTRANS_FUNC_INDEX_ATTR_AVAILABLE
 
     // Temporary fallback to the use a string attribute for testing.
-    // TODO: Remove when LIT tests are updated, and the real attribute is added
-    // to the IR.
-    Attr = Attrs.getAttribute("intel_dtrans_func_index");
+    // TODO: Remove this when LIT tests are updated, and the real attribute is
+    // added to the IR.
+    Attr = Attrs.getAttribute(DTransFuncIndexTag);
     if (Attr.isValid()) {
       StringRef TagName = Attr.getValueAsString();
       uint64_t Index = stoi(TagName.str());

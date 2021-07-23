@@ -1781,6 +1781,28 @@ private:
     // Specifies if masked version of a vector variant should be used to
     // vectorize the unmasked call (using all-true mask).
     unsigned UseMaskedForUnmasked : 1;
+    // NOTE: the order of remarks in this enum is strictly tied to the order of
+    // remarks in Diag.cpp (15558-155562)
+    enum class SerializationReason {
+      UNDEFINED = 0,
+      // Remark #15558: Call to function '%s' was serialized due to no suitable
+      // vector variants were found.
+      NO_VECTOR_VARIANT,
+      // Remark #15559: Call to function '%s' was serialized due to no vector
+      // variants were found. Consider adding #pragma omp declare simd.
+      //
+      // This value can't be assigned directly.
+      NO_VECTOR_VARIANT_WO_PRAGMA,
+      // Remark #15560: Indirect call cannot be vectorized.
+      INDIRECT_CALL,
+      // Remark #15561: Call to function '%s' was serialized due to operating on
+      // scalar operand(s).
+      SCALAR_OPERANDS,
+      // Remark #15562: Call '%s' cannot be vectorized for current context.
+      CURRENT_CONTEXT,
+    };
+    SerializationReason Reason = SerializationReason::UNDEFINED;
+    SerializationReason getSerializationReason () { return Reason; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     void printImpl(raw_ostream &OS) const {
@@ -1833,7 +1855,7 @@ private:
 
 public:
   using CallVecScenariosTy = CallVecScenarios;
-
+  using SerializationReasonTy = CallVecProperties::SerializationReason;
   VPCallInstruction(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
                     const CallInst *OrigCall)
       : VPInstruction(Instruction::Call, OrigCall->getType(), ArgList),
@@ -1901,6 +1923,12 @@ public:
     Function *F = getCalledFunction();
     assert(F && "F is indirect call");
     return F->getCallingConv();
+  }
+
+  bool isNoVecVariant() const {
+    return VecProperties.Reason == SerializationReasonTy::NO_VECTOR_VARIANT ||
+           VecProperties.Reason == SerializationReasonTy::
+           NO_VECTOR_VARIANT_WO_PRAGMA;
   }
 
   /// Getter for original call's tail call attribute.
@@ -1988,6 +2016,10 @@ public:
       report_fatal_error(
           "Calls with kernel-call-once attributes cannot be serialized.");
     VecScenario = CallVecScenarios::Serialization;
+  }
+
+  void setSerializationReason(SerializationReasonTy Value) {
+    VecProperties.Reason = Value;
   }
 
   // Vectorization using vector library functions (like SVML).
@@ -2104,6 +2136,15 @@ public:
     Function *F = getCalledFunction();
     assert(F && "Indirect calls not expected here.");
     return Intrinsic::getName(VecID, TysForName, F->getParent());
+  }
+
+  /// Getters for SerializationReason
+  int getSerialReasonNum() {
+    return static_cast<int>(VecProperties.getSerializationReason());
+  }
+
+  SerializationReasonTy getSerialReason() {
+    return VecProperties.getSerializationReason();
   }
 
   /// Call argument list size.
