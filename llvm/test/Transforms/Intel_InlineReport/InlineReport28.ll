@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
@@ -498,3 +500,4 @@ define i1 @main() nounwind  {
 ; CHECK-NEW-NOT:{{.*}}Callsite has key switch computations
 ; CHECK-NEW-LABEL: COMPILE FUNC: mycaller7
 ; CHECK-NEW-NOT:{{.*}}Callsite has key switch computations
+; end INTEL_FEATURE_SW_ADVANCED

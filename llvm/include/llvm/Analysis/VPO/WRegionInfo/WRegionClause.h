@@ -127,6 +127,9 @@ class Item
                                    // the firstprivate initialization code for
                                    // the DV. Used during transformation.
     bool IsCptr = false;           // true for Fortran C_PTRs
+    bool IsF90NonPod = false;      // true for Fortran NONPODs. If true, it
+                                   // means the constructor RDECL field for the
+                                   // item contains a copy-constructor instead.
     bool IsWILocal = false;
 #endif // INTEL_CUSTOMIZATION
     VAR   NewItem;   // new version (eg private) of the var. For tasks, it's
@@ -193,8 +196,9 @@ class Item
     void setIsVla(bool Flag)      { IsVla = Flag;       }
     void setIsPointerToPointer(bool Flag) {
 #if INTEL_CUSTOMIZATION
-      assert((!Flag || (!IsF90DopeVector && !IsCptr)) &&
-             "Unexpected: item has PTR_TO_PTR modifier with F90_DV/CPTR.");
+      assert((!Flag || (!IsF90DopeVector && !IsCptr && !IsF90NonPod)) &&
+             "Unexpected: item has PTR_TO_PTR modifier with "
+             "F90_DV/CPTR/F90_NONPOD.");
 #endif // INTEL_CUSTOMIZATION
       IsPointerToPointer = Flag;
     }
@@ -226,8 +230,9 @@ class Item
     void setHOrig(HVAR V)         { HOrigItem = V;         }
     template <IRKind IR = LLVMIR> VarType<IR> getOrig() const;
     void setIsF90DopeVector(bool Flag) {
-      assert((!Flag || (!IsCptr && !IsPointerToPointer)) &&
-             "Unexpected: item has F90_DV modifier with CPTR/PTR_TO_PTR.");
+      assert((!Flag || (!IsCptr && !IsPointerToPointer && !IsF90NonPod)) &&
+             "Unexpected: item has F90_DV modifier with "
+             "CPTR/PTR_TO_PTR/F90_NONPOD.");
       IsF90DopeVector = Flag;
     }
     bool getIsF90DopeVector()  const   { return IsF90DopeVector;  }
@@ -242,11 +247,20 @@ class Item
       return F90DVDataAllocationPoint;
     }
     void setIsCptr(bool Flag) {
-      assert((!Flag || (!IsF90DopeVector && !IsPointerToPointer)) &&
-             "Unexpected: item has CPTR modifier with F90_DV/PTR_TO_PTR.");
+      assert((!Flag ||
+              (!IsF90DopeVector && !IsPointerToPointer && !IsF90NonPod)) &&
+             "Unexpected: item has CPTR modifier with "
+             "F90_DV/PTR_TO_PTR/F90_NONPOD.");
       IsCptr = Flag;
     }
     bool getIsCptr()             const { return IsCptr; }
+    void setIsF90NonPod(bool Flag) {
+      assert((!Flag || (!IsF90DopeVector && !IsCptr && !IsPointerToPointer)) &&
+             "Unexpected: item has F90_NONPOD modifier with "
+             "F90_DV/CPTR/PTR_TO_PTR.");
+      IsF90NonPod = Flag;
+    }
+    bool getIsF90NonPod()        const { return IsF90NonPod; }
     void setIsWILocal(bool Flag)       { IsWILocal = Flag; }
     bool getIsWILocal()          const { return IsWILocal; }
 #endif // INTEL_CUSTOMIZATION
@@ -354,6 +368,9 @@ class PrivateItem : public Item
 {
   private:
     AllocateItem *InAllocate; // AllocateItem with the same opnd
+#if INTEL_CUSTOMIZATION
+    // Constructor RDECL contains copy-constructor for F90_NONPODs.
+#endif // INTEL_CUSTOMIZATION
     RDECL Constructor;
     RDECL Destructor;
 
@@ -390,9 +407,15 @@ class PrivateItem : public Item
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
+#if INTEL_CUSTOMIZATION
+        OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
+        printOrig(OS, PrintType);
+        OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
+#else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
         OS << ", CTOR: ";
+#endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", DTOR: ";
         printFnPtr(getDestructor(), OS, PrintType);
@@ -466,7 +489,11 @@ class FirstprivateItem : public Item
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
+#if INTEL_CUSTOMIZATION
+        OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
+#else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
+#endif // INTEL_CUSTOMIZATION
         printOrig(OS, PrintType);
         OS << ", CCTOR: ";
         printFnPtr(getCopyConstructor(), OS, PrintType);
@@ -492,6 +519,9 @@ class LastprivateItem : public Item
     bool IsConditional;               // conditional lastprivate
     FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
     AllocateItem *InAllocate;         // AllocateItem with the same opnd
+#if INTEL_CUSTOMIZATION
+    // Constructor RDECL contains copy-constructor for F90_NONPODs.
+#endif // INTEL_CUSTOMIZATION
     RDECL Constructor;
     RDECL CopyAssign;
     RDECL Destructor;
@@ -542,9 +572,15 @@ class LastprivateItem : public Item
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
+#if INTEL_CUSTOMIZATION
+        OS << (getIsF90NonPod() ? "F90_NONPOD(" : "NONPOD(");
+        printOrig(OS, PrintType);
+        OS << (getIsF90NonPod() ? ", CCTOR: " : ", CTOR: ");
+#else // INTEL_CUSTOMIZATION
         OS << "NONPOD(";
         printOrig(OS, PrintType);
         OS << ", CTOR: ";
+#endif // INTEL_CUSTOMIZATION
         printFnPtr(getConstructor(), OS, PrintType);
         OS << ", COPYASSIGN: ";
         printFnPtr(getCopyAssign(), OS, PrintType);
@@ -653,6 +689,7 @@ public:
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
     bool  IsComplex;     // complex type
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
+    bool  IsTask;        // is for a REDUCTION clause with a task modifier
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
@@ -668,8 +705,9 @@ public:
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
-          Constructor(nullptr), Destructor(nullptr), InAllocate(nullptr) {}
+          IsInReduction(false), IsTask(false), Combiner(nullptr),
+          Initializer(nullptr), Constructor(nullptr), Destructor(nullptr),
+          InAllocate(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -761,6 +799,7 @@ public:
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
+    void setIsTask(bool B)            { IsTask = B;          }
     void setCombiner(RDECL Comb)      { Combiner = Comb;     }
     void setInitializer(RDECL Init)   { Initializer = Init;  }
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
@@ -772,6 +811,7 @@ public:
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
+    bool getIsTask()           const { return IsTask;        }
     RDECL getCombiner()        const { return Combiner;      }
     RDECL getInitializer()     const { return Initializer;   }
     RDECL getConstructor()     const { return Constructor;   }
@@ -1199,12 +1239,14 @@ public:
 // base "Item" class above.
 //
 //   SubdeviceItem (for the Subdevice clause)
-//   DependItem    (for the depend  clause in task and target constructs)
+//   DependItem    (for the depend  clause in task, taskwait and target
+//                  constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   AllocateItem  (for the allocate clause)
+//   DataItem      (for the data clause in prefetch constructs)
 //   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
@@ -1351,14 +1393,42 @@ class NontemporalItem
   private:
     VAR Base;                // pointer or base of array
     bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
+#if INTEL_CUSTOMIZATION
+    bool IsF90DopeVector;    // true for a F90 dope vector
+#endif // INTEL_CUSTOMIZATION
 
   public:
-    NontemporalItem(VAR V = nullptr) : Base(V), IsPointerToPointer(false) {}
+    NontemporalItem(VAR V = nullptr)
+#if INTEL_CUSTOMIZATION
+        : Base(V), IsPointerToPointer(false), IsF90DopeVector(false) {}
+#else // INTEL_CUSTOMIZATION
+        : Base(V), IsPointerToPointer(false) {}
+#endif // INTEL_CUSTOMIZATION
+
     VAR getOrig() const { return Base; }
-    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    void setIsPointerToPointer(bool Flag) {
+#if INTEL_CUSTOMIZATION
+      assert((!Flag || !IsF90DopeVector) &&
+             "Unexpected: item has PTR_TO_PTR modifier with F90_DV.");
+#endif // INTEL_CUSTOMIZATION
+      IsPointerToPointer = Flag;
+    }
     bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
+#if INTEL_CUSTOMIZATION
+    void setIsF90DopeVector(bool Flag) {
+      assert((!Flag || !IsPointerToPointer) &&
+             "Unexpected: item has F90_DV modifier with PTR_TO_PTR.");
+      IsF90DopeVector = Flag;
+    }
+    bool getIsF90DopeVector() const { return IsF90DopeVector; }
+#endif // INTEL_CUSTOMIZATION
+
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+#if INTEL_CUSTOMIZATION
+      if (getIsF90DopeVector())
+        OS << "F90_DV";
+#endif // INTEL_CUSTOMIZATION
       if (getIsPointerToPointer())
         OS << "PTR_TO_PTR";
       OS << "(";
@@ -1388,17 +1458,20 @@ class AllocateItem
 {
   private:
     VAR   Var;
+    uint64_t Alignment;
     Value *Allocator; // intptr value for the Allocator handle (enum or pointer)
 
   public:
-    AllocateItem(VAR V = nullptr) : Var(V), Allocator(nullptr) {}
+    AllocateItem(VAR V = nullptr) : Var(V), Alignment(0), Allocator(nullptr) {}
     void setOrig(VAR V) { Var = V; }
+    void setAlignment(uint64_t A) { Alignment = A; }
     void setAllocator(Value *A) { Allocator = A; }
     VAR getOrig() const { return Var; }
+    uint64_t getAlignment() const { return Alignment; }
     Value *getAllocator() const { return Allocator; }
 
     void print(formatted_raw_ostream &OS, bool PrintType = true) const {
-      OS << "(";
+      OS << "(Align(" << getAlignment() << "), ";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", ";
       if (getAllocator())
@@ -1409,6 +1482,33 @@ class AllocateItem
     }
 };
 
+// DATA clause for PREFETCH construct is of the form
+//   DATA(Ptr:Hint:NumElem)
+class DataItem {
+private:
+  VAR Ptr;
+  unsigned Hint;    // Valid values are 1 to 4
+  uint64_t NumElem;
+
+public:
+  DataItem(VAR V, unsigned H, uint64_t N) : Ptr(V), Hint(H), NumElem(N) {}
+  void setOrig(VAR V) { Ptr = V; }
+  void setHint(unsigned H) { Hint = H; }
+  void setNumElem(uint64_t N) { NumElem = N; }
+  VAR getOrig() const { return Ptr; }
+  unsigned getHint() const { return Hint; }
+  uint64_t getNumElem() const { return NumElem; }
+
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    OS << "(";
+    getOrig()->printAsOperand(OS, PrintType);
+    OS << " : ";
+    OS << getHint();
+    OS << " : ";
+    OS << getNumElem();
+    OS << ") ";
+  }
+};
 
 //
 // The list-type clauses are essentially vectors of the clause items above
@@ -1664,6 +1764,7 @@ typedef Clause<AlignedItem>       AlignedClause;
 typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
 typedef Clause<AllocateItem>      AllocateClause;
+typedef Clause<DataItem>          DataClause;
 
 typedef std::vector<SharedItem>::iterator        SharedIter;
 typedef std::vector<PrivateItem>::iterator       PrivateIter;
@@ -1686,6 +1787,7 @@ typedef std::vector<AlignedItem>::iterator       AlignedIter;
 typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
+typedef std::vector<DataItem>::iterator          DataIter;
 
 
 //

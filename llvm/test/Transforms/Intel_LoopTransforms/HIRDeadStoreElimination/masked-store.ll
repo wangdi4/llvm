@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction  -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction  -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-dead-store-elimination -print-before=hir-dead-store-elimination -print-after=hir-dead-store-elimination < %s 2>&1 | FileCheck %s
 
 ; Verify that DSE does not eliminate first masked store by checking
 ; post-domination with second masked store.

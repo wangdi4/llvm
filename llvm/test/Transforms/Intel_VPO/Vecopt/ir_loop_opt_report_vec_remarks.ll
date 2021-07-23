@@ -1,8 +1,8 @@
 ; Test to check the functionality of vectorization opt-report for LLVM-IR based vectorizer.
 
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -intel-loop-optreport=low -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-loop-optreport=low -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=4 -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -10,9 +10,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %arr) local_unnamed_addr {
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:    remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:    remark #15305: vectorization support: vector length {{.*}}
-; OPTREPORT-NEXT: LOOP END
+; OPTREPORT-NEXT:  LOOP END
 
 ; CHECK-LABEL: define void @foo(
 ; CHECK: !llvm.loop [[FOO_LOOP_MD:!.*]]
@@ -50,23 +50,15 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
 }
 
 define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
-; OPTREPORT-LABEL:Global loop optimization report for : test_outer
+; OPTREPORT-LABEL:  Global loop optimization report for : test_outer
 ; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #15300: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:     remark #15305: vectorization support: vector length 4
+; OPTREPORT-NEXT:  LOOP BEGIN
+; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:      remark #15305: vectorization support: vector length 4
 ; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:     LOOP END
-; OPTREPORT-NEXT: LOOP END
-; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-EMPTY:
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:     LOOP END
-; OPTREPORT-NEXT: LOOP END
-; OPTREPORT-NEXT: =================================================================
-
+; OPTREPORT-NEXT:      LOOP BEGIN
+; OPTREPORT-NEXT:      LOOP END
+; OPTREPORT-NEXT:  LOOP END
 ; CHECK-LABEL: define void @test_outer(
 ; CHECK: !llvm.loop [[TEST_OUTER_LOOP_MD:!.*]]
 entry:

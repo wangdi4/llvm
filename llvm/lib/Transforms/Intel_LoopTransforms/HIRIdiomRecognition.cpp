@@ -107,14 +107,16 @@ class HIRIdiomRecognition {
   bool analyzeStore(HLLoop *Loop, RegDDRef *Ref, MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memset calls
-  bool processMemset(HLLoop *Loop, MemOpCandidate &Candidate);
+  bool processMemset(HLLoop *Loop, bool &ExtractPreheader,
+                     MemOpCandidate &Candidate);
 
   // Transform \p Candidates into memcpy calls
-  bool processMemcpy(HLLoop *Loop, MemOpCandidate &Candidate);
+  bool processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
+                     MemOpCandidate &Candidate);
 
   // Helper method to emit memset call.
   bool genMemset(HLLoop *Loop, MemOpCandidate &Candidate, int64_t StoreSize,
-                 bool IsNegStride);
+                 bool IsNegStride, bool &ExtractPreheader);
 
   // Check if the \p Ref could be represented by a repeating i8 type.
   // Update RegDDRef if \p DoBitcast is true.
@@ -358,10 +360,6 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
       return false;
     }
 
-    if (RHS->isVolatile()) {
-      return false;
-    }
-
     bool IsNegStride;
     if (!RHS->isUnitStride(LoopLevel, IsNegStride)) {
       return false;
@@ -469,7 +467,8 @@ RegDDRef *HIRIdiomRecognition::createSizeDDRef(HLLoop *Loop,
 }
 
 bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
-                                    int64_t StoreSize, bool IsNegStride) {
+                                    int64_t StoreSize, bool IsNegStride,
+                                    bool &ExtractPreheader) {
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
 
   std::unique_ptr<RegDDRef> Ref(Candidate.StoreRef->clone());
@@ -500,7 +499,10 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   HLInst *MemsetInst = HNU.createMemset(Ref.release(), RHS, Size);
   MemsetInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
-
+  if (ExtractPreheader) {
+    Loop->extractPreheader();
+    ExtractPreheader = false;
+  }
   HNU.insertAsLastPreheaderNode(Loop, MemsetInst);
 
   LLVM_DEBUG(dbgs() << "G: ");
@@ -512,17 +514,18 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   return true;
 }
 
-bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
+bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
                                         MemOpCandidate &Candidate) {
 
   unsigned StoreSize = Candidate.RHS->getDestTypeSizeInBytes();
 
-  if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride)) {
+  if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride,
+                ExtractPreheader)) {
     LoopOptReportBuilder &LORBuilder =
         Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                "The memset idiom has been recognized");
+    // The memset idiom has been recognized
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
     return true;
   }
 
@@ -533,7 +536,7 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop,
   return false;
 }
 
-bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
+bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
                                         MemOpCandidate &Candidate) {
 
   HLNodeUtils &HNU = HIRF.getHLNodeUtils();
@@ -564,6 +567,10 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   MemcpyInst->addFakeRvalDDRef(
       createFakeDDRef(Candidate.RHS, Loop->getNestingLevel()));
 
+  if (ExtractPreheader) {
+    Loop->extractPreheader();
+    ExtractPreheader = false;
+  }
   HNU.insertAsLastPreheaderNode(Loop, MemcpyInst);
 
   HLNodeUtils::remove(Candidate.DefInst);
@@ -578,8 +585,8 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   LoopOptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                              "The memcpy idiom has been recognized");
+  // The memcpy idiom has been recognized
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
   return true;
 }
 
@@ -646,7 +653,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
 
     RegDDRef *Ref = Inst->getLvalDDRef();
 
-    if (!Ref || !Ref->isMemRef() || Ref->isVolatile() ||
+    if (!Ref || !Ref->isMemRef() ||
         !isa<StoreInst>(Inst->getLLVMInstruction())) {
       continue;
     }
@@ -667,10 +674,16 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
 
   HLLoop *OrigLoopClone = nullptr;
   HLIf *SmallTripCountCheck = nullptr;
+  bool ExtractPreheader = false;
 
   if (!Candidates.empty()) {
     if ((SmallTripCountCheck = createTripCountCheck(Loop))) {
+      ExtractPreheader = true;
       OrigLoopClone = Loop->clone();
+      OrigLoopClone->removePreheader();
+      OrigLoopClone->removeZtt();
+      OrigLoopClone->setPragmaBasedMaximumTripCount(SmallTripCount);
+      OrigLoopClone->setMaxTripCountEstimate(SmallTripCount);
     }
 
     LLVM_DEBUG(dbgs() << "Loop DD graph:\n");
@@ -689,9 +702,9 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     }
 
     if (Candidate.isMemset()) {
-      Changed = processMemset(Loop, Candidate) || Changed;
+      Changed = processMemset(Loop, ExtractPreheader, Candidate) || Changed;
     } else if (Candidate.isMemcopy()) {
-      Changed = processMemcpy(Loop, Candidate) || Changed;
+      Changed = processMemcpy(Loop, ExtractPreheader, Candidate) || Changed;
     } else {
       llvm_unreachable("Unknown memopt kind");
     }
@@ -709,15 +722,13 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::insertAsFirstThenChild(SmallTripCountCheck, Loop);
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
 
+      // The loop has been multiversioned for the small trip count
       LORBuilder(*Loop)
           .addOrigin("Small trip count multiversioned v1")
-          .addRemark(
-              OptReportVerbosity::Low,
-              "The loop has been multiversioned for the small trip count");
+          .addRemark(OptReportVerbosity::Low, 25562u);
 
       LORBuilder(*OrigLoopClone)
-          .addOrigin(
-              "Small trip count multiversioned v2 (small)");
+          .addOrigin("Small trip count multiversioned v2 (small)");
     }
 
     HLNodeUtils::removeEmptyNodes(Loop, false);

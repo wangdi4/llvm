@@ -21,11 +21,11 @@
 ; <0>          END REGION
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-print-after-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
 
 
 ; VEC-HIR:      <0>          BEGIN REGION { modified }

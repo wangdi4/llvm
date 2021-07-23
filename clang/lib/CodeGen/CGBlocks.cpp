@@ -1032,7 +1032,7 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
 #endif
 
       ImplicitCastExpr l2r(ImplicitCastExpr::OnStack, type, CK_LValueToRValue,
-                           &declRef, VK_RValue, FPOptionsOverride());
+                           &declRef, VK_PRValue, FPOptionsOverride());
       // FIXME: Pass a specific location for the expr init so that the store is
       // attributed to a reasonable location - otherwise it may be attributed to
       // locations of subexpressions in the initialization.
@@ -1911,7 +1911,7 @@ static void setBlockHelperAttributesVisibility(bool CapturesNonExternalType,
   } else {
     Fn->setVisibility(llvm::GlobalValue::HiddenVisibility);
     Fn->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-    CGM.SetLLVMFunctionAttributes(GlobalDecl(), FI, Fn);
+    CGM.SetLLVMFunctionAttributes(GlobalDecl(), FI, Fn, /*IsThunk=*/false);
     CGM.SetLLVMFunctionAttributesForDefinition(nullptr, Fn);
   }
 }
@@ -1957,21 +1957,13 @@ CodeGenFunction::GenerateCopyHelperFunction(const CGBlockInfo &blockInfo) {
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
-  IdentifierInfo *II = &C.Idents.get(FuncName);
-
   SmallVector<QualType, 2> ArgTys;
   ArgTys.push_back(C.VoidPtrTy);
   ArgTys.push_back(C.VoidPtrTy);
-  QualType FunctionTy = C.getFunctionType(ReturnTy, ArgTys, {});
 
-  FunctionDecl *FD = FunctionDecl::Create(
-      C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      FunctionTy, nullptr, SC_Static, false, false);
   setBlockHelperAttributesVisibility(blockInfo.CapturesNonExternalType, Fn, FI,
                                      CGM);
-  // This is necessary to avoid inheriting the previous line number.
-  FD->setImplicit();
-  StartFunction(FD, ReturnTy, Fn, FI, args);
+  StartFunction(GlobalDecl(), ReturnTy, Fn, FI, args);
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
 
   llvm::Type *structPtrTy = blockInfo.StructureType->getPointerTo();
@@ -2152,21 +2144,12 @@ CodeGenFunction::GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo) {
   if (CGM.supportsCOMDAT())
     Fn->setComdat(CGM.getModule().getOrInsertComdat(FuncName));
 
-  IdentifierInfo *II = &C.Idents.get(FuncName);
-
   SmallVector<QualType, 1> ArgTys;
   ArgTys.push_back(C.VoidPtrTy);
-  QualType FunctionTy = C.getFunctionType(ReturnTy, ArgTys, {});
-
-  FunctionDecl *FD = FunctionDecl::Create(
-      C, C.getTranslationUnitDecl(), SourceLocation(), SourceLocation(), II,
-      FunctionTy, nullptr, SC_Static, false, false);
 
   setBlockHelperAttributesVisibility(blockInfo.CapturesNonExternalType, Fn, FI,
                                      CGM);
-  // This is necessary to avoid inheriting the previous line number.
-  FD->setImplicit();
-  StartFunction(FD, ReturnTy, Fn, FI, args);
+  StartFunction(GlobalDecl(), ReturnTy, Fn, FI, args);
   markAsIgnoreThreadCheckingAtRuntime(Fn);
 
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
@@ -2404,21 +2387,15 @@ generateByrefCopyHelper(CodeGenFunction &CGF, const BlockByrefInfo &byrefInfo,
     llvm::Function::Create(LTy, llvm::GlobalValue::InternalLinkage,
                            "__Block_byref_object_copy_", &CGF.CGM.getModule());
 
-  IdentifierInfo *II
-    = &Context.Idents.get("__Block_byref_object_copy_");
-
   SmallVector<QualType, 2> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
   ArgTys.push_back(Context.VoidPtrTy);
-  QualType FunctionTy = Context.getFunctionType(ReturnTy, ArgTys, {});
-
-  FunctionDecl *FD = FunctionDecl::Create(
-      Context, Context.getTranslationUnitDecl(), SourceLocation(),
-      SourceLocation(), II, FunctionTy, nullptr, SC_Static, false, false);
 
   CGF.CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
-  CGF.StartFunction(FD, ReturnTy, Fn, FI, args);
+  CGF.StartFunction(GlobalDecl(), ReturnTy, Fn, FI, args);
+    // Create a scope with an artificial location for the body of this function.
+  auto AL = ApplyDebugLocation::CreateArtificial(CGF);
 
   if (generator.needsCopy()) {
     llvm::Type *byrefPtrType = byrefInfo.Type->getPointerTo(0);
@@ -2480,20 +2457,14 @@ generateByrefDisposeHelper(CodeGenFunction &CGF,
                            "__Block_byref_object_dispose_",
                            &CGF.CGM.getModule());
 
-  IdentifierInfo *II
-    = &Context.Idents.get("__Block_byref_object_dispose_");
-
   SmallVector<QualType, 1> ArgTys;
   ArgTys.push_back(Context.VoidPtrTy);
-  QualType FunctionTy = Context.getFunctionType(R, ArgTys, {});
-
-  FunctionDecl *FD = FunctionDecl::Create(
-      Context, Context.getTranslationUnitDecl(), SourceLocation(),
-      SourceLocation(), II, FunctionTy, nullptr, SC_Static, false, false);
 
   CGF.CGM.SetInternalFunctionAttributes(GlobalDecl(), Fn, FI);
 
-  CGF.StartFunction(FD, R, Fn, FI, args);
+  CGF.StartFunction(GlobalDecl(), R, Fn, FI, args);
+    // Create a scope with an artificial location for the body of this function.
+  auto AL = ApplyDebugLocation::CreateArtificial(CGF);
 
   if (generator.needsDispose()) {
     Address addr = CGF.GetAddrOfLocalVar(&Src);
@@ -2896,7 +2867,7 @@ static void configureBlocksRuntimeObject(CodeGenModule &CGM,
            "expected Function or GlobalVariable");
 
     const NamedDecl *ND = nullptr;
-    for (const auto &Result : DC->lookup(&II))
+    for (const auto *Result : DC->lookup(&II))
       if ((ND = dyn_cast<FunctionDecl>(Result)) ||
           (ND = dyn_cast<VarDecl>(Result)))
         break;
@@ -2948,9 +2919,8 @@ llvm::Constant *CodeGenModule::getNSConcreteGlobalBlock() {
   if (NSConcreteGlobalBlock)
     return NSConcreteGlobalBlock;
 
-  NSConcreteGlobalBlock = GetOrCreateLLVMGlobal("_NSConcreteGlobalBlock",
-                                                Int8PtrTy->getPointerTo(),
-                                                nullptr);
+  NSConcreteGlobalBlock =
+      GetOrCreateLLVMGlobal("_NSConcreteGlobalBlock", Int8PtrTy, 0, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteGlobalBlock);
   return NSConcreteGlobalBlock;
 }
@@ -2959,9 +2929,8 @@ llvm::Constant *CodeGenModule::getNSConcreteStackBlock() {
   if (NSConcreteStackBlock)
     return NSConcreteStackBlock;
 
-  NSConcreteStackBlock = GetOrCreateLLVMGlobal("_NSConcreteStackBlock",
-                                               Int8PtrTy->getPointerTo(),
-                                               nullptr);
+  NSConcreteStackBlock =
+      GetOrCreateLLVMGlobal("_NSConcreteStackBlock", Int8PtrTy, 0, nullptr);
   configureBlocksRuntimeObject(*this, NSConcreteStackBlock);
   return NSConcreteStackBlock;
 }

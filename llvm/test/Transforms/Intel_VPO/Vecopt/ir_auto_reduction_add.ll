@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
+; RUN: opt -S -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s  -instcombine | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -13,15 +13,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ;}
 
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
-; CHECK:         vector.ph:
-; CHECK-NEXT:    [[RED_INIT_INSERT:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT:%.*]], i32 0
-; CHECK:         vector.body:
-; CHECK:         [[VEC_PHI1:%.*]] = phi <4 x i32>  [ [[TMP0:%.*]], [[VECTOR_BODY:%.*]] ], [ [[RED_INIT_INSERT]], [[VECTOR_PH:%.*]] ]
-; CHECK:         [[TMP0]] = add nsw <4 x i32> [[WIDE_MASKED_GATHER:%.*]], [[VEC_PHI1]]
-; CHECK:         {{VPlannedBB[0-9]+|[0-9]?}}:
-; CHECK-NEXT:    [[TMP3:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP0]])
-; CHECK:         middle.block:
-; CHECK:         [[BC_MERGE_REDUCTION:%.*]] = phi i32 [ [[INIT:%.*]], [[FOR_BODY_PH:%.*]] ], [ [[TMP3]], [[MIDDLE_BLOCK:%.*]] ]
+; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[RED_INIT_INSERT0:%.*]] = insertelement <4 x i32> <i32 poison, i32 0, i32 0, i32 0>, i32 [[INIT0:%.*]], i32 0
+; CHECK:       vector.body:
+; CHECK:         [[VEC_PHI40:%.*]] = phi <4 x i32> [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[RED_INIT_INSERT0]], [[VPLANNEDBB20:%.*]] ]
+; CHECK:         [[TMP4]] = add nsw <4 x i32> [[WIDE_LOAD0:%.*]], [[VEC_PHI40]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP4]])
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI110:%.*]] = phi i32 [ [[ADD0:%.*]], [[VPLANNEDBB100:%.*]] ], [ [[TMP7]], [[VPLANNEDBB70:%.*]] ]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

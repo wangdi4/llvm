@@ -52,6 +52,12 @@ Result XmainOptLevelAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
 
 // Run at function level
 Result XmainOptLevelAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+  // If XmainOptLevelAnalysisInit has already been called for the parent module,
+  // then return the opt-level based on that.
+  if (auto *MXOL = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
+                       .getCachedResult<XmainOptLevelAnalysis>(*F.getParent()))
+    return MXOL->getOptLevel();
+
   return XmainOptLevel(2);
 }
 

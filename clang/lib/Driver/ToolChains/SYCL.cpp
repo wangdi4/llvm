@@ -22,6 +22,31 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+SYCLInstallationDetector::SYCLInstallationDetector(const Driver &D)
+    : D(D), InstallationCandidates() {
+  InstallationCandidates.emplace_back(D.Dir + "/..");
+}
+
+void SYCLInstallationDetector::getSYCLDeviceLibPath(
+    llvm::SmallVector<llvm::SmallString<128>, 4> &DeviceLibPaths) const {
+  for (const auto &IC : InstallationCandidates) {
+    llvm::SmallString<128> InstallLibPath(IC.str());
+    InstallLibPath.append("/lib");
+    DeviceLibPaths.emplace_back(InstallLibPath);
+  }
+
+  DeviceLibPaths.emplace_back(D.SysRoot + "/lib");
+}
+
+void SYCLInstallationDetector::print(llvm::raw_ostream &OS) const {
+  if (!InstallationCandidates.size())
+    return;
+  OS << "SYCL Installation Candidates: \n";
+  for (const auto &IC : InstallationCandidates) {
+    OS << IC << "\n";
+  }
+}
+
 const char *SYCL::Linker::constructLLVMSpirvCommand(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
     StringRef OutputFilePrefix, bool ToBc, const char *InputFileName) const {
@@ -41,7 +66,10 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
   } else {
     CmdArgs.push_back("-spirv-max-version=1.3");
     CmdArgs.push_back("-spirv-ext=+all");
-    CmdArgs.push_back("-spirv-debug-info-version=legacy");
+    if (!C.getDriver().isFPGAEmulationMode())
+      CmdArgs.push_back("-spirv-debug-info-version=legacy");
+    else
+      CmdArgs.push_back("-spirv-debug-info-version=ocl-100");
     CmdArgs.push_back("-spirv-allow-extra-diexpressions");
     CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
     CmdArgs.push_back("-o");
@@ -55,6 +83,17 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
   C.addCommand(std::make_unique<Command>(
       JA, *this, ResponseFileSupport::AtFileUTF8(), LLVMSpirv, CmdArgs, None));
   return OutputFileName;
+}
+
+static void addFPGATimingDiagnostic(std::unique_ptr<Command> &Cmd,
+                                    Compilation &C) {
+  const char *Msg = C.getArgs().MakeArgString(
+      "The FPGA image generated during this compile contains timing violations "
+      "and may produce functional errors if used. Refer to the Intel oneAPI "
+      "DPC++ FPGA Optimization Guide section on Timing Failures for more "
+      "information.");
+  Cmd->addDiagForErrorCode(/*ErrorCode*/ 42, Msg);
+  Cmd->addExitForErrorCode(/*ErrorCode*/ 42, false);
 }
 
 void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
@@ -94,8 +133,14 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   SmallString<128> ForeachPath(C.getDriver().Dir);
   llvm::sys::path::append(ForeachPath, "llvm-foreach");
   const char *Foreach = C.getArgs().MakeArgString(ForeachPath);
-  C.addCommand(std::make_unique<Command>(JA, *T, ResponseFileSupport::None(),
-                                         Foreach, ForeachArgs, None));
+
+  auto Cmd = std::make_unique<Command>(JA, *T, ResponseFileSupport::None(),
+                                       Foreach, ForeachArgs, None);
+  // FIXME: Add the FPGA specific timing diagnostic to the foreach call.
+  // The foreach call obscures the return codes from the tool it is calling
+  // to the compiler itself.
+  addFPGATimingDiagnostic(Cmd, C);
+  C.addCommand(std::move(Cmd));
 }
 
 // The list should match pre-built SYCL device library files located in
@@ -108,10 +153,31 @@ static llvm::SmallVector<StringRef, 10> SYCLDeviceLibList{
     "complex",
     "complex-fp64",
     "fallback-cassert",
+    "fallback-cstring",
     "fallback-cmath",
     "fallback-cmath-fp64",
     "fallback-complex",
     "fallback-complex-fp64"};
+
+#if INTEL_CUSTOMIZATION
+// The list should match pre-built OMP device library files located in
+// compiler package. Once we add or remove any OMP device library files,
+// the list should be updated accordingly.
+// The spirvdevicertl library is not included here as it is required to
+//  be linked in fully (without --only-needed).
+static llvm::SmallVector<StringRef, 10> OMPDeviceLibList{
+    "cmath",
+    "cmath-fp64",
+    "complex",
+    "complex-fp64",
+    "fallback-cmath",
+    "fallback-cmath-fp64",
+    "fallback-complex",
+    "fallback-complex-fp64",
+    "itt-compiler-wrappers",
+    "itt-stubs",
+    "itt-user-wrappers"};
+#endif // INTEL_CUSTOMIZATION
 
 const char *SYCL::Linker::constructLLVMLinkCommand(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
@@ -128,6 +194,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   ArgStringList Opts;
   ArgStringList Objs;
   ArgStringList Libs;
+  ArgStringList OMPObjs;      //INTEL
+
   // Add the input bc's created by compile step.
   // When offloading, the input file(s) could be from unbundled partially
   // linked archives.  The unbundled information is a list of files and not
@@ -155,6 +223,28 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       }
       return false;
     };
+#if INTEL_CUSTOMIZATION
+    auto isOMPDeviceLib = [&C](const InputInfo &II) {
+      const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+      StringRef LibPostfix = ".o";
+      if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
+          C.getDriver().IsCLMode())
+        LibPostfix = ".obj";
+      StringRef InputFilename =
+          llvm::sys::path::filename(StringRef(II.getFilename()));
+      if (!InputFilename.startswith("libomp-") ||
+          !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
+        return false;
+      size_t PureLibNameLen = InputFilename.find_last_of('-');
+      // Skip the prefix "libomp-"
+      StringRef PureLibName = InputFilename.substr(7, PureLibNameLen - 7);
+      for (const auto &L : OMPDeviceLibList) {
+        if (PureLibName.compare(L) == 0)
+          return true;
+      }
+      return false;
+    };
+#endif // INTEL_CUSTOMIZATION
     size_t InputFileNum = InputFiles.size();
     bool LinkSYCLDeviceLibs = (InputFileNum >= 2);
     LinkSYCLDeviceLibs = LinkSYCLDeviceLibs && !isSYCLDeviceLib(InputFiles[0]);
@@ -170,6 +260,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Objs.push_back(C.getArgs().MakeArgString("@" + FileName));
+#if INTEL_CUSTOMIZATION
+      } else if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
@@ -199,11 +293,22 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, None));
   };
 
-  // Add an intermediate output file.
+ // Add an intermediate output file.
   const char *OutputFileName = Output.getFilename();
+#if INTEL_CUSTOMIZATION
+  const char *TOutputFileName = OutputFileName;
 
+  // Use a Temporary output file for OMP devices else use the Output file
+  // provided
+  if (!OMPObjs.empty()) {
+    std::string OMPTempFile;
+    OMPTempFile = C.getDriver().GetTemporaryPath(
+        OutputFilePrefix.str() + "-linkomp", "bc");
+    TOutputFileName = C.addTempFile(C.getArgs().MakeArgString(OMPTempFile));
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Libs.empty())
-    AddLinkCommand(OutputFileName, Objs, Opts);
+    AddLinkCommand(TOutputFileName, Objs, Opts);  //INTEL
   else {
     assert(Opts.empty() && "unexpected options");
 
@@ -221,9 +326,17 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     // input libraries.
     ArgStringList LinkInputs{LinkOutput};
     llvm::copy(Libs, std::back_inserter(LinkInputs));
-    AddLinkCommand(OutputFileName, LinkInputs, {"--only-needed"});
+    AddLinkCommand(TOutputFileName, LinkInputs, {"--only-needed"});  //INTEL
   }
-  return OutputFileName;
+#if INTEL_CUSTOMIZATION
+  if (!OMPObjs.empty()) {
+    ArgStringList OMPLinkInputs{TOutputFileName};
+    llvm::copy(OMPObjs, std::back_inserter(OMPLinkInputs));
+    AddLinkCommand(OutputFileName, OMPLinkInputs, {"--only-needed"});
+    return OutputFileName;
+  }
+  return TOutputFileName;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SYCL::Linker::constructLlcCommand(Compilation &C, const JobAction &JA,
@@ -250,7 +363,8 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                 const char *LinkingOutput) const {
 
   assert((getToolChain().getTriple().isSPIR() ||
-          getToolChain().getTriple().isNVPTX()) &&
+          getToolChain().getTriple().isNVPTX() ||
+          getToolChain().getTriple().isAMDGCN()) &&
          "Unsupported target");
 
   std::string SubArchName =
@@ -261,7 +375,8 @@ void SYCL::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   // For CUDA, we want to link all BC files before resuming the normal
   // compilation path
-  if (getToolChain().getTriple().isNVPTX()) {
+  if (getToolChain().getTriple().isNVPTX() ||
+      getToolChain().getTriple().isAMDGCN()) {
     InputInfoList NvptxInputs;
     for (const auto &II : Inputs) {
       if (!II.isFilename())
@@ -305,6 +420,56 @@ static const char *makeExeName(Compilation &C, StringRef Name) {
   return C.getArgs().MakeArgString(ExeName);
 }
 
+void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
+    Compilation &C, const JobAction &JA, const InputInfo &Output,
+    const InputInfoList &Inputs, const ArgList &Args) const {
+  // Construct opencl-aot command. This is used for FPGA AOT compilations
+  // when performing emulation.  Input file will be a SPIR-V binary which
+  // will be compiled to an aocx file.
+  InputInfoList ForeachInputs;
+  InputInfoList FPGADepFiles;
+  ArgStringList CmdArgs{"-device=fpga_fast_emu"};
+
+  for (const auto &II : Inputs) {
+    if (II.getType() == types::TY_TempAOCOfilelist ||
+        II.getType() == types::TY_FPGA_Dependencies ||
+        II.getType() == types::TY_FPGA_Dependencies_List)
+      continue;
+    if (II.getType() == types::TY_Tempfilelist)
+      ForeachInputs.push_back(II);
+    CmdArgs.push_back(
+        C.getArgs().MakeArgString("-spv=" + Twine(II.getFilename())));
+  }
+  CmdArgs.push_back(
+      C.getArgs().MakeArgString("-ir=" + Twine(Output.getFilename())));
+
+  StringRef ForeachExt = "aocx";
+  if (Arg *A = Args.getLastArg(options::OPT_fsycl_link_EQ))
+    if (A->getValue() == StringRef("early"))
+      ForeachExt = "aocr";
+
+  // Add any implied arguments before user defined arguments.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
+  const toolchains::SYCLToolChain &TC =
+      static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+  llvm::Triple CPUTriple("spir64_x86_64");
+  TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs); // INTEL
+  // Add the target args passed in
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+
+  SmallString<128> ExecPath(
+      getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
+  const char *Exec = C.getArgs().MakeArgString(ExecPath);
+  auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
+                                       Exec, CmdArgs, None);
+  if (!ForeachInputs.empty())
+    constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
+                                this, "", ForeachExt);
+  else
+    C.addCommand(std::move(Cmd));
+}
+
 void SYCL::fpga::BackendCompiler::ConstructJob(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
     const InputInfoList &Inputs, const ArgList &Args,
@@ -312,6 +477,20 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   assert((getToolChain().getTriple().getArch() == llvm::Triple::spir ||
           getToolChain().getTriple().getArch() == llvm::Triple::spir64) &&
          "Unsupported target");
+
+  // Grab the -Xsycl-target* options.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
+  const toolchains::SYCLToolChain &TC =
+      static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+  ArgStringList TargetArgs;
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, TargetArgs);
+
+  // When performing emulation compilations for FPGA AOT, we want to use
+  // opencl-aot instead of aoc.
+  if (C.getDriver().isFPGAEmulationMode()) {
+    constructOpenCLAOTCommand(C, JA, Output, Inputs, Args);
+    return;
+  }
 
   InputInfoList ForeachInputs;
   InputInfoList FPGADepFiles;
@@ -407,7 +586,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   if (Arg *FinalOutput = Args.getLastArg(options::OPT_o, options::OPT__SLASH_o,
                                          options::OPT__SLASH_Fe)) {
     SmallString<128> FN(FinalOutput->getValue());
-    llvm::sys::path::replace_extension(FN, "prj");
+    FN.append(".prj");
     const char *FolderName = Args.MakeArgString(FN);
     ReportOptArg += FolderName;
   } else {
@@ -420,16 +599,14 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     CmdArgs.push_back(C.getArgs().MakeArgString(
         Twine("-output-report-folder=") + ReportOptArg));
 
-  // Add -Xsycl-target* options.
-  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
-  const toolchains::SYCLToolChain &TC =
-      static_cast<const toolchains::SYCLToolChain &>(getToolChain()); // INTEL
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
 
+  // Add -Xsycl-target* options.
   TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
     Args.ClaimAllArgs(options::OPT_reuse_exe_EQ);
@@ -441,6 +618,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
+  addFPGATimingDiagnostic(Cmd, C);
   if (!ForeachInputs.empty())
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
                                 this, ReportOptArg, ForeachExt);
@@ -526,7 +704,7 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
 
 SYCLToolChain::SYCLToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ToolChain &HostTC, const ArgList &Args)
-    : ToolChain(D, Triple, Args), HostTC(HostTC) {
+    : ToolChain(D, Triple, Args), HostTC(HostTC), SYCLInstallation(D) {
   // Lookup binaries into the driver directory, this is used to
   // discover the clang-offload-bundler executable.
   getProgramPaths().push_back(getDriver().Dir);
@@ -559,6 +737,10 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       }
     }
   }
+  // Strip out -O0 for FPGA Hardware device compilation.
+  if (!getDriver().isFPGAEmulationMode() &&
+      getTriple().getSubArch() == llvm::Triple::SPIRSubArch_fpga)
+    DAL->eraseArg(options::OPT_O0);
 
   const OptTable &Opts = getDriver().getOpts();
   if (!BoundArch.empty()) {
@@ -592,7 +774,7 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     OptNoTriple = A->getOption().matches(Opt);
     if (A->getOption().matches(Opt_EQ)) {
       // Passing device args: -X<Opt>=<triple> -opt=val.
-      if (A->getValue() != getTripleString())
+      if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple())
         // Provided triple does not match current tool chain.
         continue;
     } else if (!OptNoTriple)
@@ -662,6 +844,14 @@ void SYCLToolChain::AddImpliedTargetArgs(
     if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
         (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
       BeArgs.push_back("-vc-codegen");
+    if (Arg *A = Args.getLastArg(options::OPT_fopenmp_target_buffers_EQ)) {
+      StringRef BufArg = A->getValue();
+      if (BufArg == "4GB")
+        BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
+      else if (BufArg != "default")
+        getDriver().Diag(diag::err_drv_unsupported_option_argument)
+            << A->getSpelling() << BufArg;
+    }
   }
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION

@@ -91,7 +91,7 @@ private:
   signed int Offset : OffsetBits;
 
 public:
-  enum Result : uint8_t {
+  enum Kind : uint8_t {
     /// The two locations do not alias at all.
     ///
     /// This value is arranged to convert to false, while all other values
@@ -110,10 +110,10 @@ public:
                 "Not enough bit field size for the enum!");
 
   explicit AliasResult() = delete;
-  constexpr AliasResult(const Result &Alias)
+  constexpr AliasResult(const Kind &Alias)
       : Alias(Alias), HasOffset(false), Offset(0) {}
 
-  operator Result() const { return static_cast<Result>(Alias); }
+  operator Kind() const { return static_cast<Kind>(Alias); }
 
   constexpr bool hasOffset() const { return HasOffset; }
   constexpr int32_t getOffset() const {
@@ -128,7 +128,7 @@ public:
   }
 
   /// Helper for processing AliasResult for swapped memory location pairs.
-  void swap(bool DoSwap) {
+  void swap(bool DoSwap = true) {
     if (DoSwap && hasOffset())
       setOffset(-getOffset());
   }
@@ -904,7 +904,11 @@ public:
   /// Early exits in callCapturesBefore may lead to ModRefInfo::Must not being
   /// set.
   ModRefInfo callCapturesBefore(const Instruction *I,
-                                const MemoryLocation &MemLoc, DominatorTree *DT);
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    AAQueryInfo AAQIP;
+    return callCapturesBefore(I, MemLoc, DT, AAQIP);
+  }
 
   /// A convenience wrapper to synthesize a memory location.
   ModRefInfo callCapturesBefore(const Instruction *I, const Value *P,
@@ -984,6 +988,9 @@ private:
                            const Optional<MemoryLocation> &OptLoc,
                            AAQueryInfo &AAQIP, // INTEL
                            const Optional<LocationSize> &Size = {}); // INTEL
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc, DominatorTree *DT,
+                                AAQueryInfo &AAQIP);
 
   class Concept;
 
@@ -1044,6 +1051,11 @@ public:
     return alias(MemoryLocation(V1, LocationSize::precise(1)),
                  MemoryLocation(V2, LocationSize::precise(1))) ==
            AliasResult::MustAlias;
+  }
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    return AA.callCapturesBefore(I, MemLoc, DT, AAQI);
   }
 };
 

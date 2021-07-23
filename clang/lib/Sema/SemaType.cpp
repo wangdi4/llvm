@@ -656,7 +656,7 @@ static void distributeFunctionTypeAttrFromDeclSpec(TypeProcessingState &state,
   // C++11 attributes before the decl specifiers actually appertain to
   // the declarators. Move them straight there. We don't support the
   // 'put them wherever you like' semantics we allow for GNU attributes.
-  if (attr.isCXX11Attribute()) {
+  if (attr.isStandardAttributeSyntax()) {
     moveAttrFromListToList(attr, state.getCurrentAttributes(),
                            state.getDeclarator().getAttributes());
     return;
@@ -709,9 +709,9 @@ static void distributeTypeAttrsFromDeclarator(TypeProcessingState &state,
   // non-owning copy and iterate over that.
   ParsedAttributesView AttrsCopy{state.getDeclarator().getAttributes()};
   for (ParsedAttr &attr : AttrsCopy) {
-    // Do not distribute C++11 attributes. They have strict rules for what
+    // Do not distribute [[]] attributes. They have strict rules for what
     // they appertain to.
-    if (attr.isCXX11Attribute())
+    if (attr.isStandardAttributeSyntax())
       continue;
 
     switch (attr.getKind()) {
@@ -1567,6 +1567,14 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_float:   Result = Context.FloatTy; break;
   case DeclSpec::TST_double:
+    if (S.getLangOpts().OpenCL) {
+      if (!S.getOpenCLOptions().isSupported("cl_khr_fp64", S.getLangOpts()))
+        S.Diag(DS.getTypeSpecTypeLoc(),
+               diag::err_opencl_double_requires_extension)
+            << (S.getLangOpts().OpenCLVersion >= 300);
+      else if (!S.getOpenCLOptions().isAvailableOption("cl_khr_fp64", S.getLangOpts()))
+        S.Diag(DS.getTypeSpecTypeLoc(), diag::ext_opencl_double_without_pragma);
+    }
     if (DS.getTypeSpecWidth() == TypeSpecifierWidth::Long)
       Result = Context.LongDoubleTy;
     else
@@ -1577,7 +1585,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         !S.getLangOpts().SYCLIsDevice &&
         !(S.getLangOpts().OpenMP && S.getLangOpts().OpenMPIsDevice))
       S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
-          << "__float128";
+        << "__float128";
     Result = Context.Float128Ty;
     break;
   case DeclSpec::TST_bool:
@@ -1755,9 +1763,26 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
   if (Result->containsErrors())
     declarator.setInvalidType();
 
-  if (S.getLangOpts().OpenCL &&
-      S.checkOpenCLDisabledTypeDeclSpec(DS, Result))
-    declarator.setInvalidType(true);
+  if (S.getLangOpts().OpenCL) {
+    const auto &OpenCLOptions = S.getOpenCLOptions();
+    StringRef OptName;
+    // OpenCL C v3.0 s6.3.3 - OpenCL image types require __opencl_c_images
+    // support
+    if ((Result->isImageType() || Result->isSamplerT()) &&
+        (S.getLangOpts().OpenCLVersion >= 300 &&
+         !OpenCLOptions.isSupported("__opencl_c_images", S.getLangOpts())))
+      OptName = "__opencl_c_images";
+    else if (Result->isOCLImage3dWOType() &&
+             !OpenCLOptions.isSupported("cl_khr_3d_image_writes",
+                                        S.getLangOpts()))
+      OptName = "cl_khr_3d_image_writes";
+
+    if (!OptName.empty()) {
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_opencl_requires_extension)
+          << 0 << Result << OptName;
+      declarator.setInvalidType();
+    }
+  }
 
   bool IsFixedPointType = DS.getTypeSpecType() == DeclSpec::TST_accum ||
                           DS.getTypeSpecType() == DeclSpec::TST_fract;
@@ -2447,7 +2472,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   }
 
   // Do lvalue-to-rvalue conversions on the array size expression.
-  if (ArraySize && !ArraySize->isRValue()) {
+  if (ArraySize && !ArraySize->isPRValue()) {
     ExprResult Result = DefaultLvalueConversion(ArraySize);
     if (Result.isInvalid())
       return QualType();
@@ -2548,7 +2573,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
               : ConstVal.getActiveBits();
       if (ActiveSizeBits > ConstantArrayType::getMaxSizeBits(Context)) {
         Diag(ArraySize->getBeginLoc(), diag::err_array_too_large)
-            << ConstVal.toString(10) << ArraySize->getSourceRange();
+            << toString(ConstVal, 10) << ArraySize->getSourceRange();
         return QualType();
       }
 
@@ -2849,6 +2874,10 @@ static void checkExtParameterInfos(Sema &S, ArrayRef<QualType> paramTypes,
 
     case ParameterABI::SwiftContext:
       checkForSwiftCC(paramIndex);
+      continue;
+
+    case ParameterABI::SwiftAsyncContext:
+      // FIXME: might want to require swiftasynccc when it exists
       continue;
 
     // swift_error parameters must be preceded by a swift_context parameter.
@@ -3278,31 +3307,52 @@ InventTemplateParameter(TypeProcessingState &state, QualType T,
       // extract its type constraints to attach to the template parameter.
       AutoTypeLoc AutoLoc = TrailingTSI->getTypeLoc().getContainedAutoTypeLoc();
       TemplateArgumentListInfo TAL(AutoLoc.getLAngleLoc(), AutoLoc.getRAngleLoc());
-      for (unsigned Idx = 0; Idx < AutoLoc.getNumArgs(); ++Idx)
+      bool Invalid = false;
+      for (unsigned Idx = 0; Idx < AutoLoc.getNumArgs(); ++Idx) {
+        if (D.getEllipsisLoc().isInvalid() && !Invalid &&
+            S.DiagnoseUnexpandedParameterPack(AutoLoc.getArgLoc(Idx),
+                                              Sema::UPPC_TypeConstraint))
+          Invalid = true;
         TAL.addArgument(AutoLoc.getArgLoc(Idx));
+      }
 
-      S.AttachTypeConstraint(AutoLoc.getNestedNameSpecifierLoc(),
-                             AutoLoc.getConceptNameInfo(),
-                             AutoLoc.getNamedConcept(),
-                             AutoLoc.hasExplicitTemplateArgs() ? &TAL : nullptr,
-                             InventedTemplateParam, D.getEllipsisLoc());
+      if (!Invalid) {
+        S.AttachTypeConstraint(
+            AutoLoc.getNestedNameSpecifierLoc(), AutoLoc.getConceptNameInfo(),
+            AutoLoc.getNamedConcept(),
+            AutoLoc.hasExplicitTemplateArgs() ? &TAL : nullptr,
+            InventedTemplateParam, D.getEllipsisLoc());
+      }
     } else {
       // The 'auto' appears in the decl-specifiers; we've not finished forming
       // TypeSourceInfo for it yet.
       TemplateIdAnnotation *TemplateId = D.getDeclSpec().getRepAsTemplateId();
       TemplateArgumentListInfo TemplateArgsInfo;
+      bool Invalid = false;
       if (TemplateId->LAngleLoc.isValid()) {
         ASTTemplateArgsPtr TemplateArgsPtr(TemplateId->getTemplateArgs(),
                                            TemplateId->NumArgs);
         S.translateTemplateArguments(TemplateArgsPtr, TemplateArgsInfo);
+
+        if (D.getEllipsisLoc().isInvalid()) {
+          for (TemplateArgumentLoc Arg : TemplateArgsInfo.arguments()) {
+            if (S.DiagnoseUnexpandedParameterPack(Arg,
+                                                  Sema::UPPC_TypeConstraint)) {
+              Invalid = true;
+              break;
+            }
+          }
+        }
       }
-      S.AttachTypeConstraint(
-          D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
-          DeclarationNameInfo(DeclarationName(TemplateId->Name),
-                              TemplateId->TemplateNameLoc),
-          cast<ConceptDecl>(TemplateId->Template.get().getAsTemplateDecl()),
-          TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
-          InventedTemplateParam, D.getEllipsisLoc());
+      if (!Invalid) {
+        S.AttachTypeConstraint(
+            D.getDeclSpec().getTypeSpecScope().getWithLocInContext(S.Context),
+            DeclarationNameInfo(DeclarationName(TemplateId->Name),
+                                TemplateId->TemplateNameLoc),
+            cast<ConceptDecl>(TemplateId->Template.get().getAsTemplateDecl()),
+            TemplateId->LAngleLoc.isValid() ? &TemplateArgsInfo : nullptr,
+            InventedTemplateParam, D.getEllipsisLoc());
+      }
     }
   }
 
@@ -6500,6 +6550,7 @@ static bool BuildAddressSpaceIndex(Sema &S, LangAS &ASIdx,
     llvm::APSInt max(addrSpace.getBitWidth());
     max =
         Qualifiers::MaxAddressSpace - (unsigned)LangAS::FirstTargetAddressSpace;
+
     if (addrSpace > max) {
       S.Diag(AttrLoc, diag::err_attribute_address_space_too_high)
           << (unsigned)max.getZExtValue() << AddrSpace->getSourceRange();
@@ -6615,7 +6666,9 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       Attr.setInvalid();
   } else {
     // The keyword-based type attributes imply which address space to use.
-    ASIdx = Attr.asOpenCLLangAS();
+    ASIdx = S.getLangOpts().SYCLIsDevice ? Attr.asSYCLLangAS()
+                                         : Attr.asOpenCLLangAS();
+
     if (ASIdx == LangAS::Default)
       llvm_unreachable("Invalid address space");
 
@@ -8206,7 +8259,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     if (attr.isInvalid())
       continue;
 
-    if (attr.isCXX11Attribute()) {
+    if (attr.isStandardAttributeSyntax()) {
       // [[gnu::...]] attributes are treated as declaration attributes, so may
       // not appertain to a DeclaratorChunk. If we handle them as type
       // attributes, accept them in that position and diagnose the GCC
@@ -8235,8 +8288,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     // otherwise, add it to the FnAttrs list for rechaining.
     switch (attr.getKind()) {
     default:
-      // A C++11 attribute on a declarator chunk must appertain to a type.
-      if (attr.isCXX11Attribute() && TAL == TAL_DeclChunk &&
+      // A [[]] attribute on a declarator chunk must appertain to a type.
+      if (attr.isStandardAttributeSyntax() && TAL == TAL_DeclChunk &&
           (!state.isProcessingLambdaExpr() ||
            !attr.supportsNonconformingLambdaSyntax())) {
         state.getSema().Diag(attr.getLoc(), diag::err_attribute_not_type_attr)
@@ -8246,7 +8299,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       break;
 
     case ParsedAttr::UnknownAttribute:
-      if (attr.isCXX11Attribute() && TAL == TAL_DeclChunk)
+      if (attr.isStandardAttributeSyntax() && TAL == TAL_DeclChunk)
         state.getSema().Diag(attr.getLoc(),
                              diag::warn_unknown_attribute_ignored)
             << attr << attr.getRange();
@@ -9054,7 +9107,7 @@ QualType Sema::getDecltypeForParenthesizedExpr(Expr *E) {
   case VK_LValue:
     return Context.getLValueReferenceType(T);
   //  - otherwise, decltype(e) is the type of e.
-  case VK_RValue:
+  case VK_PRValue:
     return T;
   }
   llvm_unreachable("Unknown value kind");
@@ -9067,6 +9120,10 @@ static QualType getDecltypeForExpr(Sema &S, Expr *E) {
   if (E->isTypeDependent())
     return S.Context.DependentTy;
 
+  Expr *IDExpr = E;
+  if (auto *ImplCastExpr = dyn_cast<ImplicitCastExpr>(E))
+    IDExpr = ImplCastExpr->getSubExpr();
+
   // C++11 [dcl.type.simple]p4:
   //   The type denoted by decltype(e) is defined as follows:
 
@@ -9077,7 +9134,7 @@ static QualType getDecltypeForExpr(Sema &S, Expr *E) {
   // Note that this does not pick up the implicit 'const' for a template
   // parameter object. This rule makes no difference before C++20 so we apply
   // it unconditionally.
-  if (const auto *SNTTPE = dyn_cast<SubstNonTypeTemplateParmExpr>(E))
+  if (const auto *SNTTPE = dyn_cast<SubstNonTypeTemplateParmExpr>(IDExpr))
     return SNTTPE->getParameterType(S.Context);
 
   //     - if e is an unparenthesized id-expression or an unparenthesized class
@@ -9086,21 +9143,22 @@ static QualType getDecltypeForExpr(Sema &S, Expr *E) {
   //       functions, the program is ill-formed;
   //
   // We apply the same rules for Objective-C ivar and property references.
-  if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E)) {
+  if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(IDExpr)) {
     const ValueDecl *VD = DRE->getDecl();
     if (auto *TPO = dyn_cast<TemplateParamObjectDecl>(VD))
       return TPO->getType().getUnqualifiedType();
     return VD->getType();
-  } else if (const MemberExpr *ME = dyn_cast<MemberExpr>(E)) {
+  } else if (const MemberExpr *ME = dyn_cast<MemberExpr>(IDExpr)) {
     if (const ValueDecl *VD = ME->getMemberDecl())
       if (isa<FieldDecl>(VD) || isa<VarDecl>(VD))
         return VD->getType();
-  } else if (const ObjCIvarRefExpr *IR = dyn_cast<ObjCIvarRefExpr>(E)) {
+  } else if (const ObjCIvarRefExpr *IR = dyn_cast<ObjCIvarRefExpr>(IDExpr)) {
     return IR->getDecl()->getType();
-  } else if (const ObjCPropertyRefExpr *PR = dyn_cast<ObjCPropertyRefExpr>(E)) {
+  } else if (const ObjCPropertyRefExpr *PR =
+                 dyn_cast<ObjCPropertyRefExpr>(IDExpr)) {
     if (PR->isExplicitProperty())
       return PR->getExplicitProperty()->getType();
-  } else if (auto *PE = dyn_cast<PredefinedExpr>(E)) {
+  } else if (auto *PE = dyn_cast<PredefinedExpr>(IDExpr)) {
     return PE->getType();
   }
 
@@ -9113,8 +9171,8 @@ static QualType getDecltypeForExpr(Sema &S, Expr *E) {
   //   entity.
   using namespace sema;
   if (S.getCurLambda()) {
-    if (isa<ParenExpr>(E)) {
-      if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E->IgnoreParens())) {
+    if (isa<ParenExpr>(IDExpr)) {
+      if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(IDExpr->IgnoreParens())) {
         if (VarDecl *Var = dyn_cast<VarDecl>(DRE->getDecl())) {
           QualType T = S.getCapturedDeclRefType(Var, DRE->getLocation());
           if (!T.isNull())

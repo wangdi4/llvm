@@ -9,6 +9,7 @@
 #include "llvm/Transforms/Coroutines/CoroElide.h"
 #include "CoroInternal.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Dominators.h"
@@ -20,6 +21,8 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "coro-elide"
+
+STATISTIC(NumOfCoroElided, "The # of coroutine get elided.");
 
 namespace {
 // Created on demand if the coro-elide pass has work to do.
@@ -232,17 +235,22 @@ bool Lowerer::shouldElide(Function *F, DominatorTree &DT) const {
   // Filter out the coro.destroy that lie along exceptional paths.
   SmallPtrSet<CoroBeginInst *, 8> ReferencedCoroBegins;
   for (auto &It : DestroyAddr) {
+    // If there is any coro.destroy dominates all of the terminators for the
+    // coro.begin, we could know the corresponding coro.begin wouldn't escape.
     for (Instruction *DA : It.second) {
-      for (BasicBlock *TI : Terminators) {
-        if (DT.dominates(DA, TI->getTerminator())) {
-          ReferencedCoroBegins.insert(It.first);
-          break;
-        }
+      if (llvm::all_of(Terminators, [&](auto *TI) {
+            return DT.dominates(DA, TI->getTerminator());
+          })) {
+        ReferencedCoroBegins.insert(It.first);
+        break;
       }
     }
 
     // Whether there is any paths from coro.begin to Terminators which not pass
     // through any of the coro.destroys.
+    //
+    // hasEscapePath is relatively slow, so we avoid to run it as much as
+    // possible.
     if (!ReferencedCoroBegins.count(It.first) &&
         !hasEscapePath(It.first, Terminators))
       ReferencedCoroBegins.insert(It.first);
@@ -339,6 +347,7 @@ bool Lowerer::processCoroId(CoroIdInst *CoroId, AAResults &AA,
     elideHeapAllocations(CoroId->getFunction(), FrameSizeAndAlign.first,
                          FrameSizeAndAlign.second, AA);
     coro::replaceCoroFree(CoroId, /*Elide=*/true);
+    NumOfCoroElided++;
   }
 
   return true;

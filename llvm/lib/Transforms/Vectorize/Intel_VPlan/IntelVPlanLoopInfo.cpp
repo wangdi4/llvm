@@ -30,10 +30,17 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-loop-info"
 
-static cl::opt<unsigned>
-    DefaultTripCount("vplan-default-trip-count", cl::init(300), cl::Hidden,
-                     cl::desc("Default estimate for the loop trip count, if "
-                              "can't be determined through other ways"));
+static cl::opt<unsigned, true>
+    DefaultTripCountOpt("vplan-default-trip-count", cl::location(DefaultTripCount),
+                        cl::Hidden,
+                        cl::desc("Default estimate for the loop trip count, if "
+                                 "can't be determined through other ways"));
+
+namespace llvm {
+namespace vpo {
+unsigned DefaultTripCount = 303;
+} // namespace vpo
+} // namespace llvm
 
 void TripCountInfo::calculateEstimatedTripCount() {
   if (TripCount)
@@ -77,29 +84,36 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
-Optional<bool> VPLoop::hasNormalizedInduction() const {
-  return LoopVectorizationPlanner::hasLoopNormalizedInduction(this);
-}
+std::pair<VPValue *, VPCmpInst *>
+VPLoop::getLoopUpperBound(bool AssumeNormalizedIV) const {
+  assert((AssumeNormalizedIV || hasNormalizedInduction()) &&
+         "must have normilized unduction");
 
-std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
-  if (!hasNormalizedInduction())
-    return std::make_pair<VPValue *, VPInstruction *>(nullptr, nullptr);
   VPCmpInst *Cond = getLatchComparison();
-  if (VPInstruction *Add = dyn_cast<VPInstruction>(Cond->getOperand(0)))
-    if (Add->getOpcode() == Instruction::Add && contains(Add))
-      return std::make_pair(Cond->getOperand(1), Cond);
-  auto Add = dyn_cast<VPInstruction>(Cond->getOperand(1));
-  assert((Add != nullptr && Add->getOpcode() == Instruction::Add &&
-          contains(Add)) &&
-         "Unexpected operand");
-  (void)Add;
-  return std::make_pair(Cond->getOperand(0), Cond);
+  assert(Cond && "expected comparison instruction");
+
+  auto *Op = dyn_cast<VPInstruction>(Cond->getOperand(0));
+  if (Op && Op->getOpcode() == Instruction::Add && contains(Op))
+    return std::make_pair(Cond->getOperand(1), Cond);
+
+  Op = dyn_cast<VPInstruction>(Cond->getOperand(1));
+  if (Op && Op->getOpcode() == Instruction::Add && contains(Op))
+    return std::make_pair(Cond->getOperand(0), Cond);
+
+  llvm_unreachable("Unexpected operand");
 }
 
 VPCmpInst *VPLoop::getLatchComparison() const {
+  // The loop latch comparison is a VPCmpInst instruction which is normally
+  // found as: latch block  -> terminator -> condition. Thus if we found it
+  // there then we are done.
+  // If we have masked mode loop vectorization, the original latch condition
+  // may have been replaced with AllZeroCheck instruction. The instruction
+  // checks for mask bits and is emitted in place of the original latch
+  // condition. The original latch condition in such a case is its operand.
   VPValue *CondBit = getLoopLatch()->getTerminator()->getCondition();
-  if (isa<VPCmpInst>(CondBit))
-    return cast<VPCmpInst>(CondBit);
+  if (auto *CmpInst = dyn_cast<VPCmpInst>(CondBit))
+    return CmpInst;
   auto *AllZeroCheck = dyn_cast<VPInstruction>(CondBit);
   if (AllZeroCheck && AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck)
     return dyn_cast<VPCmpInst>(AllZeroCheck->getOperand(0));

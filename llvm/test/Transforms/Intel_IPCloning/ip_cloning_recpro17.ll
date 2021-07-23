@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
@@ -370,3 +371,4 @@ define internal void @main_IP_digits_2_(i32* noalias nocapture readonly) #2 {
 declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr
 
 declare dso_local i32 @for_write_seq_lis_xmit(i8*, i8*, i8*) local_unnamed_addr
+; end INTEL_FEATURE_SW_ADVANCED

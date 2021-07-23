@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -inline -inline-report=7 -new-double-callsite-inlining-heuristics=true < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -new-double-callsite-inlining-heuristics=true < %s -S 2>&1 | FileCheck %s
@@ -88,3 +90,4 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 !llvm.ident = !{!0}
 
 !0 = !{!"clang version 4.0.0 (trunk 20640) (llvm/branches/ltoprof 20717)"}
+; end INTEL_FEATURE_SW_ADVANCED

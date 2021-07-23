@@ -2,7 +2,7 @@
 ; Test to check correctness of VPlan CG for an induction whose
 ; live-out last value is computed before increment.
 
-; RUN: opt -S -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-print-after-vpentity-instrs -vplan-force-vf=2 %s | FileCheck %s
 
 define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
@@ -11,24 +11,24 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ;
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI40:%.*]] = phi i32 [ 42, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI50:%.*]] = phi <2 x i32> [ <i32 42, i32 45>, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI30]], 2
-; CHECK-NEXT:    [[TMP3]] = add <2 x i32> [[VEC_PHI50]], <i32 6, i32 6>
-; CHECK-NEXT:    [[TMP4]] = add i32 [[UNI_PHI40]], 6
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP2]], [[N_VEC0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB20]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI40:%.*]] = phi i32 [ 42, [[VPLANNEDBB20]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI50:%.*]] = phi <2 x i32> [ <i32 42, i32 45>, [[VPLANNEDBB20]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP5]] = add <2 x i32> [[VEC_PHI50]], <i32 6, i32 6>
+; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI40]], 6
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP4]], [[TMP2:%.*]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB5:
-; CHECK-NEXT:    [[TMP7:%.*]] = mul i64 1, [[N_VEC0]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add i64 0, [[TMP7]]
-; CHECK-NEXT:    [[TMP9:%.*]] = sub i64 [[N_VEC0]], 1
-; CHECK-NEXT:    [[CAST_CRD0:%.*]] = trunc i64 [[TMP9]] to i32
-; CHECK-NEXT:    [[TMP10:%.*]] = mul i32 3, [[CAST_CRD0]]
-; CHECK-NEXT:    [[TMP11:%.*]] = add i32 42, [[TMP10]]
+; CHECK-NEXT:  VPlannedBB6:
+; CHECK-NEXT:    [[TMP8:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP9:%.*]] = add i64 0, [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = sub i64 [[TMP2]], 1
+; CHECK-NEXT:    [[CAST_CRD0:%.*]] = trunc i64 [[TMP10]] to i32
+; CHECK-NEXT:    [[TMP11:%.*]] = mul i32 3, [[CAST_CRD0]]
+; CHECK-NEXT:    [[TMP12:%.*]] = add i32 42, [[TMP11]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1

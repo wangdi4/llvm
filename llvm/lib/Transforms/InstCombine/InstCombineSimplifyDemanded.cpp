@@ -220,6 +220,17 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
     if (SimplifyDemandedBits(I, 1, DemandedMask, RHSKnown, Depth + 1) ||
         SimplifyDemandedBits(I, 0, DemandedMask, LHSKnown, Depth + 1))
       return I;
+    Value *LHS, *RHS;
+    if (DemandedMask == 1 &&
+        match(I->getOperand(0), m_Intrinsic<Intrinsic::ctpop>(m_Value(LHS))) &&
+        match(I->getOperand(1), m_Intrinsic<Intrinsic::ctpop>(m_Value(RHS)))) {
+      // (ctpop(X) ^ ctpop(Y)) & 1 --> ctpop(X^Y) & 1
+      IRBuilderBase::InsertPointGuard Guard(Builder);
+      Builder.SetInsertPoint(I);
+      auto *Xor = Builder.CreateXor(LHS, RHS);
+      return Builder.CreateUnaryIntrinsic(Intrinsic::ctpop, Xor);
+    }
+
     assert(!RHSKnown.hasConflict() && "Bits known to be one AND zero?");
     assert(!LHSKnown.hasConflict() && "Bits known to be one AND zero?");
 
@@ -465,6 +476,12 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       //
       // Since %tmp3 is now a SExt instruction, it will converted again
       // to a Select instruction, producing an infinite loop.
+      //
+      // CMPLRLLVM-29659:
+      // Similar to above, but we have:
+      // %not.tobool38.not = xor i1 %tobool38.not, true
+      // sext i1 %not.tobool38.not to i64
+      // If we convert the sext to select, it will be reverted back to sext.
       bool ReplaceEnabled = true;
       if (auto *ICmp = dyn_cast<ICmpInst>(I->getOperand(0))) {
         ICmpInst::Predicate OuterPred;
@@ -477,6 +494,9 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
         if (match(ICmp, m_ICmp(OuterPred, m_Value(X), m_APInt(C1))) &&
             C1->isNegative())
           ReplaceEnabled = false;
+      }
+      else if (match(I->getOperand(0), m_Xor(m_Value(), m_One()))) {
+        ReplaceEnabled = false;
       }
 
       if (ReplaceEnabled) {
@@ -618,6 +638,17 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
           return UndefValue::get(I->getType());
       }
     } else {
+      // This is a variable shift, so we can't shift the demand mask by a known
+      // amount. But if we are not demanding high bits, then we are not
+      // demanding those bits from the pre-shifted operand either.
+      if (unsigned CTLZ = DemandedMask.countLeadingZeros()) {
+        APInt DemandedFromOp(APInt::getLowBitsSet(BitWidth, BitWidth - CTLZ));
+        if (SimplifyDemandedBits(I, 0, DemandedFromOp, Known, Depth + 1)) {
+          // We can't guarantee that nsw/nuw hold after simplifying the operand.
+          I->dropPoisonGeneratingFlags();
+          return I;
+        }
+      }
       computeKnownBits(I, Known, Depth, CxtI);
     }
     break;
@@ -796,6 +827,19 @@ Value *InstCombinerImpl::SimplifyDemandedUseBits(Value *V, APInt DemandedMask,
       case Intrinsic::abs: {
         if (DemandedMask == 1)
           return II->getArgOperand(0);
+        break;
+      }
+      case Intrinsic::ctpop: {
+        // Checking if the number of clear bits is odd (parity)? If the type has
+        // an even number of bits, that's the same as checking if the number of
+        // set bits is odd, so we can eliminate the 'not' op.
+        Value *X;
+        if (DemandedMask == 1 && VTy->getScalarSizeInBits() % 2 == 0 &&
+            match(II->getArgOperand(0), m_Not(m_Value(X)))) {
+          Function *Ctpop = Intrinsic::getDeclaration(
+              II->getModule(), Intrinsic::ctpop, II->getType());
+          return InsertNewInstWith(CallInst::Create(Ctpop, {X}), *I);
+        }
         break;
       }
       case Intrinsic::bswap: {
@@ -1115,7 +1159,7 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
   APInt EltMask(APInt::getAllOnesValue(VWidth));
   assert((DemandedElts & ~EltMask) == 0 && "Invalid DemandedElts!");
 
-  if (isa<UndefValue>(V)) {
+  if (match(V, m_Undef())) {
     // If the entire vector is undef or poison, just return this info.
     UndefElts = EltMask;
     return nullptr;
@@ -1216,7 +1260,7 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
     // merge the undef bits here since gepping with either an undef base or
     // index results in undef.
     for (unsigned i = 0; i < I->getNumOperands(); i++) {
-      if (isa<UndefValue>(I->getOperand(i))) {
+      if (match(I->getOperand(i), m_Undef())) {
         // If the entire vector is undefined, just return this info.
         UndefElts = EltMask;
         return nullptr;
@@ -1285,8 +1329,8 @@ Value *InstCombinerImpl::SimplifyDemandedVectorElts(Value *V,
     // operand.
     if (all_of(Shuffle->getShuffleMask(), [](int Elt) { return Elt == 0; }) &&
         DemandedElts.isAllOnesValue()) {
-      if (!isa<UndefValue>(I->getOperand(1))) {
-        I->setOperand(1, UndefValue::get(I->getOperand(1)->getType()));
+      if (!match(I->getOperand(1), m_Undef())) {
+        I->setOperand(1, PoisonValue::get(I->getOperand(1)->getType()));
         MadeChange = true;
       }
       APInt LeftDemanded(OpWidth, 1);

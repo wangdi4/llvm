@@ -1,6 +1,12 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.13.4)
+
+# CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
+# New in CMake 3.20. https://cmake.org/cmake/help/latest/policy/CMP0116.html
+if(POLICY CMP0116)
+  cmake_policy(SET CMP0116 OLD)
+endif()
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
@@ -45,7 +51,7 @@ project(LLVM
 if (INTEL_CUSTOMIZATION)
   set(DPCPP_VERSION_QUALITY " ")
   set(DPCPP_VERSION_MAJOR "2021")
-  set(DPCPP_VERSION_MINOR "3")
+  set(DPCPP_VERSION_MINOR "4")
   set(DPCPP_VERSION_PATCH "0")
   set(VERSION "${DPCPP_VERSION_MAJOR}.${DPCPP_VERSION_MINOR}.${DPCPP_VERSION_PATCH}")
   set(DPCPP_PRODUCT_VERSION ${VERSION})
@@ -83,7 +89,7 @@ endif()
 # LLVM_EXTERNAL_${project}_SOURCE_DIR using LLVM_ALL_PROJECTS
 # This allows an easy way of setting up a build directory for llvm and another
 # one for llvm+clang+... using the same sources.
-set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;debuginfo-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;parallel-libs;polly;pstl")
+set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;cross-project-tests;libc;libclc;libcxx;libcxxabi;libunwind;lld;lldb;mlir;openmp;parallel-libs;polly;pstl")
 # The flang project is not yet part of "all" projects (see C++ requirements)
 set(LLVM_EXTRA_PROJECTS "flang")
 # List of all known projects in the mono repo
@@ -93,9 +99,17 @@ set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
   set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})
 endif()
-if ("flang" IN_LIST LLVM_ENABLE_PROJECTS AND NOT "mlir" IN_LIST LLVM_ENABLE_PROJECTS)
-  message(STATUS "Enabling MLIR as a dependency to flang")
-  list(APPEND LLVM_ENABLE_PROJECTS "mlir")
+
+if ("flang" IN_LIST LLVM_ENABLE_PROJECTS)
+  if (NOT "mlir" IN_LIST LLVM_ENABLE_PROJECTS)
+    message(STATUS "Enabling MLIR as a dependency to flang")
+    list(APPEND LLVM_ENABLE_PROJECTS "mlir")
+  endif()
+
+  option(FLANG_BUILD_NEW_DRIVER "Build the flang compiler driver" ON)
+  if (FLANG_BUILD_NEW_DRIVER AND NOT "clang" IN_LIST LLVM_ENABLE_PROJECTS)
+    message(FATAL_ERROR "Clang is not enabled, but it's required by the new Flang driver")
+  endif()
 endif()
 
 # LLVM_ENABLE_PROJECTS_USED is `ON` if the user has ever used the
@@ -775,25 +789,6 @@ if(INTEL_CUSTOMIZATION)
     -DINTEL_CUSTOMIZATION
     )
 
-  option(INTEL_INCLUDE_DTRANS "Include DTrans optimizations in builds." ON)
-  if(INTEL_INCLUDE_DTRANS)
-    # When there are multiple optional components, each of them should
-    # set this when included. This causes the Intel_OptionalComponents
-    # directory to be added as a subdirectory.
-    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
-    set(INTEL_DTRANS_INCLUDE_DIR
-        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
-    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=1")
-    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
-                               Intel_DTrans
-                               Intel_DTransOpt
-                               Intel_DTransAnalysis)
-
-  else()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_INCLUDE_DTRANS=0")
-  endif()
-
 # INTEL_FEATURE_CSA
   if (";${LLVM_TARGETS_TO_BUILD};" MATCHES ";CSA;")
     set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
@@ -863,14 +858,41 @@ if(INTEL_CUSTOMIZATION)
   # enable such features (until they are upstreamed and the feature controls
   # are removed).
   set(features_enabled_by_default ${LLVM_INTEL_FEATURES})
-  list(APPEND features_enabled_by_default
-    # Add each feature enabled by default in a separate line.
-    #
-    # WARNING: features added here will be enabled for any compiler build,
-    #          so you must not add here any features that must be controlled
-    #          depending on the compiler build flavor, e.g. INTEL_INTERNAL_BUILD
-    #          must never be enabled for Intel release builds.
+  # Add each feature enabled by default below
+  # WARNING: features added here will be enabled for any compiler build,
+  #          so you must not add here any features that must be controlled
+  #          depending on the compiler build flavor, e.g. INTEL_INTERNAL_BUILD
+  #          must never be enabled for Intel release builds.
+
+# INTEL_FEATURE_SW_ADVANCED
+  option(INTEL_ENABLE_SW_ADVANCED "Advanced optimizations not to be shared in
+    source form" ON)
+  if (INTEL_ENABLE_SW_ADVANCED)
+    list(APPEND features_enabled_by_default
+       "${LLVM_INTELFEATURE_PREFIX}_SW_ADVANCED"
     )
+  endif(INTEL_ENABLE_SW_ADVANCED)
+# end INTEL_FEATURE_SW_ADVANCED
+
+# INTEL_FEATURE_SW_DTRANS
+  option(INTEL_ENABLE_SW_DTRANS "Include DTrans optimizations" ON)
+  if (INTEL_ENABLE_SW_DTRANS)
+    list(APPEND features_enabled_by_default
+       "${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS"
+    )
+    # When there are multiple optional components, each of them should
+    # set this when included. This causes the Intel_OptionalComponents
+    # directory to be added as a subdirectory.
+    set(INTEL_ANY_OPTIONAL_COMPONENTS TRUE)
+    set(INTEL_DTRANS_INCLUDE_DIR
+        ${LLVM_MAIN_SRC_DIR}/Intel_OptionalComponents/DTrans/include)
+    include_directories(AFTER ${INTEL_DTRANS_INCLUDE_DIR})
+    SET(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS}
+                               Intel_DTrans
+                               Intel_DTransOpt
+                               Intel_DTransAnalysis)
+  endif(INTEL_ENABLE_SW_DTRANS)
+# end INTEL_FEATURE_SW_DTRANS
 
   # Force adding features enabled by default to CMake cache.
   # features_enabled_by_default list now contains all features
@@ -887,10 +909,11 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-# INTEL_FEATURE_ISA_FP16
+# INTEL_FEATURE_XISA_COMMON
+      # This is used to guard code that shared by more then one XISA features.
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
-# end INTEL_FEATURE_ISA_FP16
+           ${LLVM_INTELFEATURE_PREFIX}_XISA_COMMON)
+#end INTEL_FEATURE_XISA_COMMON
 
 # INTEL_FEATURE_ISA_AMX_BF8
       list(APPEND features_enabled_by_default
@@ -993,11 +1016,6 @@ list(APPEND features_enabled_by_default
 ${LLVM_INTELFEATURE_PREFIX}_CPU_ADL)
 # end INTEL_FEATURE_CPU_ADL
 
-# INTEL_FEATURE_CPU_RKL
-list(APPEND features_enabled_by_default
-${LLVM_INTELFEATURE_PREFIX}_CPU_RKL)
-# end INTEL_FEATURE_CPU_RKL
-
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 list(APPEND features_enabled_by_default
      ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8)
@@ -1048,10 +1066,10 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE)
 # end INTEL_FEATURE_ISA_AVX_MEMADVISE
 
-# INTEL_FEATURE_ISA_AVX_MPSADBW
+# INTEL_FEATURE_ISA_AVX512_MEDIAX
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MPSADBW)
-# end INTEL_FEATURE_ISA_AVX_MPSADBW
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_MEDIAX)
+# end INTEL_FEATURE_ISA_AVX512_MEDIAX
 # INTEL_FEATURE_ISA_AVX_MOVGET
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MOVGET)
@@ -1101,6 +1119,58 @@ list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_AVX512_CVTROW)
 # end AUTO GENERATED BY TOOL
 # end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+# INTEL_FEATURE_ISA_AVX_NE_CONVERT
+#AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_NE_CONVERT)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_AVX_NE_CONVERT
+# INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_NE_CONVERT)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+# INTEL_FEATURE_ISA_SHA512
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_SHA512)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_SHA512
+# INTEL_FEATURE_ISA_SM3
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_SM3)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_SM3
+# INTEL_FEATURE_ISA_SM4
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_SM4)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_SM4
+# INTEL_FEATURE_ISA_DSPV1
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_DSPV1)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_DSPV1
+# INTEL_FEATURE_ISA_AVX256
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX256)
+# end INTEL_FEATURE_ISA_AVX256
+# INTEL_FEATURE_ISA_AVX_VNNI_INT16
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI_INT16)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_AVX_VNNI_INT16
+# INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+# AUTO GENERATED BY TOOL
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_VNNI_INT16)
+# end AUTO GENERATED BY TOOL
+# end INTEL_FEATURE_ISA_AVX512_VNNI_INT16
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1158,6 +1228,11 @@ list(APPEND features_enabled_by_default
       add_definitions(-D${f}=1)
     endforeach(f)
   endif()
+
+  # Add knob to enable/disable Protobuf-based binary opt-report feature during
+  # compiler's build.
+  option(INTEL_ENABLE_PROTO_BIN_OPTRPT
+         "Enable Protobuf-based binary opt-report feature" OFF)
 endif(INTEL_CUSTOMIZATION)
 
 # Configure all of the various header file fragments LLVM uses which depend on
@@ -1263,7 +1338,7 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
   include_directories(${TENSORFLOW_AOT_PATH}/include)
   add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
     ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
-  install(TARGETS tf_xla_runtime EXPORT LLVMExports 
+  install(TARGETS tf_xla_runtime EXPORT LLVMExports
     ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT tf_xla_runtime)
   set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS tf_xla_runtime)
 endif()
@@ -1385,6 +1460,8 @@ set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 include(AddLLVM)
 include(TableGen)
+
+include(LLVMDistributionSupport)
 
 if( MINGW AND NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
   # People report that -O3 is unreliable on MinGW. The traditional
@@ -1580,7 +1657,6 @@ endif()
 
 # This must be at the end of the LLVM root CMakeLists file because it must run
 # after all targets are created.
-include(LLVMDistributionSupport)
 llvm_distribution_add_targets()
 process_llvm_pass_plugins(GEN_CONFIG)
 
@@ -1635,8 +1711,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-csa-ompplugin
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-      # SYCL components
-      khronos-icd-loader opencl-aot ioc64
+      # SYCL components: see sycl/CMakeLists.txt
       )
 
     if (WIN32)
@@ -1678,8 +1753,8 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-cl_logger_emu ocl-OpenCL
-      ocl-svml ocl-gdb-plugin ocl-eyeq-builtins ocl-library-kernel
+      ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
+      ocl-svml ocl-gdb-plugin ocl-library-kernel
       ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
       ocl-cpu_device ocl-cpu_device_emu ocl-cpu_device32_emu ocl-cpu_device32 ocl-cpu_device64_emu ocl-cpu_device64

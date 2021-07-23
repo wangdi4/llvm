@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -inline -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning),cgscc(inline)' -ip-gen-cloning-force-enable-dtrans -S 2>&1 | FileCheck %s
 
@@ -63,3 +65,4 @@ define internal void @foo(i32* noalias nocapture readonly) {
 }
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

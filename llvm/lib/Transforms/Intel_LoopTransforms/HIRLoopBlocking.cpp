@@ -167,6 +167,10 @@ static cl::opt<bool> EnableLoopBlockingNonConstTC(
     cl::desc("Enable " OPT_DESC
              " pass even when some trip counts are non-const"));
 
+// Flag to allow special sinking to occur for special loops
+static cl::opt<bool>
+    EnableSpecialSink(OPT_SWITCH "-enable-special-sink", cl::init(true),
+                      cl::Hidden, cl::desc(OPT_DESC "enable special sinking"));
 // Following check will be disabled.
 //      Loop Depth > number of different IVs appearing
 //      in one references of the innermost loop.
@@ -213,6 +217,12 @@ static cl::opt<int>
 static cl::opt<uint64_t> LoopBlockingTCThreshold(
     OPT_SWITCH "-tc-threshold", cl::init(384), cl::Hidden,
     cl::desc("Threshold of trip counts in " OPT_DESC " pass"));
+
+// Does not greatly affect global behavior of hir loop blocking.
+static cl::opt<unsigned>
+    MajorityStencilGroupThreshold(OPT_SWITCH "-stencil-group-threshold",
+                                  cl::init(4), cl::Hidden,
+                                  cl::desc(" " OPT_DESC " pass"));
 
 // Upperbound for small stride in bytes.
 // This knob is mainly for KAndR algorithm.
@@ -826,7 +836,8 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
     if (Ref->isNonLinear()) {
       HasNonLinear = true;
       // Allow blocking for nonlinear rvals
-      // Later check if these refs match heuristics (i.e. bwavs %mod)
+      // Non-linear refs are usually unprofitable. We can do profitability
+      // checks later checked for IV computation (stencil B case)
       if (Loop->isLiveIn(SB) || Loop->isLiveOut(SB) || Ref->isLval()) {
         LLVM_DEBUG(dbgs() << "Found Nonlinear refs:\n";);
         return NON_LINEAR;
@@ -965,17 +976,17 @@ public:
   StencilType getStencilType() { return Type; }
 
   bool isProfitable(HIRDDAnalysis &DDA) {
-    // Perfect stencil access with center point (CactuBSSN)
+    // Perfect stencils should always be profitable to block
     if (isStencilForm()) {
-      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Cactus stencil");
-      Type = StencilType::CACT;
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Stencil C");
+      Type = StencilType::C;
       return true;
     }
 
-    // Has multiple ref groups, some exhibiting stencil features (Bwaves)
+    // Stencil is profitable when majority of stores have stencil pattern
     if (hasMajorityStencilRefs(DDA)) {
-      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Bwavs stencil");
-      Type = StencilType::BWAV;
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Stencil B");
+      Type = StencilType::B;
       return true;
     }
     return false;
@@ -1013,7 +1024,7 @@ public:
   // The mod blobs are pseudo stencil since they are IV +/- 1, but
   // we need to trace to the temp definition.
   bool hasMajorityStencilRefs(HIRDDAnalysis &DDA) {
-    if (Groups.size() < 5) {
+    if (Groups.size() < MajorityStencilGroupThreshold) {
       LLVM_DEBUG(dbgs() << "Under Group Threshold Count: " << Groups.size()
                         << "\n";);
       return false;
@@ -1045,7 +1056,7 @@ public:
       return false;
     }
 
-    // Some refs will have %mod in place of IV such as :
+    // Some refs may have IV based blob instead of IV, e.g:
     // (%X)[i3 + 2][i1 + 1][%mod + 1]
     // Use DDG to trace to the HLinst where %mod is defined
     // We want to verify that %mod is based on IV like so:
@@ -1190,7 +1201,6 @@ private:
         // TODO: for a Store, find the def of RVal temp,
         //       and the temp is defined by Add/FAdd.
         //       Currently, we don't have DD-edges to track
-        //       for cactus.
         continue;
       }
 
@@ -1281,11 +1291,6 @@ public:
         InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
     assert(StripmineCandidateMap.empty());
 
-    // Temporary comment-out for cactus
-    // TODO: Find a way to avoid calling calcMaxVariantDimension inside loop
-    // body.
-    //       Maybe logic can be changed to
-    //       guarantee that MaxDimension monotously decreased.
     unsigned MaxDimension =
         calcMaxVariantDimension(OutermostLoop->getNestingLevel());
     if (!DisableLoopDepthCheck) {
@@ -1659,8 +1664,9 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 // already unit-strided.
 // Blocking outer loop only doesn't help, because it is
 // mere strip-mining.
-bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
-                          unsigned InnermostLevel, unsigned OutermostLevel) {
+static bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
+                                 unsigned InnermostLevel,
+                                 unsigned OutermostLevel) {
   if (InnermostLevel - OutermostLevel > 1)
     return false;
 
@@ -1679,6 +1685,41 @@ bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
   return Count / ((float)Refs.size()) >= 0.4;
 }
 
+// Find marked loops that we want to perform sinking so blocking analysis
+// will be triggered. These marked loops are likely profitable for
+// blocking, but were not made perfect in prior passes. After sinking is
+// done we return the outermost loop to be checked for blocking.
+static const HLLoop *getOuterLoopAfterSpecialSinking(HLLoop *InnermostLp,
+                                                     HIRDDAnalysis &DDA) {
+  HLLoop *OuterCandidate = nullptr;
+
+  // Check Loop for metadata
+  for (HLLoop *Lp = InnermostLp; Lp; Lp = Lp->getParentLoop()) {
+    if (Lp->getLoopStringMetadata(EnableSpecialLoopInterchangeMetaName)) {
+      Lp->removeLoopMetadata(EnableSpecialLoopInterchangeMetaName);
+      OuterCandidate = Lp;
+      LLVM_DEBUG(dbgs() << "Found Candidate for Special Sink!\n";);
+    }
+  }
+
+  if (!OuterCandidate) {
+    return nullptr;
+  }
+
+  if (HLNodeUtils::isPerfectLoopNest(OuterCandidate)) {
+    return OuterCandidate;
+  }
+
+  // Do Special-interchange specific sinking:
+  if (!HIRTransformUtils::doSpecialSinkForPerfectLoopnest(OuterCandidate,
+                                                          InnermostLp, DDA)) {
+    LLVM_DEBUG(dbgs() << "Special Sink Failed!\n";);
+    return nullptr;
+  }
+
+  return OuterCandidate;
+}
+
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
 HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
@@ -1686,10 +1727,19 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
                             HLLoop *InnermostLoop, bool Advanced,
                             LoopMapTy &LoopMap) {
 
-  // Get the highest outermost ancestor of given InnermostLoop
-  // that can make a perfect loop nest.
-  const HLLoop *HighestAncestor =
-      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
+  const HLLoop *HighestAncestor = nullptr;
+  // Do sinking for special loops we want to block. Return ancestor for
+  // these marked loopnest.
+  if (EnableSpecialSink) {
+    HighestAncestor = getOuterLoopAfterSpecialSinking(InnermostLoop, DDA);
+  }
+
+  if (!HighestAncestor) {
+    // Get the highest outermost ancestor of given InnermostLoop
+    // that can make a perfect loop nest.
+    HighestAncestor =
+        HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
+  }
 
   if (!HighestAncestor) {
     // Blocking is not applied to depth-1 loop nest.
@@ -1921,9 +1971,8 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   LoopOptReportBuilder &LORBuilder =
       InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  // Add optreport
-  LORBuilder(*OutermostPragmaLoop)
-      .addRemark(OptReportVerbosity::Low, "Blocking using Pragma directives");
+  // Blocking using Pragma directives
+  LORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
 
   LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
                                                       : LoopToPragma) {
@@ -2114,7 +2163,8 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
     if (isBlockedLoop(OrigLoop, LoopToBS)) {
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "blocked by %d",
+      // blocked by %d
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
                                 LoopToBS[OrigLoop]);
     }
   }

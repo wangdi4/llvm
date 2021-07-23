@@ -153,10 +153,10 @@ IntelDevirtMultiversion::IntelDevirtMultiversion(
     : M(M), WPInfo(WPInfo), GetTLI(GetTLI),
       EnableDevirtMultiversion(WPDevirtMultiversion) {
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   DevirtCallMDNode = MDNode::get(
       M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 }
 
 // Add a new target function into the list of targets. If the target is a
@@ -169,7 +169,7 @@ void IntelDevirtMultiversion::addTarget(Function *Fn) {
   if (functionIsLibFuncOrExternal(Fn))
     VCallsData.HasLibFuncAsTarget = true;
 
-  VCallsData.TargetFunctions.push_back(Fn);
+  VCallsData.TargetFunctions.insert(Fn);
 }
 
 // Insert a new virtual call site that needs to be multiversioned. If
@@ -197,15 +197,15 @@ void IntelDevirtMultiversion::resetData() {
 }
 
 // Create the BasicBlocks with the direct call sites.
-//   TargetVector:   a TargetData vector that will be used to store the
-//                     information related to the targets
-//   VCallSite:      callsite of the virtual call
-//   TargetsForSlot: possible targets to the current virtual callsite
-//   MDNode:         node containing the metadata information for the
-//                     target functions
+//   TargetVector:    a TargetData vector that will be used to store the
+//                      information related to the targets
+//   VCallSite:       callsite of the virtual call
+//   TargetFunctions: possible targets to the current virtual callsite
+//   MDNode:          node containing the metadata information for the
+//                      target functions
 void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-    const SmallVectorImpl<Function *> &TargetFunctions, MDNode *Node) {
+    const SetVector<Function *> &TargetFunctions, MDNode *Node) {
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
@@ -254,7 +254,7 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     if (TargetFunc->getFunctionType() != VCallSite->getFunctionType()) {
       NewCB->setCalledOperand(ConstantExpr::getBitCast(
           TargetFunc, VCallSite->getCalledOperand()->getType()));
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
       // Because a bitcast operation has been performed to match the callsite to
       // the call target for the object type, mark the call to allow DTrans
       // analysis to treat the 'this' pointer argument as being the expected
@@ -262,7 +262,7 @@ void IntelDevirtMultiversion::createCallSiteBasicBlocks(
       // devirtualizer has proven the types to match, so this marking avoids
       // needing to try to prove the types match again during DTrans analysis.
       NewCB->setMetadata("_Intel.Devirt.Call", DevirtCallMDNode);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
     } else {
       NewCB->setCalledFunction(TargetFunc);
     }
@@ -585,7 +585,7 @@ void IntelDevirtMultiversion::generatePhiNodes(
 // whole program safe or not.
 void IntelDevirtMultiversion::multiversionVCallSite(
     Module &M, CallBase *VCallSite, bool LibFuncFound,
-    const SmallVectorImpl<Function *> &TargetFunctions) {
+    const SetVector<Function *> &TargetFunctions) {
 
   if (TargetFunctions.empty() || !EnableDevirtMultiversion)
     return;
@@ -651,8 +651,8 @@ bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
       !functionIsLibFuncOrExternal(CallerFunc))
     return false;
 
-  SmallVector<Function *, 1> TargetFunction;
-  TargetFunction.push_back(TargetFunc);
+  SetVector<Function *> TargetFunction;
+  TargetFunction.insert(TargetFunc);
   multiversionVCallSite(M, VCallSite, true /* LibFuncFound */, TargetFunction);
 
   return true;

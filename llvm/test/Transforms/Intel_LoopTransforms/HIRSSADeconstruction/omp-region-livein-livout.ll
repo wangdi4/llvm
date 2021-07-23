@@ -10,9 +10,9 @@
 ;    region.
 
 ; CHECK: call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
-; CHECK-NEXT: br label %omp.inner.for.body23.lr.ph.split
+; CHECK-NEXT: br label %omp.inner.for.body23.lr.ph.split.split
 
-; CHECK: omp.inner.for.body23.lr.ph.split:
+; CHECK: omp.inner.for.body23.lr.ph.split.split:
 ; CHECK-NEXT: %liveoutcopy = phi float [ %conv, %omp.inner.for.body23.lr.ph ]
 
 ; liveout use of %conv should be replaced by the copy.

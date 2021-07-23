@@ -12,6 +12,7 @@
 #include "IntelVPlanClone.h"
 #include "IntelVPBasicBlock.h"
 #include "IntelVPlanUtils.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 namespace llvm {
 namespace vpo {
@@ -28,13 +29,29 @@ void VPValueMapper::remapInstruction(VPUser *User) {
   }
 }
 
-void VPValueMapper::remapOperands(
-    VPBasicBlock *OrigVPBB, std::function<void(VPInstruction &)> UpdateFunc) {
+void VPValueMapper::remapOperands(VPBasicBlock *OrigVPBB) {
   auto *ClonedVPBB = cast<VPBasicBlock>(Value2ValueMap[OrigVPBB]);
 
   for (VPInstruction &Inst : *ClonedVPBB) {
+
+    if (auto *LoadStoreInst = dyn_cast<VPLoadStoreInst>(&Inst)) {
+      auto UpdateMD = [&](unsigned Kind) {
+        auto *MD = LoadStoreInst->getMetadata(Kind);
+        if (!MD)
+          return;
+        auto *NewMD =
+            Value2ValueMap[ClonedVPBB->getParent()->getVPMetadataAsValue(MD)];
+        if (!NewMD)
+          return;
+        LoadStoreInst->setMetadata(
+            Kind, cast<MDNode>(cast<VPMetadataAsValue>(NewMD)->getMetadata()));
+      };
+
+      UpdateMD(LLVMContext::MD_alias_scope);
+      UpdateMD(LLVMContext::MD_noalias);
+    }
+
     remapInstruction(&Inst);
-    UpdateFunc(Inst);
   }
 
   // Fix cond predicate.
@@ -77,6 +94,27 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
     if (DA)
       DA->updateVectorShape(ClonedInst, DA->getVectorShape(Inst));
+
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(ClonedInst)) {
+      if (!VPCall->isIntrinsicFromList(
+              {Intrinsic::experimental_noalias_scope_decl}))
+        continue;
+
+      VPValue *Arg = VPCall->getOperand(Intrinsic::NoAliasScopeDeclScopeArg);
+      auto *MV = cast<VPMetadataAsValue>(Arg);
+      auto *MD = cast<MDNode>(MV->getMetadata());
+
+      DenseMap<MDNode *, MDNode *> ClonedScopes;
+      cloneNoAliasScopes({MD}, ClonedScopes, ClonedBlock->getName(),
+                         *Parent->getLLVMContext());
+
+      SmallVector<Metadata *, 8> NewScopeList;
+      for (auto It : ClonedScopes)
+        NewScopeList.push_back(It.second);
+
+      auto *NewMD = MDNode::get(*Parent->getLLVMContext(), NewScopeList);
+      ValueMap[Arg] = Parent->getVPMetadataAsValue(NewMD);
+    }
   }
 
   ValueMap.insert({Block, ClonedBlock});

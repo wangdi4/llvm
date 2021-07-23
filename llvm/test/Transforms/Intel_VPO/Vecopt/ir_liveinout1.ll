@@ -4,7 +4,7 @@
 ; live-out of the loop. Induction is not used outside of the loop but
 ; inductions have the descriptor always.
 ;
-; RUN: opt -VPlanDriver -vplan-print-after-live-inout-list -vplan-dump-live-inout -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-print-after-live-inout-list -vplan-dump-live-inout -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL:  VPlan after live in/out lists creation:
@@ -42,14 +42,14 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
 ; CHECK-NEXT:     store float [[VP_ADD]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
 ; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float live-in1
 ; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

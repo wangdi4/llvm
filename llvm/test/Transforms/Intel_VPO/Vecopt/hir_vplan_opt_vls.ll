@@ -1,7 +1,7 @@
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
 ; RUN:     -debug 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts \
 ; RUN:     -debug 2>&1 | FileCheck %s
 ; REQUIRES: asserts
@@ -26,7 +26,17 @@
 
 ; CHECK: VLSA: Added instruction
 ; CHECK-NEXT: VLSA: Added instruction
+; CHECK: Total Groups 1
 ; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 1
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 1
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 1
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 1
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 1
 
 @a = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16

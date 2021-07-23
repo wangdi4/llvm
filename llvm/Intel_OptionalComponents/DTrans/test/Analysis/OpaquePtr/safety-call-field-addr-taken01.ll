@@ -19,9 +19,11 @@ define void @test01h(i32* %pAddr) !dtrans_type !2 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
-; CHECK: Field info: ComplexUse AddressTaken{{ *$}}
+; CHECK: DTrans Type: i32
+; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Local instance | Field address taken call{{ *$}}
 
 !1 = !{i32 0, i32 0}  ; i32

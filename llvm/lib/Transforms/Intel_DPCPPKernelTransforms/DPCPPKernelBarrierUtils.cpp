@@ -12,7 +12,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 namespace llvm {
 
@@ -61,10 +61,10 @@ void DPCPPKernelBarrierUtils::initializeSyncData() {
   // Find all calls to barrier().
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledBarrier(), Barriers);
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+                        DPCPPKernelCompilationUtils::BarrierType::NoScope),
                     Barriers);
   findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
-                        DPCPPKernelCompilationUtils::BARRIER_WITH_SCOPE),
+                        DPCPPKernelCompilationUtils::BarrierType::WithScope),
                     Barriers);
   // Find all calls to dummyBarrier().
   findAllUsesOfFunc(DummyBarrierName, DummyBarriers);
@@ -124,17 +124,17 @@ SyncType DPCPPKernelBarrierUtils::getSynchronizeType(const Instruction *I) {
 
   if (!isa<CallInst>(I)) {
     // Not a call instruction, cannot be a synchronize instruction.
-    return SyncTypeNone;
+    return SyncType::None;
   }
   if (Barriers.count(const_cast<Instruction *>(I))) {
     // It is a barrier instruction.
-    return SyncTypeBarrier;
+    return SyncType::Barrier;
   }
   if (DummyBarriers.count(const_cast<Instruction *>(I))) {
     // It is a dummyBarrier instruction.
-    return SyncTypeDummyBarrier;
+    return SyncType::DummyBarrier;
   }
-  return SyncTypeNone;
+  return SyncType::None;
 }
 
 bool DPCPPKernelBarrierUtils::isDummyBarrierCall(const CallInst *CI) {
@@ -174,12 +174,7 @@ DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(Value *V,
 }
 
 FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
-  FuncVector Kernels;
-
-  for (auto &F : *M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      Kernels.push_back(&F);
-  }
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(*M);
 
   // Clear old collected data!
   KernelFunctions.clear();
@@ -188,21 +183,15 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
   }
 
   // Get the kernels using the barrier for work group loops.
-  SmallVector<Function *, 4> KernelsWithBarrier;
+  FuncVector KernelsWithBarrier;
   for (auto Kernel : Kernels) {
     // OCL pipeline treats absense of the attribute as if there's a barrier.
     // In DPCPP path we require having this attrbiute on kernels.
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
-    assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelBarrierUtils: " NO_BARRIER_PATH_ATTRNAME
-           " has to be set!");
-    StringRef Value =
-        Kernel->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-    assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelBarrierUtils: unexpected " NO_BARRIER_PATH_ATTRNAME
-           " value!");
-    bool NoBarrierPath = (Value == "true");
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    bool NoBarrierPath =
+        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : 0;
     if (NoBarrierPath) {
       // Kernel that should not be handled in Barrier path, skip it.
       continue;
@@ -215,19 +204,13 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
       getAllKernelsAndVectorizedCounterparts(KernelsWithBarrier, M);
 
   // Collect functions to process.
-  auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels, M);
+  auto TodoList =
+      getAllKernelsAndVectorizedCounterparts(Kernels.getList(), M);
 
   for (auto *F : TodoList) {
-    unsigned int VectWidth = 1;
-    if (F->hasFnAttribute("vectorized_width")) {
-      bool Res = to_integer(
-          F->getFnAttribute("vectorized_width").getValueAsString(), VectWidth);
-      // Silence warning to avoid an extra call.
-      (void)Res;
-      assert(Res && "DPCPPKernelBarrierUtils: vectorized_width has to have a "
-                    "numeric value");
-    }
-    KernelVectorizationWidths[F] = VectWidth;
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    KernelVectorizationWidths[F] =
+        KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
   }
 
   return KernelFunctions;
@@ -238,7 +221,7 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
     // Barrier function is not initialized yet,
     // Check if there is a declaration in the module.
     BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
-        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE));
+        DPCPPKernelCompilationUtils::BarrierType::NoScope));
   }
   if (!BarrierFunc) {
     // Module has no barrier declaration.
@@ -248,7 +231,7 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
     FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
     BarrierFunc = createFunctionDeclaration(
         DPCPPKernelCompilationUtils::mangledWGBarrier(
-            DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+            DPCPPKernelCompilationUtils::BarrierType::NoScope),
         Result, FuncTyArgs);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
         BarrierFunc->getContext(), AttributeList::FunctionIndex,
@@ -280,19 +263,19 @@ DPCPPKernelBarrierUtils::createDummyBarrier(Instruction *InsertBefore) {
 }
 
 FuncVector DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
-    const SmallVectorImpl<Function *> &KernelList, Module *M) {
+    ArrayRef<Function *> KernelList, Module *M) {
   FuncVector Result;
 
   for (auto *F : KernelList) {
     Result.push_back(F);
 
     // Set the vectorized function if present.
-    if (F->hasFnAttribute("vectorized_kernel")) {
-      Function *VectKernel = M->getFunction(
-          F->getFnAttribute("vectorized_kernel").getValueAsString());
-      if (VectKernel)
-        Result.push_back(VectKernel);
-    }
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    Function *VectKernel = nullptr;
+    if (KIMD.VectorizedKernel.hasValue())
+      VectKernel = KIMD.VectorizedKernel.get();
+    if (VectKernel)
+      Result.push_back(VectKernel);
   }
 
   // Rely on move ctor.

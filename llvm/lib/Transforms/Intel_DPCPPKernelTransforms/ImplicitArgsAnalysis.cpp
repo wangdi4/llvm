@@ -20,7 +20,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -261,7 +261,9 @@ INITIALIZE_PASS(ImplicitArgsAnalysisLegacy,
 
 char ImplicitArgsAnalysisLegacy::ID = 0;
 
-ImplicitArgsAnalysisLegacy::ImplicitArgsAnalysisLegacy() : ModulePass(ID) {}
+ImplicitArgsAnalysisLegacy::ImplicitArgsAnalysisLegacy() : ModulePass(ID) {
+  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool ImplicitArgsAnalysisLegacy::runOnModule(Module &M) {
   Result.reset(new ImplicitArgsInfo(M));

@@ -42,7 +42,6 @@ extern bool EnableMaskedVectorizedRemainder;
 
 class VPlanVector;
 class VPlanMasked;
-class VPlanCostModel;
 class VPlanPeelingVariant;
 class VPlanVLSAnalysis;
 class LoopVectorizationPlanner;

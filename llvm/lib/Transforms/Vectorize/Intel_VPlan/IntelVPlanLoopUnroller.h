@@ -29,13 +29,8 @@ class VPlanLoopUnroller {
 public:
   VPlanLoopUnroller(VPlanVector &Plan, unsigned UF) : Plan(Plan), UF(UF) {}
 
-  // Store here unrolled parts numbers for all cloned VPInstructions.
-  using VPInstUnrollPartTy = DenseMap<const VPInstruction *, unsigned>;
-
-  /// Perform unrolling of the VPlan passed in constructor, filling in
-  /// the optional (\p VPInstUnrollPart) map of newly generated instructions
-  /// to the unrolling parts.
-  void run(VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
+  /// Perform unrolling of the VPlan passed in constructor.
+  void run();
 
 private:
   VPlanVector &Plan;

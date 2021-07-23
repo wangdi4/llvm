@@ -2,13 +2,9 @@
 ; This LIT test is otherwise identical to array-scalarization1.ll, except the array data type used in this one is f64
 ; while those in array-scalarization1.ll is i64.
 
-; vector of memref using HIRLMM's API:
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-arrayscalarization-test-launcher -disable-hir-arrayscalarization-test-launcher=false -run-hir-arrayscalarization-test-launcher-array-scalarization-memrefs -print-before=hir-arrayscalarization-test-launcher -print-after=hir-arrayscalarization-test-launcher -S < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -run-hir-arrayscalarization-test-launcher-array-scalarization-memrefs -S < %s 2>&1  | FileCheck %s
-;
 ; set of symbase using HIRTransformUtil's public API:
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-arrayscalarization-test-launcher -disable-hir-arrayscalarization-test-launcher=false -run-hir-arrayscalarization-test-launcher-array-scalarization-symbases -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42,43,44,45,46,47,48,49,50,59,60,61,62,64,65,67,68,70,74 -print-before=hir-arrayscalarization-test-launcher -print-after=hir-arrayscalarization-test-launcher -S < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -run-hir-arrayscalarization-test-launcher-array-scalarization-symbases -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42,43,44,45,46,47,48,49,50,59,60,61,62,64,65,67,68,70,74 -S < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-arrayscalarization-test-launcher -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42 -print-before=hir-arrayscalarization-test-launcher -print-after=hir-arrayscalarization-test-launcher -S < %s 2>&1 | FileCheck %s
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-pre-vec-complete-unroll,print<hir>,hir-arrayscalarization-test-launcher,print<hir>" -hir-create-function-level-region -disable-hir-arrayscalarization-test-launcher=false -hir-arrayscalarization-test-launcher-array-scalarization-symbases=42 -S < %s 2>&1  | FileCheck %s
 ;
 ; This LIT models a testcase where array scalarization opportunities are available after loop unrolling and array contraction.
 ; E.g.
@@ -95,9 +91,9 @@
 ;CHECK:            |   (@D)[0][4][i1 + 1] = %9 + %10;
 ;CHECK:            + END LOOP
 ;
-;CHECK:            @llvm.lifetime.end.p0i8(400,  &((i8*)(%AA)[0]));
-;CHECK:            ret ;
-;CHECK:      END REGION
+;                  @llvm.lifetime.end.p0i8(400,  &((i8*)(%AA)[0]));
+;                  ret ;
+;            END REGION
 
 
 ;Module Before HIR

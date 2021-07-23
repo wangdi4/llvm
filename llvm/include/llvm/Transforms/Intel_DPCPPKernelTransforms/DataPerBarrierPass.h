@@ -14,7 +14,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 namespace llvm {
 
@@ -36,12 +36,7 @@ public:
   using BarrierDataPerBarrierMap = MapVector<Instruction *, BarrierData>;
 
 public:
-  explicit DataPerBarrier(Module &M) {
-    BarrierUtils.init(&M);
-    InitSynchronizeData();
-    for (auto &F : M)
-      runOnFunction(F);
-  }
+  explicit DataPerBarrier(Module &M);
 
   /// Print data collected by the pass on the given module.
   /// OS stream to print the info regarding the module into.
@@ -145,7 +140,7 @@ private:
 
 private:
   /// This is barrier utility class
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 
   // Analysis Data for pass user.
   InstructionSetPerFunctionMap SyncsPerFuncMap;

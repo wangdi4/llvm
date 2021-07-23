@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------ Intel_PartialInlineAnalysis.cpp ------------------------------===//
 //
 // Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
@@ -347,3 +348,5 @@ extern bool isIntelPartialInlineCandidate(Function *F,
 }
 
 } // namespace llvm
+
+#endif // INTEL_FEATURE_SW_ADVANCED

@@ -1,0 +1,4 @@
+--- !ParoptConfig
+Kernels:
+  - Name: __Z3foo_l2
+    ThreadLimit: 33

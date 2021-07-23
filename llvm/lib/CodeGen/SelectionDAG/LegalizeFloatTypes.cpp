@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LegalizeTypes.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -26,6 +27,8 @@ using namespace llvm;
 #define DEBUG_TYPE "legalize-types"
 
 /// GetFPLibCall - Return the right libcall for the given floating point type.
+/// FIXME: This is a local version of RTLIB::getFPLibCall that should be
+///        refactored away (see RTLIB::getPOWI for an example).
 static RTLIB::Libcall GetFPLibCall(EVT VT,
                                    RTLIB::Libcall Call_F32,
                                    RTLIB::Libcall Call_F64,
@@ -606,18 +609,23 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_FPOW(SDNode *N) {
 SDValue DAGTypeLegalizer::SoftenFloatRes_FPOWI(SDNode *N) {
   bool IsStrict = N->isStrictFPOpcode();
   unsigned Offset = IsStrict ? 1 : 0;
-  assert(N->getOperand(1 + Offset).getValueType() == MVT::i32 &&
+  assert((N->getOperand(1 + Offset).getValueType() == MVT::i16 ||
+          N->getOperand(1 + Offset).getValueType() == MVT::i32) &&
          "Unsupported power type!");
-  RTLIB::Libcall LC = GetFPLibCall(N->getValueType(0),
-                                   RTLIB::POWI_F32,
-                                   RTLIB::POWI_F64,
-                                   RTLIB::POWI_F80,
-                                   RTLIB::POWI_F128,
-                                   RTLIB::POWI_PPCF128);
+  RTLIB::Libcall LC = RTLIB::getPOWI(N->getValueType(0));
+  assert(LC != RTLIB::UNKNOWN_LIBCALL && "Unexpected fpowi.");
   if (!TLI.getLibcallName(LC)) {
     // Some targets don't have a powi libcall; use pow instead.
     // FIXME: Implement this if some target needs it.
     DAG.getContext()->emitError("Don't know how to soften fpowi to fpow");
+    return DAG.getUNDEF(N->getValueType(0));
+  }
+
+  if (DAG.getLibInfo().getIntSize() !=
+      N->getOperand(1 + Offset).getValueType().getSizeInBits()) {
+    // If the exponent does not match with sizeof(int) a libcall to RTLIB::POWI
+    // would use the wrong type for the argument.
+    DAG.getContext()->emitError("POWI exponent does not match sizeof(int)");
     return DAG.getUNDEF(N->getValueType(0));
   }
 
@@ -864,9 +872,7 @@ bool DAGTypeLegalizer::SoftenFloatOperand(SDNode *N, unsigned OpNo) {
   case ISD::BITCAST:     Res = SoftenFloatOp_BITCAST(N); break;
   case ISD::BR_CC:       Res = SoftenFloatOp_BR_CC(N); break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case ISD::STRICT_FP_TO_FP16:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case ISD::FP_TO_FP16:  // Same as FP_ROUND for softening purposes
   case ISD::STRICT_FP_ROUND:
@@ -919,28 +925,19 @@ SDValue DAGTypeLegalizer::SoftenFloatOp_FP_ROUND(SDNode *N) {
   // We actually deal with the partially-softened FP_TO_FP16 node too, which
   // returns an i16 so doesn't meet the constraints necessary for FP_ROUND.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   assert(N->getOpcode() == ISD::FP_ROUND || N->getOpcode() == ISD::FP_TO_FP16 ||
          N->getOpcode() == ISD::STRICT_FP_TO_FP16 ||
          N->getOpcode() == ISD::STRICT_FP_ROUND);
-#else // INTEL_FEATURE_ISA_FP16
-  assert(N->getOpcode() == ISD::FP_ROUND || N->getOpcode() == ISD::FP_TO_FP16 ||
-         N->getOpcode() == ISD::STRICT_FP_ROUND);
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   bool IsStrict = N->isStrictFPOpcode();
   SDValue Op = N->getOperand(IsStrict ? 1 : 0);
   EVT SVT = Op.getValueType();
   EVT RVT = N->getValueType(0);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   EVT FloatRVT = (N->getOpcode() == ISD::FP_TO_FP16 ||
                   N->getOpcode() == ISD::STRICT_FP_TO_FP16)
                      ? MVT::f16
                      : RVT;
-#else // INTEL_FEATURE_ISA_FP16
-  EVT FloatRVT = N->getOpcode() == ISD::FP_TO_FP16 ? MVT::f16 : RVT;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   RTLIB::Libcall LC = RTLIB::getFPROUND(SVT, FloatRVT);
@@ -1612,10 +1609,7 @@ void DAGTypeLegalizer::ExpandFloatRes_FPOW(SDNode *N,
 
 void DAGTypeLegalizer::ExpandFloatRes_FPOWI(SDNode *N,
                                             SDValue &Lo, SDValue &Hi) {
-  ExpandFloatRes_Binary(N, GetFPLibCall(N->getValueType(0),
-                                        RTLIB::POWI_F32, RTLIB::POWI_F64,
-                                        RTLIB::POWI_F80, RTLIB::POWI_F128,
-                                        RTLIB::POWI_PPCF128), Lo, Hi);
+  ExpandFloatRes_Binary(N, RTLIB::getPOWI(N->getValueType(0)), Lo, Hi);
 }
 
 void DAGTypeLegalizer::ExpandFloatRes_FREEZE(SDNode *N,

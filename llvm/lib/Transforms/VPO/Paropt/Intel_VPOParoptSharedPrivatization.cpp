@@ -1,6 +1,6 @@
 //===------------ Intel_VPOParoptSharedPrivatization.cpp ------------------===//
 //
-//   Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -17,6 +17,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
@@ -30,8 +31,21 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-shared-privatization"
 #define PASS_NAME "VPO Paropt Shared Privatization Pass"
 
+// If true check if map clause for variables of structure type can be changed
+// to a firstprivate.
+static cl::opt<bool> CheckMapForStructs(
+    "vpo-paropt-sp-check-map-for-structs", cl::Hidden, cl::init(true),
+    cl::desc("Check if map clause for variables of structure type can be "
+             "changed to a firstprivate"));
+
+static cl::opt<bool>
+    CleanupRedundantClauses("vpo-paropt-sp-cleanup-redundant-clauses",
+                            cl::Hidden, cl::init(true),
+                            cl::desc("Change redundant clauses into private"));
+
 static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
-                                 OptimizationRemarkEmitter &ORE) {
+                                 OptimizationRemarkEmitter &ORE,
+                                 unsigned Mode) {
   bool Changed = false;
 
   // Walk the W-Region Graph top-down, and create W-Region List
@@ -49,7 +63,7 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
+                        WI.getAliasAnalysis(), Mode & OmpOffload,
                         OptReportVerbosity::None, ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
@@ -66,7 +80,7 @@ VPOParoptSharedPrivatizationPass::run(Function &F,
   PreservedAnalyses PA;
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!privatizeSharedItems(F, WI, ORE))
+  if (!privatizeSharedItems(F, WI, ORE, Mode))
     PA = PreservedAnalyses::all();
   else
     PA = PreservedAnalyses::none();
@@ -81,7 +95,8 @@ class VPOParoptSharedPrivatization : public FunctionPass {
 public:
   static char ID;
 
-  VPOParoptSharedPrivatization() : FunctionPass(ID) {
+  explicit VPOParoptSharedPrivatization(unsigned Mode = 0u)
+      : FunctionPass(ID), Mode(Mode) {
     initializeVPOParoptSharedPrivatizationPass(
         *PassRegistry::getPassRegistry());
   }
@@ -94,7 +109,7 @@ public:
     auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
     LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-    bool Changed = privatizeSharedItems(F, WI, ORE);
+    bool Changed = privatizeSharedItems(F, WI, ORE, Mode);
     LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
     return Changed;
   }
@@ -103,6 +118,9 @@ public:
     AU.addRequired<WRegionInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
+
+private:
+  unsigned Mode;
 };
 
 } // end anonymous namespace
@@ -115,104 +133,200 @@ INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME, false,
                     false)
 
-FunctionPass *llvm::createVPOParoptSharedPrivatizationPass() {
-  return new VPOParoptSharedPrivatization();
+FunctionPass *llvm::createVPOParoptSharedPrivatizationPass(unsigned Mode) {
+  return new VPOParoptSharedPrivatization(Mode);
+}
+
+// Returns true if all value V users in given blocks are load instructions
+// or bitcasts/GEPs that are used by the loads.
+static bool allUsersAreLoads(Value *V,
+                             const SmallPtrSetImpl<BasicBlock *> &BBs) {
+  // Predicate to check if given value is an instruction from BBs.
+  auto IsFromBBs = [&BBs](Value *V) {
+    if (auto *I = dyn_cast<Instruction>(V))
+      return BBs.contains(I->getParent());
+    return false;
+  };
+
+  // Verify that all users of alloca instruction in collected blocks are
+  // either loads or bitcasts/GEPs used by the loads.
+  SmallVector<Value *, 8u> Worklist;
+  copy_if(V->users(), std::back_inserter(Worklist), IsFromBBs);
+  while (!Worklist.empty()) {
+    Value *I = Worklist.pop_back_val();
+    if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
+      copy_if(I->users(), std::back_inserter(Worklist), IsFromBBs);
+      continue;
+    }
+    if (!isa<LoadInst>(I))
+      return false;
+  }
+  return true;
+}
+
+#ifndef NDEBUG
+static void reportSkipped(Value *V, const Twine &Msg) {
+  dbgs() << "skipping '" << V->getName() << "' - " << Msg << "\n";
+}
+#endif // NDEBUG
+
+static bool isPrivatizationCandidate(AllocaInst *AI,
+                                     const SmallPtrSetImpl<BasicBlock *> &BBs,
+                                     AAResults *AA, bool AllowStructs) {
+  // Do not attempt to promote arrays or structures.
+  if (AI->isArrayAllocation() ||
+      !(AI->getAllocatedType()->isSingleValueType() ||
+        (AI->getAllocatedType()->isStructTy() && AllowStructs))) {
+    LLVM_DEBUG(reportSkipped(AI, "unsupported value type"));
+    return false;
+  }
+  Optional<TypeSize> Size =
+      AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
+  if (!Size) {
+    LLVM_DEBUG(reportSkipped(AI, "unknown size"));
+    return false;
+  }
+
+  // Check if item's memory is modified inside the region. If not then it
+  // should be safe to privatize it.
+  MemoryLocation Loc{AI, LocationSize::precise(*Size)};
+  if (any_of(BBs, [&](BasicBlock *BB) {
+        for (const Instruction &I : *BB) {
+          // Ignore fences when checking if memory location is modified by
+          // the instruction since fences do not really modify it though
+          // AA assumes they do.
+          if (isa<FenceInst>(&I))
+            continue;
+          if (isModOrRefSet(intersectModRef(AA->getModRefInfo(&I, Loc),
+                                            ModRefInfo::Mod))) {
+            LLVM_DEBUG(reportSkipped(AI, "is modified by");
+                       dbgs() << I << "\n";);
+            return true;
+          }
+        }
+        return false;
+      }))
+    return false;
+  return true;
+}
+
+template <typename ClauseTy>
+static bool containsValue(const ClauseTy *C, Value *V) {
+  return any_of(C->items(), [V](auto *I) { return I->getOrig() == V; });
+}
+
+// Returns true if value V is private in the work region W.
+static bool isWRNPrivate(WRegionNode *W, Value *V) {
+  if (PrivateClause *C = W->getPrivIfSupported())
+    if (containsValue(C, V))
+      return true;
+  return false;
+}
+
+// Returns true if value V is first-private in the work region W.
+static bool isWRNFirstprivate(WRegionNode *W, Value *V) {
+  if (FirstprivateClause *C = W->getFprivIfSupported())
+    if (containsValue(C, V))
+      return true;
+  return false;
+}
+
+// Returns true if value V is last-private in the work region W.
+static bool isWRNLastprivate(WRegionNode *W, Value *V) {
+  if (LastprivateClause *C = W->getLprivIfSupported())
+    if (containsValue(C, V))
+      return true;
+  return false;
+}
+
+// Collects set of work region blocks where we will be checking if item is used
+// or items's memory is modified. This set does not include blocks with
+// directives (all directives have their own basic blocks now) and nested
+// regions where item is private or first-private.
+static SmallPtrSet<BasicBlock *, 16u> findWRNBlocks(WRegionNode *W, Value *V) {
+  // Build set of work region blocks where we will be checking if item's
+  // memory is modified. Exclude blocks with directives (all directives have
+  // their own basic blocks now).
+  SmallPtrSet<BasicBlock *, 16u> BBs;
+  for (BasicBlock *BB : W->blocks())
+    if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
+      BBs.insert(BB);
+
+  // Then exclude nested regions where item will be privatized, unless items is
+  // also in the last-private list which means that item will be modified by the
+  // region. Any modifications in these regions should not inhibit privatization
+  // because it will be done on a private instance.
+  SmallVector<WRegionNode *, 8u> Worklist{W};
+  do {
+    WRegionNode *W = Worklist.pop_back_val();
+    for (WRegionNode *CW : W->getChildren()) {
+      if ((isWRNPrivate(CW, V) || isWRNFirstprivate(CW, V)) &&
+          !isWRNLastprivate(CW, V)) {
+        for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+        continue;
+      }
+      Worklist.push_back(CW);
+    }
+  } while (!Worklist.empty());
+
+  return BBs;
+}
+
+// Return true if value V has uses inside work region W excluding
+// sub-regions where it is private.
+static bool hasWRNUses(WRegionNode *W, Value *V) {
+  // Conservatively assume that globals have uses.
+  if (GeneralUtils::isOMPItemGlobalVAR(V))
+    return true;
+
+  // Collect set of WRN blocks where value can be used. Start with the
+  // region's set of blocks excluding begin/end directives.
+  SmallPtrSet<BasicBlock *, 16u> BBs;
+  for (BasicBlock *BB : W->blocks())
+    if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
+      BBs.insert(BB);
+
+  // Then exclude blocks from nested regions where item is private.
+  std::queue<WRegionNode *> Worklist;
+  Worklist.push(W);
+  do {
+    WRegionNode *W = Worklist.front();
+    Worklist.pop();
+
+    for (WRegionNode *CW : W->getChildren()) {
+      // If item is private on the nested child exclude its blocks from
+      // the set.
+      if (isWRNPrivate(CW, V)) {
+        for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
+        continue;
+      }
+
+      // If item is not private check if item is used by the directive
+      // itself (there could be uses for example in 'thread_limit' or 'if'
+      // clauses). If there are such uses then consider it being used.
+      if (any_of(CW->getEntryDirective()->operands(),
+                 [V](Value *O) { return O == V; }))
+        return true;
+
+      Worklist.push(CW);
+    }
+  } while (!Worklist.empty());
+
+  // Check if value V has any uses in these blocks.
+  for (const User *U : V->users())
+    if (auto *I = dyn_cast<Instruction>(U))
+      if (is_contained(BBs, I->getParent()))
+        return true;
+
+  return false;
 }
 
 bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   if (!W->canHaveShared() || !W->needsOutlining())
     return false;
 
-  W->populateBBSet();
-
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::privatizeSharedItems: "
                     << W->getName() << "\n");
-
-  // Returns true if all value V users in given blocks are load instructions
-  // or bitcasts/GEPs that are used by the loads.
-  auto allUsersAreLoads = [](Value *V,
-                              const SmallPtrSetImpl<BasicBlock *> &BBs) {
-    // Predicate to check if given value is an instruction from BBs.
-    auto IsFromBBs = [&BBs](Value *V) {
-      if (auto *I = dyn_cast<Instruction>(V))
-        return BBs.contains(I->getParent());
-      return false;
-    };
-
-    // Verify that all users of alloca instruction in collected blocks are
-    // either loads or bitcasts/GEPs used by the loads.
-    SmallVector<Value *, 8u> Worklist;
-    copy_if(V->users(), std::back_inserter(Worklist), IsFromBBs);
-    while (!Worklist.empty()) {
-      Value *I = Worklist.pop_back_val();
-      if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-        copy_if(I->users(), std::back_inserter(Worklist), IsFromBBs);
-        continue;
-      }
-      if (!isa<LoadInst>(I))
-        return false;
-    }
-    return true;
-  };
-
-#ifndef NDEBUG
-  auto reportSkipped = [](Value *V, const Twine &Msg) {
-    dbgs() << "skipping '" << V->getName() << "' - " << Msg << "\n";
-  };
-#endif // NDEBUG
-
-  auto IsPrivatizationCandidate =
-      [&](AllocaInst *AI, const SmallPtrSetImpl<BasicBlock *> &BBs) {
-        // Do not attempt to promote arrays or structures.
-        if (AI->isArrayAllocation() ||
-            !AI->getAllocatedType()->isSingleValueType()) {
-          LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
-          return false;
-        }
-        Optional<TypeSize> Size =
-            AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
-        if (!Size) {
-          LLVM_DEBUG(reportSkipped(AI, "unknown size"));
-          return false;
-        }
-
-        // Check if item's memory is modified inside the region. If not then it
-        // should be safe to privatize it.
-        MemoryLocation Loc{AI, LocationSize::precise(*Size)};
-        if (any_of(BBs, [&](BasicBlock *BB) {
-              for (const Instruction &I : *BB) {
-                // Ignore fences when checking if memory location is modified by
-                // the instruction since fences do not really modify it though
-                // AA assumes they do.
-                if (isa<FenceInst>(&I))
-                  continue;
-                if (isModOrRefSet(intersectModRef(AA->getModRefInfo(&I, Loc),
-                                                  ModRefInfo::Mod))) {
-                  LLVM_DEBUG(reportSkipped(AI, "is modified by");
-                             dbgs() << I << "\n";);
-                  return true;
-                }
-              }
-              return false;
-            }))
-          return false;
-        return true;
-      };
-
-  auto ContainsValue = [](auto *C, Value *V) {
-    return any_of(C->items(), [V](auto *I) { return I->getOrig() == V; });
-  };
-
-  // Returns true if value V is private in the work region W.
-  auto IsWRNPrivate = [&ContainsValue](WRegionNode *W, Value *V) {
-    if (PrivateClause *C = W->getPrivIfSupported())
-      if (ContainsValue(C, V))
-        return true;
-    if (FirstprivateClause *C = W->getFprivIfSupported())
-      if (ContainsValue(C, V))
-        return true;
-    return false;
-  };
 
   // Returns true if value V is captured by any nested 'omp task' construct.
   auto IsCapturedByNestedTask = [&, W](Value *V) {
@@ -220,9 +334,9 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     do {
       WRegionNode *W = Worklist.pop_back_val();
       for (WRegionNode *CW : W->getChildren()) {
-        if (IsWRNPrivate(CW, V))
+        if (isWRNPrivate(CW, V) || isWRNFirstprivate(CW, V))
           continue;
-        if (CW->getIsTask() && ContainsValue(&CW->getShared(), V)) {
+        if (CW->getIsTask() && containsValue(&CW->getShared(), V)) {
           LLVM_DEBUG(reportSkipped(V, "is captured by a nested task"));
           return true;
         }
@@ -230,37 +344,6 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       }
     } while (!Worklist.empty());
     return false;
-  };
-
-  // Collects set of work region blocks where we will be checking if item's
-  // memory is modified. This set does not include blocks with directives (all
-  // directives have their own basic blocks now) and nested regions where item
-  // is private.
-  auto FindWRNBlocks = [&, W](Value *V) {
-    // Build set of work region blocks where we will be checking if item's
-    // memory is modified. Exclude blocks with directives (all directives have
-    // their own basic blocks now).
-    SmallPtrSet<BasicBlock *, 16u> BBs;
-    for (BasicBlock *BB : W->blocks())
-      if (!VPOAnalysisUtils::isBeginOrEndDirective(BB))
-        BBs.insert(BB);
-
-    // Then exclude nested regions where shared item will be privatized. Any
-    // modifications in these regions should not inhibit privatization because
-    // it will be done on a private instance.
-    SmallVector<WRegionNode *, 8u> Worklist{W};
-    do {
-      WRegionNode *W = Worklist.pop_back_val();
-      for (WRegionNode *CW : W->getChildren()) {
-        if (IsWRNPrivate(CW, V)) {
-          for_each(CW->blocks(), [&BBs](BasicBlock *BB) { BBs.erase(BB); });
-          continue;
-        }
-        Worklist.push_back(CW);
-      }
-    } while (!Worklist.empty());
-
-    return BBs;
   };
 
   // Replaces all uses of value From with To within work region W.
@@ -272,7 +355,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   };
 
   // Find "shared" candidates that can be privatized.
-  SmallVector<AllocaInst*, 8> ToPrivatize;
+  SmallVector<AllocaInst *, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
     if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
       // Do not do privatization for a shared item if it is captured by a nested
@@ -287,9 +370,10 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       if (IsCapturedByNestedTask(AI))
         continue;
 
-      auto BBs = FindWRNBlocks(AI);
+      auto BBs = findWRNBlocks(W, AI);
 
-      if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(AI, BBs))
+      if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
+          !allUsersAreLoads(AI, BBs))
         continue;
 
       ToPrivatize.push_back(AI);
@@ -311,9 +395,10 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         if (IsCapturedByNestedTask(BCI))
           continue;
 
-        auto BBs = FindWRNBlocks(AI);
+        auto BBs = findWRNBlocks(W, AI);
 
-        if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(BCI, BBs))
+        if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
+            !allUsersAreLoads(BCI, BBs))
           continue;
 
         // Change shared value to alloca instruction.
@@ -334,7 +419,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
+    LLVM_DEBUG(reportSkipped(I->getOrig(), "not a local pointer"));
   }
 
   if (ToPrivatize.empty())
@@ -346,7 +431,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   Instruction *InsPt = NewBB->getTerminator();
 
   // Create private instances for variables collected earlier.
-  for (AllocaInst* AI : ToPrivatize) {
+  for (AllocaInst *AI : ToPrivatize) {
     LLVM_DEBUG(dbgs() << "privatizing '" << AI->getName() << "'\n");
 
     // Allocate space for the private copy.
@@ -370,21 +455,322 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   return true;
 }
 
+bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::simplifyRegionClauses: "
+                    << W->getName() << "\n");
+
+  // Special handling for a target constructs on the host side. Check map
+  // clauses for scalars that are readonly inside the target region. Emit
+  // optimization report that such variables can be changed to firstprivate
+  // to reduce overhead.
+  // Such change cannot be done by the compiler now because we cannot guarantee
+  // that both host and target compilations will do this convertsion, but it has
+  // to be done on both sides because it changes signature of the outlined
+  // target region.
+  if (isa<WRNTargetNode>(W) && !hasOffloadCompilation()) {
+    // Return true if given map item maps scalar value.
+    auto IsScalarMapItem = [this](const MapItem *MI) {
+      assert(MI->getIsMapChain() && "map chain is expected");
+
+      const MapChainTy &MC = MI->getMapChain();
+      if (MC.size() > 1)
+        return false;
+
+      MapAggrTy *MA = MC[0];
+      if (MA->getMapper())
+        return false;
+
+      if (MA->getBasePtr() != MA->getSectionPtr())
+        return false;
+
+      auto Size = dyn_cast<ConstantInt>(MA->getSize());
+      if (!Size)
+        return false;
+
+      TypeSize ElemSize = F->getParent()->getDataLayout().getTypeAllocSize(
+          MI->getOrigElemType());
+      if (Size->getValue() != ElemSize)
+        return false;
+
+      return true;
+    };
+
+    // Returns true if given pointer may be mapped before the work region.
+    // TODO: this code just checks if there are any dominating work regions
+    // which may map given value, which may result in false positives. More
+    // precise analysis would require building live ranges for corresponding
+    // items in device data environment which are created by the dominating
+    // constructs with map clauses and checking if the corresponding device
+    // item is alive at the work region's entry.
+    auto MayBeMappedBefore = [this](AllocaInst *AI, WRegionNode *W) {
+      // If pointer is captured we cannot guarantee that it was not mapped
+      // somewhere else.
+      if (PointerMayBeCapturedBefore(AI, /*ReturnCaptures=*/true,
+                                     /*StoreCaptures=*/true,
+                                     W->getEntryDirective(), DT))
+        return true;
+
+      // Check if there are dominating work regions in this routine which can
+      // map this pointer.
+      for (WRegionNode *N : WRegionList) {
+        if (N == W)
+          continue;
+
+        if (!N->canHaveMap())
+          continue;
+
+        if (!DT->dominates(N->getEntryBBlock(), W->getEntryBBlock()))
+          continue;
+
+        for (const MapItem *MI : N->getMap().items())
+          if (!AA->isNoAlias(MI->getOrig(), AI))
+            return true;
+      }
+      return false;
+    };
+
+    auto IsMapTo = [](const MapItem *MI) {
+      uint64_t MapType = MI->getMapChain()[0]->getMapType();
+      return (MapType & TGT_MAP_TO) &&
+             !((MapType & TGT_MAP_PRIVATE) || (MapType & TGT_MAP_LITERAL));
+    };
+    auto IsMapFrom = [](const MapItem *MI) {
+      uint64_t MapType = MI->getMapChain()[0]->getMapType();
+      return (MapType & TGT_MAP_FROM);
+    };
+    auto IsMapTofrom = [&](const MapItem *MI) {
+      return IsMapTo(MI) && IsMapFrom(MI);
+    };
+
+    auto GetMapName = [&](const MapItem *MI) {
+      if (IsMapTofrom(MI))
+        return "MAP:TOFROM";
+      if (IsMapTo(MI))
+        return "MAP:TO";
+      if (IsMapFrom(MI))
+        return "MAP:FROM";
+      return "MAP";
+    };
+
+    for (const MapItem *MI : W->getMap().items()) {
+      auto *AI = dyn_cast<AllocaInst>(MI->getOrig());
+      if (!AI) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "not a local pointer"));
+        continue;
+      }
+
+      if (MayBeMappedBefore(AI, W)) {
+        LLVM_DEBUG(reportSkipped(AI, "may be mapped before work region"));
+        continue;
+      }
+
+      if (!MI->getIsMapChain()) {
+        LLVM_DEBUG(reportSkipped(AI, "not a map chain"));
+        continue;
+      }
+
+      if ((IsMapTo(MI) || IsMapFrom(MI)) && !hasWRNUses(W, AI)) {
+        LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
+                          << "' on '" << W->getName()
+                          << "' construct is redundant\n");
+
+        F->getContext().diagnose(
+            OptimizationRemarkAnalysis("openmp", "optimization note",
+                                       W->getEntryDirective())
+            << GetMapName(MI) << " clause for variable '" << AI->getName()
+            << "' on '" << W->getName() << "' construct is redundant");
+        continue;
+      }
+
+      if (!IsMapTo(MI)) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "is not a map to/tofrom"));
+        continue;
+      }
+
+      if (!IsScalarMapItem(MI)) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "is not a scalar item"));
+        continue;
+      }
+
+      auto BBs = findWRNBlocks(W, AI);
+
+      if (!isPrivatizationCandidate(AI, BBs, AA, CheckMapForStructs) ||
+          !allUsersAreLoads(AI, BBs))
+        continue;
+
+      LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
+                        << "' on '" << W->getName()
+                        << "' construct can be changed to FIRSTPRIVATE\n");
+
+      F->getContext().diagnose(
+          OptimizationRemarkAnalysis("openmp", "optimization note",
+                                     W->getEntryDirective())
+          << GetMapName(MI) << " clause for variable '" << AI->getName()
+          << "' on '" << W->getName()
+          << "' construct can be changed to FIRSTPRIVATE to reduce mapping "
+             "overhead");
+    }
+  }
+
+  bool Changed = false;
+  if (W->canHavePrivate()) {
+    SmallPtrSet<Value *, 8u> ToPrivatize;
+
+    // Remove item's uses from the clause bundles.
+    auto CleanupItem = [this, &ToPrivatize](WRegionNode *W, auto *Item,
+                                            int ClauseID) {
+      bool Changed = false;
+      Value *V = Item->getOrig();
+
+      StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
+      LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName()
+                        << "' on '" << W->getName()
+                        << "' construct is redundant\n");
+
+      // Emit diagnostic in the host compilation only to avoid duplicating
+      // remarks.
+      if (!hasOffloadCompilation())
+        F->getContext().diagnose(
+            OptimizationRemarkAnalysis("openmp", "optimization note",
+                                       W->getEntryDirective())
+            << ClauseName << " clause for variable '" << V->getName()
+            << "' on '" << W->getName() << "' construct is redundant");
+
+      // Do not change target regions so far because we cannot be sure that
+      // both host and device sides will be changed the same way.
+      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses)
+        return Changed;
+
+      auto *Entry = cast<CallInst>(W->getEntryDirective());
+      for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
+                                  Entry->bundle_op_info_end())) {
+        // Get clause ID and check if it is a clause of interest.
+        ClauseSpecifier CS(BOI.Tag->getKey());
+        if (CS.getId() != ClauseID)
+          continue;
+
+        // Check bundle operand uses and zap the ones matching given value.
+        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+          Use &U = Entry->getOperandUse(I);
+          if (V != U.get())
+            continue;
+
+          // Change item's value to null.
+          Value *NewV = Constant::getNullValue(U->getType());
+          U.set(NewV);
+          Item->setOrig(NewV);
+          Changed = true;
+        }
+      }
+
+      // And add item to the list that need to be privatized.
+      ToPrivatize.insert(V);
+
+      return Changed;
+    };
+
+    auto CleanupRedundantItems = [W, &CleanupItem](auto *Clause) {
+      bool Changed = false;
+      for (auto *Item : Clause->items()) {
+        Value *V = Item->getOrig();
+        if (hasWRNUses(W, V))
+          continue;
+
+        // Special handling for the schedule chunk that is loaded from a shared
+        // pointer that has no uses inside the region
+        //
+        // void foo(int N, int C) {
+        // #pragma omp parallel for schedule(static, C)
+        //   for (int I = 0; I < N; ++I) {}
+        // }
+        //
+        // generated code looks as follows
+        //
+        // %.capture_expr.0 = alloca i32, align 4
+        // ...
+        // %5 = load i32, i32* %.capture_expr.0
+        // %6 = call token @llvm.directive.region.entry() [
+        //         "DIR.OMP.PARALLEL.LOOP"(),
+        //         "QUAL.OMP.SCHEDULE.STATIC"(i32 %5),
+        //         "QUAL.OMP.SHARED"(i32* %.capture_expr.0),
+        //         ...
+        //
+        // The load gets moved into the region later by paropt transform while
+        // lowering the loop, so turning shared %.capture_expr.0 into private
+        // leads to invalid results.
+        if (isa<SharedItem>(Item) && W->canHaveSchedule())
+          if (auto *Chunk =
+                  dyn_cast_or_null<LoadInst>(W->getSchedule().getChunkExpr()))
+            if (Chunk->getPointerOperand() == V)
+              continue;
+
+        // Item's value is not used inside the region, so it should be safe to
+        // turn it into a private. Print a diagnostic that clause is redundant
+        // and remove item's uses from clause bundles.
+        Changed |= CleanupItem(W, Item, Clause->getClauseID());
+
+        // Special case first-private items which can also be listed in the
+        // last-private clause. Item has to be cleaned up in both clauses.
+        if (isa<FirstprivateItem>(Item))
+          if (LastprivateClause *LPClause = W->getLprivIfSupported())
+            for (auto *LPItem : LPClause->items())
+              if (LPItem->getOrig() == V)
+                Changed |= CleanupItem(W, LPItem, LPClause->getClauseID());
+      }
+      return Changed;
+    };
+
+    if (auto *Clause = W->getFprivIfSupported())
+      Changed |= CleanupRedundantItems(Clause);
+    if (auto *Clause = W->getSharedIfSupported())
+      Changed |= CleanupRedundantItems(Clause);
+
+    if (!ToPrivatize.empty()) {
+      StringRef PrivateClause =
+          VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+      for (Value *V : ToPrivatize) {
+        CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+            cast<CallInst>(W->getEntryDirective()), {{PrivateClause, {V}}});
+        W->setEntryDirective(NewEntry);
+        W->getPriv().add(V);
+      }
+      Changed = true;
+    }
+  }
+
+  // This routine does not change CFG, so there is no need to be refresh BB set.
+  return Changed;
+}
+
 bool VPOParoptTransform::privatizeSharedItems() {
   bool NeedTID, NeedBID;
   gatherWRegionNodeList(NeedTID, NeedBID);
 
   bool Changed = false;
   for (auto *W : WRegionList) {
+    W->populateBBSet();
     switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNTarget:
+      Changed |= simplifyRegionClauses(W);
+      break;
     case WRegionNode::WRNTeams:
     case WRegionNode::WRNParallel:
+      Changed |= simplifyRegionClauses(W);
       Changed |= privatizeSharedItems(W);
       break;
     case WRegionNode::WRNParallelSections:
     case WRegionNode::WRNParallelLoop:
     case WRegionNode::WRNDistributeParLoop:
+      Changed |= simplifyRegionClauses(W);
       Changed |= privatizeSharedItems(W);
+      break;
+    case WRegionNode::WRNTask:
+    case WRegionNode::WRNTaskloop:
+    case WRegionNode::WRNSections:
+    case WRegionNode::WRNSingle:
+    case WRegionNode::WRNWksLoop:
+    case WRegionNode::WRNDistribute:
+      Changed |= simplifyRegionClauses(W);
       break;
     }
   }

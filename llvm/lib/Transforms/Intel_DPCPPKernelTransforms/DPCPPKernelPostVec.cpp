@@ -19,6 +19,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "DPCPPKernelPostVec"
 #define SV_NAME "dpcpp-kernel-postvec"
@@ -33,7 +34,9 @@ INITIALIZE_PASS(DPCPPKernelPostVec, SV_NAME, lv_name, false /* modifies CFG */,
                 false /* transform pass */)
 
 namespace llvm {
-DPCPPKernelPostVec::DPCPPKernelPostVec() : ModulePass(ID) {}
+DPCPPKernelPostVec::DPCPPKernelPostVec() : ModulePass(ID) {
+  initializeDPCPPKernelPostVecPass(*PassRegistry::getPassRegistry());
+}
 
 // Checks if the kernel has directives. If not, then the kernel was vectorized.
 bool DPCPPKernelPostVec::isKernelVectorized(Function *Clone) {
@@ -52,14 +55,14 @@ bool DPCPPKernelPostVec::runOnModule(Module &M) {
 
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
-    // Remove "dpcpp_kernel_recommended_vector_length" attribute.
-    F->removeFnAttr("dpcpp_kernel_recommended_vector_length");
+    // Remove "recommended-vector-length" attribute.
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    KIMD.RecommendedVL.set(0);
 
-    Function *ClonedKernel = M.getFunction(
-        F->getFnAttribute("vectorized_kernel").getValueAsString());
+    Function *ClonedKernel = KIMD.VectorizedKernel.get();
     if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
       // Unset the metadata of the original kernel.
-      F->removeFnAttr("vectorized_kernel");
+      KIMD.VectorizedKernel.set(nullptr);
       // If the kernel is not vectorized, then the cloned kernel is removed.
       ClonedKernel->eraseFromParent();
       ModifiedModule = true;

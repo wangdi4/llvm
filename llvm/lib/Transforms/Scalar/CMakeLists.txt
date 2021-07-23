@@ -24,14 +24,19 @@ add_llvm_component_library(LLVMScalarOpts
   InstSimplifyPass.cpp
 # INTEL_CUSTOMIZATION
   Intel_DopeVectorHoist.cpp
+#if INTEL_FEATURE_SW_ADVANCED
   Intel_FunctionRecognizer.cpp
+#endif // INTEL_FEATURE_SW_ADVANCED
   Intel_GlobalOpt.cpp
   Intel_HandlePragmaVectorAligned.cpp
   Intel_IndirectCallConv.cpp
+  Intel_LoopAttrs.cpp
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp
   Intel_LowerSubscriptIntrinsic.cpp
+# INTEL_FEATURE_SW_ADVANCED
   Intel_NontemporalStore.cpp
+#end INTEL_FEATURE_SW_ADVANCED
   Intel_RemoveRegionDirectives.cpp
   Intel_StdContainerOpt.cpp
   Intel_TbaaMDPropagation.cpp
@@ -46,6 +51,7 @@ add_llvm_component_library(LLVMScalarOpts
   JumpThreading.cpp
   LICM.cpp
   LoopAccessAnalysisPrinter.cpp
+  LoopBoundSplit.cpp
   LoopSink.cpp
   LoopDeletion.cpp
   LoopDataPrefetch.cpp
@@ -93,7 +99,6 @@ add_llvm_component_library(LLVMScalarOpts
   SimplifyCFGPass.cpp
   Sink.cpp
   SpeculativeExecution.cpp
-  SpeculateAroundPHIs.cpp
   StraightLineStrengthReduce.cpp
   StructurizeCFG.cpp
   TailRecursionElimination.cpp
@@ -125,9 +130,12 @@ add_llvm_component_library(LLVMScalarOpts
   )
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
   target_link_libraries(LLVMScalarOpts PRIVATE LLVMIntel_DTransAnalysis)
-endif(INTEL_INCLUDE_DTRANS)
+endif()
+# end INTEL_FEATURE_SW_DTRANS
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
 if(p)

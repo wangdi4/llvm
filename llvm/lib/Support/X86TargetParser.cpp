@@ -171,8 +171,30 @@ constexpr FeatureBitset FeaturesKNL =
 constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 
 #if INTEL_CUSTOMIZATION
-static constexpr FeatureBitset FeaturesCommonAVX512 =
-   FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+constexpr FeatureBitset FeaturesCommonAVX512 =
+    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+#if INTEL_FEATURE_ISA_AVX256
+#define ENABLE_ISA_AVX256
+constexpr FeatureBitset FeaturesCommonAVX256 =
+#endif // INTEL_FEATURE_ISA_AVX256
+#ifdef ENABLE_ISA_AVX256
+    FeatureAVX512FP16 |
+#endif
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#ifdef ENABLE_ISA_AVX256
+    FeatureAVXDOTPRODINT8 |
+#endif
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#ifdef ENABLE_ISA_AVX256
+    FeatureAVXDOTPRODPHPS |
+#endif
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX256
+    FeaturesX86_64_V4 | FeatureAVX512BF16 | FeatureAVX512VNNI |
+    FeatureAVX512VBMI | FeatureAVX512VBMI2 | FeatureAVX512VPOPCNTDQ |
+    FeatureAVX512IFMA | FeatureAVX512BITALG | FeatureAVX512VP2INTERSECT;
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 
 // Intel Skylake processors.
@@ -199,6 +221,7 @@ constexpr FeatureBitset FeaturesICLClient =
     FeaturesCannonlake | FeatureAVX512BITALG | FeatureAVX512VBMI2 |
     FeatureAVX512VNNI | FeatureAVX512VPOPCNTDQ | FeatureGFNI | FeatureRDPID |
     FeatureVAES | FeatureVPCLMULQDQ;
+constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient & ~FeatureSGX;
 constexpr FeatureBitset FeaturesICLServer =
     FeaturesICLClient | FeatureCLWB | FeaturePCONFIG | FeatureWBNOINVD;
 constexpr FeatureBitset FeaturesTigerlake =
@@ -206,20 +229,13 @@ constexpr FeatureBitset FeaturesTigerlake =
     FeatureCLWB | FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   FeatureAVX512FP16 |
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     FeaturesICLServer | FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
     FeatureAVX512BF16 | FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE |
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG | FeatureAVXVNNI;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -361,6 +377,10 @@ constexpr ProcInfo Processors[] = {
 #if INTEL_CUSTOMIZATION
   // Intersection of SKX and KNL.
   { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512 },
+#if INTEL_FEATURE_ISA_AVX256
+  // Intersection of AVX256
+  { {"common-avx256"}, CK_CommonAVX256, ~0U, FeaturesCommonAVX256 },
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, FeaturesSkylakeClient },
@@ -375,16 +395,12 @@ constexpr ProcInfo Processors[] = {
   { {"cannonlake"}, CK_Cannonlake, FEATURE_AVX512VBMI, FeaturesCannonlake },
   // Icelake client microarchitecture based processors.
   { {"icelake-client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient },
+  // Rocketlake microarchitecture based processors.
+  { {"rocketlake"}, CK_Rocketlake, FEATURE_AVX512VBMI2, FeaturesRocketlake },
   // Icelake server microarchitecture based processors.
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  // Rocketlake microarchitecture based processors.
-  { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
   // Alderlake microarchitecture based processors.
@@ -621,20 +637,18 @@ static constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-static constexpr FeatureBitset ImpliedFeaturesAVX512MPSADBW = FeatureAVX512F |
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+static constexpr FeatureBitset ImpliedFeaturesAVX512MEDIAX = FeatureAVX512F |
     FeatureAVX512BW;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesAVX512MOVGET = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX512_MOVGET
-#if INTEL_FEATURE_ISA_FP16
 static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 = FeatureAVX512F |
     FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODINT8 = FeatureAVX512F |
     FeatureAVXDOTPRODINT8;
@@ -736,6 +750,46 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_AVX512_CVTROW =
     FeatureAMX_TILE | FeatureAVX512F;
 // end AUTO GENERATED BY TOOL
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AVX_NE_CONVERT
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesAVXNECONVERT = FeatureAVX2;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX_NE_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesAVX512NECONVERT = FeatureAVX512F;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#if INTEL_FEATURE_ISA_SHA512
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesSHA512 = FeatureAVX;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_SHA512
+#if INTEL_FEATURE_ISA_SM3
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesSM3 = FeatureAVX;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_SM3
+#if INTEL_FEATURE_ISA_SM4
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesSM4 = FeatureAVX;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_SM4
+#if INTEL_FEATURE_ISA_DSPV1
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesDSPV1 = FeatureSSE2;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_DSPV1
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesAVXVNNIINT16 = FeatureAVX2;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
+#if INTEL_FEATURE_ISA_AVX512_VNNI_INT16
+// AUTO GENERATED BY TOOL
+static constexpr FeatureBitset ImpliedFeaturesAVX512VNNIINT16 = FeatureAVX512F;
+// end AUTO GENERATED BY TOOL
+#endif // INTEL_FEATURE_ISA_AVX512_VNNI_INT16
 #endif // INTEL_CUSTOMIZATION
 // Key Locker Features
 constexpr FeatureBitset ImpliedFeaturesKL = FeatureSSE2;

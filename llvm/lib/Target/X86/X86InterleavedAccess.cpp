@@ -211,7 +211,7 @@ class X86InterleavedAccessGroup {
 
   /// Creates an OVLSMemref for each shuffle in the Shuffles and returns
   /// the memrefs in \p Memrefs.
-  void createOVLSMemrefs(OVLSMemrefVector &Memrefs) {
+  void createOVLSMemrefs(OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs) {
     // For Loads, Shuffles points to a vector of ShuffleVectorInst , which
     // represent the strided accesses; so OVLSMemrefs can be directly generated.
     // For Stores, the ShuffleVectorInst consists of the reinterleaved accesses,
@@ -246,9 +246,8 @@ class X86InterleavedAccessGroup {
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
           i + 1, Dist, ShuffleEltTy, VecTy->getNumElements(), AKind,
           Factor * EltSizeInByte);
-      Memrefs.push_back(Mrf);
-      ShuffleToMemrefMap.insert(
-          std::pair<ShuffleVectorInst *, OVLSMemref *>(Shuffles[i], Mrf));
+      Memrefs.emplace_back(Mrf);
+      ShuffleToMemrefMap.emplace(Shuffles[i], Memrefs.back().get());
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -300,9 +299,9 @@ public:
           (VecTy->getScalarSizeInBits() == 16 && Factor == 8)))
       return false;
 
-    // Create OVLSMemrefVector for the members(shuffles) of
+    // Create OVLSVector of OVLSMemref for the members(shuffles) of
     // X86InterleavedAccessGroup.
-    OVLSMemrefVector Mrfs;
+    OVLSVector<std::unique_ptr<OVLSMemref>> Mrfs;
     createOVLSMemrefs(Mrfs);
 
     // Create OVLSGroups for the shuffles.
@@ -352,14 +351,17 @@ public:
     OVLSMemrefToInstMap MemrefToInstMap;
     OVLSMemrefToInstMap::iterator It1;
     std::multimap<ShuffleVectorInst *, OVLSMemref *>::iterator It;
+    OVLSInstructionVector AllInstVec;
 
     // Maps each LLVM-IR Instruction to an int.
     DenseMap<uint64_t, Value *> InstMap;
     // Generate optimized-sequence for each OVLSGroup.
-    for (OVLSGroup *Grp : Grps) {
+    for (auto &Grp : Grps) {
       OVLSInstructionVector InstVec;
+      if (!OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap))
+        return false;
       // Get the optimized-sequence computed by OptVLS.
-      if (OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap)) {
+      else {
         Value *Addr;
         Type *ElemTy;
         unsigned Alignment = 0;
@@ -378,8 +380,10 @@ public:
         // to LLVM-IR instruction type.
         InstMap = OVLSConverter::genLLVMIR(Builder, InstVec, Shuffles[0], Addr,
                                            ElemTy, Alignment);
-      } else
-        return false;
+        AllInstVec.insert(AllInstVec.end(),
+                          std::make_move_iterator(InstVec.begin()),
+                          std::make_move_iterator(InstVec.end()));
+      }
     }
 
     // Now replace the unoptimized-interleaved-vectors with the
@@ -1010,29 +1014,33 @@ bool X86InterleavedAccessGroup::lowerIntoOptimizedSequence() {
   auto *ShuffleTy = cast<FixedVectorType>(Shuffles[0]->getType());
 
   if (isa<LoadInst>(Inst)) {
-    // Try to generate target-sized register(/instruction).
-    decompose(Inst, Factor, ShuffleTy, DecomposedVectors);
-
     auto *ShuffleEltTy = cast<FixedVectorType>(Inst->getType());
     unsigned NumSubVecElems = ShuffleEltTy->getNumElements() / Factor;
-    // Perform matrix-transposition in order to compute interleaved
-    // results by generating some sort of (optimized) target-specific
-    // instructions.
-
     switch (NumSubVecElems) {
     default:
       return false;
     case 4:
-      transpose_4x4(DecomposedVectors, TransposedVectors);
-      break;
     case 8:
     case 16:
     case 32:
     case 64:
-      deinterleave8bitStride3(DecomposedVectors, TransposedVectors,
-                              NumSubVecElems);
+      if (ShuffleTy->getNumElements() != NumSubVecElems)
+        return false;
       break;
     }
+
+    // Try to generate target-sized register(/instruction).
+    decompose(Inst, Factor, ShuffleTy, DecomposedVectors);
+
+    // Perform matrix-transposition in order to compute interleaved
+    // results by generating some sort of (optimized) target-specific
+    // instructions.
+
+    if (NumSubVecElems == 4)
+      transpose_4x4(DecomposedVectors, TransposedVectors);
+    else
+      deinterleave8bitStride3(DecomposedVectors, TransposedVectors,
+                              NumSubVecElems);
 
     // Now replace the unoptimized-interleaved-vectors with the
     // transposed-interleaved vectors.

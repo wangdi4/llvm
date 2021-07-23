@@ -1,7 +1,8 @@
-; REQUIRES: asserts
-; RUN: opt < %s -hir-framework  -vpo-wrncollection -vpo-wrninfo -VPlanDriverHIR -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="vplan-driver-hir,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ;
+; RUN: opt < %s -hir-framework  -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **
 ; WARNING!!!      DO NOT SHARE EXTERNALLY
@@ -94,3 +95,6 @@ attributes #2 = { nounwind }
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
 !6 = !{!"indvars.iv.de.ssa"}
+; end INTEL_FEATURE_SW_ADVANCED
+
+

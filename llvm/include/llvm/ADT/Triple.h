@@ -110,10 +110,7 @@ public:
     wasm64,         // WebAssembly with 64-bit pointers
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
-    fpga_aoco,      // Intel FPGA: unlinked object file
-    fpga_aocr,      // Intel FPGA: linked early image
-    fpga_aocx,      // Intel FPGA: linked image
-    fpga_dep,       // Intel FPGA: dependency file
+    fpga,           // Intel FPGA
     ve,             // NEC SX-Aurora Vector Engine
     LastArchType = ve
   };
@@ -844,6 +841,12 @@ public:
   bool isArm64e() const {
     return getArch() == Triple::aarch64 &&
            getSubArch() == Triple::AArch64SubArch_arm64e;
+  }
+
+  /// Tests whether the target is X32.
+  bool isX32() const {
+    EnvironmentType Env = getEnvironment();
+    return Env == Triple::GNUX32 || Env == Triple::MuslX32;
   }
 
   /// Tests whether the target supports comdat

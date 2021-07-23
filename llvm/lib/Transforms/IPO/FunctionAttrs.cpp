@@ -60,6 +60,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <iterator>
 #include <map>
@@ -1293,15 +1294,10 @@ static bool InstrBreaksNoFree(Instruction &I, const SCCNodeSet &SCCNodes) {
   if (CB->hasFnAttr(Attribute::NoFree))
     return false;
 
-  Function *Callee = CB->getCalledFunction();
-  if (!Callee)
-    return true;
-
-  if (Callee->doesNotFreeMemory())
-    return false;
-
-  if (SCCNodes.contains(Callee))
-    return false;
+  // Speculatively assume in SCC.
+  if (Function *Callee = CB->getCalledFunction())
+    if (SCCNodes.contains(Callee))
+      return false;
 
   return true;
 }
@@ -1425,10 +1421,8 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
 }
 
 static bool instructionDoesNotReturn(Instruction &I) {
-  if (auto *CB = dyn_cast<CallBase>(&I)) {
-    Function *Callee = CB->getCalledFunction();
-    return Callee && Callee->doesNotReturn();
-  }
+  if (auto *CB = dyn_cast<CallBase>(&I))
+    return CB->hasFnAttr(Attribute::NoReturn);
   return false;
 }
 
@@ -1460,7 +1454,55 @@ static bool addNoReturnAttrs(const SCCNodeSet &SCCNodes) {
   return Changed;
 }
 
-static bool functionWillReturn(const Function &F) {
+static bool functionWillReturn(const Function &F,                  // INTEL
+                               WholeProgramInfo *WPInfo) {         // INTEL
+
+#if INTEL_CUSTOMIZATION
+  // Return true if the input function is a libfunc, it is marked as "readonly"
+  // and "mustprogress", whole program safe was found, and all the users of the
+  // function F are Call instructions.
+  auto LibFuncWillReturn = [WPInfo](const Function &F) -> bool {
+    if (!WPInfo)
+      return false;
+
+    if (!WPInfo->isWholeProgramSafe())
+      return false;
+
+    // NOTE: We can add an extra layer of security by checking if the function
+    // is an actual libfunc, but it isn't needed since whole program safe was
+    // found. This means that all function declarations are libfuncs.
+    if (!F.isDeclaration())
+      return false;
+
+    // The libfunc must be marked as "mustprogress" and "readonly"
+    if (!F.mustProgress() || !F.onlyReadsMemory() ||
+        !F.doesNotThrow() || F.hasAddressTaken())
+      return false;
+
+    // Check that all the users of the function are Call instructions (not
+    // Invokes). This makes sure that the control will always return to
+    // the same point.
+    for (auto *U : F.users()) {
+      auto *Call = dyn_cast<CallInst>(U);
+      if(!Call || Call->isIndirectCall())
+        return false;
+    }
+
+    return true;
+  };
+
+  // Check if the input function is a libfunc and we can mark it as
+  // "willreturn"
+  if (LibFuncWillReturn(F))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
+  // We can infer and propagate function attributes only when we know that the
+  // definition we'll get at link time is *exactly* the definition we see now.
+  // For more details, see GlobalValue::mayBeDerefined.
+  if (!F.hasExactDefinition())
+    return false;
+
   // Must-progress function without side-effects must return.
   if (F.mustProgress() && F.onlyReadsMemory())
     return true;
@@ -1484,11 +1526,12 @@ static bool functionWillReturn(const Function &F) {
 }
 
 // Set the willreturn function attribute if possible.
-static bool addWillReturn(const SCCNodeSet &SCCNodes) {
+static bool addWillReturn(const SCCNodeSet &SCCNodes,               // INTEL
+                          WholeProgramInfo *WPInfo) {               // INTEL
   bool Changed = false;
 
   for (Function *F : SCCNodes) {
-    if (!F || F->willReturn() || !functionWillReturn(*F))
+    if (!F || F->willReturn() || !functionWillReturn(*F, WPInfo))   // INTEL
       continue;
 
     F->setWillReturn();
@@ -1539,13 +1582,6 @@ static bool InstrBreaksNoSync(Instruction &I, const SCCNodeSet &SCCNodes) {
   if (CB->hasFnAttr(Attribute::NoSync))
     return false;
 
-  // readnone + not convergent implies nosync
-  // (This is needed to initialize inference from declarations which aren't
-  //  explicitly nosync, but are readnone and not convergent.)
-  if (CB->hasFnAttr(Attribute::ReadNone) &&
-      !CB->hasFnAttr(Attribute::Convergent))
-    return false;
-
   // Non volatile memset/memcpy/memmoves are nosync
   // NOTE: Only intrinsics with volatile flags should be handled here.  All
   // others should be marked in Intrinsics.td.
@@ -1579,21 +1615,7 @@ static bool addNoSyncAttr(const SCCNodeSet &SCCNodes) {
         ++NumNoSync;
       },
       /* RequiresExactDefinition= */ true});
-  bool Changed = AI.run(SCCNodes);
-
-  // readnone + not convergent implies nosync
-  // (This is here so that we don't have to duplicate the function local
-  //  memory reasoning of the readnone analysis.)
-  for (Function *F : SCCNodes) {
-    if (!F || F->hasNoSync())
-      continue;
-    if (!F->doesNotAccessMemory() || F->isConvergent())
-      continue;
-    F->setNoSync();
-    NumNoSync++;
-    Changed = true;
-  }
-  return Changed;
+  return AI.run(SCCNodes);
 }
 
 static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
@@ -1627,7 +1649,8 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 
 template <typename AARGetterT>
 static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
-                                   AARGetterT &&AARGetter) {
+                                   AARGetterT &&AARGetter,     // INTEL
+                                   WholeProgramInfo *WPInfo) { // INTEL
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
   bool Changed = false;
 
@@ -1640,7 +1663,7 @@ static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
   Changed |= addArgumentAttrs(Nodes.SCCNodes);
   Changed |= inferConvergent(Nodes.SCCNodes);
   Changed |= addNoReturnAttrs(Nodes.SCCNodes);
-  Changed |= addWillReturn(Nodes.SCCNodes);
+  Changed |= addWillReturn(Nodes.SCCNodes, WPInfo);    // INTEL
 
   // If we have no external nodes participating in the SCC, we can deduce some
   // more precise attributes as well.
@@ -1652,6 +1675,14 @@ static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
   }
 
   Changed |= addNoSyncAttr(Nodes.SCCNodes);
+
+  // Finally, infer the maximal set of attributes from the ones we've inferred
+  // above.  This is handling the cases where one attribute on a signature
+  // implies another, but for implementation reasons the inference rule for
+  // the later is missing (or simply less sophisticated).
+  for (Function *F : Nodes.SCCNodes)
+    if (F)
+      Changed |= inferAttributesFromOthers(*F);
 
   return Changed;
 }
@@ -1674,15 +1705,19 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Functions.push_back(&N.getFunction());
   }
 
-  if (deriveAttrsInPostOrder(Functions, AARGetter))
 #if INTEL_CUSTOMIZATION
-  {
+  // NOTE: We may want to pass the whole program analysis here when the new
+  // pass manager is turned on by default. Currently, the functions collected
+  // in the new pass manager are different than the legacy pass manager.
+  // The legacy pass manager includes declarations in the Functions vector,
+  // while the new pass manager isn't adding them.
+  if (deriveAttrsInPostOrder(Functions, AARGetter, nullptr)) {
+#endif // INTEL_CUSTOMIZATION
+    // We have not changed the call graph or removed/added functions.
     PreservedAnalyses PA;
-    PA.preserve<WholeProgramAnalysis>();
-    PA.preserve<AndersensAA>();
+    PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
     return PA;
   }
-#endif // INTEL_CUSTOMIZATION
 
   return PreservedAnalyses::all();
 }
@@ -1747,7 +1782,10 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
 #endif // INTEL_CUSTOMIZATION
   }
 
-  return deriveAttrsInPostOrder(Functions, AARGetter) || Changed; // INTEL
+#if INTEL_CUSTOMIZATION
+  WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;
+  return !deriveAttrsInPostOrder(Functions, AARGetter, WPInfo) || Changed;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {

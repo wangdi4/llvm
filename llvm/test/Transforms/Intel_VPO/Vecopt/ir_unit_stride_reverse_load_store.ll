@@ -3,7 +3,7 @@
 ; by VPValue-based code generator.
 
 ; REQUIRES: asserts
-; RUN: opt < %s -VPlanDriver -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
+; RUN: opt < %s -vplan-vec -vplan-force-vf=4 -vplan-dump-da -S 2>&1 | FileCheck %s
 
 define void @reverse(i32* %src, i32* %dest) {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
@@ -16,11 +16,11 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[DEST0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP1]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
@@ -34,14 +34,11 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub nuw nsw <4 x i64> <i64 1023, i64 1023, i64 1023, i64 1023>, [[VEC_PHI0]]
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i64> [[TMP0]], i32 0
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[SRC0]], i64 [[DOTEXTRACT_0_0]]
@@ -49,15 +46,15 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[TMP1]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP2]], align 8
 ; CHECK-NEXT:    [[REVERSE0:%.*]] = shufflevector <4 x i32> [[WIDE_LOAD0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds i32, i32* [[DEST0]], i64 [[DOTEXTRACT_0_0]]
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP40]], i32 -3
+; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds i32, i32* [[DEST0]], i64 [[DOTEXTRACT_0_0]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[SCALAR_GEP30]], i32 -3
 ; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
-; CHECK-NEXT:    [[REVERSE50:%.*]] = shufflevector <4 x i32> [[REVERSE0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    store <4 x i32> [[REVERSE50]], <4 x i32>* [[TMP4]], align 8
+; CHECK-NEXT:    [[REVERSE40:%.*]] = shufflevector <4 x i32> [[REVERSE0]], <4 x i32> undef, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
+; CHECK-NEXT:    store <4 x i32> [[REVERSE40]], <4 x i32>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[TMP6]], 1024
-; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0]], label [[VPLANNEDBB50:%.*]], !llvm.loop !0
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

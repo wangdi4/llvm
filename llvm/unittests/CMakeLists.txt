@@ -33,6 +33,7 @@ add_subdirectory(LineEditor)
 add_subdirectory(Linker)
 add_subdirectory(MC)
 add_subdirectory(MI)
+add_subdirectory(MIR)
 # INTEL_CUSTOMIZATION
 if(";${LLVM_TARGETS_TO_BUILD};" MATCHES ";X86;")
   add_subdirectory(Intel_MIRMatcher)

@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_FunctionRecognizer.cpp - Function Recognizer -------------===//
 //
 // Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
@@ -3303,3 +3304,4 @@ PreservedAnalyses FunctionRecognizerPass::run(Function &F,
   FunctionRecognizerImpl(F);
   return PreservedAnalyses::all();
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

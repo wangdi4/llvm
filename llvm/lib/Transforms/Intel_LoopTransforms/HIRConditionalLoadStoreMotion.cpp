@@ -261,8 +261,8 @@ static void collectLoadsAndStores(HLInstRange &&Insts,
       if (!Ref->isLinear())
         continue;
 
-      // Don't touch volatile or fake refs.
-      if (Ref->isVolatile() || Ref->isFake())
+      // Don't touch fake refs.
+      if (Ref->isFake())
         continue;
 
       // Choose which sets to add this ref to if appropriate.

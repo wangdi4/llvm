@@ -22,11 +22,11 @@
 
 ; CHECK: renameNonPointerConstExprVInEntryDirective: Expr 'i1 icmp ne (i64 ptrtoint (i64* @N to i64), i64 0)' hoisted to Instruction 'i1 %[[IF:cexpr.inst]]'.
 ; CHECK: renameNonPointerConstExprVInEntryDirective: Expr 'i64 mul nuw (i64 ptrtoint (i64* @N to i64), i64 4)' hoisted to Instruction 'i64 %[[SIZE:cexpr.inst[^ ']+]]'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 0)'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: '[10 x i32]* @a'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @b, i64 0, i64 0)'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: '[10 x i32]* @b'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: 'i64* @N'.
+; CHECK: createRenamedValueForV : Renamed 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 0)' (via launder intrinsic) to: 'i32* %{{.*}}'.
+; CHECK: createRenamedValueForV : Renamed '[10 x i32]* @a' (via launder intrinsic) to: '[10 x i32]* %a'.
+; CHECK: createRenamedValueForV : Renamed 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @b, i64 0, i64 0)' (via launder intrinsic) to: 'i32* %{{.*}}'.
+; CHECK: createRenamedValueForV : Renamed '[10 x i32]* @b' (via launder intrinsic) to: '[10 x i32]* %b'.
+; CHECK: createRenamedValueForV : Renamed 'i64* @N' (via launder intrinsic) to: 'i64* %N'.
 
 ; Check that the hoisted IF Instruction is used in the target codegen
 ; CHECK: %[[CHECK:[^ ]+]] = icmp ne i1 %[[IF]], false

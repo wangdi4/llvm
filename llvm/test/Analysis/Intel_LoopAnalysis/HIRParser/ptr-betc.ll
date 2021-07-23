@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the loop upper which has a pointer type is parsed correctly.
-; CHECK: DO i1 = 0, %add.ptr.pn.i + -1 * umin((-3 + %add.ptr.pn.i), %endptr) + -3
+; CHECK: DO i1 = 0, -1 * umin((-3 + ptrtoint.i8*.i32(%add.ptr.pn.i)), ptrtoint.i8*.i32(%endptr)) + ptrtoint.i8*.i32(%add.ptr.pn.i) + -3, 1
 ; CHECK-NEXT: END LOOP
 
 

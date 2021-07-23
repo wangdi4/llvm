@@ -47,6 +47,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -98,8 +99,7 @@ class VPDominatorTree;
 class VPPostDominatorTree;
 #if INTEL_CUSTOMIZATION
 // To be later declared as a friend
-class VPlanCostModel;
-class VPlanCostModelProprietary;
+class VPlanCostModelInterface;
 namespace VPlanCostModelHeuristics {
 class HeuristicSLP;
 } // namespace VPlanCostModelHeuristics
@@ -109,6 +109,7 @@ class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
 class VPlanMasked;
 class VPlanScalarPeel;
+class VPRegionLiveOut;
 
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
@@ -136,7 +137,8 @@ public:
 
   std::unique_ptr<VPlanScalarEvolution> createVPSE() {
     if (IsLLVMIR) {
-      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp);
+      auto &Context = Lp->getHeader()->getContext();
+      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context, DL);
     } else
       llvm_unreachable("Unimplemented for HIR path.");
   }
@@ -341,7 +343,7 @@ class VPInstruction : public VPUser,
   friend class VPBranchInst;
   friend class VPBuilder;
   friend class VPlanTTICostModel;
-  friend class VPlanCostModel;
+  friend class VPlanCostModelInterface;
   friend class VPlanDivergenceAnalysis;
   friend class VPlanValueTrackingLLVM;
   friend class VPlanVLSAnalysis;
@@ -356,7 +358,6 @@ class VPInstruction : public VPUser,
   // be necessary.
   friend class VPlanPredicator;
 
-  friend class VPlanCostModelProprietary;
   // TODO: Integrate SLP natively into VPlan instead.
   friend class VPlanCostModelHeuristics::HeuristicSLP;
   friend class VPlanIdioms;
@@ -552,11 +553,6 @@ public:
     PopVF,
     PlanAdapter,
     PlanPeelAdapter,
-    PrivateFinalUncond,    // No special class implemented.
-    PrivateFinalUncondMem, // Temporarily needed to avoid memonly private
-                           // finalization during CG.
-                           // TODO: Remove when non-explicit remainder loop
-                           // support is deprecated.
     VLSLoad,
     VLSStore,
     VLSExtract,
@@ -564,6 +560,14 @@ public:
     InvSCEVWrapper,
     PrivateFinalCond,
     PrivateFinalCondMem,
+    PrivateFinalUncond,    // No special class implemented.
+    PrivateFinalUncondMem, // Temporarily needed to avoid memonly private
+                           // finalization during CG.
+                           // TODO: Remove when non-explicit remainder loop
+                           // support is deprecated.
+    PrivateFinalArray,
+    GeneralMemOptConflict,
+    ConflictInsn,
   };
 
 private:
@@ -581,10 +585,6 @@ private:
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
   HIRSpecificsData HIRData;
-
-protected:
-  HIRSpecifics HIR() { return HIRSpecifics(*this); }
-  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 
 private:
   /// Utility method serving execute(): generates a single instance of the
@@ -822,6 +822,8 @@ public:
     // invalidation should be propagated to users as well.
   }
 
+  HIRSpecifics HIR() { return HIRSpecifics(*this); }
+  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -1245,14 +1247,29 @@ class VPGEPInstruction : public VPInstruction {
 
 private:
   bool InBounds;
+  /// SourceElementType/ResultElementType have the same meaning as for
+  /// llvm::GetElementPtrInst and are needed to make opaque pointers work as
+  /// that type is used for calculating the offsets.
+  Type *SourceElementType;
+  // It could be recomputed on demand using the SourceElementType and indices,
+  // but it's easier to just store it here (and that follows the
+  // llvm::GetElementPtrInst's approach).
+  Type *ResultElementType;
 
 public:
   /// Default constructor for VPGEPInstruction. The default value for \p
   /// InBounds is false.
-  VPGEPInstruction(Type *BaseTy, VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+  //
+  // Technically, we could have computed ResultElementType from
+  // SourceElementType/indices list. However, there are existing inconsistencies
+  // (e.g. SOA geps), so delay the auto-deduction it untill those issues are
+  // fixed.
+  VPGEPInstruction(Type *SourceElementType, Type *ResultElementType,
+                   Type *BaseTy, VPValue *Ptr, ArrayRef<VPValue *> IdxList,
                    bool InBounds = false)
       : VPInstruction(Instruction::GetElementPtr, BaseTy, {}),
-        InBounds(InBounds) {
+        InBounds(InBounds), SourceElementType(SourceElementType),
+        ResultElementType(ResultElementType) {
     assert(Ptr && "Base pointer operand of GEP cannot be null.");
     // Base pointer should be the first operand of GEP followed by index
     // operands
@@ -1261,6 +1278,12 @@ public:
     addOperand(Ptr);
     for (auto Idx : IdxList)
       addOperand(Idx);
+    assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
+               ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
+           "SourceElemenType doesn't match non-opaque pointer base!");
+    assert(cast<PointerType>(getType()->getScalarType())
+               ->isOpaqueOrPointeeTypeMatches(ResultElementType) &&
+           "ResultElementType doesn't match non-opaque result ponter!");
   }
 
   /// Setter and getter functions for InBounds.
@@ -1269,6 +1292,18 @@ public:
 
   /// Get the base pointer operand of given VPGEPInstruction.
   VPValue *getPointerOperand() const { return getOperand(0); }
+
+  Type *getSourceElementType() const { return SourceElementType; }
+  Type *getResultElementType() const { return ResultElementType; }
+
+  /// Check if pointer operand is opaque.
+  ///
+  /// Temporary helper method to reduce boilerplate code. We should delete it
+  /// after transition to opaque ptrs is finished.
+  bool isOpaque() const {
+    return cast<PointerType>(getPointerOperand()->getType()->getScalarType())
+        ->isOpaque();
+  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -1296,7 +1331,8 @@ public:
 protected:
   virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
-        new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
+        new VPGEPInstruction(SourceElementType, ResultElementType, getType(),
+                             getOperand(0), {}, isInBounds());
     for (auto *O : make_range(op_begin()+1, op_end())) {
       Cloned->addOperand(O);
     }
@@ -1553,9 +1589,17 @@ public:
 
   bool isSimple() const { return !isAtomic() && !isVolatile(); }
 
+  void setMetadata(unsigned KindID, MDNode *MD) {
+    auto Iter = find_if(MDs, [KindID](auto &P) -> bool {
+      return P.first == KindID;
+    });
+    if (Iter != MDs.end())
+      Iter->second = MD;
+    else
+      MDs.push_back(std::make_pair(KindID, MD));
+  }
+
   MDNode *getMetadata(unsigned KindID) const {
-    MDNodesTy MDs;
-    getUnderlyingNonDbgMetadata(MDs);
     auto Iter = find_if(MDs, [KindID](auto &P) -> bool {
       return P.first == KindID;
     });
@@ -1593,22 +1637,37 @@ public:
 
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
-  void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
-    MDs.clear();
-    if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
+  void readUnderlyingMetadata(const loopopt::RegDDRef *RDDR = nullptr) {
+    assert(MDs.empty() && "Underlying metadata was already read");
+    if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction())) {
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR().getUnderlyingNode()) {
-      const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
-      assert(RDDR && "Value should not be nullptr!");
-      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
+      return;
     }
+    if (!RDDR && HIR().getUnderlyingNode()) {
+      RDDR = getHIRMemoryRef();
+      assert(RDDR && "Value should not be nullptr!");
+    }
+    if (RDDR)
+      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
+  }
+
+  unsigned getPointerOperandIndex() const {
+    if (getOpcode() == Instruction::Load)
+      return 0;
+    assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
+    return 1;
   }
 
   VPValue *getPointerOperand() const {
-    if (getOpcode() == Instruction::Load)
-      return getOperand(0);
-    assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
-    return getOperand(1);
+    return getOperand(getPointerOperandIndex());
+  }
+  /// Get type of the pointer operand. Note that it might be either PointerType
+  /// or VectorType.
+  Type *getPointerOperandType() const { return getPointerOperand()->getType(); }
+  /// Get address space of the pointer operand.
+  unsigned getPointerAddressSpace() const {
+    return cast<PointerType>(getPointerOperandType()->getScalarType())
+        ->getAddressSpace();
   }
 
   Type *getValueType() const {
@@ -1634,8 +1693,6 @@ public:
     O << "    Ordering: " << static_cast<unsigned>(getOrdering())
       << ", Volatile: " << isVolatile()
       << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
-    VPLoadStoreInst::MDNodesTy MDs;
-    getUnderlyingNonDbgMetadata(MDs);
     if (!MDs.empty()) {
       O << "    NonDbgMDs -\n";
       for (auto MDPair : MDs) {
@@ -1656,6 +1713,7 @@ public:
     Cloned->setOrdering(getOrdering());
     Cloned->setVolatile(isVolatile());
     Cloned->setSyncScopeID(getSyncScopeID());
+    Cloned->MDs = MDs;
     // AddressSCEV cannot be propagated to the Cloned VPlan. VPlanSCEV may refer
     // to VPInstructions, therefore it cannot be used in a different VPlan.
     // AddressSCEVs in the cloned VPlan are recomputed after a new VPSE instance
@@ -1670,6 +1728,7 @@ private:
   bool IsVolatile = false;
   SyncScope::ID SSID = SyncScope::SingleThread;
   VPlanSCEV *AddressSCEV = nullptr; //< VPlanSCEV for pointer operand
+  MDNodesTy MDs;
 };
 
 /// Concrete class to represent copy instruction semantics in VPlan constructed
@@ -1729,7 +1788,7 @@ private:
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
       OS << "  VecVariantIndex: " << MatchedVecVariantIndex << "\n";
-      OS << "  VecIntrinsic: " << Intrinsic::getName(VectorIntrinsic, {})
+      OS << "  VecIntrinsic: " << Intrinsic::getBaseName(VectorIntrinsic)
          << "\n";
       OS << "  UseMaskForUnmasked: " << UseMaskedForUnmasked << "\n";
       OS << "  VecLibFn: " << VectorLibraryFn << "\n";
@@ -1804,6 +1863,9 @@ public:
     addOperand(Callee);
     resetVecScenario(0 /*Initial VF*/);
   }
+
+  VPCallInstruction(FunctionCallee Callee, ArrayRef<VPValue *> ArgList,
+                    VPlan *Plan);
 
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
@@ -1889,6 +1951,13 @@ public:
     // Record VF for which new vectorization scenario and properties will be
     // recorded.
     VecProperties.VF = NewVF;
+
+    // If call does not have any underlying IR, then it was emitted by
+    // intermediate VPlan transforms. Don't try to reset any decisions as the
+    // transform has specialized knowledge on how to handle these calls.
+    if (getUnderlyingCallInst() == nullptr)
+      return;
+
     // DoNotWiden is used for kernel uniform calls and for uniform calls without
     // side-effects today i.e. the property is not VF-dependent. Hence it need
     // not be reset here.
@@ -2026,9 +2095,15 @@ public:
       return Intrinsic::getName(VecID).str();
 
     assert(!getType()->isVoidTy() && "Expected non-void function");
+    unsigned VF = getVFForScenario();
+    if (VF == 0)
+      return Intrinsic::getBaseName(VecID).str();
+
     SmallVector<Type *, 1> TysForName;
-    TysForName.push_back(getWidenedType(getType(), getVFForScenario()));
-    return Intrinsic::getName(VecID, TysForName);
+    TysForName.push_back(getWidenedType(getType(), VF));
+    Function *F = getCalledFunction();
+    assert(F && "Indirect calls not expected here.");
+    return Intrinsic::getName(VecID, TysForName, F->getParent());
   }
 
   /// Call argument list size.
@@ -2244,8 +2319,8 @@ public:
   }
 
   /// Return operand that corresponds to the start value.
-  VPValue *getStartValueOperand() const {
-    assert(usesStartValue() && "Incorrect operand request");
+  VPValue *getInitOperand() const {
+    assert(getNumOperands() == 2 && "Incorrect operand request");
     return getOperand(0);
   }
 
@@ -2271,14 +2346,11 @@ public:
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
   /// Return true if start value is used in induction last value calculation.
-  bool usesStartValue() const { return getNumOperands() == 2;}
+  bool usesStartValue() const { return false; }
 
   // Replaces start value with the \p newVal
   void replaceStartValue(VPValue *NewVal) {
-    assert(NewVal && "Unexpected null start value");
-    assert(NewVal->getType() == getStartValueOperand()->getType() &&
-           "Inconsistent operand type");
-    setOperand(0, NewVal);
+    llvm_unreachable("unsupported replacement");
   }
 
 protected:
@@ -2287,7 +2359,7 @@ protected:
     if (getNumOperands() == 1)
       return new VPInductionFinal(getInductionOperand());
     else if (getNumOperands() == 2)
-      return new VPInductionFinal(getStartValueOperand(), getStepOperand(),
+      return new VPInductionFinal(getInitOperand(), getStepOperand(),
                                   getBinOpcode());
     else
       llvm_unreachable("Too many operands.");
@@ -2608,10 +2680,13 @@ private:
   const VPLoop *VPL;
 };
 
-/// Instruction representing the final value of the explicit IV for the vector
+/// Instruction representing the final value of the IV for the vector
 /// loop. We increment that IV by VF*UF, so actual value would be the iteration
 /// number of the serial loop execution corresponding the lane 0 of the last
 /// vector iteration.
+/// Initially is constructed with one operand that represents the original
+/// upper bound of the loop. Later we can have a second operand added, which
+/// represents an adjustment for the peel loop.
 class VPVectorTripCountCalculation : public VPInstruction {
 public:
   VPVectorTripCountCalculation(VPValue *OrigTripCount, unsigned UF = 1)
@@ -3206,6 +3281,10 @@ class VPVLSLoad : public VPInstruction {
   Align Alignment;
    // Number of original loads being optimized. For OptReport purposes.
   int NumOrigLoads;
+  // Combined metadata that needs to be assigned to the wide load (e.g. TBAA,
+  // alias scopes, etc.). We only preserve fixed metadata kinds, hence this
+  // simpler data structure.
+  SmallVector<std::pair<unsigned, MDNode *>, 3> Metadata;
 
 public:
   /// \p Ptr should contain the base address for the wide VLSload in its 0th
@@ -3232,9 +3311,24 @@ public:
       : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
         Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
 
+  VPValue *getPointerOperand() const { return getOperand(0); }
+  Type *getValueType() const { return getType(); }
+
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
+
+  void setMetadata(unsigned Kind, MDNode *MD) {
+    assert(none_of(Metadata,
+                   [Kind](std::pair<unsigned, MDNode *> Entry) {
+                     return Entry.first == Kind;
+                   }) &&
+           "That kind of metadata has been set already!");
+    Metadata.emplace_back(Kind, MD);
+  }
+  auto getMetadata() const {
+    return make_range(Metadata.begin(), Metadata.end());
+  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -3263,6 +3357,10 @@ class VPVLSStore : public VPInstruction {
   Align Alignment;
    // Number of original stores being optimized. For OptReport purposes.
   int NumOrigStores;
+  // Combined metadata that needs to be assigned to the wide load (e.g. TBAA,
+  // alias scopes, etc.). We only preserve fixed metadata kinds, hence this
+  // simpler data structure.
+  SmallVector<std::pair<unsigned, MDNode *>, 3> Metadata;
 
 public:
   /// \p Val is a specially created wide value that can be directly stored as
@@ -3297,10 +3395,23 @@ public:
 
   VPValue *getValueOperand() const { return getOperand(0); }
   VPValue *getPointerOperand() const { return getOperand(1); }
+  Type *getValueType() const { return getValueOperand()->getType(); }
 
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigStores() const { return NumOrigStores; }
+
+  void setMetadata(unsigned Kind, MDNode *MD) {
+    assert(none_of(Metadata,
+                   [Kind](std::pair<unsigned, MDNode *> Entry) {
+                     return Entry.first == Kind;
+                   }) &&
+           "That kind of metadata has been set already!");
+    Metadata.emplace_back(Kind, MD);
+  }
+  auto getMetadata() const {
+    return make_range(Metadata.begin(), Metadata.end());
+  }
 
     /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -3328,8 +3439,8 @@ public:
   /// \p WideVal - the wide value containing data from multiple original loads.
   /// Normally produced by the VPVLSLoad instruction, but that isn't enforced.
   ///
-  /// \p Ty - type of the data being extracted to match the original load that
-  /// has been VLS-optimized.
+  /// \p Ty - type of the data being extracted. Must have the same element type
+  /// that \p WideVal has, but will be of smaller size.
   ///
   /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
   ///
@@ -3337,7 +3448,10 @@ public:
   /// WideVal's element type.
   VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int Offset)
       : VPInstruction(VPInstruction::VLSExtract, Ty, {WideVal}),
-        GroupSize(GroupSize), Offset(Offset) {}
+        GroupSize(GroupSize), Offset(Offset) {
+    assert(WideVal->getType()->getScalarType() == Ty->getScalarType() &&
+           "Type cast must be explicit in VLS transformation!");
+  }
 
   int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }
@@ -3374,7 +3488,7 @@ public:
   /// another VPVLSInsert instruction.
   ///
   /// \p Element - data corresponding to an element of the group to be inserted
-  /// into \p WideVal.
+  /// into \p WideVal. It must have the same element type as \p WideVal.
   ///
   /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
   ///
@@ -3383,7 +3497,11 @@ public:
   VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize, int Offset)
       : VPInstruction(VPInstruction::VLSInsert, WideVal->getType(),
                       {WideVal, Element}),
-        GroupSize(GroupSize), Offset(Offset) {}
+        GroupSize(GroupSize), Offset(Offset) {
+    assert(WideVal->getType()->getScalarType() ==
+               Element->getType()->getScalarType() &&
+           "Type cast must be explicit in VLS transformation!");
+  }
 
   int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }
@@ -3403,6 +3521,214 @@ public:
 
   VPVLSInsert *cloneImpl() const override {
     return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, Offset);
+  }
+};
+
+// Represent SESE region inside VPlan.
+class VPRegion final : public VPValue {
+public:
+  VPRegion(LLVMContext *C, const Twine &Name = "")
+      : VPValue(VPValue::VPRegionSC, Type::getVoidTy(*C)), Context(C) {
+    setName(Name);
+  }
+
+  auto getBBs() {
+    return map_range(
+        BBs, [](std::unique_ptr<VPBasicBlock> &VPBB) { return VPBB.get(); });
+  }
+
+  auto getBBs() const {
+    return map_range(BBs, [](const std::unique_ptr<VPBasicBlock> &VPBB) {
+      return VPBB.get();
+    });
+  }
+
+  auto getLiveIns() const {
+    return map_range(
+        LiveIns, [](const std::unique_ptr<VPValue> &LIn) { return LIn.get(); });
+  }
+
+  auto getLiveOuts() const {
+    return map_range(LiveOuts,
+                     [](const std::unique_ptr<VPRegionLiveOut> &LOut) {
+                       return LOut.get();
+                     });
+  }
+
+  void
+  addRgnLiveInsOuts(SmallVector<std::unique_ptr<VPValue>> RgnLiveIns,
+                    SmallVector<std::unique_ptr<VPRegionLiveOut>> RgnLiveOuts) {
+    LiveIns = std::move(RgnLiveIns);
+    LiveOuts = std::move(RgnLiveOuts);
+  }
+
+  VPBasicBlock *addBB(const Twine &Name = "") {
+    BBs.push_back(std::make_unique<VPBasicBlock>(Name, Context));
+    return BBs.back().get();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const {
+    for (auto *LIn : getLiveIns())
+      OS << "    live-in : " << *LIn << "\n";
+    OS << "    Region:\n";
+    for (auto *VPBB : getBBs()) {
+      OS << "    " << VPBB->getName() << "\n";
+      for (const VPInstruction &I : *VPBB)
+        OS << "    " << I << "\n";
+    }
+    for (auto *LOut : getLiveOuts())
+      OS << "    live-out : " << *LOut << "\n";
+  }
+
+  void dump() const { dump(dbgs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPValue *VPVal) {
+    return VPVal->getVPValueID() == VPValue::VPRegionSC;
+  }
+
+  // TODO: Clone the region along with its live-ins and live-outs.
+  std::unique_ptr<VPRegion> clone() const {
+    llvm_unreachable("Unimplemented code");
+  }
+
+private:
+  LLVMContext *Context;
+  // Keeps Region's live-ins. NOTE: LiveIns must be freed after BBs.
+  SmallVector<std::unique_ptr<VPValue>, 2> LiveIns;
+  // Keeps Region's basic blocks.
+  SmallVector<std::unique_ptr<VPBasicBlock>, 1> BBs;
+  // Keeps Region's live-outs. NOTE: LiveOuts must be freed before BBs.
+  SmallVector<std::unique_ptr<VPRegionLiveOut>, 1> LiveOuts;
+};
+
+// Represents optimized general conflict in VPlan.
+class VPGeneralMemOptConflict final : public VPInstruction {
+public:
+  // For this IR in VPlan/Region, when calling with <%vp.conflict.index,
+  // %vp.region, %vp.param1, %vp.param2> parameters, we'll create the following
+  // dump fo VPGeneralMemOptConflict:
+  // %vp.general.mem.opt.conflict = vp-general-mem-opt-conflict
+  // %vp.conflict.index %vp.region %vp.conflict.load %vp.param2 ->
+  // VConflictRegion (%live.in1 %live.in2) {
+  //  value :
+  //  mask :
+  //  live-in : %live.in1
+  //  live-in : %live.in2
+  //  Region:
+  //  VConflictBB
+  //  ...
+  //  live-out :
+  // }
+  // The first three of VPGeneralMemOptConflict are:
+  // i. conflicting index
+  // ii. conflict region
+  // iii. conflict load
+  // The rest operands are related to live-ins of VPRegion. There is an implicit
+  // mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
+  // the region.
+  VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
+                          std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
+                          const SmallVector<VPValue *, 2> &Params)
+      : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
+        Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
+    // Add conflicting index as operand.
+    addOperand(VConflictIndex);
+    // Region has the instructions of VConflict pattern that should be included
+    // in the loop that we generate for optimized general conflict.
+    addOperand(Region.get());
+    // Add conflict load as operand.
+    addOperand(VConflictLoad);
+    for (auto *P : Params)
+      // There is an implicit mapping between the operands [2:] of
+      // VPGeneralMemOptConflict and the live-ins of the region.
+      addOperand(P);
+  }
+
+  VPValue *getConflictIndex() const { return getOperand(0); }
+
+  VPRegion *getRegion() const { return Region.get(); }
+
+  VPValue *getConflictLoad() const { return getOperand(2); }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::GeneralMemOptConflict;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPGeneralMemOptConflict *cloneImpl() const override {
+    SmallVector<VPValue *, 2> NewParams;
+    for (unsigned i = 2; i < getNumOperands(); i++)
+      NewParams.push_back(getOperand(i));
+    return new VPGeneralMemOptConflict(
+        getType(), getOperand(0), Region->clone(), getOperand(2), NewParams);
+  }
+
+private:
+  std::unique_ptr<VPRegion> Region;
+  LLVMContext *Context;
+};
+
+class VPConflictInsn final : public VPInstruction {
+public:
+  VPConflictInsn(Type *BaseTy, VPInstruction *LoadIndex)
+      : VPInstruction(VPInstruction::ConflictInsn, BaseTy, {}) {
+    assert(LoadIndex->getType()->isIntegerTy() &&
+           "Only integers are expected.");
+    addOperand(LoadIndex);
+  }
+
+  // Utility to obtain the LLVM X86 conflict intrinsic that this VPInstruction
+  // will be lowered to. Returns Intrinsic::not_intrinsic if input size is
+  // unexpected.
+  Intrinsic::ID getConflictIntrinsic(unsigned VF) const {
+    unsigned TypeSize = getOperand(0)->getType()->getPrimitiveSizeInBits();
+    unsigned InputSize = TypeSize * VF;
+    if (TypeSize == 32) {
+      switch (InputSize) {
+      case 128:
+        return Intrinsic::x86_avx512_conflict_d_128;
+      case 256:
+        return Intrinsic::x86_avx512_conflict_d_256;
+      case 512:
+        return Intrinsic::x86_avx512_conflict_d_512;
+      default:
+        // Unexpected input size for conflict intrinsic
+        return Intrinsic::not_intrinsic;
+      }
+    } else {
+      assert(TypeSize == 64 && "Unexpected type size for load index.");
+      switch (InputSize) {
+      case 128:
+        return Intrinsic::x86_avx512_conflict_q_128;
+      case 256:
+        return Intrinsic::x86_avx512_conflict_q_256;
+      case 512:
+        return Intrinsic::x86_avx512_conflict_q_512;
+      default:
+        // Unexpected input size for conflict intrinsic
+        return Intrinsic::not_intrinsic;
+      }
+    }
+  }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::ConflictInsn;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPConflictInsn *cloneImpl() const override {
+    return new VPConflictInsn(getType(), cast<VPInstruction>(getOperand(0)));
   }
 };
 
@@ -3760,6 +4086,10 @@ public:
 
   // TODO: Make this pure virtual.
   void computeDA();
+
+  VPlanDivergenceAnalysis *getVPlanDA() const {
+    return cast<VPlanDivergenceAnalysis>(VPlanDA.get());
+  }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:

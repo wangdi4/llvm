@@ -16,7 +16,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -64,8 +64,7 @@ INITIALIZE_PASS_END(AddImplicitArgsLegacy, DEBUG_TYPE,
 char AddImplicitArgsLegacy::ID = 0;
 
 AddImplicitArgsLegacy::AddImplicitArgsLegacy() : ModulePass(ID) {
-  initializeLocalBufferAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializeAddImplicitArgsLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 ModulePass *llvm::createAddImplicitArgsLegacyPass() {
@@ -321,6 +320,14 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       NewSI->setDebugLoc(SI->getDebugLoc());
       SI->replaceAllUsesWith(NewSI);
       SI->eraseFromParent();
+    } else if (auto *C = dyn_cast<ConstantVector>(U)) {
+      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
+      SmallVector<Constant *, 16> NewVec;
+      for (Value *Op : C->operand_values()) {
+        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
+        NewVec.push_back(NewElt);
+      }
+      C->replaceAllUsesWith(ConstantVector::get(NewVec));
     } else {
       // We should not be here.
       // Unhandled case except for SelectInst - they will be handled later.

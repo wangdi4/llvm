@@ -12,6 +12,11 @@ else()
   set(cmplr_obj_out -c -o)
 endif()
 
+# INTEL_CUSTOMIZATION
+# Temporary workaround for CMPLRLLVM-29069:
+list(APPEND omp_compile_opts -mllvm -disable-vector-combine)
+# end INTEL_CUSTOMIZATION
+
 # Specify O1 optimizations to avoid noinline attribute
 # in SPIR-V code. Device compilers have to be able to inline
 # libdevice functions.
@@ -68,14 +73,11 @@ function(add_obj_file src dst)
 
   add_custom_command(OUTPUT ${dst}
     COMMAND ${cmplr} ${omp_compile_opts} ${clang_opts}
-            ${omp_target_opts}="${clang_opts}"
+            ${omp_target_opts}
             ${src} ${cmplr_obj_out}${dst}
     MAIN_DEPENDENCY ${src}
     DEPENDS ${ARG_DEPENDS}
             clang clang-offload-bundler
-# INTEL_CUSTOMIZATION
-            icx
-# end INTEL_CUSTOMIZATION
     )
 
   list(APPEND omplib_objs ${dst})
@@ -91,7 +93,7 @@ function(add_spv_file src dst)
 
   add_custom_command(OUTPUT ${dst}
     COMMAND ${cmplr} ${omp_compile_opts} ${clang_opts}
-            ${omp_target_opts}="${clang_opts}"
+            ${omp_target_opts}
             ${src} ${cmplr_obj_out}${dst}${objext}
     COMMAND ${clang_offload_bundler} -type=o -unbundle
             -targets=openmp-spir64
@@ -100,9 +102,6 @@ function(add_spv_file src dst)
     MAIN_DEPENDENCY ${src}
     DEPENDS ${ARG_DEPENDS}
             clang llvm-spirv clang-offload-bundler
-# INTEL_CUSTOMIZATION
-            icx
-# end INTEL_CUSTOMIZATION
     )
 
   list(APPEND omplib_spvs ${dst})
@@ -129,6 +128,16 @@ add_obj_file(
 add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
   ${binary_dir}/libomp-fallback-cassert.spv
+  DEPENDS wrapper.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cstring.cpp
+  ${binary_dir}/libomp-fallback-cstring${objext}
+  DEPENDS wrapper.h device.h
+  )
+add_spv_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cstring.cpp
+  ${binary_dir}/libomp-fallback-cstring.spv
   DEPENDS wrapper.h device.h
   )
 

@@ -120,8 +120,7 @@ class HIRLoopFusion {
   HIRLoopStatistics &HLS;
 
   template <bool PreLoop>
-  bool generatePreOrPostLoops(HLNode *AnchorNode,
-                              ArrayRef<unsigned> Indices,
+  bool generatePreOrPostLoops(HLNode *AnchorNode, ArrayRef<unsigned> Indices,
                               ArrayRef<int64_t> Bounds,
                               ArrayRef<HLLoop *> Candidates,
                               SmallDenseSet<unsigned> &IndexSet);
@@ -209,8 +208,8 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
 
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
-                                   "Peeled loop after fusion");
+    // Peeled loop after fusion
+    LORBuilder(*NewLoop).addOrigin("Peeled");
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 
@@ -660,8 +659,7 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
 
       // Traverse in forward order to combine the loop line numbers in the
       // correct loop order
-      for (auto LoopI = std::next(FNode.loops().begin()),
-                E = FNode.loops().end();
+      for (auto LoopI = FNode.loops().begin(), E = FNode.loops().end();
            LoopI != E; ++LoopI) {
 
         // Need to invalidate all loops except first one
@@ -682,8 +680,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
                 E = std::prev(FNode.loops().rend());
            LoopI != E; ++LoopI) {
 
-        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low,
-                                      "Loop lost in Fusion");
+        // Loop lost in Fusion
+        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low, 25046u);
         LORBuilder(**LoopI).preserveLostLoopOptReport();
       }
 
@@ -695,17 +693,10 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
       LLVM_DEBUG(NextLoop->getParentRegion()->dump());
 
       LoopsFused = true;
-      SmallString<32> FuseLoopNums;
-      raw_svector_ostream VOSLN(FuseLoopNums);
 
-      if (!FuseNums.empty()) {
-        VOSLN << "with (";
-        FuseLoopNums.append(FuseNums);
-        VOSLN << ")";
-      }
-
-      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low,
-                                      "Loops have been fused %s", FuseLoopNums);
+      // Loops have been fused %s
+      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low, 25045u,
+                                      FuseNums);
     } else {
       NextLoop = FNode.pilotLoop();
     }

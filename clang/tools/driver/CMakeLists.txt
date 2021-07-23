@@ -105,7 +105,7 @@ endif()
 
 if(CLANG_ORDER_FILE AND
     (LLVM_LINKER_IS_LD64 OR LLVM_LINKER_IS_GOLD OR LLVM_LINKER_IS_LLD))
-  include(CheckLinkerFlag)
+  include(LLVMCheckLinkerFlag)
 
   if (LLVM_LINKER_IS_LD64)
     set(LINKER_ORDER_FILE_OPTION "-Wl,-order_file,${CLANG_ORDER_FILE}")
@@ -116,7 +116,7 @@ if(CLANG_ORDER_FILE AND
   endif()
 
   # This is a test to ensure the actual order file works with the linker.
-  check_linker_flag(${LINKER_ORDER_FILE_OPTION} LINKER_ORDER_FILE_WORKS)
+  llvm_check_linker_flag(CXX ${LINKER_ORDER_FILE_OPTION} LINKER_ORDER_FILE_WORKS)
 
   # Passing an empty order file disables some linker layout optimizations.
   # To work around this and enable workflows for re-linking when the order file
@@ -132,9 +132,12 @@ if(CLANG_ORDER_FILE AND
 endif()
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
   target_link_libraries(clang PRIVATE LLVMIntel_DTrans)
-endif(INTEL_INCLUDE_DTRANS)
+endif()
+# end INTEL_FEATURE_SW_DTRANS
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
 if (p)

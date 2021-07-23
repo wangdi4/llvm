@@ -121,11 +121,6 @@ CudaInstallationDetector::CudaInstallationDetector(
     const Driver &D, const llvm::Triple &HostTriple,
     const llvm::opt::ArgList &Args)
     : D(D) {
-#if INTEL_CUSTOMIZATION
-  // DPC++ does not support Cuda, do not do the installation check.
-  if (D.IsDPCPPMode())
-    return;
-#endif // INTEL_CUSTOMIZATION
   struct Candidate {
     std::string Path;
     bool StrictChecking;
@@ -750,13 +745,12 @@ void CudaToolChain::addClangTargetOptions(
   if (DriverArgs.hasArg(options::OPT_nogpulib))
     return;
 
+  if (DeviceOffloadingKind == Action::OFK_OpenMP &&
+      DriverArgs.hasArg(options::OPT_S))
+    return;
+
   std::string LibDeviceFile = CudaInstallation.getLibDeviceFile(GpuArch);
-
   if (LibDeviceFile.empty()) {
-    if (DeviceOffloadingKind == Action::OFK_OpenMP &&
-        DriverArgs.hasArg(options::OPT_S))
-      return;
-
     getDriver().Diag(diag::err_drv_no_cuda_libdevice) << GpuArch;
     return;
   }

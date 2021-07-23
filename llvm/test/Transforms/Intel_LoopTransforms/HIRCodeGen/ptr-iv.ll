@@ -11,13 +11,13 @@
 ;src CE type
 
 ;In order to do the arithmetic, ptrs must become ints
+; CHECK: [[Q_TO_INT:%.*]] = ptrtoint i32* %q to i64
 ; CHECK: [[P_TO_INT:%.*]] = ptrtoint i32* %p to i64
 
 ; -1 * (int)p
-; CHECK: [[P_MUL:%.*]] = mul i64 -1, [[P_TO_INT]]
+; CHECK: [[P_MUL:%.*]] = sub i64 0, [[P_TO_INT]]
 
 ; add (int)q
-; CHECK: [[Q_TO_INT:%.*]] = ptrtoint i32* %q to i64
 ; CHECK: [[P_PLUS_Q:%.*]] = add i64 [[P_MUL]], [[Q_TO_INT]]
 
 ;decrement by 4 and divide by 4 to get (-1 * %p + %q + -4)/u4 for UB

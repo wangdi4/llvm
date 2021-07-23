@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,14 +22,22 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
 using namespace dvanalysis;
 
 #define DEBUG_TYPE "dopevectorconstprop"
+#define DEBUG_GLOBAL_CONSTPROP "dope-vector-global-const-prop"
 
 STATISTIC(NumFormalsDVConstProp, "Number of DV formals const propagated");
+STATISTIC(NumGlobalDVConstProp, "Number of Global DV const propagated");
+STATISTIC(NumNestedDVConstProp, "Number of Nested DV const propagated");
+
+// Enable the global dope vector constant propagation
+static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
+                                 cl::init(true), cl::ReallyHidden);
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
@@ -189,8 +197,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
     // in the dope vector.
-    auto DVFT = DVAFormal.identifyDopeVectorField(*GEP);
-    if (DVFT != DopeVectorAnalyzer::DV_PerDimensionArray) {
+    auto DVFT = DVAFormal.identifyDopeVectorField(*(cast<GEPOperator>(GEP)));
+    if (DVFT != DopeVectorFieldType::DV_PerDimensionArray) {
       LLVM_DEBUG(dbgs() << "COULD NOT FIND PER DIMENSION ARRAY\n");
       return Change;
     }
@@ -273,7 +281,121 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
-static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
+// Return true if the constants collected for the input GlobDV were propagated
+static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
+
+  // Actual function that propagates the constants for the input dope vector field
+  auto PropagateFieldConstant = [](DopeVectorFieldUse *DVField) -> bool {
+    if (DVField->getIsBottom())
+      return false;
+
+    ConstantInt *CI = DVField->getConstantValue();
+    if (!CI)
+      return false;
+
+    bool Change = false;
+    for(auto *LI : DVField->loads()) {
+      LI->replaceAllUsesWith(CI);
+      Change = true;
+    }
+
+    return Change;
+  };
+
+  // Propagate the constants in the extent, stride and lower bound for the
+  // input dope vector info
+  auto PropagateDVConstant =
+      [&PropagateFieldConstant](DopeVectorInfo *DVInfo) -> bool {
+
+    // Analysis must pass
+    if (DVInfo->getAnalysisResult() != DopeVectorInfo::AnalysisResult::AR_Pass)
+      return false;
+
+    auto PtrAddr = DVInfo->getDopeVectorField(DV_ArrayPtr);
+    assert(PtrAddr && "Accessing pointer address without collecting it");
+
+    // If the array is not read, the extent, stride and lower bound won't be
+    // read, don't propagate any data
+    if (!PtrAddr->getIsRead())
+      return false;
+
+    unsigned long Rank = DVInfo->getRank();
+    bool Change = false;
+    for (unsigned long I = 0; I < Rank; I++) {
+      auto *ExtentField = DVInfo->getDopeVectorField(DV_ExtentBase, I);
+      auto *StrideField = DVInfo->getDopeVectorField(DV_StrideBase, I);
+      auto *LBField = DVInfo->getDopeVectorField(DV_LowerBoundBase, I);
+
+      assert((ExtentField && StrideField && LBField) &&
+             "Trying to propagate dope vector constant information without "
+             "collecting the proper information");
+
+      Change |= PropagateFieldConstant(ExtentField);
+      Change |= PropagateFieldConstant(StrideField);
+      Change |= PropagateFieldConstant(LBField);
+    }
+
+    if (Change)
+      DVInfo->setConstantsPropagated();
+
+    return Change;
+  };
+
+  // If the analysis didn't pass we can't propagate any constant
+  if (GlobDV.getAnalysisResult() != GlobalDopeVector::AnalysisResult::AR_Pass)
+    return false;
+
+  // Propagate the constants for the global dope vector
+  bool Change = false;
+  Change = PropagateDVConstant(GlobDV.getGlobalDopeVectorInfo());
+  if (Change)
+    NumGlobalDVConstProp++;
+
+  // Propagate the constants
+  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors()) {
+    if(PropagateDVConstant(NestedDV)) {
+      Change = true;
+      NumNestedDVConstProp++;
+    }
+  }
+
+  return Change;
+}
+
+// Traverse through the global variables, and collect the information for
+// those globals that are dope vectors. If the constant information was
+// collected for the fields then propagate it.
+static bool collectAndTransformDopeVectorGlobals(Module &M,
+    const DataLayout &DL,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
+
+  if (!DVGlobalConstProp)
+    return false;
+
+  bool Change = false;
+  for (auto &Glob : M.globals()) {
+    Type *GlobType = Glob.getValueType();
+
+    if (!isDopeVectorType(GlobType, DL))
+      continue;
+
+    GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
+    GlobDV.collectAndValidate(DL);
+
+    // Propagate the constants
+    Change |= propagateGlobalDopeVectorConstants(GlobDV);
+
+    DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
+      GlobDV.print();
+      dbgs() << "\n";
+    });
+  }
+
+  return Change;
+}
+
+static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
 
   // Return 'true' if not all of 'F's uses are CallBase.
   auto HasNonCallBaseUser = [](Function &F) -> bool {
@@ -296,6 +418,7 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
+
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
     if (!F.hasLocalLinkage()) {
@@ -365,6 +488,10 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
           LowerBound, Stride, Extent);
     }
   }
+
+  // Collect the information related to the global dope vectors
+  Change |= collectAndTransformDopeVectorGlobals(M, DL, GetTLI);
+
   LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
   return Change;
 }
@@ -382,6 +509,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
   }
@@ -390,7 +518,10 @@ public:
     if (skipModule(M))
       return false;
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return DopeVectorConstPropImpl(M, WPInfo);
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    return DopeVectorConstPropImpl(M, WPInfo, GetTLI);
   }
 };
 
@@ -400,6 +531,7 @@ char DopeVectorConstPropLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
     "DopeVectorConstProp", false, false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
     "DopeVectorConstProp", false, false)
 
@@ -412,7 +544,11 @@ DopeVectorConstPropPass::DopeVectorConstPropPass(void) {}
 PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  if (!DopeVectorConstPropImpl(M, WPInfo))
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  if (!DopeVectorConstPropImpl(M, WPInfo, GetTLI))
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();

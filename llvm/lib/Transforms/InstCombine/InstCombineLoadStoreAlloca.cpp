@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/DataLayout.h"
@@ -199,13 +200,21 @@ static Instruction *simplifyAllocaArraySize(InstCombinerImpl &IC,
       Type *IdxTy = IC.getDataLayout().getIntPtrType(AI.getType());
       Value *NullIdx = Constant::getNullValue(IdxTy);
       Value *Idx[2] = {NullIdx, NullIdx};
-      Instruction *GEP = GetElementPtrInst::CreateInBounds(
+      Instruction *NewI = GetElementPtrInst::CreateInBounds(
           NewTy, New, Idx, New->getName() + ".sub");
-      IC.InsertNewInstBefore(GEP, *It);
+      IC.InsertNewInstBefore(NewI, *It);
+
+      // Gracefully handle allocas in other address spaces.
+      if (AI.getType()->getPointerAddressSpace() !=
+          NewI->getType()->getPointerAddressSpace()) {
+        NewI =
+            CastInst::CreatePointerBitCastOrAddrSpaceCast(NewI, AI.getType());
+        IC.InsertNewInstBefore(NewI, *It);
+      }
 
       // Now make everything use the getelementptr instead of the original
       // allocation.
-      return IC.replaceInstUsesWith(AI, GEP);
+      return IC.replaceInstUsesWith(AI, NewI);
     }
   }
 
@@ -463,11 +472,11 @@ LoadInst *InstCombinerImpl::combineLoadToNewType(LoadInst &LI, Type *NewTy,
 
   Value *Ptr = LI.getPointerOperand();
   unsigned AS = LI.getPointerAddressSpace();
+  Type *NewPtrTy = NewTy->getPointerTo(AS);
   Value *NewPtr = nullptr;
   if (!(match(Ptr, m_BitCast(m_Value(NewPtr))) &&
-        NewPtr->getType()->getPointerElementType() == NewTy &&
-        NewPtr->getType()->getPointerAddressSpace() == AS))
-    NewPtr = Builder.CreateBitCast(Ptr, NewTy->getPointerTo(AS));
+        NewPtr->getType() == NewPtrTy))
+    NewPtr = Builder.CreateBitCast(Ptr, NewPtrTy);
 
   LoadInst *NewLoad = Builder.CreateAlignedLoad(
       NewTy, NewPtr, LI.getAlign(), LI.isVolatile(), LI.getName() + Suffix);
@@ -688,7 +697,12 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
     auto *SL = DL.getStructLayout(ST);
     if (SL->hasPadding())
       return nullptr;
-
+#if INTEL_CUSTOMIZATION
+    // Delay lowering of dope vector loads and stores until DTrans has had
+    // the chance to process them.
+    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+      return nullptr;
+#endif // INTEL_CUSTOMIZATION
     const auto Align = LI.getAlign();
     auto *Addr = LI.getPointerOperand();
     auto *IdxType = Type::getInt32Ty(T->getContext());
@@ -1099,7 +1113,7 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
   return IC.Builder.CreateZExtOrTrunc(Sel, LI.getType());
 }
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 // Return true if there is a possible upcasting from SrcTy to DestTy. This
 // means that the field 0 in DestTy encloses SrcTy.
 static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
@@ -1206,7 +1220,7 @@ static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
 
   return false;
 }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
@@ -1237,7 +1251,7 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   bool IsLoadCSE = false;
   if (Value *AvailableVal = FindAvailableLoadedValue(&LI, *AA, &IsLoadCSE)) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     // If DTrans is enabled and we are in the LTO phase, then we may want to
     // disable the process of simplifying a load into a bitcast if it could
     // produce an upcasting. It could produce misleading information in the
@@ -1245,7 +1259,7 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
     if (!enableUpCasting() &&
         possibleUpcasting(AvailableVal->getType(), LI.getType()))
       return nullptr;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
     if (IsLoadCSE)
       combineMetadataForCSE(cast<LoadInst>(AvailableVal), &LI, false);
@@ -1267,10 +1281,10 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
     // that this code is not reachable.  We do this instead of inserting
     // an unreachable instruction directly because we cannot modify the
     // CFG.
-    StoreInst *SI = new StoreInst(UndefValue::get(LI.getType()),
+    StoreInst *SI = new StoreInst(PoisonValue::get(LI.getType()),
                                   Constant::getNullValue(Op->getType()), &LI);
     SI->setDebugLoc(LI.getDebugLoc());
-    return replaceInstUsesWith(LI, UndefValue::get(LI.getType()));
+    return replaceInstUsesWith(LI, PoisonValue::get(LI.getType()));
   }
 
   if (Op->hasOneUse()) {
@@ -1357,7 +1371,7 @@ static Value *likeBitCastFromVector(InstCombinerImpl &IC, Value *V) {
       return nullptr;
     V = IV->getAggregateOperand();
   }
-  if (!isa<UndefValue>(V) ||!U)
+  if (!match(V, m_Undef()) || !U)
     return nullptr;
 
   auto *UT = cast<VectorType>(U->getType());
@@ -1475,6 +1489,12 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
     auto *SL = DL.getStructLayout(ST);
     if (SL->hasPadding())
       return false;
+#if INTEL_CUSTOMIZATION
+    // Delay lowering of dope vector loads and stores until DTrans has had
+    // the chance to process them.
+    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
     const auto Align = SI.getAlign();
 
@@ -1632,7 +1652,7 @@ static bool removeBitcastsFromLoadStoreOnMinMax(InstCombinerImpl &IC,
     IC.Builder.SetInsertPoint(USI);
     combineStoreToNewValue(IC, *USI, NewLI);
   }
-  IC.replaceInstUsesWith(*LI, UndefValue::get(LI->getType()));
+  IC.replaceInstUsesWith(*LI, PoisonValue::get(LI->getType()));
   IC.eraseInstFromFunction(*LI);
   return true;
 }
@@ -1696,7 +1716,7 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
     --BBI;
     // Don't count debug info directives, lest they affect codegen,
     // and we skip pointer-to-pointer bitcasts, which are NOPs.
-    if (isa<DbgInfoIntrinsic>(BBI) ||
+    if (BBI->isDebugOrPseudoInst() ||
         (isa<BitCastInst>(BBI) && BBI->getType()->isPointerTy())) {
       ScanInsts++;
       continue;
@@ -1739,8 +1759,8 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
   // store X, null    -> turns into 'unreachable' in SimplifyCFG
   // store X, GEP(null, Y) -> turns into 'unreachable' in SimplifyCFG
   if (canSimplifyNullStoreOrGEP(SI)) {
-    if (!isa<UndefValue>(Val))
-      return replaceOperand(SI, 0, UndefValue::get(Val->getType()));
+    if (!isa<PoisonValue>(Val))
+      return replaceOperand(SI, 0, PoisonValue::get(Val->getType()));
     return nullptr;  // Do not modify these!
   }
 

@@ -10,7 +10,7 @@
 ;       baz1(index);
 ;   }
 ; }
-; RUN: opt -VPlanDriver  -S %s | FileCheck %s
+; RUN: opt -vplan-vec  -S %s | FileCheck %s
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -19,21 +19,36 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @foo() {
 ; CHECK-LABEL: @foo(
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
-; CHECK:       vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI_EXTRACT_1_:%.*]] = extractelement <2 x i64> [[VEC_PHI]], i32 1
-; CHECK-NEXT:    call void @baz1(i64 [[UNI_PHI3]])
-; CHECK-NEXT:    call void @baz1(i64 [[VEC_PHI_EXTRACT_1_]])
+; CHECK-NEXT:    tail call void @baz1(i64 [[UNI_PHI]]) #[[ATTR0:[0-9]+]]
+; CHECK-NEXT:    tail call void @baz1(i64 [[VEC_PHI_EXTRACT_1_]]) #[[ATTR0]]
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i64 [[TMP1]], 1024
-; CHECK-NEXT:    br i1 [[TMP2]], label %[[VPLANNEDBB4:.*]], label [[VECTOR_BODY]], [[LOOP1:!llvm.loop !.*]]
-; CHECK:       [[VPLANNEDBB4]]:
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i64 [[TMP1]], 1024
+; CHECK-NEXT:    br i1 [[TMP2]], label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP1:![0-9]+]]
+; CHECK:       VPlannedBB3:
+; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; CHECK:       VPlannedBB4:
+; CHECK-NEXT:    br label [[FINAL_MERGE:%.*]]
+; CHECK:       final.merge:
+; CHECK-NEXT:    [[UNI_PHI5:%.*]] = phi i64 [ 1024, [[VPLANNEDBB4]] ]
+; CHECK-NEXT:    br label [[OMP_LOOP_EXIT:%.*]]
+; CHECK:       omp.inner.for.body:
+; CHECK-NEXT:    [[DOTOMP_IV_06:%.*]] = phi i64 [ [[ADD1:%.*]], [[OMP_INNER_FOR_BODY:%.*]] ]
+; CHECK-NEXT:    tail call void @baz1(i64 [[DOTOMP_IV_06]]) #[[ATTR0]]
+; CHECK-NEXT:    [[ADD1]] = add nuw nsw i64 [[DOTOMP_IV_06]], 1
+; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i64 [[ADD1]], 1024
+; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY]]
+; CHECK:       omp.loop.exit:
+; CHECK-NEXT:    ret void
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2) ]

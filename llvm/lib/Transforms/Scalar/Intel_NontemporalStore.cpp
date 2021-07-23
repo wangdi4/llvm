@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_NontemporalStore.cpp - Unaligned nontemporal store opts ------===//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -582,7 +583,8 @@ bool NontemporalStore::hasConflictingLoads(StoreInst &SI, int64_t StoreStride,
         const SCEV *Diff =
             SE.getMinusSCEV(QuerySCEV, SE.getSCEV(SI.getPointerOperand()));
         assert(Diff && "Unexpected nullptr SCEV");
-        if (Loc.Size.hasValue() && QuerySize.hasValue()) {
+        if (!isa<SCEVCouldNotCompute>(Diff) && Loc.Size.hasValue() &&
+            QuerySize.hasValue()) {
           const SCEV *Abs = SE.getAbsExpr(Diff, false);
           assert(Abs && "Unexpected nullptr SCEV");
           uint64_t LargestFootprint = std::max(Loc.Size.getValue(), QuerySize.getValue());
@@ -802,3 +804,5 @@ bool NontemporalStoreWrapperPass::runOnFunction(Function &F) {
   // changes.
   return true;
 }
+
+#endif // INTEL_FEATURE_SW_ADVANCED

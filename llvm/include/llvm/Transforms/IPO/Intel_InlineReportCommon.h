@@ -246,6 +246,12 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Caller and Callee have different source languages"},
     // NinlrNotMandatory
     {InlPrtSimple, "Inlining is not mandatory"},
+    // NinlrUnsplitCoroutineCall
+    {InlPrtSimple, "Unsplit coroutine call"},
+    // NinlrByvalArgsWithoutAllocaAS
+    {InlPrtSimple, "Call has byval argument without alloca address space"},
+    // NinlrStackProtectMismatch
+    {InlPrtSimple, "Caller/callee stack protection mismatch"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

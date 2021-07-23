@@ -39,8 +39,8 @@ char getModifiersSeparator() {
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
-      IsF90DopeVector(false), IsCptr(false), IsWILocal(false),
-      IsAllocatable(false),
+      IsF90DopeVector(false), IsF90NonPod(false), IsCptr(false),
+      IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
       IsAggregate(false), IsPointer(false), IsPointerToPointer(false),
       IsScalar(false), IsAlways(false), IsClose(false), IsPresent(false),
@@ -48,7 +48,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
-      IsInitTargetSync(false), IsInitPrefer(false) {
+      IsInitTargetSync(false), IsInitPrefer(false), IsTask(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -152,6 +152,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
         else if (ModSubString[i] == "F90_DV")
           setIsF90DopeVector();
+        else if (ModSubString[i] == "F90_NONPOD")
+          setIsF90NonPod();
         else if (ModSubString[i] == "CPTR")
           setIsCptr();
         else if (ModSubString[i] == "WILOCAL")
@@ -163,6 +165,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsUnsigned();
         else if (ModSubString[i] == "CMPLX")       // for reduction clause
           setIsComplex();
+        else if (ModSubString[i] == "TASK")        // for reduction clause
+          setIsTask();
         else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD")    // map chain head
@@ -451,6 +455,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_CANCELLATION_POINT:
   case DIR_OMP_THREADPRIVATE:
   case DIR_OMP_INTEROP:
+  case DIR_OMP_PREFETCH:
     return true;
   }
   return false;
@@ -483,6 +488,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_CANCEL:
   case DIR_OMP_END_CANCELLATION_POINT:
   case DIR_OMP_END_INTEROP:
+  case DIR_OMP_END_PREFETCH:
     return true;
   }
   return false;
@@ -610,6 +616,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_CANCELLATION_POINT;
   case DIR_OMP_INTEROP:
       return DIR_OMP_END_INTEROP;
+  case DIR_OMP_PREFETCH:
+      return DIR_OMP_END_PREFETCH;
   }
   return -1;
 }
@@ -816,6 +824,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_COLLAPSE:
     case QUAL_OMP_IF:
     case QUAL_OMP_NAME:
+    case QUAL_OMP_HINT:
     case QUAL_OMP_NOCONTEXT:
     case QUAL_OMP_NOVARIANTS:
     case QUAL_OMP_NUM_THREADS:

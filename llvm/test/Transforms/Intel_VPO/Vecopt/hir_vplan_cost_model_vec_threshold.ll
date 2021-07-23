@@ -1,11 +1,11 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
-; RUN:     -VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vec-threshold=20 -debug-only=LoopVectorizationPlanner \
 ; RUN:     2>&1 | FileCheck %s --check-prefix=HIR-VECTORIZE
 
 ; RUN: opt < %s -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert \
-; RUN:     -VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     -hir-vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vec-threshold=80 -debug-only=LoopVectorizationPlanner \
 ; RUN:     2>&1 | FileCheck %s --check-prefix=HIR-NOVECTORIZE
 

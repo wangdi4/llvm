@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -debug-only=ovls < %s 2>&1 | FileCheck %s
+; RUN: opt -S -vplan-vec -debug-only=ovls < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check that VLS doesn't crash in presence of privates.
@@ -23,7 +23,7 @@ define void @foo() {
 ; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
 ; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
 ; CHECK-NOT:  call void @llvm.masked.scatter.v2i32.v2p0i32
-; CHECK-LABEL: VPlannedBB
+; CHECK-LABEL: VPlannedBB4:
 ;
 entry:
   %var = alloca i32, align 4

@@ -340,11 +340,6 @@ protected:
   Tool *buildLinker() const override;
   Tool *buildBackendCompiler() const override; // INTEL
 
-  virtual std::string getMultiarchTriple(const Driver &D,
-                                         const llvm::Triple &TargetTriple,
-                                         StringRef SysRoot) const
-  { return TargetTriple.str(); }
-
   /// \name ToolChain Implementation Helper Functions
   /// @{
 
@@ -374,6 +369,10 @@ protected:
   void AddClangCXXStdlibIncludeArgs(
       const llvm::opt::ArgList &DriverArgs,
       llvm::opt::ArgStringList &CC1Args) const override;
+#if INTEL_CUSTOMIZATION
+  void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
+                             llvm::opt::ArgStringList &CmdArgs) const override;
+#endif // INTEL_CUSTOMIZATION
 
   virtual void
   addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
@@ -382,9 +381,9 @@ protected:
   addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                            llvm::opt::ArgStringList &CC1Args) const;
 
-  bool
-  addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
-                           llvm::opt::ArgStringList &CC1Args) const;
+  bool addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
+                                   llvm::opt::ArgStringList &CC1Args,
+                                   StringRef DebianMultiarch) const;
 
   bool addLibStdCXXIncludePaths(Twine IncludeDir, StringRef Triple,
                                 Twine IncludeSuffix,

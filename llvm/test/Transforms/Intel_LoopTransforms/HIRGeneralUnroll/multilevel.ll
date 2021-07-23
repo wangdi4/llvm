@@ -54,10 +54,10 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         remark: Loop has been unrolled by {{.*}} factor
+; OPTREPORT-NEXT:         remark #25439: Loop unrolled with remainder by {{[0-9]+}}
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:        <Remainder loop for partial unrolling>
+; OPTREPORT-NEXT:        <Remainder>
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

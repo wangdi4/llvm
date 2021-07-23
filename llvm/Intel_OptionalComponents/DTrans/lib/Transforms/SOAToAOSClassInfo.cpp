@@ -2034,7 +2034,7 @@ FunctionKind ClassInfo::recognizeSetElem(Function *Fn) {
   SmallPtrSet<FreeCallInfo *, 4> FreeList;
   SmallPtrSet<BasicBlock *, 16> IgnoreBBSet;
 
-  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+  if (DTransAnnotator::hasDTransSOAToAOSPrepareTypeAnnotation(*Fn))
     return SetElem;
 
   // Collect Store instructions and Free calls.
@@ -2538,7 +2538,7 @@ FunctionKind ClassInfo::recognizeCopyConstructor(Function *Fn) {
     return true;
   };
 
-  if (DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(*Fn))
+  if (DTransAnnotator::hasDTransSOAToAOSPrepareTypeAnnotation(*Fn))
     return CopyConstructor;
 
   SmallPtrSet<StoreInst *, 8> SIList;

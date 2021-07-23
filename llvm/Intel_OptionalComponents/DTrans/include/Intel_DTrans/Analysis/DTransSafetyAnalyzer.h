@@ -12,8 +12,8 @@
 // implement the DTrans safety checking required to determine whether structure
 // types can be transformed.
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransSafetyAnalyzer.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransSafetyAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
@@ -27,6 +27,7 @@
 namespace llvm {
 class BlockFrequencyInfo;
 class Function;
+class GEPOperator;
 class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
@@ -93,9 +94,19 @@ public:
 
   bool getUnhandledPtrType() const { return UnhandledPtrType; }
 
+  // Returns true if type has a safety violation for the specified Transform
+  // type.
+  bool testSafetyData(dtrans::TypeInfo *TyInfo, dtrans::Transform Transform);
+
   // Return true if safety analysis has been run and can be used in
   // transformations.
   bool useDTransSafetyAnalysis() const;
+
+  // Return the value used during analysis for the command line option
+  // "dtrans-outofboundsok" which controls the assumptions regarding whether
+  // taking the address of a structure field is allowed to access other fields
+  // of the structure.
+  bool getDTransOutOfBoundsOK() const;
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.
@@ -111,6 +122,15 @@ public:
   // If the BinaryOperator has a type entry in the 'PtrSubInfoMap', return the
   // type. Otherwise, return nullptr.
   DTransType *getResolvedPtrSubType(BinaryOperator *BinOp);
+
+  // If the GEP was identified as a byte-flattened GEP during the pointer type
+  // analysis, return the type and field number that is indexed by the GEP.
+  std::pair<DTransType *, size_t> getByteFlattenedGEPElement(GEPOperator *GEP);
+
+  // Adaptor for getByteFlattenedGEPElement that converts a GetElementPtrInst to
+  // a GEPOperator.
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GetElementPtrInst *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -174,6 +194,8 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
+  void PostProcessFieldValueInfo();
+
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
   std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;

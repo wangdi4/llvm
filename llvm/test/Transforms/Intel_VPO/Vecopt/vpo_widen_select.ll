@@ -1,7 +1,7 @@
 ; This test checks that the operands of the 'select' instructions are correctly widened.
 
-;RUN: opt -VPlanDriver -vplan-force-vf=2 -S %s | FileCheck %s
-;RUN: opt -passes="vplan-driver" -vplan-force-vf=2 -S %s | FileCheck %s
+;RUN: opt -vplan-vec -vplan-force-vf=2 -S %s | FileCheck %s
+;RUN: opt -passes="vplan-vec" -vplan-force-vf=2 -S %s | FileCheck %s
 
 ;CHECK-LABEL: @getElement
 ;CHECK:  [[REP_VAL1:%.*]] = shufflevector <3 x float> %s1, <3 x float> undef, <6 x i32> <i32 0, i32 1, i32 2, i32 0, i32 1, i32 2>
@@ -48,6 +48,39 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 
 DIR.OMP.END.SIMD.419:                             ; preds = %DIR.OMP.END.SIMD.3
   ret float %add2.lcssa
+}
+
+; Test to check LLVM-IR CG support for incoming vector selects operating on
+; uniform condition operand.
+define void @uniVecSelects(<2 x i1> %uni.cond) {
+entry:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %omp.inner.for.body
+
+omp.inner.for.body:                               ; preds = %entry, %omp.inner.for.body
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %omp.inner.for.body ]
+  %vec = bitcast i64 %indvars.iv to <2 x i32>
+
+  ; Vector select with uniform condition and divergent operands.
+  %select1 = select <2 x i1> %uni.cond, <2 x i32> %vec, <2 x i32> %vec
+; CHECK:         [[COND6:%.*]] = shufflevector <2 x i1> [[UNI_COND:%.*]], <2 x i1> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK-NEXT:    [[TMP1:%.*]] = select <4 x i1> [[COND6]], <4 x i32> [[VEC_BC:%.*]], <4 x i32> [[VEC_BC]]
+
+  ; Vector select with uniform condition and uniform operands.
+  %select2 = select <2 x i1> %uni.cond, <2 x i32> <i32 41, i32 42>, <2 x i32> <i32 42, i32 41>
+; CHECK:         [[COND7:%.*]] = shufflevector <2 x i1> [[UNI_COND]], <2 x i1> undef, <4 x i32> <i32 0, i32 1, i32 0, i32 1>
+; CHECK-NEXT:    [[TMP2:%.*]] = select <4 x i1> [[COND7]], <4 x i32> <i32 41, i32 42, i32 41, i32 42>, <4 x i32> <i32 42, i32 41, i32 42, i32 41>
+
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp ne i64 %indvars.iv.next, 1024
+  br i1 %exitcond, label %omp.inner.for.body, label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.body
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.QUAL.LIST.END.1
+
+DIR.QUAL.LIST.END.1:                              ; preds = %omp.loop.exit
+  ret void
 }
 
 ; Function Attrs: nounwind

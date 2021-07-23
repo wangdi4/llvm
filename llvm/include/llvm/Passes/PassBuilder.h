@@ -138,7 +138,6 @@ public:
 /// of the built-in passes, and those may reference these members during
 /// construction.
 class PassBuilder {
-  bool DebugLogging;
   TargetMachine *TM;
   PipelineTuningOptions PTO;
   Optional<PGOOptions> PGOOpt;
@@ -275,7 +274,7 @@ public:
     unsigned getSizeLevel() const { return SizeLevel; }
   };
 
-  explicit PassBuilder(bool DebugLogging = false, TargetMachine *TM = nullptr,
+  explicit PassBuilder(TargetMachine *TM = nullptr,
                        PipelineTuningOptions PTO = PipelineTuningOptions(),
                        Optional<PGOOptions> PGOOpt = None,
                        PassInstrumentationCallbacks *PIC = nullptr);
@@ -359,7 +358,12 @@ public:
   /// Construct the module pipeline that performs inlining as well as
   /// the inlining-driven cleanups.
   ModuleInlinerWrapperPass buildInlinerPipeline(OptimizationLevel Level,
+#if INTEL_COLLAB
+                                              ThinOrFullLTOPhase Phase,
+                                              ModulePassManager *MPM = nullptr);
+#else
                                                 ThinOrFullLTOPhase Phase);
+#endif // INTEL_COLLAB
 
   /// Construct the core LLVM module optimization pipeline.
   ///
@@ -538,7 +542,15 @@ public:
   /// Returns true if the pass name is the name of a (non-alias) analysis pass.
   bool isAnalysisPassName(StringRef PassName);
 
+#if INTEL_COLLAB
+  void addVPOPreparePasses(FunctionPassManager &FPM);
+  void addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
+                    bool RunVec, bool Simplify = false);
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+  bool addVPlanVectorizer(ModulePassManager &MPM, FunctionPassManager &FPM,
+                          bool IsPostLoopOptPass);
+
   /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
   /// simplifying load instructions into bitcast instructions that could
   /// produce an upcasting. If DTrans is disabled then the simplification
@@ -550,6 +562,16 @@ public:
   void addWholeProgramUtils(WholeProgramUtils WPUtils) {
     this->WPUtils = std::move(WPUtils);
   }
+
+  void addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
+                                        FunctionPassManager &FPM,
+                                        OptimizationLevel Level, bool IsLTO);
+
+  void addLoopOptPasses(ModulePassManager &MPM, FunctionPassManager &FPM,
+                        OptimizationLevel Level, bool IsLTO);
+
+  void addLoopOptCleanupPasses(FunctionPassManager &FPM,
+                               OptimizationLevel Level);
 #endif // INTEL_CUSTOMIZATION
 
   /// Print pass names.
@@ -710,8 +732,8 @@ public:
   /// text, this Callback should be used to determine the appropriate stack of
   /// PassManagers and populate the passed ModulePassManager.
   void registerParseTopLevelPipelineCallback(
-      const std::function<bool(ModulePassManager &, ArrayRef<PipelineElement>,
-                               bool DebugLogging)> &C);
+      const std::function<bool(ModulePassManager &, ArrayRef<PipelineElement>)>
+          &C);
 
   /// Add PGOInstrumenation passes for O0 only.
   void addPGOInstrPassesForO0(ModulePassManager &MPM, bool RunProfileGen,
@@ -731,6 +753,9 @@ private:
                                         ThinOrFullLTOPhase Phase);
 
   void addRequiredLTOPreLinkPasses(ModulePassManager &MPM);
+
+  void addVectorPasses(OptimizationLevel Level, FunctionPassManager &FPM,
+                       bool IsFullLTO);
 
   static Optional<std::vector<PipelineElement>>
   parsePipelineText(StringRef Text);
@@ -782,9 +807,8 @@ private:
                                  ArrayRef<PipelineElement>)>,
               2>
       ModulePipelineParsingCallbacks;
-  SmallVector<std::function<bool(ModulePassManager &, ArrayRef<PipelineElement>,
-                                 bool DebugLogging)>,
-              2>
+  SmallVector<
+      std::function<bool(ModulePassManager &, ArrayRef<PipelineElement>)>, 2>
       TopLevelPipelineParsingCallbacks;
   // CGSCC callbacks
   SmallVector<std::function<void(CGSCCAnalysisManager &)>, 2>

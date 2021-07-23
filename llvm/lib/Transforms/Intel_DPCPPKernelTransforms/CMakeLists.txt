@@ -1,5 +1,7 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
+  AddFunctionAttrs.cpp
   AddImplicitArgs.cpp
+  BuiltinCallToInst.cpp
   BuiltinImport.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
@@ -11,11 +13,17 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
   ImplicitArgsAnalysis.cpp
+  InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp
+  LocalBuffers.cpp
+  LinearIdResolver.cpp
+  DuplicateCalledKernelsPass.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
+  GroupBuiltinPass.cpp
   SplitBBonBarrierPass.cpp
   DPCPPKernelBarrierUtils.cpp
+  KernelBarrierUtils.cpp
   WIRelatedValuePass.cpp
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
@@ -26,13 +34,19 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
+  VectorVariant/CreateSimdVariantPropagation.cpp
+  VectorVariant/UpdateCallAttrs.cpp
+  VectorVariant/VectorVariantFillIn.cpp
+  VectorVariant/VectorVariantLowering.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
+  Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
+  Utils/VectorizerUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

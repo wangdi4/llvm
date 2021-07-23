@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----  Intel_IPOPrefetch.cpp - Intel IPO Prefetch   --------===//
 //
 // Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
@@ -2489,3 +2490,4 @@ PreservedAnalyses IntelIPOPrefetchPass::run(Module &M,
 }
 
 } // End namespace llvm
+#endif // INTEL_FEATURE_SW_ADVANCED

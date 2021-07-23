@@ -390,8 +390,8 @@ entry:
 ; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 }
 
-; CHECK:      attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn writeonly }
-; CHECK-NEXT: attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn }
+; CHECK:      attributes #{{.*}} = { argmemonly nofree nounwind willreturn writeonly }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nofree nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nosync nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
@@ -399,6 +399,8 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
+;; Note: next is a CHECK, not CHECK-NEXT, allowing us to skip the
+;; @llvm.intel.subscript attributes in the convert-to-subscript RUN.
 ; CHECK:      attributes #{{.*}} = { readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }

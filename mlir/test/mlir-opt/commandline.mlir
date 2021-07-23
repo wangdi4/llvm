@@ -8,10 +8,10 @@
 // CHECK-NEXT: async
 // CHECK-NEXT: complex
 // CHECK-NEXT: dlti
+// CHECK-NEXT: emitc
 // CHECK-NEXT: gpu
 // CHECK-NEXT: linalg
 // CHECK-NEXT: llvm
-// CHECK-NEXT: llvm_arm_sve
 // CHECK-NEXT: math
 // CHECK-NEXT: memref
 // CHECK-NEXT: nvvm
@@ -21,8 +21,8 @@
 // CHECK-NEXT: quant
 // CHECK-NEXT: rocdl
 // CHECK-NEXT: scf
-// CHECK-NEXT: sdbm
 // CHECK-NEXT: shape
+// CHECK-NEXT: sparse_tensor
 // CHECK-NEXT: spv
 // CHECK-NEXT: std
 // CHECK-NEXT: tensor

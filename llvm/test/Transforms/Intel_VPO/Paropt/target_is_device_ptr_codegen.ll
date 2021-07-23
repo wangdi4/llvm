@@ -41,7 +41,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg), "QUAL.OMP.IS_DEVICE_PTR"(i32* %a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32** @a), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg, double* @gg, i64 8, i64 34, i8* null, i8* null), "QUAL.OMP.IS_DEVICE_PTR"(i32* %a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32** @a), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   store i32* %a, i32** @a, align 8
   %1 = bitcast i32* %i to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #1

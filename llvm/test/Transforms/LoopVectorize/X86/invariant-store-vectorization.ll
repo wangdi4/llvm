@@ -50,7 +50,7 @@ define i32 @inv_val_store_to_inv_address_with_reduction(i32* %a, i64 %n, i32* %b
 ; CHECK-NEXT:    [[TMP10]] = add <16 x i32> [[VEC_PHI6]], [[WIDE_LOAD9]]
 ; CHECK-NEXT:    [[TMP11]] = add <16 x i32> [[VEC_PHI7]], [[WIDE_LOAD10]]
 ; CHECK-NEXT:    store i32 [[NTRUNC]], i32* [[A]], align 4, !alias.scope !3, !noalias !0
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 64
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 64
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], [[LOOP5:!llvm.loop !.*]]
 ; CHECK:       middle.block:
@@ -138,7 +138,7 @@ define void @inv_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* %b, 
 ; CHECK-NEXT:    store <16 x i32> [[BROADCAST_SPLAT7]], <16 x i32>* [[TMP3]], align 4, !alias.scope !8, !noalias !11
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr i32, i32* [[A]], <16 x i64> zeroinitializer
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> [[BROADCAST_SPLAT7]], <16 x i32*> [[TMP4]], i32 4, <16 x i1> [[TMP2]])
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 16
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 16
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], [[LOOP13:!llvm.loop !.*]]
 ; CHECK:       middle.block:
@@ -167,7 +167,7 @@ define void @inv_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* %b, 
 ; CHECK-NEXT:    store <8 x i32> [[BROADCAST_SPLAT20]], <8 x i32>* [[TMP9]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr i32, i32* [[A]], <8 x i64> zeroinitializer
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> [[BROADCAST_SPLAT20]], <8 x i32*> [[TMP10]], i32 4, <8 x i1> [[TMP8]])
-; CHECK-NEXT:    [[INDEX_NEXT14]] = add i64 [[INDEX13]], 8
+; CHECK-NEXT:    [[INDEX_NEXT14]] = add nuw i64 [[INDEX13]], 8
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[INDEX_NEXT14]], [[N_VEC12]]
 ; CHECK-NEXT:    br i1 [[TMP11]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], [[LOOP14:!llvm.loop !.*]]
 ; CHECK:       vec.epilog.middle.block:
@@ -272,7 +272,7 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <16 x i32> @llvm.masked.load.v16i32.p0v16i32(<16 x i32>* [[TMP5]], i32 8, <16 x i1> [[TMP2]], <16 x i32> poison), !alias.scope !23
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i32, i32* [[A]], <16 x i64> zeroinitializer
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> [[WIDE_MASKED_LOAD]], <16 x i32*> [[TMP6]], i32 4, <16 x i1> [[TMP2]])
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 16
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 16
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[MIDDLE_BLOCK:%.*]], label [[VECTOR_BODY]], [[LOOP25:!llvm.loop !.*]]
 ; CHECK:       middle.block:
@@ -304,7 +304,7 @@ define void @variant_val_store_to_inv_address_conditional(i32* %a, i64 %n, i32* 
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD32:%.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>* [[TMP13]], i32 8, <8 x i1> [[TMP10]], <8 x i32> poison)
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i32, i32* [[A]], <8 x i64> zeroinitializer
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v8i32.v8p0i32(<8 x i32> [[WIDE_MASKED_LOAD32]], <8 x i32*> [[TMP14]], i32 4, <8 x i1> [[TMP10]])
-; CHECK-NEXT:    [[INDEX_NEXT25]] = add i64 [[INDEX24]], 8
+; CHECK-NEXT:    [[INDEX_NEXT25]] = add nuw i64 [[INDEX24]], 8
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[INDEX_NEXT25]], [[N_VEC23]]
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[VEC_EPILOG_MIDDLE_BLOCK:%.*]], label [[VEC_EPILOG_VECTOR_BODY]], [[LOOP26:!llvm.loop !.*]]
 ; CHECK:       vec.epilog.middle.block:

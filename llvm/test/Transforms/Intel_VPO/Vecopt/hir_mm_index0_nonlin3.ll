@@ -2,9 +2,9 @@
 ; Test checks correct processing of min/max+index idiom with non-linear and linear indexes.
 ; Linear index appears after non-linear one.
 ; REQUIRES: asserts
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck --check-prefix=CG_ENABLE %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1  -disable-nonlinear-mmindex=1 -debug-only=parvec-analysis -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=hir-vplan-vec  < %s 2>&1 | FileCheck --check-prefix=CG_ENABLE %s
 
 ; CHECK:  Reduction list
 ; CHECK-NEXT:   signed (SIntMax) Start: i32 [[BEST_0230:%.*]] Exit: i32 [[VP0:%.*]]
@@ -63,7 +63,7 @@
 ;CG_ENABLE-NEXT:          %red.var = %best.023;
 ;CG_ENABLE-NEXT:          %red.var1 = %tmp.024;
 ;CG_ENABLE-NEXT:          %red.var2 = %val.025;
-;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CG_ENABLE-NEXT:          |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CG_ENABLE-NEXT:          |   %red.var2 = (%.vec > %red.var) ? %.vec + 2 : %red.var2;
 ;CG_ENABLE-NEXT:          |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;

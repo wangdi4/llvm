@@ -24,6 +24,8 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                           "No vector functions library"),
                clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
                           "Accelerate framework"),
+               clEnumValN(TargetLibraryInfoImpl::DarwinLibSystemM,
+                          "Darwin_libsystem_m", "Darwin libsystem_m"),
                clEnumValN(TargetLibraryInfoImpl::LIBMVEC_X86, "LIBMVEC-X86",
                           "GLIBC Vector Math library"),
                clEnumValN(TargetLibraryInfoImpl::MASSV, "MASSV",
@@ -69,7 +71,7 @@ static bool hasBcmp(const Triple &TT) {
   return TT.isOSFreeBSD() || TT.isOSSolaris();
 }
 
-static bool isCallingConvCCompatible(CallingConv::ID CC, Triple TT,
+static bool isCallingConvCCompatible(CallingConv::ID CC, StringRef TT,
                                      FunctionType *FuncTy) {
   switch (CC) {
   default:
@@ -82,7 +84,7 @@ static bool isCallingConvCCompatible(CallingConv::ID CC, Triple TT,
 
     // The iOS ABI diverges from the standard in some cases, so for now don't
     // try to simplify those calls.
-    if (TT.isiOS())
+    if (Triple(TT).isiOS())
       return false;
 
     if (!FuncTy->getReturnType()->isPointerTy() &&
@@ -102,13 +104,13 @@ static bool isCallingConvCCompatible(CallingConv::ID CC, Triple TT,
 
 bool TargetLibraryInfoImpl::isCallingConvCCompatible(CallBase *CI) {
   return ::isCallingConvCCompatible(CI->getCallingConv(),
-                                    Triple(CI->getModule()->getTargetTriple()),
+                                    CI->getModule()->getTargetTriple(),
                                     CI->getFunctionType());
 }
 
 bool TargetLibraryInfoImpl::isCallingConvCCompatible(Function *F) {
   return ::isCallingConvCCompatible(F->getCallingConv(),
-                                    Triple(F->getParent()->getTargetTriple()),
+                                    F->getParent()->getTargetTriple(),
                                     F->getFunctionType());
 }
 
@@ -153,6 +155,11 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   TLI.setShouldExtI32Return(ShouldExtI32Return);
   TLI.setShouldSignExtI32Param(ShouldSignExtI32Param);
 
+  // Let's assume by default that the size of int is 32 bits, unless the target
+  // is a 16-bit architecture because then it most likely is 16 bits. If that
+  // isn't true for a target those defaults should be overridden below.
+  TLI.setIntSize(T.isArch16Bit() ? 16 : 32);
+
   if (T.isAMDGPU())
     TLI.disableAllFunctions();
 
@@ -162,6 +169,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_memcpy);
     TLI.setUnavailable(LibFunc_memset);
     TLI.setUnavailable(LibFunc_memset_pattern16);
+    TLI.setAvailable(llvm::LibFunc___kmpc_alloc_shared);
+    TLI.setAvailable(llvm::LibFunc___kmpc_free_shared);
     return;
   }
 
@@ -357,12 +366,49 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // Enabled for Windows
     // TLI.setUnavailable(LibFunc_access);
 #endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_access);
+    TLI.setUnavailable(LibFunc_chmod);
+    TLI.setUnavailable(LibFunc_closedir);
+    TLI.setUnavailable(LibFunc_fdopen);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_fileno);
+#endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_fseeko);
+    TLI.setUnavailable(LibFunc_fstat);
+    TLI.setUnavailable(LibFunc_ftello);
+    TLI.setUnavailable(LibFunc_gettimeofday);
+    TLI.setUnavailable(LibFunc_memccpy);
+    TLI.setUnavailable(LibFunc_mkdir);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_open);
+#endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_opendir);
+    TLI.setUnavailable(LibFunc_pclose);
+    TLI.setUnavailable(LibFunc_popen);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_read);
+#endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_rmdir);
+    TLI.setUnavailable(LibFunc_stat);
+    TLI.setUnavailable(LibFunc_strcasecmp);
+    TLI.setUnavailable(LibFunc_strncasecmp);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_unlink);
+#endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_utime);
+    TLI.setUnavailable(LibFunc_write);
+  }
+
+  if (T.isOSWindows() && !T.isWindowsCygwinEnvironment()) {
+    // These functions aren't available in either MSVC or MinGW environments.
     TLI.setUnavailable(LibFunc_bcmp);
     TLI.setUnavailable(LibFunc_bcopy);
     TLI.setUnavailable(LibFunc_bzero);
-    TLI.setUnavailable(LibFunc_chmod);
     TLI.setUnavailable(LibFunc_chown);
-    TLI.setUnavailable(LibFunc_closedir);
     TLI.setUnavailable(LibFunc_ctermid);
 #if INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_cpow);
@@ -373,33 +419,20 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // TLI.setUnavailable(LibFunc_fdopen);
 #endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_ffs);
-#if INTEL_CUSTOMIZATION
-    // Enabled for Windows
-    // TLI.setUnavailable(LibFunc_fileno);
-#endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_ffs);
     TLI.setUnavailable(LibFunc_flockfile);
-    TLI.setUnavailable(LibFunc_fseeko);
-    TLI.setUnavailable(LibFunc_fstat);
     TLI.setUnavailable(LibFunc_fstatvfs);
-    TLI.setUnavailable(LibFunc_ftello);
     TLI.setUnavailable(LibFunc_ftrylockfile);
     TLI.setUnavailable(LibFunc_funlockfile);
     TLI.setUnavailable(LibFunc_getitimer);
     TLI.setUnavailable(LibFunc_getlogin_r);
     TLI.setUnavailable(LibFunc_getpwnam);
-    TLI.setUnavailable(LibFunc_gettimeofday);
     TLI.setUnavailable(LibFunc_htonl);
     TLI.setUnavailable(LibFunc_htons);
     TLI.setUnavailable(LibFunc_lchown);
     TLI.setUnavailable(LibFunc_lstat);
-    TLI.setUnavailable(LibFunc_memccpy);
-    TLI.setUnavailable(LibFunc_mkdir);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
-#if INTEL_CUSTOMIZATION
-    // This function should be available on Windows.
-    // TLI.setUnavailable(LibFunc_open);
-#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
@@ -411,26 +444,18 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // This function should be available on Windows.
     // TLI.setUnavailable(LibFunc_read);
 #endif // INTEL_CUSTOMIZATION
+    TLI.setUnavailable(LibFunc_pread);
+    TLI.setUnavailable(LibFunc_pwrite);
     TLI.setUnavailable(LibFunc_readlink);
     TLI.setUnavailable(LibFunc_realpath);
-    TLI.setUnavailable(LibFunc_rmdir);
     TLI.setUnavailable(LibFunc_setitimer);
-    TLI.setUnavailable(LibFunc_stat);
     TLI.setUnavailable(LibFunc_statvfs);
     TLI.setUnavailable(LibFunc_stpcpy);
     TLI.setUnavailable(LibFunc_stpncpy);
-    TLI.setUnavailable(LibFunc_strcasecmp);
-    TLI.setUnavailable(LibFunc_strncasecmp);
     TLI.setUnavailable(LibFunc_times);
     TLI.setUnavailable(LibFunc_uname);
-#if INTEL_CUSTOMIZATION
-    // Commented unlink since it is going to be used in Windows
-    // TLI.setUnavailable(LibFunc_unlink);
-#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_unsetenv);
-    TLI.setUnavailable(LibFunc_utime);
     TLI.setUnavailable(LibFunc_utimes);
-    TLI.setUnavailable(LibFunc_write);
 #if INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_cxa_pure_virtual);
     TLI.setUnavailable(LibFunc_fxstat);
@@ -656,6 +681,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZSt20__throw_out_of_rangePKc);
     TLI.setUnavailable(LibFunc_ZSt24__throw_out_of_range_fmtPKcz);
     TLI.setUnavailable(LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_);
+    TLI.setUnavailable(LibFunc_ZSt28__throw_bad_array_new_lengthv);
     TLI.setUnavailable(LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_);
     TLI.setUnavailable(LibFunc_std_basic_ostream_std_endl);
     TLI.setUnavailable(LibFunc_std_basic_ostream_std_flush);
@@ -863,6 +889,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     //    TLI.setAvailable(llvm::LibFunc_memcpy);
     //    TLI.setAvailable(llvm::LibFunc_memset);
 
+    TLI.setAvailable(llvm::LibFunc___kmpc_alloc_shared);
+    TLI.setAvailable(llvm::LibFunc___kmpc_free_shared);
   } else {
     TLI.setUnavailable(LibFunc_nvvm_reflect);
   }
@@ -1181,11 +1209,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const Triple &T) {
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames), ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
-#if INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+#if INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+      SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   VectorDescs = TLI.VectorDescs;
@@ -1196,11 +1225,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
     : CustomNames(std::move(TLI.CustomNames)),
       ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
-#if INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+#if INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+      SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
@@ -1218,6 +1248,7 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
 #endif // INTEL_CUSTOMIZATION
+  SizeOfInt = TLI.SizeOfInt;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   return *this;
 }
@@ -1232,6 +1263,7 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
 #endif // INTEL_CUSTOMIZATION
+  SizeOfInt = TLI.SizeOfInt;
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   return *this;
@@ -1467,6 +1499,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy());
   case LibFunc_system:
     return (NumParams == 1 && FTy.getParamType(0)->isPointerTy());
+  case LibFunc___kmpc_alloc_shared:
   case LibFunc_malloc:
   case LibFunc_vec_malloc:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy());
@@ -1578,7 +1611,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 2 && FTy.getParamType(0)->isPointerTy());
   case LibFunc_calloc:
   case LibFunc_vec_calloc:
-    return (NumParams == 2 && FTy.getReturnType()->isPointerTy());
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0) == FTy.getParamType(1));
 
 #if INTEL_CUSTOMIZATION
   case LibFunc_atexit:
@@ -1635,6 +1669,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_mktime:
   case LibFunc_times:
   case LibFunc_vec_free:
+  case LibFunc___kmpc_free_shared:
     return (NumParams != 0 && FTy.getParamType(0)->isPointerTy());
 
 #if INTEL_CUSTOMIZATION
@@ -2997,7 +3032,7 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_ldexpl:
     return (NumParams == 2 && FTy.getReturnType()->isFloatingPointTy() &&
             FTy.getReturnType() == FTy.getParamType(0) &&
-            FTy.getParamType(1)->isIntegerTy(32));
+            FTy.getParamType(1)->isIntegerTy(getIntSize()));
 
   case LibFunc_ffs:
   case LibFunc_ffsl:
@@ -3446,6 +3481,20 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
               FTy.getParamType(0)->isPointerTy() &&
               FTy.getParamType(1)->isIntegerTy() &&
               FTy.getParamType(2)->isPointerTy());
+    else
+      return false;
+
+  case LibFunc_kmpc_critical_with_hint:
+    if (NumParams == 2)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy());
+    else if (NumParams == 4)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy() &&
+              FTy.getParamType(2)->isPointerTy() &&
+              FTy.getParamType(3)->isIntegerTy());
     else
       return false;
 
@@ -4841,6 +4890,10 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy());
 
   // static call (not a member function)
+  case LibFunc_ZSt28__throw_bad_array_new_lengthv:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
+
+  // static call (not a member function)
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
     return (NumParams == 4 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
@@ -5980,6 +6033,14 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   case Accelerate: {
     const VecDesc VecFuncs[] = {
     #define TLI_DEFINE_ACCELERATE_VECFUNCS
+    #include "llvm/Analysis/VecFuncs.def"
+    };
+    addVectorizableFunctions(VecFuncs);
+    break;
+  }
+  case DarwinLibSystemM: {
+    const VecDesc VecFuncs[] = {
+    #define TLI_DEFINE_DARWIN_LIBSYSTEM_M_VECFUNCS
     #include "llvm/Analysis/VecFuncs.def"
     };
     addVectorizableFunctions(VecFuncs);

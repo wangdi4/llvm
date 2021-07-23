@@ -1,6 +1,7 @@
-; RUN: opt -passes=dpcpp-kernel-barrier %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-barrier %s -S -o - | FileCheck %s
-
+; RUN: opt -passes=dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-barrier -S < %s | FileCheck %s
+; RUN: opt -dpcpp-kernel-barrier -S < %s | FileCheck %s
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -13,8 +14,7 @@ target triple = "x86_64-pc-linux"
 ;;      2. Kernel "__Vectorized_.main" has barrier_buffer_size metadata set
 ;;*****************************************************************************
 
-define void @main(i64 %x) #0 {
-; CHECK: @main{{.*}}#[[SCAL:[0-9]+]]
+define void @main(i64 %x) nounwind !vectorized_kernel !1 {
 L1:
   call void @barrier_dummy()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -29,8 +29,9 @@ L3:
   ret void
 }
 
-define void @__Vectorized_.main(i64 %x) #1 {
-; CHECK: @__Vectorized_.main{{.*}}#[[VEC:[0-9]+]]
+; CHECK: @main{{.*}} !barrier_buffer_size ![[SCAL:[0-9]+]] {{.*}} {
+
+define void @__Vectorized_.main(i64 %x) nounwind !vectorized_width !2 {
 L1:
   call void @barrier_dummy()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -45,7 +46,9 @@ L3:
   ret void
 }
 
-define void @foo(i64 %x) {
+; CHECK: @__Vectorized_.main{{.*}} !barrier_buffer_size ![[VEC:[0-9]+]] {{.*}} {
+
+define void @foo(i64 %x) nounwind {
 L1:
   call void @barrier_dummy()
   %y = xor i64 %x, %x
@@ -59,9 +62,37 @@ declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @barrier_dummy()
 
-; CHECK:      #[[SCAL]]{{.*}}"barrier_buffer_size"="24"
-; CHECK-NEXT: #[[VEC]]{{.*}}"barrier_buffer_size"="2"
+!sycl.kernels = !{!0}
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" "vectorized_kernel"="__Vectorized_.main" }
-attributes #1 = { "vectorized_width"="16" }
+!0 = !{void (i64)* @main}
+!1 = !{void (i64)* @__Vectorized_.main}
+!2 = !{i32 16}
 
+; CHECK-DAG: ![[SCAL]] = !{i32 {{[0-9]+}}}
+; CHECK-DAG: ![[VEC]] = !{i32 {{[0-9]+}}}
+
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %loadedValue = load i64, i64* %pSB_LocalId, align 8
+
+; DEBUGIFY-NOT: WARNING

@@ -204,29 +204,29 @@ void foo_ivdep(int select)
   //CHECK: load i32*, i32** %ptr, align 8
   //CHECK: load i32, i32* %i67, align 4
   //CHECK: %idxprom72 = sext i32 %35 to i64
-  //CHECK: %ptridx = getelementptr inbounds i32, i32* %34, i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
-  //CHECK: store i32 %call71, i32* %ptridx, align 4
+  //CHECK: %arrayidx73 = getelementptr inbounds i32, i32* %34, i64 %idxprom72, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //CHECK: store i32 %call71, i32* %arrayidx73, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
   //CHECK: getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 16
-  //CHECK: store i32* %arrayidx76, i32** %ptr, align 8
-  //CHECK: store i32 0, i32* %i77, align 4
+  //CHECK: store i32* %arrayidx77, i32** %ptr, align 8
+  //CHECK: store i32 0, i32* %i78, align 4
   ptr = &myArray[16];
   //CHECK: load i32*, i32** %ptr, align 8
-  //CHECK: load i32, i32* %i77, align 4
-  //CHECK: %idxprom82 = sext i32 %40 to i64
-  //CHECK: %ptridx83 = getelementptr inbounds i32, i32* %39, i64 %idxprom82, !llvm.index.group [[IVDEP17:![0-9]+]]
-  //CHECK: store i32 %call81, i32* %ptridx83, align 4
+  //CHECK: load i32, i32* %i78, align 4
+  //CHECK: %idxprom83 = sext i32 %40 to i64
+  //CHECK: %arrayidx84 = getelementptr inbounds i32, i32* %39, i64 %idxprom83, !llvm.index.group [[IVDEP17:![0-9]+]]
+  //CHECK: store i32 %call82, i32* %arrayidx84, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP18:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: load i32, i32* %i87, align 4
-  //CHECK: %idxprom92 = sext i32 %44 to i64
-  //CHECK: %arrayidx93 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom92, !llvm.index.group [[IVDEP19:![0-9]+]]
-  //CHECK: store i32 %call91, i32* %arrayidx93, align 4
+  //CHECK: load i32, i32* %i88, align 4
+  //CHECK: %idxprom93 = sext i32 %44 to i64
+  //CHECK: %arrayidx94 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom93, !llvm.index.group [[IVDEP19:![0-9]+]]
+  //CHECK: store i32 %call92, i32* %arrayidx94, align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP20:![0-9]+]]
   #pragma ivdep array(myArray2)
   #pragma ivdep array(myArray)

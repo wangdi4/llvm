@@ -460,15 +460,20 @@ public:
   /// directive). Returns nullptr if no clause of this kind is associated with
   /// the directive.
   template <typename SpecificClause>
-  const SpecificClause *getSingleClause() const {
-    auto Clauses = getClausesOfKind<SpecificClause>();
+  static const SpecificClause *getSingleClause(ArrayRef<OMPClause *> Clauses) {
+    auto ClausesOfKind = getClausesOfKind<SpecificClause>(Clauses);
 
-    if (Clauses.begin() != Clauses.end()) {
-      assert(std::next(Clauses.begin()) == Clauses.end() &&
+    if (ClausesOfKind.begin() != ClausesOfKind.end()) {
+      assert(std::next(ClausesOfKind.begin()) == ClausesOfKind.end() &&
              "There are at least 2 clauses of the specified kind");
-      return *Clauses.begin();
+      return *ClausesOfKind.begin();
     }
     return nullptr;
+  }
+
+  template <typename SpecificClause>
+  const SpecificClause *getSingleClause() const {
+    return getSingleClause<SpecificClause>(clauses());
   }
 
   /// Returns true if the current directive has one or more clauses of a
@@ -925,15 +930,43 @@ public:
 
   /// Calls the specified callback function for all the loops in \p CurStmt,
   /// from the outermost to the innermost.
+  static bool doForAllLoops(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
+                            unsigned NumLoops,
+                            llvm::function_ref<bool(unsigned, Stmt *)> Callback,
+                            llvm::function_ref<void(OMPLoopBasedDirective *)>
+                                OnTransformationCallback);
+  static bool
+  doForAllLoops(const Stmt *CurStmt, bool TryImperfectlyNestedLoops,
+                unsigned NumLoops,
+                llvm::function_ref<bool(unsigned, const Stmt *)> Callback,
+                llvm::function_ref<void(const OMPLoopBasedDirective *)>
+                    OnTransformationCallback) {
+    auto &&NewCallback = [Callback](unsigned Cnt, Stmt *CurStmt) {
+      return Callback(Cnt, CurStmt);
+    };
+    auto &&NewTransformCb =
+        [OnTransformationCallback](OMPLoopBasedDirective *A) {
+          OnTransformationCallback(A);
+        };
+    return doForAllLoops(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,
+                         NumLoops, NewCallback, NewTransformCb);
+  }
+
+  /// Calls the specified callback function for all the loops in \p CurStmt,
+  /// from the outermost to the innermost.
   static bool
   doForAllLoops(Stmt *CurStmt, bool TryImperfectlyNestedLoops,
                 unsigned NumLoops,
-                llvm::function_ref<bool(unsigned, Stmt *)> Callback);
+                llvm::function_ref<bool(unsigned, Stmt *)> Callback) {
+    auto &&TransformCb = [](OMPLoopBasedDirective *) {};
+    return doForAllLoops(CurStmt, TryImperfectlyNestedLoops, NumLoops, Callback,
+                         TransformCb);
+  }
   static bool
   doForAllLoops(const Stmt *CurStmt, bool TryImperfectlyNestedLoops,
                 unsigned NumLoops,
                 llvm::function_ref<bool(unsigned, const Stmt *)> Callback) {
-    auto &&NewCallback = [Callback](unsigned Cnt, Stmt *CurStmt) {
+    auto &&NewCallback = [Callback](unsigned Cnt, const Stmt *CurStmt) {
       return Callback(Cnt, CurStmt);
     };
     return doForAllLoops(const_cast<Stmt *>(CurStmt), TryImperfectlyNestedLoops,
@@ -1171,6 +1204,9 @@ protected:
     if (isOpenMPLoopBoundSharingDirective(Kind))
       return CombinedDistributeEnd;
     if (isOpenMPWorksharingDirective(Kind) || isOpenMPTaskLoopDirective(Kind) ||
+#if INTEL_COLLAB
+        isOpenMPGenericLoopDirective(Kind) ||
+#endif // INTEL_COLLAB
         isOpenMPDistributeDirective(Kind))
       return WorksharingEnd;
     return DefaultEnd;
@@ -1220,24 +1256,34 @@ protected:
   }
 #endif // INTEL_COLLAB
   void setIsLastIterVariable(Expr *IL) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[IsLastIterVariableOffset] = IL;
   }
   void setLowerBoundVariable(Expr *LB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[LowerBoundVariableOffset] = LB;
   }
   void setUpperBoundVariable(Expr *UB) {
 #if INTEL_COLLAB
     assert(isOpenMPLoopDirective(getDirectiveKind()) &&
            "expected loop directive");
-#else
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
@@ -1246,38 +1292,63 @@ protected:
     Data->getChildren()[UpperBoundVariableOffset] = UB;
   }
   void setStrideVariable(Expr *ST) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[StrideVariableOffset] = ST;
   }
   void setEnsureUpperBound(Expr *EUB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[EnsureUpperBoundOffset] = EUB;
   }
   void setNextLowerBound(Expr *NLB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NextLowerBoundOffset] = NLB;
   }
   void setNextUpperBound(Expr *NUB) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NextUpperBoundOffset] = NUB;
   }
   void setNumIterations(Expr *NI) {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     Data->getChildren()[NumIterationsOffset] = NI;
   }
   void setPrevLowerBoundVariable(Expr *PrevLB) {
@@ -1398,24 +1469,34 @@ public:
   }
   Stmt *getPreInits() { return Data->getChildren()[PreInitsOffset]; }
   Expr *getIsLastIterVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[IsLastIterVariableOffset]);
   }
   Expr *getLowerBoundVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[LowerBoundVariableOffset]);
   }
   Expr *getUpperBoundVariable() const {
 #if INTEL_COLLAB
     assert(isOpenMPLoopDirective(getDirectiveKind()) &&
            "expected loop directive");
-#else
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
@@ -1424,38 +1505,63 @@ public:
     return cast<Expr>(Data->getChildren()[UpperBoundVariableOffset]);
   }
   Expr *getStrideVariable() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[StrideVariableOffset]);
   }
   Expr *getEnsureUpperBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[EnsureUpperBoundOffset]);
   }
   Expr *getNextLowerBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NextLowerBoundOffset]);
   }
   Expr *getNextUpperBound() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NextUpperBoundOffset]);
   }
   Expr *getNumIterations() const {
+#if INTEL_COLLAB
+    assert(isOpenMPLoopDirective(getDirectiveKind()) &&
+           "expected loop directive");
+#else // INTEL_COLLAB
     assert((isOpenMPWorksharingDirective(getDirectiveKind()) ||
             isOpenMPTaskLoopDirective(getDirectiveKind()) ||
             isOpenMPDistributeDirective(getDirectiveKind())) &&
            "expected worksharing loop directive");
+#endif // INTEL_COLLAB
     return cast<Expr>(Data->getChildren()[NumIterationsOffset]);
   }
   Expr *getPrevLowerBoundVariable() const {
@@ -2367,6 +2473,60 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
+  }
+};
+
+/// This represents '#pragma omp prefetch' directive.
+///
+/// \code
+/// #pragma omp prefetch data(addr:1:2) if(b < c)
+/// \endcode
+/// In this example directive '#pragma omp prefetch' has clauses 'data'
+/// with address 'addr', hint value of 1, and number of elements equal 2, and
+/// 'if' with condition 'b < c'.
+///
+class OMPPrefetchDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive (directive keyword).
+  /// \param EndLoc Ending Location of the directive.
+  ///
+  OMPPrefetchDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPPrefetchDirectiveClass,
+                               llvm::omp::OMPD_prefetch, StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPPrefetchDirective()
+      : OMPExecutableDirective(OMPPrefetchDirectiveClass,
+                               llvm::omp::OMPD_prefetch, SourceLocation(),
+                               SourceLocation()) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  ///
+  static OMPPrefetchDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses);
+
+  /// Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPPrefetchDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPPrefetchDirectiveClass;
   }
 };
 #endif // INTEL_COLLAB
@@ -3303,6 +3463,26 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// This field is true for the first(postfix) form of the expression and false
   /// otherwise.
   bool IsPostfixUpdate = false;
+#if INTEL_COLLAB
+  /// Used for 'atomic compare' constructs. True for forms that result in a
+  /// 'min' operation:
+  /// \code
+  /// x = expr < x ? expr : x;
+  /// x = x > expr ? expr : x;
+  /// if (expr < x) { x = expr; }
+  /// if (x > expr) { x = expr; }
+  /// \endcode
+  bool IsCompareMin = false;
+  /// Used for 'atomic compare' constructs. True for forms that result in a
+  /// 'max' operation:
+  /// \code
+  /// x = expr > x ? expr : x;
+  /// x = x < expr ? expr : x;
+  /// if (expr > x) { x = expr; }
+  /// if (x < expr) { x = expr; }
+  /// \endcode
+  bool IsCompareMax = false;
+#endif // INTEL_COLLAB
 
   /// Build directive with the given start and end location.
   ///
@@ -3328,7 +3508,15 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// Set 'v' part of the associated expression/statement.
   void setV(Expr *V) { Data->getChildren()[2] = V; }
   /// Set 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// This is also in the CAS 'compare' form for the 'desired' value.
+#endif // INTEL_COLLAB
   void setExpr(Expr *E) { Data->getChildren()[3] = E; }
+#if INTEL_COLLAB
+  /// Set 'expected' part of the associated expression/statement.
+  /// This is used in the CAS 'compare' forms.
+  void setExpected(Expr *E) { Data->getChildren()[4] = E; }
+#endif // INTEL_COLLAB
 
 public:
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'
@@ -3343,6 +3531,9 @@ public:
   /// \param X 'x' part of the associated expression/statement.
   /// \param V 'v' part of the associated expression/statement.
   /// \param E 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// \param Expected 'expected' part of the associated expression/statement.
+#endif // INTEL_COLLAB
   /// \param UE Helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
   /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
@@ -3350,10 +3541,19 @@ public:
   /// second.
   /// \param IsPostfixUpdate true if original value of 'x' must be stored in
   /// 'v', not an updated one.
+#if INTEL_COLLAB
+  /// \param IsCompareMin true if 'compare' min case
+  /// \param IsCompareMax true if 'compare' max case
+#endif // INTEL_COLLAB
   static OMPAtomicDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
+#if INTEL_COLLAB
+         Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
+         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax);
+#else // INTEL_COLLAB
          Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
+#endif // INTEL_COLLAB
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.
@@ -3383,16 +3583,35 @@ public:
   /// Return true if 'v' expression must be updated to original value of
   /// 'x', false if 'v' must be updated to the new value of 'x'.
   bool isPostfixUpdate() const { return IsPostfixUpdate; }
+
+#if INTEL_COLLAB
+  /// Return true if atomic compare is 'min' form.
+  bool isCompareMin() const { return IsCompareMin; }
+  /// Return true if atomic compare is 'max' form.
+  bool isCompareMax() const { return IsCompareMax; }
+#endif // INTEL_COLLAB
+
   /// Get 'v' part of the associated expression/statement.
   Expr *getV() { return cast_or_null<Expr>(Data->getChildren()[2]); }
   const Expr *getV() const {
     return cast_or_null<Expr>(Data->getChildren()[2]);
   }
   /// Get 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// Or if the 'compare' CAS form, the 'desired' expression.
+#endif // INTEL_COLLAB
   Expr *getExpr() { return cast_or_null<Expr>(Data->getChildren()[3]); }
   const Expr *getExpr() const {
     return cast_or_null<Expr>(Data->getChildren()[3]);
   }
+
+#if INTEL_COLLAB
+  /// Get 'expected' part of the associated expression/statement.
+  Expr *getExpected() { return cast_or_null<Expr>(Data->getChildren()[4]); }
+  const Expr *getExpected() const {
+    return cast_or_null<Expr>(Data->getChildren()[4]);
+  }
+#endif // INTEL_COLLAB
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPAtomicDirectiveClass;
@@ -5589,6 +5808,78 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPTileDirectiveClass;
+  }
+};
+
+/// This represents the '#pragma omp unroll' loop transformation directive.
+///
+/// \code
+/// #pragma omp unroll
+/// for (int i = 0; i < 64; ++i)
+/// \endcode
+class OMPUnrollDirective final : public OMPLoopBasedDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+
+  /// Default list of offsets.
+  enum {
+    PreInitsOffset = 0,
+    TransformedStmtOffset,
+  };
+
+  explicit OMPUnrollDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPLoopBasedDirective(OMPUnrollDirectiveClass, llvm::omp::OMPD_unroll,
+                              StartLoc, EndLoc, 1) {}
+
+  /// Set the pre-init statements.
+  void setPreInits(Stmt *PreInits) {
+    Data->getChildren()[PreInitsOffset] = PreInits;
+  }
+
+  /// Set the de-sugared statement.
+  void setTransformedStmt(Stmt *S) {
+    Data->getChildren()[TransformedStmtOffset] = S;
+  }
+
+public:
+  /// Create a new AST node representation for '#pragma omp unroll'.
+  ///
+  /// \param C         Context of the AST.
+  /// \param StartLoc  Location of the introducer (e.g. the 'omp' token).
+  /// \param EndLoc    Location of the directive's end (e.g. the tok::eod).
+  /// \param Clauses   The directive's clauses.
+  /// \param AssociatedStmt The outermost associated loop.
+  /// \param TransformedStmt The loop nest after tiling, or nullptr in
+  ///                        dependent contexts.
+  /// \param PreInits   Helper preinits statements for the loop nest.
+  static OMPUnrollDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+         Stmt *TransformedStmt, Stmt *PreInits);
+
+  /// Build an empty '#pragma omp unroll' AST node for deserialization.
+  ///
+  /// \param C          Context of the AST.
+  /// \param NumClauses Number of clauses to allocate.
+  static OMPUnrollDirective *CreateEmpty(const ASTContext &C,
+                                         unsigned NumClauses);
+
+  /// Get the de-sugared associated loops after unrolling.
+  ///
+  /// This is only used if the unrolled loop becomes an associated loop of
+  /// another directive, otherwise the loop is emitted directly using loop
+  /// transformation metadata. When the unrolled loop cannot be used by another
+  /// directive (e.g. because of the full clause), the transformed stmt can also
+  /// be nullptr.
+  Stmt *getTransformedStmt() const {
+    return Data->getChildren()[TransformedStmtOffset];
+  }
+
+  /// Return the pre-init statements.
+  Stmt *getPreInits() const { return Data->getChildren()[PreInitsOffset]; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPUnrollDirectiveClass;
   }
 };
 

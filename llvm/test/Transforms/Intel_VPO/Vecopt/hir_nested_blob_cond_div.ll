@@ -15,10 +15,11 @@
 ; 
 ; Test that we suppress vectorization for divides in a nested blob for a masked statement
 ; until we start using SVML for masked divides.
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -vplan-force-vf=4 -print-after=vplan-driver-hir -S -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -S  -enable-blob-coeff-vec -enable-nested-blob-vec  < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -vplan-force-vf=4 -print-after=hir-vplan-vec -S -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
-; CHECK: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
+; PM1:         IR Dump After VPlan HIR Vectorizer
+; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:      DO i1 = 0, 7, 1   <DO_LOOP>
 ; CHECK:      END LOOP
 ; ModuleID = 'atg_CMPLRS-47273.cpp'

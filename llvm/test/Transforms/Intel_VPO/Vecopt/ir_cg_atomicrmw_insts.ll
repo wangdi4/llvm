@@ -3,89 +3,89 @@
 ; TODO: In some cases atomic operations are not allowed to be reordered, for
 ; which we need to bail out of vectorization (JIRA: CMPLRLLVM-10743).
 
-; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
+; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s --check-prefix=LLVM-CG
 
 declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind
 
 define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG:  define void @test1(i64 [[N0:%.*]], i64 addrspace(4)* [[ARR0:%.*]]) {
-; LLVM-CG:       vector.ph:
+; LLVM-CG:       VPlannedBB1:
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[ARR0]], i32 0
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT0]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
+; LLVM-CG-NEXT:    br label [[VPLANNEDBB20:%.*]]
+; LLVM-CG-EMPTY:
+; LLVM-CG-NEXT:  VPlannedBB2:
+; LLVM-CG-NEXT:    [[TMP2:%.*]] = and i64 [[N0]], 4294967294
 ; LLVM-CG-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  vector.body:
-; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP30:%.*]], [[VPLANNEDBB60:%.*]] ]
-; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP29:%.*]], [[VPLANNEDBB60]] ]
+; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20]] ], [ [[TMP31:%.*]], [[VPLANNEDBB60:%.*]] ]
+; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB20]] ], [ [[TMP30:%.*]], [[VPLANNEDBB60]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI_EXTRACT_1_0:%.*]] = extractelement <2 x i64> [[VEC_PHI0]], i32 1
-; LLVM-CG-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 42, i64 42>
+; LLVM-CG-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 42, i64 42>
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP0]], i32 1
 ; LLVM-CG-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i64 addrspace(4)*> [[MM_VECTORGEP0]], i32 0
-; LLVM-CG-NEXT:    [[MM_VECTORGEP30:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR0]], i64 42
-; LLVM-CG-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <2 x i64 addrspace(4)*> poison, i64 addrspace(4)* [[MM_VECTORGEP30]], i32 0
-; LLVM-CG-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[DOTSPLATINSERT0]], <2 x i64 addrspace(4)*> poison, <2 x i32> zeroinitializer
-; LLVM-CG-NEXT:    [[DOTSPLAT_EXTRACT_0_0:%.*]] = extractelement <2 x i64 addrspace(4)*> [[DOTSPLAT0]], i32 0
-; LLVM-CG-NEXT:    [[TMP3:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 1 acquire, align 8
-; LLVM-CG-NEXT:    [[TMP4:%.*]] = insertelement <2 x i64> undef, i64 [[TMP3]], i32 0
-; LLVM-CG-NEXT:    [[TMP5:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 1 acquire, align 8
-; LLVM-CG-NEXT:    [[TMP6:%.*]] = insertelement <2 x i64> [[TMP4]], i64 [[TMP5]], i32 1
-; LLVM-CG-NEXT:    [[TMP7:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 [[UNI_PHI0]] acquire, align 8
-; LLVM-CG-NEXT:    [[TMP8:%.*]] = insertelement <2 x i64> undef, i64 [[TMP7]], i32 0
-; LLVM-CG-NEXT:    [[TMP9:%.*]] = atomicrmw add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 [[VEC_PHI_EXTRACT_1_0]] acquire, align 8
-; LLVM-CG-NEXT:    [[TMP10:%.*]] = insertelement <2 x i64> [[TMP8]], i64 [[TMP9]], i32 1
-; LLVM-CG-NEXT:    [[TMP11:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_0_0]], i64 [[UNI_PHI0]] acquire, align 8
-; LLVM-CG-NEXT:    [[TMP12:%.*]] = insertelement <2 x i64> undef, i64 [[TMP11]], i32 0
-; LLVM-CG-NEXT:    [[TMP13:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_1_0]], i64 [[VEC_PHI_EXTRACT_1_0]] acquire, align 8
-; LLVM-CG-NEXT:    [[TMP14:%.*]] = insertelement <2 x i64> [[TMP12]], i64 [[TMP13]], i32 1
-; LLVM-CG-NEXT:    [[TMP15:%.*]] = add <2 x i64> [[TMP6]], [[VEC_PHI0]]
-; LLVM-CG-NEXT:    [[TMP16:%.*]] = add <2 x i64> [[TMP10]], [[VEC_PHI0]]
-; LLVM-CG-NEXT:    [[TMP17:%.*]] = add <2 x i64> [[TMP14]], [[VEC_PHI0]]
+; LLVM-CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i64, i64 addrspace(4)* [[ARR0]], i64 42
+; LLVM-CG-NEXT:    [[TMP4:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[SCALAR_GEP0]], i64 1 acquire, align 8
+; LLVM-CG-NEXT:    [[TMP5:%.*]] = insertelement <2 x i64> undef, i64 [[TMP4]], i32 0
+; LLVM-CG-NEXT:    [[TMP6:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[SCALAR_GEP0]], i64 1 acquire, align 8
+; LLVM-CG-NEXT:    [[TMP7:%.*]] = insertelement <2 x i64> [[TMP5]], i64 [[TMP6]], i32 1
+; LLVM-CG-NEXT:    [[TMP8:%.*]] = atomicrmw add i64 addrspace(4)* [[SCALAR_GEP0]], i64 [[UNI_PHI0]] acquire, align 8
+; LLVM-CG-NEXT:    [[TMP9:%.*]] = insertelement <2 x i64> undef, i64 [[TMP8]], i32 0
+; LLVM-CG-NEXT:    [[TMP10:%.*]] = atomicrmw add i64 addrspace(4)* [[SCALAR_GEP0]], i64 [[VEC_PHI_EXTRACT_1_0]] acquire, align 8
+; LLVM-CG-NEXT:    [[TMP11:%.*]] = insertelement <2 x i64> [[TMP9]], i64 [[TMP10]], i32 1
+; LLVM-CG-NEXT:    [[TMP12:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_0_0]], i64 [[UNI_PHI0]] acquire, align 8
+; LLVM-CG-NEXT:    [[TMP13:%.*]] = insertelement <2 x i64> undef, i64 [[TMP12]], i32 0
+; LLVM-CG-NEXT:    [[TMP14:%.*]] = atomicrmw add i64 addrspace(4)* [[MM_VECTORGEP_EXTRACT_1_0]], i64 [[VEC_PHI_EXTRACT_1_0]] acquire, align 8
+; LLVM-CG-NEXT:    [[TMP15:%.*]] = insertelement <2 x i64> [[TMP13]], i64 [[TMP14]], i32 1
+; LLVM-CG-NEXT:    [[TMP16:%.*]] = add <2 x i64> [[TMP7]], [[VEC_PHI0]]
+; LLVM-CG-NEXT:    [[TMP17:%.*]] = add <2 x i64> [[TMP11]], [[VEC_PHI0]]
+; LLVM-CG-NEXT:    [[TMP18:%.*]] = add <2 x i64> [[TMP15]], [[VEC_PHI0]]
 ; LLVM-CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  VPlannedBB4:
-; LLVM-CG-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP2]], i64 0
-; LLVM-CG-NEXT:    [[TMP18:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; LLVM-CG-NEXT:    br i1 [[TMP18]], label [[PRED_ATOMICRMW_IF0:%.*]], label [[TMP21:%.*]]
+; LLVM-CG-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP3]], i64 0
+; LLVM-CG-NEXT:    [[TMP19:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; LLVM-CG-NEXT:    br i1 [[TMP19]], label [[PRED_ATOMICRMW_IF0:%.*]], label [[TMP22:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.atomicrmw.if:
-; LLVM-CG-NEXT:    [[TMP19:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 1 acquire, align 8
-; LLVM-CG-NEXT:    [[TMP20:%.*]] = insertelement <2 x i64> undef, i64 [[TMP19]], i32 0
-; LLVM-CG-NEXT:    br label [[TMP21]]
+; LLVM-CG-NEXT:    [[TMP20:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[SCALAR_GEP0]], i64 1 acquire, align 8
+; LLVM-CG-NEXT:    [[TMP21:%.*]] = insertelement <2 x i64> undef, i64 [[TMP20]], i32 0
+; LLVM-CG-NEXT:    br label [[TMP22]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  21:
-; LLVM-CG-NEXT:    [[TMP22:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB40]] ], [ [[TMP20]], [[PRED_ATOMICRMW_IF0]] ]
+; LLVM-CG-NEXT:  22:
+; LLVM-CG-NEXT:    [[TMP23:%.*]] = phi <2 x i64> [ undef, [[VPLANNEDBB40]] ], [ [[TMP21]], [[PRED_ATOMICRMW_IF0]] ]
 ; LLVM-CG-NEXT:    br label [[PRED_ATOMICRMW_CONTINUE0:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.atomicrmw.continue:
-; LLVM-CG-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
-; LLVM-CG-NEXT:    [[TMP23:%.*]] = icmp eq i1 [[PREDICATE50]], true
-; LLVM-CG-NEXT:    br i1 [[TMP23]], label [[PRED_ATOMICRMW_IF130:%.*]], label [[TMP26:%.*]]
+; LLVM-CG-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
+; LLVM-CG-NEXT:    [[TMP24:%.*]] = icmp eq i1 [[PREDICATE50]], true
+; LLVM-CG-NEXT:    br i1 [[TMP24]], label [[PRED_ATOMICRMW_IF130:%.*]], label [[TMP27:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.atomicrmw.if13:
-; LLVM-CG-NEXT:    [[TMP24:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_0]], i64 1 acquire, align 8
-; LLVM-CG-NEXT:    [[TMP25:%.*]] = insertelement <2 x i64> [[TMP22]], i64 [[TMP24]], i32 1
-; LLVM-CG-NEXT:    br label [[TMP26]]
+; LLVM-CG-NEXT:    [[TMP25:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[SCALAR_GEP0]], i64 1 acquire, align 8
+; LLVM-CG-NEXT:    [[TMP26:%.*]] = insertelement <2 x i64> [[TMP23]], i64 [[TMP25]], i32 1
+; LLVM-CG-NEXT:    br label [[TMP27]]
 ; LLVM-CG-EMPTY:
-; LLVM-CG-NEXT:  26:
-; LLVM-CG-NEXT:    [[TMP27:%.*]] = phi <2 x i64> [ [[TMP22]], [[PRED_ATOMICRMW_CONTINUE0]] ], [ [[TMP25]], [[PRED_ATOMICRMW_IF130]] ]
+; LLVM-CG-NEXT:  27:
+; LLVM-CG-NEXT:    [[TMP28:%.*]] = phi <2 x i64> [ [[TMP23]], [[PRED_ATOMICRMW_CONTINUE0]] ], [ [[TMP26]], [[PRED_ATOMICRMW_IF130]] ]
 ; LLVM-CG-NEXT:    br label [[PRED_ATOMICRMW_CONTINUE140:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  pred.atomicrmw.continue14:
-; LLVM-CG-NEXT:    [[TMP28:%.*]] = add <2 x i64> [[TMP27]], [[VEC_PHI0]]
+; LLVM-CG-NEXT:    [[TMP29:%.*]] = add <2 x i64> [[TMP28]], [[VEC_PHI0]]
 ; LLVM-CG-NEXT:    br label [[VPLANNEDBB60]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  VPlannedBB6:
-; LLVM-CG-NEXT:    [[TMP29]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; LLVM-CG-NEXT:    [[TMP30]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; LLVM-CG-NEXT:    [[TMP31:%.*]] = icmp eq i64 [[TMP30]], [[TMP0:%.*]]
-; LLVM-CG-NEXT:    br i1 [[TMP31]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; LLVM-CG-NEXT:    [[TMP30]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; LLVM-CG-NEXT:    [[TMP31]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; LLVM-CG-NEXT:    [[TMP32:%.*]] = icmp uge i64 [[TMP31]], [[TMP2]]
+; LLVM-CG-NEXT:    br i1 [[TMP32]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  VPlannedBB7:
-; LLVM-CG-NEXT:    [[TMP32:%.*]] = mul i64 1, [[TMP0]]
-; LLVM-CG-NEXT:    [[TMP33:%.*]] = add i64 0, [[TMP32]]
-; LLVM-CG-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; LLVM-CG-NEXT:    [[TMP33:%.*]] = mul i64 1, [[TMP2]]
+; LLVM-CG-NEXT:    [[TMP34:%.*]] = add i64 0, [[TMP33]]
 ;
 entry:
   %cmp = icmp sgt i64 %n, 0

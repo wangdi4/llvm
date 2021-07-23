@@ -59,7 +59,7 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
       W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), Call);
     else
 #endif // INTEL_CUSTOMIZATION
-    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), Call);
+    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), cast<CallInst>(Call));
     if (W) {
       // The intrinsic represents a BEGIN directive.
       // W points to the WRN created for it.
@@ -103,6 +103,27 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
   }
 }
 
+/// Lookahead for a nowait clause and return true in case it finds it.
+/// Used while parsing DIR_OMP_TASKWAIT, which we parse as DIR_OMP_TASK
+/// in case it has a nowait clause.
+bool WRegionUtils::nowaitLookahead(BasicBlock *EntryBB) {
+  assert(EntryBB && "Entry Bblock is null");
+  Instruction *I = &(EntryBB->front());
+  assert(VPOAnalysisUtils::isOpenMPDirective(I) &&
+         "Expected an OpenMP directive");
+  IntrinsicInst *Call = cast<IntrinsicInst>(I);
+  unsigned i, NumOB = Call->getNumOperandBundles();
+
+  for (i = 1; i < NumOB; ++i) {
+    OperandBundleUse BU = Call->getOperandBundleAt(i);
+    StringRef ClauseString = BU.getTagName();
+    ClauseSpecifier ClauseInfo(ClauseString);
+    if (ClauseInfo.getId() == QUAL_OMP_NOWAIT)
+      return true;
+  }
+  return false;
+}
+
 /// Create a specialized WRN based on the DirString.
 /// If the string corrensponds to a BEGIN directive, then create
 /// a WRN node of WRegionNodeKind corresponding to the directive,
@@ -136,6 +157,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       break;
     case DIR_OMP_INTEROP:
       W = new WRNInteropNode(EntryBB);
+      break;
+    case DIR_OMP_PREFETCH:
+      W = new WRNPrefetchNode(EntryBB);
       break;
     case DIR_OMP_TARGET:
       W = new WRNTargetNode(EntryBB);
@@ -227,6 +251,13 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       W = new WRNTaskgroupNode(EntryBB);
       break;
     case DIR_OMP_TASKWAIT:
+      if (nowaitLookahead(EntryBB)) {
+        // nowait on Taskwait depend is parsed as taskwait depend
+        W = new WRNTaskNode(EntryBB);
+        W->setIsTaskwaitNowaitTask(true);
+        DirID = DIR_OMP_TASK;
+        break;
+      }
       W = new WRNTaskwaitNode(EntryBB);
       break;
     case DIR_OMP_TASKYIELD:
@@ -887,6 +918,23 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   WRContainerImpl *WRGraph = WI->getWRGraph();
   if (WRGraph)
     return hasTargetDirective(*WRGraph);
+  return false;
+}
+
+bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
+  Function *F = W->getEntryDirective()->getFunction();
+  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                      "target.declare"))
+    return true;
+
+  WRegionNode *PW = W->getParent();
+  while (PW) {
+    if (PW->getIsTarget())
+      return true;
+
+    PW = PW->getParent();
+  }
+
   return false;
 }
 

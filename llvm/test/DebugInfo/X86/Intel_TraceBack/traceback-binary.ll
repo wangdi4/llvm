@@ -13,6 +13,7 @@
 ;     ELF:    Type: SHT_PROGBITS
 ;     ELF:    Flags
 ;     ELF:      SHF_ALLOC
+;     ELF-NOT:  SHF_WRITE
 ;   ELF64:    AddressAlignment: 8
 ;   ELF32:    AddressAlignment: 4
 ;    COFF:    Characteristics

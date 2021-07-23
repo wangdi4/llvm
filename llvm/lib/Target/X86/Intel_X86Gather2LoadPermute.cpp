@@ -165,14 +165,15 @@ class X86Gather2LoadPermutePass : public FunctionPass {
     // Bitcast the new GEP to the array size's vector pointer.
     PointerType *ZeroLastIdxGEPTy =
         cast<PointerType>(ZeroLastIdxGEP->getType());
+    FixedVectorType *BitCastTy = FixedVectorType::get(ArrayEleTy, ArrayNum);
     PointerType *ArrayPtrTy =
-        PointerType::get(FixedVectorType::get(ArrayEleTy, ArrayNum),
-                         ZeroLastIdxGEPTy->getAddressSpace());
+        PointerType::get(BitCastTy, ZeroLastIdxGEPTy->getAddressSpace());
     Value *BitCast = Builder.CreateBitCast(ZeroLastIdxGEP, ArrayPtrTy);
 
     // Load the whole array.
     unsigned AlignVal = cast<ConstantInt>(Alignment)->getZExtValue();
-    LoadInst *Load = Builder.CreateAlignedLoad(BitCast, MaybeAlign(AlignVal));
+    LoadInst *Load =
+        Builder.CreateAlignedLoad(BitCastTy, BitCast, MaybeAlign(AlignVal));
     // Widen load to WidenNum.
     Value *WidenLoad = Builder.CreateShuffleVector(
         Load, UndefValue::get(Load->getType()), LoadShuffleMask);

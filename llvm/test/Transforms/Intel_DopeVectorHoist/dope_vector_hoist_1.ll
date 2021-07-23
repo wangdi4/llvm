@@ -11,10 +11,10 @@ target triple = "x86_64-unknown-linux-gnu"
 %"QNCA_a" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 ; CHECK: bb_if:
-; CHECK-DAG: [[GEP_A:%[0-9]*]] = getelementptr %QNCA_a, %QNCA_a* %"sub_$A", i64 0, i32 0
-; CHECK-DAG: [[Load_A:%[0-9]*]] = load float*, float** [[GEP_A]], align 1
-; CHECK-DAG: [[GEP_B:%[0-9]*]] = getelementptr %QNCA_a, %QNCA_a* %"sub_$B", i64 0, i32 0
-; CHECK-DAG: [[Load_B:%[0-9]*]] = load float*, float** [[GEP_B]], align 1
+; CHECK: [[GEP_B:%[0-9]*]] = getelementptr %QNCA_a, %QNCA_a* %"sub_$B", i64 0, i32 0
+; CHECK: [[Load_B:%[0-9]*]] = load float*, float** [[GEP_B]], align 1
+; CHECK: [[GEP_A:%[0-9]*]] = getelementptr %QNCA_a, %QNCA_a* %"sub_$A", i64 0, i32 0
+; CHECK: [[Load_A:%[0-9]*]] = load float*, float** [[GEP_A]], align 1
 ; CHECK: %"sub_$I_fetch164" = load i32, i32* %"sub_$I", align 1
 
 ; CHECK: bb_then:

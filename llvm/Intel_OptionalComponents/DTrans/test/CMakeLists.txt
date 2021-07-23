@@ -16,10 +16,12 @@
 
 set(DTRANS_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-llvm_canonicalize_cmake_booleans(
-  INTEL_INCLUDE_DTRANS
-  )
-
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
+  set(DTRANS_ENABLED 1)
+else()
+  set(DTRANS_ENABLED 0)
+endif()
 
 set(DTRANS_TEST_PARAMS
   dtrans_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py

@@ -214,14 +214,14 @@ template <typename T>
 static void FilterAttributeList(ArrayRef<const Attr *> Attrs,
                     SmallVectorImpl<const T *> &FilteredAttrs) {
 
-  llvm::transform(Attrs, std::back_inserter(FilteredAttrs), [](const Attr *A) {
-    if (const auto *Cast = dyn_cast_or_null<const T>(A))
-      return Cast->isDependent() ? nullptr : Cast;
-    return static_cast<const T*>(nullptr);
-  });
+  llvm::transform(Attrs, std::back_inserter(FilteredAttrs),
+                  [](const Attr *A) -> const T * {
+                    if (const auto *Cast = dyn_cast<T>(A))
+                      return Cast->isDependent() ? nullptr : Cast;
+                    return nullptr;
+                  });
   FilteredAttrs.erase(
-      std::remove(FilteredAttrs.begin(), FilteredAttrs.end(),
-                  static_cast<const T*>(nullptr)),
+      std::remove(FilteredAttrs.begin(), FilteredAttrs.end(), nullptr),
       FilteredAttrs.end());
 }
 
@@ -302,6 +302,56 @@ static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
   return S.BuildSYCLIntelFPGAIVDepAttr(A, ValueExpr, ArrayExpr);
 }
 #endif // INTEL_CUSTOMIZATION
+
+static void
+CheckForDuplicateSYCLIntelLoopCountAttrs(Sema &S,
+                                         ArrayRef<const Attr *> Attrs) {
+  // Create a list of SYCLIntelFPGALoopCount attributes only.
+  SmallVector<const SYCLIntelFPGALoopCountAttr *, 8> OnlyLoopCountAttrs;
+  llvm::transform(
+      Attrs, std::back_inserter(OnlyLoopCountAttrs), [](const Attr *A) {
+        return dyn_cast_or_null<const SYCLIntelFPGALoopCountAttr>(A);
+      });
+  OnlyLoopCountAttrs.erase(
+      std::remove(OnlyLoopCountAttrs.begin(), OnlyLoopCountAttrs.end(),
+                  static_cast<const SYCLIntelFPGALoopCountAttr *>(nullptr)),
+      OnlyLoopCountAttrs.end());
+  if (OnlyLoopCountAttrs.empty())
+    return;
+
+  unsigned int MinCount = 0;
+  unsigned int MaxCount = 0;
+  unsigned int AvgCount = 0;
+  for (const auto *A : OnlyLoopCountAttrs) {
+    const auto *At = dyn_cast<SYCLIntelFPGALoopCountAttr>(A);
+    At->isMin() ? MinCount++ : At->isMax() ? MaxCount++ : AvgCount++;
+    if (MinCount > 1 || MaxCount > 1 || AvgCount > 1)
+      S.Diag(A->getLocation(), diag::err_sycl_loop_attr_duplication) << 1 << A;
+  }
+}
+
+static SYCLIntelFPGALoopCountAttr *
+handleIntelFPGALoopCountAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
+  Expr *E = A.getArgAsExpr(0);
+  if (E && !E->isInstantiationDependent()) {
+    Optional<llvm::APSInt> ArgVal =
+        E->getIntegerConstantExpr(S.getASTContext());
+
+    if (!ArgVal) {
+      S.Diag(E->getExprLoc(), diag::err_attribute_argument_type)
+          << A << AANT_ArgumentIntegerConstant << E->getSourceRange();
+      return nullptr;
+    }
+
+    if (ArgVal->getSExtValue() < 0) {
+      S.Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+          << A << /* non-negative */ 1;
+      return nullptr;
+    }
+  }
+  return new (S.Context)
+      SYCLIntelFPGALoopCountAttr(S.Context, A, A.getArgAsExpr(0));
+}
 
 static Attr *handleIntelFPGANofusionAttr(Sema &S, Stmt *St,
                                          const ParsedAttr &A) {
@@ -851,9 +901,9 @@ static Attr *handleIntelPrefetchAttr(Sema &S, Stmt *St,
     if (IntArgsSeen++ == 0) {
       // hint
       int32_t Hint = getConstInt(S, AI, AA);
-      if (Hint < 1 || Hint > 4) {
+      if (Hint < 0 || Hint > 3) {
         S.Diag(Arg->getExprLoc(),
-               diag::err_prefetch_hint_out_of_range) << Hint << 1 << 4;
+               diag::err_prefetch_hint_out_of_range) << Hint << 0 << 3;
         return nullptr;
       }
       // For prefetch *, add default first argument.
@@ -920,6 +970,12 @@ static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   }
 
   return ::new (S.Context) NoMergeAttr(S.Context, A);
+}
+
+static Attr *handleMustTailAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                                SourceRange Range) {
+  // Validation is in Sema::ActOnAttributedStmt().
+  return ::new (S.Context) MustTailAttr(S.Context, A);
 }
 
 static Attr *handleLikely(Sema &S, Stmt *St, const ParsedAttr &A,
@@ -1276,6 +1332,7 @@ static void CheckForIncompatibleSYCLLoopAttributes(
                                                                          Attrs);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGASpeculatedIterationsAttr>(
       S, Attrs);
+  CheckForDuplicateSYCLIntelLoopCountAttrs(S, Attrs);
   CheckForDuplicationSYCLLoopAttribute<LoopUnrollHintAttr>(S, Attrs, false);
   CheckRedundantSYCLIntelFPGAIVDepAttrs(S, Attrs);
   CheckForDuplicationSYCLLoopAttribute<SYCLIntelFPGANofusionAttr>(S, Attrs);
@@ -1476,6 +1533,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   case ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations:
     return handleIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(S, St,
                                                                           A);
+  case ParsedAttr::AT_SYCLIntelFPGALoopCount:
+    return handleIntelFPGALoopCountAttr(S, St, A);
   case ParsedAttr::AT_OpenCLUnrollHint:
   case ParsedAttr::AT_LoopUnrollHint:
     return handleLoopUnrollHint(S, St, A, Range);
@@ -1483,6 +1542,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleSuppressAttr(S, St, A, Range);
   case ParsedAttr::AT_NoMerge:
     return handleNoMergeAttr(S, St, A, Range);
+  case ParsedAttr::AT_MustTail:
+    return handleMustTailAttr(S, St, A, Range);
   case ParsedAttr::AT_Likely:
     return handleLikely(S, St, A, Range);
   case ParsedAttr::AT_Unlikely:

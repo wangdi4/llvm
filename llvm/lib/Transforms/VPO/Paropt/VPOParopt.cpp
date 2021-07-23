@@ -36,6 +36,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
 #endif  // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPOParopt"
@@ -53,6 +54,7 @@ INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 #if INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(VPOParoptConfigWrapper)
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass)
 #endif  // INTEL_CUSTOMIZATION
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
@@ -81,6 +83,7 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<WRegionInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<VPOParoptConfigWrapper>();
   AU.addRequired<XmainOptLevelWrapperPass>();
 #endif  // INTEL_CUSTOMIZATION
   AU.addRequired<AssumptionCacheTracker>();
@@ -95,6 +98,7 @@ bool VPOParopt::runOnModule(Module &M) {
 #if INTEL_CUSTOMIZATION
   auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
   LegacyAARGetter AARGetter(*this);
+  auto &ParoptConfig = getAnalysis<VPOParoptConfigWrapper>().getResult();
 #endif // INTEL_CUSTOMIZATION
 
   auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
@@ -108,6 +112,7 @@ bool VPOParopt::runOnModule(Module &M) {
 #if INTEL_CUSTOMIZATION
     WRI.setAliasAnlaysis(&AARGetter(F));
     WRI.setupAAWithOptLevel(OptLevel);
+    WRI.setVPOParoptConfig(&ParoptConfig);
 #endif // INTEL_CUSTOMIZATION
     return WRI;
   };
@@ -121,6 +126,9 @@ bool VPOParopt::runOnModule(Module &M) {
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
+#if INTEL_CUSTOMIZATION
+  auto &ParoptConfig = AM.getResult<VPOParoptConfigAnalysis>(M);
+#endif // INTEL_CUSTOMIZATION
   auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -132,6 +140,9 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
     WRI.setTargetTransformInfo(&TTI);
     WRI.setAssumptionCache(&AC);
     WRI.setTargetLibraryInfo(&TLI);
+#if INTEL_CUSTOMIZATION
+    WRI.setVPOParoptConfig(&ParoptConfig);
+#endif // INTEL_CUSTOMIZATION
     return WRI;
   };
 

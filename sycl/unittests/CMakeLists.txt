@@ -9,7 +9,7 @@ endforeach()
 
 include(AddSYCLUnitTest)
 
-add_subdirectory(get_native_interop)
+add_subdirectory(allowlist)
 add_subdirectory(misc)
 add_subdirectory(pi)
 # INTEL_CUSTOMIZATION
@@ -19,4 +19,6 @@ endif()
 # end INTEL_CUSTOMIZATION
 add_subdirectory(queue)
 add_subdirectory(scheduler)
+add_subdirectory(SYCL2020)
 add_subdirectory(thread_safety)
+add_subdirectory(program_manager)

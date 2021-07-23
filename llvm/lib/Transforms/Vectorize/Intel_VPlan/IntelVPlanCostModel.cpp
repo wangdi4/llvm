@@ -38,16 +38,6 @@ static unsigned getMemInstAlignment(const Value *I) {
   return cast<StoreInst>(I)->getAlignment();
 }
 
-/// A helper function that returns the address space of the pointer operand of
-/// load or store instruction.
-static unsigned getMemInstAddressSpace(const Value *I) {
-  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
-         "Expected Load or Store instruction");
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerAddressSpace();
-  return cast<StoreInst>(I)->getPointerAddressSpace();
-}
-
 #if INTEL_CUSTOMIZATION
 static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
   const HLInst *HLInstruction = cast<HLInst>(Node);
@@ -65,11 +55,13 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
     VectorType *VecTy = FixedVectorType::get(ElemType, VF);
-    return TTI.getMemoryOpCost(
-        isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
-        // FIXME: Next values are not used in getMemoryOpCost(), however
-        // that can change later.
-        Align() /* Alignment */, 0 /* AddressSpace */);
+    return *TTI.getMemoryOpCost(
+                   isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load,
+                   VecTy,
+                   // FIXME: Next values are not used in getMemoryOpCost(),
+                   // however that can change later.
+                   Align() /* Alignment */, 0 /* AddressSpace */)
+                .getValue();
   }
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
     SmallVector<int, 16> Mask;
@@ -94,64 +86,38 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
       VPMemref->getInstruction()->getOpcode() != Instruction::Store
           ? Instruction::Load
           : Instruction::Store;
-  return TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0);
+  return *TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0).getValue();
 }
 #endif // INTEL_CUSTOMIZATION
-
-Type *VPlanTTICostModel::getMemInstValueType(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-  return Opcode == Instruction::Load ?
-    VPInst->getType() : VPInst->getOperand(0)->getType();
-}
-
-unsigned VPlanTTICostModel::getMemInstAddressSpace(
-  const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-
-  // TODO: getType() working without underlying Inst - seems we can return
-  // address space too.
-
-  if (const Value *Val = VPInst->getUnderlyingValue())
-    return ::getMemInstAddressSpace(Val);
-
-#if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR().isMaster())
-    return 0; // CHECKME: Is that correct?
-  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
-    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
-      return ::getMemInstAddressSpace(Inst);
-
-    // Handle cases such as a[i] = b + c, the store to a[i] will be the master
-    // VPInst. However, Inst will be an add instruction.
-    const RegDDRef *LvalRef = DDNode->getLvalDDRef();
-    if (LvalRef && LvalRef->isMemRef())
-      return LvalRef->getPointerAddressSpace();
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  return 0; // CHECKME: Is that correct?
-}
 
 unsigned
-VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
+  // getMemInstAlignment is invoked from getLoadStoreCost() when no Alignment
+  // is passed to getLoadStoreCost(), which means getLoadStoreCost() is invoked
+  // during getCost() pass though every Instruction. In such scenario
+  // DefaultPeelingVariant is expected to be set.
+  assert(DefaultPeelingVariant && "PeelingVariant is not set.");
+  bool NegativeStride = false;
+  if (isUnitStrideLoadStore(LoadStore, NegativeStride)) {
+    // VPAA method takes alignment from IR as a base.
+    // Alignment computed by VPAA in most cases is not guaranteed if we skip
+    // the peel loop at runtime.
+    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant)
+        .value();
+  }
 
-  // TODO: getType() working without underlying Inst - seems we can return
-  // alignment too.
+  // TODO:
+  // Whole code below this line is expected to be replaced with call
+  //   return VPAA.getAlignment(*LS).value();
+  // once VPAA.getAlignment is ready.
 
-  if (const Instruction *Inst = VPInst->getInstruction())
+  if (const Instruction *Inst = LoadStore->getInstruction())
     if (unsigned Align = ::getMemInstAlignment(Inst))
       return Align;
 
 #if INTEL_CUSTOMIZATION
-  if (VPInst->HIR().isMaster()) {
-    const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
+  if (LoadStore->HIR().isMaster()) {
+    const HLDDNode *DDNode = cast<HLDDNode>(LoadStore->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
       if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
         if (unsigned Align = ::getMemInstAlignment(Inst))
@@ -171,23 +137,21 @@ VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
+  return DL->getABITypeAlignment(LoadStore->getValueType());
 }
 
-bool VPlanTTICostModel::isUnitStrideLoadStore(const VPInstruction *VPInst,
+bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
-  const VPValue *P = getLoadStorePointerOperand(VPInst);
-  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
-      ->isUnitStridePtr(P, NegativeStride);
+  return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
+                                             LoadStore->getValueType(),
+                                             NegativeStride);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreIndexSize(
-  const VPInstruction *VPInst) const {
-  assert((VPInst->getOpcode() == Instruction::Load ||
-          VPInst->getOpcode() == Instruction::Store) &&
-         "Expect 'VPInst' to be either a LoadInst or a StoreInst");
+  const VPLoadStoreInst *LoadStore) const {
 
-  const VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  const VPValue *Ptr = LoadStore->getPointerOperand();
+  const VPInstruction *VPInst;
   // Skip all NOP BitCasts/AddrSpaceCasts on the way to GEP.
   while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
          (VPInst->getOpcode() == Instruction::BitCast ||
@@ -299,31 +263,19 @@ unsigned VPlanTTICostModel::getArithmeticInstructionCost(const unsigned Opcode,
     TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
-unsigned VPlanTTICostModel::getLoadStoreCost(const VPInstruction *VPInst,
+unsigned VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
                                              unsigned VF) {
-  unsigned Alignment = getMemInstAlignment(VPInst);
-  return getLoadStoreCost(VPInst, Align(Alignment), VF);
+  unsigned Alignment = getMemInstAlignment(LoadStore);
+  return getLoadStoreCost(LoadStore, Align(Alignment), VF);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreCost(
-  const VPInstruction *VPInst, Align Alignment, unsigned VF) {
-  assert(VPInst &&
-         ((VPInst->getOpcode() == Instruction::Load) ||
-         (VPInst->getOpcode() == Instruction::Store)) &&
-         "Expect Load or Store operation!");
-  Type *OpTy = getMemInstValueType(VPInst);
-  assert(OpTy && "Can't get type of the load/store instruction!");
-
-  unsigned Opcode = VPInst->getOpcode();
-  unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-  Type *VecTy;
-  unsigned Scale;
-
+  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as
   // predication.
-  bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
+  bool IsMasked = (VF > 1) && (LoadStore->getParent()->getPredicate() != nullptr);
 
   // Aggregates are serialized.  If we see an aggregate type we set Scale to VF
   // and substitude VecTy with base aggregate type.
@@ -331,6 +283,10 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
   // TODO:
   // ScalarCost * VF is Zero order approximation of scalarization for aggregate
   // types.  Yet to be tuned further.
+  Type *VecTy;
+  unsigned Scale;
+
+  Type *OpTy = LoadStore->getValueType();
   if (isVectorizableTy(OpTy)) {
     Scale = 1;
     VecTy = getWidenedType(OpTy, VF);
@@ -340,13 +296,17 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
     VecTy = OpTy;
   }
 
+  unsigned Opcode = LoadStore->getOpcode();
+  unsigned AddrSpace = LoadStore->getPointerAddressSpace();
+
   // Call get[Masked]MemoryOpCost() for the following cases.
   // 1. VF = 1 VPlan even for vector OpTy.
   // 2. Unit stride load/store.
   // 3. Aggregate OpTy (they enter this code though Scale > 1 check of VF == 1
   //    check).
   bool NegativeStride = false;
-  if (VF == 1 || Scale > 1 || isUnitStrideLoadStore(VPInst, NegativeStride)) {
+  if (VF == 1 || Scale > 1 ||
+      isUnitStrideLoadStore(LoadStore, NegativeStride)) {
     unsigned Cost = 0;
 
     // For negative stride we need to reverse elements in the vector after load
@@ -373,7 +333,7 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
   // Currently TTI doesn't add cost of index split and data join in case
   // gather/scatter operation is implemented with two HW gathers/scatters.
   return VPTTI.getGatherScatterOpCost(
-    Opcode, VecTy, getLoadStoreIndexSize(VPInst),
+    Opcode, VecTy, getLoadStoreIndexSize(LoadStore),
     IsMasked, Alignment.value(), AddrSpace);
 }
 
@@ -534,23 +494,6 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
     TTI::TCK_RecipThroughput);
 }
 
-unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
-  // For unit stride loads and stores account for selected peeling variant.
-  bool NegativeStride = false;
-  if (DefaultPeelingVariant && isUnitStrideLoadStore(VPInst, NegativeStride)) {
-    auto *LS = cast<VPLoadStoreInst>(VPInst);
-    // VPAA method takes alignment from IR as a base.
-    // Alignment computed by VPAA in most cases is not guaranteed if we skip
-    // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LS, *DefaultPeelingVariant).value();
-  }
-  return VPlanTTICostModel::getMemInstAlignment(VPInst);
-}
-
-unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
-  return VPlanTTICostModel::getTTICost(VPInst);
-}
-
 unsigned VPlanTTICostModel::getTTICost(const VPInstruction *VPInst) {
   return getTTICostForVF(VPInst, VF);
 }
@@ -628,7 +571,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst, VF);
+    return getLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
@@ -753,118 +696,85 @@ unsigned VPlanTTICostModel::getTTICostForVF(
 
     return getIntrinsicInstrCost(ID, VPCall, VF);
   }
+  case VPInstruction::ConflictInsn: {
+    // TODO:
+    // The code calculating the cost of Conflict HW instruction is temporarily
+    // is in VPlan cost model. Long term plan is to establish llvm intrinsic
+    // corresponding to the instruction and delegate cost calculation of the
+    // intrinsic to TTI module.
+    //
+    // For time being and for consistency we take uops number of vpconflictd/q
+    // instruction, which are:
+    // VPCONFLICTD xmm, xmm 15 (VF = 4)
+    // VPCONFLICTD ymm, ymm 22 (VF = 8)
+    // VPCONFLICTD zmm, zmm 37 (VF = 16)
+    // VPCONFLICTQ xmm, xmm 3  (VF = 2)
+    // VPCONFLICTQ ymm, ymm 15 (VF = 4)
+    // VPCONFLICTQ zmm, zmm 22 (VF = 8)
+    //
+    // VF = 1 might be seen if we make cost estimation for scalar VPlan late
+    // enough so Conflict idiom is recognized and lowered already. Thereby
+    // return 0 for VF = 1 for now. The long term plan is either to move Scalar
+    // VPlan cost calculation earlier, before vector specific transformations
+    // happen or clone and keep Scalar VPlan separately from other VPlans.
+    if (VF == 1)
+      return 0;
+
+    // Check for unsupported by CG cases and return high cost if the case is
+    // unsupported to impede the vectorization.
+    // CM doesn't have machinery to disable the vectorization and VF can be
+    // enforced with a knob. 'High cost' approach is tolerated as a temporal
+    // solution.
+    if (cast<VPConflictInsn>(VPInst)->getConflictIntrinsic(VF) ==
+        Intrinsic::not_intrinsic)
+      return VPlanTTIWrapper::Multiplier * 1000;
+
+    const Type *Ty = VPInst->getOperand(0)->getType();
+    assert(dyn_cast<VectorType>(Ty) == nullptr &&
+           "revectorization of ConflictInst is not supported.");
+
+    unsigned NumberOfElements = VF;
+    unsigned ElementSizeBits = Ty->getPrimitiveSizeInBits();
+
+    assert((ElementSizeBits == 32 || ElementSizeBits == 64) &&
+           "Unsupported element size for VPCONFLICT.");
+
+    if (ElementSizeBits == 32)
+      switch (NumberOfElements) {
+      // VF = 2 for 32-bit element type can be implemented with
+      // 4 elements VPCONFLICTD.
+      case 2:
+      case 4:
+        return VPlanTTIWrapper::Multiplier * 15;
+      case 8:
+        return VPlanTTIWrapper::Multiplier * 22;
+      case 16:
+        return VPlanTTIWrapper::Multiplier * 37;
+      case 32:
+        return VPlanTTIWrapper::Multiplier * 37 * 2;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTD.");
+      }
+    else
+      switch (NumberOfElements) {
+      case 2:
+        return VPlanTTIWrapper::Multiplier * 3;
+      case 4:
+        return VPlanTTIWrapper::Multiplier * 15;
+      case 8:
+        return VPlanTTIWrapper::Multiplier * 22;
+      case 16:
+        return VPlanTTIWrapper::Multiplier * 22 * 2;
+      case 32:
+        return VPlanTTIWrapper::Multiplier * 22 * 4;
+      default:
+        llvm_unreachable("Unsupported number of elements for VPCONFLICTQ.");
+      }
+
+    llvm_unreachable("Unreachable code during VPCONFLICT handling.");
+  }
   }
 }
-
-unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
-  unsigned Cost = 0;
-  for (const VPInstruction &VPInst : *VPBB) {
-    unsigned InstCost = getCost(&VPInst);
-    if (InstCost == UnknownCost)
-      continue;
-    Cost += InstCost;
-  }
-
-  return Cost;
-}
-
-unsigned VPlanCostModel::getTTICost() {
-  unsigned Cost = 0;
-  for (auto *Block : depth_first(Plan->getEntryBlock()))
-    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
-    // correctly scale the cost of the basic block.
-    Cost += getCost(Block);
-
-  return Cost;
-}
-
-// Get VPlan cost with specified peeling.
-unsigned VPlanCostModel::getCost(
-    VPlanPeelingVariant *PeelingVariant) {
-  VPlanStaticPeeling VPlanNoPeel(0);
-  // Assume no peeling if it is not specified.
-  SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
-      DefaultPeelingVariant,
-      PeelingVariant ? PeelingVariant : &VPlanNoPeel);
-  unsigned TTICost = getTTICost();
-  return applyHeuristics(TTICost);
-}
-
-unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
-                                           const VPBasicBlock *End) {
-  unsigned Cost = 0;
-  for (auto *Block : sese_depth_first(Begin, End))
-    Cost += getCost(Block);
-  return Cost;
-}
-
-unsigned VPlanCostModel::applyHeuristics(unsigned TTICost) {
-  assert(TTICost != UnknownCost &&
-         "Heuristics do not expect UnknownCost on input.");
-  unsigned Cost = TTICost;
-  applyHeuristicsPipeline(TTICost, Cost, Plan);
-  return Cost;
-}
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-std::string VPlanCostModel::getAttrString(const VPInstruction *VPInst) const {
-  return "";
-}
-
-void VPlanCostModel::printForVPInstruction(
-  raw_ostream &OS, const VPInstruction *VPInst) {
-  OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
-  VPInst->printWithoutAnalyses(OS);
-
-  dumpHeuristicsPipeline(OS, VPInst);
-  OS << getAttrString(VPInst) << '\n';
-}
-
-void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
-                                          const VPBasicBlock *VPBB) {
-  // BaseCost is sum of all VPInstructions cost within this block with
-  // all VPInstruction scope heuristics applied.
-  unsigned BaseCost = getCost(VPBB);
-  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
-    getCostNumberString(BaseCost) << '\n';
-
-  dumpHeuristicsPipeline(OS, VPBB);
-
-  for (const VPInstruction &VPInst : *VPBB)
-    printForVPInstruction(OS, &VPInst);
-}
-
-void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
-  unsigned Cost = getCost();
-  OS << "Cost Model for VPlan " << getHeaderPrefix() << Header << " with VF = "
-     << VF << ":\n";
-  OS << "Total Cost: " << Cost << '\n';
-
-  // TODO: we might want to merge 'print' routines with corresponding 'getCost'
-  // routines eventually.
-  unsigned TTICost = getTTICost();
-  if (TTICost != Cost)
-    OS << "Base Cost: " << TTICost << '\n';
-
-  Cost = TTICost;
-  // Temporal solution is to reapply the heursitics pipeline with debug OS
-  // enabled.  Eventually we will call getCost() interface with OS specified
-  // and pass it to the heuristics pipeline.
-  //
-  // print() won't exist in that scheme.  Neither dumpHeuristicsPipeline will.
-  // Heuristics dump() methods will be invoked from CM::applyHeuristics method.
-  applyHeuristicsPipeline(TTICost, Cost, Plan, &OS);
-  dumpHeuristicsPipeline(OS, Plan);
-
-  LLVM_DEBUG(dbgs() << *Plan;);
-
-  // TODO: match print order with "vector execution order".
-  for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
-    printForVPBasicBlock(OS, Block);
-
-  OS << '\n';
-}
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace vpo
 

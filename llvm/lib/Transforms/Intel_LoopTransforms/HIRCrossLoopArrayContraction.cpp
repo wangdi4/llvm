@@ -26,9 +26,12 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "HIRArrayScalarization.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+
+#include "HIRArrayScalarization.h"
 
 #define OPT_SWITCH "hir-cross-loop-array-contraction"
 #define OPT_DESC "HIR Cross-Loop Array Contraction"
@@ -43,17 +46,21 @@ STATISTIC(HIRLoopsWithArrayContraction,
 STATISTIC(HIRArrayRefsContracted,
           "Number of unique HIR array reference(s) contracted");
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<bool> DisablePostProcessing(
+    "disable-" OPT_SWITCH "-post-processing", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " post-processing step"));
 
 static cl::opt<unsigned> MinMemRefNumDimension(
     OPT_SWITCH "-min-memref-num-dimension", cl::init(5), cl::Hidden,
     cl::desc(OPT_DESC " Minimal MemRef Number of Dimensions"));
 
-static cl::opt<bool> PerformIdentitySubstitution(
-    OPT_SWITCH "-identity-substitution", cl::init(false), cl::Hidden,
-    cl::desc("Enables identity substitution in " OPT_DESC " pass"));
+static cl::opt<unsigned> NumPostProcSteps(
+    OPT_SWITCH "-num-postprocessors", cl::init(5), cl::Hidden,
+    cl::desc("Number of post-processors to run in " OPT_DESC " pass"));
 
 namespace {
 
@@ -93,63 +100,17 @@ FunctionPass *llvm::createHIRCrossLoopArrayContractionLegacyPass() {
   return new HIRCrossLoopArrayContractionLegacyPass();
 }
 
-template <typename T> class HLVariant {
-  T *OriginalNode;
-  T *OptimizedNode;
-
-  // Contains operations executed at the end of the transformation.
-  // Note: this is used to completely unroll the inner loops and do the scalar
-  // replacement.
-  SmallVector<std::function<bool(T *)>> PostProcessors;
-
-public:
-  HLVariant(T *Node) : OriginalNode(Node->clone()), OptimizedNode(Node) {}
-
-  HLVariant(const HLVariant &) = delete;
-
-  HLVariant(HLVariant &&Var)
-      : OriginalNode(Var.OriginalNode), OptimizedNode(Var.OptimizedNode),
-        PostProcessors(std::move(Var.PostProcessors)) {
-    Var.commit();
-  }
-
-  bool runPostProcessors() {
-    for (auto &Func : PostProcessors) {
-      if (!Func(OptimizedNode)) {
-        return false;
-      }
-    }
-
-    PostProcessors.clear();
-    return true;
-  }
-
-  void commit() {
-    assert(PostProcessors.empty() && "There are post-processors not run.");
-    OriginalNode = nullptr;
-  }
-
-  ~HLVariant() {
-    if (OriginalNode) {
-      HLNodeUtils::replace(OptimizedNode, OriginalNode);
-    }
-  }
-
-  T *getOriginal() const { return OriginalNode; }
-  T *getOptimized() const { return OptimizedNode; }
-
-  void addPostProcessor(std::function<bool(T *)> Func) {
-    PostProcessors.push_back(std::move(Func));
-  }
-};
-
 class HIRCrossLoopArrayContraction {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRArraySectionAnalysis &ASA;
   HIRLoopStatistics &HLS;
 
-  SmallVector<HLVariant<HLLoop>, 4> Optimizations;
+  // Set of loops which we will run PostProcessors on.
+  SmallPtrSet<HLLoop *, 4> PostProcLoops;
+
+  // Contains operations executed at the end of the transformation.
+  SmallVector<std::function<void(HLLoop *)>> PostProcessors;
 
 public:
   HIRCrossLoopArrayContraction(HIRFramework &HIRF, HIRDDAnalysis &DDA,
@@ -160,31 +121,133 @@ public:
   bool run();
 
 private:
-  bool mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels);
+  void mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
+                  const SmallSet<unsigned, 6> &MappedTempBlobSBs);
   bool runOnRegion(HLRegion &Reg);
 
   // Contract relevant memref(s) from a given loop, using the provided
   // symbase(s) and number of continuous dimensions contracted.
-  bool contractMemRefs(HLLoop *DefLp, HLLoop *UseLp,
+  void contractMemRefs(HLLoop *DefLp, HLLoop *UseLp,
                        const SparseBitVector<> &CommonBases,
                        const unsigned NumDimsContracted, HLRegion &Reg,
                        unsigned UseRefMappedDim,
                        const CanonExpr *UseRefMappedCE,
-                       SmallSet<unsigned, 4> &AfterContractSBS,
+                       SmallSet<unsigned, 8> &AfterContractSBS,
                        unsigned &NumRefsContracted);
 
-  HLVariant<HLLoop> &addOptimized(HLLoop *Loop);
-};
+  void addPostProcCand(HLLoop *Loop);
 
-HLVariant<HLLoop> &HIRCrossLoopArrayContraction::addOptimized(HLLoop *Loop) {
-  for (auto &Var : Optimizations) {
-    if (Var.getOptimized() == Loop) {
-      return Var;
-    }
+  void addPostProcessor(std::function<void(HLLoop *)> Func) {
+    PostProcessors.push_back(std::move(Func));
   }
 
-  Optimizations.push_back(Loop);
-  return Optimizations.back();
+  void runPostProcessors(SmallSet<unsigned, 8> &ContractedBases,
+                         const RegDDRef *IdentityRef);
+};
+
+void HIRCrossLoopArrayContraction::addPostProcCand(HLLoop *Loop) {
+  if (!PostProcLoops.count(Loop)) {
+    LLVM_DEBUG(dbgs() << "[OPT] Adding new loop: " << Loop->getNumber()
+                      << "\n");
+    PostProcLoops.insert(Loop);
+  }
+}
+
+void HIRCrossLoopArrayContraction::runPostProcessors(
+    SmallSet<unsigned, 8> &ContractedBases, const RegDDRef *IdentityRef) {
+
+  LLVM_DEBUG(dbgs() << "[PostProc] PostProc num loops: " << PostProcLoops.size()
+                    << "\n";);
+
+  if (PostProcLoops.empty()) {
+    return;
+  }
+
+  // Register postprocessors here
+  // Func for Complete Unroll
+  addPostProcessor([](HLLoop *Loop) {
+    ForPostEach<HLLoop>::visit(Loop, [](HLLoop *Loop) {
+      uint64_t TC;
+      if (Loop->isConstTripLoop(&TC) && TC <= 5 && Loop->isInnermost()) {
+        LLVM_DEBUG(dbgs() << "[PostProc] Complete Unrolling called on Loop "
+                          << Loop->getNumber() << "\n";
+                   Loop->dump(); dbgs() << "\n";);
+        HIRTransformUtils::completeUnroll(Loop);
+      }
+    });
+  });
+
+  addPostProcessor([&ContractedBases](HLLoop *Loop) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Scalar Replacement on Loop "
+                      << Loop->getNumber() << "\n";
+               Loop->dump(); dbgs() << "\n";);
+    HIRTransformUtils::doArrayScalarization(Loop, ContractedBases);
+  });
+
+  // Func for identity matrix substitution
+  if (IdentityRef) {
+    addPostProcessor([IdentityRef](HLLoop *Loop) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Identity Substitution run on Loop "
+                        << Loop->getNumber() << "\n";
+                 Loop->dump(); dbgs() << "\n";);
+      HIRTransformUtils::doIdentityMatrixSubstitution(Loop, IdentityRef);
+    });
+
+    // Func for Constant Propagation
+    addPostProcessor([](HLLoop *Loop) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Constant Propagation run on Loop "
+                        << Loop->getNumber() << "\n";
+                 Loop->dump(); dbgs() << "\n";);
+
+#if INTEL_FEATURE_SW_DTRANS
+      HIRTransformUtils::doConstantPropagation(Loop, nullptr);
+#else // INTEL_FEATURE_SW_DTRANS
+      HIRTransformUtils::doConstantPropagation(Loop);
+#endif // INTEL_FEATURE_SW_DTRANS
+    });
+  }
+
+  // Func for Removing Redundant Nodes
+  addPostProcessor([](HLLoop *Loop) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Removing Redundant Nodes on Loop "
+                      << Loop->getNumber() << "\n";
+               Loop->dump(); dbgs() << "\n";);
+    HLNodeUtils::removeRedundantNodes(Loop);
+  });
+
+  unsigned Step = 1;
+
+  if (DisablePostProcessing) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Disabled due to the compiler option!\n");
+    PostProcessors.clear();
+  }
+
+  for (auto &Func : PostProcessors) {
+    if (Step > NumPostProcSteps) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Skipping due to the compiler option!\n");
+      break;
+    }
+
+    LLVM_DEBUG(dbgs() << "[PostProc] Running Step #" << Step << "!\n");
+
+    for (auto Lp : PostProcLoops) {
+      if (Lp->isAttached()) {
+        Func(Lp);
+        LLVM_DEBUG(Lp->dump(); dbgs() << "\n\t--------------\n");
+      }
+    }
+
+    LLVM_DEBUG(dbgs() << "[PostProc] After Step #" << Step
+                      << "!\n\t--------------\n");
+
+    ++Step;
+  }
+
+  PostProcessors.clear();
+}
+
+static void markLoopasArrayContracted(HLLoop *Loop) {
+  Loop->addInt32LoopMetadata(EnableSpecialLoopInterchangeMetaName, 1);
 }
 
 bool HIRCrossLoopArrayContraction::run() {
@@ -195,7 +258,10 @@ bool HIRCrossLoopArrayContraction::run() {
   return Modified;
 }
 
-static unsigned getRefMinLevel(const RegDDRef *Ref) {
+// Returns outermost parent loop of ref which can be used as a candidate for
+// contraction. Returns null if an appropriate candidate loop cannot be found.
+static HLLoop *getCandidateParentLoop(const RegDDRef *Ref,
+                                      unsigned &MinLoopTopSortNum) {
   unsigned MinLevel = NonLinearLevel;
 
   for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
@@ -211,7 +277,16 @@ static unsigned getRefMinLevel(const RegDDRef *Ref) {
     MinLevel = std::min(DefLevel, MinLevel);
   }
 
-  return MinLevel;
+  HLLoop *ParentLoop = Ref->getHLDDNode()->getParentLoopAtLevel(MinLevel);
+
+  // Do not go lexically before the previous ref's loop candidate. This can
+  // cause stability issues as use loops may not be tracked correctly.
+  if (ParentLoop->getTopSortNum() < MinLoopTopSortNum) {
+    return nullptr;
+  }
+
+  MinLoopTopSortNum = ParentLoop->getTopSortNum();
+  return ParentLoop;
 }
 
 struct TopSortComparator {
@@ -275,31 +350,142 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
   return true;
 }
 
+// Returns false if \p Lp has any control-flow or side effects.
+static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
+                                        HIRLoopStatistics &HLS) {
+  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+
+  if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
+      LoopStats.hasForwardGotos() || LoopStats.hasCalls()) {
+    return true;
+  }
+
+  return false;
+}
+
+// Returns true if there exists alloca accessed by def loop that is killed
+// before the use loop, e.g.:
+//
+// Invalid for forward sub:
+//
+// stacksave %t1
+// DefLp
+// stackrestore %t1
+// UseLp
+//
+// However, if there are pairs of stack save/restores between Def and Use
+// we can ignore such pairs, e.g.:
+//
+// DefLp
+// stacksave %t1
+// DefLp2
+// ...
+// stackrestore %t1
+// UseLp
+static bool crossesAllocaRange(HLLoop *DefLp, HLLoop *UseLp,
+                               SmallVector<const HLInst *, 8> &StackCalls) {
+
+  unsigned DefLpTopSortNum = DefLp->getTopSortNum();
+  unsigned UseLpTopSortNum = UseLp->getTopSortNum();
+
+  SmallSet<unsigned, 4> StackTracker;
+
+  // Iterate in reverse
+  for (const auto &StackCall :
+       make_range(StackCalls.rbegin(), StackCalls.rend())) {
+    // No need to check for calls after UseLp or before DefLp
+    if (StackCall->getTopSortNum() > UseLpTopSortNum) {
+      continue;
+    }
+
+    if (StackCall->getTopSortNum() < DefLpTopSortNum) {
+      break;
+    }
+
+    unsigned Id;
+    if (StackCall->isIntrinCall(Id)) {
+      if (Id == Intrinsic::stacksave) {
+        StackTracker.erase(StackCall->getLvalDDRef()->getSymbase());
+      } else if (Id == Intrinsic::stackrestore) {
+        StackTracker.insert(StackCall->getOperandDDRef(0)->getBasePtrSymbase());
+      } else {
+        llvm_unreachable("Only expect stack save/restores!\n");
+      }
+    }
+  }
+
+  return !StackTracker.empty();
+}
+
+struct UnsafeCallsCollector : HLNodeVisitorBase {
+  HIRLoopStatistics &HLS;
+  SmallVector<const HLInst *, 8> &UnsafeCalls;
+  SmallVector<const HLInst *, 8> &StackCalls;
+
+  UnsafeCallsCollector(HIRLoopStatistics &HLS,
+                       SmallVector<const HLInst *, 8> &UnsafeCalls,
+                       SmallVector<const HLInst *, 8> &StackCalls)
+      : HLS(HLS), UnsafeCalls(UnsafeCalls), StackCalls(StackCalls) {}
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+  void visit(const HLLoop *Loop) {}
+
+  void visit(const HLInst *Inst) {
+    unsigned Id;
+    // Track stack save/restore to resolve invalid forward substitutions
+    if (Inst->isIntrinCall(Id) &&
+        (Id == Intrinsic::stacksave || Id == Intrinsic::stackrestore)) {
+      StackCalls.push_back(Inst);
+    }
+
+    // Track calls that would invalidate forward substitution. For now, these
+    // only include calls that mayThrow().
+    if (auto *CallInst = Inst->getCallInst()) {
+      if (CallInst->mayThrow()) {
+        UnsafeCalls.push_back(Inst);
+      }
+    }
+  }
+};
+
+static void getAllUnsafeCalls(HIRLoopStatistics &HLS, HLNode *Node,
+                              SmallVector<const HLInst *, 8> &UnsafeCalls,
+                              SmallVector<const HLInst *, 8> &StackCalls) {
+  UnsafeCallsCollector USC(HLS, UnsafeCalls, StackCalls);
+  HLNodeUtils::visit(USC, Node);
+  LLVM_DEBUG(
+      dbgs() << "Unsafe calls found:\n"; for (auto N
+                                              : UnsafeCalls) {
+        N->dump();
+        dbgs() << "\n";
+      } dbgs() << "Stack calls found:\n";
+      for (auto N
+           : StackCalls) {
+        N->dump(1);
+        dbgs() << "\n";
+      });
+}
+
 static unsigned computeDependencyMaxTopSortNumber(
-    DDGraph &DDG, const HLLoop *Loop,
-    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
+    SmallVector<const HLInst *, 8> &UnsafeCalls, DDGraph &DDG,
+    const HLLoop *DefLoop, const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
     SparseBitVector<> &OutUsesByNonCandidates) {
   assert(llvm::all_of(CandidateRefs,
                       [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
          "Only MemRefs are expected in CandidateRefs");
 
+  unsigned LoopMaxTopSortNumber = DefLoop->getMaxTopSortNum();
+
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
-  Gatherer::gather(Loop, Refs);
-  LLVM_DEBUG({
-    dbgs() << "Refs:<" << Refs.size() << ">\n";
-    unsigned Count = 0;
-    for (auto Ref : Refs) {
-      dbgs() << Count++ << ": ";
-      Ref->dump();
-      dbgs() << "\t";
-    }
-    dbgs() << "\n";
-  });
+  Gatherer::gather(DefLoop, Refs);
 
   unsigned MaxTopSortNumber = std::numeric_limits<unsigned>::max();
-  unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
-  unsigned LoopLevel = Loop->getNestingLevel();
+  unsigned LoopLevel = DefLoop->getNestingLevel();
+
+  // TODO: Bail out on def loops with loop-carried dependences as IV mapping may
+  // not be legal.
 
   for (auto *Ref : Refs) {
     bool SrcIsCandidate = CandidateRefs.count(dyn_cast<RegDDRef>(Ref));
@@ -346,15 +532,61 @@ static unsigned computeDependencyMaxTopSortNumber(
         continue;
       }
 
+      LLVM_DEBUG(dbgs() << "Limit reduced by: "; SinkNode->dump();
+                 dbgs() << "\n");
       MaxTopSortNumber = std::min(MaxTopSortNumber, TopSortNumber);
     }
+  }
+
+  // We cannot forward substitute any loops past an unsafe call
+  for (const auto UnsafeNode : UnsafeCalls) {
+    unsigned UnsafeTopSortNum = UnsafeNode->getTopSortNum();
+    if (UnsafeTopSortNum <= LoopMaxTopSortNumber ||
+        UnsafeTopSortNum >= MaxTopSortNumber) {
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Limit reduced by: "; UnsafeNode->dump();
+               dbgs() << "\n");
+    MaxTopSortNumber = std::min(MaxTopSortNumber, UnsafeTopSortNum);
   }
 
   return MaxTopSortNumber;
 }
 
-bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
-                                              unsigned Levels) {
+static void collectMappedDefs(HLContainerTy::iterator Begin,
+                              HLContainerTy::iterator End,
+                              const SmallSet<unsigned, 6> &MappedTempBlobSBs,
+                              SmallSet<HLInst *, 6> &MappedTempDefs) {
+
+  for (auto I = Begin; I != End; ++I) {
+    auto *Inst = dyn_cast<HLInst>(&*I);
+
+    if (!Inst) {
+      continue;
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+    if (LvalRef && MappedTempBlobSBs.count(LvalRef->getSymbase())) {
+      MappedTempDefs.insert(Inst);
+    }
+  }
+}
+
+static void moveMappedDefs(HLLoop *UseLoop,
+                           const SmallSet<HLInst *, 6> &MappedTempDefs) {
+  for (auto *MappedTempDef : MappedTempDefs) {
+    auto *FirstChild =
+        HLNodeUtils::getFirstLexicalChild(UseLoop, MappedTempDef);
+    if (FirstChild != MappedTempDef) {
+      HLNodeUtils::moveBefore(FirstChild, MappedTempDef);
+    }
+  }
+}
+
+void HIRCrossLoopArrayContraction::mergeLoops(
+    HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
+    const SmallSet<unsigned, 6> &MappedTempBlobSBs) {
   assert(Levels > 0 && "Merging zero loops is undefined");
 
   auto FindFirstNonInstr = [](HLLoop::child_iterator Begin,
@@ -367,6 +599,14 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
 
     return End;
   };
+
+  // Collect temp defs in the use which need to be moved to the beginning while
+  // merging.
+  SmallSet<HLInst *, 6> MappedTempDefs;
+  collectMappedDefs(UseLoop->pre_begin(), UseLoop->pre_end(), MappedTempBlobSBs,
+                    MappedTempDefs);
+  collectMappedDefs(UseLoop->child_begin(), UseLoop->child_end(),
+                    MappedTempBlobSBs, MappedTempDefs);
 
   for (auto LiveInSB :
        make_range(DefLoop->live_in_begin(), DefLoop->live_in_end())) {
@@ -397,26 +637,28 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
     // Innermost loop case
     HLNodeUtils::moveAsFirstChildren(UseLoop, DefLoop->child_begin(),
                                      DefLoop->child_end());
-    return true;
+
+    // Move mapped definitions to the beginning so they can be used by def loop
+    // nodes.
+    moveMappedDefs(UseLoop, MappedTempDefs);
+    return;
   }
 
-  if (NoDefInnerLoop != NoUseInnerLoop) {
-    return false;
-  }
+  assert((NoDefInnerLoop == NoUseInnerLoop) &&
+         "Only one of def or use loop contains inner loop!");
 
   HLLoop *DefInnerLoop = dyn_cast<HLLoop>(&*DefInnerLoopI);
   HLLoop *UseInnerLoop = dyn_cast<HLLoop>(&*UseInnerLoopI);
 
-  if (!DefInnerLoop || !UseInnerLoop) {
-    return false;
-  }
+  assert(DefInnerLoop && UseInnerLoop &&
+         "Inner loop in both def and use loops expected!");
 
   // Check if there are non-instr nodes after the inner loop.
   if (FindFirstNonInstr(std::next(DefInnerLoopI), DefLoop->child_end()) !=
           DefLoop->child_end() ||
       FindFirstNonInstr(std::next(UseInnerLoopI), UseLoop->child_end()) !=
           UseLoop->child_end()) {
-    return false;
+    llvm_unreachable("Nodes after inner loop not handled!");
   }
 
   // Move nodes into the Use loop.
@@ -425,7 +667,11 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
   HLNodeUtils::moveAfter(UseInnerLoop, std::next(DefInnerLoopI),
                          DefLoop->child_end());
 
-  return mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1);
+  // Move mapped definitions to the beginning so they can be used by def loop
+  // nodes.
+  moveMappedDefs(UseLoop, MappedTempDefs);
+
+  mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1, MappedTempBlobSBs);
 }
 
 static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
@@ -493,7 +739,7 @@ computeNumDimsContracted(const ArraySectionInfo &DefInfo,
     auto *DefIndex = DefIndices.front();
 
     if (UseIndices.size() != 1) {
-      // Already mapped a dimension.
+      // We only handle one mapped dimension per def-use loop pair.
       if (!MappedDimInfo.empty()) {
         break;
       }
@@ -506,7 +752,12 @@ computeNumDimsContracted(const ArraySectionInfo &DefInfo,
       bool IsValidMapping = true;
       for (auto *UseIndex : UseIndices) {
         int64_t Dist;
-        if (!CanonExprUtils::getConstDistance(DefIndex, UseIndex, &Dist)) {
+        if (!CanonExprUtils::getConstDistance(DefIndex, UseIndex, &Dist) &&
+            // This means UseIndex does not contain any IVs but it can
+            // contains blobs and constant. This is the case that we want to
+            // handle. It also has the nice property that replaceIVByCanonExpr()
+            // will not fail for such CEs.
+            !UseIndex->canConvertToStandAloneBlobOrConstant()) {
           IsValidMapping = false;
           break;
         }
@@ -631,7 +882,6 @@ getDefUseBasesImpl(const ArraySectionAnalysisResult &ASAR,
       Output.set(BasePtr);
     }
   }
-  LLVM_DEBUG(dump(Output, dbgs()););
   return Output;
 }
 
@@ -678,10 +928,10 @@ static bool isArrayContractionCandidate(const RegDDRef *Ref) {
          Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
 }
 
-bool HIRCrossLoopArrayContraction::contractMemRefs(
+void HIRCrossLoopArrayContraction::contractMemRefs(
     HLLoop *DefLp, HLLoop *UseLp, const SparseBitVector<> &CommonBases,
     const unsigned NumDimsContracted, HLRegion &Reg, unsigned UseRefMappedDim,
-    const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 4> &AfterContractSBS,
+    const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 8> &AfterContractSBS,
     unsigned &NumRefsContracted) {
 
   LLVM_DEBUG({
@@ -772,7 +1022,8 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
               Ref, PreservedDims, ToContractDims, Reg, AfterContractRef)) {
         LLVM_DEBUG(dbgs() << "Fail to contract Ref:\t"; Ref->dump();
                    dbgs() << "\n";);
-        return false;
+
+        llvm_unreachable("Failed to contract ref!");
       }
 
       LLVM_DEBUG(dbgs() << "Array Contraction -- \tFrom: "; Ref->dump();
@@ -781,11 +1032,10 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
                         << "\n";);
 
       AfterContractSBS.insert(AfterContractRef->getSymbase());
-      ++NumRefsContracted;
     }
-  }
 
-  return true;
+    NumRefsContracted += Refs.size();
+  }
 }
 
 static void replaceIVByCE(HLLoop *Lp, unsigned IVLevel,
@@ -800,18 +1050,239 @@ static void replaceIVByCE(HLLoop *Lp, unsigned IVLevel,
     }
 
   } else {
-    llvm_unreachable("Unexpected IV replacement!");
-    /*
-    * TODO: Enable later.
-       ForEach<RegDDRef>::visit(Lp, [&](RegDDRef *Ref) {
+    SmallVector<unsigned, 1> TempBlob;
+    ReplaceCE->collectTempBlobIndices(TempBlob, false);
+    assert(TempBlob.size() == 1 && "Single temp blob expected!");
 
-         for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-           if (!replaceIVByCanonExpr(CE, IVLevel, ReplaceCE, false)) {
-             llvm_unreachable("CE merging failed");
-           }
-       });
-   */
+    auto &BU = Lp->getHLNodeUtils().getBlobUtils();
+    unsigned BlobIndex = TempBlob[0];
+    unsigned BlobLevel = ReplaceCE->getDefinedAtLevel();
+    unsigned BlobSymbase = BU.getTempBlobSymbase(BlobIndex);
+
+    ForEach<RegDDRef>::visit(Lp, [&](RegDDRef *Ref) {
+      bool BlobMerged = false;
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        if (!CE->hasIV(IVLevel)) {
+          continue;
+        }
+
+        if (!CanonExprUtils::replaceIVByCanonExpr(CE, IVLevel, ReplaceCE,
+                                                  false)) {
+          llvm_unreachable("CE merging failed");
+        }
+
+        BlobMerged = true;
+      }
+
+      if (BlobMerged) {
+        Ref->addBlobDDRef(BlobIndex, BlobLevel);
+        Ref->makeConsistent();
+
+        auto *ParLoop = Ref->getParentLoop();
+
+        while (ParLoop && ParLoop->getNestingLevel() > BlobLevel) {
+          ParLoop->addLiveInTemp(BlobSymbase);
+          ParLoop = ParLoop->getParentLoop();
+        }
+      }
+    });
   }
+}
+
+class TempRenamer final : public HLNodeVisitorBase {
+  unsigned MaxMergeLevel;
+  unsigned CurNestingLevel;
+  DenseMap<unsigned, unsigned> OldToNewBlobIndices;
+
+public:
+  TempRenamer(unsigned MaxMergeLevel, unsigned CurNestingLevel)
+      : MaxMergeLevel(MaxMergeLevel), CurNestingLevel(CurNestingLevel) {}
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLInst *Inst);
+  void visit(HLDDNode *Node);
+
+  void visit(HLLoop *Lp) {
+    CurNestingLevel++;
+
+    auto &BU = Lp->getHLNodeUtils().getBlobUtils();
+
+    // Replace livein temps.
+    for (auto IndexPair : OldToNewBlobIndices) {
+      unsigned OldSymbase = BU.getTempBlobSymbase(IndexPair.first);
+
+      if (Lp->isLiveIn(OldSymbase)) {
+        Lp->replaceLiveInTemp(OldSymbase,
+                              BU.getTempBlobSymbase(IndexPair.second));
+      }
+    }
+
+    visit(cast<HLDDNode>(Lp));
+  }
+
+  void postVisit(HLLoop *Lp) { CurNestingLevel--; }
+};
+
+void TempRenamer::visit(HLDDNode *Node) {
+
+  // Nothing to rename.
+  if (OldToNewBlobIndices.empty()) {
+    return;
+  }
+
+  for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    for (auto IndexPair : OldToNewBlobIndices) {
+      Ref->replaceTempBlob(IndexPair.first, IndexPair.second);
+    }
+  }
+}
+
+void TempRenamer::visit(HLInst *Inst) {
+  // Process uses in inst.
+  visit(cast<HLDDNode>(Inst));
+
+  // Create mapping for temp def, if needed.
+  if (CurNestingLevel <= MaxMergeLevel) {
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (LvalRef && LvalRef->isTerminalRef()) {
+      auto &BU = LvalRef->getDDRefUtils().getBlobUtils();
+
+      unsigned OldIndex = LvalRef->isSelfBlob()
+                              ? LvalRef->getSelfBlobIndex()
+                              : BU.findTempBlobIndex(LvalRef->getSymbase());
+
+      if (OldIndex != InvalidBlobIndex) {
+        auto &HNU = Inst->getHLNodeUtils();
+        unsigned NewIndex =
+            HNU.createTemp(LvalRef->getDestType())->getSelfBlobIndex();
+
+        // insert() will not overwrite existing temp mapping which is what we
+        // want for temps with multiple definitions.
+        auto Res =
+            OldToNewBlobIndices.insert(std::make_pair(OldIndex, NewIndex));
+
+        LvalRef->replaceTempBlob(OldIndex, Res.first->second);
+      }
+    }
+  }
+}
+
+static void renameTemps(HLLoop *DefLoop, unsigned MaxMergeLevel) {
+  // There could be instructions in the preheader of def loop so we start with
+  // level -1.
+  TempRenamer TR(MaxMergeLevel, DefLoop->getNestingLevel() - 1);
+
+  HLNodeUtils::visit(TR, DefLoop);
+}
+
+// Try to find the identity matrix in the innerloops of the region. The target
+// ref should be defined at the beginning of the region, and we can trace ref
+// uses later in the region. Legality is verified when no output edges exist
+// besides the defloop.
+static const RegDDRef *findIdentityMatrixDef(HLRegion &Region, DDGraph &DDG,
+                                             HIRLoopStatistics &HLS) {
+
+  SmallVector<HLLoop *, 64> InnermostLoops;
+  Region.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Region);
+
+  SmallVector<const RegDDRef *, 2> Identity;
+  for (auto &Lp : InnermostLoops) {
+    HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, Identity);
+    if (!Identity.empty()) {
+      LLVM_DEBUG(dbgs() << Lp->getNumber()
+                        << ": Loop was found containing identity matrix - SB = "
+                        << Identity.front()->getSymbase() << "!\n ");
+      break;
+    }
+  }
+
+  if (Identity.empty()) {
+    return nullptr;
+  }
+
+  // Check legality for identity matrix substitution
+  bool LegalToSubIdent = true;
+  auto *IdentDiagRef = Identity.front();
+
+  for (auto &Edge : DDG.outgoing(IdentDiagRef)) {
+    HLNode *SinkNode = Edge->getSink()->getHLDDNode();
+
+    if (isPassedToMetadataIntrinsic(cast<RegDDRef>(Edge->getSink()))) {
+      continue;
+    }
+
+    if (Edge->isOutput()) {
+      // We expect a single output edge to the zero inst inside the same loop.
+      if (HLNodeUtils::contains(IdentDiagRef->getParentLoop(), SinkNode)) {
+        continue;
+      }
+
+      LegalToSubIdent = false;
+      break;
+    }
+  }
+
+  if (!LegalToSubIdent) {
+    LLVM_DEBUG(dbgs() << "[IDENT] Illegal to substitute in Region\n";);
+    return nullptr;
+  }
+
+  LLVM_DEBUG(dbgs() << "[IDENT] Legal to Substitute in Region\n";);
+  return IdentDiagRef;
+}
+
+static bool canMergeCorrectly(const HLLoop *Lp, unsigned MergeLevels) {
+  SmallVector<const HLLoop *, 6> InnerLoops;
+
+  Lp->getHLNodeUtils().gatherAllLoops(Lp, InnerLoops);
+
+  for (auto *InnerLp : InnerLoops) {
+    if ((InnerLp != Lp) && (InnerLp->getNestingLevel() <= MergeLevels)) {
+      // mergeLoops() does not handle multiple inner loops at the merge level or
+      // def loop's postexit.
+      if (InnerLp->getNextNode() || InnerLp->hasPostexit()) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+// Returns true if any memref inside \p DefLoop with base \p DefBaseIndex has
+// incoming output edge where the src lies before the loop and the loop does not
+// define any other base.
+static bool loopDefinesSingleBaseInFunction(HLLoop *DefLoop, DDGraph DDG,
+                                            unsigned DefBaseIndex) {
+  SmallVector<RegDDRef *, 32> MemRefs;
+
+  DDRefGathererLambda<RegDDRef>::gather(
+      DefLoop, MemRefs, [&](const RegDDRef *Ref) { return Ref->isMemRef(); });
+
+  unsigned LoopTSNum = DefLoop->getTopSortNum();
+
+  for (auto *Ref : MemRefs) {
+    if (!Ref->isLval()) {
+      continue;
+    }
+
+    // Loop also defines a different base ptr.
+    if (Ref->getBasePtrBlobIndex() != DefBaseIndex) {
+      return false;
+    }
+
+    for (auto &Edge : DDG.incoming(Ref)) {
+      if (Edge->isOutput() &&
+          Edge->getSrc()->getHLDDNode()->getTopSortNum() < LoopTSNum) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
@@ -830,27 +1301,23 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return false;
   }
 
-  LLVM_DEBUG({
-    dbgs() << "Refs:<" << Refs.size() << ">\n";
-    unsigned Count = 0;
-    for (auto Ref : Refs) {
-      dbgs() << Count++ << ": ";
-      Ref->dump();
-      dbgs() << "\t";
-    }
-    dbgs() << "\n";
-  });
-
-  // Keep set of interesting references to ignore DD between them.
   SmallPtrSet<RegDDRef *, 32> RefsSet(Refs.begin(), Refs.end());
-  SmallSet<unsigned, 4> AfterContractSBS;
+  SmallSet<unsigned, 8> AfterContractSBS;
 
   // Get their loops and Base pointers.
   std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToBasePtr;
+  unsigned MinLoopTopSortNum = 0;
+
   for (auto *Ref : Refs) {
-    unsigned ParentLoopLevel = getRefMinLevel(Ref);
-    HLLoop *ParentLoop =
-        Ref->getHLDDNode()->getParentLoopAtLevel(ParentLoopLevel);
+    HLLoop *ParentLoop = getCandidateParentLoop(Ref, MinLoopTopSortNum);
+
+    if (!ParentLoop) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping contraction for the entire region as we could "
+                    "not find legal contraction loop for candidate refs.\n");
+      return false;
+    }
+
     const unsigned BlobIdx = Ref->getBasePtrBlobIndex();
     LoopToBasePtr[ParentLoop].set(BlobIdx);
   }
@@ -864,28 +1331,16 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return DefASAR;
   };
 
-  // Find identity matrix to substitute later
-  if (PerformIdentitySubstitution) {
-    SmallVector<HLLoop *, 64> InnermostLoops;
-    HIRF.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Reg);
-    unsigned IdentitySB = 0;
-
-    for (auto &Lp : InnermostLoops) {
-      SmallVector<const RegDDRef *, 2> Identity;
-      HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, Identity);
-      if (!Identity.empty()) {
-        IdentitySB = Identity.front()->getSymbase();
-        LLVM_DEBUG(
-            dbgs() << Lp->getNumber()
-                   << ": Loop was found containing identity matrix - SB = "
-                   << IdentitySB << "!\n ");
-        break;
-      }
-    }
-    (void)IdentitySB;
-  }
-
   DDGraph DDG = DDA.getGraph(&Reg);
+
+  SmallVector<const HLInst *, 8> UnsafeCalls;
+  SmallVector<const HLInst *, 8> StackCalls;
+  getAllUnsafeCalls(HLS, &Reg, UnsafeCalls, StackCalls);
+
+  // Find identity matrix to substitute later
+  const RegDDRef *IdentityRef = findIdentityMatrixDef(Reg, DDG, HLS);
+
+  SmallVector<HLLoop *, 4> ModifiedDefLps;
 
   for (auto &DefPair : LoopToBasePtr) {
     auto *DefLp = DefPair.first;
@@ -904,18 +1359,54 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       LLVM_DEBUG(dbgs() << "+ Loop has no interesting defs\n");
       continue;
     }
+    // These bail out checks are conservative in the sense that we may miss
+    // tracking some dead stores.
+
+    // Bail out for def loops with liveouts. We may
+    // not be correctly preserving them with forward-substitution.
+    if (DefLp->hasLiveOutTemps()) {
+      continue;
+    }
+
+    if (hasControlFlowOrSideEffects(DefLp, HLS)) {
+      LLVM_DEBUG(dbgs() << "Skipping def loop with control flow/side effects: <"
+                        << DefLp->getNumber() << ">\n");
+      continue;
+    }
 
     BaseUses UsesTracking;
 
     SparseBitVector<> NonCandidateUses;
     unsigned LoopDependencyLimits = computeDependencyMaxTopSortNumber(
-        DDG, DefLp, RefsSet, NonCandidateUses);
+        UnsafeCalls, DDG, DefLp, RefsSet, NonCandidateUses);
 
     // Add uses by non-candidate refs.
     UsesTracking.add(NonCandidateUses);
 
+    auto UseBases = getUseBases(DefASAR, DefPair.second);
+
+    auto DefUseBases = DefBases & UseBases;
+
+    if (!DefUseBases.empty() && (DefBases.count() != 1)) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping def loop with def and use of multiple bases: <"
+                 << DefLp->getNumber() << ">\n");
+      continue;
+    }
+
+    bool SingleDefBaseIsAlsoUse = !DefUseBases.empty();
+
+    if (SingleDefBaseIsAlsoUse &&
+        !loopDefinesSingleBaseInFunction(DefLp, DDG, DefBases.find_first())) {
+      LLVM_DEBUG(dbgs() << "Skipping def loop with livein use of bases: <"
+                        << DefLp->getNumber() << ">\n");
+      continue;
+    }
+
+    bool ContractedBase = false;
+
     // Add self uses.
-    UsesTracking.add(getUseBases(DefASAR, DefPair.second));
+    UsesTracking.add(UseBases);
 
     LLVM_DEBUG(dbgs() << "+ LoopDependencyLimit: " << LoopDependencyLimits
                       << "\n");
@@ -930,19 +1421,26 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       // Check if there are common array sections.
       auto CommonBases = DefBases & UsePair.second;
-      LLVM_DEBUG(dbgs() << " CommonBases: "; dump(CommonBases, dbgs());
-                 dbgs() << "\n";);
-
       if (CommonBases.empty()) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] No common array uses.\n");
         continue;
       }
+
+      LLVM_DEBUG(dbgs() << " CommonBases: "; dump(CommonBases, dbgs());
+                 dbgs() << "\n";);
 
       UsesTracking.add(CommonBases);
 
       // Check if DEF loop dominates USE loop.
       if (!HLNodeUtils::dominates(DefLp, UseLp)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
+        continue;
+      }
+
+      // Bail out for loops with control-flow. mergeLoops() cannot handle it.
+      if (hasControlFlowOrSideEffects(UseLp, HLS)) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Loop has control flow/side effects: <"
+                          << UseLp->getNumber() << ">\n");
         continue;
       }
 
@@ -1071,6 +1569,62 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
+      if (!canMergeCorrectly(DefLp, FusionLevel - DefUseLevelDiff) ||
+          !canMergeCorrectly(UseLp, FusionLevel)) {
+        LLVM_DEBUG(
+            dbgs() << "\t[SKIP] mergeLoops() cannot handle def or use loop.\n");
+        continue;
+      }
+
+      // Collect all the temp blobs from mapped CEs and perform sanity checks on
+      // whether the merging can happen correctly.
+      SmallSet<unsigned, 6> MappedTempBlobSBs;
+      if (!MappedDim.empty()) {
+        unsigned NumMappings = MappedDim.getMappedCEs().size();
+        SmallVector<unsigned, 8> TempBlobIndices;
+        bool ValidMapping = true;
+
+        for (unsigned I = 0; I < NumMappings; ++I) {
+          auto *MappedCE = MappedDim.getMappedCEs()[I];
+
+          if (MappedCE->getDefinedAtLevel() > FusionLevel) {
+            ValidMapping = false;
+            LLVM_DEBUG(dbgs() << "\t[SKIP] Cannot move mapped temp definition "
+                                 "before def loop\n");
+            break;
+          }
+
+          unsigned PrevSize = TempBlobIndices.size();
+          MappedCE->collectTempBlobIndices(TempBlobIndices, false);
+
+          // Skip for ease of making refs consistent during replacement.
+          if (TempBlobIndices.size() - PrevSize > 1) {
+            LLVM_DEBUG(dbgs()
+                       << "\t[SKIP] Cannot handle multiple mapped temps\n");
+            ValidMapping = false;
+            break;
+          }
+        }
+
+        if (!ValidMapping) {
+          continue;
+        }
+
+        auto &BU = DefLp->getHLNodeUtils().getBlobUtils();
+        // TODO: We should perform legality of moving these temp definitions to
+        // the beginning of the merged loop by performing a structural check on
+        // the definitions.
+        for (unsigned Index : TempBlobIndices) {
+          MappedTempBlobSBs.insert(BU.getTempBlobSymbase(Index));
+        }
+      }
+
+      if (crossesAllocaRange(DefLp, UseLp, StackCalls)) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Loop limited by alloca stackrestore: <"
+                          << UseLp->getNumber() << ">\n");
+        continue;
+      }
+
       // Check move DD legality.
       if (UseLp->getMaxTopSortNum() >= LoopDependencyLimits) {
         LLVM_DEBUG(
@@ -1081,14 +1635,18 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         break;
       }
 
-      addOptimized(UseLp);
+      // The code below modifies HIR.
 
+      ContractedBase = true;
       bool HasMappedDim = !MappedDim.empty();
       unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
-      unsigned NumClones = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
-      bool BailOut = false;
+      unsigned NumMappings = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
+      addPostProcCand(UseLp);
 
-      for (unsigned I = 0; I < NumClones; ++I) {
+      // Mark the unique UseLp, later loop interchange will pick it up
+      markLoopasArrayContracted(UseLp);
+
+      for (unsigned I = 0; I < NumMappings; ++I) {
         HLLoop *DefLoopClone = DefLp->clone();
 
         // Do array contraction on qualified memref(s) in a given loop:
@@ -1096,16 +1654,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         const CanonExpr *UseRefMappedCE =
             HasMappedDim ? MappedDim.getMappedCEs()[I] : nullptr;
 
-        if (!contractMemRefs(DefLoopClone, UseLp, CommonBases,
-                             NumDimsContracted, Reg, UseRefMappedDim,
-                             UseRefMappedCE, AfterContractSBS,
-                             NumContractedRefs)) {
-          LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in Def/Use loop "
-                            << DefLoopClone->getNumber() << "\n";);
-        } else {
-          HIRLoopsWithArrayContraction += 2;
-          HIRArrayRefsContracted += NumContractedRefs;
-        }
+        contractMemRefs(DefLoopClone, UseLp, CommonBases, NumDimsContracted,
+                        Reg, UseRefMappedDim, UseRefMappedCE, AfterContractSBS,
+                        NumContractedRefs);
+
+        HIRArrayRefsContracted += NumContractedRefs;
 
         HLNodeUtils::insertBefore(UseLp, DefLoopClone);
         if (DefUseLevelDiff == 1) {
@@ -1121,24 +1674,22 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
           }
         }
 
+        // The temp names in merged levels can collide when multiple def loops
+        // or multiple clones of def loop are merged into use loop. This will
+        // result in incorrect code generation. To avoid this issue we rename
+        // the temps.
+        renameTemps(DefLoopClone, FusionLevel);
+
         if (HasMappedDim) {
           replaceIVByCE(DefLoopClone, MappedDim.getIVLevel(), UseRefMappedCE);
         }
 
         // Merge loops
-        if (!mergeLoops(DefLoopClone, UseLp,
-                        FusionLevel - UseLp->getNestingLevel() + 1)) {
-          LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
-          Optimizations.pop_back();
-          BailOut = true;
-          break;
-        }
+        mergeLoops(DefLoopClone, UseLp,
+                   FusionLevel - UseLp->getNestingLevel() + 1,
+                   MappedTempBlobSBs);
 
         HLNodeUtils::remove(DefLoopClone);
-      }
-
-      if (BailOut) {
-        continue;
       }
 
       // Merge array section analysis results.
@@ -1156,45 +1707,60 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       LLVM_DEBUG(Reg.dump());
     }
 
+    // Remove self-use of the single base in def loop which has been contracted
+    // and has no previous definition in the function level region. Since the
+    // base is an alloca, we can assume that there are no livein uses of the
+    // base in DefLp. Use of uninitialized memory is undefined behavior.
+    //
+    // For extra safety, we also check that loop contains no calls and does not
+    // define any other bases which means that loop can be eliminated by
+    // call to removeRedundantNodes().
+    // TODO: Also check the base in function entry block which is not part of
+    // the region.
+    if (SingleDefBaseIsAlsoUse && ContractedBase) {
+      UsesTracking.remove(DefBases);
+    }
+
     // Remove array definitions if there is no usages.
     auto UnusedBases = UsesTracking.getUnused(DefBases);
-    if (!UnusedBases.empty()) {
-      addOptimized(DefLp);
+    LLVM_DEBUG(dbgs() << "[DEAD] Unused bases: ";
+               dumpBasesBitVector(DefLp, UnusedBases));
 
+    if (!UnusedBases.empty()) {
       removeDeadStores(DefLp, UnusedBases);
+      HLNodeUtils::removeRedundantNodes(DefLp);
+      ModifiedDefLps.push_back(DefLp);
       LLVM_DEBUG(dbgs() << "[DEAD] Unused candiadate DEF stores removed\n");
       LLVM_DEBUG(Reg.dump());
     }
   }
 
-  if (Optimizations.empty()) {
+  if (PostProcLoops.empty() && ModifiedDefLps.empty()) {
     return false;
   }
 
-  // Run post-processors for each optimized loop. Revert everything if any
-  // post-optimization fails.
-  for (auto &Opt : Optimizations) {
-    if (!Opt.runPostProcessors()) {
-      return false;
+  // Run post-processors for UseLoop after contraction
+  runPostProcessors(AfterContractSBS, IdentityRef);
+
+  // Invalidate Loop after Transformation.
+  // DefLoops may have been modified that are not in PostProcLoops.
+  // It is possible they could have been removed as dead.
+  for (auto Loop : ModifiedDefLps) {
+    if (Loop->isAttached()) {
+      HIRInvalidationUtils::invalidateLoopNestBody(Loop);
     }
   }
 
-  for (auto &Opt : Optimizations) {
-    Reg.setGenCode();
-
-    Opt.commit();
-
-    HLLoop *Loop = Opt.getOptimized();
-    HLLoop *ParentLoop = Loop->getParentLoop();
-    HLNodeUtils::removeRedundantNodes(Loop);
-
-    if (ParentLoop) {
-      HIRInvalidationUtils::invalidateBody(ParentLoop);
-    } else {
-      HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
+  // Use loops can also becomes def loops and get eliminated as dead.
+  for (auto Loop : PostProcLoops) {
+    if (Loop->isAttached()) {
+      HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+      ++HIRLoopsWithArrayContraction;
     }
   }
 
+  HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
+  Reg.setGenCode();
   return true;
 }
 

@@ -351,10 +351,13 @@ bool BasicBlock::canSplitPredecessors() const {
   const Instruction *FirstNonPHI = getFirstNonPHI();
   if (isa<LandingPadInst>(FirstNonPHI))
     return true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  // Handled in BasicBlock.cpp:SplitBlockPredecessorsImpl
   if (isa<CleanupPadInst>(FirstNonPHI))
     return true;
-#endif // INTEL_CUSTOMIZATION
+  if (isa<CatchSwitchInst>(FirstNonPHI))
+    return true;
+#endif // INTEL_COLLAB
   // This is perhaps a little conservative because constructs like
   // CleanupBlockInst are pretty easy to split.  However, SplitBlockPredecessors
   // cannot handle such things just yet.
@@ -374,6 +377,12 @@ bool BasicBlock::isLegalToHoistInto() const {
 
   // Instructions should not be hoisted across exception handling boundaries.
   return !Term->isExceptionalTerminator();
+}
+
+bool BasicBlock::isEntryBlock() const {
+  const Function *F = getParent();
+  assert(F && "Block must have a parent function to use this API");
+  return this == &F->getEntryBlock();
 }
 
 BasicBlock *BasicBlock::splitBasicBlock(iterator I, const Twine &BBName,

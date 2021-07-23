@@ -129,21 +129,27 @@ bool VPSOAAnalysis::hasPotentiallyUnsafeOperands(const VPInstruction *UseInst) {
 // are encountered.
 bool VPSOAAnalysis::isSafeLoadStore(const VPInstruction *UseInst,
                                     const VPInstruction *CurrentI) {
-  unsigned OpCode = UseInst->getOpcode();
-  switch (OpCode) {
-  // We consider loads unsafe when the pointer operand is considered
-  // potentially unsafe (e.g., via unsafe bitcast).
-  case Instruction::Load:
-    return PotentiallyUnsafeInsts.count(UseInst->getOperand(0)) == 0;
-  // We consider store's unsafe when the pointer operand is considered
-  // potentially unsafe (e.g., via unsafe bitcast) or the private-pointer
-  // or its alias escapes via a write to external memory.
-  case Instruction::Store:
-    return PotentiallyUnsafeInsts.count(UseInst->getOperand(1)) == 0 &&
-           UseInst->getOperand(0) != CurrentI;
-  default:
-    return false;
+  if (auto *LSI = dyn_cast<VPLoadStoreInst>(UseInst)) {
+    // If this is a non-simple (e.g. volatile) load/store, treat this as
+    // unsafe.
+    if (!LSI->isSimple())
+      return false;
+
+    // We consider loads/stores unsafe when the pointer operand is considered
+    // potentially unsafe (e.g., via unsafe bitcast).
+    if (PotentiallyUnsafeInsts.count(LSI->getPointerOperand()))
+      return false;
+
+    // In addition, we consider stores unsafe when the private-pointer or its
+    // alias escapes via a write to external memory.
+    if (LSI->getOpcode() == Instruction::Store &&
+        LSI->getOperand(0) == CurrentI)
+      return false;
+
+    return true;
   }
+
+  return false;
 }
 
 // An umbrella function to determine the safety of an operation.
@@ -283,29 +289,33 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
     return AccessProfitabilityInfo[I] = IsProfitable;
   }
 
-  // We should have a GEP at this point. The safety-analysis rules out other
-  // instructions which were deemed unsafe for SOA-layout. This includes unsafe
-  // aliasing instuctions or function-calls. lifetime.start/end and
+  // We should have a GEP/Subscript at this point. The safety-analysis rules out
+  // other instructions which were deemed unsafe for SOA-layout. This includes
+  // unsafe aliasing instuctions or function-calls. lifetime.start/end and
   // invariant.start/end intrinsics should not appear here.
-  const VPGEPInstruction *GEP = dyn_cast<VPGEPInstruction>(I);
-  if (!GEP) {
+
+  VPValue *PtrOp = nullptr;
+  if (auto *MemRef = dyn_cast<VPGEPInstruction>(I))
+    PtrOp = MemRef->getPointerOperand();
+  else if (auto *MemRef = dyn_cast<VPSubscriptInst>(I))
+    PtrOp = MemRef->getPointerOperand();
+  else {
     // The assert is triggered in DEBUG compiler and we return false in the
     // release compiler.
-    assert(false && "Expect a GEP instruction at this point in the code.");
+    assert(false &&
+           "Expect a GEP/Subscript instruction at this point in the code.");
     return false;
   }
 
-  const VPValue *PtrOp = GEP->getPointerOperand();
-
-  if (isa<VPGEPInstruction>(PtrOp))
-    if (!isProfitableForSOA(cast<VPInstruction>(PtrOp)))
-      return AccessProfitabilityInfo[I] = false;
+  if ((isa<VPGEPInstruction>(PtrOp) || isa<VPSubscriptInst>(PtrOp)) &&
+      !isProfitableForSOA(cast<VPInstruction>(PtrOp)))
+    return AccessProfitabilityInfo[I] = false;
 
   auto *DA = Plan.getVPlanDA();
   // Uniform-access.
   // If all the indices are uniform, then the access under SOA-layout would be
   // unit-stride.
-  if (all_of(make_range(GEP->op_begin() + 1, GEP->op_end()),
+  if (all_of(make_range(I->op_begin() + 1, I->op_end()),
              [DA](const VPValue *V) { return !DA->isDivergent(*V); }))
     return AccessProfitabilityInfo[I] = true;
 
@@ -322,7 +332,7 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
 
 // Determine if SOA-layout is profitable for the given alloca (loop-entity).
 void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
-                                      DenseSet<VPInstruction *> &LoadStores) {
+                                      DenseSet<VPLoadStoreInst *> &LoadStores) {
 
   // Use a WL-based approach to collect loads and stores on a particular alloca.
   std::queue<const VPValue *> WL;
@@ -330,13 +340,6 @@ void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
   // Set of visited instructions to avoid infinite-loop arising out of cyclic
   // use-def chains.
   DenseSet<const VPValue *> Visited;
-
-  auto isLoadStore = [](const VPValue *Val) {
-    if (auto *I = dyn_cast<VPInstruction>(Val))
-      return I->getOpcode() == Instruction::Load ||
-             I->getOpcode() == Instruction::Store;
-    return false;
-  };
 
   WL.push(Alloca);
 
@@ -355,11 +358,11 @@ void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
       continue;
 
     // Analyze the users of the current Instruction.
-    for (auto *I : CurrentI->users())
-      if (isLoadStore(I))
-        LoadStores.insert(cast<VPInstruction>(I));
+    for (auto *User : CurrentI->users())
+      if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(User))
+        LoadStores.insert(LoadStore);
       else
-        WL.push(I);
+        WL.push(User);
   }
 }
 
@@ -378,11 +381,11 @@ bool VPSOAAnalysis::isSOAProfitable(VPAllocatePrivate *Alloca) {
   // that memory access is an uniform memory access.
 
   // Collect the Loads and Stores on the alloca.
-  DenseSet<VPInstruction *> LoadStores;
+  DenseSet<VPLoadStoreInst *> LoadStores;
   collectLoadStores(Alloca, LoadStores);
 
   for (auto *LSI : LoadStores) {
-    VPValue *PtrOp = getLoadStorePointerOperand(LSI);
+    VPValue *PtrOp = LSI->getPointerOperand();
     // Return true if there is a single load/store instruction which has a
     // profitable memory access.
     if (isProfitableForSOA(cast<VPInstruction>(PtrOp)))

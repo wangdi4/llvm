@@ -11,26 +11,32 @@ entry:
 
 define dso_local void @bar() {
 entry:
-  tail call void @_Z18work_group_barrierj() #0
+  call void @barrier_dummy()
+  tail call void @_Z18work_group_barrierj(i32 1) #0
   unreachable
 }
 
-declare dso_local void @_Z18work_group_barrierj()
+declare dso_local void @_Z18work_group_barrierj(i32)
+declare void @barrier_dummy()
 
 define dso_local void @kernel() #1 {
 DIR.OMP.PARALLEL.LOOP.3:
   br i1 undef, label %loop.region.exit, label %omp.inner.for.body.preheader
 
 omp.inner.for.body.preheader:                     ; preds = %DIR.OMP.PARALLEL.LOOP.3
+  call void @barrier_dummy()
+  tail call void @_Z18work_group_barrierj(i32 1) #0
   tail call void @bar()
+  call void @barrier_dummy()
   unreachable
 
 loop.region.exit:                                 ; preds = %DIR.OMP.PARALLEL.LOOP.3
+  tail call void @_Z18work_group_barrierj(i32 1) #0
   ret void
 }
 
 attributes #0 = { convergent nounwind }
-attributes #1 = { "sycl_kernel" }
+attributes #1 = { "sycl-kernel" }
 
 ; CHECK-LABEL: Group-A Values
 ; CHECK-LABEL: Group-B.1 Values
@@ -42,3 +48,6 @@ attributes #1 = { "sycl_kernel" }
 ; CHECK-NEXT: entry(0) : (0)
 ; CHECK-NEXT: entry(2) : (0)
 ; CHECK-LABEL: DONE
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel}

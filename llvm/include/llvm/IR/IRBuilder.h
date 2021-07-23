@@ -659,8 +659,11 @@ public:
                                  TBAAStructTag, ScopeTag, NoAliasTag);
   }
 
-  CallInst *CreateMemCpyInline(Value *Dst, MaybeAlign DstAlign, Value *Src,
-                               MaybeAlign SrcAlign, Value *Size);
+  CallInst *
+  CreateMemCpyInline(Value *Dst, MaybeAlign DstAlign, Value *Src,
+                     MaybeAlign SrcAlign, Value *Size, bool IsVolatile = false,
+                     MDNode *TBAATag = nullptr, MDNode *TBAAStructTag = nullptr,
+                     MDNode *ScopeTag = nullptr, MDNode *NoAliasTag = nullptr);
 
   /// Create and insert an element unordered-atomic memcpy between the
   /// specified pointers.
@@ -761,7 +764,7 @@ public:
   CallInst *CreateInvariantStart(Value *Ptr, ConstantInt *Size = nullptr);
 
   /// Create a call to Masked Load intrinsic
-  CallInst *CreateMaskedLoad(Value *Ptr, Align Alignment, Value *Mask,
+  CallInst *CreateMaskedLoad(Type *Ty, Value *Ptr, Align Alignment, Value *Mask,
                              Value *PassThru = nullptr, const Twine &Name = "");
 
   /// Create a call to Masked Store intrinsic
@@ -769,7 +772,7 @@ public:
                               Value *Mask);
 
   /// Create a call to Masked Gather intrinsic
-  CallInst *CreateMaskedGather(Value *Ptrs, Align Alignment,
+  CallInst *CreateMaskedGather(Type *Ty, Value *Ptrs, Align Alignment,
                                Value *Mask = nullptr, Value *PassThru = nullptr,
                                const Twine &Name = "");
 
@@ -877,6 +880,14 @@ public:
                                Value *Ptr, Value *Index, bool IsExact = true);
 #endif // INTEL_CUSTOMIZATION
 
+  /// Create a call to the experimental.gc.pointer.base intrinsic to get the
+  /// base pointer for the specified derived pointer.
+  CallInst *CreateGCGetPointerBase(Value *DerivedPtr, const Twine &Name = "");
+
+  /// Create a call to the experimental.gc.get.pointer.offset intrinsic to get
+  /// the offset of the specified derived pointer from its base.
+  CallInst *CreateGCGetPointerOffset(Value *DerivedPtr, const Twine &Name = "");
+
   /// Create a call to llvm.vscale, multiplied by \p Scaling. The type of VScale
   /// will be the same type as that of \p Scaling.
   Value *CreateVScale(Constant *Scaling, const Twine &Name = "");
@@ -922,6 +933,13 @@ public:
   /// Create call to the maximum intrinsic.
   CallInst *CreateMaximum(Value *LHS, Value *RHS, const Twine &Name = "") {
     return CreateBinaryIntrinsic(Intrinsic::maximum, LHS, RHS, nullptr, Name);
+  }
+
+  /// Create a call to the arithmetic_fence intrinsic.
+  CallInst *CreateArithmeticFence(Value *Val, Type *DstType,
+                                  const Twine &Name = "") {
+    return CreateIntrinsic(Intrinsic::arithmetic_fence, DstType, Val, nullptr,
+                           Name);
   }
 
   /// Create a call to the experimental.vector.extract intrinsic.
@@ -1686,38 +1704,27 @@ public:
   }
 
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateLoad(Value *Ptr, const char *Name) {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
+                                                 const char *Name),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateLoad(Value *Ptr, const Twine &Name = "") {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
+                                                 const Twine &Name = ""),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateLoad(Value *Ptr, bool isVolatile, const Twine &Name = "") {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
+                                                 bool isVolatile,
+                                                 const Twine &Name = ""),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, isVolatile,
                       Name);
   }
@@ -1746,40 +1753,30 @@ public:
   }
 
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, const char *Name) {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
+                                                        MaybeAlign Align,
+                                                        const char *Name),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
-                              const Twine &Name = "") {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
+                                                        MaybeAlign Align,
+                                                        const Twine &Name = ""),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
-  // However this function signature is being used in many places under
-  // Intel customization.
-  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
-  // signature have been removed.
-  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
-                              bool isVolatile, const Twine &Name = "") {
-#endif // INTEL_CUSTOMIZATION
+  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
+                                                        MaybeAlign Align,
+                                                        bool isVolatile,
+                                                        const Twine &Name = ""),
+                            "Use the version that explicitly specifies the "
+                            "loaded type instead") {
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, isVolatile, Name);
   }
@@ -1826,7 +1823,8 @@ public:
 
   Value *CreateGEP(Value *Ptr, ArrayRef<Value *> IdxList,
                    const Twine &Name = "") {
-    return CreateGEP(nullptr, Ptr, IdxList, Name);
+    return CreateGEP(Ptr->getType()->getScalarType()->getPointerElementType(),
+                     Ptr, IdxList, Name);
   }
 
   Value *CreateGEP(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList,
@@ -1845,7 +1843,9 @@ public:
 
   Value *CreateInBoundsGEP(Value *Ptr, ArrayRef<Value *> IdxList,
                            const Twine &Name = "") {
-    return CreateInBoundsGEP(nullptr, Ptr, IdxList, Name);
+    return CreateInBoundsGEP(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, IdxList,
+        Name);
   }
 
   Value *CreateInBoundsGEP(Type *Ty, Value *Ptr, ArrayRef<Value *> IdxList,
@@ -1864,7 +1864,8 @@ public:
   }
 
   Value *CreateGEP(Value *Ptr, Value *Idx, const Twine &Name = "") {
-    return CreateGEP(nullptr, Ptr, Idx, Name);
+    return CreateGEP(Ptr->getType()->getScalarType()->getPointerElementType(),
+                     Ptr, Idx, Name);
   }
 
   Value *CreateGEP(Type *Ty, Value *Ptr, Value *Idx, const Twine &Name = "") {
@@ -1883,7 +1884,9 @@ public:
   }
 
   Value *CreateConstGEP1_32(Value *Ptr, unsigned Idx0, const Twine &Name = "") {
-    return CreateConstGEP1_32(nullptr, Ptr, Idx0, Name);
+    return CreateConstGEP1_32(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
+        Name);
   }
 
   Value *CreateConstGEP1_32(Type *Ty, Value *Ptr, unsigned Idx0,
@@ -1943,7 +1946,9 @@ public:
   }
 
   Value *CreateConstGEP1_64(Value *Ptr, uint64_t Idx0, const Twine &Name = "") {
-    return CreateConstGEP1_64(nullptr, Ptr, Idx0, Name);
+    return CreateConstGEP1_64(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
+        Name);
   }
 
   Value *CreateConstInBoundsGEP1_64(Type *Ty, Value *Ptr, uint64_t Idx0,
@@ -1958,7 +1963,9 @@ public:
 
   Value *CreateConstInBoundsGEP1_64(Value *Ptr, uint64_t Idx0,
                                     const Twine &Name = "") {
-    return CreateConstInBoundsGEP1_64(nullptr, Ptr, Idx0, Name);
+    return CreateConstInBoundsGEP1_64(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
+        Name);
   }
 
   Value *CreateConstGEP2_64(Type *Ty, Value *Ptr, uint64_t Idx0, uint64_t Idx1,
@@ -1976,7 +1983,9 @@ public:
 
   Value *CreateConstGEP2_64(Value *Ptr, uint64_t Idx0, uint64_t Idx1,
                             const Twine &Name = "") {
-    return CreateConstGEP2_64(nullptr, Ptr, Idx0, Idx1, Name);
+    return CreateConstGEP2_64(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
+        Idx1, Name);
   }
 
   Value *CreateConstInBoundsGEP2_64(Type *Ty, Value *Ptr, uint64_t Idx0,
@@ -1994,7 +2003,9 @@ public:
 
   Value *CreateConstInBoundsGEP2_64(Value *Ptr, uint64_t Idx0, uint64_t Idx1,
                                     const Twine &Name = "") {
-    return CreateConstInBoundsGEP2_64(nullptr, Ptr, Idx0, Idx1, Name);
+    return CreateConstInBoundsGEP2_64(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, Idx0,
+        Idx1, Name);
   }
 
   Value *CreateStructGEP(Type *Ty, Value *Ptr, unsigned Idx,
@@ -2003,7 +2014,9 @@ public:
   }
 
   Value *CreateStructGEP(Value *Ptr, unsigned Idx, const Twine &Name = "") {
-    return CreateConstInBoundsGEP2_32(nullptr, Ptr, 0, Idx, Name);
+    return CreateConstInBoundsGEP2_32(
+        Ptr->getType()->getScalarType()->getPointerElementType(), Ptr, 0, Idx,
+        Name);
   }
 
   /// Same as CreateGlobalString, but return a pointer with "i8*" type
@@ -2581,6 +2594,16 @@ public:
 
   /// Return a vector value that contains the vector V reversed
   Value *CreateVectorReverse(Value *V, const Twine &Name = "");
+
+  /// Return a vector splice intrinsic if using scalable vectors, otherwise
+  /// return a shufflevector. If the immediate is positive, a vector is
+  /// extracted from concat(V1, V2), starting at Imm. If the immediate
+  /// is negative, we extract -Imm elements from V1 and the remaining
+  /// elements from V2. Imm is a signed integer in the range
+  /// -VL <= Imm < VL (where VL is the runtime vector length of the
+  /// source/result vector)
+  Value *CreateVectorSplice(Value *V1, Value *V2, int64_t Imm,
+                            const Twine &Name = "");
 
   /// Return a vector value that contains \arg V broadcasted to \p
   /// NumElts elements.

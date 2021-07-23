@@ -1274,6 +1274,9 @@ TLI_DEFINE_STRING_INTERNAL("_ZSt24__throw_out_of_range_fmtPKcz")
 /// void std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
 TLI_DEFINE_ENUM_INTERNAL(ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_)
 TLI_DEFINE_STRING_INTERNAL("_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_")
+/// void std::__throw_bad_array_new_length()
+TLI_DEFINE_ENUM_INTERNAL(ZSt28__throw_bad_array_new_lengthv)
+TLI_DEFINE_STRING_INTERNAL("_ZSt28__throw_bad_array_new_lengthv")
 /// void std::_Rb_tree_insert_and_rebalance(bool, std::_Rb_tree_node_base*, std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)
 TLI_DEFINE_ENUM_INTERNAL(ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_)
 TLI_DEFINE_STRING_INTERNAL("_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_")
@@ -1626,7 +1629,9 @@ TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
 /// int __isoc99_sscanf(const char *s, const char *format, ...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_sscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_sscanf")
-
+/// void __kmpc_alloc_shared(size_t nbyte);
+TLI_DEFINE_ENUM_INTERNAL(__kmpc_alloc_shared)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_alloc_shared")
 #if INTEL_COLLAB
 /// bool __kmpc_atomic_compare_exchange(size_t size, void *ptr, void *expected,
 ///     void *desired, int32_t success_order, int32_t failure_order);
@@ -1650,6 +1655,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
 /// void __kmpc_critical(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_critical")
+/// void __kmpc_critical_with_hint(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit, kmp_int32 hint);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_critical_with_hint)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_critical_with_hint")
 /// void __kmpc_dispatch_init_4(ident_t *loc, kmp_int32 gtid,  enum sched_type schedule, kmp_int32 lb, kmp_int32 ub, kmp_int32 st, kmp_int32 chunk);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_dispatch_init_4)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_init_4")
@@ -1713,6 +1721,11 @@ TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8u)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8u")
 TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_call)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
+#endif // INTEL_COLLAB
+/// void __kmpc_free_shared(void *ptr);
+TLI_DEFINE_ENUM_INTERNAL(__kmpc_free_shared)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_free_shared")
+#if INTEL_COLLAB
 /// kmp_int32 __kmpc_global_thread_num(ident_t * loc);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_global_thread_num)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_global_thread_num")

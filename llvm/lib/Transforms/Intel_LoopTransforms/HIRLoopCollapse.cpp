@@ -751,9 +751,9 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   LoopOptReportBuilder &LORBuilder =
       ToCollapseLp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
+  // %d loops have been collapsed
   LORBuilder(*ToCollapseLp)
-      .addRemark(OptReportVerbosity::Low, "%d loops have been collapsed",
-                 NumCollapsableLoops);
+      .addRemark(OptReportVerbosity::Low, 25567u, NumCollapsableLoops);
 
   LLVM_DEBUG(dbgs() << "After Collapse:\n"; ToCollapseLp->dump();
              dbgs() << "\n";);

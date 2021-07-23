@@ -51,6 +51,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstddef>
 #include <utility>
@@ -553,6 +554,7 @@ bool AggressiveDeadCodeElimination::removeDeadInstructions() {
 
     // Prepare to delete.
     Worklist.push_back(&I);
+    salvageDebugInfo(I);
     I.dropAllReferences();
   }
 
@@ -701,8 +703,6 @@ PreservedAnalyses ADCEPass::run(Function &F, FunctionAnalysisManager &FAM) {
     PA.preserve<DominatorTreeAnalysis>();
     PA.preserve<PostDominatorTreeAnalysis>();
   }
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();               // INTEL
   return PA;
 }
 

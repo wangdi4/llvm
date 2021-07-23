@@ -3,7 +3,7 @@
 ; whose operand is uniform.
 
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-dump-da -disable-output %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -22,11 +22,11 @@ define dso_local void @XNU(i64 %step) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_FIRST_INDUCTION]] = add i64 [[VP_FIRST_INDUCTION_PHI]] i64 [[VP_FIRST_INDUCTION_PHI_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp eq i64 [[VP_FIRST_INDUCTION]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp uge i64 [[VP_FIRST_INDUCTION]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXIT_COND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_FIRST_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_FIRST_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]

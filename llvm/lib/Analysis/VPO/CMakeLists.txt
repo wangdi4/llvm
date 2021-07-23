@@ -22,6 +22,9 @@ add_llvm_component_library(LLVMVPOAnalysis
   WRegionInfo/WRegionInfo.cpp
   WRegionInfo/WRegionUtils.cpp
   WRegionInfo/WRegionInfoAnalysis.cpp
+# INTEL_CUSTOMIZATION
+  Intel_VPOParoptConfig.cpp
+# end INTEL_CUSTOMIZATION
 
   DEPENDS
   intrinsics_gen

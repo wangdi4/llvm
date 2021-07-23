@@ -37,6 +37,9 @@ entry:
   ret void
 }
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY-NOT: WARNING
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 addrspace(1)*, i32)* @test}

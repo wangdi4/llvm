@@ -860,6 +860,7 @@ void WRNSingleNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
 // constructor
 WRNCriticalNode::WRNCriticalNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNCritical, BB), UserLockName("") {
+  setHint(0);
   // UserLockName is empty by default
   LLVM_DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
 }
@@ -870,13 +871,35 @@ void WRNCriticalNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   unsigned Indent = 2 * Depth;
   StringRef Name = UserLockName.empty() ?  "UNSPECIFIED" : getUserLockName();
   vpo::printStr("User Lock Name", Name, OS, Indent, Verbosity);
-  //TODO: Add HINT
+  vpo::printInt("HINT", getHint(), OS, Indent, Verbosity);
 }
+
+//
+// Methods for WRNFlushNode
+//
 
 // constructor
 WRNFlushNode::WRNFlushNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNFlush, BB) {
   LLVM_DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+//
+// Methods for WRNPrefetchNode
+//
+
+// constructor
+WRNPrefetchNode::WRNPrefetchNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNPrefetch, BB) {
+  setIf(nullptr);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNPrefetchNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNPrefetchNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                 unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("IF_EXPR", getIf(), OS, Indent, Verbosity);
 }
 
 //

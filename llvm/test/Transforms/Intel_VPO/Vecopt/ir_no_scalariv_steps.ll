@@ -10,12 +10,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   for (index = 0; index < 1024; index++)
 ;     ip[index] = index;
 ; }
-; RUN: opt -VPlanDriver -S %s | FileCheck %s
+; RUN: opt -vplan-vec -S %s | FileCheck %s
 
 ; This test checks that scalar IV steps are not generated in vector loop
-; CHECK: vector.ph:
+; CHECK: VPlannedBB1:
 ; CHECK: vector.body:
-; CHECK:   [[IV_PHI:%.*]] = phi i64 [ 0, %vector.ph ], [ [[IV_NEXT:%.*]], %vector.body ]
+; CHECK:   [[IV_PHI:%.*]] = phi i64 [ 0, [[vector_ph:%.*]] ], [ [[IV_NEXT:%.*]], %vector.body ]
 ; CHECK-NOT: {{.*}} = add i64 [[IV_PHI]], {{[0123]}}
 ; CHECK: {{.*}} = getelementptr inbounds i64, i64* %ip, i64 [[IV:%.*]]
 ; Function Attrs: nounwind uwtable

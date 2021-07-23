@@ -2,14 +2,25 @@
 ; REQUIRES: intel_feature_icecode
 ; RUN: llc < %s -mtriple=x86_icecode-unknown-unknown | FileCheck %s
 
+declare i8 @llvm.x86.icecode.loadpphys.8(i64)
 declare i16 @llvm.x86.icecode.loadpphys.16(i64)
 declare i32 @llvm.x86.icecode.loadpphys.32(i64)
 declare i64 @llvm.x86.icecode.loadpphys.64(i64)
+declare void @llvm.x86.icecode.storepphys.8(i8, i64)
 declare void @llvm.x86.icecode.storepphys.16(i16, i64)
 declare void @llvm.x86.icecode.storepphys.32(i32, i64)
 declare void @llvm.x86.icecode.storepphys.64(i64, i64)
 declare void @llvm.x86.icecode.loadseg(i8*, i32)
 declare void @llvm.x86.icecode.storeseg(i8*, i32)
+
+define i8 @loadpphys8(i64 %addr) {
+; CHECK-LABEL: loadpphys8:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovpphysb (%rdi), %al
+; CHECK-NEXT:    retq
+  %res = call i8 @llvm.x86.icecode.loadpphys.8(i64 %addr)
+  ret i8 %res
+}
 
 define i16 @loadpphys16(i64 %addr) {
 ; CHECK-LABEL: loadpphys16:
@@ -36,6 +47,15 @@ define i64 @loadpphys64(i64 %addr) {
 ; CHECK-NEXT:    retq
   %res = call i64 @llvm.x86.icecode.loadpphys.64(i64 %addr)
   ret i64 %res
+}
+
+define void @storepphys8(i8 %val, i64 %addr) {
+; CHECK-LABEL: storepphys8:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    gmovpphysb %dil, (%rsi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storepphys.8(i8 %val, i64 %addr)
+  ret void
 }
 
 define void @storepphys16(i16 %val, i64 %addr) {
@@ -128,6 +148,42 @@ define void @loadseg_gs(i8* %addr) {
   ret void
 }
 
+define void @loadseg_gdtr(i8* %addr) {
+; CHECK-LABEL: loadseg_gdtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %gdtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 7)
+  ret void
+}
+
+define void @loadseg_ldtr(i8* %addr) {
+; CHECK-LABEL: loadseg_ldtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %ldtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 8)
+  ret void
+}
+
+define void @loadseg_idtr(i8* %addr) {
+; CHECK-LABEL: loadseg_idtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %idtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 9)
+  ret void
+}
+
+define void @loadseg_tr(i8* %addr) {
+; CHECK-LABEL: loadseg_tr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %tr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 10)
+  ret void
+}
+
 define void @storeseg(i8* %addr) {
 ; CHECK-LABEL: storeseg:
 ; CHECK:       # %bb.0:
@@ -188,6 +244,42 @@ define void @storeseg_gs(i8* %addr) {
 ; CHECK-NEXT:    storeseg %gs:(%rdi)
 ; CHECK-NEXT:    retq
   call void @llvm.x86.icecode.storeseg(i8* %addr, i32 6)
+  ret void
+}
+
+define void @storeseg_gdtr(i8* %addr) {
+; CHECK-LABEL: storeseg_gdtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %gdtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 7)
+  ret void
+}
+
+define void @storeseg_ldtr(i8* %addr) {
+; CHECK-LABEL: storeseg_ldtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %ldtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 8)
+  ret void
+}
+
+define void @storeseg_idtr(i8* %addr) {
+; CHECK-LABEL: storeseg_idtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %idtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 9)
+  ret void
+}
+
+define void @storeseg_tr(i8* %addr) {
+; CHECK-LABEL: storeseg_tr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %tr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 10)
   ret void
 }
 
@@ -558,4 +650,113 @@ define void @storelin64(i64 %val, i64 %addr) {
 ; CHECK-NEXT:    retq
   call void @llvm.x86.icecode.storelin.64(i64 %val, i64 %addr)
   ret void
+}
+
+declare void @llvm.x86.icecode.loaduphys(i8*)
+declare void @llvm.x86.icecode.storeuphys(i8*)
+declare i32 @llvm.x86.icecode.fscp.or.32(i32, i32)
+declare i64 @llvm.x86.icecode.fscp.or.64(i32, i64)
+declare i32 @llvm.x86.icecode.creg.or.mt.32(i32, i32)
+declare i64 @llvm.x86.icecode.creg.or.mt.64(i32, i64)
+declare i32 @llvm.x86.icecode.fscp.andnot.32(i32, i32)
+declare i64 @llvm.x86.icecode.fscp.andnot.64(i32, i64)
+declare i32 @llvm.x86.icecode.creg.andnot.mt.32(i32, i32)
+declare i64 @llvm.x86.icecode.creg.andnot.mt.64(i32, i64)
+
+define void @loaduphys(i8* %addr) {
+; CHECK-LABEL: loaduphys:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loaduphys (%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loaduphys(i8* %addr)
+  ret void
+}
+
+define void @storeuphys(i8* %addr) {
+; CHECK-LABEL: storeuphys:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeuphys (%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeuphys(i8* %addr)
+  ret void
+}
+
+define i32 @fscp_or_32(i32 %val) {
+; CHECK-LABEL: fscp_or_32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl %edi, %eax
+; CHECK-NEXT:    fscp_orl $0, %eax
+; CHECK-NEXT:    retq
+  %res = call i32 @llvm.x86.icecode.fscp.or.32(i32 0, i32 %val)
+  ret i32 %res
+}
+
+define i64 @fscp_or_64(i64 %val) {
+; CHECK-LABEL: fscp_or_64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    fscp_orq $0, %rax
+; CHECK-NEXT:    retq
+  %res = call i64 @llvm.x86.icecode.fscp.or.64(i32 0, i64 %val)
+  ret i64 %res
+}
+
+define i32 @creg_or_mt_32(i32 %val) {
+; CHECK-LABEL: creg_or_mt_32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl %edi, %eax
+; CHECK-NEXT:    creg_or_mtl $0, %eax
+; CHECK-NEXT:    retq
+  %res = call i32 @llvm.x86.icecode.creg.or.mt.32(i32 0, i32 %val)
+  ret i32 %res
+}
+
+define i64 @creg_or_mt_64(i64 %val) {
+; CHECK-LABEL: creg_or_mt_64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    creg_or_mtq $0, %rax
+; CHECK-NEXT:    retq
+  %res = call i64 @llvm.x86.icecode.creg.or.mt.64(i32 0, i64 %val)
+  ret i64 %res
+}
+
+define i32 @fscp_andnot_32(i32 %val) {
+; CHECK-LABEL: fscp_andnot_32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl %edi, %eax
+; CHECK-NEXT:    fscp_andnotl $0, %eax
+; CHECK-NEXT:    retq
+  %res = call i32 @llvm.x86.icecode.fscp.andnot.32(i32 0, i32 %val)
+  ret i32 %res
+}
+
+define i64 @fscp_andnot_64(i64 %val) {
+; CHECK-LABEL: fscp_andnot_64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    fscp_andnotq $0, %rax
+; CHECK-NEXT:    retq
+  %res = call i64 @llvm.x86.icecode.fscp.andnot.64(i32 0, i64 %val)
+  ret i64 %res
+}
+
+define i32 @creg_andnot_mt_32(i32 %val) {
+; CHECK-LABEL: creg_andnot_mt_32:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movl %edi, %eax
+; CHECK-NEXT:    creg_andnot_mtl $0, %eax
+; CHECK-NEXT:    retq
+  %res = call i32 @llvm.x86.icecode.creg.andnot.mt.32(i32 0, i32 %val)
+  ret i32 %res
+}
+
+define i64 @creg_andnot_mt_64(i64 %val) {
+; CHECK-LABEL: creg_andnot_mt_64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    movq %rdi, %rax
+; CHECK-NEXT:    creg_andnot_mtq $0, %rax
+; CHECK-NEXT:    retq
+  %res = call i64 @llvm.x86.icecode.creg.andnot.mt.64(i32 0, i64 %val)
+  ret i64 %res
 }

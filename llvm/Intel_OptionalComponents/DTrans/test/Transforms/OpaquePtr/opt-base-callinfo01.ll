@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
-
-; RUN: opt  < %s -whole-program-assume -disable-output -dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
-; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtrans-optbasetest -dtrans-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtrans-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt  < %s -whole-program-assume -disable-output -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt  < %s -whole-program-assume -disable-output -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt  < %s -force-opaque-pointers -whole-program-assume -disable-output -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt  < %s -force-opaque-pointers -whole-program-assume -disable-output -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.type01,struct.type02 -debug-only=dtransop-optbase 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 
 %struct.noclonetype01 = type { i32, i32 }
 %struct.type01 = type { i32, i16, i8 }
@@ -11,8 +12,6 @@
 ; This test verifies the types stored in the callinfo
 ; get updated after the type remapping occurs.
 
-; CHECK-LABEL: Call info after remapping
-
 define void @test01() {
   %call = call i8* @malloc(i64 64)
   %pts = bitcast i8* %call to %struct.type01*
@@ -21,6 +20,7 @@ define void @test01() {
   call void @free(i8* %ptv)
   ret void
 }
+; CHECK-LABEL: Call info after transforming functions
 ; CHECK: Function: test01
 ; CHECK: AllocCallInfo:
 ; CHECK:   Kind: Malloc
@@ -65,7 +65,7 @@ define void @test03() {
   ret void
 }
 ; CHECK: Function: test03
-; CHECK: Instruction:   call void @llvm.memset.p0i8.i64(i8* %ptr, i8 0, i64 8, i1 false)
+; CHECK: Instruction:   call void @llvm.memset{{.*}}
 ; CHECK: MemfuncInfo:
 ; CHECK:     Kind: memset
 ; CHECK:   Region 0:
@@ -192,11 +192,12 @@ define void @test09(%struct.type01dep* "intel_dtrans_func_index"="1" %in1, %stru
 ; CHECK:     Kind: memcpy
 ; CHECK:   Region 0:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
+; CHECK-NONOPAQUE:  Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
+; CHECK-OPAQUE:     Type: %struct.type01dep = type { %struct.type01*, %struct.type01* }
 ; CHECK:   Region 1:
 ; CHECK:     Complete: true
-; CHECK:     Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
-
+; CHECK-NONOPAQUE:  Type: %__DDT_struct.type01dep = type { %__DTT_struct.type01*, %__DTT_struct.type01* }
+; CHECK-OPAQUE:     Type: %struct.type01dep = type { %struct.type01*, %struct.type01* }
 
 declare !intel.dtrans.func.type !13 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 declare !intel.dtrans.func.type !14 void @free(i8* "intel_dtrans_func_index"="1")

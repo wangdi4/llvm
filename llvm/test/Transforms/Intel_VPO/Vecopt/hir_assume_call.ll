@@ -1,8 +1,8 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -print-after=hir-vec-dir-insert \
 ; RUN:     -disable-output -vplan-force-vf=4 2>&1 | FileCheck %s --check-prefix=CHECK-DIRECTIVE
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -instcombine -vplan-force-vf=4 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg,instcombine" -S < %s -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -instcombine -vplan-force-vf=4 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg,instcombine" -S < %s -vplan-force-vf=4 | FileCheck %s
 
 
 

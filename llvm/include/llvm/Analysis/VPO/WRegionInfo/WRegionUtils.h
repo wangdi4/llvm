@@ -214,6 +214,9 @@ public:
   /// to make the WRN graph builder skip them instead of asserting.
   static bool skipDirFromWrnConstruction(int DirID);
 
+  /// Lookahead for a nowait clause and return true in case it finds it
+  static bool nowaitLookahead(BasicBlock *EntryBB);
+
   /// Removal Utilities
 
   /// \brief Destroys the passed in WRegion node.
@@ -334,6 +337,10 @@ public:
   /// target regions from the target code after outlining is done.
   static bool hasTargetDirective(WRContainerImpl &WRC);
   static bool hasTargetDirective(WRegionInfo *WI);
+
+  /// Returns \b true if one of \p W's ancestor is an OMP target region,
+  /// or the function where \p W lies in has target declare attribute.
+  static bool hasParentTarget(const WRegionNode *W);
 
   /// \returns \b true iff \p W contains a WRN for which \p Predicate is true.
   static bool containsWRNsWith(WRegionNode *W,

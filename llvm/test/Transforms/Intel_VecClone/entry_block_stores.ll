@@ -10,10 +10,10 @@ define i32 @bar(i32* %x, i32 %gid) #0 {
 ; CHECK-NEXT:    [[VEC_X0:%.*]] = alloca <4 x i32*>, align 32
 ; CHECK-NEXT:    [[VEC_GID0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <4 x i32>, align 16
-; CHECK-NEXT:    store <4 x i32> [[GID0]], <4 x i32>* [[VEC_GID0]], align 4
 ; CHECK-NEXT:    [[VEC_X_CAST0:%.*]] = bitcast <4 x i32*>* [[VEC_X0]] to i32**
 ; CHECK-NEXT:    store <4 x i32*> [[X0]], <4 x i32*>* [[VEC_X0]], align 32
 ; CHECK-NEXT:    [[VEC_GID_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_GID0]] to i32*
+; CHECK-NEXT:    store <4 x i32> [[GID0]], <4 x i32>* [[VEC_GID0]], align 16
 ; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
@@ -26,18 +26,21 @@ define i32 @bar(i32* %x, i32 %gid) #0 {
 ; CHECK-NEXT:    [[VEC_X_CAST_GEP0:%.*]] = getelementptr i32*, i32** [[VEC_X_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    [[VEC_X_ELEM0:%.*]] = load i32*, i32** [[VEC_X_CAST_GEP0]], align 8
 ; CHECK-NEXT:    [[FST_P0:%.*]] = getelementptr inbounds i32, i32* [[VEC_X_ELEM0]], i32 0
-; CHECK-NEXT:    [[VEC_GID_CAST_GEP0:%.*]] = getelementptr i32, i32* [[VEC_GID_CAST0]], i32 [[INDEX0]]
-; CHECK-NEXT:    [[VEC_GID_ELEM0:%.*]] = load i32, i32* [[VEC_GID_CAST_GEP0]], align 4
-; CHECK-NEXT:    [[INC0:%.*]] = add nuw nsw i32 [[VEC_GID_ELEM0]], 1
+; CHECK-NEXT:    [[VEC_GID_CAST_GEP10:%.*]] = getelementptr i32, i32* [[VEC_GID_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[VEC_GID_ELEM20:%.*]] = load i32, i32* [[VEC_GID_CAST_GEP10]], align 4
+; CHECK-NEXT:    [[INC0:%.*]] = add nuw nsw i32 [[VEC_GID_ELEM20]], 1
 ; CHECK-NEXT:    [[RET_CAST_GEP0:%.*]] = getelementptr i32, i32* [[RET_CAST0]], i32 [[INDEX0]]
 ; CHECK-NEXT:    store i32 [[INC0]], i32* [[RET_CAST_GEP0]], align 4
 ; CHECK-NEXT:    store i32 [[INC0]], i32* [[FST_P0]], align 4
+; CHECK-NEXT:    [[VEC_GID_CAST_GEP0:%.*]] = getelementptr i32, i32* [[VEC_GID_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[VEC_GID_ELEM0:%.*]] = load i32, i32* [[VEC_GID_CAST_GEP0]], align 4
+; CHECK-NEXT:    store i32 [[VEC_GID_ELEM0]], i32* [[FST_P0]], align 4
 ; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.loop.exit:
 ; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
 ; CHECK-NEXT:    [[VL_COND0:%.*]] = icmp ult i32 [[INDVAR0]], 4
-; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[SIMD_END_REGION0:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[SIMD_END_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.end.region:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[ENTRY_REGION0]]) [ "DIR.OMP.END.SIMD"() ]

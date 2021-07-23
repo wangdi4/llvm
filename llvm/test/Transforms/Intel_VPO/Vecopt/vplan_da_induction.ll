@@ -3,7 +3,7 @@
 ; This test checks that DA correctly identifies strides for different
 ; inductions-types like integer, pointer for privates as well as non-privates.
 
-; RUN: opt -VPlanDriver -vplan-dump-plan-da -vplan-dump-soa-info -disable-output \
+; RUN: opt -vplan-vec -vplan-dump-plan-da -vplan-dump-soa-info -disable-output \
 ; RUN: -vplan-force-vf=2 %s 2>&1 | FileCheck %s
 
 define void @test_induction_strides(i64* %g.arr) {
@@ -43,9 +43,9 @@ define void @test_induction_strides(i64* %g.arr) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in1 i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_G_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i64* live-in2 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[ARRAYIDX0:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64* [[VP_G_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i64* [[G_ARRAYIDX0:%.*]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]

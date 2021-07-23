@@ -75,10 +75,10 @@
 //
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -552,11 +552,11 @@ bool HIRLMM::isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Lp,
   clearWorkingSetMemory();
   LoopLevel = Lp->getNestingLevel();
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   if (!doLoopPreliminaryChecks(Lp, FieldModRef != nullptr)) {
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_FEATURE_SW_DTRANS
   if (!doLoopPreliminaryChecks(Lp, false)) {
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
     LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
     return false;
   }
@@ -608,7 +608,8 @@ bool HIRLMM::processLegalityAndProfitability(const HLLoop *Lp) {
 
 static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
                             unsigned LoopLevel,
-                            ArrayRef<HLInst *> UnknownAliasingCallInsts) {
+                            ArrayRef<HLInst *> UnknownAliasingCallInsts,
+                            const MemRefGroup &Group) {
   bool IsLoad = MemRef->isRval();
   const RegDDRef *OtherMemRef = nullptr;
 
@@ -655,7 +656,7 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
       }
     }
 
-    if (!DDRefUtils::areEqual(MemRef, OtherMemRef)) {
+    if (!is_contained(Group, OtherMemRef)) {
       // Test: DV has any < or > before the loop level
       const DirectionVector &DV = Edge->getDV();
       if (!DV.isIndepFromLevel(LoopLevel)) {
@@ -702,18 +703,19 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
     }
 
     if (!areDDEdgesLegal(BasePtrLoadRef, DDG, LoopLevel,
-                         UnknownAliasingCallInsts)) {
+                         UnknownAliasingCallInsts, Group)) {
       return false;
     }
   }
 
   for (const RegDDRef *Ref : Group) {
-    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts)) {
+    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts,
+                         Group)) {
       return false;
     }
   }
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   if (!UnknownAliasingCallInsts.empty()) {
     // Bail out if analysis is not available.
     if (!FieldModRef) {
@@ -733,7 +735,7 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
       }
     }
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   return true;
 }
@@ -1064,8 +1066,8 @@ bool HIRLMM::hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
 
   LoadRef->updateDefLevel(LoopLevel - 1);
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Load hoisted out of the loop");
+  // Load hoisted out of the loop
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
 
   return true;
 }
@@ -1089,8 +1091,8 @@ bool HIRLMM::sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   StoreRef->updateDefLevel(LoopLevel - 1);
   TempRef->updateDefLevel(LoopLevel - 1);
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Store sinked out of the loop");
+  // Store sinked out of the loop
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   return true;
 }
 
@@ -1147,8 +1149,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Load hoisted out of the loop");
+    // Load hoisted out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
     // Passing FirstRef's lexical parent loop as it can be different than Lp in
     // loopnest hoisting mode.
     LoadInPrehdr = createLoadInPreheader(FirstRef->getLexicalParentLoop(),
@@ -1166,8 +1168,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Store sinked out of the loop");
+    // Store sinked out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
     RegDDRef *FirstStore = FirstRef;
 
     // In the multi-exit loop, we need to find the exact store ref to compare
@@ -1300,6 +1302,79 @@ static HLIf *getIVComparisonIf(HLLoop *Lp, HLGoto *Goto) {
   return IVCheckIf;
 }
 
+template <typename IterTy>
+static std::pair<RegDDRef *, bool>
+findMemRefLoadInRange(IterTy Begin, IterTy End, RegDDRef *MemRef,
+                      SmallSet<unsigned, 8> &DefinedTempSBs) {
+
+  for (auto It = Begin; It != End; ++It) {
+
+    // Give up on non-insts.
+    if (!isa<HLInst>(*It)) {
+      return {nullptr, true};
+    }
+
+    auto *Inst = cast<HLInst>(&*It);
+
+    // Give up on calls.
+    if (Inst->isCallInst()) {
+      return {nullptr, true};
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+    if (isa<LoadInst>(Inst->getLLVMInstruction()) &&
+        DDRefUtils::areEqual(MemRef, Inst->getRvalDDRef())) {
+      // Return nullptr if temp has been redefined.
+      if (DefinedTempSBs.count(LvalRef->getSymbase())) {
+        return {nullptr, true};
+      } else {
+        return {LvalRef->clone(), false};
+      }
+    }
+
+    if (auto *LvalRef = Inst->getLvalDDRef()) {
+      // Give up search on encountering aliasing store.
+      if (LvalRef->isMemRef()) {
+        if (LvalRef->getSymbase() == MemRef->getSymbase()) {
+          return {nullptr, true};
+        }
+      } else {
+        DefinedTempSBs.insert(LvalRef->getSymbase());
+      }
+    }
+  }
+
+  return {nullptr, false};
+}
+
+// Tries to find a load of \p MemRef in loop preheader or before it.
+// Returns the lval temp of the load if found, else returns nullptr.
+static RegDDRef *findMemRefLoadBeforeLoop(HLLoop *Lp, RegDDRef *MemRef) {
+  SmallSet<unsigned, 8> DefinedTempSBs;
+  RegDDRef *InitRef = nullptr;
+  bool BailOut = false;
+
+  std::tie(InitRef, BailOut) = findMemRefLoadInRange(
+      Lp->pre_rbegin(), Lp->pre_rend(), MemRef, DefinedTempSBs);
+
+  if (InitRef) {
+    return InitRef;
+  }
+
+  HLNode *PrevNode = Lp->getPrevNode();
+  if (!BailOut && PrevNode) {
+    auto BegIt = PrevNode->getReverseIterator();
+    auto *FirstLexChild =
+        HLNodeUtils::getFirstLexicalChild(Lp->getParent(), Lp);
+    auto EndIt = std::next(FirstLexChild->getReverseIterator());
+
+    std::tie(InitRef, BailOut) =
+        findMemRefLoadInRange(BegIt, EndIt, MemRef, DefinedTempSBs);
+  }
+
+  return InitRef;
+}
+
 // Create a StoreInst In Loop's postexit
 // (If the Store already exists, obtain the StoreInst.)
 //
@@ -1325,6 +1400,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     SmallVector<HLGoto *, 16> Gotos;
     Lp->populateEarlyExits(Gotos);
     bool TmpIsInitialized = NeedLoadInPrehdr;
+    bool RequiresIVComparisonIf = true;
 
     for (auto &Goto : Gotos) {
       auto *StoreInst = StoreInPostexit->clone();
@@ -1332,20 +1408,35 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
       if (HLNodeUtils::dominates(Ref->getHLDDNode(), Goto)) {
         HLNodeUtils::insertBefore(Goto, StoreInst);
       } else {
-        // Create an inst like %t = 0 and insert it as first prehearder of the
-        // loop
+        // Create an inst like %t = 0 and insert it as last preheader inst of
+        // the loop. If an existing load of this memref like this is found
+        // before the loop- %ld = A[5];
+        //
+        // An copy of this form is generated in the preheader-
+        // %t = %ld;
+        //
         if (!TmpIsInitialized) {
           RegDDRef *LHS = TmpRefClone->clone();
-          RegDDRef *RHS =
-              HIRF.getDDRefUtils().createNullDDRef(LHS->getDestType());
+
+          RegDDRef *RHS = findMemRefLoadBeforeLoop(Lp, Ref);
+
+          if (!RHS) {
+            RHS = HIRF.getDDRefUtils().createNullDDRef(LHS->getDestType());
+          } else {
+            RequiresIVComparisonIf = false;
+          }
           auto *InitialTemp = HNU.createCopyInst(RHS, "copy", LHS);
           Lp->addLiveInTemp(LHS->getSymbase());
-          HLNodeUtils::insertAsFirstPreheaderNode(Lp, InitialTemp);
+          HLNodeUtils::insertAsLastPreheaderNode(Lp, InitialTemp);
           TmpIsInitialized = true;
         }
 
-        HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
-        HLNodeUtils::insertAsFirstThenChild(IVCheckIf, StoreInst);
+        if (RequiresIVComparisonIf) {
+          HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
+          HLNodeUtils::insertAsFirstThenChild(IVCheckIf, StoreInst);
+        } else {
+          HLNodeUtils::insertBefore(Goto, StoreInst);
+        }
       }
     }
   }
@@ -1364,15 +1455,15 @@ PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
                                       llvm::FunctionAnalysisManager &AM,
                                       HIRFramework &HIRF) {
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
          AM.getResult<HIRLoopStatisticsAnalysis>(F),
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
          MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
          &AM.getResult<DominatorTreeAnalysis>(F),
          (LoopNestHoistingOnly || ForceLoopNestHoisting))
       .run();
@@ -1394,9 +1485,9 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
     AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
     AU.setPreservesAll();
   }
 
@@ -1408,9 +1499,9 @@ public:
     return HIRLMM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                   getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
                   getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                   &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                   &getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
                   (LoopNestHoistingOnly || ForceLoopNestHoisting))
         .run();
@@ -1424,9 +1515,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 INITIALIZE_PASS_END(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
                     false, false)
 

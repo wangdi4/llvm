@@ -3,7 +3,7 @@
 ; The test was extracted from vplan_pointer_operand_widening.ll and changed to
 ; verify DA instead of the CG because DA was producing incorrect result.
 
-; RUN: opt < %s -VPlanDriver -vplan-dump-da -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -vplan-vec -vplan-dump-da -disable-output 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -34,11 +34,11 @@ define void @foo_c(%Struct* %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32>* [[VP_PHI:%.*]] = phi  [ <3 x i32>* [[VP_PTR1]], [[BB2]] ],  [ <3 x i32>* [[VP_PTR2]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] <3 x i32>* [[VP_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]

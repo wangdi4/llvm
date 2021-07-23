@@ -677,10 +677,6 @@ bool HIROptPredicate::isPUCandidate(const HLIf *If, const RegDDRef *Ref,
     const RegDDRef *VRef = RefsStack.pop_back_val();
     PU.VisitedRefs.insert(VRef);
 
-    if (VRef->isMemRef() && VRef->isVolatile()) {
-      return false;
-    }
-
     // Check that the VRef value is independent from ParentLoop's IV.
     if (VRef->hasIV(ParentLoopLevel)) {
       return false;

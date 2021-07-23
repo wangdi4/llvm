@@ -18,6 +18,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANINSTRUCTION_DATA_HIR_H
 
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
@@ -331,14 +332,16 @@ class HIRSpecificsData {
 
   /// Pointer to access the underlying HIR data attached to this
   /// VPInstruction, if any, depending on its sub-type:
-  ///   1) Master VPInstruction: ExtraData points to a VPInstDataHIR holding
-  ///      the actual HIR data.
-  ///   2) Decomposed VPInstruction: ExtraData points to master VPInstruction
-  ///      holding the actual HIR data.
-  ///   3) Other VPInstruction (!Master and !Decomposed): ExtraData is null.
-  ///      We use a void pointer to represent this case.
-  PointerUnion<MasterVPInstData *, VPInstruction *, void *> ExtraData =
-      (int *)nullptr;
+  ///   * Master VPInstruction: ExtraData points to a VPInstDataHIR holding
+  ///     the actual HIR data.
+  ///   * Decomposed VPInstruction: ExtraData points to master VPInstruction
+  ///     holding the actual HIR data.
+  ///   * VLSLoad/VLSStore: ExtraData contains fake symbases.
+  ///   * Other VPInstruction: ExtraData is null. We use a void pointer to
+  ///     represent this case.
+  using FakeSymbases = SetVector<unsigned, SmallVector<unsigned, 4>>;
+  PointerUnion<MasterVPInstData *, VPInstruction *, FakeSymbases *, void *>
+      ExtraData = (int *)nullptr;
 
   HIRSpecificsData(const VPInstruction &Inst);
 
@@ -346,6 +349,8 @@ public:
   ~HIRSpecificsData() {
     if (ExtraData.is<MasterVPInstData *>())
       delete ExtraData.get<MasterVPInstData *>();
+    if (ExtraData.is<FakeSymbases *>())
+      delete ExtraData.get<FakeSymbases *>();
   }
 };
 
@@ -374,8 +379,6 @@ private:
     if (isMaster() || isDecomposed())
       return getVPInstData()->isValid();
 
-    // For other VPInstructions without underlying HIR.
-    assert(!isSet() && "HIR data must be unset!");
     return false;
   }
 
@@ -481,6 +484,12 @@ public:
 
   void setFoldIVConvert(bool Fold);
   bool getFoldIVConvert() const;
+
+  /// This method uniquifies symbases, i.e. if it's primary symbase it won't be
+  /// added to the list of fakes ones. Fake symbases don't contain duplicates
+  /// either.
+  void addFakeSymbase(unsigned Symbase);
+  ArrayRef<unsigned> fakeSymbases() const;
 
   void cloneFrom(const HIRSpecifics HIR);
 };

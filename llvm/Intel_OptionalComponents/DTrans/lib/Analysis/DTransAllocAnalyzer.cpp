@@ -1,6 +1,6 @@
 //===-----DTransAllocAnalyzer.cpp - Allocation/Free function analyzer------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -474,10 +474,21 @@ static bool isLowerBitMask(int64_t Value) {
 // Return true if we can find an upper bound for the amount 'V' is less than
 // the address computed by the sequence of GEPs starting with 'GBV', and if
 // the sequence of GEPs starting with 'GBV' compute an offset equal to 'Offset'.
+// Here 'V' is operand 1 of the byte-flattened GEP 'GV'.
 //
 // If we return true, we set '*Result' to the value of the upper bound.
 //
-// For example:
+// Here is a simple example:
+//
+//  %6 = getelementptr inbounds i8, i8* %5, i64 15
+//  %7 = getelementptr inbounds i8, i8* %6, i64 8
+//  %8 = getelementptr inbounds i8, i8* %7, i64 4
+//  %9 = getelementptr inbounds i8, i8* %8, i64 -11
+//
+// If 'V' here is -11 and 'GBV' is %6, then the most that %9 can be less
+// than %8 is 11. So the value returned in '*Result' is 11.
+//
+// Here is a more complex example:
 //
 //  %6 = getelementptr inbounds i8, i8* %5, i64 15
 //  %7 = getelementptr inbounds i8, i8* %6, i64 8
@@ -488,7 +499,7 @@ static bool isLowerBitMask(int64_t Value) {
 //  %12 = getelementptr inbounds i8, i8* %8, i64 %11
 //
 // If 'V' here is %11 and 'GBV' is %6, then the most that %12 can be less
-// than %8 is 15.
+// than %8 is 15. So the value returned in '*Result' is 15.
 //
 // The sequence of GEPs starting with 'GBV' are:
 //
@@ -497,40 +508,51 @@ static bool isLowerBitMask(int64_t Value) {
 //  %8 = getelementptr inbounds i8, i8* %7, i64 4
 //
 // The offset computed is 15+8+4 == 27, which should be equal to 'Offset'.
-// The value returned in '*Result' is 15.
 //
-// NOTE: mallocLimit() is a bit of a pattern match, albeit for a very
-// important case.
+// NOTE: mallocLimit() is a bit of a pattern match, albeit for a few very
+// important cases.
 //
-bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV, Value *V,
+bool DTransAllocAnalyzer::mallocLimit(GetElementPtrInst *GBV,
+                                      GetElementPtrInst *GV,
                                       int64_t Offset, int64_t *Result) const {
-  auto BIS = dyn_cast<BinaryOperator>(V);
-  if (!BIS || BIS->getOpcode() != Instruction::Sub)
-    return false;
-  auto CI = dyn_cast<ConstantInt>(BIS->getOperand(0));
-  if (!CI || !CI->isZero())
-    return false;
-  auto BIA = dyn_cast<BinaryOperator>(BIS->getOperand(1));
-  if (!BIA || BIA->getOpcode() != Instruction::And)
-    return false;
-  Value *W = nullptr;
   int64_t Limit = 0;
-  if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(0)))) {
-    W = BIA->getOperand(1);
-    Limit = CI->getSExtValue();
-  } else if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(1)))) {
-    W = BIA->getOperand(0);
-    Limit = CI->getSExtValue();
-  } else
-    return false;
-  if (!isLowerBitMask(Limit))
-    return false;
-  auto PI = dyn_cast<PtrToIntInst>(W);
-  if (!PI)
-    return false;
+  Value *V = GV->getOperand(1);
+  auto CI0 = dyn_cast<ConstantInt>(V);
+  Value *NewGEP = nullptr;
+  if (CI0) {
+    int64_t Result = CI0->getSExtValue();
+    if (Result >= 0)
+      return false;
+    Limit = -Result;
+    NewGEP = GV->getPointerOperand();
+  } else {
+    auto BIS = dyn_cast<BinaryOperator>(V);
+    if (!BIS || BIS->getOpcode() != Instruction::Sub)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(BIS->getOperand(0));
+    if (!CI || !CI->isZero())
+      return false;
+    auto BIA = dyn_cast<BinaryOperator>(BIS->getOperand(1));
+    if (!BIA || BIA->getOpcode() != Instruction::And)
+      return false;
+    Value *W = nullptr;
+    if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(0)))) {
+      W = BIA->getOperand(1);
+      Limit = CI->getSExtValue();
+    } else if ((CI = dyn_cast<ConstantInt>(BIA->getOperand(1)))) {
+      W = BIA->getOperand(0);
+      Limit = CI->getSExtValue();
+    } else
+      return false;
+    if (!isLowerBitMask(Limit))
+      return false;
+    auto PI = dyn_cast<PtrToIntInst>(W);
+    if (!PI)
+      return false;
+    NewGEP = PI->getOperand(0);
+  }
   int64_t LocalOffset = 0;
-  Value *NewGEP = PI->getOperand(0);
-  auto *Int8Ty = llvm::Type::getInt8Ty(PI->getContext());
+  auto *Int8Ty = llvm::Type::getInt8Ty(V->getContext());
   GetElementPtrInst *LastGEP = nullptr;
   while (auto GEP = dyn_cast<GetElementPtrInst>(NewGEP)) {
     LastGEP = GEP;
@@ -590,7 +612,7 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
       return false;
     if (!mallocOffset(Call->getArgOperand(0), &Offset))
       return false;
-    if (!mallocLimit(GBV, GV->getOperand(1), Offset, &Limit))
+    if (!mallocLimit(GBV, GV, Offset, &Limit))
       return false;
     return Offset >= Limit;
   }

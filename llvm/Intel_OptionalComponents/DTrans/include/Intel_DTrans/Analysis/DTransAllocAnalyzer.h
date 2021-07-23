@@ -1,6 +1,6 @@
 //===-----DTransAllocAnalyzer.h - Allocation/Free function analyzer--------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransAllocAnalyzer.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransAllocAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSALLOCANALYZER_H
@@ -185,8 +185,8 @@ private:
   bool mallocBasedGEPChain(GetElementPtrInst *GV, GetElementPtrInst **GBV,
                            CallBase **GCI) const;
   bool mallocOffset(Value *V, int64_t *offset) const;
-  bool mallocLimit(GetElementPtrInst *GBV, Value *V, int64_t Offset,
-                   int64_t *Result) const;
+  bool mallocLimit(GetElementPtrInst *GBV, GetElementPtrInst *GV,
+                   int64_t Offset, int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
   bool analyzeForMallocStatus(Function *F);
 

@@ -69,9 +69,12 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { "dpcpp_kernel_recommended_vector_length"="16" "prefer-vector-width"="512" "scalar_kernel" "sycl_kernel" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized_kernel"="_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_" "vectorized_width"="1" }
-attributes #1 = { "dpcpp_kernel_recommended_vector_length"="16" "prefer-vector-width"="512" "scalar_kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized_kernel" "vectorized_width"="16" }
+attributes #0 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "scalar-kernel" "sycl-kernel" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized-kernel"="_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_" "vectorized-width"="1" }
+attributes #1 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_" "target-cpu"="skylake-avx512" "vector-variants"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_" "vectorized-kernel" "vectorized-width"="16" }
 
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.unroll.disable"}
 
+
+!sycl.kernels = !{!2}
+!2 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

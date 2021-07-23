@@ -8,9 +8,11 @@
 extern void* mem;
 
 void test_xucode() {
+// CHECK: call i8 @llvm.x86.icecode.loadpphys.8(i64 %{{.*}})
 // CHECK: call i16 @llvm.x86.icecode.loadpphys.16(i64 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.loadpphys.32(i64 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.loadpphys.64(i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storepphys.8(i8 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storepphys.16(i16 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storepphys.32(i32 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storepphys.64(i64 %{{.*}}, i64 %{{.*}})
@@ -31,12 +33,15 @@ void test_xucode() {
 // CHECK: call { i64, i64, i64, i64 } asm sideeffect "gtranslaterd_noepc
 // CHECK: call { i64, i64, i64, i64 } asm sideeffect "gtranslatewr_noepc
 // CHECK: call void asm sideeffect "bcast_seg_state"
+  unsigned char reg8;
   unsigned short reg16;
   unsigned int reg32;
   unsigned long long reg64 = 0, info[4];
+  reg8 = _ce_loadpphys8(reg64);
   reg16 = _ce_loadpphys16(reg64);
   reg32 = _ce_loadpphys32(reg64);
   reg64 = _ce_loadpphys64(reg64);
+  _ce_storepphys8(reg8, reg64);
   _ce_storepphys16(reg16, reg64);
   _ce_storepphys32(reg32, reg64);
   _ce_storepphys64(reg64, reg64);
@@ -103,13 +108,28 @@ void test_icecode() {
 // CHECK: call void asm sideeffect "portout24", "{ax},{dx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i64 %{{.*}})
 // CHECK: call void asm sideeffect "load_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
 // CHECK: call void asm sideeffect "store_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
-// CHECK: call void asm sideeffect "flush_ifu"
+// CHECK: call void asm sideeffect "flush_ifu $0", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
 // CHECK: call i16 @llvm.x86.icecode.loadlin.16(i64 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.loadlin.32(i64 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.loadlin.64(i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storelin.16(i16 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storelin.32(i32 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storelin.64(i64 %{{.*}}, i64 %{{.*}})
+// CHECK: call i64 asm sideeffect "cccm $0", "=r,0,~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call i64 asm sideeffect "cccp $0", "=r,0,~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call void asm sideeffect "jmp_nopred $0", "r,~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call void asm sideeffect "fe_serialize", "~{dirflag},~{fpsr},~{flags}"()
+// CHECK: call void @llvm.x86.icecode.loaduphys(i8* %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storeuphys(i8* %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.fscp.or.32(i32 0, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.fscp.or.64(i32 0, i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.or.mt.32(i32 0, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.or.mt.64(i32 0, i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.fscp.andnot.32(i32 0, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.fscp.andnot.64(i32 0, i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.creg.andnot.mt.32(i32 0, i32 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.creg.andnot.mt.64(i32 0, i64 %{{.*}})
+// CHECK: call void asm sideeffect "io_tickle_debug $0", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -148,13 +168,28 @@ void test_icecode() {
   _ce_portout24(data32, data64);
   _ce_load_tickle_gpa(data64);
   _ce_store_tickle_gpa(data64);
-  _ce_flush_ifu();
+  _ce_flush_ifu(data64);
   data16 = _ce_loadlin16(data64);
   data32 = _ce_loadlin32(data64);
   data64 = _ce_loadlin64(data64);
   _ce_storelin16(data16, data64);
   _ce_storelin32(data32, data64);
   _ce_storelin64(data64, data64);
+  data64 = _ce_cccm(data64);
+  data64 = _ce_cccp(data64);
+  _ce_jmp_nopred(data64);
+  _ce_fe_serialize();
+  _ce_loaduphys(mem);
+  _ce_storeuphys(mem);
+  _ce_fscp_or_32(data32, 0);
+  _ce_fscp_or_64(data64, 0);
+  _ce_creg_or_mt_32(data32, 0);
+  _ce_creg_or_mt_64(data64, 0);
+  _ce_fscp_andnot_32(data32, 0);
+  _ce_fscp_andnot_64(data64, 0);
+  _ce_creg_andnot_mt_32(data32, 0);
+  _ce_creg_andnot_mt_64(data64, 0);
+  _ce_io_tickle_debug(data64);
 }
 
 void test_ce_iceret(unsigned reg) {

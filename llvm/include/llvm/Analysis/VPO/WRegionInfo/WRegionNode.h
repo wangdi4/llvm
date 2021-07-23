@@ -118,6 +118,9 @@ private:
   /// Children container
   WRContainerTy Children;
 
+  /// Dominator Tree (initialized/used during transformation).
+  DominatorTree* DT = nullptr;
+
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
@@ -200,6 +203,9 @@ protected:
   /// Set whether this WRegionNode is for an implicit construct.
   void setIsImplicit(bool B) { IsImplicit = B; }
 
+  /// Set the DominatorTree of this region.
+  void setDT(DominatorTree *D) { DT = D; }
+
   /// Finish creating the WRN once its ExitDir is found. This routine calls
   /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
   /// addition, if the WRN is a loop construct, this routine also calls
@@ -264,6 +270,7 @@ public:
   bool canHaveAligned() const;
   bool canHaveNontemporal() const;
   bool canHaveFlush() const;
+  bool canHaveData() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
   bool canHaveNowait() const;
@@ -307,6 +314,8 @@ public:
     return (canHaveMap() ? &getMap() : static_cast<MapClause *>(nullptr));
   }
 
+  DominatorTree *getDT() const { return DT; }
+
   /// @}
 
   // Below are virtual functions to get/set clause and other information of
@@ -329,6 +338,7 @@ public:
   virtual AllocateClause &getAllocate()      {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
+  virtual DataClause &getData()              {WRNERROR(QUAL_OMP_DATA);        }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
   virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
@@ -370,6 +380,7 @@ public:
                                            {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual const CopyprivateClause &getCpriv() const
                                            {WRNERROR(QUAL_OMP_COPYPRIVATE); }
+  virtual const DataClause &getData() const {WRNERROR(QUAL_OMP_DATA);       }
   virtual const DependClause &getDepend() const
                                            {WRNERROR("DEPEND");             }
   virtual const DepSinkClause &getDepSink() const
@@ -449,6 +460,8 @@ public:
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}
   virtual bool getMergeable()             const {WRNERROR(QUAL_OMP_MERGEABLE);}
+  virtual void setIsTaskwaitNowaitTask(bool Flag)  {WRNERROR(QUAL_OMP_NOWAIT);}
+  virtual bool getIsTaskwaitNowaitTask() const     {WRNERROR(QUAL_OMP_NOWAIT);}
   virtual void setNocontext(EXPR E)             {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual EXPR getNocontext()             const {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual void setNogroup(bool Flag)            {WRNERROR(QUAL_OMP_NOGROUP);  }
@@ -544,6 +557,8 @@ public:
   virtual bool getUntied()                const {WRNERROR(QUAL_OMP_UNTIED);   }
   virtual void setUserLockName(StringRef LN)    {WRNERROR(QUAL_OMP_NAME);     }
   virtual StringRef getUserLockName()     const {WRNERROR(QUAL_OMP_NAME);     }
+  virtual void setHint(uint32_t N)              {WRNERROR(QUAL_OMP_HINT);     }
+  virtual uint32_t getHint()              const {WRNERROR(QUAL_OMP_HINT);     }
 
   // WRNLoopInfo
 
@@ -570,6 +585,13 @@ public:
   virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
+  // Setter/getter for a thread limit attribute specified in VPOParoptConfig.
+  virtual void setConfiguredThreadLimit(uint64_t) {
+    WRNERROR(QUAL_OMP_THREAD_LIMIT);
+  }
+  virtual uint64_t getConfiguredThreadLimit() const {
+    WRNERROR(QUAL_OMP_THREAD_LIMIT);
+  }
 #endif //INTEL_CUSTOMIZATION
 
   virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}
@@ -851,6 +873,7 @@ public:
     WRNCancel,
     WRNCritical,
     WRNFlush,
+    WRNPrefetch,
     WRNOrdered,
     WRNMaster,
     WRNSingle,

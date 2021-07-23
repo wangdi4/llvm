@@ -1,6 +1,6 @@
 //==--- DataPerBarrierValue.cpp - Collect Data per value - C++ -*-----------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,7 +16,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -55,127 +55,130 @@ PreservedAnalyses DataPerValuePrinter::run(Module &M,
 }
 
 DataPerValue::DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV)
-    : SyncInstructions(nullptr), DL(nullptr), DataPerBarrierAnalysis(DPB),
-      WIRelatedValueAnalysis(WRV) {
+    : SyncInstructions(nullptr), DL(nullptr), DPB(DPB), WRV(WRV) {
   analyze(M);
 }
 
 void DataPerValue::analyze(Module &M) {
   // Initialize barrier utils class with current module.
-  BarrierUtils.init(&M);
+  Utils.init(&M);
 
-  // obtain DataLayout of the module.
+  // Obtain DataLayout of the module.
   DL = &M.getDataLayout();
   assert(DL && "Failed to obtain instance of DataLayout!");
 
   // Find and sort all connected function into disjointed groups.
   calculateConnectedGraph(M);
 
-  for (auto &F : M) {
+  for (Function &F : M)
     runOnFunction(F);
-  }
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync =
-      BarrierUtils.getAllFunctionsWithSynchronization();
-  // Collect data for each function with synchronize instruction.
-  for (Function *F : FunctionsWithSync) {
-    markSpecialArguments(*F);
-  }
+  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
-  // Check that stride size is aligned with max alignment.
-  for (auto &EntryBufferPair : EntryBufferDataMap) {
-    unsigned int MaxAlignment = EntryBufferPair.second.MaxAlignment;
-    unsigned int CurrentOffset = EntryBufferPair.second.CurrentOffset;
-    // Check if CurrentOffset needs to be changed to be divisible
-    // by MaxAlignment.
-    if (MaxAlignment != 0 && (CurrentOffset % MaxAlignment) != 0) {
-      // If yes, round up to the next divisible.
+  // Collect data for each function with synchronize instruction.
+  for (Function *F : FunctionsWithSync)
+    markSpecialArguments(*F);
+
+  // Check that stide size is aligned with max alignment.
+  for (auto &EntryToBufferPair : EntryBufferDataMap) {
+    unsigned int MaxAlignment = EntryToBufferPair.second.MaxAlignment;
+    unsigned int CurrentOffset = EntryToBufferPair.second.CurrentOffset;
+    if (MaxAlignment != 0 && (CurrentOffset % MaxAlignment) != 0)
       CurrentOffset = (CurrentOffset + MaxAlignment) & (~(MaxAlignment - 1));
-    }
-    EntryBufferPair.second.BufferTotalSize = CurrentOffset;
+    EntryToBufferPair.second.BufferTotalSize = CurrentOffset;
   }
 }
 
-bool DataPerValue::runOnFunction(Function &F) {
+void DataPerValue::runOnFunction(Function &F) {
   if (F.isDeclaration())
-    return false;
+    return;
 
-  if (DataPerBarrierAnalysis->hasSyncInstruction(&F)) {
-    SyncInstructions = &DataPerBarrierAnalysis->getSyncInstructions(&F);
-  } else {
-    // CSSD100016517: workaround
-    // a function has no synchronize instruction but it still needs to calculate
-    // its private memory size.
-    SyncInstructions = nullptr;
-  }
+  SyncInstructions =
+      DPB->hasSyncInstruction(&F) ? &DPB->getSyncInstructions(&F) : nullptr;
 
-  // Run over all the values of the function and Cluster into 3 groups.
+  // Run over all the values of the function and Cluster into 3 groups
   // Group-A   : Alloca instructions
-  //  Important: we make exclusion for Alloca instructions which
-  //             reside between 2 dummyBarrier calls:
-  //             a) one     - the 1st instruction which inserted by
-  //               BarrierInFunctionPass;
-  //             b) another - the instruction which marks
-  //               the bottom of Allocas
-  //               of WG function return value accumulators.
+  //   Important: we make exclusion for Alloca instructions which
+  //              reside between 2 dummyBarrier calls:
+  //              a) one     - the 1st instruction which inserted by
+  //              BarrierInFunctionPass b) another - the instruction which marks
+  //              the bottom of Allocas
+  //                           of WG function return value accumulators
   // Group-B.1 : Values crossed barriers and the value is
-  //            related to WI-Id or initialized inside a loop
+  //             related to WI-Id or initialized inside a loop
   // Group-B.2 : Value crossed barrier but does not suit Group-B.2
 
   // At first - collect exclusions from Group-A (allocas for WG function
-  // results).
-  SetVector<Instruction *> AllocaExclusions;
+  // results)
+  std::set<Instruction *> AllocaExclusions;
   inst_iterator FirstInstr = inst_begin(F);
   if (FirstInstr != inst_end(F)) {
     if (CallInst *FirstCallInst = dyn_cast<CallInst>(&*FirstInstr)) {
-      if (BarrierUtils.isDummyBarrierCall(FirstCallInst)) {
-        // if 1st instruction is a dummy barrier call.
-        for (inst_iterator IIter = ++FirstInstr, IIterEnd = inst_end(F); IIter != IIterEnd;
-             ++IIter) {
+      if (Utils.isDummyBarrierCall(FirstCallInst)) {
+        // If 1st instruction is a dummy barrier call.
+        for (inst_iterator II = ++FirstInstr, IE = inst_end(F); II != IE;
+             ++II) {
           // Collect allocas until next dummy-barrier-call boundary,
           // or drop the collection altogether if barrier call is encountered.
-          Instruction *I = &*IIter;
-          if (isa<AllocaInst>(I)) {
+          Instruction *Inst = &*II;
+          if (isa<AllocaInst>(Inst)) {
             // This alloca is a candidate for exclusion.
-            AllocaExclusions.insert(I);
-          } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
+            AllocaExclusions.insert(Inst);
+          } else if (CallInst *CI = dyn_cast<CallInst>(Inst)) {
             // Locate boundary of code extent where exclusions are possible:
             // next dummy barrier, w/o a barrier call in the way.
-            if (BarrierUtils.isDummyBarrierCall(CI)) {
+            if (Utils.isDummyBarrierCall(CI)) {
               break;
-            } else if (BarrierUtils.isBarrierCall(CI)) {
-              // If there is a barrier call - discard ALL exclusions.
+            } else if (Utils.isBarrierCall(CI)) {
+              // If there is a barrier call - discard all exclusions.
               AllocaExclusions.clear();
               break;
             }
           }
-        } // end of collect-allocas loop.
-      }   // end of 1st-instruction-is-a-dummy-barrier-call case.
+        } // end of collect-allocas loop
+      }   // end of 1st-instruction-is-a-dummy-barrier-call case
     }
   }
 
   // Then - sort-out instructions among Group-A, Group-B.1 and Group-B.2.
-  for (auto &IRef : instructions(F)) {
-    Instruction *I = &IRef;
-    if (isa<AllocaInst>(I)) {
+  for (Instruction &I : instructions(F)) {
+    Instruction *Inst = &I;
+    if (isa<AllocaInst>(Inst)) {
       // It is an alloca value, add it to Group_A container.
-      if (AllocaExclusions.count(I) == 0) {
+      if (AllocaExclusions.find(Inst) == AllocaExclusions.end()) {
         // Filter-out exclusions.
-        AllocaValuesPerFuncMap[&F].push_back(I);
+        AllocaValuesPerFuncMap[&F].push_back(Inst);
       }
       continue;
     }
-    // TODO: port work group level functions.
-    switch (isSpecialValue(I, WIRelatedValueAnalysis->isWIRelated(I))) {
+    if (CallInst *CI = dyn_cast<CallInst>(Inst)) {
+      Function *CalledFunc = CI->getCalledFunction();
+      if (CalledFunc && !CalledFunc->getReturnType()->isVoidTy()) {
+        StringRef FuncName = CalledFunc->getName();
+        if (DPCPPKernelCompilationUtils::isWorkGroupUniform(FuncName)) {
+          // Uniform WG functions always produce cross-barrier value.
+          CrossBarrierValuesPerFuncMap[&F].push_back(Inst);
+          continue;
+        } else if (DPCPPKernelCompilationUtils::isWorkGroupScan(FuncName)) {
+          // Call instructions to WG functions which produce WI-specific
+          // result, need to be stored in the special buffer.
+          assert(WRV->isWIRelated(Inst) && "Must be work-item realted value!");
+          SpecialValuesPerFuncMap[&F].push_back(Inst);
+          continue;
+        }
+      }
+    }
+    collectCrossBarrierUses(Inst);
+    switch (isSpecialValue(Inst, WRV->isWIRelated(Inst))) {
     case SpecialValueTypeB1:
-      // It is an special value, add it to special value container.
-      SpecialValuesPerFuncMap[&F].push_back(I);
+      // It is a special value, and add it to special value container.
+      SpecialValuesPerFuncMap[&F].push_back(Inst);
       break;
     case SpecialValueTypeB2:
-      // It is an uniform value that usage cross a barrier
-      // add it to cross barrier value container.
-      CrossBarrierValuesPerFuncMap[&F].push_back(I);
+      // It is an uniform value whose usage crosses a barrier,
+      // and add it to cross-barrier value container.
+      CrossBarrierValuesPerFuncMap[&F].push_back(Inst);
       break;
     case SpecialValueTypeNone:
       // No need to handle this value.
@@ -186,163 +189,152 @@ bool DataPerValue::runOnFunction(Function &F) {
   }
 
   calculateOffsets(F);
-
-  return false;
 }
 
-DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Value *V,
-                                                            bool IsWIRelated) {
-  // CSSD100016517: workaround
-  // SpecialValueTypeNone if there are no synchronize instructions.
+bool DataPerValue::crossesBarrier(Use &U) {
+  Instruction *Inst = cast<Instruction>(U.get());
+  Instruction *User = cast<Instruction>(U.getUser());
+  BasicBlock *ValBB = Inst->getParent();
+  BasicBlock *UserBB = User->getParent();
+
+  // If Inst and its user reside in the same basic block, and the user isn't
+  // a PHI node, then Inst must dominate its user. And as sync instructions
+  // only exist at the beginning of basic blocks, the def-use of the Inst
+  // doesn't cross barrier.
+  if (UserBB == ValBB && !isa<PHINode>(User))
+    return false;
+
+  // Check if the def-use crosses a barrier.
+  if (none_of(*SyncInstructions, [=](Instruction *SyncInst) {
+        BasicBlock *SyncBB = SyncInst->getParent();
+        return DPB->getPredecessors(SyncBB).count(ValBB) ||
+               DPB->getSuccessors(SyncBB).count(UserBB);
+      }))
+    return false;
+
+  BasicBlock *UseBB;
+  if (PHINode *PHI = dyn_cast<PHINode>(User))
+    UseBB = PHI->getIncomingBlock(U);
+  else
+    UseBB = User->getParent();
+
+  return BarrierUtils::isCrossedByBarrier(*SyncInstructions, UseBB, ValBB);
+}
+
+void DataPerValue::collectCrossBarrierUses(Instruction *Inst) {
   if (!SyncInstructions)
+    return;
+
+  UseSet US;
+  for (Use &U : Inst->uses()) {
+    Instruction *User = cast<Instruction>(U.getUser());
+
+    if (!crossesBarrier(U))
+      continue;
+
+    // Uses in 'ret' instructions don't belong to either Group-B.1 or
+    // Group-B.2. We don't consider them as special values here, and they
+    // are handled by BarrierPass::fixNonInlineFunction.
+    if (isa<ReturnInst>(User)) {
+      CrossBarrierReturnedValues.insert(Inst);
+      continue;
+    }
+
+    // The def-use of the instruction crosses barrier, so insert the
+    // users into the set.
+    US.insert(&U);
+  }
+  if (!US.empty()) {
+    Function *F = Inst->getFunction();
+    CrossBarrierUses[F][Inst] = std::move(US);
+  }
+}
+
+DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Instruction *Inst,
+                                                            bool IsWIRelated) {
+  // SpecialValueTypeNone if there are no synchronize instructions.
+  auto *UserMap = getCrossBarrierUses(Inst->getFunction());
+  if (!UserMap || UserMap->empty())
     return SpecialValueTypeNone;
 
-  // Value "v" is special (cross barrier) if there is
-  // one barrier instruction "i" and one value usage "u" such that:
-  // BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors.
-  Instruction *I = dyn_cast<Instruction>(V);
-  assert(I && "trying check if non-instruction is a special value!");
-  BasicBlock *BB = I->getParent();
+  auto InstIt = UserMap->find(Inst);
+  if (InstIt == UserMap->end() || InstIt->second.empty())
+    return SpecialValueTypeNone;
+
+  BasicBlock *ValBB = Inst->getParent();
 
   // Value that is not dependent on WI-Id and initialized outside a loop
   // can not be in Group-B.1. If it cross a barrier it will be in Group-B.2.
-  bool IsNotGroupB1Type =
-      !IsWIRelated &&
-      !DataPerBarrierAnalysis->getPredecessors(BB).count(BB);
+  bool IsGroupB1Type = IsWIRelated || DPB->getPredecessors(ValBB).count(ValBB);
 
-  // By default we assume value is not special till prove otherwise.
-  SpecialValueType RetType = SpecialValueTypeNone;
-
-  // Run over all usages of V and check if one crosses a barrier.
-  for (auto *U : V->users()) {
-    Instruction *InstUsage = cast<Instruction>(U);
-    BasicBlock *UsageBB = InstUsage->getParent();
-
-    if (UsageBB == BB && !isa<PHINode>(InstUsage)) {
-      // V and InstUsage has same basic block and V apears before
-      // InstUsage Sync instruction exists only at begin of basic block, thus
-      // these values are not crossed by sync instruction, check next usage of V.
-      continue;
-    }
-
-    if (isa<ReturnInst>(InstUsage)) {
-      // Return value is saved on special buffer by
-      // BarrierPass::fixNonInlinedInternalFunction
-      // should not consider it special value at this point!
-      continue;
-    }
-
-    // Run over all sync instructions.
-    for (Instruction *SyncInst : *SyncInstructions) {
-      BasicBlock *SyncBB = SyncInst->getParent();
-      if (SyncBB->getParent() != BB->getParent()) {
-        assert(false &&
-               "can we reach sync instructions from other functions?!");
-        // This sync instructions is from another function.
-        continue;
-      }
-      if (DataPerBarrierAnalysis->getPredecessors(SyncBB).count(BB) &&
-          DataPerBarrierAnalysis->getSuccessors(SyncBB).count(UsageBB)) {
-        // Found value usage "u" and barrier "i" such that
-        // BB(v) in BB(i)->predecessors and BB(u) in B(i)->successors.
-
-        if (IsWIRelated &&
-            !DataPerBarrierAnalysis->getPredecessors(SyncBB).count(SyncBB)) {
-          // V depends on work item id and crosses a barrier that is not in a
-          // loop.
-          return SpecialValueTypeB1;
-        }
-
-        if (DataPerBarrierAnalysis->getPredecessors(SyncBB).count(SyncBB)) {
-          // SyncBB is a predecessor of itself
-          // means synchronize instruction is inside a loop.
-
-          BasicBlock *PrevBB =
-              DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(I,
-                                                                 InstUsage);
-          if (BarrierUtils.isCrossedByBarrier(*SyncInstructions,
-                                              PrevBB, BB)) {
-            // V does not depend on work item id but it is crossed by loop
-            // barrier.
-            return (IsNotGroupB1Type) ? SpecialValueTypeB2 : SpecialValueTypeB1;
-          }
-          // Current usage of V are not crossed by barrier,
-          // skip other barriers and check the next usage of V.
-          break;
-        }
-        // V does not depend on work item id and it is crossed by a non loop
-        // barrier Upgrade RetType to be special value of group-B.2.
-        if (IsNotGroupB1Type) {
-          // We can return at this point as we know that IsNotGroupB1Type ==
-          // true!
-          return SpecialValueTypeB2;
-        }
-        // But still need to check if it cross other loop barriers.
-        RetType = SpecialValueTypeB2;
-      }
-      assert(!(DataPerBarrierAnalysis->getPredecessors(SyncBB).count(
-                   UsageBB) &&
-               DataPerBarrierAnalysis->getSuccessors(SyncBB).count(BB)) &&
-             "can usage come before value?! (Handle such case)");
-    }
-  }
-  return RetType;
+  return IsGroupB1Type ? SpecialValueTypeB1 : SpecialValueTypeB2;
 }
 
 void DataPerValue::calculateOffsets(Function &F) {
 
   ValueVector &SpecialValues = SpecialValuesPerFuncMap[&F];
-  const unsigned int Entry = FunctionEntryMap[&F];
+  unsigned int Entry = FunctionEntryMap[&F];
   SpecialBufferData &BufferData = EntryBufferDataMap[Entry];
 
   // Run over all special values in function.
-  for (Value *V : SpecialValues) {
+  for (Value *Val : SpecialValues) {
     // Get Offset of special value type.
-    ValueOffsetMap[V] = getValueOffset(V, V->getType(), 0, BufferData);
+    ValueOffsetMap[Val] = getValueOffset(Val, Val->getType(), 0, BufferData);
   }
 
   ValueVector &AllocaValues = AllocaValuesPerFuncMap[&F];
 
-  // Run over all special values in function.
-  for (Value *V : AllocaValues) {
-    AllocaInst *AI = cast<AllocaInst>(V);
+  // Run over all alloca values in function.
+  for (Value *Val : AllocaValues) {
+    AllocaInst *AI = cast<AllocaInst>(Val);
     // Get Offset of alloca instruction contained type.
-    ValueOffsetMap[V] =
-        getValueOffset(V, V->getType()->getContainedType(0),
+    ValueOffsetMap[Val] =
+        getValueOffset(Val, Val->getType()->getContainedType(0),
                        AI->getAlignment(), BufferData);
   }
 }
 
-unsigned int DataPerValue::getValueOffset(Value *V, Type *Ty,
+unsigned int DataPerValue::getValueOffset(Value *Val, Type *Ty,
                                           unsigned int AllocaAlignment,
                                           SpecialBufferData &BufferData) {
 
-  // TODO: check what is better to use for alignment?
-  // unsigned int alignment = DL->getABITypeAlignment(Ty);
+  // TODO: check what is better to use for Alignment?
+  // unsigned int Alignment = DL->getABITypeAlignment(Ty);
   unsigned int Alignment =
       (AllocaAlignment) ? AllocaAlignment : DL->getPrefTypeAlignment(Ty);
-  unsigned int SizeInBits = DL->getTypeSizeInBits(Ty);
+  unsigned int SizeInBits = DL->getTypeAllocSizeInBits(Ty);
 
-  Type *ElementType = Ty;
-  VectorType *VecType = dyn_cast<VectorType>(Ty);
-  if (VecType) {
-    ElementType = VecType->getElementType();
-  }
-  if (isa<VectorType>(ElementType))
-    llvm_unreachable("Element type of a vector is another vector!");
-  if (DL->getTypeSizeInBits(ElementType) == 1) {
+  Type *EleType = Ty;
+  FixedVectorType *VecType = dyn_cast<FixedVectorType>(Ty);
+  if (VecType)
+    EleType = VecType->getElementType();
+  assert(!isa<VectorType>(EleType) &&
+         "element type of a vector is another vector!");
+
+  if (DL->getTypeSizeInBits(EleType) == 1) {
     // We have a Value with base type i1.
-    OneBitElementValues.insert(V);
+    OneBitElementValues.insert(Val);
     // We will extend i1 to i32 before storing to special buffer.
-    // In case of vector type, scale alignment and size.
-    Alignment = (VecType ? VecType->getNumElements() : 1) * 4;
+    Alignment = PowerOf2Ceil((VecType ? VecType->getNumElements() : 1) * 4);
     SizeInBits = (VecType ? VecType->getNumElements() : 1) * 32;
 
     // This assertion seems to not hold for all Data Layouts
     // assert(DL.getPrefTypeAlignment(Ty) ==
-    //  (VecType ? VecType->getNumElements() : 1) &&
-    //  "assumes alignment of vector of i1 type equals to vector length");
+    //   (VecType ? VecType->getNumElements() : 1) &&
+    //   "assumes alignment of vector of i1 type equals to vector length");
   }
+
+  if (AllocaInst *AI = dyn_cast_or_null<AllocaInst>(Val)) {
+    if (AI->isArrayAllocation()) {
+      const ConstantInt *C = dyn_cast<ConstantInt>(AI->getArraySize());
+      assert(C && "We cannot handle non static allocas in barrier!");
+      assert((C->getValue().getActiveBits() <= 64) &&
+             "The array size cannot be bigger than a uint64_t!");
+      SizeInBits = SizeInBits * (C->getZExtValue());
+    }
+  }
+
+  assert(Alignment && "Alignment is 0");
 
   unsigned int SizeInBytes = SizeInBits / 8;
   assert(SizeInBytes && "SizeInBytes is 0");
@@ -357,8 +349,8 @@ unsigned int DataPerValue::getValueOffset(Value *V, Type *Ty,
     assert(((Alignment & (Alignment - 1)) == 0) &&
            "Alignment is not power of 2!");
     // TODO: check what to do with the following assert - it fails on
-    //      test_basic.exe kernel_memory_alignment_private
-    // assert( (alignment <= 32) && "alignment is bigger than 32 bytes (should
+    //       test_basic.exe kernel_memory_alignment_private
+    // assert( (Alignment <= 32) && "Alignment is bigger than 32 bytes (should
     // we align to more than 32 bytes?)" );
     BufferData.CurrentOffset =
         (BufferData.CurrentOffset + Alignment) & (~(Alignment - 1));
@@ -367,7 +359,7 @@ unsigned int DataPerValue::getValueOffset(Value *V, Type *Ty,
          "Offset is not aligned on value size!");
   // Found offset of given type.
   unsigned int Offset = BufferData.CurrentOffset;
-  // Increment current available offset with V size.
+  // Increment current available offset with Val size.
   BufferData.CurrentOffset += SizeInBytes;
 
   return Offset;
@@ -376,46 +368,45 @@ unsigned int DataPerValue::getValueOffset(Value *V, Type *Ty,
 void DataPerValue::calculateConnectedGraph(Module &M) {
   unsigned int CurrEntry = 0;
 
-  // Run on all functions in module
-  for (Function &FRef : M) {
-    Function *F = &FRef;
-    if (F->isDeclaration()) {
-      // Skip non defined functions
+  // Run on all functions in module.
+  for (Function &F : M) {
+    Function *Func = &F;
+    if (Func->isDeclaration()) {
+      // Skip non defined functions.
       continue;
     }
     // Check if function has no synchronize instruction!
-    if (!DataPerBarrierAnalysis->hasSyncInstruction(F)) {
+    if (!DPB->hasSyncInstruction(Func)) {
       // Function has no synchronize instruction: skip it!
       // CSSD100016517: workaround
-      // Functions with no barrier still need to have an entry.
-      if (FunctionEntryMap.count(F))
-        fixEntryMap(FunctionEntryMap[F], CurrEntry++);
-      else
-        FunctionEntryMap[F] = CurrEntry++;
+      // Functions with no barrier still need to have an entry
+      // However, it should be a unique entry.
+      assert(FunctionEntryMap.count(Func) == 0 &&
+             "function with no barrier does not have a unique entry");
+      FunctionEntryMap[Func] = CurrEntry++;
       continue;
     }
-    if (FunctionEntryMap.count(F)) {
-      // F already has an entry number,
-      // replace all its instances with the current entry number.
-      fixEntryMap(FunctionEntryMap[F], CurrEntry);
+    if (FunctionEntryMap.count(Func)) {
+      // Func already has an entry number, replace all appears of it with the
+      // current entry number.
+      fixEntryMap(FunctionEntryMap[Func], CurrEntry);
     } else {
-      // F has no entry number yet, give it the current entry number
-      FunctionEntryMap[F] = CurrEntry;
+      // Func has no entry number yet, give it the current entry number.
+      FunctionEntryMap[Func] = CurrEntry;
     }
-    for (auto *U : F->users()) {
+    for (auto *U : Func->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
-      // Usage of F can be a global variable!
+      // Usage of Func can be a global variable!
       if (!CI)
         continue;
 
-      Function *CallerFunc = CI->getFunction();
+      Function *CallerFunc = CI->getCaller();
       if (FunctionEntryMap.count(CallerFunc)) {
-        // pCallerFunc already has an entry number,
+        // CallerFunc already has an entry number,
         // replace all appears of it with the current entry number.
         fixEntryMap(FunctionEntryMap[CallerFunc], CurrEntry);
       } else {
-        // pCallerFunc has no entry number yet, give it the current entry
-        // number
+        // CallerFunc has no entry number yet, give it the current entry number.
         FunctionEntryMap[CallerFunc] = CurrEntry;
       }
     }
@@ -429,11 +420,9 @@ void DataPerValue::fixEntryMap(unsigned int From, unsigned int To) {
     return;
   }
   // Replace all occurences of value "From" with value "To".
-  for (auto &KV : FunctionEntryMap) {
-    if (KV.second == From) {
-      KV.second = To;
-    }
-  }
+  for (auto &FuncToEntryPair : FunctionEntryMap)
+    if (FuncToEntryPair.second == From)
+      FuncToEntryPair.second = To;
 }
 
 void DataPerValue::markSpecialArguments(Function &F) {
@@ -448,34 +437,37 @@ void DataPerValue::markSpecialArguments(Function &F) {
     return;
   }
 
-  const unsigned int Entry = FunctionEntryMap[&F];
+  unsigned int Entry = FunctionEntryMap[&F];
   SpecialBufferData &BufferData = EntryBufferDataMap[Entry];
 
   SmallVector<bool, 16> ArgsFunction;
   ArgsFunction.assign(NumOfArgsWithReturnValue, false);
   // Check each call to F function searching parameters stored in special buffer.
-  for (auto *U : F.users()) {
+  for (User *U : F.users()) {
     CallInst *CI = dyn_cast<CallInst>(U);
-    // Usage of F can be a global variable!
+    // Usage of Func can be a global variable!
     if (!CI)
       continue;
 
-    for (unsigned int i = 0; i < NumOfArgsWithReturnValue; ++i) {
-      Value *V = (i == NumOfArgs) ? CI : CI->getArgOperand(i);
-      if (hasOffset(V)) {
-        // If reach here, means that this function has at least
-        // one caller with argument value in special buffer
-        // Set this argument marker for handling
-        ArgsFunction[i] = true;
+    for (unsigned int I = 0; I < NumOfArgsWithReturnValue; ++I) {
+      Value *Val = (I == NumOfArgs) ? CI : CI->getArgOperand(I);
+      // Cross-barrier returned value don't have offset yet and it'll have
+      // offset in Barrier::fixReturnValue, so we need to set marker.
+      if (hasOffset(Val) ||
+          (I == NumOfArgs && CrossBarrierReturnedValues.count(Val))) {
+        // If reach here, means that this function has at least one caller with
+        // argument value in special buffer. Set this argument marker for
+        // handling
+        ArgsFunction[I] = true;
       }
     }
   }
-  for (auto &KV : enumerate(F.args())) {
-    if (!ArgsFunction[KV.index()])
+  for (auto &ArgIdxPair : enumerate(F.args())) {
+    if (!ArgsFunction[ArgIdxPair.index()])
       continue;
-    Value *V = &KV.value();
+    Value *Val = &ArgIdxPair.value();
     // Argument is marked for handling, get a new offset for this argument.
-    ValueOffsetMap[V] = getValueOffset(V, V->getType(), 0, BufferData);
+    ValueOffsetMap[Val] = getValueOffset(Val, Val->getType(), 0, BufferData);
   }
   if (HasReturnValue && ArgsFunction[NumOfArgs]) {
     // Return value is marked for handling, get new offset for this function.

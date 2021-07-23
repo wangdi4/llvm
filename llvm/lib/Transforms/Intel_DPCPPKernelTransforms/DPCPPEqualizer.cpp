@@ -14,7 +14,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -90,7 +91,9 @@ class DPCPPEqualizerLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPEqualizerLegacy() : ModulePass(ID) {}
+  DPCPPEqualizerLegacy() : ModulePass(ID) {
+    initializeDPCPPEqualizerLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   ~DPCPPEqualizerLegacy() {}
 
@@ -116,6 +119,7 @@ ModulePass *llvm::createDPCPPEqualizerLegacyPass() {
 }
 
 void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
   // Find all enqueue_kernel and kernel query calls.
   for (const auto &EEF : *(F.getParent())) {
     if (!EEF.isDeclaration())
@@ -155,19 +159,23 @@ void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
         llvm_unreachable("Unexpected instruction");
       }
 
-      F.addFnAttr("block-literal-size", utostr(BlockSize));
+      KIMD.BlockLiteralSize.set(BlockSize);
       return;
     }
   }
 }
 
 void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
+  using namespace DPCPPKernelMetadataAPI;
+  KernelList::KernelVectorTy Kernels;
+
   for (auto &F : M) {
     if (F.isDeclaration())
       continue;
     if (F.getCallingConv() != CallingConv::SPIR_KERNEL)
       continue;
 
+    Kernels.push_back(&F);
     if (F.getName().contains("_block_invoke_") &&
         F.getName().endswith("_kernel")) {
       // Clang generates enqueued block invoke functions as kernels with
@@ -177,9 +185,9 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
       // Set block-literal-size attribute for enqueued kernels.
       setBlockLiteralSizeMetadata(F);
     }
-
-    F.addFnAttr("sycl_kernel");
   }
+  DPCPPKernelMetadataAPI::KernelList KernelList(M);
+  KernelList.set(Kernels);
 }
 
 bool DPCPPEqualizerPass::runImpl(Module &M) {

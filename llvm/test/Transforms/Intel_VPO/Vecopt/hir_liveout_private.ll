@@ -1,10 +1,11 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ; LIT test to check code generated for liveout private.
 ;
 define i64 @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:         IR Dump After VPlan HIR Vectorizer
+; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:                    BEGIN REGION { modified }
 ; CHECK-NEXT:                     + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                     |   [[DOTVEC0:%.*]] = (<4 x i64>*)([[LARR0:%.*]])[i1]

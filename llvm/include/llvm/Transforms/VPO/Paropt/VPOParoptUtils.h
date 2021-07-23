@@ -196,6 +196,11 @@ public:
     SRC_LOC_FILE = 2,
     SRC_LOC_PATH = 3
   } SrcLocMode;
+
+  /// Get the global variable @"@tid.addr".
+  /// It expects that it is already created, and asserts if it is not.
+  static GlobalVariable *getTidPtrHolder(Module *M);
+
   /// \name Utilities for getting/creating named StructTypes.
   /// @{
 
@@ -540,8 +545,10 @@ public:
   /// directives which have an Entry BasicBlock with "DIR.OMP..." intrinsic
   /// calls, and an exit BasicBlock with a corresponding "DIR.OMP.END..."
   /// calls. The middle BasicBlocks will then be surrounded by a critical
-  /// section. The function emits calls to `__kmpc_critical` and
-  /// `__kmpc_end_critical` in positions marked in the following diagram:
+  /// section. If Hint ==0, the function emits calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` in positions marked in the following diagram.
+  /// if Hint !=0 the function emits calls to `__kmpc_critical_with_hint` and
+  /// `__kmpc_end_critical` in positions marked in the following diagram.
   ///
   /// \code
   ///    EntryBB:
@@ -574,6 +581,9 @@ public:
   ///   call void @__kmpc_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
   ///   [8 x i32]* @_kmpc_atomic_lock)
   ///
+  ///   call void __kmpc_critical_with_hint((%ident_t* %loc.addr.11.12, i32
+  ///   %my.tid, [8 x i32]* @_kmpc_atomic_lock, i32  2)
+  ///
   ///   call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
   ///   [8 x i32]* @_kmpc_atomic_lock)
   /// \endcode
@@ -585,11 +595,13 @@ public:
                                      DominatorTree *DT,
                                      LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const Twine &LockNameSuffix = "");
+                                     const Twine &LockNameSuffix = "",
+                                     uint32_t Hint = 0);
 
   /// Generate a critical section around Instructions \p BeginInst and \p
-  /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
-  /// BeginInst and `__kmpc_end_critical` \b after \p EndInst.
+  /// EndInst. The function emits calls to `__kmpc_critical` or
+  /// `__kmpc_critical_with_hint` \b before \p BeginInst and
+  /// `__kmpc_end_critical` \b after \p EndInst.
   ///
   /// \code
   /// +------< begin critical >
@@ -601,12 +613,13 @@ public:
   /// \endcode
   ///
   /// \param BeginInst is the Instruction \b before which the call to
-  /// `__kmpc_critical` is inserted.
+  /// `__kmpc_critical` or `__kmpc_critical_with_hint` is inserted.
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_critical` is inserted.
   /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
-  /// Note: Other Instructions, aside from the `__kmpc_critical` and
+  /// Note: Other Instructions, aside from the `__kmpc_critical`,
+  /// `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
   /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
   ///
@@ -614,14 +627,14 @@ public:
   /// const StringRef) for examples of the KMPC critical calls.
   ///
   /// \returns `true` if the calls to `__kmpc_critical` and
+  /// `__kmpc_end_critical` or `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr, Instruction *BeginInst,
-                                     Instruction *EndInst,
-                                     DominatorTree *DT,
-                                     LoopInfo *LI,
-                                     bool IsTargetSPIRV,
-                                     const Twine &LockNameSuffix = "");
+                                     Instruction *EndInst, DominatorTree *DT,
+                                     LoopInfo *LI, bool IsTargetSPIRV,
+                                     const Twine &LockNameSuffix = "",
+                                     uint32_t Hint = 0);
 
   /// Generate tree reduce block and atomic reduce block. The tree reduce block
   /// is around Instructions \p BeginInst and \p EndInst. The function emits
@@ -1562,6 +1575,14 @@ public:
   static CallInst *genOmpAlloc(Value *Size, Value *Handle,
                                Instruction *InsertPt);
 
+  /// Generate a call to
+  /// \code
+  ///   void* __kmpc_aligned_alloc(int gtid, size_t Alignment, size_t Size,
+  ///                              omp_allocator_handle_t Handle);
+  /// \endcode
+  static CallInst *genKmpcAlignedAlloc(uint64_t Alignment, Value *Size,
+                                       Value *Handle, Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_task_reduction_get_th_data`. Prototype:
   /// \code
   ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
@@ -1626,12 +1647,18 @@ public:
 
   /// Generate a generic call to `get_global_id, get_local_id...`. Example:
   /// \code
-  //    %11 = call i64 @_Z14get_local_sizej(i32 0)
+  ///    %11 = call i64 @_Z14get_local_sizej(i32 0)
   ///      where the value 0 is the dimension number.
   //  \endcode
   static CallInst *genOCLGenericCall(StringRef FnName, Type *RetType,
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
+
+  /// Generate SPIR-V calls OpenMP SIMD path
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
+  static CallInst *genSPIRVLocalIdCall(int Dim, Instruction *InsertPt);
 
   /// Set the calling convention for \p CI.
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
@@ -1639,6 +1666,13 @@ public:
   /// Since \p CI may not be inserted into any Module yet, \p M
   /// specifies a Module that is used to identify the target.
   static void setFuncCallingConv(CallInst *CI, Module *M);
+
+  /// Add funclet operand bundle to \p CI if it lies within an EHPad
+  /// or is dominated by an EHPad. The utility searches DT to check if \p CI
+  /// lies within an EHPad or is dominated by one.
+  static CallInst *
+  addFuncletOperandBundle(CallInst *CI, DominatorTree *DT,
+                          Instruction *InstToCheckFuncletRequirement = nullptr);
 
   /// \name Helper methods for generating calls.
   /// @{
@@ -1760,6 +1794,12 @@ public:
   /// Returns execution scheme for loop-kind regions on SPIR targets.
   static spirv::ExecutionSchemeTy getSPIRExecutionScheme();
 
+  /// Returns true, if OpenMP explicit SIMD code generation is enabled.
+  static bool enableDeviceSimdCodeGen();
+
+  /// Returns true, if async-offload helper thread code generation is enabled.
+  static bool enableAsyncHelperThread();
+
   /// Returns true, if it is allowed to execute "omp target parallel for"
   /// with multiple teams/WGs. According to OpenMP specification only
   /// one team/WG is allowed, which corresponds to false return value.
@@ -1850,8 +1890,9 @@ private:
   /// \see genKmpcCriticalSection() functions for more details. They are the
   /// public functions which invokes this private helper.
   ///
-  /// \returns `true` if the calls to `__kmpc_critical` and
-  /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+  /// \returns `true` if the calls to `__kmpc_critical` or
+  /// `__kmpc_critical_with_hint`and `__kmpc_end_critical` are successfully
+  /// inserted, `false` otherwise.
   static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
                                          Constant *TidPtr,
                                          Instruction *BeginInst,
@@ -1859,7 +1900,8 @@ private:
                                          GlobalVariable *LockVar,
                                          DominatorTree *DT,
                                          LoopInfo *LI,
-                                         bool IsTargetSPIRV);
+                                         bool IsTargetSPIRV,
+                                         uint32_t Hint);
 
   /// Handles generation of tree reduce block around \p BeginInst and \p
   /// EndInst, atomic reduce block around \p AtomicBeginInst and \p

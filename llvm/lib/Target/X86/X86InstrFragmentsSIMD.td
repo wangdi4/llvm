@@ -419,12 +419,10 @@ def X86Movshdup : SDNode<"X86ISD::MOVSHDUP", SDTShuff1Op>;
 def X86Movsldup : SDNode<"X86ISD::MOVSLDUP", SDTShuff1Op>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def X86Movsh : SDNode<"X86ISD::MOVSH",
                       SDTypeProfile<1, 2, [SDTCisVT<0, v8f16>,
                                            SDTCisVT<1, v8f16>,
                                            SDTCisVT<2, v8f16>]>>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 def X86Movsd : SDNode<"X86ISD::MOVSD",
@@ -589,7 +587,6 @@ def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
 def x86vpmadd52h     : SDNode<"X86ISD::VPMADD52H",     SDTIFma, [SDNPCommutative]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def x86vfmaddc     : SDNode<"X86ISD::VFMADDC",         SDTFPTernaryOp>;
 def x86vfmaddcRnd  : SDNode<"X86ISD::VFMADDC_RND",     SDTFmaRound>;
 def x86vfcmaddc    : SDNode<"X86ISD::VFCMADDC",        SDTFPTernaryOp>;
@@ -607,7 +604,6 @@ def x86vfmaddcShRnd   : SDNode<"X86ISD::VFMADDCSH_RND",  SDTFmaRound>;
 def x86vfcmaddcShRnd  : SDNode<"X86ISD::VFCMADDCSH_RND", SDTFmaRound>;
 def x86vfmulcShRnd    : SDNode<"X86ISD::VFMULCSH_RND",   SDTFPBinOpRound>;
 def x86vfcmulcShRnd   : SDNode<"X86ISD::VFCMULCSH_RND",  SDTFPBinOpRound>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 def X86rsqrt14   : SDNode<"X86ISD::RSQRT14",  SDTFPUnaryOp>;
@@ -829,11 +825,9 @@ def X86GF2P8affineinvqb : SDNode<"X86ISD::GF2P8AFFINEINVQB", SDTBlend>;
 def X86GF2P8affineqb    : SDNode<"X86ISD::GF2P8AFFINEQB", SDTBlend>;
 def X86GF2P8mulb        : SDNode<"X86ISD::GF2P8MULB", SDTIntBinOp>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 // FP16 specific
 def X86frcps    : SDNode<"X86ISD::FRCPS",      SDTFPBinOp>;
 def X86frsqrts  : SDNode<"X86ISD::FRSQRTS",    SDTFPBinOp>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 def SDTX86MaskedStore: SDTypeProfile<0, 3, [       // masked store
@@ -927,6 +921,44 @@ def X86vaaddf : SDNode<"X86ISD::VAADDF",
                                             SDTCisSameNumEltsAs<1, 2>]>,
                         [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+def SDTAVX512NECONVERT : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
+                                SDTCisPtrTy<2>, SDTCisSameNumEltsAs<0, 1>]>;
+def X86vcvtneebf162ps : SDNode<"X86ISD::VCVTNEEBF162PS",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneebf162psz : SDNode<"X86ISD::VCVTNEEBF162PSZ",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneeph2ps : SDNode<"X86ISD::VCVTNEEPH2PS",
+                              SDTAVX512NECONVERT,
+                              [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneeph2psz : SDNode<"X86ISD::VCVTNEEPH2PSZ",
+                               SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneobf162ps : SDNode<"X86ISD::VCVTNEOBF162PS",
+                               SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneobf162psz : SDNode<"X86ISD::VCVTNEOBF162PSZ",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtne2ps2ph : SDNode<"X86ISD::VCVTNE2PS2PH",
+                      SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
+                                           SDTCVecEltisVT<1, f32>,
+                                           SDTCisSameAs<1,2>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments
@@ -934,9 +966,7 @@ def X86vaaddf : SDNode<"X86ISD::VAADDF",
 
 // 128-bit load pattern fragments
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def loadv8f16    : PatFrag<(ops node:$ptr), (v8f16 (load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def loadv4f32    : PatFrag<(ops node:$ptr), (v4f32 (load node:$ptr))>;
 def loadv2f64    : PatFrag<(ops node:$ptr), (v2f64 (load node:$ptr))>;
@@ -947,9 +977,7 @@ def loadv16i8    : PatFrag<(ops node:$ptr), (v16i8 (load node:$ptr))>;
 
 // 256-bit load pattern fragments
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def loadv16f16   : PatFrag<(ops node:$ptr), (v16f16 (load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def loadv8f32    : PatFrag<(ops node:$ptr), (v8f32  (load node:$ptr))>;
 def loadv4f64    : PatFrag<(ops node:$ptr), (v4f64  (load node:$ptr))>;
@@ -960,9 +988,7 @@ def loadv32i8    : PatFrag<(ops node:$ptr), (v32i8  (load node:$ptr))>;
 
 // 512-bit load pattern fragments
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def loadv32f16   : PatFrag<(ops node:$ptr), (v32f16 (load node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def loadv16f32   : PatFrag<(ops node:$ptr), (v16f32 (load node:$ptr))>;
 def loadv8f64    : PatFrag<(ops node:$ptr), (v8f64  (load node:$ptr))>;
@@ -976,12 +1002,10 @@ def extloadv2f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
 def extloadv4f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
 def extloadv8f32 : PatFrag<(ops node:$ptr), (extloadvf32 node:$ptr)>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def extloadv2f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
 def extloadv4f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
 def extloadv8f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
 def extloadv16f16 : PatFrag<(ops node:$ptr), (extloadvf16 node:$ptr)>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 // Like 'store', but always requires vector size alignment.
@@ -1000,10 +1024,8 @@ def alignedload : PatFrag<(ops node:$ptr), (load node:$ptr), [{
 // 128-bit aligned load pattern fragments
 // NOTE: all 128-bit integer vector loads are promoted to v2i64
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def alignedloadv8f16 : PatFrag<(ops node:$ptr),
                                (v8f16 (alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def alignedloadv4f32 : PatFrag<(ops node:$ptr),
                                (v4f32 (alignedload node:$ptr))>;
@@ -1021,10 +1043,8 @@ def alignedloadv16i8 : PatFrag<(ops node:$ptr),
 // 256-bit aligned load pattern fragments
 // NOTE: all 256-bit integer vector loads are promoted to v4i64
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def alignedloadv16f16 : PatFrag<(ops node:$ptr),
                                 (v16f16 (alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def alignedloadv8f32  : PatFrag<(ops node:$ptr),
                                 (v8f32  (alignedload node:$ptr))>;
@@ -1040,10 +1060,8 @@ def alignedloadv32i8  : PatFrag<(ops node:$ptr),
                                 (v32i8  (alignedload node:$ptr))>;
 // 512-bit aligned load pattern fragments
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def alignedloadv32f16 : PatFrag<(ops node:$ptr),
                                 (v32f16 (alignedload node:$ptr))>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def alignedloadv16f32 : PatFrag<(ops node:$ptr),
                                 (v16f32 (alignedload node:$ptr))>;
@@ -1104,12 +1122,10 @@ def bc_v8f64 : PatFrag<(ops node:$in), (v8f64 (bitconvert node:$in))>;
 def bc_v16f32 : PatFrag<(ops node:$in), (v16f32 (bitconvert node:$in))>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def X86vzload16 : PatFrag<(ops node:$src),
                           (X86vzld node:$src), [{
   return cast<MemIntrinsicSDNode>(N)->getMemoryVT().getStoreSize() == 2;
 }]>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 def X86vzload32 : PatFrag<(ops node:$src),
@@ -1170,11 +1186,9 @@ def X86masked_VBroadcastld64 : PatFrag<(ops node:$src, node:$mask),
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def fp16imm0 : PatLeaf<(f16 fpimm), [{
   return N->isExactlyValue(+0.0);
 }]>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 def X86SubVBroadcastld128 : PatFrag<(ops node:$src),
@@ -1193,12 +1207,10 @@ def X86SubVBroadcastld256 : PatFrag<(ops node:$src),
 // FIXME: We should add more canolicalizing in DAGCombine. Particulary removing
 // the simple_load case.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def sse_load_f16 : PatFrags<(ops node:$ptr),
                             [(v8f16 (simple_load node:$ptr)),
                              (v8f16 (X86vzload16 node:$ptr)),
                              (v8f16 (scalar_to_vector (loadf16 node:$ptr)))]>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def sse_load_f32 : PatFrags<(ops node:$ptr),
                             [(v4f32 (simple_load node:$ptr)),
@@ -1211,9 +1223,7 @@ def sse_load_f64 : PatFrags<(ops node:$ptr),
 
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
 def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;

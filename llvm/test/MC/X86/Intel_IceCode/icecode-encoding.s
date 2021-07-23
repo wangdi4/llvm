@@ -1,29 +1,37 @@
 // REQUIRES: intel_feature_icecode
 // RUN: llvm-mc -triple x86_icecode-unknown-unknown --show-encoding < %s  | FileCheck %s
 
-// CHECK: gmovpphysw (%rdx), %ax
-// CHECK: encoding: [0x66,0xf3,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %ax
+// CHECK: gmovpphysb (%rbx), %al
+// CHECK: encoding: [0xf3,0x12,0x03]
+          gmovpphys (%rbx), %al
 
-// CHECK: gmovpphysl (%rdx), %eax
-// CHECK: encoding: [0xf3,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %eax
+// CHECK: gmovpphysw (%rbx), %ax
+// CHECK: encoding: [0x66,0xf3,0x13,0x03]
+          gmovpphys (%rbx), %ax
 
-// CHECK: gmovpphysq (%rdx), %rax
-// CHECK: encoding: [0xf3,0x48,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %rax
+// CHECK: gmovpphysl (%rbx), %eax
+// CHECK: encoding: [0xf3,0x13,0x03]
+          gmovpphys (%rbx), %eax
 
-// CHECK: gmovpphysw %ax, (%rdx)
-// CHECK: encoding: [0x66,0xf2,0x0f,0xb4,0x02]
-          gmovpphys %ax, (%rdx)
+// CHECK: gmovpphysq (%rbx), %rax
+// CHECK: encoding: [0xf3,0x48,0x13,0x03]
+          gmovpphys (%rbx), %rax
 
-// CHECK: gmovpphysl %eax, (%rdx)
-// CHECK: encoding: [0xf2,0x0f,0xb4,0x02]
-          gmovpphys %eax, (%rdx)
+// CHECK: gmovpphysb %al, (%rbx)
+// CHECK: encoding: [0xf3,0x10,0x03]
+          gmovpphys %al, (%rbx)
 
-// CHECK: gmovpphysq %rax, (%rdx)
-// CHECK: encoding: [0xf2,0x48,0x0f,0xb4,0x02]
-          gmovpphys %rax, (%rdx)
+// CHECK: gmovpphysw %ax, (%rbx)
+// CHECK: encoding: [0x66,0xf3,0x11,0x03]
+          gmovpphys %ax, (%rbx)
+
+// CHECK: gmovpphysl %eax, (%rbx)
+// CHECK: encoding: [0xf3,0x11,0x03]
+          gmovpphys %eax, (%rbx)
+
+// CHECK: gmovpphysq %rax, (%rbx)
+// CHECK: encoding: [0xf3,0x48,0x11,0x03]
+          gmovpphys %rax, (%rbx)
 
 // CHECK: loadseg %cs:(%rdx)
 // CHECK: encoding: [0x2e,0x0f,0xb2,0x02]
@@ -49,6 +57,22 @@
 // CHECK: encoding: [0x65,0x0f,0xb2,0x02]
           loadseg %gs:(%rdx)
 
+// CHECK: loadseg %gdtr:(%rdx)
+// CHECK: encoding: [0x26,0xf2,0x0f,0xb2,0x02]
+          loadseg %gdtr:(%rdx)
+
+// CHECK: loadseg %ldtr:(%rdx)
+// CHECK: encoding: [0x2e,0xf2,0x0f,0xb2,0x02]
+          loadseg %ldtr:(%rdx)
+
+// CHECK: loadseg %idtr:(%rdx)
+// CHECK: encoding: [0x36,0xf2,0x0f,0xb2,0x02]
+          loadseg %idtr:(%rdx)
+
+// CHECK: loadseg %tr:(%rdx)
+// CHECK: encoding: [0x3e,0xf2,0x0f,0xb2,0x02]
+          loadseg %tr:(%rdx)
+
 // CHECK: storeseg %cs:(%rdx)
 // CHECK: encoding: [0x2e,0x66,0x0f,0xb2,0x02]
           storeseg %cs:(%rdx)
@@ -72,6 +96,22 @@
 // CHECK: storeseg %gs:(%rdx)
 // CHECK: encoding: [0x65,0x66,0x0f,0xb2,0x02]
           storeseg %gs:(%rdx)
+
+// CHECK: storeseg %gdtr:(%rdx)
+// CHECK: encoding: [0x26,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %gdtr:(%rdx)
+
+// CHECK: storeseg %ldtr:(%rdx)
+// CHECK: encoding: [0x2e,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %ldtr:(%rdx)
+
+// CHECK: storeseg %idtr:(%rdx)
+// CHECK: encoding: [0x36,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %idtr:(%rdx)
+
+// CHECK: storeseg %tr:(%rdx)
+// CHECK: encoding: [0x3e,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %tr:(%rdx)
 
 // CHECK: gtranslaterd_epc (%rdx)
 // CHECK: encoding: [0xf3,0x0f,0x00,0x22]
@@ -337,9 +377,9 @@
 // CHECK: encoding: [0x0f,0x01,0xcb]
           store_tickle_gpa
 
-// CHECK: flush_ifu
+// CHECK: flush_ifu %rax
 // CHECK: encoding: [0xf3,0x0f,0x01,0xd4]
-          flush_ifu
+          flush_ifu %rax
 
 // CHECK: gmovlinw (%rdx), %ax
 // CHECK: encoding: [0x66,0xf3,0x0f,0x02,0x02]
@@ -364,3 +404,63 @@
 // CHECK: gmovlinq %rax, (%rdx)
 // CHECK: encoding: [0xf2,0x48,0x0f,0x02,0x02]
           gmovlin %rax, (%rdx)
+
+// CHECK: cccm %rbx
+// CHECK: encoding: [0xf3,0x48,0x0f,0xcb]
+          cccm %rbx
+
+// CHECK: cccp %rbx
+// CHECK: encoding: [0xf2,0x48,0x0f,0xcb]
+          cccp %rbx
+
+// CHECK: jmp_nopred %rbx
+// CHECK: encoding: [0xf3,0x48,0x0f,0xc7,0xfb]
+          jmp_nopred %rbx
+
+// CHECK: fe_serizlize
+// CHECK: encoding: [0x0f,0x01,0xd1]
+          fe_serizlize
+
+// CHECK: loaduphys (%rbx)
+// CHECK: encoding: [0xc7,0x33]
+          loaduphys (%rbx)
+
+// CHECK: storeuphys (%rbx)
+// CHECK: encoding: [0xc7,0x3b]
+          storeuphys (%rbx)
+
+// CHECK: fscp_orl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xcb,0x04,0x03,0x02,0x01]
+          fscp_or $0x01020304, %ebx
+
+// CHECK: fscp_orq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xcb,0x04,0x03,0x02,0x01]
+          fscp_or $0x01020304, %rbx
+
+// CHECK: creg_or_mtl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xeb,0x04,0x03,0x02,0x01]
+          creg_or_mt $0x01020304, %ebx
+
+// CHECK: creg_or_mtq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xeb,0x04,0x03,0x02,0x01]
+          creg_or_mt $0x01020304, %rbx
+
+// CHECK: fscp_andnotl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xe3,0x04,0x03,0x02,0x01]
+          fscp_andnot $0x01020304, %ebx
+
+// CHECK: fscp_andnotq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xe3,0x04,0x03,0x02,0x01]
+          fscp_andnot $0x01020304, %rbx
+
+// CHECK: creg_andnot_mtl $16909060, %ebx
+// CHECK: encoding: [0xf2,0x81,0xc3,0x04,0x03,0x02,0x01]
+          creg_andnot_mt $0x01020304, %ebx
+
+// CHECK: creg_andnot_mtq $16909060, %rbx
+// CHECK: encoding: [0xf2,0x48,0x81,0xc3,0x04,0x03,0x02,0x01]
+          creg_andnot_mt $0x01020304, %rbx
+
+// CHECK: io_tickle_debug %rax
+// CHECK: encoding: [0x0f,0x06]
+          io_tickle_debug %rax

@@ -1,4 +1,6 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-output -print-before=VPlanDriverHIR 2>&1 | FileCheck %s
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -simplifycfg -instcombine -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-output -print-before=hir-vplan-vec 2>&1 | FileCheck %s
 
 ; VPlanDriverHIR cannot be run via new pass manager.
 
@@ -126,3 +128,6 @@ attributes #2 = { nounwind }
 !5 = !{!"Simple C++ TBAA"}
 !6 = !{!7, !7, i64 0}
 !7 = !{!"int", !4, i64 0}
+
+; end INTEL_FEATURE_SW_ADVANCED
+

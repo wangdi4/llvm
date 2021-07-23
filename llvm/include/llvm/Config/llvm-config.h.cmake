@@ -18,8 +18,10 @@
 #cmakedefine LLVM_ENABLE_DUMP
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_SW_DTRANS */
 /* Define if we want to include DTrans in the builds */
-#cmakedefine01 INTEL_INCLUDE_DTRANS
+#cmakedefine01 INTEL_ENABLE_SW_DTRANS
+/* end INTEL_FEATURE_SW_DTRANS */
 /* end INTEL_CUSTOMIZATION */
 
 /* Target triple LLVM will generate code for by default */
@@ -98,5 +100,12 @@
 
 /* Define to 1 to enable the experimental new pass manager by default */
 #cmakedefine01 LLVM_ENABLE_NEW_PASS_MANAGER
+
+/* Define if the xar_open() function is supported on this platform. */
+#cmakedefine LLVM_HAVE_LIBXAR ${LLVM_HAVE_LIBXAR}
+
+/* Whether Timers signpost passes in Xcode Instruments */
+#cmakedefine01 LLVM_SUPPORT_XCODE_SIGNPOSTS
+
 
 #endif

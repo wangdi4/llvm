@@ -9,7 +9,6 @@
 #pragma once
 
 #include <CL/__spirv/spirv_ops.hpp>
-#include <CL/sycl/ONEAPI/sub_group.hpp>
 #include <CL/sycl/access/access.hpp>
 #include <CL/sycl/detail/defines.hpp>
 #include <CL/sycl/detail/helpers.hpp>
@@ -21,6 +20,7 @@
 #include <CL/sycl/item.hpp>
 #include <CL/sycl/nd_range.hpp>
 #include <CL/sycl/range.hpp>
+#include <CL/sycl/sub_group.hpp>
 
 #include <cstddef>
 #include <stdexcept>
@@ -70,7 +70,7 @@ public:
 
   group<dimensions> get_group() const { return Group; }
 
-  ONEAPI::sub_group get_sub_group() const { return ONEAPI::sub_group(); }
+  sub_group get_sub_group() const { return sub_group(); }
 
   size_t __SYCL_ALWAYS_INLINE get_group(int dimension) const {
     size_t Size = Group[dimension];
@@ -107,6 +107,7 @@ public:
     return localItem.get_range(dimension);
   }
 
+  __SYCL2020_DEPRECATED("offsets are deprecated in SYCL 2020")
   id<dimensions> get_offset() const { return globalItem.get_offset(); }
 
   nd_range<dimensions> get_nd_range() const {
@@ -136,6 +137,7 @@ public:
   /// Executes a work-group mem-fence with memory ordering on the local address
   /// space, global address space or both based on the value of \p accessSpace.
   template <access::mode accessMode = access::mode::read_write>
+  __SYCL2020_DEPRECATED("use sycl::group_barrier() free function instead")
   void mem_fence(
       typename detail::enable_if_t<accessMode == access::mode::read ||
                                        accessMode == access::mode::write ||

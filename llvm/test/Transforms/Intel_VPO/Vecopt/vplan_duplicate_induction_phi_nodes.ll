@@ -1,7 +1,7 @@
 ; Check if VPLoopEntities framework is able to handle duplicates of induction PHIs.
 
-; RUN: opt -loopopt=0 -VPlanDriver -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -loopopt=0 -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -vplan-vec -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -loopopt=0 -passes="vplan-vec" -vpo-vplan-build-stress-test -vplan-print-after-plain-cfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 
 ; Note : We should potentially stop supporting duplicate induction PHIs right
 ; from legality. Check CMPLRLLVM-18412.
@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local void @foo(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK:        Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 2147483647 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]],
 ; CHECK:          i64 [[VP_INDVARS_IV]] = phi  [ i64 0, [[BB1:.*]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0:.*]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]

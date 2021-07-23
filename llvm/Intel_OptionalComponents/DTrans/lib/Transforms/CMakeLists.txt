@@ -13,9 +13,11 @@
 
 add_llvm_component_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
+  AOSToSOAOP.cpp
   AnnotatorCleaner.cpp
   CommuteCond.cpp
   DeleteField.cpp
+  DeleteFieldOP.cpp
   ReorderFields.cpp
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp

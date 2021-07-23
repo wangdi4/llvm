@@ -1918,6 +1918,50 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
   return true;
 }
 
+// SR Chain - A set of instructions in a SR chain shouldn't co-exist
+// in one initiation interval(II).
+// Our SR Chain reroll assumes that all SR inst in one II span are in
+// different SR chains. Thus only the first II is reused after the rewriting
+// and all other spans are removed.
+// e.g.
+//  II 1: Inst 1 - Chain 1
+//        Inst 1 - Chain 2
+//  II 2: Inst 2 - Chain 1
+//        Inst 2 - Chain 2
+// to -->
+//  II 1: Inst 1 - Chain 1
+//        Inst 1 - Chain 2
+// Thus, following pattern is not handled.
+//  II 1: Inst 1 - Chain 1
+//        Inst 2 - Chain 1
+//  II 2: Inst 1 - Chain 2
+//        Inst 2 - Chain 2
+bool isValidSRChainPattern(HLLoop *Loop, VecRerollSeedInfoTy &VecSeedInfo,
+                           HIRSafeReductionAnalysis &SRA, unsigned II) {
+  SmallSet<unsigned, 8> SRSet;
+  for (auto It = Loop->child_begin(), EIt = std::next(HLContainerTy::iterator(
+                                          VecSeedInfo[II - 1].ContainingInst));
+       It != EIt; ++It) {
+
+    const HLInst *Inst = cast<HLInst>(&*It);
+
+    // SR Chain
+    const SafeRedInfo *RedInfo = SRA.getSafeRedInfo(Inst);
+    if (!RedInfo)
+      continue;
+
+    if (SRSet.count(RedInfo->Symbase)) {
+      LLVM_DEBUG(dbgs() << "SR dup: "; Inst->dump(); dbgs() << "\n");
+      return false;
+    } else {
+      LLVM_DEBUG(dbgs() << "SR marking: "; Inst->dump(); dbgs() << "\n");
+      SRSet.insert(RedInfo->Symbase);
+    }
+  }
+
+  return true;
+}
+
 // If any non-safe-reduction-var live-out exists,
 // bail-out.
 // We can check this after rerolling loop if some of the
@@ -1989,6 +2033,14 @@ bool rerollStraightCodes(HLLoop *Loop, HIRDDAnalysis &DDA,
 
   if (RerollFactor <= 1) {
     LLVM_DEBUG(dbgs() << "Reroll Factor is NOT calculated.\n");
+    return false;
+  }
+
+  // TODO: if isValidSRChainPattern() = false, reroll can still
+  //       go ahead by skipping updateChainSRs().
+  //       However, more checks may be needed to do so.
+  if (!isValidSRChainPattern(Loop, VecSeedInfo, SRA, InitInterval)) {
+    LLVM_DEBUG(dbgs() << "Fail SR-chain check\n");
     return false;
   }
 

@@ -18,6 +18,7 @@
 /// Entries for kernel configuration
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize global kernel parameters -- not used now
 EXTERN void __kmpc_kernel_init_params(void *params) {
   // TODO: future parameters
@@ -126,15 +127,28 @@ void __kmpc_work_barrier() {
       __kmp_work_barrier(&local_state->work_barrier, num_sub_group);
   }
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 // Barrier for entire team
 void __kmpc_barrier() {
   __kmp_team_barrier();
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 void __kmpc_init_runtime() {
   __kmp_init_locals();
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
+/// Named barrier support. These are empty intentionally for BE that do not
+/// replace them with intrinsics.
+EXTERN void __kmpc_nbarrier_init(uint nbarrier_count) {}
+
+EXTERN void __kmpc_nbarrier_wait(uint nbarrier_id) {}
+
+EXTERN void __kmpc_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type) {}
 
 
 ///
@@ -146,8 +160,28 @@ EXTERN void __kmpc_critical(kmp_critical_name *name) {
   __kmp_acquire_lock((int *)name);
 }
 
+/// Begin critical section with hint -- hint is ignored
+EXTERN void __kmpc_critical_with_hint(kmp_critical_name *name, uint hint) {
+  __kmp_acquire_lock((int *)name);
+}
+
 EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
   __kmp_release_lock((int *)name);
+}
+
+/// Begin critical section with explicit SIMD
+EXTERN void __kmpc_critical_simd(kmp_critical_name *name) {
+  __kmp_acquire_lock_simd((int *)name);
+}
+
+/// Begin critical section with hint, explicit SIMD -- hint is ignored
+EXTERN void __kmpc_critical_with_hint_simd(kmp_critical_name *name, uint hint) {
+  __kmp_acquire_lock_simd((int *)name);
+}
+
+/// End critical section with explicit SIMD
+EXTERN void __kmpc_end_critical_simd(kmp_critical_name *name) {
+  __kmp_release_lock_simd((int *)name);
 }
 
 

@@ -126,8 +126,10 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeDopeVectorHoistWrapperPass(Registry);
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
+#if INTEL_FEATURE_SW_ADVANCED
   initializeFunctionRecognizerLegacyPassPass(Registry);
   initializeNontemporalStoreWrapperPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
   initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);
@@ -141,6 +143,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeForcedCMOVGenerationLegacyPassPass(Registry);
   initializeTransformSinAndCosCallsLegacyPassPass(Registry);
   initializeHandlePragmaVectorAlignedLegacyPassPass(Registry);
+  initializeIntelLoopAttrsWrapperPass(Registry);
 #if INTEL_FEATURE_CSA
   initializeCSAScalarPasses(Registry);
 #endif // INTEL_FEATURE_CSA

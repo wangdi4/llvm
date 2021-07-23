@@ -12,8 +12,6 @@
 ;
 ; CHECK-NOT: Freeing Pass 'Whole program analysis' on Module
 ;
-; CHECK: Freeing Pass 'Intel IPO Prefetch' on Module
-;
 ; CHECK: Executing Pass 'Andersen Interprocedural AA' on Module
 ;
 ; CHECK-NOT: Freeing Pass 'Whole program analysis' on Module

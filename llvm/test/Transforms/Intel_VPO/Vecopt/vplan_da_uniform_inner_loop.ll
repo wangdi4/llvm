@@ -2,8 +2,8 @@
 ; In the following lit test, the inner loop is uniform and all the side exits
 ; are uniform.
 
-; RUN: opt -VPlanDriver -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver" -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -79,7 +79,7 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB10]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB11]]

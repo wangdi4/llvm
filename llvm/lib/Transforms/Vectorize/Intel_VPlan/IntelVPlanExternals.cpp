@@ -218,9 +218,11 @@ void VPLiveInOutCreator::createInOutsReductions(
       // are not used outside of the loop or in-memory reductions. Then we
       // create a fake external use, with symbase equal to symbase of start
       // value.
-      // TODO: We don't need to create an external use in cases when it's a fake
+      // We don't need to create an external use in cases when it's a fake
       // linear index. In other cases we need to keep it's value after peel/main
       // loop.
+      if (RedFinal->isLinearIndex())
+        continue;
       if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
         if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
           RedFinalExternalUse =

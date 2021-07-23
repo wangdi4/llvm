@@ -13,25 +13,36 @@
 using namespace llvm;
 
 void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
+  initializeAddFunctionAttrsLegacyPass(Registry);
+  initializeAddImplicitArgsLegacyPass(Registry);
+  initializeBarrierInFunctionLegacyPass(Registry);
+  initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
-  initializeDPCPPEqualizerLegacyPass(Registry);
-  initializeDPCPPKernelVecClonePass(Registry);
-  initializeDPCPPKernelPostVecPass(Registry);
-  initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
-  initializeDPCPPKernelAnalysisLegacyPass(Registry);
-  initializePhiCanonicalizationLegacyPass(Registry);
-  initializeRedundantPhiNodeLegacyPass(Registry);
-  initializeSplitBBonBarrierLegacyPass(Registry);
-  initializeWIRelatedValueWrapperPass(Registry);
+  initializeCleanupWrappedKernelLegacyPass(Registry);
+  initializeCreateSimdVariantPropagationLegacyPass(Registry);
   initializeDataPerBarrierWrapperPass(Registry);
   initializeDataPerValueWrapperPass(Registry);
-  initializeKernelBarrierLegacyPass(Registry);
-  initializeBarrierInFunctionLegacyPass(Registry);
-  initializeLocalBufferAnalysisLegacyPass(Registry);
+  initializeDPCPPEqualizerLegacyPass(Registry);
+  initializeDPCPPKernelAnalysisLegacyPass(Registry);
+  initializeDPCPPKernelPostVecPass(Registry);
+  initializeDPCPPKernelVecCloneLegacyPass(Registry);
+  initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
+  initializeDuplicateCalledKernelsLegacyPass(Registry);
+  initializeGroupBuiltinLegacyPass(Registry);
   initializeImplicitArgsAnalysisLegacyPass(Registry);
-  initializeAddImplicitArgsLegacyPass(Registry);
-  initializeResolveWICallLegacyPass(Registry);
+  initializeInternalizeNonKernelFuncLegacyPass(Registry);
+  initializeKernelBarrierLegacyPass(Registry);
+  initializeLinearIdResolverLegacyPass(Registry);
+  initializeLocalBufferAnalysisLegacyPass(Registry);
+  initializeLocalBuffersLegacyPass(Registry);
+  initializePhiCanonicalizationLegacyPass(Registry);
   initializePrepareKernelArgsLegacyPass(Registry);
-  initializeCleanupWrappedKernelLegacyPass(Registry);
+  initializeRedundantPhiNodeLegacyPass(Registry);
+  initializeResolveWICallLegacyPass(Registry);
+  initializeSplitBBonBarrierLegacyPass(Registry);
+  initializeUpdateCallAttrsLegacyPass(Registry);
+  initializeVectorVariantFillInLegacyPass(Registry);
+  initializeVectorVariantLoweringLegacyPass(Registry);
+  initializeWIRelatedValueWrapperPass(Registry);
 }
 

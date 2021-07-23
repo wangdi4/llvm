@@ -520,6 +520,15 @@ func @index_cast(%arg0: index, %arg1: i1) {
   return
 }
 
+// CHECK-LABEL: @vector_index_cast
+func @vector_index_cast(%arg0: vector<2xindex>, %arg1: vector<2xi1>) {
+// CHECK-NEXT: = llvm.trunc %{{.*}} : vector<2xi{{.*}}> to vector<2xi1>
+  %0 = index_cast %arg0: vector<2xindex> to vector<2xi1>
+// CHECK-NEXT: = llvm.sext %{{.*}} : vector<2xi1> to vector<2xi{{.*}}>
+  %1 = index_cast %arg1: vector<2xi1> to vector<2xindex>
+  return
+}
+
 // Checking conversion of signed integer types to floating point.
 // CHECK-LABEL: @sitofp
 func @sitofp(%arg0 : i32, %arg1 : i64) {
@@ -698,15 +707,13 @@ func @fptrunc_vector(%arg0 : vector<2xf32>, %arg1 : vector<2xf64>) {
 
 // Check sign and zero extension and truncation of integers.
 // CHECK-LABEL: @integer_extension_and_truncation
-func @integer_extension_and_truncation() {
-// CHECK-NEXT:  %0 = llvm.mlir.constant(-3 : i3) : i3
-  %0 = constant 5 : i3
-// CHECK-NEXT: = llvm.sext %0 : i3 to i6
-  %1 = sexti %0 : i3 to i6
-// CHECK-NEXT: = llvm.zext %0 : i3 to i6
-  %2 = zexti %0 : i3 to i6
-// CHECK-NEXT: = llvm.trunc %0 : i3 to i2
-   %3 = trunci %0 : i3 to i2
+func @integer_extension_and_truncation(%arg0 : i3) {
+// CHECK-NEXT: = llvm.sext %arg0 : i3 to i6
+  %0 = sexti %arg0 : i3 to i6
+// CHECK-NEXT: = llvm.zext %arg0 : i3 to i6
+  %1 = zexti %arg0 : i3 to i6
+// CHECK-NEXT: = llvm.trunc %arg0 : i3 to i2
+   %2 = trunci %arg0 : i3 to i2
   return
 }
 
@@ -1425,3 +1432,24 @@ func @dim_of_unranked(%unranked: memref<*xi32>) -> index {
 
 // CHECK32: %[[SIZE:.*]] = llvm.load %{{.*}} : !llvm.ptr<i32>
 // CHECK32-NEXT: llvm.return %[[SIZE]] : i32
+
+// -----
+
+func @switchLower(%arg0: i32, %arg1 : i32, %arg2 : i32) -> i32 {
+    switch %arg0 : i32, [
+      default: ^bb2,
+      115: ^bb1
+    ]
+  ^bb1:
+    llvm.return %arg1 : i32
+  ^bb2:
+    llvm.return %arg2 : i32
+}
+
+// CHECK: llvm.switch %arg0, ^[[bb2:.+]] [
+// CHECK-NEXT:      115: ^[[bb1:.+]]
+// CHECK-NEXT:    ]
+// CHECK:  ^[[bb1]]:
+// CHECK:    llvm.return %arg1 : i32
+// CHECK:  ^[[bb2]]:
+// CHECK:    llvm.return %arg2 : i32

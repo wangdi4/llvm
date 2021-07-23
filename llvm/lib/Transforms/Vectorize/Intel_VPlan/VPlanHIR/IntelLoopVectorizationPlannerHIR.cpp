@@ -16,6 +16,7 @@
 
 #include "IntelLoopVectorizationPlannerHIR.h"
 #include "../IntelVPlanCallVecDecisions.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
@@ -33,7 +34,8 @@ static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
-bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
+bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
+                                                  unsigned UF) {
   unsigned BestVF = getBestVF();
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
   VPlanVector *Plan = getBestVPlan();
@@ -47,6 +49,8 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
+
+  applyVLSTransform(*Plan, *VLSA, BestVF);
 
   // Process all loop entities and create refs for them if needed.
   CG->createAndMapLoopEntityRefs(BestVF);
@@ -89,14 +93,16 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
-  // Disable SOA-analysis for HIR.
-  Plan->disableSOAAnalysis();
+  // Enable SOA-analysis if enabled in the header.
+  if (EnableSOAAnalysisHIR)
+    Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
-  HCFGBuilder.buildHierarchicalCFG();
+  if (!HCFGBuilder.buildHierarchicalCFG())
+    return nullptr;
 
   // Search loop representation is not yet explicit and search loop idiom
   // recognition is picky. Avoid any changes in predicator behavior for search
@@ -195,29 +201,56 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   return UF;
 }
 
+bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
+
+  bool Result = LoopVectorizationPlanner::unroll(Plan);
+
+  if (Result) {
+    TheLoop->removeLoopMetadata("llvm.loop.unroll.count");
+    TheLoop->addLoopMetadata(MDNode::get(
+        *Plan.getLLVMContext(),
+        MDString::get(*Plan.getLLVMContext(), "llvm.loop.unroll.disable")));
+  }
+
+  return Result;
+}
+
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  // TODO. Modify the loop latch condition classification (in
+  // hasLoopNormalizedInduction) to accept HIR-normalized loops. They use 'le'
+  // condition which leads to execution of OrigUB + 1 iterations.
+  //
+  bool ExactUB = true;
+  bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop, ExactUB);
+  CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
 
   // The multi-exit loops are processed in a special way
   if (!CandidateLoop->getUniqueExitBlock())
     return;
 
+  // TODO: All loops in HIR path are expected to be normalized. Move this
+  // assertion to after the call hasLoopNormalizedInduction() when loop entity
+  // instructions are supported for search loops.
+  assert(HasNormalizedInd && "Expected normalized loop");
+
   auto *PreHeader = CandidateLoop->getLoopPreheader();
   assert(PreHeader && "Single pre-header is expected!");
-
   VPBuilderHIR Builder;
   Builder.setInsertPointFirstNonPhi(PreHeader);
+
   VPValue *OrigTC;
-  VPInstruction *Cond;
+  VPCmpInst *Cond;
   std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
-  assert((OrigTC && Cond) && "A normalized loop expected");
-  if (auto Instr = dyn_cast<VPInstruction>(OrigTC)) {
+
+  if (auto *Instr = dyn_cast<VPInstruction>(OrigTC)) {
     auto Parent = Instr->getParent();
     assert(
         (Parent == PreHeader || Plan->getDT()->dominates(Parent, PreHeader)) &&
         "Unexpected loop upper bound placement");
-    Builder.setInsertPoint(Parent, std::next(Instr->getIterator(),1));
+    Builder.setInsertPoint(Parent, std::next(Instr->getIterator(), 1));
   }
   auto *VTC = Builder.create<VPVectorTripCountCalculation>(
       TheLoop, "vector.trip.count", OrigTC);

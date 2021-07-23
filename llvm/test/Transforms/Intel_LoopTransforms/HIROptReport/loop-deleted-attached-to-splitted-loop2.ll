@@ -14,7 +14,7 @@
 ;  return sum;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -vplan-force-vf=4 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -25,11 +25,11 @@
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark #25532: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4 -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -hir-cg -vplan-force-vf=4 -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
@@ -44,7 +44,7 @@
 ; CHECK: [[M11]] = distinct !{!"llvm.loop.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = distinct !{!"intel.loop.optreport", [[M13:!.*]]}
 ; CHECK: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
-; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
 ; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 

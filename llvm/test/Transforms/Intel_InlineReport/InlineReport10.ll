@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -sroa -inline -inline-report=7 -inline-threshold=15 < %s -S 2>&1 | FileCheck %s
 ; RUN: opt -passes='function(sroa),cgscc(inline)' -inline-report=7 < %s -S 2>&1 | FileCheck %s
@@ -477,3 +479,4 @@ attributes #6 = { noreturn nounwind }
 !llvm.ident = !{!0}
 
 !0 = !{!"clang version 4.0.0 (trunk 17975)"}
+; end INTEL_FEATURE_SW_ADVANCED

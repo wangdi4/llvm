@@ -23,6 +23,7 @@
 
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -137,6 +138,8 @@ public:
     VPBasicBlockSC,
     VPLiveInValueSC,
     VPLiveOutValueSC,
+    VPRegionSC,
+    VPRegionLiveOutSC,
   };
 
   VPValue(Type *BaseTy, Value *UV = nullptr)
@@ -200,6 +203,7 @@ public:
   virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
   void dump() const { print(errs()); errs()<< '\n'; }
   virtual void printAsOperand(raw_ostream &OS) const;
+  void printAsOperandNoType(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
@@ -242,6 +246,13 @@ public:
   /// invalidate the underlying IR if \p InvalidateIR is set.
   void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
                                 bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal in the \p Region. Region is a
+  /// collection of BBs. Additionally invalidate the underlying IR if \p
+  /// InvalidateIR is set.
+  void replaceAllUsesWithInRegion(VPValue *NewVal,
+                                  ArrayRef<VPBasicBlock *> Region,
+                                  bool InvalidateIR = true);
 
   /// Replace all uses of *this with \p NewVal. Additionally invalidate the
   /// underlying IR if \p InvalidateIR is set.
@@ -387,6 +398,23 @@ public:
   }
 };
 
+class VPRegionLiveOut : public VPUser {
+public:
+  VPRegionLiveOut(VPValue *Operand, Type *BaseTy)
+      : VPUser(VPValue::VPRegionLiveOutSC, {Operand}, BaseTy) {
+    addOperand(Operand);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override { OS << *getOperand(0); }
+  friend raw_ostream &operator<<(raw_ostream &OS, const VPUser &VPU) {
+    VPU.print(OS);
+    return OS;
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  // VPUser's destructor won't drop references.
+  ~VPRegionLiveOut() { dropAllReferences(); }
+};
+
 /// This class augments VPValue with constant operands that encapsulates LLVM
 /// Constant information. In the same way as LLVM Constant, VPConstant is
 /// immutable (once created they never change) and are fully shared by
@@ -516,6 +544,15 @@ private:
   // Hold the DDRef or IV information related to this external definition.
   std::unique_ptr<VPOperandHIR> HIROperand;
 
+  const std::string getVPValueName() const {
+    std::string Name = "";
+    raw_string_ostream SOS(Name);
+    getOperandHIR()->print(SOS);
+    if (!Name.empty())
+      // We drop the leading '%'.
+      return Name.substr(1);
+    return Name;
+  }
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
       : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
@@ -524,23 +561,31 @@ private:
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
   VPExternalDef(const loopopt::DDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
-        HIROperand(new VPBlob(DDR)) {}
+        HIROperand(new VPBlob(DDR)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
   // specifies the blob type.
   VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
       : VPValue(VPValue::VPExternalDefSC, BType),
-        HIROperand(new VPBlob(DDR, BI)) {}
+        HIROperand(new VPBlob(DDR, BI)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef given an underlying CanonExpr \p CE.
   VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
-        HIROperand(new VPCanonExpr(CE, DDR)) {}
+        HIROperand(new VPCanonExpr(CE, DDR)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
-        HIROperand(new VPIndVar(IVLevel)) {}
+        HIROperand(new VPIndVar(IVLevel)) {
+    setName(getVPValueName());
+  }
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as
@@ -740,7 +785,9 @@ private:
 class VPMetadataAsValue : public VPValue {
   // VPlan is currently the context where we hold the pool of
   // VPMetadataAsValues.
+  friend class VPCloneUtils;
   friend class VPExternalValues;
+  friend class VPValueMapper;
 
 protected:
   VPMetadataAsValue(MetadataAsValue *MDAsValue)
@@ -881,7 +928,19 @@ public:
 private:
   unsigned MergeId;
 };
-
 } // namespace vpo
+
+template <> struct GraphTraits<vpo::VPUser *> {
+  using NodeRef = vpo::VPUser *;
+  using ChildIteratorType = vpo::VPValue::user_iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->user_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) { return N->user_end(); }
+};
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H

@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -wholeprogramanalysis -whole-program-assume-read -instcombine -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 |FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; RUN: opt -passes='require<wholeprogram>,function(instcombine),cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
@@ -90,3 +92,4 @@ declare void @fill1_(double* noalias nocapture %0, i32* noalias nocapture readon
 declare void @fill2_(double* noalias nocapture %0, i32* noalias nocapture readonly %1, i32* noalias nocapture readonly %2, i32* noalias nocapture readonly %3)
 
 attributes #0 = { "intel-lang"="fortran" }
+; end INTEL_FEATURE_SW_ADVANCED

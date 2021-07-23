@@ -53,6 +53,9 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CasesLower("core-avx512", "core_avx512", "skylake-avx512",
                           "skylake_avx512", "skylake-avx512")
               .CasesLower("common-avx512", "common_avx512", "common-avx512")
+#if INTEL_FEATURE_ISA_AVX256
+              .CasesLower("common-avx256", "common_avx256", "common-avx256")
+#endif // INTEL_FEATURE_ISA_AVX256
               .CaseLower("broadwell", "broadwell")
               .CaseLower("cannonlake", "cannonlake")
               .CasesLower("icelake", "icelake-client", "icelake_client",
@@ -63,6 +66,8 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CaseLower("tigerlake", "tigerlake")
               .CasesLower("sapphirerapids", "sapphire-rapids",
                           "sapphire_rapids", "sapphirerapids")
+              .CaseLower("alderlake", "alderlake")
+              .CaseLower("rocketlake", "rocketlake")
               .CaseLower("host", llvm::sys::getHostCPUName())
               .Default("");
   }
@@ -321,5 +326,24 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
 
   // Now add any that the user explicitly requested on the command line,
   // which may override the defaults.
-  handleTargetFeaturesGroup(Args, Features, options::OPT_m_x86_Features_Group);
+  for (const Arg *A : Args.filtered(options::OPT_m_x86_Features_Group,
+                                    options::OPT_mgeneral_regs_only)) {
+    StringRef Name = A->getOption().getName();
+    A->claim();
+
+    // Skip over "-m".
+    assert(Name.startswith("m") && "Invalid feature name.");
+    Name = Name.substr(1);
+
+    // Replace -mgeneral-regs-only with -x87, -mmx, -sse
+    if (A->getOption().getID() == options::OPT_mgeneral_regs_only) {
+      Features.insert(Features.end(), {"-x87", "-mmx", "-sse"});
+      continue;
+    }
+
+    bool IsNegative = Name.startswith("no-");
+    if (IsNegative)
+      Name = Name.substr(3);
+    Features.push_back(Args.MakeArgString((IsNegative ? "-" : "+") + Name));
+  }
 }

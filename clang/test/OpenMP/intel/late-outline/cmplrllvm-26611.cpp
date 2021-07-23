@@ -44,7 +44,7 @@ int main() {
   // CHECK: [[L1:%[0-9]+]] = load %struct.D**, %struct.D*** %spp
   // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.D** [[L1]], %struct.D**
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.D** %ptridx
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.D** %arrayidx
   // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(tofrom : spp[0][0]) //firstprivate(p)
   {

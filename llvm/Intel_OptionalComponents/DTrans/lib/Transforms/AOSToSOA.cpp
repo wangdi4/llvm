@@ -1881,8 +1881,14 @@ private:
       // of DTransAnalysis to resolve the type as a pointer to an array of
       // elements. This is necessary because the allocated memory block is
       // being partitioned into multiple arrays.
+      unsigned PtrLevel = 0;
+      llvm::Type *BaseTy = PeelFieldType;
+      while (BaseTy->isPointerTy()) {
+        ++PtrLevel;
+        BaseTy = BaseTy->getPointerElementType();
+      }
       DTransAnnotator::createDTransTypeAnnotation(*cast<Instruction>(BlockAddr),
-                                                  PeelFieldType);
+                                                  BaseTy, PtrLevel);
 
       // Cast to the pointer type that will be stored:
       //   %CastToMemberTy = bitcast i8* %BlockAddr to %PeelFieldType

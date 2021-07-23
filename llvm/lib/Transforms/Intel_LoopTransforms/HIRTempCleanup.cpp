@@ -401,6 +401,13 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
     }
   }
 
+  // It is possible that UseInst was already moved before RvalDefInst
+  // while processing another use of temp in UseInst.
+  // If so, we can trivially return true here.
+  if (UseInst->getTopSortNum() < RvalDefInst->getTopSortNum()) {
+    return true;
+  }
+
   auto &BU = UseInst->getBlobUtils();
   auto *UseLvalRef = UseInst->getLvalDDRef();
 
@@ -739,10 +746,6 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
   // Do not substitute function pointer temps.
   if (LvalTy->isPointerTy() &&
       LvalTy->getPointerElementType()->isFunctionTy()) {
-    return false;
-  }
-
-  if (HInst->getRvalDDRef()->isVolatile()) {
     return false;
   }
 

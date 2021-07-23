@@ -176,6 +176,11 @@ static inline bool inheritsFrom(InstructionContext child,
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XD_ADSIZE)));
   case IC_64BIT_XS:
     return(inheritsFrom(child, IC_64BIT_REXW_XS) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+           (inheritsFrom(child, IC_64BIT_REXW_XS_CE)) ||
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
            (!AdSize64 && inheritsFrom(child, IC_64BIT_XS_ADSIZE)));
   case IC_64BIT_XD_OPSIZE:
   case IC_64BIT_XS_OPSIZE:
@@ -751,8 +756,8 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
         ModRMDecision.push_back(decision.instructionIDs[index]);
       break;
     case MODRM_FULL:
-      for (unsigned index = 0; index < 256; ++index)
-        ModRMDecision.push_back(decision.instructionIDs[index]);
+      for (unsigned short InstructionID : decision.instructionIDs)
+        ModRMDecision.push_back(InstructionID);
       break;
   }
 
@@ -763,10 +768,9 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
     ModRMTableNum += ModRMDecision.size();
     o1 << "/*Table" << EntryNumber << "*/\n";
     i1++;
-    for (std::vector<unsigned>::const_iterator I = ModRMDecision.begin(),
-           E = ModRMDecision.end(); I != E; ++I) {
-      o1.indent(i1 * 2) << format("0x%hx", *I) << ", /*"
-                        << InstructionSpecifiers[*I].name << "*/\n";
+    for (unsigned I : ModRMDecision) {
+      o1.indent(i1 * 2) << format("0x%hx", I) << ", /*"
+                        << InstructionSpecifiers[I].name << "*/\n";
     }
     i1--;
   }
@@ -796,6 +800,7 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
   // We assume that the index can fit into uint16_t.
   assert(sEntryNumber < 65536U &&
          "Index into ModRMDecision is too large for uint16_t!");
+  (void)sEntryNumber;
 
   ++sTableNumber;
 }
@@ -876,12 +881,9 @@ void DisassemblerTables::emitInstructionInfo(raw_ostream &o,
   for (unsigned Index = 0; Index < NumInstructions; ++Index) {
     OperandListTy OperandList;
 
-    for (unsigned OperandIndex = 0; OperandIndex < X86_MAX_OPERANDS;
-         ++OperandIndex) {
-      OperandEncoding Encoding = (OperandEncoding)InstructionSpecifiers[Index]
-                                 .operands[OperandIndex].encoding;
-      OperandType Type = (OperandType)InstructionSpecifiers[Index]
-                         .operands[OperandIndex].type;
+    for (auto Operand : InstructionSpecifiers[Index].operands) {
+      OperandEncoding Encoding = (OperandEncoding)Operand.encoding;
+      OperandType Type = (OperandType)Operand.type;
       OperandList.push_back(std::make_pair(Encoding, Type));
     }
     unsigned &N = OperandSets[OperandList];
@@ -909,12 +911,9 @@ void DisassemblerTables::emitInstructionInfo(raw_ostream &o,
     i++;
 
     OperandListTy OperandList;
-    for (unsigned OperandIndex = 0; OperandIndex < X86_MAX_OPERANDS;
-         ++OperandIndex) {
-      OperandEncoding Encoding = (OperandEncoding)InstructionSpecifiers[index]
-                                 .operands[OperandIndex].encoding;
-      OperandType Type = (OperandType)InstructionSpecifiers[index]
-                         .operands[OperandIndex].type;
+    for (auto Operand : InstructionSpecifiers[index].operands) {
+      OperandEncoding Encoding = (OperandEncoding)Operand.encoding;
+      OperandType Type = (OperandType)Operand.type;
       OperandList.push_back(std::make_pair(Encoding, Type));
     }
     o.indent(i * 2) << (OperandSets[OperandList] - 1) << ",\n";
@@ -1069,6 +1068,7 @@ void DisassemblerTables::emitContextDecisions(raw_ostream &o1, raw_ostream &o2,
 #if INTEL_CUSTOMIZATION
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[8], THREEBYTE39_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[9], THREEBYTE3B_STR);
+  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[10], MAP8_STR);
 #endif // INTEL_CUSTOMIZATION
 }
 

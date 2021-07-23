@@ -60,6 +60,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
+    {WRegionNode::WRNPrefetch, "prefetch"},
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
@@ -327,6 +328,10 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       // setIsTask();
     }
   }
+  assert((getWRegionKindID() != WRNTask || !getIsTaskwaitNowaitTask() ||
+          !getDepend().empty()) &&
+         "taskwait construct cannot have a nowait clause without a depend "
+         "clause.");
 }
 
 // Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
@@ -519,6 +524,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveFlush())
     PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
 
+  if (canHaveData())
+    PrintedSomething |= getData().print(OS, Depth, Verbosity);
+
   if (PrintedSomething)
     OS << "\n";
 }
@@ -670,9 +678,13 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
     setDefaultmap(Category, Behavior);
     break;
   }
-  case QUAL_OMP_NOWAIT:
-    setNowait(true);
+  case QUAL_OMP_NOWAIT: {
+    // "taskwait depend nowait" is parsed internally as "task depend". In this
+    // case we can't set nowait.
+    if (!(getDirID() == DIR_OMP_TASK && getIsTaskwaitNowaitTask()))
+      setNowait(true);
     break;
+  }
   case QUAL_OMP_UNTIED:
     setUntied(true);
     setTaskFlag(getTaskFlag() & ~WRNTaskFlag::Tied);
@@ -807,6 +819,10 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
       llvm_unreachable("QUAL_OMP_NAME opnd is not a string.");
 
   } break;
+  case QUAL_OMP_HINT:
+    assert(CI && "HINT expected to be constant");
+    setHint(N);
+    break;
   case QUAL_OMP_NOCONTEXT:
     setNocontext(V);
     break;
@@ -934,8 +950,12 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
-
+#if INTEL_CUSTOMIZATION
+  if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod()) {
+    // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
+#else // INTEL_CUSTOMIZATION
   if (ClauseInfo.getIsNonPod()) {
+#endif // INTEL_CUSTOMIZATION
     // NONPOD representation requires multiple args per var:
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
@@ -962,6 +982,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
     Item->setIsWILocal(ClauseInfo.getIsWILocal());
+    if (ClauseInfo.getIsF90NonPod())
+      Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
@@ -1229,6 +1251,16 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
            ReductionKind == ReductionItem::WRNReductionMult)) &&
          "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
+  if (ClauseInfo.getIsTask()) {
+    Instruction *EntryDir = getEntryDirective();
+    Function *F = EntryDir->getFunction();
+    F->getContext().diagnose(
+        DiagnosticInfoUnsupported(*F,
+                                  "task reduction-modifier on a reduction "
+                                  "clause is currently not supported",
+                                  EntryDir->getDebugLoc()));
+    return;
+  }
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
     if (!V || isa<ConstantPointerNull>(V)) {
@@ -1242,6 +1274,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    // TODO: This code will be added once we start supporting task
+    // reduction-modifier on a Reduction clause
+    //   if (IsTask)
+    //     RI->setIsTask(IsTask);
 
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
     // The number of non array section tuple arguments is 2 by default (base
@@ -1278,6 +1314,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+     // TODO: This code will be added once we start supporting task
+     // reduction-modifier on a Reduction clause
+     //   if (IsTask)
+     //     RI->setIsTask(IsTask);
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(C.getClauseID()))
@@ -1540,6 +1580,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       C.add(V);
       if (ClauseInfo.getIsPointerToPointer())
         C.back()->setIsPointerToPointer(true);
+#if INTEL_CUSTOMIZATION
+      if (ClauseInfo.getIsF90DopeVector())
+        C.back()->setIsF90DopeVector(true);
+#endif // INTEL_CUSTOMIZATION
     }
     break;
   }
@@ -1548,17 +1592,64 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_ALLOCATE: {
-    // IR:    "QUAL.OMP.ALLOCATE"(TYPE* %p, i64 %handle)
+    // The IR can have 3 or 2 operands:
+    //        "QUAL.OMP.ALLOCATE"(size_t alignment, TYPE* %p, i64 %handle)
+    //    or  "QUAL.OMP.ALLOCATE"(size_t alignment, TYPE* %p)
+    // where 'alignment' is a positive constant integer.
+    //
+    // Old IR:
+    // Currently FE still emits old IR without alignment, which can
+    // have 2 or 1 operands. We need to support it for now:
+    //        "QUAL.OMP.ALLOCATE"(TYPE* %p, i64 %handle)
     //    or  "QUAL.OMP.ALLOCATE"(TYPE* %p)
-    assert((NumArgs == 1 || NumArgs == 2) &&
-           "Expected 1 or 2 arguments for ALLOCATED clause");
-    Value *Var = Args[0];
+    //
+    // TODO: remove support of the old IR once FE emits the new form.
+
+    Value *Var;
     Value *AllocatorHandle = nullptr;
-    if (NumArgs==2)
-      AllocatorHandle = Args[1];
+    uint64_t Alignment = 0;
+    bool OldIR = true;
+    // If the first operand is not constant then it's the old IR.
+    if (isa<ConstantInt>(Args[0])) {
+      ConstantInt *CI = cast<ConstantInt>(Args[0]);
+      Alignment = CI->getZExtValue();
+      OldIR = false;
+    }
+
+    if (OldIR) {
+      assert((NumArgs == 2 || NumArgs == 1) &&
+             "Unexpected number of operands in ALLOCATE clause (old IR)");
+      Var = Args[0];
+      if (NumArgs == 2)
+        AllocatorHandle = Args[1];
+    } else {
+      assert((NumArgs == 3 || NumArgs == 2) &&
+             "Unexpected number of operands in ALLOCATE clause");
+      Var = Args[1];
+      if (NumArgs == 3)
+        AllocatorHandle = Args[2];
+    }
+
     AllocateClause &C = getAllocate();
     C.add(Var);
+    C.back()->setAlignment(Alignment);
     C.back()->setAllocator(AllocatorHandle);
+    break;
+  }
+  case QUAL_OMP_DATA: {
+    // "QUAL.OMP.DATA"(TYPE** %ptr, i32 <hint>, size_t <NumElem>)
+    assert(NumArgs == 3 && "Expected 3 arguments for DATA clause");
+    Value *Ptr = Args[0];
+    assert(isa<ConstantInt>(Args[1]) && "Hint must be a constant integer");
+    assert(isa<ConstantInt>(Args[2]) &&
+           "Number of elements must be a constant integer");
+    ConstantInt *CI = cast<ConstantInt>(Args[1]);
+    unsigned Hint = CI->getZExtValue();
+    CI = cast<ConstantInt>(Args[2]);
+    uint64_t NumElem = CI->getZExtValue();
+    DataItem *Item = new DataItem(Ptr, Hint, NumElem);
+    DataClause &C = getData();
+    C.add(Item);
     break;
   }
   case QUAL_OMP_INIT: {
@@ -2003,6 +2094,7 @@ bool WRegionNode::canHaveDepend() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNTask:
+  case WRNTaskwait:
   case WRNTarget:
   case WRNTargetEnterData:
   case WRNTargetExitData:
@@ -2028,6 +2120,11 @@ bool WRegionNode::canHaveFlush() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNFlushNode can have a flush set
   return SubClassID==WRNFlush;
+}
+
+bool WRegionNode::canHaveData() const {
+  unsigned SubClassID = getWRegionKindID();
+  return SubClassID==WRNPrefetch;
 }
 
 // Returns `true` if the Construct can be cancelled, and thus have

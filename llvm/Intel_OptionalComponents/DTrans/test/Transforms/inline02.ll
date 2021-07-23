@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -dtrans-inline-heuristics -inline < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 ; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
@@ -81,3 +83,4 @@ entry:
   ret i32 %add3
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

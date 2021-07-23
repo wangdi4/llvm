@@ -1,4 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; Inline report
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=7 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 ; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=7 -forced-inline-opt-level=2  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
@@ -1345,3 +1347,4 @@ bb3:
 }
 
 attributes #0 = { "intel-lang"="fortran" }
+; end INTEL_FEATURE_SW_ADVANCED

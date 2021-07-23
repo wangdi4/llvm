@@ -1,5 +1,5 @@
-; RUN: opt -S -VPlanDriver < %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" < %s | FileCheck %s
+; RUN: opt -S -vplan-vec < %s | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" < %s | FileCheck %s
 
 ; Test that caller/callee simd function matching is successful for two variants and
 ; tiebreaker used is the MaxArg index, which represents the index of the argument

@@ -8,7 +8,7 @@
 ; Before
 
 ;          BEGIN REGION { }
-;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;                |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ;                |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ;                |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + 1]  +  1.000000e+00;
@@ -32,7 +32,7 @@
 ; After
 
 ;          BEGIN REGION { modified }
-;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;                |   %clone_load = (@globalvar_mod_mp_zstart_)[0];
 ;                |   %clone_load6 = (@globalvar_mod_mp_zstop_)[0];
 ;                |
@@ -76,7 +76,7 @@
 ; CHECK: Function: sub1_
 
 ; CHECK:         BEGIN REGION { }
-; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + 1]  +  1.000000e+00;
@@ -100,7 +100,7 @@
 ; CHECK: Function: sub1_
 
 ; CHECK:         BEGIN REGION { modified }
-; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:               |   [[CLONE_1:%clone[0-9]*]] = (@globalvar_mod_mp_zstart_)[0];
 ; CHECK:               |   [[CLONE_2:%clone[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
 ; CHECK:               |

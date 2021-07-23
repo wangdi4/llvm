@@ -271,6 +271,7 @@ private:
   //    - check for (PeelCount + MainVF*MainUF) is less than main loop upper
   //      bound, jumping to the remainder or to the peel loop.
   void insertPeelCntAndChecks(PlanDescr &PeelDescr,
+                              VPBasicBlock *FinalRemainderMerge,
                               VPBasicBlock *RemainderMerge);
 
   // Generate the following sequence to check whether lower bits of the pointer
@@ -311,11 +312,6 @@ private:
   // Read the original upper bound from VPlan of main loop and update
   // corresponding field.
   void updateOrigUB();
-
-  VPConstant *getInt64Const(int64_t V) {
-    Type *Ty = Type::getInt64Ty(*Plan.getLLVMContext());
-    return Plan.getVPConstant(ConstantInt::get(Ty, V));
-  }
 
   // Set operands of VPlanAdapter from \p AdapterBB to the phis that are
   // in the \p MergeBB.
@@ -363,7 +359,6 @@ private:
   // Copy LoopInfo from VPlan \p P to the main VPlan. The loops are added
   // at the same level as they exist in \p P.
   void mergeLoopInfo(VPlanVector &P);
-
 };
 
 } // namespace vpo

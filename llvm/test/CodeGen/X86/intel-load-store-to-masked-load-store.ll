@@ -8611,8 +8611,8 @@ entry:
 define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86-AVX512-VL-LABEL: float_1025x:
 ; X86-AVX512-VL:       # %bb.0: # %entry
-; X86-AVX512-VL-NEXT:    subl $3708, %esp # imm = 0xE7C
-; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 3712
+; X86-AVX512-VL-NEXT:    subl $3612, %esp # imm = 0xE1C
+; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 3616
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
@@ -8860,15 +8860,15 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86-AVX512-VL-NEXT:    vmovss {{[-0-9]+}}(%e{{[sb]}}p), %xmm0 # 4-byte Reload
 ; X86-AVX512-VL-NEXT:    # xmm0 = mem[0],zero,zero,zero
 ; X86-AVX512-VL-NEXT:    vmovss %xmm0, 4096(%eax)
-; X86-AVX512-VL-NEXT:    addl $3708, %esp # imm = 0xE7C
+; X86-AVX512-VL-NEXT:    addl $3612, %esp # imm = 0xE1C
 ; X86-AVX512-VL-NEXT:    .cfi_def_cfa_offset 4
 ; X86-AVX512-VL-NEXT:    vzeroupper
 ; X86-AVX512-VL-NEXT:    retl
 ;
 ; X86-AVX512-VL-BW-LABEL: float_1025x:
 ; X86-AVX512-VL-BW:       # %bb.0: # %entry
-; X86-AVX512-VL-BW-NEXT:    subl $3708, %esp # imm = 0xE7C
-; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 3712
+; X86-AVX512-VL-BW-NEXT:    subl $3612, %esp # imm = 0xE1C
+; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 3616
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-AVX512-VL-BW-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-AVX512-VL-BW-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
@@ -9116,15 +9116,15 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86-AVX512-VL-BW-NEXT:    vmovss {{[-0-9]+}}(%e{{[sb]}}p), %xmm0 # 4-byte Reload
 ; X86-AVX512-VL-BW-NEXT:    # xmm0 = mem[0],zero,zero,zero
 ; X86-AVX512-VL-BW-NEXT:    vmovss %xmm0, 4096(%eax)
-; X86-AVX512-VL-BW-NEXT:    addl $3708, %esp # imm = 0xE7C
+; X86-AVX512-VL-BW-NEXT:    addl $3612, %esp # imm = 0xE1C
 ; X86-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 4
 ; X86-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86-AVX512-VL-BW-NEXT:    retl
 ;
 ; X86_64-AVX512-VL-LABEL: float_1025x:
 ; X86_64-AVX512-VL:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-NEXT:    subq $2040, %rsp ## imm = 0x7F8
-; X86_64-AVX512-VL-NEXT:    .cfi_def_cfa_offset 2048
+; X86_64-AVX512-VL-NEXT:    subq $1944, %rsp ## imm = 0x798
+; X86_64-AVX512-VL-NEXT:    .cfi_def_cfa_offset 1952
 ; X86_64-AVX512-VL-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-NEXT:    vmovss %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Spill
 ; X86_64-AVX512-VL-NEXT:    vmovaps (%rdi), %zmm0
@@ -9188,7 +9188,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-NEXT:    vmovaps 1856(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-NEXT:    vmovaps 1920(%rdi), %zmm0
-; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, (%rsp) ## 64-byte Spill
+; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-NEXT:    vmovaps 1984(%rdi), %zmm0
 ; X86_64-AVX512-VL-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-NEXT:    vmovaps 2048(%rdi), %zmm30
@@ -9257,7 +9257,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm30, 2048(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1984(%rsi)
-; X86_64-AVX512-VL-NEXT:    vmovups (%rsp), %zmm0 ## 64-byte Reload
+; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1920(%rsi)
 ; X86_64-AVX512-VL-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-NEXT:    vmovaps %zmm0, 1856(%rsi)
@@ -9322,14 +9322,14 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-NEXT:    vmovss {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 ## 4-byte Reload
 ; X86_64-AVX512-VL-NEXT:    ## xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-NEXT:    vmovss %xmm0, 4096(%rsi)
-; X86_64-AVX512-VL-NEXT:    addq $2040, %rsp ## imm = 0x7F8
+; X86_64-AVX512-VL-NEXT:    addq $1944, %rsp ## imm = 0x798
 ; X86_64-AVX512-VL-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-BW-LABEL: float_1025x:
 ; X86_64-AVX512-VL-BW:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-BW-NEXT:    subq $2040, %rsp ## imm = 0x7F8
-; X86_64-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 2048
+; X86_64-AVX512-VL-BW-NEXT:    subq $1944, %rsp ## imm = 0x798
+; X86_64-AVX512-VL-BW-NEXT:    .cfi_def_cfa_offset 1952
 ; X86_64-AVX512-VL-BW-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-BW-NEXT:    vmovss %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Spill
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 256(%rdi), %zmm0
@@ -9389,7 +9389,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3648(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3840(%rdi), %zmm0
-; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, (%rsp) ## 64-byte Spill
+; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 3904(%rdi), %zmm0
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps 448(%rdi), %zmm30
@@ -9462,7 +9462,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm21, 192(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3904(%rsi)
-; X86_64-AVX512-VL-BW-NEXT:    vmovups (%rsp), %zmm0 ## 64-byte Reload
+; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3840(%rsi)
 ; X86_64-AVX512-VL-BW-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-BW-NEXT:    vmovaps %zmm0, 3648(%rsi)
@@ -9527,14 +9527,14 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-BW-NEXT:    vmovss {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 ## 4-byte Reload
 ; X86_64-AVX512-VL-BW-NEXT:    ## xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-BW-NEXT:    vmovss %xmm0, 4096(%rsi)
-; X86_64-AVX512-VL-BW-NEXT:    addq $2040, %rsp ## imm = 0x7F8
+; X86_64-AVX512-VL-BW-NEXT:    addq $1944, %rsp ## imm = 0x798
 ; X86_64-AVX512-VL-BW-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-BW-NEXT:    retq
 ;
 ; X86_64-AVX512-VL-DQ-LABEL: float_1025x:
 ; X86_64-AVX512-VL-DQ:       ## %bb.0: ## %entry
-; X86_64-AVX512-VL-DQ-NEXT:    subq $2040, %rsp ## imm = 0x7F8
-; X86_64-AVX512-VL-DQ-NEXT:    .cfi_def_cfa_offset 2048
+; X86_64-AVX512-VL-DQ-NEXT:    subq $1944, %rsp ## imm = 0x798
+; X86_64-AVX512-VL-DQ-NEXT:    .cfi_def_cfa_offset 1952
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovss %xmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 4-byte Spill
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps (%rdi), %zmm0
@@ -9598,7 +9598,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps 1856(%rdi), %zmm0
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps 1920(%rdi), %zmm0
-; X86_64-AVX512-VL-DQ-NEXT:    vmovups %zmm0, (%rsp) ## 64-byte Spill
+; X86_64-AVX512-VL-DQ-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps 1984(%rdi), %zmm0
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovups %zmm0, {{[-0-9]+}}(%r{{[sb]}}p) ## 64-byte Spill
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps 2048(%rdi), %zmm30
@@ -9667,7 +9667,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps %zmm30, 2048(%rsi)
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps %zmm0, 1984(%rsi)
-; X86_64-AVX512-VL-DQ-NEXT:    vmovups (%rsp), %zmm0 ## 64-byte Reload
+; X86_64-AVX512-VL-DQ-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps %zmm0, 1920(%rsi)
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 ## 64-byte Reload
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovaps %zmm0, 1856(%rsi)
@@ -9732,7 +9732,7 @@ define void @float_1025x(<1025 x float>* %in, <1025 x float>* %out) {
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovss {{[-0-9]+}}(%r{{[sb]}}p), %xmm0 ## 4-byte Reload
 ; X86_64-AVX512-VL-DQ-NEXT:    ## xmm0 = mem[0],zero,zero,zero
 ; X86_64-AVX512-VL-DQ-NEXT:    vmovss %xmm0, 4096(%rsi)
-; X86_64-AVX512-VL-DQ-NEXT:    addq $2040, %rsp ## imm = 0x7F8
+; X86_64-AVX512-VL-DQ-NEXT:    addq $1944, %rsp ## imm = 0x798
 ; X86_64-AVX512-VL-DQ-NEXT:    vzeroupper
 ; X86_64-AVX512-VL-DQ-NEXT:    retq
 entry:

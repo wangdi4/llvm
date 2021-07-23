@@ -602,21 +602,32 @@ public:
   /// True if the current statement has nomerge attribute.
   bool InNoMergeAttributedStmt = false;
 
-  /// True if the current function should be marked mustprogress.
-  bool FnIsMustProgress = false;
+  // The CallExpr within the current statement that the musttail attribute
+  // applies to.  nullptr if there is no 'musttail' on the current statement.
+  const CallExpr *MustTailCall = nullptr;
 
-  /// True if the C++ Standard Requires Progress.
-  bool CPlusPlusWithProgress() {
+  /// Returns true if a function must make progress, which means the
+  /// mustprogress attribute can be added.
+  bool checkIfFunctionMustProgress() {
     if (CGM.getCodeGenOpts().getFiniteLoops() ==
         CodeGenOptions::FiniteLoopsKind::Never)
       return false;
 
-    return getLangOpts().CPlusPlus11 || getLangOpts().CPlusPlus14 ||
-           getLangOpts().CPlusPlus17 || getLangOpts().CPlusPlus20;
+    // C++11 and later guarantees that a thread eventually will do one of the
+    // following (6.9.2.3.1 in C++11):
+    // - terminate,
+    //  - make a call to a library I/O function,
+    //  - perform an access through a volatile glvalue, or
+    //  - perform a synchronization operation or an atomic operation.
+    //
+    // Hence each function is 'mustprogress' in C++11 or later.
+    return getLangOpts().CPlusPlus11;
   }
 
-  /// True if the C Standard Requires Progress.
-  bool CWithProgress() {
+  /// Returns true if a loop must make progress, which means the mustprogress
+  /// attribute can be added. \p HasConstantCond indicates whether the branch
+  /// condition is a known constant.
+  bool checkIfLoopMustProgress(bool HasConstantCond) {
     if (CGM.getCodeGenOpts().getFiniteLoops() ==
         CodeGenOptions::FiniteLoopsKind::Always)
       return true;
@@ -624,13 +635,19 @@ public:
         CodeGenOptions::FiniteLoopsKind::Never)
       return false;
 
-    return getLangOpts().C11 || getLangOpts().C17 || getLangOpts().C2x;
-  }
+    // If the containing function must make progress, loops also must make
+    // progress (as in C++11 and later).
+    if (checkIfFunctionMustProgress())
+      return true;
 
-  /// True if the language standard requires progress in functions or
-  /// in infinite loops with non-constant conditionals.
-  bool LanguageRequiresProgress() {
-    return CWithProgress() || CPlusPlusWithProgress();
+    // Now apply rules for plain C (see  6.8.5.6 in C11).
+    // Loops with constant conditions do not have to make progress in any C
+    // version.
+    if (HasConstantCond)
+      return false;
+
+    // Loops with non-constant conditions must make progress in C11 and later.
+    return getLangOpts().C11;
   }
 
   const CodeGen::CGBlockInfo *BlockInfo = nullptr;
@@ -650,6 +667,8 @@ public:
   llvm::Instruction *CurrentFuncletPad = nullptr;
 
   class CallLifetimeEnd final : public EHScopeStack::Cleanup {
+    bool isRedundantBeforeReturn() override { return true; }
+
     llvm::Value *Addr;
     llvm::Value *Size;
 
@@ -2335,6 +2354,7 @@ public:
     return getInvokeDestImpl();
   }
 #if INTEL_CUSTOMIZATION
+  ImplicitParamDecl *getCXXABIThisDecl() { return CXXABIThisDecl; }
   llvm::Intrinsic::ID getContainerIntrinsic(
       CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
 #endif // INTEL_CUSTOMIZATION
@@ -3252,7 +3272,12 @@ public:
   void EmitCXXTemporary(const CXXTemporary *Temporary, QualType TempType,
                         Address Ptr);
 
-  llvm::Value *EmitLifetimeStart(uint64_t Size, llvm::Value *Addr);
+  void EmitSehCppScopeBegin();
+  void EmitSehCppScopeEnd();
+  void EmitSehTryScopeBegin();
+  void EmitSehTryScopeEnd();
+
+  llvm::Value *EmitLifetimeStart(llvm::TypeSize Size, llvm::Value *Addr);
   void EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr);
 
   llvm::Value *EmitCXXNewExpr(const CXXNewExpr *E);
@@ -3605,6 +3630,8 @@ public:
   void EmitSEHLeaveStmt(const SEHLeaveStmt &S);
   void EnterSEHTryStmt(const SEHTryStmt &S);
   void ExitSEHTryStmt(const SEHTryStmt &S);
+  void VolatilizeTryBlocks(llvm::BasicBlock *BB,
+                           llvm::SmallPtrSet<llvm::BasicBlock *, 10> &V);
 
   void pushSEHCleanup(CleanupKind kind,
                       llvm::Function *FinallyFunc);
@@ -3822,12 +3849,14 @@ public:
   void EmitOMPParallelDirective(const OMPParallelDirective &S);
   void EmitOMPSimdDirective(const OMPSimdDirective &S);
   void EmitOMPTileDirective(const OMPTileDirective &S);
+  void EmitOMPUnrollDirective(const OMPUnrollDirective &S);
   void EmitOMPForDirective(const OMPForDirective &S);
   void EmitOMPForSimdDirective(const OMPForSimdDirective &S);
   void EmitOMPSectionsDirective(const OMPSectionsDirective &S);
   void EmitOMPSectionDirective(const OMPSectionDirective &S);
   void EmitOMPSingleDirective(const OMPSingleDirective &S);
   void EmitOMPMasterDirective(const OMPMasterDirective &S);
+  void EmitOMPMaskedDirective(const OMPMaskedDirective &S);
   void EmitOMPCriticalDirective(const OMPCriticalDirective &S);
   void EmitOMPParallelForDirective(const OMPParallelForDirective &S);
   void EmitOMPParallelForSimdDirective(const OMPParallelForSimdDirective &S);
@@ -3979,7 +4008,7 @@ public:
                              const CodeGenLoopTy &CodeGenLoop, Expr *IncExpr);
 
   /// Helpers for the OpenMP loop directives.
-  void EmitOMPSimdInit(const OMPLoopDirective &D, bool IsMonotonic = false);
+  void EmitOMPSimdInit(const OMPLoopDirective &D);
   void EmitOMPSimdFinal(
       const OMPLoopDirective &D,
       const llvm::function_ref<llvm::Value *(CodeGenFunction &)> CondGen);
@@ -4161,6 +4190,24 @@ public:
 
   void EmitAtomicStore(RValue rvalue, LValue lvalue, llvm::AtomicOrdering AO,
                        bool IsVolatile, bool isInit);
+
+#if INTEL_COLLAB
+  /// Generate operation that updates the variable \p Lvalue with \p Desired if
+  /// the comparison with \p Expected is true.
+  /// \param Expected Value to use in comparison.
+  /// \param Desired Value used in the update.
+  /// \param Lvalue The atomic lvalue to update.
+  /// \param Op Comparison operation.
+  /// \param AO Atomic ordering.
+  /// \param IsVolatile true if the atomic variable is volatile.
+  /// \param IsPostCapture If true, return the value after the operation,
+  /// otherwise return the value before the operation.
+  /// \returns Captured value based on \p IsPostCapture.
+  RValue EmitAtomicCompareAndSwap(RValue Expected, RValue Desired,
+                                  LValue Lvalue, llvm::CmpInst::Predicate Op,
+                                  llvm::AtomicOrdering AO, bool IsVolatile,
+                                  bool IsPostCapture);
+#endif // INTEL_COLLAB
 
   std::pair<RValue, llvm::Value *> EmitAtomicCompareExchange(
       LValue Obj, RValue Expected, RValue Desired, SourceLocation Loc,
@@ -4373,12 +4420,14 @@ public:
   /// LLVM arguments and the types they were derived from.
   RValue EmitCall(const CGFunctionInfo &CallInfo, const CGCallee &Callee,
                   ReturnValueSlot ReturnValue, const CallArgList &Args,
-                  llvm::CallBase **callOrInvoke, SourceLocation Loc);
+                  llvm::CallBase **callOrInvoke, bool IsMustTail,
+                  SourceLocation Loc);
   RValue EmitCall(const CGFunctionInfo &CallInfo, const CGCallee &Callee,
                   ReturnValueSlot ReturnValue, const CallArgList &Args,
-                  llvm::CallBase **callOrInvoke = nullptr) {
+                  llvm::CallBase **callOrInvoke = nullptr,
+                  bool IsMustTail = false) {
     return EmitCall(CallInfo, Callee, ReturnValue, Args, callOrInvoke,
-                    SourceLocation());
+                    IsMustTail, SourceLocation());
   }
   RValue EmitCall(QualType FnType, const CGCallee &Callee, const CallExpr *E,
                   ReturnValueSlot ReturnValue, llvm::Value *Chain = nullptr);
@@ -4389,6 +4438,13 @@ public:
 
   void checkTargetFeatures(const CallExpr *E, const FunctionDecl *TargetDecl);
   void checkTargetFeatures(SourceLocation Loc, const FunctionDecl *TargetDecl);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
+  void checkTargetVectorWidth(const CallExpr *E, const FunctionDecl *TargetDecl,
+                              unsigned VectorWidth);
+#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_CUSTOMIZATION
 
   llvm::CallInst *EmitRuntimeCall(llvm::FunctionCallee callee,
                                   const Twine &name = "");

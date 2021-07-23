@@ -23,7 +23,7 @@ class ModulePass;
 #if INTEL_CUSTOMIZATION
 FunctionPass *createVPODirectiveCleanupPass();
 FunctionPass *createVPOParoptOptimizeDataSharingPass();
-FunctionPass *createVPOParoptSharedPrivatizationPass();
+FunctionPass *createVPOParoptSharedPrivatizationPass(unsigned Mode = 0u);
 #endif // INTEL_CUSTOMIZATION
 
 FunctionPass *createVPOCFGRestructuringPass();

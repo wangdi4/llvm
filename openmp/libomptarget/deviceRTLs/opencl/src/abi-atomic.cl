@@ -247,22 +247,14 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, shl, <<)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, shr, >>)
 #endif
 
-/// 4-byte float atomics
+/// 4-byte emulated float atomics
 #if KMP_ATOMIC_FIXED4_SUPPORTED
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, add, OP_ADD)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, sub, OP_SUB)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, mul, OP_MUL)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, min, OP_MIN)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, max, OP_MAX)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, orl, OP_OR)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, andl, OP_AND)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, add, OP_ADD)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, sub, OP_SUB)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, mul, OP_MUL)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, div, OP_DIV)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, min, OP_MIN)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, max, OP_MAX)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, orl, OP_OR)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, andl, OP_AND)
 #else
@@ -391,22 +383,24 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed8u, ulong, shr, >>)
 #endif
 
 #if HAVE_FP64_SUPPORT
-/// 8-byte float atomics
+/// 8-byte emulated float atomics
 #if KMP_ATOMIC_FIXED8_SUPPORTED
+#ifndef ENABLE_FP64_ATOMIC_EXT
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, add, OP_ADD)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, div, OP_DIV)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, min, OP_MIN)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, max, OP_MAX)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, orl, OP_OR)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, andl, OP_AND)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, add, OP_ADD)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, sub, OP_SUB)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, mul, OP_MUL)
-KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, div, OP_DIV)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, min, OP_MIN)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, max, OP_MAX)
+#endif // !defined(ENABLE_FP64_ATOMIC_EXT)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, div, OP_DIV)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, orl, OP_OR)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float8, double, long, andl, OP_AND)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, mul, OP_MUL)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, div, OP_DIV)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, orl, OP_OR)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float8, double, long, andl, OP_AND)
 #else
@@ -428,7 +422,6 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, orl, OP_OR)
 KMPC_ATOMIC_IMPL_FALLBACK_CPT(float8, double, andl, OP_AND)
 #endif // ! KMP_ATOMIC_FIXED8_SUPPORTED
 #endif // HAVE_FP64_SUPPORT
-
 
 
 // Needed to use this code due to a compiler issue with casting

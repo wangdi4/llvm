@@ -10,7 +10,7 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 extern SYCL_EXTERNAL int zoo (int);
 //CHECK: @_ZTV1B = linkonce_odr unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8*, i8* }* @_ZTI1B to i8*), i8* bitcast ([1 x i32 (%class._ZTS1B.B addrspace(4)*, i32)*]* @"_ZN1B3fooEi$SIMDTable" to i8*)] }
 //CHECK: @"_ZN1B3fooEi$SIMDTable" = weak global [1 x i32 (%class._ZTS1B.B addrspace(4)*, i32)*] [i32 (%class._ZTS1B.B addrspace(4)*, i32)* @_ZN1B3fooEi]
-//CHECK: @_ZTV1A = dso_local unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @_ZTI1A to i8*), i8* bitcast ([1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*)] }
+//CHECK: @_ZTV1A = unnamed_addr constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @_ZTI1A to i8*), i8* bitcast ([1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*]* @"_ZN1A3fooEi$SIMDTable" to i8*)] }
 //CHECK: @"_ZN1A3fooEi$SIMDTable" = weak global [1 x i32 (%class._ZTS1A.A addrspace(4)*, i32)*] [i32 (%class._ZTS1A.A addrspace(4)*, i32)* @_ZN1A3fooEi]
 
 class A {

@@ -19,6 +19,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 
 #include <map>
@@ -31,6 +32,7 @@ public:
   typedef MapVector<Function *, ValueVector> ValuesPerFunctionMap;
   typedef DenseMap<Value *, unsigned int> ValueToOffsetMap;
   typedef SetVector<Value *> ValueSet;
+  typedef SetVector<Use *> UseSet;
 
 public:
   DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV);
@@ -70,6 +72,11 @@ public:
     return ValueOffsetMap[V];
   }
 
+  const MapVector<Instruction *, UseSet> *getCrossBarrierUses(Function *F) {
+    auto It = CrossBarrierUses.find(F);
+    return It == CrossBarrierUses.end() ? nullptr : &It->second;
+  }
+
   /// Return true if the base type of the given value is i1.
   /// V pointer to Value,
   /// Returns true of the base type is i1.
@@ -106,10 +113,9 @@ private:
   using FunctionToEntryMap = MapVector<Function *, unsigned int>;
   using EntryToBufferDataMap = MapVector<unsigned int, SpecialBufferData>;
 
-  /// Execute pass on given function.
-  /// F function to analyze,
-  /// Return true if function was modified.
-  bool runOnFunction(Function &F);
+  /// Entry point to the analysis.
+  /// \param F function to analyze.
+  void runOnFunction(Function &F);
 
   typedef enum {
     SpecialValueTypeNone,
@@ -120,10 +126,13 @@ private:
   } SpecialValueType;
 
   /// Return type of given value Group-B.1, Group-B.2 or None.
-  /// V pointer to Value,
-  /// IsWIRelated true if value depends on WI id, otherwise false,
-  /// Returns SpecialValueType - speciality type of given value.
-  SpecialValueType isSpecialValue(Value *V, bool IsWIRelated);
+  /// \param Inst pointer to Instruction,
+  /// \param IsWIRelated true if \p Inst depends on WI id, otherwise false,
+  /// \return SpecialValueType - speciality type of given value.
+  SpecialValueType isSpecialValue(Instruction *Inst, bool IsWIRelated);
+
+  /// Collect cross barrier uses for \p Inst.
+  void collectCrossBarrierUses(Instruction *Inst);
 
   /// Calculates offsets of all values in Group-A and Group-B.1.
   /// F function to process its values.
@@ -153,12 +162,15 @@ private:
   /// F function to process its arguments.
   void markSpecialArguments(Function &F);
 
+  /// Checks if \p U crosses barrier.
+  bool crossesBarrier(Use &U);
+
   /// Entry point of the main logic.
   void analyze(Module &M);
 
 private:
   /// This is barrier utility class.
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 
   /// Internal Data used to calculate user Analysis Data.
 
@@ -169,10 +181,10 @@ private:
   const DataLayout *DL;
 
   /// This holds DataPerBarrier analysis pass.
-  DataPerBarrier *DataPerBarrierAnalysis;
+  DataPerBarrier *DPB;
 
   /// This holds WIRelatedValue analysis pass.
-  WIRelatedValue *WIRelatedValueAnalysis;
+  WIRelatedValue *WRV;
 
   /// Analysis Data for pass user.
 
@@ -182,6 +194,9 @@ private:
   ValuesPerFunctionMap SpecialValuesPerFuncMap;
   /// This holds a map between function and its values of Group-B.2.
   ValuesPerFunctionMap CrossBarrierValuesPerFuncMap;
+  /// This holds a set of returned values that cross barrier. They are not
+  /// classified to Group-B.
+  ValueSet CrossBarrierReturnedValues;
   /// This holds a map between value and its offset in Special Buffer structure.
   ValueToOffsetMap ValueOffsetMap;
   /// This holds a set of all special buffer values with base element of type
@@ -192,6 +207,10 @@ private:
   FunctionToEntryMap FunctionEntryMap;
   /// This holds a map between unique entry and buffer data.
   EntryToBufferDataMap EntryBufferDataMap;
+
+  /// A map of maps between instructions and their cross-barrier users per
+  /// function
+  DenseMap<Function *, MapVector<Instruction *, UseSet>> CrossBarrierUses;
 };
 
 /// DataPerValueWrapper pass for legacy pass manager.

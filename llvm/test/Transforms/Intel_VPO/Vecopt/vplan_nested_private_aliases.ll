@@ -2,12 +2,28 @@
 ; and the user of a nested alias is inside the SIMD loop, then VPlan will
 ; correctly widen the private and update uses of its alias.
 
-; RUN: opt -vplan-enable-soa=false -S -VPlanDriver -vplan-force-vf=4 %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S -vplan-vec -vplan-force-vf=4 %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo() local_unnamed_addr {
+; CHECK-LABEL: @foo()
+; CHECK-LABEL:  simd.loop.preheader:
+; CHECK:    [[SRC_GEP0:%.*]] = getelementptr inbounds i32, i32* [[PRIVATE_SRC0:%.*]], i64 0
+; CHECK:    [[SRC_BC_00:%.*]] = bitcast i32* [[SRC_GEP0]] to i8*
+; CHECK:    [[SRC_BC_10:%.*]] = bitcast i8* [[SRC_BC_00]] to i32*
+; CHECK:    [[DST_GEP0:%.*]] = getelementptr inbounds i32, i32* [[PRIVATE_DST0:%.*]], i64 0
+; CHECK:    [[DST_BC_00:%.*]] = bitcast i32* [[DST_GEP0]] to i8*
+; CHECK:    [[DST_BC_10:%.*]] = bitcast i8* [[DST_BC_00]] to i32*
+
+; CHECK-LABEL: vector.body:
+; CHECK:    [[TMP4:%.*]] = bitcast i32* [[TMP1:%.*]] to <4 x i32>*
+; CHECK:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP4]], align 4
+; CHECK:    [[TMP5:%.*]] = bitcast i32* [[TMP3:%.*]] to <4 x i32>*
+; CHECK:    store <4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[TMP5]], align 4
+;
+
 entry:
   %private.src = alloca i32
   %private.dst = alloca i32
@@ -46,24 +62,6 @@ simd.end.region:
 return:
   ret void
 }
-
-; CHECK-LABEL: vector.ph:
-; CHECK:  %[[SRC_GEP:.*]] = getelementptr inbounds i32, <4 x i32*> %private.src.vec.base.addr, <4 x i64> zeroinitializer
-; CHECK:  %[[SRC_BC_0:.*]] = bitcast <4 x i32*> %[[SRC_GEP]] to <4 x i8*>
-; CHECK:  %[[SRC_BC_1:.*]] = bitcast <4 x i8*> %[[SRC_BC_0]] to <4 x i32*>
-; CHECK:  %[[SRC_IDX:.*]] = extractelement <4 x i32*> %[[SRC_BC_1]], i32 0
-; CHECK:  %[[DST_GEP:.*]] = getelementptr inbounds i32, <4 x i32*> %private.dst.vec.base.addr, <4 x i64> zeroinitializer
-; CHECK:  %[[DST_BC_0:.*]] = bitcast <4 x i32*> %[[DST_GEP]] to <4 x i8*>
-; CHECK:  %[[DST_BC_1:.*]] = bitcast <4 x i8*> %[[DST_BC_0]] to <4 x i32*>
-; CHECK:  %[[DST_IDX:.*]] = extractelement <4 x i32*> %[[DST_BC_1]], i32 0
-
-; CHECK-LABEL: vector.body:
-; CHECK:  %[[SRC:.*]] = bitcast i32* %[[SRC_IDX]] to <4 x i32>*
-; CHECK:  %[[LOAD:.*]] = load <4 x i32>, <4 x i32>* %[[SRC]], align 4
-; CHECK:  %[[DST:.*]] = bitcast i32* %[[DST_IDX]] to <4 x i32>*
-; CHECK:  store <4 x i32> %[[LOAD]], <4 x i32>* %[[DST]], align 4
-
-
 
 define dso_local void @test_alias_store_outside_loop() local_unnamed_addr {
 ; CHECK: @test_alias_store_outside_loop

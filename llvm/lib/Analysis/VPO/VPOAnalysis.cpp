@@ -18,5 +18,8 @@ using namespace llvm;
 void llvm::initializeVPOAnalysis(PassRegistry &Registry) {
   initializeWRegionCollectionWrapperPassPass(Registry);
   initializeWRegionInfoWrapperPassPass(Registry);
+#if INTEL_CUSTOMIZATION
+  initializeVPOParoptConfigWrapperPass(Registry);
+#endif // INTEL_CUSTOMIZATION
 }
 #endif // INTEL_COLLAB

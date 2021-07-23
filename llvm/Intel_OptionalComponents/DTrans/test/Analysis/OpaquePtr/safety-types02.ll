@@ -1,9 +1,15 @@
 ; REQUIRES: asserts
-; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
+; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CUR
 
 ; Basic test of the DTransSafetyAnalyzer pass collection of
-; structure properties.
+; structure properties. Also, checks printing of structure field types.
+
+; Lines marked with CHECK-CUR are tests for the current form of IR.
+; Lines marked with CHECK-FUT are placeholders for check lines that will
+;   changed when the future opaque pointer form of IR is used.
+; Lines marked with CHECK should remain the same when changing to use opaque
+;   pointers.
 
 %struct.base = type { i32 (...)** }
 %struct.derived1 = type { %struct.base, i8 }
@@ -16,14 +22,25 @@ define void @test01() {
 }
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.base
+; CHECK-CUR: Field LLVM Type: i32 (...)**
+; CHECK-FUT: Field LLVM Type: ptr
+; CHECK: DTrans Type: i32 (...)**
 ; CHECK: Safety data: Nested structure | Has vtable
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.derived1
+; CHECK: Field LLVM Type: %struct.base
+; CHECK: DTrans Type: %struct.base
+; CHECK: Field LLVM Type: i8
+; CHECK: DTrans Type: i8
 ; CHECK: Safety data: Nested structure | Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.derived2
+; CHECK: Field LLVM Type: %struct.derived1
+; CHECK: DTrans Type: %struct.derived1
+; CHECK: Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK: Safety data: Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
@@ -32,10 +49,21 @@ define void @test01() {
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.fptrs
+; CHECK-CUR: Field LLVM Type: void (i32, i64*, i64)*
+; CHECK-FUT: Field LLVM Type: ptr
+; CHECK: DTrans Type: void (i32, i64*, i64)*
+; CHECK: Field LLVM Type: i32
+; CHECK: DTrans Type: i32
+; CHECK: Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK: Safety data: Has function ptr
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.zeroararry
+; CHECK: Field LLVM Type: i32
+; CHECK: DTrans Type: i32
+; CHECK: Field LLVM Type: [0 x i32]
+; CHECK: DTrans Type: [0 x i32]
 ; CHECK: Safety data: Has zero-sized array
 
 

@@ -76,7 +76,6 @@ class RegionCodeGenTy final {
   CodeGenTy Callback;
   mutable PrePostActionTy *PrePostAction;
   RegionCodeGenTy() = delete;
-  RegionCodeGenTy &operator=(const RegionCodeGenTy &) = delete;
   template <typename Callable>
   static void CallbackFn(intptr_t CodeGen, CodeGenFunction &CGF,
                          PrePostActionTy &Action) {
@@ -257,8 +256,8 @@ public:
   public:
     UntiedTaskLocalDeclsRAII(
         CodeGenFunction &CGF,
-        const llvm::DenseMap<CanonicalDeclPtr<const VarDecl>,
-                             std::pair<Address, Address>> &LocalVars);
+        const llvm::MapVector<CanonicalDeclPtr<const VarDecl>,
+                              std::pair<Address, Address>> &LocalVars);
     ~UntiedTaskLocalDeclsRAII();
   };
 
@@ -731,8 +730,8 @@ private:
   llvm::SmallVector<NontemporalDeclsSet, 4> NontemporalDeclsStack;
 
   using UntiedLocalVarsAddressesMap =
-      llvm::DenseMap<CanonicalDeclPtr<const VarDecl>,
-                     std::pair<Address, Address>>;
+      llvm::MapVector<CanonicalDeclPtr<const VarDecl>,
+                      std::pair<Address, Address>>;
   llvm::SmallVector<UntiedLocalVarsAddressesMap, 4> UntiedLocalVarsStack;
 
   /// Stack for list of addresses of declarations in current context marked as
@@ -876,10 +875,6 @@ private:
                             llvm::Function *TaskFunction, QualType SharedsTy,
                             Address Shareds, const OMPTaskDataTy &Data);
 
-  /// Returns default address space for the constant firstprivates, 0 by
-  /// default.
-  virtual unsigned getDefaultFirstprivateAddressSpace() const { return 0; }
-
   /// Emit code that pushes the trip count of loops associated with constructs
   /// 'target teams distribute' and 'teams distribute parallel for'.
   /// \param SizeEmitter Emits the int64 value for the number of iterations of
@@ -922,6 +917,8 @@ public:
     bool IsChain;
     llvm::Value *OffloadName;
     const ValueDecl *Mapper;
+    const ValueDecl *MapDecl;
+    bool IsImplicit;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
@@ -1043,6 +1040,14 @@ public:
   virtual void emitMasterRegion(CodeGenFunction &CGF,
                                 const RegionCodeGenTy &MasterOpGen,
                                 SourceLocation Loc);
+
+  /// Emits a masked region.
+  /// \param MaskedOpGen Generator for the statement associated with the given
+  /// masked region.
+  virtual void emitMaskedRegion(CodeGenFunction &CGF,
+                                const RegionCodeGenTy &MaskedOpGen,
+                                SourceLocation Loc,
+                                const Expr *Filter = nullptr);
 
   /// Emits code for a taskyield directive.
   virtual void emitTaskyieldCall(CodeGenFunction &CGF, SourceLocation Loc);
@@ -1631,11 +1636,6 @@ public:
   virtual void registerTargetGlobalVariable(const VarDecl *VD,
                                             llvm::Constant *Addr);
 
-  /// Registers provided target firstprivate variable as global on the
-  /// target.
-  llvm::Constant *registerTargetFirstprivateCopy(CodeGenFunction &CGF,
-                                                 const VarDecl *VD);
-
   /// Emit the global \a GD if it is meaningful for the target. Returns
   /// if it was emitted successfully.
   /// \param GD Global to scan.
@@ -2030,6 +2030,17 @@ public:
   void emitMasterRegion(CodeGenFunction &CGF,
                         const RegionCodeGenTy &MasterOpGen,
                         SourceLocation Loc) override;
+
+  /// Emits a masked region.
+  /// \param MaskedOpGen Generator for the statement associated with the given
+  /// masked region.
+  void emitMaskedRegion(CodeGenFunction &CGF,
+                        const RegionCodeGenTy &MaskedOpGen, SourceLocation Loc,
+                        const Expr *Filter = nullptr) override;
+
+  /// Emits a masked region.
+  /// \param MaskedOpGen Generator for the statement associated with the given
+  /// masked region.
 
   /// Emits code for a taskyield directive.
   void emitTaskyieldCall(CodeGenFunction &CGF, SourceLocation Loc) override;

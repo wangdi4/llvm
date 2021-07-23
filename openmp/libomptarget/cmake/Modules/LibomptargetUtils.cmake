@@ -46,8 +46,8 @@ macro(libomptarget_add_resource_file target)
       DEPENDS ${omptarget_rc}
       VERBATIM
     )
-    add_custom_target(${target}.res ALL DEPENDS ${resource_file})
-    add_dependencies(${target} ${target}.res)
+    add_custom_target(${target}_res ALL DEPENDS ${resource_file})
+    add_dependencies(${target} ${target}_res)
     target_link_libraries(${target} PRIVATE ${resource_file})
   endif()
 endmacro()

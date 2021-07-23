@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -S 2>&1 | FileCheck %s
 
@@ -2043,3 +2044,4 @@ define internal void @good(i32* noalias nocapture readonly) {
 1273:                                             ; preds = %1270, %866, %94
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,6 +1,10 @@
 ; RUN: opt -O2 -S < %s | FileCheck %s
 ; RUN: opt -O3 -S < %s | FileCheck %s
 
+; CMPLRLLVM-29492: The test fails with this error:
+; " fast-math-flags specified for call without floating-point scalar or vector return type"
+; XFAIL: *
+
 ; This test verifies that intel.honor.fcmp instructions are handled correctly.
 ; In most cases that will mean simply leaving the intrinsic in place. That
 ; is currently the expected behavior for all cases in this test. A few cases

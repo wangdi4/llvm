@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; This test checks that "copy_inside_array" routine, which copies elements
 ; inside argument array, is not inlined during pre-LTO pass and the decision
 ; is delayed until link time. There is only one call to "copy_inside_array"
@@ -131,3 +133,4 @@ for.inc8:                                         ; preds = %for.body3
 for.end10:                                        ; preds = %for.inc8
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

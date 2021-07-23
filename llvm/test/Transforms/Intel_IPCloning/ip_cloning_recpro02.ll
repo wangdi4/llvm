@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-gen-cloning-force-enable-dtrans -debug-only=ipcloning -disable-output -S 2>&1 | FileCheck %s
 
@@ -299,3 +300,4 @@ define dso_local i32 @main() local_unnamed_addr #1 {
 ; <label>:32:                                      ; preds = %2
   ret i32 %29
 }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -124,11 +124,30 @@ OMPLoopBasedDirective::tryToFindNextInnerLoop(Stmt *CurStmt,
 
 bool OMPLoopBasedDirective::doForAllLoops(
     Stmt *CurStmt, bool TryImperfectlyNestedLoops, unsigned NumLoops,
-    llvm::function_ref<bool(unsigned, Stmt *)> Callback) {
+    llvm::function_ref<bool(unsigned, Stmt *)> Callback,
+    llvm::function_ref<void(OMPLoopBasedDirective *)>
+        OnTransformationCallback) {
   CurStmt = CurStmt->IgnoreContainers();
   for (unsigned Cnt = 0; Cnt < NumLoops; ++Cnt) {
-    if (auto *Dir = dyn_cast<OMPTileDirective>(CurStmt))
-      CurStmt = Dir->getTransformedStmt();
+    while (true) {
+      auto *OrigStmt = CurStmt;
+      if (auto *Dir = dyn_cast<OMPTileDirective>(OrigStmt)) {
+        OnTransformationCallback(Dir);
+        CurStmt = Dir->getTransformedStmt();
+      } else if (auto *Dir = dyn_cast<OMPUnrollDirective>(OrigStmt)) {
+        OnTransformationCallback(Dir);
+        CurStmt = Dir->getTransformedStmt();
+      } else {
+        break;
+      }
+
+      if (!CurStmt) {
+        // May happen if the loop transformation does not result in a generated
+        // loop (such as full unrolling).
+        CurStmt = OrigStmt;
+        break;
+      }
+    }
     if (auto *CanonLoop = dyn_cast<OMPCanonicalLoop>(CurStmt))
       CurStmt = CanonLoop->getLoopStmt();
     if (Callback(Cnt, CurStmt))
@@ -401,6 +420,25 @@ OMPTileDirective *OMPTileDirective::CreateEmpty(const ASTContext &C,
   return createEmptyDirective<OMPTileDirective>(
       C, NumClauses, /*HasAssociatedStmt=*/true, TransformedStmtOffset + 1,
       SourceLocation(), SourceLocation(), NumLoops);
+}
+
+OMPUnrollDirective *
+OMPUnrollDirective::Create(const ASTContext &C, SourceLocation StartLoc,
+                           SourceLocation EndLoc, ArrayRef<OMPClause *> Clauses,
+                           Stmt *AssociatedStmt, Stmt *TransformedStmt,
+                           Stmt *PreInits) {
+  auto *Dir = createDirective<OMPUnrollDirective>(
+      C, Clauses, AssociatedStmt, TransformedStmtOffset + 1, StartLoc, EndLoc);
+  Dir->setTransformedStmt(TransformedStmt);
+  Dir->setPreInits(PreInits);
+  return Dir;
+}
+
+OMPUnrollDirective *OMPUnrollDirective::CreateEmpty(const ASTContext &C,
+                                                    unsigned NumClauses) {
+  return createEmptyDirective<OMPUnrollDirective>(
+      C, NumClauses, /*HasAssociatedStmt=*/true, TransformedStmtOffset + 1,
+      SourceLocation(), SourceLocation());
 }
 
 OMPForSimdDirective *
@@ -755,6 +793,21 @@ OMPTargetParallelGenericLoopDirective::CreateEmpty(const ASTContext &C,
       C, NumClauses, /*HasAssociatedStmt=*/true,
       numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), CollapsedNum);
 }
+
+OMPPrefetchDirective *OMPPrefetchDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses) {
+  return createDirective<OMPPrefetchDirective>(
+      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
+      EndLoc);
+}
+
+OMPPrefetchDirective *OMPPrefetchDirective::CreateEmpty(const ASTContext &C,
+                                                        unsigned NumClauses,
+                                                        EmptyShell) {
+  return createEmptyDirective<OMPPrefetchDirective>(C, NumClauses,
+                                                    /*NumChildren=*/0);
+}
 #endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,
@@ -1104,15 +1157,31 @@ OMPOrderedDirective *OMPOrderedDirective::CreateEmpty(const ASTContext &C,
 OMPAtomicDirective *OMPAtomicDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
+#if INTEL_COLLAB
+    Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
+    bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax) {
+#else // INTEL_COLLAB
     Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate) {
+#endif // INTEL_COLLAB
   auto *Dir = createDirective<OMPAtomicDirective>(
+#if INTEL_COLLAB
+      C, Clauses, AssociatedStmt, /*NumChildren=*/5, StartLoc, EndLoc);
+#else // INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/4, StartLoc, EndLoc);
+#endif // INTEL_COLLAB
   Dir->setX(X);
   Dir->setV(V);
   Dir->setExpr(E);
+#if INTEL_COLLAB
+  Dir->setExpected(Expected);
+#endif // INTEL_COLLAB
   Dir->setUpdateExpr(UE);
   Dir->IsXLHSInRHSPart = IsXLHSInRHSPart;
   Dir->IsPostfixUpdate = IsPostfixUpdate;
+#if INTEL_COLLAB
+  Dir->IsCompareMin = IsCompareMin;
+  Dir->IsCompareMax = IsCompareMax;
+#endif // INTEL_COLLAB
   return Dir;
 }
 
@@ -1120,7 +1189,11 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     unsigned NumClauses,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
+#if INTEL_COLLAB
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/5);
+#else // INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/4);
+#endif // INTEL_COLLAB
 }
 
 OMPTargetDirective *OMPTargetDirective::Create(const ASTContext &C,

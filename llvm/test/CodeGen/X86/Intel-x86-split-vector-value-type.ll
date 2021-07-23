@@ -9,36 +9,8 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; DBG:      WARNING: Missing line 31
-; DBG-NEXT: WARNING: Missing line 79
-; DBG-NEXT: WARNING: Missing line 81
-; DBG-NEXT: WARNING: Missing line 83
 ; DBG-NEXT: WARNING: Missing line 104
-; DBG-NEXT: WARNING: Missing line 109
-; DBG-NEXT: WARNING: Missing line 110
-; DBG-NEXT: WARNING: Missing line 111
-; DBG-NEXT: WARNING: Missing line 112
-; DBG-NEXT: WARNING: Missing line 132
-; DBG-NEXT: WARNING: Missing line 159
-; DBG-NEXT: WARNING: Missing line 160
-; DBG-NEXT: WARNING: Missing line 161
-; DBG-NEXT: WARNING: Missing line 162
-; DBG-NEXT: WARNING: Missing line 163
-; DBG-NEXT: WARNING: Missing line 182
-; DBG-NEXT: WARNING: Missing line 212
-; DBG-NEXT: WARNING: Missing line 213
-; DBG-NEXT: WARNING: Missing line 214
-; DBG-NEXT: WARNING: Missing line 215
-; DBG-NEXT: WARNING: Missing line 216
-; DBG-NEXT: WARNING: Missing line 217
-; DBG-NEXT: WARNING: Missing line 218
 ; DBG-NEXT: WARNING: Missing line 230
-; DBG-NEXT: WARNING: Missing line 245
-; DBG-NEXT: WARNING: Missing line 246
-; DBG-NEXT: WARNING: Missing line 247
-; DBG-NEXT: WARNING: Missing line 248
-; DBG-NEXT: WARNING: Missing line 249
-; DBG-NEXT: WARNING: Missing line 250
-; DBG-NEXT: WARNING: Missing line 251
 ; DBG-NEXT: WARNING: Missing line 263
 ; DBG-NEXT: CheckModuleDebugify: PASS
 

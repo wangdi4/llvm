@@ -53,15 +53,15 @@
 ; CHECK: [[IF_MASTER_3]]:
 
 ; CHECK: store i32 %{{.*}}, i32 addrspace(3)* @i0.ascast.priv.__local
-; CHECK: call spir_func void @_ZNSt7complexIdEC2Edd(%"struct.std::complex" addrspace(4)* %{{.*}}, double 1.000000e+00, double 0.000000e+00)
-; CHECK: call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret(%"struct.std::complex") align 8 %{{.*}}, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*), %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) %{{.*}})
+; CHECK: call spir_func void @_ZNSt7complexIdEC2Edd(%"struct.std::complex" addrspace(4)* {{.*}}, double 1.000000e+00, double 0.000000e+00)
+; CHECK: call spir_func void @_ZStplIdESt7complexIT_ERKS2_S4_(%"struct.std::complex" addrspace(4)* sret(%"struct.std::complex") align 8 {{.*}}, %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) addrspacecast (%"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to %"struct.std::complex" addrspace(4)*), %"struct.std::complex" addrspace(4)* align 8 dereferenceable(16) {{.*}})
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: %[[COUNTER:[^,]+]] = bitcast %"struct.std::complex" addrspace(3)* @counter_N0.ascast.red.__local to i8 addrspace(3)*
-; CHECK: %[[REF:[^,]+]] = bitcast %"struct.std::complex"* %ref.tmp.ascast.priv to i8*
+; CHECK: %[[REF:[^,]+]] = bitcast %"struct.std::complex" addrspace(3)* @ref.tmp.ascast.priv.__local to i8 addrspace(3)*
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 ; CHECK: br i1 %is.master.thread, label %[[IF_MASTER_4:[^ ,]+]]
 ; CHECK: [[IF_MASTER_4]]:
-; CHECK: call void @llvm.memcpy.p3i8.p0i8.i64(i8 addrspace(3)* align 8 %[[COUNTER]], i8* align 8 %[[REF]], i64 16, i1 false)
+; CHECK: call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 8 %[[COUNTER]], i8 addrspace(3)* align 8 %[[REF]], i64 16, i1 false)
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 784)
 
 

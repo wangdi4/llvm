@@ -32,6 +32,7 @@ set(sources
   Intel_X86GenerateLEA.cpp        # INTEL
   Intel_X86PRAExpandPseudo.cpp    # INTEL
   Intel_X86Gather2LoadPermute.cpp # INTEL
+  Intel_X86CFMA.cpp      # INTEL
   X86AsmPrinter.cpp
   X86AvoidTrailingCall.cpp
   X86CallFrameOptimization.cpp
@@ -42,8 +43,10 @@ set(sources
   X86DiscriminateMemOps.cpp
   X86LowerTileCopy.cpp
   X86LowerAMXType.cpp
+  X86PreAMXConfig.cpp
   X86LowerAMXIntrinsics.cpp
   X86TileConfig.cpp
+  X86FastTileConfig.cpp
   X86PreTileConfig.cpp
   X86ExpandPseudo.cpp
   X86FastISel.cpp

@@ -295,7 +295,7 @@ private:
   DiagnosticConsumer *Client = nullptr;
   std::unique_ptr<DiagnosticConsumer> Owner;
   SourceManager *SourceMgr = nullptr;
-  OptReportHandler SyclOptReportHandler;
+  SyclOptReportHandler SyclOptReport;
 
   /// Mapping information for diagnostics.
   ///
@@ -547,18 +547,15 @@ public:
   ~DiagnosticsEngine();
 
 #if INTEL_CUSTOMIZATION
-  OptReportHandler OpenMPOptReportHandler;
+  OpenMPOptReportHandler OpenMPOptReport;
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;
 
-  /// Retrieve the report SyclOptReport info.
-  OptReportHandler &getSYCLOptReportHandler() { return SyclOptReportHandler; }
-
-  const OptReportHandler &getSYCLOptReportHandler() const {
-    return SyclOptReportHandler;
-  }
+  /// Retrieve the SyclOptReport info.
+  SyclOptReportHandler &getSYCLOptReport() { return SyclOptReport; }
+  const SyclOptReportHandler &getSYCLOptReport() const { return SyclOptReport; }
 
   const IntrusiveRefCntPtr<DiagnosticIDs> &getDiagnosticIDs() const {
     return Diags;

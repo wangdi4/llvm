@@ -54,7 +54,6 @@ public:
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
         VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
         Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        PreferredPeeling(Plan->getPreferredPeeling(VF)),
         OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
 
@@ -71,17 +70,13 @@ public:
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
 
+  // Central entry point into codegen for lowering a VPInstruction into outgoing
+  // LLVM-IR.
+  void processInstruction(VPInstruction *VPInst);
+
   // Set current debug location for vector loop's IRBuilder. This location is
   // set for all instructions that are subsequently created using the Builder.
   void setBuilderDebugLoc(DebugLoc L) { Builder.SetCurrentDebugLocation(L); }
-
-  // Widen the given instruction to VF wide vector instruction
-  void vectorizeInstruction(VPInstruction *VPInst);
-
-  // Vectorize the given instruction that cannot be widened using serialization.
-  // This is done using a sequence of extractelement, Scalar Op, InsertElement
-  // instructions.
-  void serializeInstruction(VPInstruction *VPInst);
 
   // Attach metadata to \p Memref instruction to indicate that for the best
   // performance it needs to be aligned by at least \p PreferredAlignment bytes.
@@ -182,9 +177,6 @@ private:
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
 
-  /// Check that value  was vectorized with use of serialization
-  bool isSerialized(VPValue *V) const;
-
   /// Emit a bypass check to see if the vector trip count is nonzero.
   void emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
 
@@ -202,13 +194,34 @@ private:
   /// Returns (and creates if needed) the trip count of the widened loop.
   Value *getOrCreateVectorTripCount(Loop *L, IRBuilder<> &Builder);
 
+  // Generate vector code for given instruction based on results from VPlan
+  // ScalVec analysis.
+  void generateVectorCode(VPInstruction *VPInst);
+
+  // Vectorize the given instruction that cannot be widened using serialization.
+  // This is done using a sequence of extractelement, Scalar Op, InsertElement
+  // instructions.
+  void serializeInstruction(VPInstruction *VPInst);
+
+  // Generate scalar code for given instruction for first/last lanes (0 / VF-1)
+  // based on results from VPlan ScalVec analysis.
+  void generateScalarCode(VPInstruction *VPInst);
+
   /// Helper function to generate and insert a scalar LLVM instruction from
   /// VPInstruction based on its opcode and scalar versions of its operands.
   // TODO: Currently we don't populate IR flags/metadata information for the
   // instructions generated below. Update after VPlan has internal
   // representation for them.
   Value *generateSerialInstruction(VPInstruction *VPInst,
-                                   ArrayRef<Value *> ScalarOperands);
+                                   ArrayRef<Value *> Ops);
+
+  /// Wrapper helper for generateSerialInstruction to accept range of Values
+  /// instead of ArrayRef.
+  template <class RangeTy>
+  Value *generateSerialInstruction(VPInstruction *VPInst, RangeTy Ops) {
+    SmallVector<Value *, 6> OpsVec(Ops.begin(), Ops.end());
+    return generateSerialInstruction(VPInst, ArrayRef<Value *>(OpsVec));
+  }
 
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
@@ -334,6 +347,9 @@ private:
 
   /// Generate code for the VPPeelCount instruction.
   Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
+
+  /// Vectorize VPInstruction that corresponds to scalar peel/remainder.
+  void vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse);
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
@@ -500,9 +516,6 @@ private:
   // Holds finalization VPInstructions generated for loop entities.
   MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
 
-  // The selected peeling variant for the current VPlan and VF.
-  VPlanPeelingVariant *PreferredPeeling = nullptr;
-
   // --- Vectorization state ---
 
   /// The vector-loop preheader.
@@ -531,9 +544,8 @@ private:
 
   OptReportStatsTracker OptRptStats;
 
-  // Get alignment for load/store VPInstruction using underlying
-  // llvm::Instruction.
-  Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+  // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
+  Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
 
   // Get alignment for the gather/scatter intrinsic when widening load/store
   // VPInstruction \p VPInst.
@@ -547,28 +559,28 @@ private:
   // from <2 x <3 x i32>*> to <6 x i32*>, i.e., two 16-byte aligned stores are
   // split to six 4-byte ones. And thus, the alignment for the scatter should
   // be adjusted to 4.
-  Align getAlignmentForGatherScatter(const VPInstruction *VPInst);
+  Align getAlignmentForGatherScatter(const VPLoadStoreInst *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
-  void vectorizeLoadInstruction(VPInstruction *VPInst,
+  void vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                                 bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked load for a given consecutive stride load.
-  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, bool IsNegOneStride,
+  Value *vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad, bool IsNegOneStride,
                                  bool IsPvtPtr);
 
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_scatter intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
-  void vectorizeStoreInstruction(VPInstruction *VPInst,
+  void vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
                                  bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked store for a given consecutive stride store.
-  void vectorizeUnitStrideStore(VPInstruction *VPInst, bool IsNegOneStride,
+  void vectorizeUnitStrideStore(VPLoadStoreInst *VPStore, bool IsNegOneStride,
                                 bool IsPvtPtr);
 
   // Widen a BitCast/AddrSpaceCast instructions
@@ -665,24 +677,22 @@ private:
   /// This function returns the widened GEP instruction for a pointer. In the
   /// generated code, the returned GEP is itself used as an operand of a
   /// Scatter/Gather function.
-  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr);
+  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr,
+                                           Type *ScalarAccessType);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
-  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr, bool Reverse);
-
-  /// Create a wide load for the \p Group (or get existing one).
-  Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
-
-  /// Vectorize \p VPLoad instruction that is part of a \p Group.
-  Value *vectorizeInterleavedLoad(VPInstruction *VPLoad, OVLSGroup *Group);
-
-  /// Vectorize \p VPStore instruction that is part of a \p Group.
-  void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
+  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
+                                                  Type *ScalarAccessType,
+                                                  bool Reverse);
 
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
-  /// memory operation.
+  /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+
+  /// Return a guaranteed peeling variant. Null is returned if we are not sure
+  /// that the peel loop will be executed at run-time.
+  VPlanPeelingVariant *getGuaranteedPeeling() const;
 
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;

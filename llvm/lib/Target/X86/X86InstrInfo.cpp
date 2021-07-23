@@ -700,10 +700,8 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MOV16rm:
   case X86::KMOVWkm:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VMOVSHZrm:
   case X86::VMOVSHZrm_alt:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
@@ -802,9 +800,7 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
   case X86::MOV16mr:
   case X86::KMOVWmk:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VMOVSHZmr:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
@@ -992,9 +988,7 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::AVX512_512_SETALLONES:
   case X86::AVX512_FsFLD0SD:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0F128:
@@ -1091,10 +1085,8 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::VMOVSDZrm:
   case X86::VMOVSDZrm_alt:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VMOVSHZrm:
   case X86::VMOVSHZrm_alt:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::VMOVAPDZ128rm:
   case X86::VMOVAPDZ256rm:
@@ -2531,12 +2523,10 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VCMPPDZrri:
   case X86::VCMPPSZrri:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VCMPSHZrr:
   case X86::VCMPPHZrri:
   case X86::VCMPPHZ128rri:
   case X86::VCMPPHZ256rri:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::VCMPPDZ128rri:
   case X86::VCMPPSZ128rri:
@@ -2629,6 +2619,12 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VPDPWSSDSYrr:
   case X86::VPDPWSSDSrr:
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_VNNI_INT16
+  case X86::VPDPWUUDrr:
+  case X86::VPDPWUUDYrr:
+  case X86::VPDPWUUDSrr:
+  case X86::VPDPWUUDSYrr:
+#endif // INTEL_FEATURE_ISA_AVX_VNNI_INT16
 #if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   case X86::VPDPBSSDSrr:
   case X86::VPDPBSSDSYrr:
@@ -3673,12 +3669,10 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
     if (X86::VK16RegClass.hasSubClassEq(RC))
       return load ? X86::KMOVWkm : X86::KMOVWmk;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     if (X86::FR16XRegClass.hasSubClassEq(RC)) {
       assert(STI.hasFP16());
       return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
     }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     assert(X86::GR16RegClass.hasSubClassEq(RC) && "Unknown 2-byte regclass");
     return load ? X86::MOV16rm : X86::MOV16mr;
@@ -4329,6 +4323,8 @@ bool X86InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
     }
     CmpInstr.setDesc(get(NewOpcode));
     CmpInstr.RemoveOperand(0);
+    // Mutating this instruction invalidates any debug data associated with it.
+    CmpInstr.setDebugInstrNum(0);
     // Fall through to optimize Cmp if Cmp is CMPrr or CMPri.
     if (NewOpcode == X86::CMP64rm || NewOpcode == X86::CMP32rm ||
         NewOpcode == X86::CMP16rm || NewOpcode == X86::CMP8rm)
@@ -4645,7 +4641,7 @@ static bool Expand2AddrKreg(MachineInstrBuilder &MIB, const MCInstrDesc &Desc,
 static bool expandMOV32r1(MachineInstrBuilder &MIB, const TargetInstrInfo &TII,
                           bool MinusOne) {
   MachineBasicBlock &MBB = *MIB->getParent();
-  DebugLoc DL = MIB->getDebugLoc();
+  const DebugLoc &DL = MIB->getDebugLoc();
   Register Reg = MIB.getReg(0);
 
   // Insert the XOR.
@@ -4664,7 +4660,7 @@ static bool ExpandMOVImmSExti8(MachineInstrBuilder &MIB,
                                const TargetInstrInfo &TII,
                                const X86Subtarget &Subtarget) {
   MachineBasicBlock &MBB = *MIB->getParent();
-  DebugLoc DL = MIB->getDebugLoc();
+  const DebugLoc &DL = MIB->getDebugLoc();
   int64_t Imm = MIB->getOperand(1).getImm();
   assert(Imm != 0 && "Using push/pop for 0 is not efficient.");
   MachineBasicBlock::iterator I = MIB.getInstr();
@@ -4721,7 +4717,7 @@ static bool ExpandMOVImmSExti8(MachineInstrBuilder &MIB,
 static void expandLoadStackGuard(MachineInstrBuilder &MIB,
                                  const TargetInstrInfo &TII) {
   MachineBasicBlock &MBB = *MIB->getParent();
-  DebugLoc DL = MIB->getDebugLoc();
+  const DebugLoc &DL = MIB->getDebugLoc();
   Register Reg = MIB.getReg(0);
   const GlobalValue *GV =
       cast<GlobalValue>((*MIB->memoperands_begin())->getValue());
@@ -4849,9 +4845,7 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   }
   case X86::AVX512_128_SET0:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD:
@@ -5070,6 +5064,61 @@ static bool hasPartialRegUpdate(unsigned Opcode,
   case X86::TZCNT64rm:
   case X86::TZCNT64rr:
     return Subtarget.hasLZCNTFalseDeps();
+#if INTEL_CUSTOMIZATION
+  case X86::VFCMULCPHZ128rm:
+  case X86::VFCMULCPHZ128rmb:
+  case X86::VFCMULCPHZ128rmbkz:
+  case X86::VFCMULCPHZ128rmkz:
+  case X86::VFCMULCPHZ128rr:
+  case X86::VFCMULCPHZ128rrkz:
+  case X86::VFCMULCPHZ256rm:
+  case X86::VFCMULCPHZ256rmb:
+  case X86::VFCMULCPHZ256rmbkz:
+  case X86::VFCMULCPHZ256rmkz:
+  case X86::VFCMULCPHZ256rr:
+  case X86::VFCMULCPHZ256rrkz:
+  case X86::VFCMULCPHZrm:
+  case X86::VFCMULCPHZrmb:
+  case X86::VFCMULCPHZrmbkz:
+  case X86::VFCMULCPHZrmkz:
+  case X86::VFCMULCPHZrr:
+  case X86::VFCMULCPHZrrb:
+  case X86::VFCMULCPHZrrbkz:
+  case X86::VFCMULCPHZrrkz:
+  case X86::VFMULCPHZ128rm:
+  case X86::VFMULCPHZ128rmb:
+  case X86::VFMULCPHZ128rmbkz:
+  case X86::VFMULCPHZ128rmkz:
+  case X86::VFMULCPHZ128rr:
+  case X86::VFMULCPHZ128rrkz:
+  case X86::VFMULCPHZ256rm:
+  case X86::VFMULCPHZ256rmb:
+  case X86::VFMULCPHZ256rmbkz:
+  case X86::VFMULCPHZ256rmkz:
+  case X86::VFMULCPHZ256rr:
+  case X86::VFMULCPHZ256rrkz:
+  case X86::VFMULCPHZrm:
+  case X86::VFMULCPHZrmb:
+  case X86::VFMULCPHZrmbkz:
+  case X86::VFMULCPHZrmkz:
+  case X86::VFMULCPHZrr:
+  case X86::VFMULCPHZrrb:
+  case X86::VFMULCPHZrrbkz:
+  case X86::VFMULCPHZrrkz:
+  case X86::VFCMULCSHZrm:
+  case X86::VFCMULCSHZrmkz:
+  case X86::VFCMULCSHZrr:
+  case X86::VFCMULCSHZrrb:
+  case X86::VFCMULCSHZrrbkz:
+  case X86::VFCMULCSHZrrkz:
+  case X86::VFMULCSHZrm:
+  case X86::VFMULCSHZrmkz:
+  case X86::VFMULCSHZrr:
+  case X86::VFMULCSHZrrb:
+  case X86::VFMULCSHZrrbkz:
+  case X86::VFMULCSHZrrkz:
+    return Subtarget.hasCMULFalseDeps();
+#endif // INTEL_CUSTOMIZATION
   }
 
   return false;
@@ -5257,7 +5306,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SDZrrb_Int:
   case X86::VCVTUSI642SDZrm_Int:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VCVTSI2SHZrr:
   case X86::VCVTSI2SHZrm:
   case X86::VCVTSI2SHZrr_Int:
@@ -5278,7 +5326,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SHZrr_Int:
   case X86::VCVTUSI642SHZrrb_Int:
   case X86::VCVTUSI642SHZrm_Int:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     // Load folding won't effect the undef register update since the input is
     // a GPR.
@@ -5353,7 +5400,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VRCP14SSZrr:
   case X86::VRCP14SSZrm:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VRCPSHZrr:
   case X86::VRCPSHZrm:
   case X86::VRSQRTSHZrr:
@@ -5377,7 +5423,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSHZrb_Int:
   case X86::VSQRTSHZm:
   case X86::VSQRTSHZm_Int:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::VRCP28SDZr:
   case X86::VRCP28SDZrb:
@@ -5413,7 +5458,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSDZm:
   case X86::VSQRTSDZm_Int:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VCVTSD2SHZrr:
   case X86::VCVTSD2SHZrr_Int:
   case X86::VCVTSD2SHZrrb_Int:
@@ -5434,7 +5478,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTSH2SSZrrb_Int:
   case X86::VCVTSH2SSZrm:
   case X86::VCVTSH2SSZrm_Int:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return OpNum == 1;
   case X86::VMOVSSZrrk:
@@ -5497,6 +5540,31 @@ void X86InstrInfo::breakPartialRegDependency(
         .addReg(XReg, RegState::Undef)
         .addReg(Reg, RegState::ImplicitDefine);
     MI.addRegisterKilled(Reg, TRI, true);
+#if INTEL_CUSTOMIZATION
+  } else if (X86::VR128XRegClass.contains(Reg)) {
+    // Only handle VLX targets.
+    if (!Subtarget.hasVLX())
+      return;
+    // These instructions are all floating point domain, so vpxord is the best
+    // choice.
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), Reg)
+        .addReg(Reg, RegState::Undef)
+        .addReg(Reg, RegState::Undef);
+    MI.addRegisterKilled(Reg, TRI, true);
+  } else if (X86::VR256XRegClass.contains(Reg) ||
+             X86::VR512RegClass.contains(Reg)) {
+    // Only handle VLX targets.
+    if (!Subtarget.hasVLX())
+      return;
+    // Use vpxord to clear the full ymm/zmm register.
+    // It wants to read and write the xmm sub-register.
+    Register XReg = TRI->getSubReg(Reg, X86::sub_xmm);
+    BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(X86::VPXORDZ128rr), XReg)
+        .addReg(XReg, RegState::Undef)
+        .addReg(XReg, RegState::Undef)
+        .addReg(Reg, RegState::ImplicitDefine);
+    MI.addRegisterKilled(Reg, TRI, true);
+#endif // INTEL_CUSTOMIZATION
   } else if (X86::GR64RegClass.contains(Reg)) {
     // Using XOR32rr because it has shorter encoding and zeros up the upper bits
     // as well.
@@ -6296,7 +6364,6 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   if ((Opc == X86::VMOVSHZrm || Opc == X86::VMOVSHZrm_alt) && RegSize > 16) {
     // These instructions only load 16 bits, we can't fold them if the
     // destination register is wider than 16 bits (2 bytes), and its user
@@ -6339,7 +6406,6 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
       return true;
     }
   }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   return false;
@@ -6408,11 +6474,9 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Alignment = Align(4);
       break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     case X86::AVX512_FsFLD0SH:
       Alignment = Align(2);
       break;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
@@ -6450,9 +6514,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0SD:
   case X86::AVX512_FsFLD0SD:
@@ -6493,10 +6555,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     else if (Opc == X86::FsFLD0F128 || Opc == X86::AVX512_FsFLD0F128)
       Ty = Type::getFP128Ty(MF.getFunction().getContext());
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     else if (Opc == X86::AVX512_FsFLD0SH)
       Ty = Type::getHalfTy(MF.getFunction().getContext());
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_512_SET0 || Opc == X86::AVX512_512_SETALLONES)
       Ty = FixedVectorType::get(Type::getInt32Ty(MF.getFunction().getContext()),
@@ -6821,7 +6881,7 @@ bool X86InstrInfo::unfoldMemoryOperand(
   case X86::CMP8ri: {
     MachineOperand &MO0 = DataMI->getOperand(0);
     MachineOperand &MO1 = DataMI->getOperand(1);
-    if (MO1.getImm() == 0) {
+    if (MO1.isImm() && MO1.getImm() == 0) {
       unsigned NewOpc;
       switch (DataMI->getOpcode()) {
       default: llvm_unreachable("Unreachable!");
@@ -8801,7 +8861,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCSDZrr:
   case X86::VMINCSSZrr:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VMAXCPHZ128rr:
   case X86::VMAXCPHZ256rr:
   case X86::VMAXCPHZrr:
@@ -8810,7 +8869,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCPHZ256rr:
   case X86::VMINCPHZrr:
   case X86::VMINCSHZrr:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return true;
   case X86::ADDPDrr:
@@ -8850,7 +8908,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSDZrr:
   case X86::VMULSSZrr:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::VADDPHZ128rr:
   case X86::VADDPHZ256rr:
   case X86::VADDPHZrr:
@@ -8859,7 +8916,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULPHZ256rr:
   case X86::VMULPHZrr:
   case X86::VMULSHZrr:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     return Inst.getFlag(MachineInstr::MIFlag::FmReassoc) &&
            Inst.getFlag(MachineInstr::MIFlag::FmNsz);

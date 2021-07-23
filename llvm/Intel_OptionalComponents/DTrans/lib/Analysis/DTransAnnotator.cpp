@@ -1,6 +1,6 @@
 //===------DTransAnnotator.cpp - Annotation utilities for DTrans ----------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -49,44 +49,57 @@ static_assert(sizeof(AnnotNames) / sizeof(char *) == DTransAnnotator::DPA_Last,
 //
 // The format of the metadata is to store a null value of the specified type
 // as follows:
-//   { Ty null }
+//   { Ty null, i32 PtrLevel }
 //
 // The use of a null value of the type enables the type to be kept up-to-date
 // when DTrans transformations run because when the instruction referencing the
 // metadata is remapped, the type within the metadata will be remapped as well,
 // if the type changes.
-void DTransAnnotator::createDTransTypeAnnotation(Instruction &I,
-                                                 llvm::Type *Ty) {
-  createDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType], Ty);
+void DTransAnnotator::createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty,
+                                                 unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+         "Annotated type cannot be pointer type. Use PtrLevel");
+  createDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType], Ty,
+                                 PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransTypeAnnotation(Instruction &I) {
   return removeDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
 }
 
-// Get the type that exists in an annotation, if one exists, for the
-// instruction.
-llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
+Optional<std::pair<llvm::Type *, unsigned>>
+DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
   return lookupDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType]);
 }
 
 void DTransAnnotator::createDTransSOAToAOSTypeAnnotation(Function &F,
-                                                         llvm::Type *Ty) {
-  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS], Ty);
+                                                         llvm::Type *Ty,
+                                                         unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+         "Annotated type cannot be pointer type. Use PtrLevel");
+  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS], Ty,
+                                 PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(Function &F) {
   return removeDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
 }
 
-llvm::Type *DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
+Optional<std::pair<llvm::Type *, unsigned>>
+DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
   return lookupDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
 }
 
+bool DTransAnnotator::hasDTransSOAToAOSTypeAnnotation(Function &F) {
+  return hasDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS]);
+}
+
 void DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
-    Function &F, llvm::Type *Ty) {
+    Function &F, llvm::Type *Ty, unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+         "Annotated type cannot be pointer type. Use PtrLevel");
   createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOSPrepare],
-                                 Ty);
+                                 Ty, PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
@@ -94,10 +107,15 @@ bool DTransAnnotator::removeDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
       F, MetadataNames[DMD_DTransSOAToAOSPrepare]);
 }
 
-llvm::Type *
+Optional<std::pair<llvm::Type *, unsigned>>
 DTransAnnotator::lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
   return lookupDTransTypeAnnotationImpl(
       F, MetadataNames[DMD_DTransSOAToAOSPrepare]);
+}
+
+bool DTransAnnotator::hasDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
+  return hasDTransTypeAnnotationImpl(F,
+                                     MetadataNames[DMD_DTransSOAToAOSPrepare]);
 }
 
 GlobalVariable &DTransAnnotator::getAnnotationVariable(Module &M,

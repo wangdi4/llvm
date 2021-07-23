@@ -1,8 +1,10 @@
 ; This test verifies the analysis of direct uses of a candidate variable for
 ; the transpose transformation.
 
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+; This test also tests the internal option -dtrans-transpose-min-dim
+
+; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-min-dim=3 -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-min-dim=3 -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 
 ; This test verifies that an array that is directly accessed (such as a

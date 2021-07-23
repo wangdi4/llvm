@@ -111,6 +111,14 @@ if(COMPILER_RT_TARGET_HAS_UNAME)
      -DCOMPILER_RT_HAS_UNAME=1)
 endif()
 
+# INTEL_CUSTOMIZATION
+if(COMPILER_RT_CCOV_BUILD)
+ set(EXTRA_FLAGS
+     ${EXTRA_FLAGS}
+     ${CCOV_BUILD_FLAGS})
+endif()
+# end INTEL_CUSTOMIZATION
+
 # We don't use the C++ Standard Library here, so avoid including it by mistake.
 append_list_if(COMPILER_RT_HAS_NOSTDINCXX_FLAG -nostdinc++ EXTRA_FLAGS)
 # XRay uses C++ standard library headers.

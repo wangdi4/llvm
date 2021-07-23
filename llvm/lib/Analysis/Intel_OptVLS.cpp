@@ -116,22 +116,22 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
   if (isExtractSubvectorMask(Mask)) {
     // TODO: Support other sized subvectors.
     index = Mask[0] == 0 ? 0 : 1;
-    return TTI.getShuffleCost(
+    return *TTI.getShuffleCost(
         TargetTransformInfo::SK_ExtractSubvector, VTp, llvm::None, index,
-        FixedVectorType::get(Tp->getScalarType(), NumVecElems / 2));
+        FixedVectorType::get(Tp->getScalarType(), NumVecElems / 2)).getValue();
   } else if (isInsertSubvectorMask(Mask, index, NumSubVecElems))
-    return TTI.getShuffleCost(
+    return *TTI.getShuffleCost(
         TargetTransformInfo::SK_InsertSubvector, VTp, llvm::None, index,
-        FixedVectorType::get(Tp->getScalarType(), NumSubVecElems));
+        FixedVectorType::get(Tp->getScalarType(), NumSubVecElems)).getValue();
   else if (TTI.isTargetSpecificShuffleMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, VTp,
-                              llvm::None, 0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, VTp,
+                              llvm::None, 0, nullptr).getValue();
   else if (isReverseVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VTp, llvm::None,
-                              0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VTp, llvm::None,
+                              0, nullptr).getValue();
   else if (isAlternateVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Select, VTp, llvm::None,
-                              0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_Select, VTp, llvm::None,
+                              0, nullptr).getValue();
 
   // TODO: Support SK_Insert
   uint32_t TotalElems = Mask.size();
@@ -1114,7 +1114,7 @@ public:
 
       OVLSInstruction *I = N->getInstruction();
       assert(I != nullptr && "Inst cannot be null!!!");
-      InstVector.push_back(I);
+      InstVector.emplace_back(I);
 
       if (Map == nullptr)
         continue;
@@ -1159,14 +1159,15 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
   OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
-  for (const OVLSGroup *G : Grps)
+  for (const auto& G : Grps)
     G->print(OS, 3);
   OS << '\n';
 }
-static void dumpOVLSMemrefVector(OVLSostream &OS,
-                                 const OVLSMemrefVector &MemrefVec,
-                                 unsigned NumSpaces) {
-  for (OVLSMemref *Memref : MemrefVec) {
+static void
+dumpOVLSMemrefVector(OVLSostream &OS,
+                     const OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVec,
+                     unsigned NumSpaces) {
+  for (auto &Memref : MemrefVec) {
     Memref->print(OS, NumSpaces);
     OS << "\n";
   }
@@ -1216,8 +1217,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
     auto AdjMemrefSetIt = AdjMemrefSet->begin();
 
     OVLSAccessKind AccessKind = AdjMemrefSetIt->first->getAccessKind();
-    OVLSGroup *CurrGrp =
-        new OVLSGroup(AdjMemrefSetIt->first, VectorLength, AccessKind);
+    std::unique_ptr<OVLSGroup> CurrGrp = std::make_unique<OVLSGroup>(
+        AdjMemrefSetIt->first, VectorLength, AccessKind);
     int64_t GrpFirstMDist = 0;
     int64_t GrpLastMDist = 0;
     assert(AdjMemrefSetIt->second == 0 &&
@@ -1247,8 +1248,8 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
         sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
           return *RHS->getConstDistanceFrom(*LHS) > 0;
         });
-        OVLSGrps.push_back(CurrGrp);
-        CurrGrp = new OVLSGroup(Memref, VectorLength, AccessKind);
+        OVLSGrps.push_back(std::move(CurrGrp));
+        CurrGrp = std::make_unique<OVLSGroup>(Memref, VectorLength, AccessKind);
 
         // Reset range information for the new group.
         GrpFirstMDist = Dist;
@@ -1261,14 +1262,14 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
       CurrGrp->insert(Memref);
       if (MemrefToGroupMap)
         (*MemrefToGroupMap)
-            .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
+            .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp.get()));
     }
 
     // Sort memrefs in the group using their offsets.
     sort(*CurrGrp, [](OVLSMemref *LHS, OVLSMemref *RHS) {
       return *RHS->getConstDistanceFrom(*LHS) > 0;
     });
-    OVLSGrps.push_back(CurrGrp);
+    OVLSGrps.push_back(std::move(CurrGrp));
   }
 
   // dump OVLSGroups
@@ -1350,7 +1351,7 @@ static void splitMrfsStep(OVLSMemref *Memref,
 //
 // The relative order of adjacent loads is preserved, relative order of stores
 // is reversed (so that the first item in every set is a valid insertion point).
-static void splitMrfs(const OVLSMemrefVector &Memrefs,
+static void splitMrfs(const  OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
                       MemrefDistanceMapVector &AdjMemrefSetVec) {
   OVLSDebug(OVLSdbgs() << "\n  Split the vector memrefs into sub groups of "
                           "adjacacent memrefs: \n");
@@ -1367,14 +1368,14 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
   //        vector and use dominance information to sort it.
 
   // Process loads top down.
-  for (OVLSMemref *Memref : Memrefs)
+  for (auto &Memref : Memrefs)
     if (Memref->getAccessKind().isLoad())
-      splitMrfsStep(Memref, AdjMemrefSetVec);
+      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
 
   // Process stores bottom up.
-  for (OVLSMemref *Memref : reverse(Memrefs))
+  for (auto &Memref : reverse(Memrefs))
     if (Memref->getAccessKind().isStore())
-      splitMrfsStep(Memref, AdjMemrefSetVec);
+      splitMrfsStep(Memref.get(), AdjMemrefSetVec);
 
   OVLSDebug(OptVLS::dumpMemrefDistanceMapVector(OVLSdbgs(), AdjMemrefSetVec));
   return;
@@ -1845,9 +1846,10 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
 // OVLSMemrefs, (and each OVLSMemref is contained by 1 (and only 1) OVLSGroup)
 // in a way where having all the memrefs in OptVLSgroup (at group InsertPoint
 // location) does not violate any program semantics nor any memory dependencies.
-void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
-                                OVLSGroupVector &Grps, unsigned VectorLength,
-                                OVLSMemrefToGroupMap *MemrefToGroupMap) {
+void OptVLSInterface::getGroups(
+    const OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs,
+    OVLSGroupVector &Grps, unsigned VectorLength,
+    OVLSMemrefToGroupMap *MemrefToGroupMap) {
   OVLSDebug(OVLSdbgs() << "Received a request from Client---FORM GROUPS\n"
                        << "  Received a vector of memrefs (" << Memrefs.size()
                        << "): \n");
@@ -1995,8 +1997,9 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
     OVLSAddress Src(FirstMemref, Offset);
     LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
-    InstVector.push_back(LoadInst[i]);
+    InstVector.emplace_back(LoadInst[i]);
   }
+
   // %t3 = shufflevector <4 x i32> %t0, <4 x i32> %t2, <8 x i32> <i32 0, i32 1,
   //       i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   // %t7 = shufflevector <4 x i32> %t4, <4 x i32> %t6, <8 x i32> <i32 0, i32 1,
@@ -2012,8 +2015,9 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   for (int i = 0; i < 4; i++) {
     ShuffleOnLoad[i] =
         new OVLSShuffle(LoadInst[i], LoadInst[4 + i], ShuffleMask);
-    InstVector.push_back(ShuffleOnLoad[i]);
+    InstVector.emplace_back(ShuffleOnLoad[i]);
   }
+
   // %t16 = shufflevector <8 x i32> %t3, <8 x i32> %t7, <8 x i32> <i32 0,
   //        i32 1, i32 9, i32 8, i32 4, i32 5,  i32 13, i32 12>
   // %t17 = shufflevector <8 x i32> %t15, <8 x i32> %t11, <8 x i32> <i32 1,
@@ -2097,7 +2101,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   Results[3] = ShuffleOnShuffles[7];
 
   for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnShuffles[i]);
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
   }
 
   if (MemrefToInstMap)
@@ -2105,6 +2109,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
     for (int i = 0; i < 4; i++)
       MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
           Group.getMemref(i), Results[i]));
+
   return true;
 }
 
@@ -2245,7 +2250,7 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   // Pushback all Shuffle instructions into InstVec.
   //
   for (int i = 0; i < 16; i++)
-    InstVector.push_back(ShuffleOnShuffles[i]);
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
 
   Offset = 0;
   OVLSInstruction *StoreInst[8];
@@ -2267,8 +2272,9 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
     OVLSAddress Src(FirstMemref, Offset);
     StoreInst[i] = new OVLSStore(ShuffleOnShuffles[i + 8], Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
-    InstVector.push_back(StoreInst[i]);
+    InstVector.emplace_back(StoreInst[i]);
   }
+
   return true;
 }
 
@@ -2317,7 +2323,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
     OVLSAddress Src(FirstMemref, Offset);
     LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
     Offset = Offset + 16; // 8 elements offset.
-    InstVector.push_back(LoadInst[i]);
+    InstVector.emplace_back(LoadInst[i]);
   }
 
   // %x1 = shufflevector <8 x i16> %t0, <8 x i16> %t8, <8 x i32>
@@ -2352,9 +2358,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
         new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnLoad[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ShuffleOnLoad[i]);
 
   //  %t1 = shufflevector <8 x i16> %x1, <8 x i16> %y1, <8 x i32> <i32 0, i32 1,
   //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
@@ -2403,9 +2408,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
         ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnShuffles[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
 
   //  %r0 = shufflevector <8 x i16> %t1, <8 x i16> %t3, <8 x i32> <i32 0, i32 1,
   //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
@@ -2460,15 +2464,15 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
                         ShuffleOnShuffles[4 * i + 3], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ResultShuffles[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ResultShuffles[i]);
 
   if (MemrefToInstMap)
     // Populate the memrefmap.
     for (int i = 0; i < 8; i++)
       MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
           Group.getMemref(i), ResultShuffles[i]));
+
   return true;
 }
 
@@ -2602,8 +2606,8 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   // + shuffle-sequence
   OVLSInstructionVector InstVector;
   if (getSequence(Group, CM, InstVector)) {
-    for (OVLSInstruction *I : InstVector) {
-      int64_t C = CM.getInstructionCost(I);
+    for (auto &I : InstVector) {
+      int64_t C = CM.getInstructionCost(I.get());
       if (C == OVLSCostModel::UnknownCost)
         return OVLSCostModel::UnknownCost;
       Cost += C;

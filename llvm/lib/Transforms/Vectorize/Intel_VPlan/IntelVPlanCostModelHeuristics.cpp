@@ -44,6 +44,11 @@ static cl::opt<unsigned> CMGatherScatterPenaltyFactor(
   cl::desc("The factor which G/S cost multiplies by if G/S accumulated cost "
            "exceeds CMGatherScatterThreshold."));
 
+static cl::opt<bool> UseOVLSCM(
+  "vplan-cm-use-ovlscm", cl::init(true),
+  cl::desc("Consider cost returned by OVLSCostModel "
+           "for optimized gathers and scatters."));
+
 namespace llvm {
 
 namespace vpo {
@@ -65,15 +70,31 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
                                     unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost)
+  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
     return;
 
   if (NewCost > RefCost)
     *OS << "Extra cost due to " << getName() << " heuristic is "
         << NewCost - RefCost << '\n';
-  else if (RefCost > NewCost)
+  else
     *OS << "Cost decrease due to " << getName() << " heuristic is "
         << RefCost - NewCost << '\n';
+}
+
+void HeuristicBase::printCostChangeInline(raw_ostream *OS, unsigned RefCost,
+                                          unsigned NewCost) const {
+  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+    return;
+
+  // Expected output is:
+  //  *name*(+num)
+  // OR:
+  //  *name*(-num)
+  *OS << " *" << getName() << "*(";
+  if (NewCost > RefCost)
+    *OS << '+' << NewCost - RefCost << ')';
+  else
+    *OS << '-' << RefCost - NewCost << ')';
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -171,7 +192,8 @@ bool HeuristicSLP::checkForSLPRedn(const VPReductionFinal *RednFinal,
     return false;
 
   const VPInstruction *AddNonFmulInst = nullptr;
-  const VPInstruction *MinusOneStrideLoadInst = nullptr, *VLSLoadInst = nullptr;
+  const VPLoadStoreInst *MinusOneStrideLoadInst = nullptr,
+                        *VLSLoadInst = nullptr;
   if (!match(RednVal, m_c_FAdd(m_Bind(AddNonFmulInst),
                                m_c_FMul(m_Bind(MinusOneStrideLoadInst),
                                         m_UIToFP(m_Bind(VLSLoadInst))))))
@@ -335,15 +357,12 @@ unsigned HeuristicSpillFill::operator()(
 
     // Zero-cost and unknown-cost instructions are ignored.  That might be
     // pseudo inst that don't induce real code on output.
-    //
-    // Use TTI Cost model as Proprietary cost can be 0 for loads/stores that
-    // are part of OVLS group.
     unsigned InstCost = CM->getTTICost(&VPInst);
     if (InstCost == UnknownCost || InstCost == 0)
       continue;
 
     // Once definition is met the value is marked dead as the result of
-   // instruction generally can occupy the same register as one of its
+    // instruction generally can occupy the same register as one of its
     // operand, unless all its operands are alive throughout the intruction.
     LiveValues[&VPInst] = 0;
 
@@ -417,7 +436,7 @@ unsigned HeuristicSpillFill::operator()(
     // registers such call requires.
     //
     auto SerializableLoadStore =
-      [&](const VPInstruction &VPInst) -> bool {
+      [&](const VPLoadStoreInst &VPInst) -> bool {
       // Don't need to serialize for Scalar VPlan but isLegalMaskedLoad/Store,
       // isLegalMaskedGather/Scatter return false for <1 x ...> vectors.
       // So special case VF = 1 here.
@@ -433,7 +452,7 @@ unsigned HeuristicSpillFill::operator()(
       bool IsMasked = (VPInst.getParent()->getPredicate() != nullptr);
 
       Align Alignment = Align(CM->getMemInstAlignment(&VPInst));
-      Type *VTy = getWidenedType(getLoadStoreType(&VPInst), VF);
+      Type *VTy = getWidenedType(VPInst.getValueType(), VF);
       bool NegativeStride = false;
 
       // Check for masked unit load/store presence in HW.
@@ -453,9 +472,8 @@ unsigned HeuristicSpillFill::operator()(
       return false;
     };
 
-    if ((VPInst.getOpcode() == Instruction::Load ||
-         VPInst.getOpcode() == Instruction::Store) &&
-        SerializableLoadStore(VPInst))
+    auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
+    if (LoadStore && SerializableLoadStore(*LoadStore))
       NumberLiveValuesCur += TranslateVPInstRPToHWRP(
         // VPlanTTIWrapper::estimateNumberOfInstructions(InstCost) gives
         // an estimation of the number of instructions the serialized
@@ -566,14 +584,14 @@ void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
   unsigned ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
   if (ScalSpillFillCost > 0)
     OS << "Block Scalar spill/fill approximate cost (not included "
-      "into total cost): " + std::to_string(ScalSpillFillCost) << '\n';
+      "into base cost): " + std::to_string(ScalSpillFillCost) << '\n';
 
   if (VF > 1) {
     LiveValues.clear();
     unsigned VecSpillFillCost = (*this)(VPBB, LiveValues, true);
     if (VecSpillFillCost > 0)
       OS << "Block Vector spill/fill approximate cost (not included into "
-        "total cost): " + std::to_string(VecSpillFillCost) << '\n';
+        "base cost): " + std::to_string(VecSpillFillCost) << '\n';
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -619,12 +637,15 @@ unsigned HeuristicGatherScatter::operator()(
   if (VF == 1)
     return 0;
 
+  auto *LoadStore = dyn_cast<VPLoadStoreInst>(VPInst);
+  if (!LoadStore)
+    return 0;
+
   bool NegativeStride;
-  if ((VPInst->getOpcode() == Instruction::Load ||
-       VPInst->getOpcode() == Instruction::Store) &&
-      !CM->isOptimizedVLSGroupMember(VPInst) &&
-      !CM->isUnitStrideLoadStore(VPInst, NegativeStride))
-    return CM->getLoadStoreCost(VPInst, VF);
+  if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
+      !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
+    return CM->getLoadStoreCost(LoadStore, VF);
+
   return 0;
 }
 
@@ -697,18 +718,14 @@ bool HeuristicPsadbw::checkPsadwbPattern(
   return true;
 }
 
-// Does all neccesary target checks and return corrected VPlan Cost.
-void HeuristicPsadbw::apply(
-  unsigned TTICost, unsigned &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
+void HeuristicPsadbw::initForVPlan() {
+  // Detect all psadbw patterns in the ctor and populate PsadbwPatternInsts
+  // so dumping machinery can reveal participating intructions early.
   if (VF != 1)
     return;
 
-  unsigned PatternCost = 0;
-
-  // Scaled PSADBW cost in terms of number of intructions.
-  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
+  // Reset the map for the case of multiple calls to init().
+  PsadbwPatternInsts.clear();
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
@@ -758,7 +775,7 @@ void HeuristicPsadbw::apply(
       // the pattern.
 
       // Keeps all instructions that are part of PSADBW pattern.
-      SmallPtrSet<const VPInstruction*, 32> CurrPsadbwPatternInsts;
+      SinglePatternInstsSet CurrPsadbwPatternInsts;
       std::stack<const VPInstruction *> AddsStack;
 
       AddsStack.push(SumCarryOut);
@@ -767,7 +784,7 @@ void HeuristicPsadbw::apply(
         const VPInstruction *AddInst = AddsStack.top();
         AddsStack.pop();
 
-        const VPInstruction *LHS = nullptr, *RHS = nullptr;
+        const VPInstruction *LHS, *RHS;
         // In case of accumulator is 64 bits there are ZExt's in operands of
         // the ADD possible.  Go over them.
         if (!match(AddInst, m_Add(m_ZExtOrSelf(m_Bind(LHS)),
@@ -794,6 +811,9 @@ void HeuristicPsadbw::apply(
           CurrPsadbwPatternInsts.insert(ReductionFinalInst);
         }
       }
+
+      if (CurrPsadbwPatternInsts.empty())
+        continue;
 
       // There are some ADD instructions in VPlan which sum parts of PSADBW
       // pattern but they are left overboard (not in CurrPsadbwPatternInsts).
@@ -859,49 +879,63 @@ void HeuristicPsadbw::apply(
           (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
         continue;
 
-      // Sum up costs of all instructions in CurrPsadbwPatternInsts.
-      // If there an instruction in the pattern has more than one use the whole
-      // pattern cost is halved.  This way we model external to pattern uses
-      // that keeps part of pattern instruction alive even if the whole pattern
-      // is going to be replace with psadbw.  On average half of the whole
-      // pattern is kept by one external use.  The more external uses the pattern
-      // has the less the gain cost of idiom recognition.
-      //
-      // Note that SumCarryOut has two uses that are both within the pattern
-      // (i.e. not external).
-      if (!CurrPsadbwPatternInsts.empty()) {
-        unsigned CurrentPatternCost = 0;
-        unsigned NumberOfExternalUses = 0;
-
-        for (const VPInstruction *VPInst : CurrPsadbwPatternInsts) {
-          unsigned InstCost = CM->getTTICost(VPInst);
-          if (InstCost != UnknownCost)
-            CurrentPatternCost += InstCost;
-
-          if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
-              (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
-            NumberOfExternalUses++;
-        }
-
-        // The following additional cost models performance impact due to code
-        // size bloating if PSADBW opportunity is ignored.
-        CurrentPatternCost *= 2;
-
-        // Factor in NumberOfExternalUses:
-        // Cost = Cost / (2 ^ NumberOfExternalUses)
-        CurrentPatternCost /= (1 << NumberOfExternalUses);
-
-        if (CurrentPatternCost > PsadbwCost) {
-          PatternCost += CurrentPatternCost - PsadbwCost;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-          // When the pattern accepted update PsadbwPatternInsts.
-          // Currently PsadbwPatternInsts is used for debug output only.
-          PsadbwPatternInsts.insert(CurrPsadbwPatternInsts.begin(),
-                                    CurrPsadbwPatternInsts.end());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-        }
-      }
+      // Keep all current pattern instructions in PsadbwPatternInsts.
+      PsadbwPatternInsts[SumCarryOut].insert(CurrPsadbwPatternInsts.begin(),
+                                             CurrPsadbwPatternInsts.end());
     }
+  }
+}
+
+// Does all neccesary target checks and return corrected VPlan Cost.
+void HeuristicPsadbw::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
+  (void)TTICost;
+
+  unsigned PatternCost = 0;
+
+  // Scaled PSADBW cost in terms of number of intructions.
+  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
+
+  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+    const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
+    SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
+    // Sum up costs of all instructions within PatternInstructions.
+    // If there an instruction in the pattern has more than one use the whole
+    // pattern cost is halved.  This way we model external to pattern uses
+    // that keeps part of pattern instruction alive even if the whole pattern
+    // is going to be replace with psadbw.  On average half of the whole
+    // pattern is kept by one external use.  The more external uses the pattern
+    // has the less the gain cost of idiom recognition.
+    //
+    // Note that SumCarryOut has two uses that are both within the pattern
+    // (i.e. not external).
+    assert(!PatternInstructions.empty() &&
+           "The set is not expected to be empty.");
+
+    unsigned CurrentPatternCost = 0;
+    unsigned NumberOfExternalUses = 0;
+
+    for (const VPInstruction *VPInst : PatternInstructions) {
+      unsigned InstCost = CM->getTTICost(VPInst);
+      if (InstCost != UnknownCost)
+        CurrentPatternCost += InstCost;
+
+      if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
+          (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
+        NumberOfExternalUses++;
+    }
+
+    // The following additional cost models performance impact due to code
+    // size bloating if PSADBW opportunity is ignored.
+    CurrentPatternCost *= 2;
+
+    // Factor in NumberOfExternalUses:
+    // Cost = Cost / (2 ^ NumberOfExternalUses)
+    CurrentPatternCost /= (1 << NumberOfExternalUses);
+
+    if (CurrentPatternCost > PsadbwCost)
+      PatternCost += CurrentPatternCost - PsadbwCost;
   }
 
   unsigned NewCost;
@@ -921,10 +955,243 @@ void HeuristicPsadbw::apply(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
-  if (PsadbwPatternInsts.count(VPInst) > 0)
-    OS << " *PSADBW*";
+  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+    const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
+    SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
+
+    if (VPInst == SumCarryOut)
+      OS << " *PSADBW* (CarryOut Def)";
+    else if (PatternInstructions.count(VPInst) > 0) {
+      OS << " *PSADBW*, CarryOut: ";
+      SumCarryOut->printAsOperandNoType(OS);
+    }
+  }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void HeuristicSVMLIDivIRem::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPInstruction *VPInst, raw_ostream *OS) const {
+
+  if (VF == 1)
+    return;
+
+  unsigned Opcode = VPInst->getOpcode();
+
+  if (Opcode != Instruction::UDiv && Opcode != Instruction::SDiv &&
+      Opcode != Instruction::URem && Opcode != Instruction::SRem)
+    return;
+
+  // Special case for integer DIV/REM operation.
+  //
+  // Vector integer DIV/REM implemented through serialized scalar code
+  // for VF = 2, yelding slightly worse performance comparing to vanilla
+  // scalar code due to serialization overhead.
+  //
+  // For VF > 2 SVML functions are invoked: 8 elements function for int32 and
+  // 4 elements function for int64.
+  //
+  // For int32 SVML yelds ~2x better performance vs scalar version for its
+  // natural VF = 8 and for all VF greater than the natural VF.
+  //
+  // VF = 4 int32 implemented as masked VF = 8 case yelding 2x worse perfomance
+  // vs VF = 8.
+  //
+  // int64 VF = 1 implementation holds RT check for input data that can be
+  // divided using 32-bit DIV instruction giving 3.5x better performance.  For
+  // 64-bit input data scalar version is ~30% slower of vector version.  We
+  // make an assumption that in real applications half data fits 32-bit
+  // representation making scalar version of 64-bit DIV/REM (3.5 / 2) ~ 2x
+  // faster VS SVML version.
+  //
+  // Factor in those impirical data into multiplier of the scalar cost
+  // of DIV operation.  This is not modelled well by TTI.
+  //
+  // Don't mess with with 8-/16-bit input data type if it ever possible to get
+  // them here.
+  //
+  // TODO:
+  // OpenCL CPU RT uses an alternative version of SVML and the heuristic
+  // doesn't cover it.  OCL context can be checked with:
+  // M->getNamedMetadata("opencl.ocl.version") != nullptr, where M is Module.
+  // Currently CM doesn't have access to Module, neither we always have
+  // UnderyingValue valid for Op1.  Thereby as of now OCL context check is
+  // missed which is not an issue until VPlan becomes a part of OCL pipeline.
+  //
+  // TODO:
+  // The code below is a temporal code to WA this problem.  Eventually
+  // we want to have CG interface which would tells us what instructions
+  // [U|S]Div/Rem or any other VPIntruction is implemented with.
+
+  const Type *ScalarTy = VPInst->getType();
+  unsigned ElemSize = ScalarTy->getPrimitiveSizeInBits();
+  if (ElemSize != 32 && ElemSize != 64)
+    return;
+
+  unsigned ScalarCost = CM->getArithmeticInstructionCost(
+    Opcode, VPInst->getOperand(0), VPInst->getOperand(1), ScalarTy, /*VF*/ 1);
+
+  if (ScalarCost == UnknownCost)
+    return;
+
+  unsigned VectorCost;
+
+  if (ElemSize == 64)
+    VectorCost = ScalarCost * VF * 2;
+  else if (VF == 2)
+    VectorCost = ScalarCost * VF;
+  else if (VF == 4)
+    VectorCost = ScalarCost * 3;
+  else
+    VectorCost = ScalarCost * (VF / 2);
+
+  // For operations with constant in argument basic cost model gives better
+  // estimation, which we want to use instead of VectorCost.
+  unsigned NewCost = std::min(VectorCost, TTICost);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChangeInline(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
+}
+
+void HeuristicOVLSMember::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPInstruction *VPInst, raw_ostream *OS) const {
+
+  if (!UseOVLSCM || !CM->VLSA || VF == 1)
+    return;
+
+  OVLSGroup *Group = CM->VLSA->getGroupsFor(Plan, VPInst);
+  if (!Group || Group->size() <= 1)
+    return;
+
+  auto *LoadStore = cast<VPLoadStoreInst>(VPInst);
+
+  // FIXME: OVLSCostModel abstructions need to be revisitted as
+  // VPlanVLSCostModel::getInstructionCost() implementation requires external
+  // VF to form Vector Type of OVLSInstruction, whereas
+  // OVLSTTICostModel::getInstructionCost() implementation fetches number of
+  // elements using I->getType().
+  //
+  VPlanVLSCostModel VLSCM(VF, CM->VPTTI.getTTI(),
+                          LoadStore->getType()->getContext());
+  /// OptVLSInterface costs are not scaled up yet.
+  unsigned VLSGroupCost =
+    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
+
+  // If current load/store instruction is part of an optimized load/store group,
+  // compare VLSGroupCost to TTI based cost for doing the interleaved access
+  // and pick the smaller cost.
+  // TODO - Codegen currently does not rely on OVLS to generate wide accesses
+  // and shuffles. Consider using the TTI based cost always.
+  if (CM->isOptimizedVLSGroupMember(LoadStore)) {
+    Type *ValTy = LoadStore->getValueType();
+    unsigned AddrSpace =
+        cast<PointerType>(LoadStore->getPointerOperand()->getType())
+            ->getAddressSpace();
+    int InterleaveFactor =
+        std::abs(computeInterleaveFactor(Group->getInsertPoint()));
+    auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
+
+    // Holds the indices of existing members in an interleaved load group.
+    // Currently we only support accesses with no gaps and hence all indices
+    // are pushed onto the vector.
+    // An interleaved store group doesn't need this as it doesn't allow gaps.
+    // NOTE: The code here mimics what is done in community LV to get the cost
+    // of the interleaved access.
+    SmallVector<unsigned, 4> Indices;
+    if (LoadStore->getOpcode() == Instruction::Load)
+      for (int i = 0; i < InterleaveFactor; i++)
+        Indices.push_back(i);
+
+    // Calculate the cost of the whole interleaved group.
+    unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
+        LoadStore->getOpcode(), WideVecTy, InterleaveFactor, Indices,
+        cast<VPLoadStoreInst>(LoadStore)->getAlignment(), AddrSpace,
+        TTI::TCK_RecipThroughput, false /* UseMaskForCond */,
+        false /* UseMaskForGaps */);
+    if (TTIInterleaveCost < VLSGroupCost)
+      VLSGroupCost = TTIInterleaveCost;
+  }
+
+  if (ProcessedOVLSGroups.count(Group) != 0) {
+    if (!ProcessedOVLSGroups[Group]) {
+      LLVM_DEBUG(dbgs() << "TTI cost of memrefs in the Group containing ";
+                 LoadStore->printWithoutAnalyses(dbgs());
+                 dbgs() << " is less than its OVLS Group cost.\n");
+      return;
+    }
+
+    assert(is_contained(Group->getMemrefVec(), Group->getInsertPoint()) &&
+           "OVLS Group's insertion point is not a member of the Group.");
+
+    if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+        LoadStore) {
+      LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               LoadStore->printWithoutAnalyses(dbgs());
+               dbgs() << '\n');
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      printCostChangeInline(OS, Cost, VLSGroupCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+      Cost = VLSGroupCost;
+      return;
+    }
+
+    LLVM_DEBUG(dbgs() << "Group cost for ";
+               LoadStore->printWithoutAnalyses(dbgs());
+               dbgs() << " has already been taken into account.\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, 0);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    Cost = 0;
+    return;
+  }
+
+  unsigned TTIGroupCost = 0;
+  for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
+    TTIGroupCost += CM->getLoadStoreCost(
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(),
+      Align(CM->getMemInstAlignment(LoadStore)), VF);
+
+  if (VLSGroupCost >= TTIGroupCost) {
+    LLVM_DEBUG(dbgs() << "Cost for "; LoadStore->printWithoutAnalyses(dbgs());
+               dbgs() << " was not reduced from " << Cost << " (TTI group cost "
+                      << TTIGroupCost << ") to group cost " << VLSGroupCost
+                      << '\n');
+    ProcessedOVLSGroups[Group] = false;
+    return;
+  }
+
+  LLVM_DEBUG(dbgs() << "Reduced cost for ";
+             LoadStore->printWithoutAnalyses(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
+                    << " to group cost " << VLSGroupCost << ")\n");
+  ProcessedOVLSGroups[Group] = true;
+
+  // We are encountering an OVLS group for the first time. The group cost is
+  // returned if we are dealing with the instruction corresponding to insertion
+  // point of the group. We return 0 otherwise.
+  if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+      LoadStore) {
+    LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               LoadStore->printWithoutAnalyses(dbgs()); dbgs() << '\n');
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, VLSGroupCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    Cost = VLSGroupCost;
+  } else {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, 0);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    Cost = 0;
+  }
+}
 
 } // namespace VPlanCostModelHeuristics
 

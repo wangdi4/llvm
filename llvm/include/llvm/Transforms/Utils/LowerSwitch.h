@@ -19,6 +19,13 @@
 
 namespace llvm {
 struct LowerSwitchPass : public PassInfoMixin<LowerSwitchPass> {
+#if INTEL_CUSTOMIZATION
+  // Flag to check if pass should be run only when function has a SIMD loop
+  // region
+  bool FnWithSIMDLoopOnly;
+  LowerSwitchPass(bool FnWithSIMDLoopOnly = false)
+      : FnWithSIMDLoopOnly(FnWithSIMDLoopOnly) {}
+#endif // INTEL_CUSTOMIZATION
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 } // namespace llvm

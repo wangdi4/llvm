@@ -32,10 +32,10 @@
 namespace llvm {
 
 class LoopOptReportBuilder;
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 class FieldModRefResult;
 class DTransImmutableInfo;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 namespace loopopt {
 
@@ -47,6 +47,9 @@ class HIRSafeReductionAnalysis;
 class HIRLoopStatistics;
 
 enum OptimizationType { Unroll, UnrollAndJam, Vectorizer };
+
+const StringRef EnableSpecialLoopInterchangeMetaName =
+    "intel.loop.special.interchange.enable";
 
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
@@ -86,6 +89,7 @@ private:
   static HLLoop *
   createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                         uint64_t NewTripCount, const RegDDRef *NewTCRef,
+                        bool NeedRemainderLoop,
                         LoopOptReportBuilder &LORBuilder, OptimizationType,
                         HLIf *RTIf, ProfInfo *Prof);
 
@@ -206,9 +210,9 @@ public:
   /// END DO
   static bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
                               HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
                               FieldModRefResult *FieldModRef = nullptr,
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
                               bool IgnoreIVs = false);
 
   /// This function creates and returns a new loop that will be used as the
@@ -354,11 +358,11 @@ public:
 
   /// Propagates constants to refs and does constant folding for instructions.
   /// Also substitutes constant global refs with equivalent constants.
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_FEATURE_SW_DTRANS
   static bool doConstantPropagation(HLNode *Node);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).
@@ -392,8 +396,8 @@ public:
   ///
   ///  end do
   ///
-  static bool doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                              HLLoop *InnermostLp, SmallSet<unsigned, 8> &SBS);
+  static bool doArrayScalarization(HLLoop *InnermostLp,
+                                   SmallSet<unsigned, 8> &SBS);
 
   static bool doOptVarPredicate(HLLoop *Loop,
                                 SmallVectorImpl<HLLoop *> &OutLoops,
@@ -433,6 +437,35 @@ public:
                  SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
                  HLRegion &Reg,
                  RegDDRef *&AfterContractRef /* Ref after contraction */);
+
+  /// Special Sink utility to create an otherwise perfect loopnest.
+  /// It can Handle cases similar to the loopnest below:
+  /// .. ..
+  ///   %1442 = %720  *  5.000000e-01; /* 5 prehdr instructions */
+  ///   %1443 =  - %1442;
+  ///   %1444 = %720  *  %7;
+  ///   %1445 = %1444  *  2.000000e+00;*** ******** ***
+  ///   %1446 = %1445  *  %501;
+  /// + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
+  /// |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
+  /// |   |      %1472 = i3 + 1  %  %3;         *** to sink:    ***
+  /// |   |      %1476 = i3 + %3 + -1  %  %3;   *** ops: mod(%) ***
+  /// |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
+  /// |   |   |   ...
+  /// |   |   |   use(s) of %1472, %1476, %1442, etc.
+  /// |   |   |   ...
+  /// |   |   + END LOOP
+  /// |   + END LOOP
+  /// + END LOOP
+  ///
+  /// [Notes]
+  /// - The loopnest is perfect except the preheader of the innermost loop.
+  /// - The statements include mod(%) and select operators.
+  ///   They are not covered by copy, load, and store, thus existing
+  ///   DDUtils::enablePerfectLoopNest(.) can't handle it.
+  ///
+  static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
+                                              HIRDDAnalysis &HDDA);
 };
 
 } // End namespace loopopt

@@ -341,7 +341,7 @@ bool WRegionCollection::invalidate(Function &F, const PreservedAnalyses &PA,
       Inv.invalidate<LoopAnalysis>(F, PA) ||
       Inv.invalidate<ScalarEvolutionAnalysis>(F, PA) ||
 #if INTEL_CUSTOMIZATION
-      Inv.invalidate<loopopt::HIRFrameworkAnalysis>(F, PA) ||
+      (HIRF && Inv.invalidate<loopopt::HIRFrameworkAnalysis>(F, PA)) ||
 #endif // INTEL_CUSTOMIZATION
       Inv.invalidate<AAManager>(F, PA);
 }

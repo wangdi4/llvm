@@ -14,7 +14,7 @@
 
 ; OLDPM_O1-LABEL:  Pass Arguments:
 ; INTEL_CUSTOMIZATION
-; OLDPM_O1:        VPlan Vectorization Driver
+; OLDPM_O1:        VPlan Vectorizer
 ; END INTEL CUSTOMIZATION
 ; OLDPM_O1-NOT:    SLP Vectorizer
 ; OLDPM_O1:        Optimize scalar/vector ops
@@ -23,7 +23,7 @@
 
 ; OLDPM_O2-LABEL:  Pass Arguments:
 ; INTEL_CUSTOMIZATION
-; OLDPM_O2:        VPlan Vectorization Driver
+; OLDPM_O2:        VPlan Vectorizer
 ; END INTEL CUSTOMIZATION
 ; OLDPM_O2:        SLP Vectorizer
 ; OLDPM_O2:        Optimize scalar/vector ops
@@ -53,14 +53,14 @@
 
 ; OLDPM_O1_FORCE_OFF-LABEL:  Pass Arguments:
 ; INTEL_CUSTOMIZATION
-; OLDPM_O1_FORCE_OFF:        VPlan Vectorization Driver
+; OLDPM_O1_FORCE_OFF:        VPlan Vectorizer
 ; END INTEL CUSTOMIZATION
 ; OLDPM_O1_FORCE_OFF-NOT:    SLP Vectorizer
 ; OLDPM_O1_FORCE_OFF:        Optimize scalar/vector ops
 
 ; OLDPM_O2_FORCE_OFF-LABEL:  Pass Arguments:
 ; INTEL_CUSTOMIZATION
-; OLDPM_O2_FORCE_OFF:        VPlan Vectorization Driver
+; OLDPM_O2_FORCE_OFF:        VPlan Vectorizer
 ; END INTEL CUSTOMIZATION
 ; OLDPM_O2_FORCE_OFF:        SLP Vectorizer
 ; OLDPM_O2_FORCE_OFF:        Optimize scalar/vector ops

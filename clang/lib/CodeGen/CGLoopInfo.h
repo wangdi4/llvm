@@ -220,6 +220,10 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.speculated.iterations.count metadata.
   unsigned SYCLSpeculatedIterationsNIterations;
 
+  /// Value for count variant (min/max/avg) and count metadata.
+  llvm::SmallVector<std::pair<const char *, unsigned int>, 2>
+      SYCLIntelFPGAVariantCount;
+
   /// llvm.unroll.
   unsigned UnrollCount;
 
@@ -595,6 +599,11 @@ public:
   /// Set value of concurrent speculated iterations for the next loop pushed.
   void setSYCLSpeculatedIterationsNIterations(unsigned C) {
     StagedAttrs.SYCLSpeculatedIterationsNIterations = C;
+  }
+
+  /// Set value of variant and loop count for the next loop pushed.
+  void setSYCLIntelFPGAVariantCount(const char *Var, unsigned int Count) {
+    StagedAttrs.SYCLIntelFPGAVariantCount.push_back({Var, Count});
   }
 
   /// Set the unroll count for the next loop pushed.

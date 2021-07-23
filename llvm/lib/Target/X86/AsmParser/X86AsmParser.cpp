@@ -1784,21 +1784,21 @@ bool X86AsmParser::ParseIntelNamedOperator(StringRef Name,
   if (Name.compare(Name.lower()) && Name.compare(Name.upper()) &&
       !getParser().isParsingMasm())
     return false;
-  if (Name.equals_lower("not")) {
+  if (Name.equals_insensitive("not")) {
     SM.onNot();
-  } else if (Name.equals_lower("or")) {
+  } else if (Name.equals_insensitive("or")) {
     SM.onOr();
-  } else if (Name.equals_lower("shl")) {
+  } else if (Name.equals_insensitive("shl")) {
     SM.onLShift();
-  } else if (Name.equals_lower("shr")) {
+  } else if (Name.equals_insensitive("shr")) {
     SM.onRShift();
-  } else if (Name.equals_lower("xor")) {
+  } else if (Name.equals_insensitive("xor")) {
     SM.onXor();
-  } else if (Name.equals_lower("and")) {
+  } else if (Name.equals_insensitive("and")) {
     SM.onAnd();
-  } else if (Name.equals_lower("mod")) {
+  } else if (Name.equals_insensitive("mod")) {
     SM.onMod();
-  } else if (Name.equals_lower("offset")) {
+  } else if (Name.equals_insensitive("offset")) {
     SMLoc OffsetLoc = getTok().getLoc();
     const MCExpr *Val = nullptr;
     StringRef ID;
@@ -1814,24 +1814,24 @@ bool X86AsmParser::ParseIntelNamedOperator(StringRef Name,
   } else {
     return false;
   }
-  if (!Name.equals_lower("offset"))
+  if (!Name.equals_insensitive("offset"))
     End = consumeToken();
   return true;
 }
 bool X86AsmParser::ParseMasmNamedOperator(StringRef Name,
                                           IntelExprStateMachine &SM,
                                           bool &ParseError, SMLoc &End) {
-  if (Name.equals_lower("eq")) {
+  if (Name.equals_insensitive("eq")) {
     SM.onEq();
-  } else if (Name.equals_lower("ne")) {
+  } else if (Name.equals_insensitive("ne")) {
     SM.onNE();
-  } else if (Name.equals_lower("lt")) {
+  } else if (Name.equals_insensitive("lt")) {
     SM.onLT();
-  } else if (Name.equals_lower("le")) {
+  } else if (Name.equals_insensitive("le")) {
     SM.onLE();
-  } else if (Name.equals_lower("gt")) {
+  } else if (Name.equals_insensitive("gt")) {
     SM.onGT();
-  } else if (Name.equals_lower("ge")) {
+  } else if (Name.equals_insensitive("ge")) {
     SM.onGE();
   } else {
     return false;
@@ -1933,7 +1933,7 @@ bool X86AsmParser::ParseIntelExpression(IntelExprStateMachine &SM, SMLoc &End) {
       if (Parser.isParsingMasm()) {
         const AsmToken &NextTok = getLexer().peekTok();
         if (NextTok.is(AsmToken::Identifier) &&
-            NextTok.getIdentifier().equals_lower("ptr")) {
+            NextTok.getIdentifier().equals_insensitive("ptr")) {
           AsmTypeInfo Info;
           if (Parser.lookUpType(Identifier, Info))
             return Error(Tok.getLoc(), "unknown type");
@@ -2507,7 +2507,13 @@ bool X86AsmParser::ParseIntelOperand(OperandVector &Operands) {
       return false;
     }
     // An alleged segment override. check if we have a valid segment register
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    if (!X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(RegNo))
+#else // INTEL_FEATURE_ICECODE
     if (!X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(RegNo))
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       return Error(Start, "invalid segment register");
     // Eat ':' and update Start location
     Start = Lex().getLoc();
@@ -2668,7 +2674,13 @@ bool X86AsmParser::ParseATTOperand(OperandVector &Operands) {
           Operands.push_back(X86Operand::CreateReg(Reg, Loc, EndLoc));
           return false;
         }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+        if (!X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(Reg))
+#else // INTEL_FEATURE_ICECODE
         if (!X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(Reg))
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
           return Error(Loc, "invalid segment register");
         // Accept a '*' absolute memory reference after the segment. Place it
         // before the full memory operand.
@@ -2754,9 +2766,7 @@ bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands) {
               .Case("1to8", "{1to8}")
               .Case("1to16", "{1to16}")
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
               .Case("1to32", "{1to32}")
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
               .Default(nullptr);
       if (!BroadcastPrimitive)
@@ -3073,13 +3083,13 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
     }
     // Parse MASM style pseudo prefixes.
     if (isParsingMSInlineAsm()) {
-      if (Name.equals_lower("vex"))
+      if (Name.equals_insensitive("vex"))
         ForcedVEXEncoding = VEXEncoding_VEX;
-      else if (Name.equals_lower("vex2"))
+      else if (Name.equals_insensitive("vex2"))
         ForcedVEXEncoding = VEXEncoding_VEX2;
-      else if (Name.equals_lower("vex3"))
+      else if (Name.equals_insensitive("vex3"))
         ForcedVEXEncoding = VEXEncoding_VEX3;
-      else if (Name.equals_lower("evex"))
+      else if (Name.equals_insensitive("evex"))
         ForcedVEXEncoding = VEXEncoding_EVEX;
 
       if (ForcedVEXEncoding != VEXEncoding_Default) {
@@ -3106,11 +3116,12 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   // Hack to skip "short" following Jcc.
   if (isParsingIntelSyntax() &&
       (PatchedName == "jmp" || PatchedName == "jc" || PatchedName == "jnc" ||
-       PatchedName == "jcxz" || PatchedName == "jexcz" ||
+       PatchedName == "jcxz" || PatchedName == "jecxz" ||
        (PatchedName.startswith("j") &&
         ParseConditionCode(PatchedName.substr(1)) != X86::COND_INVALID))) {
     StringRef NextTok = Parser.getTok().getString();
-    if (NextTok == "short") {
+    if (Parser.isParsingMasm() ? NextTok.equals_insensitive("short")
+                               : NextTok == "short") {
       SMLoc NameEndLoc =
           NameLoc.getFromPointer(NameLoc.getPointer() + Name.size());
       // Eat the short keyword.
@@ -3134,9 +3145,7 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
   if ((PatchedName.startswith("cmp") || PatchedName.startswith("vcmp")) &&
       (PatchedName.endswith("ss") || PatchedName.endswith("sd") ||
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
        PatchedName.endswith("sh") || PatchedName.endswith("ph") ||
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
        PatchedName.endswith("ps") || PatchedName.endswith("pd"))) {
     bool IsVCMP = PatchedName[0] == 'v';
@@ -3201,12 +3210,10 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
       else if (PatchedName.endswith("pd"))
         PatchedName = IsVCMP ? "vcmppd" : "cmppd";
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       else if (PatchedName.endswith("sh"))
         PatchedName = IsVCMP ? "vcmpsh" : "cmpsh";
       else if (PatchedName.endswith("ph"))
         PatchedName = IsVCMP ? "vcmpph" : "cmpph";
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       else
         llvm_unreachable("Unexpected suffix!");
@@ -3921,7 +3928,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
-#if INTEL_FEATURE_ISA_FP16
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:
   case X86::VFCMADDCPHZm:
@@ -4092,7 +4098,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -4850,7 +4855,13 @@ bool X86AsmParser::MatchAndEmitIntelInstruction(SMLoc IDLoc, unsigned &Opcode,
 }
 
 bool X86AsmParser::OmitRegisterFromClobberLists(unsigned RegNo) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  return X86MCRegisterClasses[X86::SEGMENTEX_REGRegClassID].contains(RegNo);
+#else // INTEL_FEATURE_ICECODE
   return X86MCRegisterClasses[X86::SEGMENT_REGRegClassID].contains(RegNo);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool X86AsmParser::ParseDirective(AsmToken DirectiveID) {
@@ -4901,19 +4912,19 @@ bool X86AsmParser::ParseDirective(AsmToken DirectiveID) {
   else if (IDVal == ".cv_fpo_endproc")
     return parseDirectiveFPOEndProc(DirectiveID.getLoc());
   else if (IDVal == ".seh_pushreg" ||
-           (Parser.isParsingMasm() && IDVal.equals_lower(".pushreg")))
+           (Parser.isParsingMasm() && IDVal.equals_insensitive(".pushreg")))
     return parseDirectiveSEHPushReg(DirectiveID.getLoc());
   else if (IDVal == ".seh_setframe" ||
-           (Parser.isParsingMasm() && IDVal.equals_lower(".setframe")))
+           (Parser.isParsingMasm() && IDVal.equals_insensitive(".setframe")))
     return parseDirectiveSEHSetFrame(DirectiveID.getLoc());
   else if (IDVal == ".seh_savereg" ||
-           (Parser.isParsingMasm() && IDVal.equals_lower(".savereg")))
+           (Parser.isParsingMasm() && IDVal.equals_insensitive(".savereg")))
     return parseDirectiveSEHSaveReg(DirectiveID.getLoc());
   else if (IDVal == ".seh_savexmm" ||
-           (Parser.isParsingMasm() && IDVal.equals_lower(".savexmm128")))
+           (Parser.isParsingMasm() && IDVal.equals_insensitive(".savexmm128")))
     return parseDirectiveSEHSaveXMM(DirectiveID.getLoc());
   else if (IDVal == ".seh_pushframe" ||
-           (Parser.isParsingMasm() && IDVal.equals_lower(".pushframe")))
+           (Parser.isParsingMasm() && IDVal.equals_insensitive(".pushframe")))
     return parseDirectiveSEHPushFrame(DirectiveID.getLoc());
 
   return true;
@@ -5029,31 +5040,27 @@ bool X86AsmParser::parseDirectiveFPOProc(SMLoc L) {
     return true;
   if (!isUIntN(32, ParamsSize))
     return Parser.TokError("parameters size out of range");
-  if (Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_proc' directive");
+  if (parseEOL())
+    return true;
   MCSymbol *ProcSym = getContext().getOrCreateSymbol(ProcName);
   return getTargetStreamer().emitFPOProc(ProcSym, ParamsSize, L);
 }
 
 // .cv_fpo_setframe ebp
 bool X86AsmParser::parseDirectiveFPOSetFrame(SMLoc L) {
-  MCAsmParser &Parser = getParser();
   unsigned Reg;
   SMLoc DummyLoc;
-  if (ParseRegister(Reg, DummyLoc, DummyLoc) ||
-      Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_setframe' directive");
+  if (ParseRegister(Reg, DummyLoc, DummyLoc) || parseEOL())
+    return true;
   return getTargetStreamer().emitFPOSetFrame(Reg, L);
 }
 
 // .cv_fpo_pushreg ebx
 bool X86AsmParser::parseDirectiveFPOPushReg(SMLoc L) {
-  MCAsmParser &Parser = getParser();
   unsigned Reg;
   SMLoc DummyLoc;
-  if (ParseRegister(Reg, DummyLoc, DummyLoc) ||
-      Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_pushreg' directive");
+  if (ParseRegister(Reg, DummyLoc, DummyLoc) || parseEOL())
+    return true;
   return getTargetStreamer().emitFPOPushReg(Reg, L);
 }
 
@@ -5061,9 +5068,8 @@ bool X86AsmParser::parseDirectiveFPOPushReg(SMLoc L) {
 bool X86AsmParser::parseDirectiveFPOStackAlloc(SMLoc L) {
   MCAsmParser &Parser = getParser();
   int64_t Offset;
-  if (Parser.parseIntToken(Offset, "expected offset") ||
-      Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_stackalloc' directive");
+  if (Parser.parseIntToken(Offset, "expected offset") || parseEOL())
+    return true;
   return getTargetStreamer().emitFPOStackAlloc(Offset, L);
 }
 
@@ -5071,25 +5077,24 @@ bool X86AsmParser::parseDirectiveFPOStackAlloc(SMLoc L) {
 bool X86AsmParser::parseDirectiveFPOStackAlign(SMLoc L) {
   MCAsmParser &Parser = getParser();
   int64_t Offset;
-  if (Parser.parseIntToken(Offset, "expected offset") ||
-      Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_stackalign' directive");
+  if (Parser.parseIntToken(Offset, "expected offset") || parseEOL())
+    return true;
   return getTargetStreamer().emitFPOStackAlign(Offset, L);
 }
 
 // .cv_fpo_endprologue
 bool X86AsmParser::parseDirectiveFPOEndPrologue(SMLoc L) {
   MCAsmParser &Parser = getParser();
-  if (Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_endprologue' directive");
+  if (Parser.parseEOL())
+    return true;
   return getTargetStreamer().emitFPOEndPrologue(L);
 }
 
 // .cv_fpo_endproc
 bool X86AsmParser::parseDirectiveFPOEndProc(SMLoc L) {
   MCAsmParser &Parser = getParser();
-  if (Parser.parseEOL("unexpected tokens"))
-    return addErrorSuffix(" in '.cv_fpo_endproc' directive");
+  if (Parser.parseEOL())
+    return true;
   return getTargetStreamer().emitFPOEndProc(L);
 }
 

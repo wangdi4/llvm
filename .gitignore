@@ -26,7 +26,6 @@
 
 # Nested build directory
 /build*
-!buildbot
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).
@@ -51,10 +50,9 @@ autoconf/autom4te.cache
 # CLion project configuration
 /.idea
 # External projects
-/external
 /llvm-spirv
 /ocl-cclang
-/opencl
+/opencl-intel
 
 #==============================================================================#
 # Directories to ignore (do not add trailing '/'s, they skip symlinks).

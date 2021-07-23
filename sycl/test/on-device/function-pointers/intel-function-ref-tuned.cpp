@@ -3,9 +3,9 @@
 // CUDA does not support the function pointer as kernel argument extension.
 
 // RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
-// FIXME: at the moment execution of the test is disabled, because not all
-// pieces of the whole implementation are ready.
-// RUNx: %CPU_RUN_PLACEHOLDER %t.out
+// RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
+
+// CHECK: Test PASSED.
 
 #include <CL/sycl.hpp>
 #include <CL/sycl/INTEL/function_ref_tuned.hpp>
@@ -18,14 +18,22 @@
 
 [[intel::device_indirectly_callable]] int sub(int A, int B) { return A - B; }
 
-using wrapper_type = cl::sycl::INTEL::function_ref_tuned<
-    decltype(add), cl::sycl::INTEL::int_list<4, 8>,
-    cl::sycl::INTEL::masked(cl::sycl::INTEL::varying, cl::sycl::INTEL::linear),
-    cl::sycl::INTEL::unmasked(cl::sycl::INTEL::uniform,
-                              cl::sycl::INTEL::uniform)>;
+using namespace cl::sycl::INTEL;
+
+using masked_variant = masked(varying, varying);
+using unmasked_variant = unmasked(uniform, uniform);
+using sg_sizes = int_list<4, 8>;
+
+using wrapper_type = function_ref_tuned<decltype(add), sg_sizes, masked_variant,
+                                        unmasked_variant>;
+
+template <auto F> auto make_function_ref() {
+  return make_function_ref_tuned<F, sg_sizes, masked_variant,
+                                 unmasked_variant>();
+}
 
 int main() {
-  const int Size = 10;
+  const int Size = 100;
   std::vector<long> A(Size, 1);
   std::vector<long> B(Size, 2);
 
@@ -40,18 +48,8 @@ int main() {
      auto AccC =
          BufC.template get_access<cl::sycl::access::mode::discard_write>(CGH);
      CGH.single_task<class Init>([=]() {
-       AccC[0] = cl::sycl::INTEL::make_function_ref_tuned<
-           add, cl::sycl::INTEL::int_list<4, 8>,
-           cl::sycl::INTEL::masked(cl::sycl::INTEL::varying,
-                                   cl::sycl::INTEL::linear),
-           cl::sycl::INTEL::unmasked(cl::sycl::INTEL::uniform,
-                                     cl::sycl::INTEL::uniform)>();
-       AccC[1] = cl::sycl::INTEL::make_function_ref_tuned<
-           sub, cl::sycl::INTEL::int_list<4, 8>,
-           cl::sycl::INTEL::masked(cl::sycl::INTEL::varying,
-                                   cl::sycl::INTEL::linear),
-           cl::sycl::INTEL::unmasked(cl::sycl::INTEL::uniform,
-                                     cl::sycl::INTEL::uniform)>();
+       AccC[0] = make_function_ref<add>();
+       AccC[1] = make_function_ref<sub>();
      });
    }).wait();
   Q.submit([&](cl::sycl::handler &CGH) {
@@ -85,4 +83,3 @@ int main() {
 
   return 0;
 }
-

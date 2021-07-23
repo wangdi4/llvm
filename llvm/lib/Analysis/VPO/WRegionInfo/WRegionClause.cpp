@@ -145,6 +145,7 @@ template<>Clause<AlignedItem>     ::Clause():ClauseID(QUAL_OMP_ALIGNED){}
 template<>Clause<NontemporalItem> ::Clause():ClauseID(QUAL_OMP_NONTEMPORAL){}
 template<>Clause<FlushItem>       ::Clause():ClauseID(QUAL_OMP_FLUSH){}
 template<>Clause<AllocateItem>    ::Clause():ClauseID(QUAL_OMP_ALLOCATE){}
+template<>Clause<DataItem>        ::Clause():ClauseID(QUAL_OMP_DATA){}
 
 
 // Print routine for ScheduleClause. Returns true iff something is printed.

@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; It checks two function clones are created when -ip-cloning is enabled.
 ; _Z3fooiPFbiiE is cloned based on @_Z8compare1ii and @_Z8compare2ii
 ; function address constants, which are passed as 2nd argument at
@@ -59,3 +60,4 @@ entry:
   ret i32 %conv
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

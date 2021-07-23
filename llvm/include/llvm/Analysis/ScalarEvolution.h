@@ -520,6 +520,17 @@ public:
   /// Erase Value from ValueExprMap and ExprValueMap.
   void eraseValueFromMap(Value *V);
 
+  /// Is operation \p BinOp between \p LHS and \p RHS provably does not have
+  /// a signed/unsigned overflow (\p Signed)?
+  bool willNotOverflow(Instruction::BinaryOps BinOp, bool Signed,
+                       const SCEV *LHS, const SCEV *RHS);
+
+  /// Parse NSW/NUW flags from add/sub/mul IR binary operation \p Op into
+  /// SCEV no-wrap flags, and deduce flag[s] that aren't known yet.
+  /// Does not mutate the original instruction.
+  std::pair<SCEV::NoWrapFlags, bool /*Deduced*/>
+  getStrengthenedNoWrapFlagsFromBinOp(const OverflowingBinaryOperator *OBO);
+
   /// Return a SCEV expression for the full generality of the specified
   /// expression.
   const SCEV *getSCEV(Value *V);
@@ -527,7 +538,8 @@ public:
   const SCEV *getConstant(ConstantInt *V);
   const SCEV *getConstant(const APInt &Val);
   const SCEV *getConstant(Type *Ty, uint64_t V, bool isSigned = false);
-  const SCEV *getPtrToIntExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
+  const SCEV *getLosslessPtrToIntExpr(const SCEV *Op, unsigned Depth = 0);
+  const SCEV *getPtrToIntExpr(const SCEV *Op, Type *Ty);
   const SCEV *getTruncateExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getZeroExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
   const SCEV *getSignExtendExpr(const SCEV *Op, Type *Ty, unsigned Depth = 0);
@@ -594,7 +606,11 @@ public:
   const SCEV *getGEPExpr(GEPOperator *GEP,
                          const SmallVectorImpl<const SCEV *> &IndexExprs);
   const SCEV *getAbsExpr(const SCEV *Op, bool IsNSW);
+#if INTEL_CUSTOMIZATION
+  // Sign of x: smin(smax(x,-1),1) => [-1,0,1]. Used as part of
+  // "ashr exact" lowering.
   const SCEV *getSignumExpr(const SCEV *Op);
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getMinMaxExpr(SCEVTypes Kind,
                             SmallVectorImpl<const SCEV *> &Operands);
   const SCEV *getSMaxExpr(const SCEV *LHS, const SCEV *RHS);
@@ -641,6 +657,12 @@ public:
   const SCEV *getNotSCEV(const SCEV *V);
 
   /// Return LHS-RHS.  Minus is represented in SCEV as A+B*-1.
+  ///
+  /// If the LHS and RHS are pointers which don't share a common base
+  /// (according to getPointerBase()), this returns a SCEVCouldNotCompute.
+  /// To compute the difference between two unrelated pointers, you can
+  /// explicitly convert the arguments using getPtrToIntExpr(), for pointer
+  /// types that support it.
   const SCEV *getMinusSCEV(const SCEV *LHS, const SCEV *RHS,
                            SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap,
                            unsigned Depth = 0);
@@ -710,33 +732,50 @@ public:
   /// Test whether entry to the loop is protected by a conditional between LHS
   /// and RHS.  This is used to help avoid max expressions in loop trip
   /// counts, and to eliminate casts.
+#if INTEL_CUSTOMIZATION
+  /// \p ExprToSimplify Optional SCEV which is simplified using found predicates
+  /// when looking for loop entry guard. This is handy for returning a
+  /// simplified backedge taken count expression to the caller.
+#endif // INTEL_CUSTOMIZATION
   bool isLoopEntryGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
                                 const SCEV *LHS, const SCEV *RHS, // INTEL
-                                ICmpInst *PredContext = nullptr); // INTEL
+                                ICmpInst *PredContext = nullptr,  // INTEL
+                                const SCEV **ExprToSimplify = nullptr); // INTEL
 
   /// Test whether entry to the basic block is protected by a conditional
   /// between LHS and RHS.
   bool isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                       ICmpInst::Predicate Pred, const SCEV *LHS,
-                                      const SCEV *RHS,                  // INTEL
-                                      ICmpInst *PredContext = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                                      const SCEV *RHS,
+                                      ICmpInst *PredContext = nullptr,
+                                      const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
   bool isLoopBackedgeGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
                                    const SCEV *LHS, const SCEV *RHS);
 
-  /// Returns the maximum trip count of the loop if it is a single-exit
-  /// loop and we can compute a small maximum for that loop.
-  ///
-  /// Implemented in terms of the \c getSmallConstantTripCount overload with
-  /// the single exiting block passed to it. See that routine for details.
+  /// Convert from an "exit count" (i.e. "backedge taken count") to a "trip
+  /// count".  A "trip count" is the number of times the header of the loop
+  /// will execute if an exit is taken after the specified number of backedges
+  /// have been taken.  (e.g. TripCount = ExitCount + 1)  A zero result
+  /// must be interpreted as a loop having an unknown trip count.
+  const SCEV *getTripCountFromExitCount(const SCEV *ExitCount);
+
+  /// Returns the exact trip count of the loop if we can compute it, and
+  /// the result is a small constant.  '0' is used to represent an unknown
+  /// or non-constant trip count.  Note that a trip count is simply one more
+  /// than the backedge taken count for the loop.
   unsigned getSmallConstantTripCount(const Loop *L);
 
-  /// Returns the maximum trip count of this loop as a normal unsigned
-  /// value. Returns 0 if the trip count is unknown or not constant. This
-  /// "trip count" assumes that control exits via ExitingBlock. More
-  /// precisely, it is the number of times that control may reach ExitingBlock
+  /// Return the exact trip count for this loop if we exit through ExitingBlock.
+  /// '0' is used to represent an unknown or non-constant trip count.  Note
+  /// that a trip count is simply one more than the backedge taken count for
+  /// the same exit.
+  /// This "trip count" assumes that control exits via ExitingBlock. More
+  /// precisely, it is the number of times that control will reach ExitingBlock
   /// before taking the branch. For loops with multiple exits, it may not be
   /// the number times that the loop header executes if the loop exits
   /// prematurely via another branch.
@@ -763,12 +802,18 @@ public:
   /// Returns 0 if the trip count is unknown or not constant.
   unsigned getSmallConstantMaxTripCount(const Loop *L);
 
+  /// Returns the largest constant divisor of the trip count as a normal
+  /// unsigned value, if possible. This means that the actual trip count is
+  /// always a multiple of the returned value. Returns 1 if the trip count is
+  /// unknown or not guaranteed to be the multiple of a constant., Will also
+  /// return 1 if the trip count is very large (>= 2^32).
+  /// Note that the argument is an exit count for loop L, NOT a trip count.
+  unsigned getSmallConstantTripMultiple(const Loop *L,
+                                        const SCEV *ExitCount);
+
   /// Returns the largest constant divisor of the trip count of the
-  /// loop if it is a single-exit loop and we can compute a small maximum for
-  /// that loop.
-  ///
-  /// Implemented in terms of the \c getSmallConstantTripMultiple overload with
-  /// the single exiting block passed to it. See that routine for details.
+  /// loop.  Will return 1 if no trip count could be computed, or if a
+  /// divisor could not be found.
   unsigned getSmallConstantTripMultiple(const Loop *L);
 
   /// Returns the largest constant divisor of the trip count of this loop as a
@@ -1286,7 +1331,8 @@ protected: // INTEL
 
   /// The type for ExprValueMap.
   using ValueOffsetPair = std::pair<Value *, ConstantInt *>;
-  using ExprValueMapType = DenseMap<const SCEV *, SetVector<ValueOffsetPair>>;
+  using ValueOffsetPairSetVector = SmallSetVector<ValueOffsetPair, 4>;
+  using ExprValueMapType = DenseMap<const SCEV *, ValueOffsetPairSetVector>;
 
   /// ExprValueMap -- This map records the original values from which
   /// the SCEV expr is generated from.
@@ -1356,7 +1402,7 @@ protected: // INTEL
 
 public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
-  SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
+  ValueOffsetPairSetVector *getSCEVValues(const SCEV *S);
 
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
@@ -1409,8 +1455,6 @@ protected: // INTEL
              !isa<SCEVCouldNotCompute>(MaxNotTaken);
     }
 
-    bool hasOperand(const SCEV *S) const;
-
     /// Test whether this ExitLimit contains all information.
     bool hasFullInfo() const {
       return !isa<SCEVCouldNotCompute>(ExactNotTaken);
@@ -1460,6 +1504,9 @@ protected: // INTEL
 
     /// True iff the backedge is taken either exactly Max or zero times.
     bool MaxOrZero = false;
+
+    /// SCEV expressions used in any of the ExitNotTakenInfo counts.
+    SmallPtrSet<const SCEV *, 4> Operands;
 
     bool isComplete() const { return IsComplete; }
     const SCEV *getConstantMax() const { return ConstantMax; }
@@ -1529,10 +1576,7 @@ protected: // INTEL
 
     /// Return true if any backedge taken count expressions refer to the given
     /// subexpression.
-    bool hasOperand(const SCEV *S, ScalarEvolution *SE) const;
-
-    /// Invalidate this result and free associated memory.
-    void clear();
+    bool hasOperand(const SCEV *S) const;
   };
 
   /// Cache the backedge-taken count of the loops for this function as they
@@ -1586,6 +1630,10 @@ protected: // INTEL
   bool loopHasNoAbnormalExits(const Loop *L) {
     return getLoopProperties(L).HasNoAbnormalExits;
   }
+
+  /// Return true if this loop is finite by assumption.  That is,
+  /// to be infinite, it must also be undefined.
+  bool loopIsFiniteByAssumption(const Loop *L);
 
   /// Compute a LoopDisposition value.
   LoopDisposition computeLoopDisposition(const SCEV *S, const Loop *L);
@@ -1862,7 +1910,8 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      const Value *FoundCondValue, bool Inverse,
                      const Instruction *Context = nullptr,   // INTEL
-                     const ICmpInst *PredContext = nullptr); // INTEL
+                     const ICmpInst *PredContext = nullptr,  // INTEL
+                     const SCEV **ExprToSimplify = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true in given
@@ -1874,7 +1923,7 @@ protected: // INTEL
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
                                   const Instruction *Context,        // INTEL
                                   const ICmpInst *PredContext,       // INTEL
-                                  const ICmpInst *FoundPredCOntext); // INTEL
+                                  const ICmpInst *FoundPredContext); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1885,7 +1934,8 @@ protected: // INTEL
                      const SCEV *FoundRHS,
                      const Instruction *Context = nullptr,        // INTEL
                      const ICmpInst *PredContext = nullptr,       // INTEL
-                     const ICmpInst *FoundPredContext = nullptr); // INTEL
+                     const ICmpInst *FoundPredContext = nullptr,  // INTEL
+                     const SCEV **ExprToSimplify = nullptr);      // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
@@ -2093,10 +2143,12 @@ protected: // INTEL
   Optional<std::pair<const SCEV *, SmallVector<const SCEVPredicate *, 3>>>
   createAddRecFromPHIWithCastsImpl(const SCEVUnknown *SymbolicPHI);
 
-  /// Compute the backedge taken count knowing the interval difference, the
-  /// stride and presence of the equality in the comparison.
-  const SCEV *computeBECount(const SCEV *Delta, const SCEV *Stride,
-                             bool Equality);
+  /// Compute the backedge taken count knowing the interval difference, and
+  /// the stride for an inequality.  Result takes the form:
+  /// (Delta + (Stride - 1)) udiv Stride.
+  /// Caller must ensure that this expression either does not overflow or
+  /// that the result is undefined if it does.
+  const SCEV *computeBECount(const SCEV *Delta, const SCEV *Stride);
 
   /// Compute the maximum backedge count based on the range of values
   /// permitted by Start, End, and Stride. This is for loops of the form
@@ -2112,15 +2164,13 @@ protected: // INTEL
 
   /// Verify if an linear IV with positive stride can overflow when in a
   /// less-than comparison, knowing the invariant term of the comparison,
-  /// the stride and the knowledge of NSW/NUW flags on the recurrence.
-  bool doesIVOverflowOnLT(const SCEV *RHS, const SCEV *Stride, bool IsSigned,
-                          bool NoWrap);
+  /// the stride.
+  bool canIVOverflowOnLT(const SCEV *RHS, const SCEV *Stride, bool IsSigned);
 
   /// Verify if an linear IV with negative stride can overflow when in a
   /// greater-than comparison, knowing the invariant term of the comparison,
-  /// the stride and the knowledge of NSW/NUW flags on the recurrence.
-  bool doesIVOverflowOnGT(const SCEV *RHS, const SCEV *Stride, bool IsSigned,
-                          bool NoWrap);
+  /// the stride.
+  bool canIVOverflowOnGT(const SCEV *RHS, const SCEV *Stride, bool IsSigned);
 
   /// Get add expr already created or create a new one.
   const SCEV *getOrCreateAddExpr(ArrayRef<const SCEV *> Ops,

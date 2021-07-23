@@ -124,10 +124,12 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    DebugLoc Loc;
-    if (auto *SP = F.getSubprogram())
-      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
-    IRB.SetCurrentDebugLocation(Loc);
+
+    // These instructions should be emitted as part of the prolog and marked
+    // frame-setup, but they are added here instead. To prevent debuggers
+    // from stopping too early inside the prolog, remove the source correlation
+    // and hope these get folded into the correlation for the prolog sequence.
+    IRB.SetCurrentDebugLocation(DebugLoc());
 
     // %tmp = alloca i32, align 4
     IntegerType *I32Ty = IRB.getInt32Ty();
@@ -149,7 +151,7 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // %stmxcsr = load i32, i32* %tmp, align 4
-    LoadInst *LI = IRB.CreateAlignedLoad(AI, Align(4), "stmxcsr");
+    LoadInst *LI = IRB.CreateAlignedLoad(I32Ty, AI, Align(4), "stmxcsr");
 
     // To share code, we're using the ftz_daz argument that
     // __intel_new_feature_proc_init expects, but it must be
@@ -199,10 +201,12 @@ public:
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     const DataLayout &DL = FirstNonAlloca->getModule()->getDataLayout();
     IRBuilder<> IRB(FirstNonAlloca);
-    DebugLoc Loc;
-    if (auto *SP = F.getSubprogram())
-      Loc = DILocation::get(F.getContext(),SP->getScopeLine(), 0, SP);
-    IRB.SetCurrentDebugLocation(Loc);
+
+    // These instructions should be emitted as part of the prolog and marked
+    // frame-setup, but they are added here instead. To prevent debuggers
+    // from stopping too early inside the prolog, remove the source correlation
+    // and hope these get folded into the correlation for the prolog sequence.
+    IRB.SetCurrentDebugLocation(DebugLoc());
 
     // %1 = alloca i16, align 2
     IntegerType *I16Ty = IRB.getInt16Ty();
@@ -270,10 +274,12 @@ public:
 
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
-    DebugLoc Loc;
-    if (auto *SP = F.getSubprogram())
-      Loc = DILocation::get(F.getContext(), SP->getScopeLine(), 0, SP);
-    IRB.SetCurrentDebugLocation(Loc);
+
+    // These instructions should be emitted as part of the prolog and marked
+    // frame-setup, but they are added here instead. To prevent debuggers
+    // from stopping too early inside the prolog, remove the source correlation
+    // and hope these get folded into the correlation for the prolog sequence.
+    IRB.SetCurrentDebugLocation(DebugLoc());
 
     uint32_t FtzDaz = getFtzDaz(F);
     Value *Args[] = {

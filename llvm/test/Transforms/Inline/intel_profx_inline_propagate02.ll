@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -dtrans-inline-heuristics -S 2>&1 | FileCheck %s
 
 ; Test that intel_profx counts on invokes are propagated correctly after
@@ -235,3 +237,4 @@ attributes #7 = { nounwind }
 !48 = !{!"sm.cpp:_ZL3bazi"}
 
 
+; end INTEL_FEATURE_SW_ADVANCED

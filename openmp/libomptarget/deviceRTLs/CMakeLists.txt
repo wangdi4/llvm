@@ -10,6 +10,7 @@
 #
 ##===----------------------------------------------------------------------===##
 
+add_subdirectory(amdgcn)
 add_subdirectory(nvptx)
 
 #INTEL_CUSTOMIZATION

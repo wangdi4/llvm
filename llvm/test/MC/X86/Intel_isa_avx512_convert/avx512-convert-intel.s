@@ -1,46 +1,6 @@
 // REQUIRES: intel_feature_isa_avx512_convert
 // RUN: llvm-mc -triple i686-unknown-unknown -mattr=+avx512convert -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
-// CHECK:      vcvt2ps2ph zmm2, zmm3, zmm4
-// CHECK: encoding: [0x62,0xf2,0x65,0x48,0x67,0xd4]
-               vcvt2ps2ph zmm2, zmm3, zmm4
-
-// CHECK:      vcvt2ps2ph zmm2, zmm3, zmm4, {rn-sae}
-// CHECK: encoding: [0x62,0xf2,0x65,0x18,0x67,0xd4]
-               vcvt2ps2ph zmm2, zmm3, zmm4, {rn-sae}
-
-// CHECK:      vcvt2ps2ph zmm2 {k7}, zmm3, zmm4
-// CHECK: encoding: [0x62,0xf2,0x65,0x4f,0x67,0xd4]
-               vcvt2ps2ph zmm2 {k7}, zmm3, zmm4
-
-// CHECK:      vcvt2ps2ph zmm2 {k7} {z}, zmm3, zmm4, {rz-sae}
-// CHECK: encoding: [0x62,0xf2,0x65,0xff,0x67,0xd4]
-               vcvt2ps2ph zmm2 {k7} {z}, zmm3, zmm4, {rz-sae}
-
-// CHECK:      vcvt2ps2ph zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
-// CHECK: encoding: [0x62,0xf2,0x65,0x48,0x67,0x94,0xf4,0x00,0x00,0x00,0x10]
-               vcvt2ps2ph zmm2, zmm3, zmmword ptr [esp + 8*esi + 268435456]
-
-// CHECK:      vcvt2ps2ph zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
-// CHECK: encoding: [0x62,0xf2,0x65,0x4f,0x67,0x94,0x87,0x23,0x01,0x00,0x00]
-               vcvt2ps2ph zmm2 {k7}, zmm3, zmmword ptr [edi + 4*eax + 291]
-
-// CHECK:      vcvt2ps2ph zmm2, zmm3, dword ptr [eax]{1to16}
-// CHECK: encoding: [0x62,0xf2,0x65,0x58,0x67,0x10]
-               vcvt2ps2ph zmm2, zmm3, dword ptr [eax]{1to16}
-
-// CHECK:      vcvt2ps2ph zmm2, zmm3, zmmword ptr [2*ebp - 2048]
-// CHECK: encoding: [0x62,0xf2,0x65,0x48,0x67,0x14,0x6d,0x00,0xf8,0xff,0xff]
-               vcvt2ps2ph zmm2, zmm3, zmmword ptr [2*ebp - 2048]
-
-// CHECK:      vcvt2ps2ph zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
-// CHECK: encoding: [0x62,0xf2,0x65,0xcf,0x67,0x51,0x7f]
-               vcvt2ps2ph zmm2 {k7} {z}, zmm3, zmmword ptr [ecx + 8128]
-
-// CHECK:      vcvt2ps2ph zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
-// CHECK: encoding: [0x62,0xf2,0x65,0xdf,0x67,0x52,0x80]
-               vcvt2ps2ph zmm2 {k7} {z}, zmm3, dword ptr [edx - 512]{1to16}
-
 // CHECK:      vcvtbf162ph zmm2, zmm3
 // CHECK: encoding: [0x62,0xf2,0x7e,0x48,0x67,0xd3]
                vcvtbf162ph zmm2, zmm3

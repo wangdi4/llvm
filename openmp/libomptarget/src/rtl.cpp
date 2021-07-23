@@ -158,6 +158,13 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
+#if INTEL_CUSTOMIZATION
+#if !_WIN32
+  // Turn on helper task
+  if (!getenv("LIBOMP_USE_HIDDEN_HELPER_TASK"))
+    kmp_set_defaults("LIBOMP_USE_HIDDEN_HELPER_TASK=1");
+#endif // !_WIN32
+#endif // INTEL_CUSTOMIZATION
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
   PM->TargetOffloadPolicy =
       (kmp_target_offload_kind_t)__kmpc_get_target_offload();
@@ -182,7 +189,8 @@ void RTLsTy::LoadRTLs() {
       RTLChecked.push_back("libomptarget.rtl.opencl.so");
 #endif
 #if INTEL_CUSTOMIZATION
-    } else if (pluginName == "LEVEL0" || pluginName == "level0") {
+    } else if (pluginName == "LEVEL0" || pluginName == "level0" ||
+               pluginName == "LEVEL_ZERO" || pluginName == "level_zero") {
 #if _WIN32
       RTLChecked.push_back("omptarget.rtl.level0.dll");
 #else
@@ -350,6 +358,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);
     SET_OPTIONAL_INTERFACE_FN(get_interop_rc_desc);
     SET_OPTIONAL_INTERFACE_FN(get_num_sub_devices);
+    SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
@@ -370,6 +379,8 @@ void RTLsTy::LoadRTLs() {
         dlsym(dynlib_handle, "__tgt_rtl_unregister_lib");
     *((void **)&R.supports_empty_images) =
         dlsym(dynlib_handle, "__tgt_rtl_supports_empty_images");
+    *((void **)&R.set_info_flag) =
+        dlsym(dynlib_handle, "__tgt_rtl_set_info_flag");
   }
 
   DP("RTLs loaded!\n");

@@ -126,7 +126,7 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_AVX32-NEXT:    pushl %ebx
 ; CHECK_AVX32-NEXT:    pushl %edi
 ; CHECK_AVX32-NEXT:    pushl %esi
-; CHECK_AVX32-NEXT:    subl $112, %esp
+; CHECK_AVX32-NEXT:    subl $96, %esp
 ; CHECK_AVX32-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; CHECK_AVX32-NEXT:    movl {{[0-9]+}}(%esp), %edi
 ; CHECK_AVX32-NEXT:    movl {{[0-9]+}}(%esp), %ebx
@@ -143,7 +143,7 @@ define void @test_256_load(double* nocapture %d, float* nocapture %f, <4 x i64>*
 ; CHECK_AVX32-NEXT:    vmovups %ymm0, (%edi) # AlignMOV convert to UnAlignMOV
 ; CHECK_AVX32-NEXT:    vmovups (%esp), %ymm0 # 32-byte Reload
 ; CHECK_AVX32-NEXT:    vmovups %ymm0, (%esi) # AlignMOV convert to UnAlignMOV
-; CHECK_AVX32-NEXT:    addl $112, %esp
+; CHECK_AVX32-NEXT:    addl $96, %esp
 ; CHECK_AVX32-NEXT:    popl %esi
 ; CHECK_AVX32-NEXT:    popl %edi
 ; CHECK_AVX32-NEXT:    popl %ebx

@@ -45,6 +45,7 @@
 //
 // Example 3 issues prefetching all variables with hint 1 and distance 40.
 //===----------------------------------------------------------------------===//
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
@@ -61,7 +62,6 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
-
 typedef DDRefGrouping::RefGroupTy<const RegDDRef *> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<const RegDDRef *> RefGroupVecTy;
 
@@ -90,16 +90,16 @@ static cl::opt<unsigned> ForceIterationDistance(
     cl::desc("Iteration distance for prefetching distance computation"));
 
 // Pragma prefetch hint specifies the type of prefetch. Possible values:
-// 1: For integer data that will be reused
-// 2: For integer and floating point data that will be reused from L2 cache
-// 3: For data that will be reused from L3 cache
-// 4: For data that will not be reused
+// 0: For integer data that will be reused
+// 1: For integer and floating point data that will be reused from L2 cache
+// 2: For data that will be reused from L3 cache
+// 3: For data that will not be reused
 // However, prefetch intrinsic's locality is a temporal locality specifier
 // ranging from (0) - no locality, to (3) - extremely local keep in cache. Thus,
 // we need to transfer pragma prefetch hint to prefetch intrinsic's locality
-// using (4 - PrefetchHint)
+// using (3 - PrefetchHint)
 static cl::opt<unsigned>
-    ForceHint("hir-prefetching-hint", cl::init(1), cl::Hidden,
+    ForceHint("hir-prefetching-hint", cl::init(0), cl::Hidden,
               cl::desc("Prefetching hint to specify the type of prefetch"));
 
 static cl::opt<unsigned>
@@ -120,6 +120,11 @@ static cl::opt<bool>
     SkipAVX2Check("hir-prefetching-skip-AVX2-check", cl::init(false),
                   cl::Hidden, cl::desc("Skip AVX2 and above processor check"));
 
+// Set RW type of prefetch intrinsic is 1(write) for the store/write memory
+// stream when prefetchw is enabled
+static cl::opt<bool> EnablePrefetchW("hir-prefetching-prefetchw",
+                                     cl::init(false), cl::Hidden,
+                                     cl::desc("Enable prefetchW"));
 namespace {
 
 struct PragmaInfo {
@@ -131,44 +136,67 @@ struct PragmaInfo {
       : BasePtrSB(BasePtrSB), Hint(Hint), Dist(Dist) {}
 };
 
+struct PrefetchCandidateInfo {
+  const RegDDRef *CandidateRef;
+  RegDDRef *OrigIndexLoadRef; // This is only applicable for indirect refs
+  int Dist;
+  int Hint;
+  bool IsWrite;
+
+  PrefetchCandidateInfo(const RegDDRef *CandidateRef,
+                        RegDDRef *OrigIndexLoadRef, int Dist, int Hint,
+                        bool IsWrite)
+      : CandidateRef(CandidateRef), OrigIndexLoadRef(OrigIndexLoadRef),
+        Dist(Dist), Hint(Hint), IsWrite(IsWrite) {}
+};
+
 class HIRPrefetching {
   HIRFramework &HIRF;
   HIRLoopLocality &LA;
+  HIRDDAnalysis &DDA;
   HIRLoopResource &HLR;
   const TargetTransformInfo &TTI;
 
 public:
-  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA, HIRLoopResource &HLR,
-                 const TargetTransformInfo &TTI)
-      : HIRF(HIRF), LA(LA), HLR(HLR), TTI(TTI) {}
+  HIRPrefetching(HIRFramework &HIRF, HIRLoopLocality &LA, HIRDDAnalysis &DDA,
+                 HIRLoopResource &HLR, const TargetTransformInfo &TTI)
+      : HIRF(HIRF), LA(LA), DDA(DDA), HLR(HLR), TTI(TTI) {}
 
   bool run();
 
 private:
   bool doPrefetching(
-      HLLoop *Lp,
-      SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints,
-      bool HasPragmaInfo);
+      HLLoop *Lp, bool HasPragmaInfo,
+      const SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
+      const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 
-  void generatePrefetchingInst(HLLoop *Lp, RegDDRef *PrefetchRef,
-                               unsigned PrefetchHint);
+  HLInst *generatePrefetchingInst(HLLoop *Lp, RegDDRef *PrefetchRef,
+                                  unsigned PrefetchHint, bool IsWrite);
 
   bool doAnalysis(
-      HLLoop *Lp,
-      SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints,
-      bool &HasPragmaInfo);
+      HLLoop *Lp, bool &HasPragmaInfo,
+      SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
+      SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 
   unsigned getPrefetchingDist(HLLoop *Lp);
 
   void collectPrefetchCandidates(
       RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
       int Distance, int Hint,
-      SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints);
+      SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates);
 
   void collectPrefetchPragmaInfo(
       HLLoop *Lp,
       DenseMap<unsigned, std::pair<int, int>> &CandidateVarSBsDistsHints,
       int &PrefetchDist, int &PrefetchHint);
+
+  void collectIndirectPrefetchingCandidates(
+      HLLoop *Lp, const RegDDRef *FirstRef, int Dist, int Hint,
+      SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
+
+  void processIndirectPrefetching(
+      HLLoop *Lp, unsigned &NumIndirectPrefetches,
+      const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 };
 } // namespace
 
@@ -248,12 +276,12 @@ unsigned HIRPrefetching::getPrefetchingDist(HLLoop *Lp) {
   return IterationDistance * LpStride;
 }
 
-// Collect the prefetching  candidates by computing the number of Streams in the
+// Collect the prefetching candidates by computing the number of Streams in the
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
     RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
     int Distance, int Hint,
-    SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints) {
+    SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates) {
   if (!Distance) {
     return;
   }
@@ -262,10 +290,14 @@ void HIRPrefetching::collectPrefetchCandidates(
   unsigned VecNumElements = 0;
 
   const RegDDRef *ScalarRef = getScalarRef(FirstRef, VecNumElements);
+
   // Nontemporal refs should not be candidates for prefetches.
   if (ScalarRef->getMetadata(LLVMContext::MD_nontemporal))
     return;
-  PrefetchCandidateVarsDistsHints.emplace_back(ScalarRef, Hint, Distance);
+
+  bool IsLval = FirstRef->isLval();
+  SpatialPrefetchCandidates.emplace_back(ScalarRef, nullptr, Distance, Hint,
+                                         IsLval);
 
   unsigned ScalarRefSize = ScalarRef->getDestTypeSizeInBytes();
 
@@ -275,7 +307,8 @@ void HIRPrefetching::collectPrefetchCandidates(
     for (unsigned I = 1; I < VecNumElements; ++I) {
       RegDDRef *StrideRef = ScalarRef->clone();
       StrideRef->shift(Level, I);
-      PrefetchCandidateVarsDistsHints.emplace_back(StrideRef, Hint, Distance);
+      SpatialPrefetchCandidates.emplace_back(StrideRef, nullptr, Distance, Hint,
+                                             IsLval);
     }
   }
 
@@ -298,8 +331,12 @@ void HIRPrefetching::collectPrefetchCandidates(
     assert((Dist >= 0) && "Refs do not have constant non-negative distance!");
 
     if (Dist / Stride >= TripCount) {
-      PrefetchCandidateVarsDistsHints.emplace_back(CurRef, Hint, Distance);
+      IsLval = CurRef->isLval();
+      SpatialPrefetchCandidates.emplace_back(CurRef, nullptr, Distance, Hint,
+                                             IsLval);
       PrevRef = CurRef;
+    } else if (CurRef->isLval() && !IsLval) {
+      SpatialPrefetchCandidates.back().IsWrite = true;
     }
   }
   return;
@@ -357,15 +394,15 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
       Dist *= LpStride;
     }
 
-    // Prefetch pragma hint is ranging from 1 - 4, while
+    // Prefetch pragma hint is ranging from 0 - 3, while
     // Prefetch intrinsic's locality is ranging from (0) - no
     // locality, to (3) - extremely local keep in cache. Thus, we need to
     // transfer prefetch pragma hint to prefetch intrinsic's locality using
-    // 4 - Hint
+    // 3 - Hint
     if (Hint == -1) {
       Hint = DefaultPrefetchHint;
     } else {
-      Hint = 4 - Hint;
+      Hint = 3 - Hint;
     }
 
     if (Var->isNull()) {
@@ -414,10 +451,67 @@ static bool hasPrefetchingPragma(HLLoop *Lp) {
   return !Info.empty();
 }
 
+void HIRPrefetching::collectIndirectPrefetchingCandidates(
+    HLLoop *Lp, const RegDDRef *CandidateRef, int Dist, int Hint,
+    SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
+  const BlobDDRef *NonLinearBlobRef = CandidateRef->getSingleNonLinearBlobRef();
+
+  if (!NonLinearBlobRef) {
+    return;
+  }
+
+  DDGraph DDG = DDA.getGraph(Lp);
+  unsigned Level = Lp->getNestingLevel();
+  int64_t ConstStride;
+
+  if (DDG.getNumIncomingEdges(NonLinearBlobRef) != 1) {
+    return;
+  }
+
+  DDEdge *Edge = *DDG.incoming_edges_begin(NonLinearBlobRef);
+
+  auto *Src = Edge->getSrc();
+  HLInst *SrcInst = cast<HLInst>(Src->getHLDDNode());
+
+  if (!isa<LoadInst>(SrcInst->getLLVMInstruction())) {
+    return;
+  }
+
+  RegDDRef *IndexRef = SrcInst->getRvalDDRef();
+
+  if (!IndexRef->getConstStrideAtLevel(Level, &ConstStride)) {
+    return;
+  }
+
+  // Skip multiple occurences of IV case
+  unsigned NumIVDims = 0;
+  for (unsigned Dim = IndexRef->getNumDimensions(); Dim > 0; --Dim) {
+    auto *IndexCE = IndexRef->getDimensionIndex(Dim);
+
+    if (IndexCE->hasIV(Level)) {
+      ++NumIVDims;
+    }
+
+    if (NumIVDims > 1) {
+      return;
+    }
+  }
+
+  if (NumIVDims != 1) {
+    return;
+  }
+
+  // Record the indirect prefetch info for the transformation
+  IndirectPrefetchCandidates.emplace_back(CandidateRef, IndexRef, Dist, Hint,
+                                          CandidateRef->isLval());
+
+  return;
+}
+
 bool HIRPrefetching::doAnalysis(
-    HLLoop *Lp,
-    SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints,
-    bool &HasPragmaInfo) {
+    HLLoop *Lp, bool &HasPragmaInfo,
+    SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
+    SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
   if (!Lp->isDo()) {
     return false;
   }
@@ -461,7 +555,7 @@ bool HIRPrefetching::doAnalysis(
 
   DenseMap<unsigned, std::pair<int, int>> CandidateVarSBsDistsHints;
   int DefaultPrefetchDist = getPrefetchingDist(Lp);
-  int DefaultPrefetchHint = 4 - ForceHint;
+  int DefaultPrefetchHint = 3 - ForceHint;
 
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
                             DefaultPrefetchHint);
@@ -475,17 +569,6 @@ bool HIRPrefetching::doAnalysis(
     const RegDDRef *FirstRef = RefGroup.front();
     unsigned FirstRefBasePtrSB = FirstRef->getBasePtrSymbase();
 
-    if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
-        ConstStride == 0) {
-
-      if (!FirstRef->isLinearAtLevel(Level)) {
-        NumNonLinearStreams++;
-      }
-
-      continue;
-    }
-
-    Stride = std::abs(ConstStride);
     int Dist = DefaultPrefetchDist;
     int Hint = DefaultPrefetchHint;
 
@@ -495,6 +578,24 @@ bool HIRPrefetching::doAnalysis(
       std::tie(Dist, Hint) = CandidateVarSBsDistsHints[FirstRefBasePtrSB];
     }
 
+    if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
+        ConstStride == 0) {
+
+      // Check whether the nonlinear ref is an indirect prefetching candidate
+      // if it has pragma prefetch
+      if (!FirstRef->isLinearAtLevel(Level)) {
+        NumNonLinearStreams++;
+
+        if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
+          collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
+                                               IndirectPrefetchCandidates);
+        }
+      }
+
+      continue;
+    }
+
+    Stride = std::abs(ConstStride);
     // When Stride is a non-zero constant, we will go through the RefGroup and
     // check whether they are in the same memory streams
     // When two refs in the same RefGroup are located in the different memory
@@ -502,15 +603,15 @@ bool HIRPrefetching::doAnalysis(
     // loop stride and loop trip count, we need to create more scalar refs,
     // such as A[i] and A[i + 10000]
     collectPrefetchCandidates(RefGroup, TripCount, Stride, Level, Dist, Hint,
-                              PrefetchCandidateVarsDistsHints);
+                              SpatialPrefetchCandidates);
   }
 
-  if (PrefetchCandidateVarsDistsHints.empty()) {
+  if (SpatialPrefetchCandidates.empty()) {
     return false;
   }
 
   if (!HasPragmaInfo &&
-      (PrefetchCandidateVarsDistsHints.size() + NumNonLinearStreams) <
+      (SpatialPrefetchCandidates.size() + NumNonLinearStreams) <
           NumMemoryStreamsThreshold &&
       !SkipNumMemoryStreamsCheck) {
     return false;
@@ -519,35 +620,186 @@ bool HIRPrefetching::doAnalysis(
   return true;
 }
 
-void HIRPrefetching::generatePrefetchingInst(HLLoop *Lp, RegDDRef *PrefetchRef,
-                                             unsigned PrefetchHint) {
+HLInst *HIRPrefetching::generatePrefetchingInst(HLLoop *Lp,
+                                                RegDDRef *PrefetchRef,
+                                                unsigned PrefetchHint,
+                                                bool IsWrite) {
   auto &HNU = Lp->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
 
   auto Int32Ty = Type::getInt32Ty(HNU.getContext());
+  int64_t RW = (EnablePrefetchW && IsWrite) ? 1 : 0;
 
-  RegDDRef *ReadTy = DDRU.createConstDDRef(Int32Ty, 0);
+  RegDDRef *RWTy = DDRU.createConstDDRef(Int32Ty, RW);
   RegDDRef *Locality = DDRU.createConstDDRef(Int32Ty, PrefetchHint);
   RegDDRef *DataCacheTy = DDRU.createConstDDRef(Int32Ty, 1);
   HLInst *PrefetchInst =
-      HNU.createPrefetch(PrefetchRef, ReadTy, Locality, DataCacheTy);
-  HLNodeUtils::insertAsLastChild(Lp, PrefetchInst);
-  return;
+      HNU.createPrefetch(PrefetchRef, RWTy, Locality, DataCacheTy);
+  return PrefetchInst;
+}
+
+void HIRPrefetching::processIndirectPrefetching(
+    HLLoop *Lp, unsigned &NumIndirectPrefetches,
+    const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
+  auto &HNU = Lp->getHLNodeUtils();
+  auto &DDRU = HNU.getDDRefUtils();
+  unsigned Level = Lp->getNestingLevel();
+  CanonExpr *LoopUpperCE = Lp->getUpperCanonExpr();
+  RegDDRef *LoopUpperRef = Lp->getUpperDDRef();
+
+  // Record the CE that is compared with loop trip count in HLIf predicate
+  CanonExpr *CompareCE = nullptr;
+  HLIf *CheckIf = nullptr;
+  bool HasNewIf = false;
+  HLInst *FirstIndirectPrefetch = nullptr;
+
+  for (auto &PrefCand : IndirectPrefetchCandidates) {
+    const RegDDRef *CandidateRef = PrefCand.CandidateRef;
+    RegDDRef *OrigIndexLoadRef = PrefCand.OrigIndexLoadRef;
+    int Dist = PrefCand.Dist;
+    int Hint = PrefCand.Hint;
+    bool IsWrite = PrefCand.IsWrite;
+
+    const BlobDDRef *NonLinearBlobRef =
+        CandidateRef->getSingleNonLinearBlobRef();
+    assert(NonLinearBlobRef && "A BlobRef is expected.");
+
+    RegDDRef *NewIndexRef = OrigIndexLoadRef->clone();
+
+    // TODO:Use half of the default prefetch dist for indirect profetching
+    // Create a new index load inst with prefetch dist for the use of indirect
+    // prefetch For example, in the case
+    // Do i1
+    //   %2 = (%M)[i1];
+    //   %add = (@C)[0][%2];
+    // Enddo
+    // we create a new index load inst %Load = (%M)[i1 + 31];
+    // Thus, we can prefetch @C)[0][%Load] later
+    NewIndexRef->shift(Level, Dist);
+
+    auto NewIndexLoadInst = HNU.createLoad(NewIndexRef->clone(), "Load");
+
+    RegDDRef *IndirectRef = CandidateRef->clone();
+
+    IndirectRef->replaceTempBlob(
+        NonLinearBlobRef->getBlobIndex(),
+        NewIndexLoadInst->getLvalDDRef()->getSelfBlobIndex());
+
+    unsigned DimNum = 0;
+
+    // We only allow one occurence of IV case and check this in the analysis
+    for (unsigned Dim = NewIndexRef->getNumDimensions(); Dim > 0; --Dim) {
+      auto *IndexCE = NewIndexRef->getDimensionIndex(Dim);
+
+      if (IndexCE->hasIV(Level)) {
+        DimNum = Dim;
+        break;
+      }
+    }
+
+    auto *NewIndexCE = NewIndexRef->getDimensionIndex(DimNum);
+    auto *OriginCE = OrigIndexLoadRef->getDimensionIndex(DimNum);
+
+    // In the indirect prefetch case
+    // Do i1
+    //    %2 = (%M)[i1];
+    //    %add = (@C)[0][%2];
+    // Enddo
+    //
+    // we need to create a HLIf
+    // if (i1 + 31 <=u zext.i32.i64(%N) + -1)
+    // {
+    //    %Load = (%M)[i1 + 31];
+    //    @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  3,  1);
+    // }
+    // The LHS of if predicate is the new dim index i1 + 31 in %M[i1 + 31]
+    // The RHS of if predicate is the original index i1 in %M[i1] and replaced
+    // iv with loop upper bound
+    RegDDRef *PredicateLHS =
+        DDRU.createScalarRegDDRef(GenericRvalSymbase, NewIndexCE);
+    PredicateLHS->makeConsistent({}, Level);
+
+    CanonExpr *OriginCEClone = OriginCE->clone();
+    CanonExprUtils::replaceIVByCanonExpr(OriginCEClone, Level, LoopUpperCE,
+                                         Lp->hasSignedIV());
+
+    RegDDRef *PredicateRHS =
+        DDRU.createScalarRegDDRef(GenericRvalSymbase, OriginCEClone);
+    PredicateRHS->makeConsistent({LoopUpperRef}, Level);
+
+    int64_t Distance = 0;
+
+    // When the original HLIf has a smaller CE, we update the LHS and RHS of
+    // the HLIf predicate using the current NewIndexCE
+    if (CompareCE &&
+        CanonExprUtils::getConstDistance(CompareCE, NewIndexCE, &Distance)) {
+      if (Distance < 0) {
+        CheckIf->setPredicateOperandDDRef(PredicateLHS, CheckIf->pred_begin(),
+                                          true);
+        CheckIf->setPredicateOperandDDRef(PredicateRHS, CheckIf->pred_begin(),
+                                          false);
+
+        HasNewIf = false;
+        CompareCE = NewIndexCE;
+      }
+      // else create a new HLIf and initialize FirstIndirectPrefetch to a
+      // nullptr
+    } else {
+      CheckIf = HNU.createHLIf(CmpInst::ICMP_ULE, PredicateLHS, PredicateRHS);
+      HasNewIf = true;
+      CompareCE = NewIndexCE;
+      FirstIndirectPrefetch = nullptr;
+    }
+
+    // Create a prefetch intrinsic for indirect ref. For example,
+    // @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  3,  1);
+    RegDDRef *PrefetchRef = IndirectRef->clone();
+    PrefetchRef->setAddressOf(true);
+
+    // Set destination address (i8*)
+    PrefetchRef->setBitCastDestType(Type::getInt8PtrTy(
+        HIRF.getContext(), PrefetchRef->getPointerAddressSpace()));
+
+    HLInst *PrefetchInst =
+        generatePrefetchingInst(Lp, PrefetchRef, Hint, IsWrite);
+
+    if (!FirstIndirectPrefetch) {
+      HLNodeUtils::insertAsLastThenChild(CheckIf, NewIndexLoadInst);
+      FirstIndirectPrefetch = PrefetchInst;
+    } else {
+      HLNodeUtils::insertBefore(FirstIndirectPrefetch, NewIndexLoadInst);
+    }
+    HLNodeUtils::insertAsLastThenChild(CheckIf, PrefetchInst);
+
+    if (HasNewIf) {
+      HLNodeUtils::insertAsLastChild(Lp, CheckIf);
+    }
+
+    ++NumIndirectPrefetches;
+  }
 }
 
 bool HIRPrefetching::doPrefetching(
-    HLLoop *Lp,
-    SmallVectorImpl<PrefetchingPragmaInfo> &PrefetchCandidateVarsDistsHints,
-    bool HasPragmaInfo) {
+    HLLoop *Lp, bool HasPragmaInfo,
+    const SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
+    const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
+  unsigned NumIndirectPrefetches = 0;
   unsigned NumSpatialPrefetches = 0;
+
+  if (!IndirectPrefetchCandidates.empty()) {
+    processIndirectPrefetching(Lp, NumIndirectPrefetches,
+                               IndirectPrefetchCandidates);
+  }
+
   int PrefetchDist = 0;
 
-  for (auto It = PrefetchCandidateVarsDistsHints.begin(),
-            E = PrefetchCandidateVarsDistsHints.end();
+  for (auto It = SpatialPrefetchCandidates.begin(),
+            E = SpatialPrefetchCandidates.end();
        It != E; ++It) {
-    const RegDDRef *Ref = It->Var;
+    const RegDDRef *Ref = It->CandidateRef;
     PrefetchDist = It->Dist;
     int PrefetchHint = It->Hint;
+    bool IsWrite = It->IsWrite;
 
     RegDDRef *PrefetchRef = Ref->clone();
 
@@ -560,29 +812,37 @@ bool HIRPrefetching::doPrefetching(
     unsigned Level = Lp->getNestingLevel();
     PrefetchRef->shift(Level, PrefetchDist);
 
-    generatePrefetchingInst(Lp, PrefetchRef, PrefetchHint);
+    HLInst *PrefetchInst =
+        generatePrefetchingInst(Lp, PrefetchRef, PrefetchHint, IsWrite);
+    HLNodeUtils::insertAsLastChild(Lp, PrefetchInst);
+
     ++NumSpatialPrefetches;
   }
 
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Number of spatial prefetches=%d",
+  // Number of spatial prefetches=%d
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
                             NumSpatialPrefetches);
   if (HasPragmaInfo) {
     Lp->getParentRegion()->setGenCode();
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Number of spatial prefetches=%d",
+    // Number of spatial prefetches=%d
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
                               NumSpatialPrefetches);
+    // Number of indirect prefetches=%d
+    if (NumIndirectPrefetches) {
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25421u,
+                                NumIndirectPrefetches);
+    }
   } else {
     RegDDRef *StrideRef = Lp->getStrideDDRef();
     int64_t Stride;
     StrideRef->isIntConstant(&Stride);
     int Distance = PrefetchDist / Stride;
 
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Number of spatial prefetches=%d, dist=%d",
+    // Number of spatial prefetches=%d, dist=%d
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25419u,
                               NumSpatialPrefetches, Distance);
   }
 
@@ -617,17 +877,19 @@ bool HIRPrefetching::run() {
   bool Result = false;
 
   for (auto &Lp : CandidateLoops) {
-    SmallVector<PrefetchingPragmaInfo, 64> PrefetchCandidateVarsDistsHints;
+    SmallVector<PrefetchCandidateInfo, 64> SpatialPrefetchCandidates;
     bool HasPragmaInfo = false;
+    SmallVector<PrefetchCandidateInfo, 4> IndirectPrefetchCandidates;
 
     // Analyze the loop and check if it is suitable for prefetching
-    if (!doAnalysis(Lp, PrefetchCandidateVarsDistsHints, HasPragmaInfo)) {
+    if (!doAnalysis(Lp, HasPragmaInfo, SpatialPrefetchCandidates,
+                    IndirectPrefetchCandidates)) {
       continue;
     }
 
-    Result =
-        doPrefetching(Lp, PrefetchCandidateVarsDistsHints, HasPragmaInfo) ||
-        Result;
+    Result = doPrefetching(Lp, HasPragmaInfo, SpatialPrefetchCandidates,
+                           IndirectPrefetchCandidates) ||
+             Result;
   }
 
   return Result;
@@ -637,6 +899,7 @@ PreservedAnalyses HIRPrefetchingPass::runImpl(llvm::Function &F,
                                               llvm::FunctionAnalysisManager &AM,
                                               HIRFramework &HIRF) {
   HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
+                 AM.getResult<HIRDDAnalysisPass>(F),
                  AM.getResult<HIRLoopResourceAnalysis>(F),
                  AM.getResult<TargetIRAnalysis>(F))
       .run();
@@ -654,6 +917,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
     AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.setPreservesAll();
@@ -667,6 +931,7 @@ public:
     return HIRPrefetching(
                getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
                getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
                getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F))
         .run();
@@ -678,6 +943,7 @@ INITIALIZE_PASS_BEGIN(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
 INITIALIZE_PASS_END(HIRPrefetchingLegacyPass, OPT_SWITCH, OPT_DESC, false,

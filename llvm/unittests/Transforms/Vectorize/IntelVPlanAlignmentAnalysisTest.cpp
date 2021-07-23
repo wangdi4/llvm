@@ -82,7 +82,8 @@ protected:
   }
 
   void setupPeelingAnalysis() {
-    VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin());
+    VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(
+      *SE, *LI->begin(), FuncFoo->getContext(), DL.get());
     VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
     VPPA = std::make_unique<VPlanPeelingAnalysis>(*VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);
@@ -94,7 +95,7 @@ protected:
 // is useful for testing purposes.
 class VPlanPeelingCostModelLog final : public VPlanPeelingCostModel {
 public:
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override {
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override {
     return -Log2(Alignment);
   }
 };
@@ -126,7 +127,7 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
   int VFs[] = {2, 4, 8, 16, 32, 64};
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
-        VPPA->selectBestPeelingVariant(VF, CM);
+        VPPA->selectBestPeelingVariant(VF, CM, true);
     ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
     VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
     EXPECT_EQ(SP.peelCount(), 0);
@@ -186,7 +187,7 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_Misalign) {
   int VFs[] = {2, 4, 8, 16, 32, 64};
   for (auto VF : VFs) {
     std::unique_ptr<VPlanPeelingVariant> PV =
-        VPPA->selectBestPeelingVariant(VF, CM);
+        VPPA->selectBestPeelingVariant(VF, CM, true);
     ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
     VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
     EXPECT_EQ(SP.peelCount(), 0);
@@ -218,7 +219,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
   VPlanSCEV *DstScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(0)));
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Store);
@@ -228,7 +229,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
   EXPECT_EQ(DP4.multiplier(), 3);
 
   std::unique_ptr<VPlanPeelingVariant> PV16 =
-      VPPA->selectBestPeelingVariant(16, CM);
+      VPPA->selectBestPeelingVariant(16, CM, true);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Store);
@@ -265,7 +266,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
   VPlanSCEV *SrcScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(1)));
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Load);
@@ -275,7 +276,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
   EXPECT_EQ(DP4.multiplier(), 3);
 
   std::unique_ptr<VPlanPeelingVariant> PV16 =
-      VPPA->selectBestPeelingVariant(16, CM);
+      VPPA->selectBestPeelingVariant(16, CM, true);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Load);
@@ -331,8 +332,14 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
 
   // Check that the dynamic variant beats the static one.
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   EXPECT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
+
+  // Check that the dynamic variant is not accounted when
+  // disabled.
+  std::unique_ptr<VPlanPeelingVariant> PV4_s =
+      VPPA->selectBestPeelingVariant(4, CM, false);
+  EXPECT_TRUE(isa<VPlanStaticPeeling>(*PV4_s));
 
   // VF = 4.
   // Best alignment:
@@ -412,19 +419,19 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_LowPeelCount) {
   setupPeelingAnalysis();
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 1); // Peel to align %p2 by 16.
 
   std::unique_ptr<VPlanPeelingVariant> PV8 =
-      VPPA->selectBestPeelingVariant(8, CM);
+      VPPA->selectBestPeelingVariant(8, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 2); // Peel to align %p3 by 32.
 
   std::unique_ptr<VPlanPeelingVariant> PV16 =
-      VPPA->selectBestPeelingVariant(16, CM);
+      VPPA->selectBestPeelingVariant(16, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 3); // Peel to align %p1 by 64.
@@ -462,31 +469,31 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_StoreVsLoad) {
   setupPeelingAnalysis();
 
   std::unique_ptr<VPlanPeelingVariant> PV2 =
-      VPPA->selectBestPeelingVariant(2, CM);
+      VPPA->selectBestPeelingVariant(2, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
   VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
   EXPECT_EQ(SP2.peelCount(), 1); // Make store aligned by 4
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 3); // Make store aligned by 8
 
   std::unique_ptr<VPlanPeelingVariant> PV8 =
-      VPPA->selectBestPeelingVariant(8, CM);
+      VPPA->selectBestPeelingVariant(8, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 7); // Make store aligned by 16
 
   std::unique_ptr<VPlanPeelingVariant> PV16 =
-      VPPA->selectBestPeelingVariant(16, CM);
+      VPPA->selectBestPeelingVariant(16, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 15); // Make store aligned by 32
 
   std::unique_ptr<VPlanPeelingVariant> PV32 =
-      VPPA->selectBestPeelingVariant(32, CM);
+      VPPA->selectBestPeelingVariant(32, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV32));
   VPlanStaticPeeling &SP32 = cast<VPlanStaticPeeling>(*PV32);
   EXPECT_EQ(SP32.peelCount(), 31); // Make store aligned by 64
@@ -531,37 +538,37 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_DoubleLoad) {
   setupPeelingAnalysis();
 
   std::unique_ptr<VPlanPeelingVariant> PV2 =
-      VPPA->selectBestPeelingVariant(2, CM);
+      VPPA->selectBestPeelingVariant(2, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
   VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
   EXPECT_EQ(SP2.peelCount(), 0); // Make loads aligned by 2.
 
   std::unique_ptr<VPlanPeelingVariant> PV4 =
-      VPPA->selectBestPeelingVariant(4, CM);
+      VPPA->selectBestPeelingVariant(4, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 2); // Make loads aligned by 4.
 
   std::unique_ptr<VPlanPeelingVariant> PV8 =
-      VPPA->selectBestPeelingVariant(8, CM);
+      VPPA->selectBestPeelingVariant(8, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 2); // Make loads aligned by 8.
 
   std::unique_ptr<VPlanPeelingVariant> PV16 =
-      VPPA->selectBestPeelingVariant(16, CM);
+      VPPA->selectBestPeelingVariant(16, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 2); // Make loads aligned by 16.
 
   std::unique_ptr<VPlanPeelingVariant> PV32 =
-      VPPA->selectBestPeelingVariant(32, CM);
+      VPPA->selectBestPeelingVariant(32, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV32));
   VPlanStaticPeeling &SP32 = cast<VPlanStaticPeeling>(*PV32);
   EXPECT_EQ(SP32.peelCount(), 18); // Make loads aligned by 32.
 
   std::unique_ptr<VPlanPeelingVariant> PV64 =
-      VPPA->selectBestPeelingVariant(64, CM);
+      VPPA->selectBestPeelingVariant(64, CM, true);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV64));
   VPlanStaticPeeling &SP64 = cast<VPlanStaticPeeling>(*PV64);
   EXPECT_EQ(SP64.peelCount(), 50); // Make loads aligned by 64.
@@ -849,6 +856,200 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
       VPPA->selectBestStaticPeelingVariant(64, CM);
   EXPECT_EQ(P64.first.peelCount(), 23);
   EXPECT_EQ(P64.second, 12);
+}
+
+class VPlanAlignmentAnalysisTest : public VPlanPeelingAnalysisTest {
+protected:
+  VPLoadStoreInst *findLoadInst() const {
+    VPLoadStoreInst *Load = nullptr;
+    for (auto &BB : *Plan)
+      for (auto &VPInst : BB) {
+        if (VPInst.getOpcode() == Instruction::Load) {
+          EXPECT_EQ(Load, nullptr) << "Multiple stores in the module";
+          Load = &cast<VPLoadStoreInst>(VPInst);
+        }
+      }
+    return Load;
+  }
+
+  VPLoadStoreInst *findStoreInst() const {
+    VPLoadStoreInst *Store = nullptr;
+    for (auto &BB : *Plan)
+      for (auto &VPInst : BB) {
+        if (VPInst.getOpcode() == Instruction::Store) {
+          EXPECT_EQ(Store, nullptr) << "Multiple stores in the module";
+          Store = &cast<VPLoadStoreInst>(VPInst);
+        }
+      }
+    return Store;
+  }
+};
+
+TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
+  buildVPlanFromString(
+    "define void @foo(i32* %dst, i16* %src) {\n"
+    "entry:\n"
+    "  %dst.asInt = ptrtoint i32* %dst to i64\n"
+    "  %tmp = and i64 %dst.asInt, -64\n"
+    "  %ptr.asInt = or i64 %tmp, 20\n"
+    "  %ptr = inttoptr i64 %ptr.asInt to i32*\n" /* %ptr ≡ 20 (mod 64) */
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %count32 = trunc i64 %counter to i32\n"
+    "  %gep.src = getelementptr inbounds i16, i16* %src, i64 %counter\n"
+    "  %val.i16 = load i16, i16* %gep.src, align 2"
+    "  %val.i32 = zext i16 %val.i16 to i32"
+    "  %res = add i32 %val.i32, %count32"
+    "  %gep.dst = getelementptr inbounds i32, i32* %ptr, i64 %counter\n"
+    "  store i32 %res, i32* %gep.dst\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
+
+  setupPeelingAnalysis();
+  VPLoadStoreInst *S = findStoreInst();
+
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+
+  VPlanStaticPeeling SP0(0);
+  VPlanStaticPeeling SP1(1);
+  VPlanStaticPeeling SP2(2);
+  VPlanStaticPeeling SP3(3);
+  VPlanStaticPeeling SP7(7);
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP0));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA4.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA8.getAlignmentUnitStride(*S, &SP1));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP2));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(32), AA8.getAlignmentUnitStride(*S, &SP3));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*S, &SP7));
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
+  buildVPlanFromString(
+    "define void @foo(double* %dst, double* %src, i64 %x) {\n"
+    "entry:\n"
+    "  %dst.asInt = ptrtoint double* %dst to i64\n"
+    "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
+    "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to double*\n"
+    "  %src.asInt = ptrtoint double* %src to i64\n"
+    "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
+    "  %src.aligned = inttoptr i64 %src.asInt.aligned to double*\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %idx.src = add nsw i64 %x, %counter"
+    "  %gep.src = getelementptr inbounds double, double* %src.aligned, i64 %idx.src\n"
+    "  %idx.dst = add nsw i64 %idx.src, 128"
+    "  %gep.dst = getelementptr inbounds double, double* %dst.aligned, i64 %idx.dst\n"
+    // load src.aligned[i + x]
+    "  %val = load double, double* %gep.src"
+    // store dst.aligned[i + x + 128]
+    "  store double %val, double* %gep.dst\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
+
+  setupPeelingAnalysis();
+  VPLoadStoreInst *L = findLoadInst();
+  VPLoadStoreInst *S = findStoreInst();
+
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+
+  VPConstStepInduction Address =
+      *VPSE->asConstStepInduction(S->getAddressSCEV());
+
+  VPlanDynamicPeeling DP16(S, Address, Align(16));
+  VPlanDynamicPeeling DP64(S, Address, Align(64));
+
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP16));
+
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(32), AA4.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(64), AA8.getAlignmentUnitStride(*L, &DP64));
+}
+
+TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
+  buildVPlanFromString(
+    "define void @foo(double* %dst, double* %src, i64 %x) {\n"
+    "entry:\n"
+    "  %dst.asInt = ptrtoint double* %dst to i64\n"
+    "  %dst.asInt.aligned = and i64 %dst.asInt, -64\n"
+    "  %dst.aligned = inttoptr i64 %dst.asInt.aligned to double*\n"
+    "  %src.asInt = ptrtoint double* %src to i64\n"
+    "  %src.asInt.aligned = and i64 %src.asInt, -64\n"
+    "  %src.aligned = inttoptr i64 %src.asInt.aligned to double*\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %idx.src = add nsw i64 %x, %counter"
+    "  %gep.src = getelementptr inbounds double, double* %src.aligned, i64 %idx.src\n"
+    "  %idx.dst = add nsw i64 %idx.src, 2"
+    "  %gep.dst = getelementptr inbounds double, double* %dst.aligned, i64 %idx.dst\n"
+    // load src.aligned[i + x]
+    "  %val = load double, double* %gep.src"
+    // store dst.aligned[i + x + 2]
+    "  store double %val, double* %gep.dst\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
+
+  setupPeelingAnalysis();
+  VPLoadStoreInst *L = findLoadInst();
+  VPLoadStoreInst *S = findStoreInst();
+
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+
+  VPConstStepInduction Address =
+      *VPSE->asConstStepInduction(S->getAddressSCEV());
+
+  VPlanDynamicPeeling DP64(S, Address, Align(64));
+
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP64));
 }
 
 } // namespace

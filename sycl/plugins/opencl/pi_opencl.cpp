@@ -14,6 +14,8 @@
 ///
 /// \ingroup sycl_pi_ocl
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/pi.h>
 
@@ -167,8 +169,8 @@ pi_result piDeviceGetInfo(pi_device device, pi_device_info paramName,
                           size_t paramValueSize, void *paramValue,
                           size_t *paramValueSizeRet) {
   switch (paramName) {
-    // Intel GPU EU device-specific information extensions.
     // TODO: Check regularly to see if support in enabled in OpenCL.
+    // Intel GPU EU device-specific information extensions.
   case PI_DEVICE_INFO_PCI_ADDRESS:
   case PI_DEVICE_INFO_GPU_EU_COUNT:
   case PI_DEVICE_INFO_GPU_EU_SIMD_WIDTH:
@@ -176,8 +178,17 @@ pi_result piDeviceGetInfo(pi_device device, pi_device_info paramName,
   case PI_DEVICE_INFO_GPU_SUBSLICES_PER_SLICE:
   case PI_DEVICE_INFO_GPU_EU_COUNT_PER_SUBSLICE:
   case PI_DEVICE_INFO_MAX_MEM_BANDWIDTH:
+    // TODO: Check if device UUID extension is enabled in OpenCL.
+    // For details about Intel UUID extension, see
+    // sycl/doc/extensions/IntelGPU/IntelGPUDeviceInfo.md
+  case PI_DEVICE_INFO_UUID:
+  case PI_DEVICE_INFO_ATOMIC_64:
     return PI_INVALID_VALUE;
-
+  case PI_DEVICE_INFO_IMAGE_SRGB: {
+    cl_bool result = true;
+    std::memcpy(paramValue, &result, sizeof(cl_bool));
+    return PI_SUCCESS;
+  }
   default:
     cl_int result = clGetDeviceInfo(
         cast<cl_device_id>(device), cast<cl_device_info>(paramName),
@@ -345,7 +356,9 @@ pi_result piQueueCreate(pi_context context, pi_device device,
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                           pi_context, pi_queue *piQueue) {
+                                           pi_context, pi_queue *piQueue,
+                                           bool ownNativeHandle) {
+  (void)ownNativeHandle;
   assert(piQueue != nullptr);
   *piQueue = reinterpret_cast<pi_queue>(nativeHandle);
   return PI_SUCCESS;
@@ -754,9 +767,11 @@ pi_result piextUSMHostAlloc(void **result_ptr, pi_context context,
 
   *result_ptr = Ptr;
 
-  assert(alignment == 0 ||
-         (RetVal == PI_SUCCESS &&
-          reinterpret_cast<std::uintptr_t>(*result_ptr) % alignment == 0));
+  // ensure we aligned the allocation correctly
+  if (RetVal == PI_SUCCESS && alignment != 0)
+    assert(reinterpret_cast<std::uintptr_t>(*result_ptr) % alignment == 0 &&
+           "allocation not aligned correctly");
+
   return RetVal;
 }
 
@@ -790,9 +805,11 @@ pi_result piextUSMDeviceAlloc(void **result_ptr, pi_context context,
 
   *result_ptr = Ptr;
 
-  assert(alignment == 0 ||
-         (RetVal == PI_SUCCESS &&
-          reinterpret_cast<std::uintptr_t>(*result_ptr) % alignment == 0));
+  // ensure we aligned the allocation correctly
+  if (RetVal == PI_SUCCESS && alignment != 0)
+    assert(reinterpret_cast<std::uintptr_t>(*result_ptr) % alignment == 0 &&
+           "allocation not aligned correctly");
+
   return RetVal;
 }
 
@@ -1332,7 +1349,6 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextKernelSetArgMemObj, piextKernelSetArgMemObj)
   _PI_CL(piextKernelSetArgSampler, piextKernelSetArgSampler)
   _PI_CL(piTearDown, piTearDown)
-
 
 #undef _PI_CL
 

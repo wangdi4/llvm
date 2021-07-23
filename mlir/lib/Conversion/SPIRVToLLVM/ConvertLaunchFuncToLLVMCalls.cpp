@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "../PassDetail.h"
+#include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/SPIRVToLLVM/SPIRVToLLVM.h"
 #include "mlir/Conversion/SPIRVToLLVM/SPIRVToLLVMPass.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
@@ -24,6 +26,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FormatVariadic.h"
 
 using namespace mlir;
@@ -235,7 +238,8 @@ class GPULaunchLowering : public ConvertOpToLLVMPattern<gpu::LaunchFuncOp> {
         rewriter.setInsertionPointToStart(module.getBody());
         dstGlobal = rewriter.create<LLVM::GlobalOp>(
             loc, dstGlobalType,
-            /*isConstant=*/false, LLVM::Linkage::Linkonce, name, Attribute());
+            /*isConstant=*/false, LLVM::Linkage::Linkonce, name, Attribute(),
+            /*alignment=*/0);
         rewriter.setInsertionPoint(launchOp);
       }
 

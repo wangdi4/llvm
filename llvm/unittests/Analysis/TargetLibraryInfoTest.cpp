@@ -800,6 +800,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @vec_realloc(i8*, i64)\n"
       "declare void @vec_free(i8*)\n"
 
+      // These functions are OpenMP Offloading allocation / free routines
+      "declare i8* @__kmpc_alloc_shared(i64)\n"
+      "declare void @__kmpc_free_shared(i8*)\n"
 #if INTEL_CUSTOMIZATION
       "declare %struct* @__acrt_iob_func(i32)\n"
       "declare void @__assert_fail(i8*, i8*, i32, i8*)\n"
@@ -835,6 +838,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_atomic_store(i64, i8*, i8*, i32)\n"
       "declare void @__kmpc_barrier(i8*, i32)\n"
       "declare void @__kmpc_critical(i8*, i32, i8*)\n"
+      "declare void @__kmpc_critical_with_hint(i8*, i32)\n"
       "declare void @__kmpc_dispatch_init_4(i8*, i32, i32, i32, i32, i32, i32)\n"
       "declare void @__kmpc_dispatch_init_4u(i8*, i32, i32, i32, i32, i32, i32)\n"
       "declare void @__kmpc_dispatch_init_8(i8*, i32, i32, i64, i64, i64, i64)\n"
@@ -1101,6 +1105,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZSt20__throw_out_of_rangePKc(i8*)\n"
       "declare void @_ZSt24__throw_out_of_range_fmtPKcz(i8*)\n"
       "declare i8* @_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_(i8*, i8*)\n"
+      "declare void @_ZSt28__throw_bad_array_new_lengthv()\n"
       "declare void @_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_(i32, i8*, i8*, i8*)\n"
       "declare %struct* @_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_(%struct*)\n"
       "declare %struct* @_ZSt5flushIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_(%struct*)\n"

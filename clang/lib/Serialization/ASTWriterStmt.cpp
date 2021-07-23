@@ -115,6 +115,7 @@ void ASTStmtWriter::VisitDefaultStmt(DefaultStmt *S) {
 
 void ASTStmtWriter::VisitLabelStmt(LabelStmt *S) {
   VisitStmt(S);
+  Record.push_back(S->isSideEntry());
   Record.AddDeclRef(S->getDecl());
   Record.AddStmt(S->getSubStmt());
   Record.AddSourceLocation(S->getIdentLoc());
@@ -577,6 +578,28 @@ void ASTStmtWriter::VisitConstantExpr(ConstantExpr *E) {
 
   Record.AddStmt(E->getSubExpr());
   Code = serialization::EXPR_CONSTANT;
+}
+
+void ASTStmtWriter::VisitSYCLUniqueStableNameExpr(SYCLUniqueStableNameExpr *E) {
+  VisitExpr(E);
+
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddSourceLocation(E->getLParenLocation());
+  Record.AddSourceLocation(E->getRParenLocation());
+  Record.AddTypeSourceInfo(E->getTypeSourceInfo());
+
+  Code = serialization::EXPR_SYCL_UNIQUE_STABLE_NAME;
+}
+
+void ASTStmtWriter::VisitSYCLUniqueStableIdExpr(SYCLUniqueStableIdExpr *E) {
+  VisitExpr(E);
+
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddSourceLocation(E->getLParenLocation());
+  Record.AddSourceLocation(E->getRParenLocation());
+  Record.AddStmt(E->getExpr());
+
+  Code = serialization::EXPR_SYCL_UNIQUE_STABLE_ID;
 }
 
 void ASTStmtWriter::VisitPredefinedExpr(PredefinedExpr *E) {
@@ -1686,6 +1709,32 @@ void ASTStmtWriter::VisitBuiltinBitCastExpr(BuiltinBitCastExpr *E) {
   Code = serialization::EXPR_BUILTIN_BIT_CAST;
 }
 
+void ASTStmtWriter::VisitSYCLBuiltinNumFieldsExpr(SYCLBuiltinNumFieldsExpr *E) {
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddTypeRef(E->getSourceType());
+  Code = serialization::EXPR_SYCL_BUILTIN_NUM_FIELDS;
+}
+
+void ASTStmtWriter::VisitSYCLBuiltinFieldTypeExpr(SYCLBuiltinFieldTypeExpr *E) {
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddTypeRef(E->getSourceType());
+  Record.AddStmt(E->getIndex());
+  Code = serialization::EXPR_SYCL_BUILTIN_FIELD_TYPE;
+}
+
+void ASTStmtWriter::VisitSYCLBuiltinNumBasesExpr(SYCLBuiltinNumBasesExpr *E) {
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddTypeRef(E->getSourceType());
+  Code = serialization::EXPR_SYCL_BUILTIN_NUM_BASES;
+}
+
+void ASTStmtWriter::VisitSYCLBuiltinBaseTypeExpr(SYCLBuiltinBaseTypeExpr *E) {
+  Record.AddSourceLocation(E->getLocation());
+  Record.AddTypeRef(E->getSourceType());
+  Record.AddStmt(E->getIndex());
+  Code = serialization::EXPR_SYCL_BUILTIN_BASE_TYPE;
+}
+
 void ASTStmtWriter::VisitUserDefinedLiteral(UserDefinedLiteral *E) {
   VisitCallExpr(E);
   Record.AddSourceLocation(E->UDSuffixLoc);
@@ -2210,6 +2259,11 @@ void ASTStmtWriter::VisitOMPTileDirective(OMPTileDirective *D) {
   Code = serialization::STMT_OMP_TILE_DIRECTIVE;
 }
 
+void ASTStmtWriter::VisitOMPUnrollDirective(OMPUnrollDirective *D) {
+  VisitOMPLoopBasedDirective(D);
+  Code = serialization::STMT_OMP_UNROLL_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPForDirective(OMPForDirective *D) {
   VisitOMPLoopDirective(D);
   Record.writeBool(D->hasCancel());
@@ -2272,6 +2326,12 @@ void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE;
 }
+
+void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_PREFETCH_DIRECTIVE;
+}
 #endif // INTEL_COLLAB
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {
@@ -2332,6 +2392,10 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   Record.writeBool(D->isXLHSInRHSPart());
   Record.writeBool(D->isPostfixUpdate());
+#if INTEL_COLLAB
+  Record.writeBool(D->isCompareMin());
+  Record.writeBool(D->isCompareMax());
+#endif // INTEL_COLLAB
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }
 

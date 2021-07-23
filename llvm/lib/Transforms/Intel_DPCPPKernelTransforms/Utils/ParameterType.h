@@ -11,8 +11,8 @@
 #ifndef INTEL_DPCPP_KERNEL_TRANSFORMS_PARAMETER_TYPE_H
 #define INTEL_DPCPP_KERNEL_TRANSFORMS_PARAMETER_TYPE_H
 
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/StringRef.h"
-#include <cassert>
 #include <vector>
 
 namespace llvm {
@@ -110,13 +110,13 @@ enum TypeAttributeEnum {
 
 // Forward declaration for abstract structure
 struct ParamType;
-typedef std::shared_ptr<ParamType> RefParamType;
+typedef IntrusiveRefCntPtr<ParamType> RefParamType;
 typedef std::vector<const ParamType *> DuplicatedTypeList;
 
 // Forward declaration for abstract structure
 struct TypeVisitor;
 
-struct ParamType {
+struct ParamType : public RefCountedBase<ParamType> {
   ///@brief Constructor
   ///@param TypeEnum type id
   ParamType(TypeEnum typeId) : m_typeId(typeId) {}

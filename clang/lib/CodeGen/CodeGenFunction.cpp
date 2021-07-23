@@ -35,6 +35,7 @@
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -46,7 +47,6 @@
 #include "llvm/Support/CRC.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
 using namespace CodeGen;
 
@@ -77,6 +77,7 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
           shouldEmitLifetimeMarkers(CGM.getCodeGenOpts(), CGM.getLangOpts())) {
   if (!suppressNewContext)
     CGM.getCXXABI().getMangleContext().startNewFunction();
+  EHStack.setCGF(this);
 
   SetFastMathFlags(CurFPFeatures);
   SetFPModel();
@@ -179,7 +180,7 @@ void CodeGenFunction::CGFPOptionsRAII::ConstructorHelper(FPOptions FPFeatures) {
 
   auto mergeFnAttrValue = [&](StringRef Name, bool Value) {
     auto OldValue =
-        CGF.CurFn->getFnAttribute(Name).getValueAsString() == "true";
+        CGF.CurFn->getFnAttribute(Name).getValueAsBool();
     auto NewValue = OldValue & Value;
     if (OldValue != NewValue)
       CGF.CurFn->addFnAttr(Name, llvm::toStringRef(NewValue));
@@ -713,7 +714,7 @@ void CodeGenFunction::EmitOpenCLHLSComponentMetadata(const FunctionDecl *FD,
 void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                llvm::Function *Fn)
 {
-  if (!FD->hasAttr<OpenCLKernelAttr>())
+  if (!FD->hasAttr<OpenCLKernelAttr>() && !FD->hasAttr<SYCLDeviceAttr>())
     return;
 
   // TODO Module identifier is not reliable for this purpose since two modules
@@ -723,7 +724,8 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
 
   llvm::LLVMContext &Context = getLLVMContext();
 
-  CGM.GenOpenCLArgMetadata(Fn, FD, this);
+  if (FD->hasAttr<OpenCLKernelAttr>())
+    CGM.GenOpenCLArgMetadata(Fn, FD, this);
 
   if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
     QualType HintQTy = A->getTypeHint();
@@ -749,9 +751,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
 
   if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
-        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
+        llvm::ConstantAsMetadata::get(Builder.getInt(*A->getXDimVal())),
+        llvm::ConstantAsMetadata::get(Builder.getInt(*A->getYDimVal())),
+        llvm::ConstantAsMetadata::get(Builder.getInt(*A->getZDimVal()))};
     Fn->setMetadata("work_group_size_hint", llvm::MDNode::get(Context, AttrMDArgs));
   }
 
@@ -799,15 +801,51 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (const IntelReqdSubGroupSizeAttr *A =
-          FD->getAttr<IntelReqdSubGroupSizeAttr>()) {
-    const auto *CE = dyn_cast<ConstantExpr>(A->getValue());
-    assert(CE && "Not an integer constant expression");
+  bool IsKernelOrDevice =
+      FD->hasAttr<SYCLKernelAttr>() || FD->hasAttr<SYCLDeviceAttr>();
+  const IntelReqdSubGroupSizeAttr *ReqSubGroup =
+      FD->getAttr<IntelReqdSubGroupSizeAttr>();
+
+  // To support the SYCL 2020 spelling with no propagation, only emit for
+  // kernel-or-device when that spelling, fall-back to old behavior.
+  if (ReqSubGroup && (IsKernelOrDevice || !ReqSubGroup->isSYCL2020Spelling())) {
+    const auto *CE = cast<ConstantExpr>(ReqSubGroup->getValue());
     Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
     llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
         Builder.getInt32(ArgVal->getSExtValue()))};
     Fn->setMetadata("intel_reqd_sub_group_size",
                     llvm::MDNode::get(Context, AttrMDArgs));
+  } else if (IsKernelOrDevice &&
+             CGM.getLangOpts().getDefaultSubGroupSizeType() ==
+                 LangOptions::SubGroupSizeType::Integer) {
+    llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(CGM.getLangOpts().DefaultSubGroupSize))};
+    Fn->setMetadata("intel_reqd_sub_group_size",
+                    llvm::MDNode::get(Context, AttrMDArgs));
+  }
+
+  // SCYL2020 doesn't propagate attributes, so don't put it in an intermediate
+  // location.
+  if (IsKernelOrDevice) {
+    if (const auto *A = FD->getAttr<IntelNamedSubGroupSizeAttr>()) {
+      llvm::Metadata *AttrMDArgs[] = {llvm::MDString::get(
+          Context, A->getType() == IntelNamedSubGroupSizeAttr::Primary
+                       ? "primary"
+                       : "automatic")};
+      Fn->setMetadata("intel_reqd_sub_group_size",
+                      llvm::MDNode::get(Context, AttrMDArgs));
+    } else if (CGM.getLangOpts().getDefaultSubGroupSizeType() ==
+               LangOptions::SubGroupSizeType::Auto) {
+      llvm::Metadata *AttrMDArgs[] = {
+          llvm::MDString::get(Context, "automatic")};
+      Fn->setMetadata("intel_reqd_sub_group_size",
+                      llvm::MDNode::get(Context, AttrMDArgs));
+    } else if (CGM.getLangOpts().getDefaultSubGroupSizeType() ==
+               LangOptions::SubGroupSizeType::Primary) {
+      llvm::Metadata *AttrMDArgs[] = {llvm::MDString::get(Context, "primary")};
+      Fn->setMetadata("intel_reqd_sub_group_size",
+                      llvm::MDNode::get(Context, AttrMDArgs));
+    }
   }
 
   if (FD->hasAttr<SYCLSimdAttr>()) {
@@ -818,10 +856,8 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelNumSimdWorkItemsAttr *A =
-      FD->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
-    const auto *CE = dyn_cast<ConstantExpr>(A->getValue());
-    assert(CE && "Not an integer constant expression");
+  if (const auto *A = FD->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
+    const auto *CE = cast<ConstantExpr>(A->getValue());
     Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
     llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
         Builder.getInt32(ArgVal->getSExtValue()))};
@@ -829,10 +865,8 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelSchedulerTargetFmaxMhzAttr *A =
-          FD->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
-    const auto *CE = dyn_cast<ConstantExpr>(A->getValue());
-    assert(CE && "Not an integer constant expression");
+  if (const auto *A = FD->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
+    const auto *CE = cast<ConstantExpr>(A->getValue());
     Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
     llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
         Builder.getInt32(ArgVal->getSExtValue()))};
@@ -840,10 +874,8 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelMaxGlobalWorkDimAttr *A =
-      FD->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
-    const auto *CE = dyn_cast<ConstantExpr>(A->getValue());
-    assert(CE && "Not an integer constant expression");
+  if (const auto *A = FD->getAttr<SYCLIntelMaxGlobalWorkDimAttr>()) {
+    const auto *CE = cast<ConstantExpr>(A->getValue());
     Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
     llvm::Metadata *AttrMDArgs[] = {llvm::ConstantAsMetadata::get(
         Builder.getInt32(ArgVal->getSExtValue()))};
@@ -873,21 +905,11 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                     llvm::MDNode::get(Context, AttrMDArgs));
   }
 
-  if (const SYCLIntelNoGlobalWorkOffsetAttr *A =
-          FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
-    const Expr *Arg = A->getValue();
-    assert(Arg && "Got an unexpected null argument");
-    const auto *CE = dyn_cast<ConstantExpr>(Arg);
-    assert(CE && "Not an integer constant expression");
+  if (const auto *A = FD->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
+    const auto *CE = cast<ConstantExpr>(A->getValue());
     Optional<llvm::APSInt> ArgVal = CE->getResultAsAPSInt();
     if (ArgVal->getBoolValue())
       Fn->setMetadata("no_global_work_offset", llvm::MDNode::get(Context, {}));
-  }
-
-  if (FD->hasAttr<SYCLIntelUseStallEnableClustersAttr>()) {
-    llvm::Metadata *AttrMDArgs[] = {
-        llvm::ConstantAsMetadata::get(Builder.getInt32(1))};
-    Fn->setMetadata("stall_enable", llvm::MDNode::get(Context, AttrMDArgs));
   }
 
   if (const auto *A = FD->getAttr<SYCLIntelFPGAMaxConcurrencyAttr>()) {
@@ -1011,8 +1033,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   } while (0);
 
   if (D) {
-    // Apply the no_sanitize* attributes to SanOpts.
+    bool NoSanitizeCoverage = false;
+
     for (auto Attr : D->specific_attrs<NoSanitizeAttr>()) {
+      // Apply the no_sanitize* attributes to SanOpts.
       SanitizerMask mask = Attr->getMask();
       SanOpts.Mask &= ~mask;
       if (mask & SanitizerKind::Address)
@@ -1023,7 +1047,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
         SanOpts.set(SanitizerKind::KernelHWAddress, false);
       if (mask & SanitizerKind::KernelHWAddress)
         SanOpts.set(SanitizerKind::HWAddress, false);
+
+      // SanitizeCoverage is not handled by SanOpts.
+      if (Attr->hasCoverage())
+        NoSanitizeCoverage = true;
     }
+
+    if (NoSanitizeCoverage && CGM.getCodeGenOpts().hasSanitizeCoverage())
+      Fn->addFnAttr(llvm::Attribute::NoSanitizeCoverage);
   }
 
   // Apply sanitizer attributes to the function.
@@ -1161,6 +1192,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
     Fn->addFnAttr("cfi-canonical-jump-table");
 
+  if (D && D->hasAttr<NoProfileFunctionAttr>())
+    Fn->addFnAttr(llvm::Attribute::NoProfile);
+
 #if INTEL_CUSTOMIZATION
   if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
     auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
@@ -1202,6 +1236,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       Fn->setMetadata("loop_fuse",
                       llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
     }
+  }
+
+  if (getLangOpts().SYCLIsDevice && D &&
+      D->hasAttr<SYCLIntelUseStallEnableClustersAttr>()) {
+    llvm::Metadata *AttrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(1))};
+    Fn->setMetadata("stall_enable",
+                    llvm::MDNode::get(getLLVMContext(), AttrMDArgs));
   }
 
   if (getLangOpts().OpenCL || getLangOpts().SYCLIsDevice) {
@@ -1387,6 +1429,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
     Fn->addFnAttr("packed-stack");
   }
 
+  if (CGM.getCodeGenOpts().WarnStackSize != UINT_MAX)
+    Fn->addFnAttr("warn-stack-size",
+                  std::to_string(CGM.getCodeGenOpts().WarnStackSize));
+
   if (RetTy->isVoidType()) {
     // Void type; nothing to return.
     ReturnValue = Address::invalid();
@@ -1533,9 +1579,6 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
 
 void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
   incrementProfileCounter(Body);
-  if (CPlusPlusWithProgress())
-    FnIsMustProgress = true;
-
   if (const CompoundStmt *S = dyn_cast<CompoundStmt>(Body))
     EmitCompoundStmtWithoutScope(*S);
   else
@@ -1543,7 +1586,7 @@ void CodeGenFunction::EmitFunctionBody(const Stmt *Body) {
 
   // This is checked after emitting the function body so we know if there
   // are any permitted infinite loops.
-  if (FnIsMustProgress)
+  if (checkIfFunctionMustProgress())
     CurFn->addFnAttr(llvm::Attribute::MustProgress);
 }
 
@@ -1727,8 +1770,14 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   QualType ResTy = BuildFunctionArgList(GD, Args);
 
   // Check if we should generate debug info for this function.
-  if (FD->hasAttr<NoDebugAttr>())
-    DebugInfo = nullptr; // disable debug info indefinitely for this function
+  if (FD->hasAttr<NoDebugAttr>()) {
+    // Clear non-distinct debug info that was possibly attached to the function
+    // due to an earlier declaration without the nodebug attribute
+    if (Fn)
+      Fn->setSubprogram(nullptr);
+    // Disable debug info indefinitely for this function
+    DebugInfo = nullptr;
+  }
 
   // The function might not have a body if we're generating thunks for a
   // function declaration.
@@ -1768,11 +1817,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
-  OptReportHandler &SyclOptReportHandler =
-      CGM.getDiags().getSYCLOptReportHandler();
-  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
+  SyclOptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
+  if (SyclOptReport.HasOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
+    for (auto ORI : llvm::enumerate(SyclOptReport.GetInfo(FD))) {
       llvm::DiagnosticLocation DL =
           SourceLocToDebugLoc(ORI.value().KernelArgLoc);
       StringRef NameInDesc = ORI.value().KernelArgDescName;
@@ -1790,12 +1838,12 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       ORE.emit(Remark);
     }
   }
+
 #if INTEL_CUSTOMIZATION
-  OptReportHandler &OpenMPOptReportHandler =
-      CGM.getDiags().OpenMPOptReportHandler;
-  if (OpenMPOptReportHandler.HasOpenMPReportInfo(FD)) {
+  OpenMPOptReportHandler &OpenMPOptReport = CGM.getDiags().OpenMPOptReport;
+  if (OpenMPOptReport.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto &ORI : OpenMPOptReportHandler.GetClangInfo(FD)) {
+    for (auto &ORI : OpenMPOptReport.GetClangInfo(FD)) {
       llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
       llvm::OptimizationRemarkMissed R("openmp", "Region", DL,
                                        &Fn->getEntryBlock());
@@ -3017,6 +3065,22 @@ void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
                                           const FunctionDecl *TargetDecl) {
   return checkTargetFeatures(E->getBeginLoc(), TargetDecl);
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
+// Emits an error if the builtin's vector width large than 256 under
+// common-avx256.
+void CodeGenFunction::checkTargetVectorWidth(const CallExpr *E,
+                                             const FunctionDecl *TargetDecl,
+                                             unsigned VectorWidth) {
+  StringRef CPU = CGM.getTarget().getTargetOpts().CPU;
+  if (VectorWidth > 256 && CPU == "common-avx256")
+      CGM.getDiags().Report(E->getBeginLoc(),
+                            diag::err_builtin_exceeds_vector_width)
+          << TargetDecl->getDeclName();
+}
+#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_CUSTOMIZATION
 
 // Emits an error if we don't have a valid set of target features for the
 // called function.

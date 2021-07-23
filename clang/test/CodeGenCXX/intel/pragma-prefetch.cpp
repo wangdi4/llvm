@@ -130,7 +130,7 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 // CHECK: DIR.PRAGMA.PREFETCH_LOOP
 // CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo1.addr)
-// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 3)
 // CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo2.addr)
@@ -138,14 +138,14 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
 // CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 1)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo3.addr)
-// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 1)
+// CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 0)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 512)
 // CHECK-SAME: "QUAL.PRAGMA.ENABLE"(i32 0)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32** %foo4.addr)
 // CHECK: "DIR.PRAGMA.END.PREFETCH_LOOP"
-#pragma prefetch foo1:2:3
+#pragma prefetch foo1:1:3
 #pragma prefetch foo2
-#pragma prefetch foo3:1:512
+#pragma prefetch foo3:0:512
 #pragma noprefetch foo4
   for (int i = 1; i < 100; i++) {
   }
@@ -273,7 +273,7 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %k)
 // CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 99)
-// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %ptridx)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %arrayidx)
 // CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(%struct.foo* %bar3)

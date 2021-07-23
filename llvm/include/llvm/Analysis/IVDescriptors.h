@@ -14,6 +14,7 @@
 #define LLVM_ANALYSIS_IVDESCRIPTORS_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -275,7 +276,7 @@ public:
   /// to handle Phi as a first-order recurrence.
   static bool
   isFirstOrderRecurrence(PHINode *Phi, Loop *TheLoop,
-                         DenseMap<Instruction *, Instruction *> &SinkAfter,
+                         MapVector<Instruction *, Instruction *> &SinkAfter,
                          DominatorTree *DT);
 
   /// Returns true if the recurrence has floating-point math that requires

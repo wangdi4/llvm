@@ -41,4 +41,3 @@ define dso_local i32 @main() {
   %add = add nsw i32 %call, %call1
   ret i32 %add
 }
-

@@ -1,7 +1,8 @@
 ; REQUIRES: asserts
-
 ; RUN: opt -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -passes=dtransop-optbasetest -debug-only=dtransop-optbase -dtransop-optbasetest-typelist=struct.test01a,struct.test02a,struct.test03a,struct.test04a,struct.test05a,struct.test06a,struct.test07a,struct.test08a,struct.test09a,struct.test10a,struct.test11a < %s 2>&1 | FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-OPAQUE
 
 ; Test the ability to create new LLVM and DTrans types for the types selected by
 ; the transformation and by the base class converting the dependent types. This
@@ -109,13 +110,13 @@
 ; CHECK-OPAQUE-DAG: %struct.test02a = type { i32, %struct.test02b } -> %__DTT_struct.test02a = type { i32, %struct.test02b }
 ; CHECK-OPAQUE-DAG: %struct.test03a = type { i32 } -> %__DTT_struct.test03a = type { i32 }
 ; CHECK-OPAQUE-DAG: %struct.test03b = type { i32, %struct.test03a } -> %__DDT_struct.test03b = type { i32, %__DTT_struct.test03a }
-; CHECK-OPAQUE-DAG: %struct.test04a = type { i32, p0 } -> %__DTT_struct.test04a = type { i32, p0 }
+; CHECK-OPAQUE-DAG: %struct.test04a = type { i32, ptr } -> %__DTT_struct.test04a = type { i32, ptr }
 ; CHECK-OPAQUE-DAG: %struct.test05a = type { i32 } -> %__DTT_struct.test05a = type { i32 }
 ; CHECK-OPAQUE-DAG: %struct.test06a = type { i32 } -> %__DTT_struct.test06a = type { i32 }
 ; CHECK-OPAQUE-DAG: %struct.test06d = type { %struct.test06a } -> %__DDT_struct.test06d = type { %__DTT_struct.test06a }
 ; CHECK-OPAQUE-DAG: %struct.test06e = type { %struct.test06a } -> %__DDT_struct.test06e = type { %__DTT_struct.test06a }
 ; CHECK-OPAQUE-DAG: %struct.test07a = type { i32, %struct.test07c } -> %__DTT_struct.test07a = type { i32, %struct.test07c }
-; CHECK-OPAQUE-DAG: %struct.test08a = type { i32, p0, p0 } -> %__DTT_struct.test08a = type { i32, p0, p0 }
+; CHECK-OPAQUE-DAG: %struct.test08a = type { i32, ptr, ptr } -> %__DTT_struct.test08a = type { i32, ptr, ptr }
 ; CHECK-OPAQUE-DAG: %struct.test09a = type { i32, i32 } -> %__DTT_struct.test09a = type { i32, i32 }
 ; CHECK-OPAQUE-DAG: %struct.test10a = type {} -> %__DTT_struct.test10a = type {}
 ; CHECK-OPAQUE-DAG: %struct.test11a = type opaque -> %__DTT_struct.test11a = type opaque

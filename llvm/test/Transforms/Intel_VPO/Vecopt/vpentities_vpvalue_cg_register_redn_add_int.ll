@@ -17,9 +17,9 @@
 ; <0>     END REGION
 
 ; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; Mixed HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR-LABEL: Function: foo_int
 ; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
@@ -33,15 +33,15 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_int
 ; CHECK-LLVMIR-LABEL: vector.body:
-; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ zeroinitializer, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
+; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ zeroinitializer, [[vectorph:%.*]] ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_ADD]] = add nsw <4 x i32> {{%.*}}, [[RED_PHI]]
-; CHECK-LLVMIR-LABEL: VPlannedBB5:
+; CHECK-LLVMIR-LABEL: VPlannedBB6:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[RED_ADD]])
-; CHECK-LLVMIR-LABEL: scalar.ph:
+; CHECK-LLVMIR-LABEL: merge.blk10:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi i32 [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
 
 

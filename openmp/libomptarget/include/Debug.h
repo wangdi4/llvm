@@ -39,6 +39,7 @@
 
 #include <stdlib.h>   // INTEL
 #include  <string>    // INTEL
+#include <atomic>
 #include <mutex>
 
 /// 32-Bit field data attributes controlling information presented to the user.
@@ -49,17 +50,26 @@ enum OpenMPInfoType : uint32_t {
   OMP_INFOTYPE_MAPPING_EXISTS = 0x0002,
   // Dump the contents of the device pointer map at kernel exit or failure.
   OMP_INFOTYPE_DUMP_TABLE = 0x0004,
+  // Indicate when an address is added to the device mapping table.
+  OMP_INFOTYPE_MAPPING_CHANGED = 0x0008,
   // Print kernel information from target device plugins.
   OMP_INFOTYPE_PLUGIN_KERNEL = 0x0010,
+  // Print whenever data is transferred to the device
+  OMP_INFOTYPE_DATA_TRANSFER = 0x0020,
   // Enable every flag.
   OMP_INFOTYPE_ALL = 0xffffffff,
 };
 #if INTEL_CUSTOMIZATION
 
 #ifdef _WIN32
+#define NOMINMAX 1
+#include <windows.h>
 #define __ATTRIBUTE__(X)
+#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
 #else
 #define __ATTRIBUTE__(X)  __attribute__((X))
+#include <unistd.h>
+#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
@@ -73,24 +83,35 @@ enum OpenMPInfoType : uint32_t {
 #endif
 
 // Add __attribute__((used)) to work around a bug in gcc 5/6.
-USED static inline uint32_t getInfoLevel() {
-  static uint32_t InfoLevel = 0;
+USED inline std::atomic<uint32_t> &getInfoLevelInternal() {
+  static std::atomic<uint32_t> InfoLevel;
   static std::once_flag Flag{};
   std::call_once(Flag, []() {
     if (char *EnvStr = getenv("LIBOMPTARGET_INFO"))
-      InfoLevel = std::stoi(EnvStr);
+      InfoLevel.store(std::stoi(EnvStr));
   });
 
   return InfoLevel;
 }
 
+USED inline uint32_t getInfoLevel() { return getInfoLevelInternal().load(); }
+
 // Add __attribute__((used)) to work around a bug in gcc 5/6.
-USED static inline uint32_t getDebugLevel() {
+USED inline uint32_t getDebugLevel() {
   static uint32_t DebugLevel = 0;
   static std::once_flag Flag{};
   std::call_once(Flag, []() {
     if (char *EnvStr = getenv("LIBOMPTARGET_DEBUG"))
+#if INTEL_COLLAB
+    {
+      DebugLevel = std::atoi(EnvStr);
+      if (DebugLevel == 0 && !(EnvStr[0] == '0' && EnvStr[1] == '\0'))
+        fprintf(stderr, "Libomptarget --> Warning: Debug level was set to 0 "
+                "for invalid input LIBOMPTARGET_DEBUG=\"%s\"\n", EnvStr);
+    }
+#else // INTEL_COLLAB
       DebugLevel = std::stoi(EnvStr);
+#endif // INTEL_COLLAB
   });
 
   return DebugLevel;
@@ -155,11 +176,27 @@ USED static inline uint32_t getDebugLevel() {
 #ifdef OMPTARGET_DEBUG
 #include <stdio.h>
 
+#if INTEL_CUSTOMIZATION
+// Print Process id when DebugLevel is > 2 to distinguish different MPI ranks
+// as they will be intermingled when run with 2 or more ranks
+// Ideally we want the LIBOMPTARGET_DEBUG be bit  vector to select different
+// dumps.
+#define DEBUGP(prefix, ...)                                                    \
+  {                                                                            \
+    fprintf(stderr, "%s", prefix);                                             \
+    if (getDebugLevel() > 2) {                                                 \
+       print_pid();                                                            \
+    }                                                                          \
+    fprintf(stderr, " --> ");                                                  \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
+#else // INTEL_CUSTOMIZATION
 #define DEBUGP(prefix, ...)                                                    \
   {                                                                            \
     fprintf(stderr, "%s --> ", prefix);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
   }
+#endif // INTEL_CUSTOMIZATION
 
 /// Emit a message for debugging
 #define DP(...)                                                                \

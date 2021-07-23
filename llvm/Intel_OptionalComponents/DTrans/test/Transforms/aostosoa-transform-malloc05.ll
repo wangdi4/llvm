@@ -77,9 +77,9 @@ define void @test01(i64 %num) {
   ret void
 }
 
-; CHECK:  !0 = !{i16* null}
-; CHECK:  !1 = !{i64* null}
-; CHECK:  !2 = !{i32* null}
-; CHECK:  !3 = !{%__SOADT_struct.test01dep** null}
+; CHECK:  !0 = !{i16 0, i32 1}
+; CHECK:  !1 = !{i64 0, i32 1}
+; CHECK:  !2 = !{i32 0, i32 1}
+; CHECK:  !3 = !{%__SOADT_struct.test01dep zeroinitializer, i32 2}
 
 declare i8* @malloc(i64)

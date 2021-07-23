@@ -38,11 +38,7 @@ namespace X86Disassembler {
 #define bFromEVEX2of4(evex)     (((~(evex)) & 0x20) >> 5)
 #define r2FromEVEX2of4(evex)    (((~(evex)) & 0x10) >> 4)
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 #define mmmFromEVEX2of4(evex)    ((evex) & 0x7)
-#else // INTEL_FEATURE_ISA_FP16
-#define mmFromEVEX2of4(evex)    ((evex) & 0x3)
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 #define wFromEVEX3of4(evex)     (((evex) & 0x80) >> 7)
 #define vvvvFromEVEX3of4(evex)  (((~(evex)) & 0x78) >> 3)
@@ -588,10 +584,11 @@ enum SegmentOverride {
 enum VEXLeadingOpcodeByte {
   VEX_LOB_0F = 0x1,
   VEX_LOB_0F38 = 0x2,
-#if INTEL_CUSTOMIZATION
   VEX_LOB_0F3A = 0x3,
+#if INTEL_CUSTOMIZATION
   VEX_LOB_0F39 = 0x5,
-  VEX_LOB_0F3B = 0x6
+  VEX_LOB_0F3B = 0x6,
+  VEX_LOB_MAP8 = 0x8
 #endif // INTEL_CUSTOMIZATION
 };
 

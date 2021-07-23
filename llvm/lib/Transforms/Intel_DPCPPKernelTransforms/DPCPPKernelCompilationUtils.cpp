@@ -14,6 +14,9 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
@@ -23,7 +26,15 @@
 using namespace llvm::NameMangleAPI;
 
 namespace llvm {
-namespace DPCPPKernelCompilationUtils {
+
+// Attributes
+const StringRef KernelAttribute::CallOnce = "kernel-call-once";
+const StringRef KernelAttribute::CallParamNum = "call-params-num";
+const StringRef KernelAttribute::ConvergentCall = "kernel-convergent-call";
+const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
+const StringRef KernelAttribute::RecursionWithBarrier =
+    "barrier_with_recursion";
+const StringRef KernelAttribute::VectorVariants = "vector-variants";
 
 namespace {
 // Document what source language this module was translated from.
@@ -34,23 +45,113 @@ static const unsigned OpenCL_CPP = 4;
 
 const StringRef NAME_GET_GID = "get_global_id";
 const StringRef NAME_GET_LID = "get_local_id";
+const StringRef NAME_GET_LINEAR_GID = "get_global_linear_id";
+const StringRef NAME_GET_LINEAR_LID = "get_local_linear_id";
+const StringRef NAME_GET_SUB_GROUP_LOCAL_ID = "get_sub_group_local_id";
 const StringRef NAME_GET_GLOBAL_SIZE = "get_global_size";
 const StringRef NAME_GET_LOCAL_SIZE = "get_local_size";
+const StringRef NAME_GET_SUB_GROUP_SIZE = "get_sub_group_size";
+const StringRef NAME_GET_MAX_SUB_GROUP_SIZE = "get_max_sub_group_size";
 const StringRef NAME_GET_GROUP_ID = "get_group_id";
+const StringRef NAME_GET_SUB_GROUP_ID = "get_sub_group_id";
 const StringRef NAME_GET_NUM_GROUPS = "get_num_groups";
+const StringRef NAME_GET_NUM_SUB_GROUPS = "get_num_sub_groups";
+const StringRef NAME_GET_ENQUEUED_NUM_SUB_GROUPS =
+    "get_enqueued_num_sub_groups";
 const StringRef NAME_GET_WORK_DIM = "get_work_dim";
 const StringRef NAME_GET_GLOBAL_OFFSET = "get_global_offset";
 const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
 const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
+const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
+
+// work-group functions
+const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
+const StringRef NAME_WORK_GROUP_ANY = "work_group_any";
+const StringRef NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+const StringRef NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
+    "work_group_scan_exclusive_add";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD =
+    "work_group_scan_inclusive_add";
+const StringRef NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN =
+    "work_group_scan_exclusive_min";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN =
+    "work_group_scan_inclusive_min";
+const StringRef NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX =
+    "work_group_scan_exclusive_max";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX =
+    "work_group_scan_inclusive_max";
+const StringRef NAME_ASYNC_WORK_GROUP_COPY = "async_work_group_copy";
+const StringRef NAME_ASYNC_WORK_GROUP_STRIDED_COPY =
+    "async_work_group_strided_copy";
+const StringRef NAME_WORK_GROUP_RESERVE_READ_PIPE =
+    "__work_group_reserve_read_pipe";
+const StringRef NAME_WORK_GROUP_COMMIT_READ_PIPE =
+    "__work_group_commit_read_pipe";
+const StringRef NAME_WORK_GROUP_RESERVE_WRITE_PIPE =
+    "__work_group_reserve_write_pipe";
+const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
+    "__work_group_commit_write_pipe";
+const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
+
+// KMP acquire/release
+const StringRef NAME_IB_KMP_ACQUIRE_LOCK = "__builtin_IB_kmp_acquire_lock";
+const StringRef NAME_IB_KMP_RELEASE_LOCK = "__builtin_IB_kmp_release_lock";
+
+// subgroup functions
+const StringRef NAME_SUB_GROUP_ALL = "sub_group_all";
+const StringRef NAME_SUB_GROUP_ANY = "sub_group_any";
+const StringRef NAME_SUB_GROUP_BROADCAST = "sub_group_broadcast";
+const StringRef NAME_SUB_GROUP_REDUCE_ADD = "sub_group_reduce_add";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD =
+    "sub_group_scan_exclusive_add";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD =
+    "sub_group_scan_inclusive_add";
+const StringRef NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN =
+    "sub_group_scan_exclusive_min";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN =
+    "sub_group_scan_inclusive_min";
+const StringRef NAME_SUB_GROUP_REDUCE_MAX = "sub_group_reduce_max";
+const StringRef NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX =
+    "sub_group_scan_exclusive_max";
+const StringRef NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX =
+    "sub_group_scan_inclusive_max";
 
 /// Not mangled names.
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
 const StringRef NAME_GET_SPECIAL_BUFFER = "get_special_buffer.";
 const StringRef NAME_PRINTF = "printf";
 } // namespace
+
+static cl::list<std::string>
+    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
+                          cl::desc("Builtin declarations (bitcode) libraries"),
+                          cl::value_desc("filename1,filename2"));
+
+namespace DPCPPKernelCompilationUtils {
+
+SmallVector<std::unique_ptr<Module>, 2>
+loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
+  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
+  for (auto &ModuleFile : OptBuiltinModuleFiles) {
+    if (ModuleFile.empty()) {
+      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
+    } else {
+      SMDiagnostic Err;
+      std::unique_ptr<Module> BuiltinModule =
+          getLazyIRFileModule(ModuleFile, Err, Ctx);
+      assert(BuiltinModule && "failed to load builtin lib from file");
+      BuiltinModules.push_back(std::move(BuiltinModule));
+    }
+  }
+  return BuiltinModules;
+}
 
 static unsigned CLVersionToVal(uint64_t Major, uint64_t Minor) {
   return Major * 100 + Minor * 10;
@@ -104,8 +205,38 @@ bool isGeneratedFromOCLCPP(const Module &M) {
   return false;
 }
 
+bool isImplicitGID(AllocaInst *AI) {
+  StringRef Name = AI->getName();
+  static const std::vector<StringRef> ImplicitGIDs = {
+      "__ocl_dbg_gid0", "__ocl_dbg_gid1", "__ocl_dbg_gid2"};
+  for (auto &GID : ImplicitGIDs) {
+    if (Name.equals(GID))
+      return true;
+  }
+  return false;
+}
+
+std::string AppendWithDimension(StringRef S, int Dimension) {
+  return Dimension >= 0 ? (S + Twine(Dimension)).str() : (S + "var").str();
+}
+
+std::string AppendWithDimension(StringRef S, const Value *Dimension) {
+  int D = -1;
+  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
+    D = C->getZExtValue();
+  return AppendWithDimension(S, D);
+}
+
 bool isGetEnqueuedLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
+}
+
+bool isGetGlobalLinearId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
+}
+
+bool isGetLocalLinearId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
 }
 
 bool isGetGlobalSize(StringRef S) {
@@ -126,6 +257,19 @@ bool isGetNumGroups(StringRef S) {
 
 bool isGetWorkDim(StringRef S) {
   return isOptionalMangleOf(S, NAME_GET_WORK_DIM);
+}
+
+bool isGetLocalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_LID); }
+
+bool isGetGlobalId(StringRef S) { return isOptionalMangleOf(S, NAME_GET_GID); }
+
+bool isAtomicBuiltin(StringRef S) {
+  // S is atomic built-in name if
+  // - it's mangled (only built-in function names are mangled)
+  // - it starts with "atom" (only atomic built-ins has "atom" prefix)
+  if (!isMangledName(S))
+    return false;
+  return stripName(S).startswith("atom");
 }
 
 bool isGlobalCtorDtor(Function *F) {
@@ -151,14 +295,312 @@ bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
 bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
 
+// Work-Group builtins
+bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
+
+bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
+
+bool isWorkGroupBroadCast(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool isWorkGroupReduceAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
+}
+
+bool isWorkGroupReduceMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
+}
+
+bool isWorkGroupReduceMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MAX);
+}
+
+bool isWorkGroupScanExclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanInclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanExclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool isWorkGroupScanInclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool isWorkGroupScanExclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool isWorkGroupScanInclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool isWorkGroupReserveReadPipe(StringRef S) {
+  return S == NAME_WORK_GROUP_RESERVE_READ_PIPE;
+}
+
+bool isWorkGroupCommitReadPipe(StringRef S) {
+  return S == NAME_WORK_GROUP_COMMIT_READ_PIPE;
+}
+
+bool isWorkGroupReserveWritePipe(StringRef S) {
+  return S == NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
+}
+
+bool isWorkGroupCommitWritePipe(StringRef S) {
+  return S == NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
+}
+
+bool isAsyncWorkGroupCopy(StringRef S) {
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
+}
+
+bool isAsyncWorkGroupStridedCopy(StringRef S) {
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
+static bool isKMPAcquireReleaseLock(StringRef S) {
+  return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
+}
+
+PipeKind getPipeKind(StringRef S) {
+  PipeKind Kind;
+  Kind.Op = PipeKind::OK_None;
+
+  if (!S.consume_front("__"))
+    return Kind;
+
+  if (S.consume_front("sub_group_"))
+    Kind.Scope = PipeKind::SK_SubGroup;
+  else if (S.consume_front("work_group_"))
+    Kind.Scope = PipeKind::SK_WorkGroup;
+  else
+    Kind.Scope = PipeKind::SK_WorkItem;
+
+  if (S.consume_front("commit_"))
+    Kind.Op = PipeKind::OK_Commit;
+  else if (S.consume_front("reserve_"))
+    Kind.Op = PipeKind::OK_Reserve;
+
+  if (S.consume_front("read_"))
+    Kind.Access = PipeKind::AK_Read;
+  else if (S.consume_front("write_"))
+    Kind.Access = PipeKind::AK_Write;
+  else {
+    Kind.Op = PipeKind::OK_None;
+    return Kind; // not a pipe built-in
+  }
+
+  if (!S.consume_front("pipe")) {
+    Kind.Op = PipeKind::OK_None;
+    return Kind; // not a pipe built-in
+  }
+
+  if (Kind.Op == PipeKind::OK_Commit || Kind.Op == PipeKind::OK_Reserve) {
+    // rest for the modifiers only appliy to read/write built-ins
+    return Kind;
+  }
+
+  if (S.consume_front("_2"))
+    Kind.Op = PipeKind::OK_ReadWrite;
+  else if (S.consume_front("_4"))
+    Kind.Op = PipeKind::OK_ReadWriteReserve;
+
+  // FPGA extension.
+  if (S.consume_front("_bl"))
+    Kind.Blocking = true;
+  else
+    Kind.Blocking = false;
+
+  if (S.consume_front("_io"))
+    Kind.IO = true;
+  else
+    Kind.IO = false;
+
+  if (S.consume_front("_fpga"))
+    Kind.FPGA = true;
+
+  if (S.consume_front("_") && S.startswith("v"))
+    Kind.SimdSuffix = std::string(S);
+
+  return Kind;
+}
+
+bool isWorkItemPipeBuiltin(StringRef S) {
+  auto Kind = getPipeKind(S);
+  return Kind && Kind.Scope == PipeKind::SK_WorkItem;
+}
+
+bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
+  return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
+         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(M) &&
+          (isWorkGroupReserveReadPipe(S) || isWorkGroupCommitReadPipe(S) ||
+           isWorkGroupReserveWritePipe(S) || isWorkGroupCommitWritePipe(S)));
+}
+
+bool isWorkGroupScan(StringRef S) {
+  return isWorkGroupScanExclusiveAdd(S) || isWorkGroupScanInclusiveAdd(S) ||
+         isWorkGroupScanExclusiveMin(S) || isWorkGroupScanInclusiveMin(S) ||
+         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S);
+}
+
+bool isWorkGroupUniform(StringRef S) {
+  return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
+         isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
+         isWorkGroupReduceMax(S);
+}
+
+bool isWorkGroupMin(StringRef S) {
+  return isWorkGroupReduceMin(S) || isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S);
+}
+
+bool isWorkGroupMax(StringRef S) {
+  return isWorkGroupReduceMax(S) || isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool isWorkGroupDivergent(StringRef S) { return isWorkGroupScan(S); }
+
+bool hasWorkGroupFinalizePrefix(StringRef S) {
+  if (!isMangledName(S))
+    return false;
+  return stripName(S).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
+}
+
+std::string appendWorkGroupFinalizePrefix(StringRef S) {
+  assert(isMangledName(S) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor FD = demangle(S);
+  FD.Name = NAME_FINALIZE_WG_FUNCTION_PREFIX.str() + FD.Name;
+  std::string finalizeFuncName = mangle(FD);
+  return finalizeFuncName;
+}
+
+std::string removeWorkGroupFinalizePrefix(StringRef S) {
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  reflection::FunctionDescriptor FD = demangle(S);
+  FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
+  std::string FuncName = mangle(FD);
+  return FuncName;
+}
+
+bool isWorkGroupBuiltin(StringRef S) {
+  return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
+}
+
+/// Subgroup builtin functions
+
+bool isGetSubGroupSize(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
+}
+
+bool isGetMaxSubGroupSize(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
+}
+
+bool isGetNumSubGroups(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
+}
+
+bool isGetEnqueuedNumSubGroups(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
+}
+
+bool isGetSubGroupId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+}
+
+bool isGetSubGroupLocalId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
+}
+
+bool isSubGroupAll(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ALL); }
+
+bool isSubGroupAny(StringRef S) { return isMangleOf(S, NAME_SUB_GROUP_ANY); }
+
+bool isSubGroupBroadCast(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_BROADCAST);
+}
+
+bool isSubGroupReduceAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_ADD);
+}
+
+bool isSubGroupScanExclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool isSubGroupScanInclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isSubGroupReduceMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MIN);
+}
+
+bool isSubGroupScanExclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool isSubGroupScanInclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool isSubGroupReduceMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MAX);
+}
+
+bool isSubGroupScanExclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool isSubGroupScanInclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool isSubGroupScan(StringRef S) {
+  return isSubGroupScanExclusiveAdd(S) || isSubGroupScanInclusiveAdd(S) ||
+         isSubGroupScanExclusiveMin(S) || isSubGroupScanInclusiveMin(S) ||
+         isSubGroupScanExclusiveMax(S) || isSubGroupScanInclusiveMax(S);
+}
+
+// TODO: add ballot function, refactor OCLVecClone - opencl-vec-uniform-return.
+bool isSubGroupUniform(StringRef S) {
+  return isGetSubGroupSize(S) || isGetSubGroupId(S) ||
+         isGetMaxSubGroupSize(S) || isGetNumSubGroups(S) ||
+         isGetEnqueuedNumSubGroups(S) || isSubGroupAll(S) || isSubGroupAny(S) ||
+         isSubGroupBroadCast(S) || isSubGroupReduceAdd(S) ||
+         isSubGroupReduceMin(S) || isSubGroupReduceMax(S);
+}
+
+bool isSubGroupDivergent(StringRef S) {
+  return isGetSubGroupLocalId(S) || isSubGroupScan(S);
+}
+
+bool isSubGroupBuiltin(StringRef S) {
+  return isSubGroupUniform(S) || isSubGroupDivergent(S);
+}
+
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
-  FD.Name = N;
-  for (auto PT : {ParamTys...}) {
-    reflection::RefParamType UI(new reflection::PrimitiveType(PT));
-    FD.Parameters.push_back(UI);
-  }
+  FD.Name = N.str();
+  for (auto PT : {ParamTys...})
+    FD.Parameters.push_back(new reflection::PrimitiveType(PT));
+  return mangle(FD);
+}
+
+template <reflection::TypePrimitiveEnum Ty>
+static std::string mangleWithParam(StringRef N, unsigned NumOfParams) {
+  reflection::FunctionDescriptor FD;
+  FD.Name = N.str();
+  for (unsigned I = 0; I < NumOfParams; ++I)
+    FD.Parameters.push_back(new reflection::PrimitiveType(Ty));
   return mangle(FD);
 }
 
@@ -166,13 +608,32 @@ std::string mangledGetGID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID);
 }
 
+std::string mangledGetGlobalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_GLOBAL_SIZE);
+}
+
+std::string mangledGetGlobalOffset() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_GLOBAL_OFFSET);
+}
+
 std::string mangledGetLID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_LID);
+}
+
+std::string mangledGetGroupID() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GROUP_ID);
 }
 
 std::string mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
       NAME_GET_LOCAL_SIZE);
+}
+
+std::string mangledGetEnqueuedLocalSize() {
+  return mangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_ENQUEUED_LOCAL_SIZE, 1);
 }
 
 std::string mangledBarrier() {
@@ -181,9 +642,9 @@ std::string mangledBarrier() {
 
 std::string mangledWGBarrier(BarrierType BT) {
   switch (BT) {
-  case BARRIER_NO_SCOPE:
+  case BarrierType::NoScope:
     return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_WG_BARRIER);
-  case BARRIER_WITH_SCOPE:
+  case BarrierType::WithScope:
     return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
                                    reflection::PRIMITIVE_MEMORY_SCOPE>(
         NAME_WG_BARRIER);
@@ -193,31 +654,143 @@ std::string mangledWGBarrier(BarrierType BT) {
   return "";
 }
 
-FuncSet getKernels(Module &M) {
-  FuncSet FSet;
-  for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      FSet.insert(&F);
+std::string mangledSGBarrier(BarrierType BT) {
+  switch (BT) {
+  case BarrierType::NoScope:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_SG_BARRIER);
+  case BarrierType::WithScope:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
+                                   reflection::PRIMITIVE_MEMORY_SCOPE>(
+        NAME_SG_BARRIER);
   }
-  return FSet;
+
+  llvm_unreachable("Unknown sub_group_barrier version");
+  return "";
+}
+
+std::string mangledGetSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_SIZE);
+}
+
+std::string mangledGetSubGroupLocalId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_LOCAL_ID);
+}
+
+std::string mangledGetGlobalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_GID);
+}
+
+std::string mangledGetLocalLinearId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_LINEAR_LID);
+}
+
+StructType *getStructFromTypePtr(Type *Ty) {
+  auto *PtrTy = dyn_cast<PointerType>(Ty);
+  if (!PtrTy)
+    return nullptr;
+  // Handle also pointer to pointer to ...
+  while (auto *PtrTyNext = dyn_cast<PointerType>(PtrTy->getElementType()))
+    PtrTy = PtrTyNext;
+  return dyn_cast<StructType>(PtrTy->getElementType());
+}
+
+bool isSameStructType(StructType *STy1, StructType *STy2) {
+  if (!STy1->hasName() || !STy2->hasName())
+    return false;
+  return 0 == stripStructNameTrailingDigits(STy1->getName())
+                  .compare(stripStructNameTrailingDigits(STy2->getName()));
+}
+
+PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
+  // The function changes the base type of SrcPTy to DstTy
+  // SrcPTy = %struct.__pipe_t addrspace(1)**
+  // DstTy  = %struct.__pipe_t.1
+  // =>
+  // %struct.__pipe_t.1 addrspace(1)**
+
+  assert(SrcPTy && DstTy && "Invalid types!");
+
+  SmallVector<PointerType *, 2> Types{SrcPTy};
+  while ((SrcPTy = dyn_cast<PointerType>(SrcPTy->getElementType())))
+    Types.push_back(SrcPTy);
+
+  for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
+    DstTy = PointerType::get(DstTy, (*It)->getAddressSpace());
+
+  return cast<PointerType>(DstTy);
+}
+
+Function *importFunctionDecl(Module *Dst, const Function *Orig,
+                             bool DuplicateIfExists) {
+  assert(Dst && "Invalid module");
+  assert(Orig && "Invalid function");
+
+  std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
+  FunctionType *OrigFnTy = Orig->getFunctionType();
+
+  SmallVector<Type *, 8> NewArgTypes;
+  bool Changed = false;
+  for (auto *ArgTy : Orig->getFunctionType()->params()) {
+    NewArgTypes.push_back(ArgTy);
+
+    auto *STy = getStructFromTypePtr(ArgTy);
+    if (!STy)
+      continue;
+
+    for (auto *DstSTy : DstSTys) {
+      if (isSameStructType(DstSTy, STy)) {
+        NewArgTypes.back() =
+            mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
+        Changed = true;
+        break;
+      }
+    }
+  }
+
+  FunctionType *NewFnType =
+      (!Changed) ? OrigFnTy
+                 : FunctionType::get(Orig->getReturnType(), NewArgTypes,
+                                     Orig->isVarArg());
+  if (!DuplicateIfExists)
+    return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
+                                                   Orig->getAttributes())
+                              .getCallee());
+
+  // Create a declaration of the function to import disrespecting the fact of
+  // it's existence in the module.
+  Function *NewF = Function::Create(NewFnType, GlobalVariable::ExternalLinkage,
+                                    Orig->getName(), Dst);
+  NewF->setAttributes(Orig->getAttributes());
+
+  return NewF;
 }
 
 FuncSet getAllKernels(Module &M) {
-  FuncSet FSet = getKernels(M);
+  auto Kernels = getKernels(M);
 
   // List all kernels in module
   FuncSet VectorizedFSet;
-  for (auto *F : FSet) {
+  for (auto *F : Kernels) {
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    Function *VectorizedF = getFnAttributeFunction(M, *F, "vectorized_kernel");
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    Function *VectorizedF = KIMD.VectorizedKernel.hasValue()
+                                ? KIMD.VectorizedKernel.get()
+                                : nullptr;
     if (VectorizedF)
       VectorizedFSet.insert(VectorizedF);
-    Function *VectorizedMaskedF =
-        getFnAttributeFunction(M, *F, "vectorized_masked_kernel");
+    Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.hasValue()
+                                      ? KIMD.VectorizedMaskedKernel.get()
+                                      : nullptr;
     if (VectorizedMaskedF)
       VectorizedFSet.insert(VectorizedMaskedF);
   }
+
+  FuncSet FSet(Kernels.begin(), Kernels.end());
   FSet.insert(VectorizedFSet.begin(), VectorizedFSet.end());
   return FSet;
 }
@@ -263,20 +836,68 @@ void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
   }
 }
 
-void getAllSyncBuiltinsDecls(FuncSet &FuncSet, Module *M) {
-  // Clear old collected data!
-  FuncSet.clear();
+FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
+  FuncSet FSet;
 
-  // TODO: port handling of WG collectives here as well
-  std::string BarrierNames[] = {mangledBarrier(),
-                                mangledWGBarrier(BARRIER_NO_SCOPE),
-                                mangledWGBarrier(BARRIER_WITH_SCOPE)};
-  for (const auto &BarrierName : BarrierNames) {
-    auto *F = M->getFunction(BarrierName);
-
-    if (F && F->isDeclaration())
-      FuncSet.insert(F);
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    StringRef FName = F.getName();
+    if (IsWG) {
+      if (FName == mangledBarrier() ||
+          FName == mangledWGBarrier(BarrierType::NoScope) ||
+          FName == mangledWGBarrier(BarrierType::WithScope) ||
+          /* work group built-ins */
+          isWorkGroupBuiltin(FName) ||
+          /* built-ins synced as if were called by a single work item */
+          isWorkGroupAsyncOrPipeBuiltin(FName, M))
+        FSet.insert(&F);
+    } else {
+      if (FName == mangledSGBarrier(BarrierType::NoScope) ||
+          FName == mangledSGBarrier(BarrierType::WithScope) ||
+          isSubGroupBuiltin(FName))
+        FSet.insert(&F);
+    }
   }
+  return FSet;
+}
+
+FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M) {
+  FuncSet FSet = getAllSyncBuiltinsDecls(M);
+
+  // Add sub_group_barrier separately. It does not require following Barrier
+  // compilation flow, but requires noduplicate relaxation.
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    llvm::StringRef FName = F.getName();
+    if (FName == mangledSGBarrier(BarrierType::NoScope) ||
+        FName == mangledSGBarrier(BarrierType::WithScope) ||
+        isKMPAcquireReleaseLock(FName))
+      FSet.insert(&F);
+  }
+
+  return FSet;
+}
+
+FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
+  FuncSet FSet;
+
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    llvm::StringRef FName = F.getName();
+    if (FName == mangledBarrier() ||
+        FName == mangledWGBarrier(BarrierType::NoScope) ||
+        FName == mangledWGBarrier(BarrierType::WithScope) ||
+        FName == mangledSGBarrier(BarrierType::NoScope) ||
+        FName == mangledSGBarrier(BarrierType::WithScope) ||
+        isKMPAcquireReleaseLock(FName) ||
+        isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
+      FSet.insert(&F);
+    }
+  }
+  return FSet;
 }
 
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
@@ -340,8 +961,15 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     I->replaceAllUsesWith(&*NI);
   }
 
-  // Make NewF a kernel instead of F.
-  F->removeFnAttr("sycl_kernel");
+  // Replace F by NewF in KernelList module Metadata (if any)
+  using namespace DPCPPKernelMetadataAPI;
+  llvm::Module *M = F->getParent();
+  assert(M && "Module is NULL");
+  auto Kernels = KernelList(M).getList();
+  std::replace_if(
+      std::begin(Kernels), std::end(Kernels),
+      [F](llvm::Function *Func) { return F == Func; }, NewF);
+  KernelList(M).set(Kernels);
 
   return NewF;
 }
@@ -360,6 +988,7 @@ CallInst *AddMoreArgsToCall(CallInst *OldC, ArrayRef<Value *> NewArgs,
 
   // Replace the original function with a call
   CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
+  NewC->setCallingConv(OldC->getCallingConv());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata()) {
@@ -400,6 +1029,7 @@ CallInst *addMoreArgsToIndirectCall(CallInst *OldC, ArrayRef<Value *> NewArgs) {
   // Replace the original function with a call
   auto *NewC = CallInst::Create(NewFType, Cast, Args, "", OldC);
   assert(NewC && "Failed to create CallInst");
+  NewC->setCallingConv(OldC->getCallingConv());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata())
@@ -523,14 +1153,14 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // in that case 0 argument is block_literal pointer
       // update with special type
       // should be before handling ptrs by addr space
-      if ((i == 0) && F->hasFnAttribute("block_literal_size")) {
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+      if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
         auto *PTy = dyn_cast<PointerType>(pArg->getType());
         if (!PTy || !PTy->getElementType()->isIntegerTy(8))
           continue;
 
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
-        CurArg.SizeInBytes = 0;
-        getFnAttributeInt(F, "block_literal_size", CurArg.SizeInBytes);
+        CurArg.SizeInBytes = KIMD.BlockLiteralSize.get();
         break;
       }
 
@@ -668,9 +1298,9 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
     } break;
 
     case Type::IntegerTyID: {
-      // FIXME: kernel_arg_*** is not attribute, it's metadata.
-      if (getFnAttributeStringInList(*F, "kernel_arg_base_type", i) ==
-          SAMPLER) {
+      DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(F);
+      if (KMD.ArgBaseTypeList.hasValue() &&
+          KMD.ArgBaseTypeList.getItem(i) == SAMPLER) {
         CurArg.Ty = KRNL_ARG_SAMPLER;
         CurArg.SizeInBytes = sizeof(_sampler_t);
       } else {

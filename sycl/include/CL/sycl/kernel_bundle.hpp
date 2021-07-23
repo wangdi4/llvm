@@ -15,6 +15,7 @@
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/kernel.hpp>
+#include <CL/sycl/kernel_bundle_enums.hpp>
 
 #include <cassert>
 #include <memory>
@@ -24,8 +25,6 @@ __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 // Forward declaration
 template <backend Backend> class backend_traits;
-
-enum class bundle_state : char { input = 0, object = 1, executable = 2 };
 
 namespace detail {
 class kernel_id_impl;
@@ -174,6 +173,16 @@ protected:
   // \returns an iterator to the last device image kernel_bundle contains
   const device_image_plain *end() const;
 
+  bool has_specialization_constant_impl(const char *SpecName) const noexcept;
+
+  void set_specialization_constant_impl(const char *SpecName, void *Value,
+                                        size_t Size) noexcept;
+
+  void get_specialization_constant_impl(const char *SpecName, void *Value) const
+      noexcept;
+
+  bool is_specialization_constant_set(const char *SpecName) const noexcept;
+
   detail::KernelBundleImplPtr impl;
 };
 
@@ -253,9 +262,8 @@ public:
   /// \returns true if any device image in the kernel_bundle uses specialization
   /// constant whose address is SpecName
   template <auto &SpecName> bool has_specialization_constant() const noexcept {
-    throw sycl::runtime_error(
-        "kernel_bundle::has_specialization_constant is not implemented yet",
-        PI_INVALID_OPERATION);
+    const char *SpecSymName = detail::get_spec_constant_symbolic_ID<SpecName>();
+    return has_specialization_constant_impl(SpecSymName);
   }
 
   /// Sets the value of the specialization constant whose address is SpecName
@@ -265,20 +273,28 @@ public:
             typename = detail::enable_if_t<_State == bundle_state::input>>
   void set_specialization_constant(
       typename std::remove_reference_t<decltype(SpecName)>::value_type Value) {
-    (void)Value;
-    throw sycl::runtime_error(
-        "kernel_bundle::set_specialization_constant is not implemented yet",
-        PI_INVALID_OPERATION);
+    const char *SpecSymName = detail::get_spec_constant_symbolic_ID<SpecName>();
+    set_specialization_constant_impl(SpecSymName, &Value,
+                                     sizeof(decltype(Value)));
   }
 
-  /// The value of the specialization constant whose address is SpecName for
-  /// this kernel bundle.
+  /// \returns the value of the specialization constant whose address is
+  /// SpecName for this kernel bundle.
   template <auto &SpecName>
   typename std::remove_reference_t<decltype(SpecName)>::value_type
   get_specialization_constant() const {
-    throw sycl::runtime_error(
-        "kernel_bundle::get_specialization_constant is not implemented yet",
-        PI_INVALID_OPERATION);
+    const char *SpecSymName = detail::get_spec_constant_symbolic_ID<SpecName>();
+    if (!is_specialization_constant_set(SpecSymName))
+      return SpecName.getDefaultValue();
+
+    using SCType =
+        typename std::remove_reference_t<decltype(SpecName)>::value_type;
+
+    std::array<char *, sizeof(SCType)> RetValue;
+
+    get_specialization_constant_impl(SpecSymName, RetValue.data());
+
+    return *reinterpret_cast<SCType *>(RetValue.data());
   }
 #endif
 
@@ -657,7 +673,7 @@ build(const kernel_bundle<bundle_state::input> &InputBundle,
 namespace std {
 template <> struct hash<cl::sycl::kernel_id> {
   size_t operator()(const cl::sycl::kernel_id &KernelID) const {
-    return hash<cl::sycl::shared_ptr_class<cl::sycl::detail::kernel_id_impl>>()(
+    return hash<std::shared_ptr<cl::sycl::detail::kernel_id_impl>>()(
         cl::sycl::detail::getSyclObjImpl(KernelID));
   }
 };
@@ -665,8 +681,7 @@ template <> struct hash<cl::sycl::kernel_id> {
 template <cl::sycl::bundle_state State>
 struct hash<cl::sycl::device_image<State>> {
   size_t operator()(const cl::sycl::device_image<State> &DeviceImage) const {
-    return hash<
-        cl::sycl::shared_ptr_class<cl::sycl::detail::device_image_impl>>()(
+    return hash<std::shared_ptr<cl::sycl::detail::device_image_impl>>()(
         cl::sycl::detail::getSyclObjImpl(DeviceImage));
   }
 };
@@ -674,8 +689,7 @@ struct hash<cl::sycl::device_image<State>> {
 template <cl::sycl::bundle_state State>
 struct hash<cl::sycl::kernel_bundle<State>> {
   size_t operator()(const cl::sycl::kernel_bundle<State> &KernelBundle) const {
-    return hash<
-        cl::sycl::shared_ptr_class<cl::sycl::detail::kernel_bundle_impl>>()(
+    return hash<std::shared_ptr<cl::sycl::detail::kernel_bundle_impl>>()(
         cl::sycl::detail::getSyclObjImpl(KernelBundle));
   }
 };

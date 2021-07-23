@@ -104,8 +104,14 @@ CallInst *VPOUtils::createMaskedGatherCall(Value *VecPtr,
                                            unsigned Alignment,
                                            Value *Mask,
                                            Value *PassThru) {
-  auto NewCallInst =
-      Builder.CreateMaskedGather(VecPtr, Align(Alignment), Mask, PassThru);
+  auto *VecPtrTy = cast<VectorType>(VecPtr->getType());
+  auto *PtrTy = cast<PointerType>(VecPtrTy->getElementType());
+  ElementCount NumElts = VecPtrTy->getElementCount();
+  auto *Ty = PtrTy->getElementType();
+  auto *VecTy = VectorType::get(Ty, NumElts);
+
+  auto NewCallInst = Builder.CreateMaskedGather(VecTy, VecPtr, Align(Alignment),
+                                                Mask, PassThru);
   return NewCallInst;
 }
 
@@ -124,8 +130,9 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          unsigned Alignment,
                                          Value *Mask,
                                          Value *PassThru) {
-  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, assumeAligned(Alignment),
-                                              Mask, PassThru);
+  auto *VecTy = VecPtr->getType()->getPointerElementType();
+  auto NewCallInst = Builder.CreateMaskedLoad(
+      VecTy, VecPtr, assumeAligned(Alignment), Mask, PassThru);
   return NewCallInst;
 }
 
@@ -339,30 +346,81 @@ bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
         if (!SimdOnly ||
             VPOAnalysisUtils::getDirectiveID(IntrInst) == DIR_OMP_SIMD)
           return false;
+  LLVM_DEBUG(dbgs() << "Looking for OMP begin for block " << BlockPos->getName()
+                    << "\n");
 
-  // Search upwards through the dominator tree until we find a block
-  // that supports the private clause.
-  auto *DomNode = DT[BlockPos];
-  assert(DomNode && "Dominator tree not built for this function.");
-  auto *IDom = DomNode->getIDom();
-  while (IDom) {
-    auto *IDomBlock = IDom->getBlock();
-    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
-      auto *II = cast<IntrinsicInst>(&(IDomBlock->front()));
-      if (II &&
-          (!SimdOnly || VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)) {
-        auto *Repl =
-            VPOUtils::addOperandBundlesInCall(II, {{"QUAL.OMP.PRIVATE", {I}}});
+  // Start at BlockPos and search each dominating block in turn,
+  // looking for a llvm.directive that supports the private clause.
+  Instruction *Begin = BlockPos->getTerminator();
+  while (Begin) {
+    if (isa<IntrinsicInst>(Begin) &&
+        VPOAnalysisUtils::supportsPrivateClause(Begin)) {
+      // If SimdOnly is true, ignore all except SIMD directives.
+      if (!SimdOnly || VPOAnalysisUtils::getDirectiveID(Begin) == DIR_OMP_SIMD)
+
+      {
+        auto *Repl = VPOUtils::addOperandBundlesInCall(
+            cast<CallInst>(Begin), {{"QUAL.OMP.PRIVATE", {I}}});
         if (Repl) {
-          LLVM_DEBUG(dbgs() << "Added private for " << I->getName()
-                            << " to: " << *Repl << "\n");
+          LLVM_DEBUG(dbgs() << "Added private clause for: " << *I << "\nto "
+                            << *Repl << "\n");
         }
         return true;
       }
     }
-    IDom = DT[IDomBlock]->getIDom();
+    Begin = enclosingBeginDirective(Begin, &DT);
   }
   return false;
+}
+
+// Returns the next enclosing OpenMP begin directive, or nullptr if none.
+IntrinsicInst *VPOUtils::enclosingBeginDirective(Instruction *I,
+                                                 DominatorTree *DT) {
+  auto *DomNode = DT->getNode(I->getParent());
+  assert(DomNode && "Dominator tree not built for this function.");
+  // Start at the previous inst, in case I is already a begin directive.
+  // We want the enclosing scope in that case, not I.
+  // If prev is null, the loop will choose a new block.
+  auto *CurrI = I->getPrevNode();
+  SmallVector<IntrinsicInst *, 4> EndStack;
+  do {
+    // Iterate backwards over instructions in the current block. Do not assume
+    // that directives are in any specific position.
+    while (CurrI) {
+      if (auto *II = dyn_cast<IntrinsicInst>(CurrI)) {
+        if (VPOAnalysisUtils::isBeginDirective(II)) {
+          // See comment below.
+          if (EndStack.empty())
+            return II;
+          else
+            EndStack.pop_back_n(1);
+        } else if (VPOAnalysisUtils::isEndDirective(II)) {
+          // Keep track of open scopes, by looking for end directives.
+          // Example:
+          //  DIR.BEGIN
+          //   DIR.BEGIN // skip this
+          //   DIR.END
+          //   ...
+          //   I =
+          // If we are dominated by an end, the matching begin must be skipped.
+          // This assumes that begin dominates end.
+          EndStack.emplace_back(II);
+        }
+      }
+      CurrI = CurrI->getPrevNode();
+    }
+    // If we didn't find anything in DomNode's block, go to the immediate
+    // dominator and look again.
+    DomNode = DomNode->getIDom();
+    if (!DomNode)
+      return nullptr;
+    CurrI = DomNode->getBlock()->getTerminator();
+  } while (1);
+  // while loop must return on one of these conditions:
+  // - we found the enclosing begin directive
+  // - we reach the DT root.
+  llvm_unreachable("Cannot get here.");
+  return nullptr;
 }
 
 #if INTEL_CUSTOMIZATION

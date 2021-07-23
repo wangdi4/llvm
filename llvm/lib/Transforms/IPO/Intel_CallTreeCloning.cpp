@@ -2404,7 +2404,7 @@ std::string MVFunctionInfo::toString(void) const {
 
     for (ConstantInt *C : ConstSet) {
       APInt Val = C->getValue();
-      S << Val.toString(10, true) << "\t";
+      S << llvm::toString(Val, 10, true) << "\t";
     }
     S << "\n";
   }
@@ -3069,7 +3069,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
       // C is not changed by ValueToValueMapTy - remove const is safe:
       Old2New[Arg] = const_cast<ConstantInt *>(C);
       APInt Val = C->getValue();
-      NewName << sep << Val.toString(10, true);
+      NewName << sep << llvm::toString(Val, 10, true);
     } else {
       Tys.push_back(FTy->getParamType(I));
       NewName << sep << "_";
@@ -4287,7 +4287,7 @@ std::string ConstParamVec::toString() const {
       if (++Cnt > 1)
         S << ",";
 
-      S << I << ":" << C->getValue().toString(10, true);
+      S << I << ":" << llvm::toString(C->getValue(), 10, true);
     }
   S << "}";
   return S.str();
@@ -4499,7 +4499,7 @@ std::string ParamTform::toString() const {
   }
   for (unsigned I = 0; I < ConstParams.size(); ++I) {
     if (const ConstantInt *C = ConstParams[I])
-      S << " \"" << C->getValue().toString(10, true) << "\"->" << I;
+      S << " \"" << llvm::toString(C->getValue(), 10, true) << "\"->" << I;
   }
   S << " }";
   return S.str();

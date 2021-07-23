@@ -30,7 +30,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = internal global [5 x i32] zeroinitializer, align 16
 
-define i32 @main(i32 %b) {
+define i32 @main(i32 %b, i32 %c) {
 entry:
   br label %do.body
 
@@ -53,7 +53,7 @@ if.then.2:                                        ; preds = %if.end
   br label %L2
 
 if.end.3:                                         ; preds = %if.end
-  %cmp4 = icmp slt i32 %i.0, %b
+  %cmp4 = icmp slt i32 %i.0, %c
   br i1 %cmp4, label %if.then.5, label %if.end.6
 
 if.then.5:                                        ; preds = %if.end.3

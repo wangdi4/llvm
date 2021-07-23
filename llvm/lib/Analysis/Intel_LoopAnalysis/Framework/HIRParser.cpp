@@ -1949,6 +1949,20 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   }
 
   auto NewBlob = BlobProcessor(this, CE, Level).process(Blob);
+
+  // In some cases reverse engineering AddRecs into SCEVUnknown can result in
+  // simplification of blob to constant because of inaccurate nowrap flags/range
+  // info for AddRec as opposed to range info provided by ValueTracking.
+  if (isa<SCEVConstant>(NewBlob)) {
+    auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(NewBlob));
+    if (IVLevel) {
+      CE->addIV(IVLevel, InvalidBlobIndex, Coeff);
+    } else {
+      CE->addConstant(Coeff, false);
+    }
+    return true;
+  }
+
   breakConstantMultiplierBlob(NewBlob, &Multiplier, &NewBlob);
 
   unsigned Index = findOrInsertBlobWrapper(NewBlob);
@@ -2591,13 +2605,6 @@ void HIRParser::parse(HLLoop *HLoop) {
       // Parsing for upper failed. Treat loop as unknown as a backup option.
       IsUnknown = true;
 
-      // Add the explicit loop label and bottom test back to the loop.
-      LF.reattachLoopLabelAndBottomTest(HLoop);
-
-      // Store this loop for Ztt extraction at the end of the phase. Extracting
-      // Ztt in the visitor is not safe as it changes the structure of HIR.
-      CountableToUnkownLoops.insert(HLoop);
-
     } else {
       // In some cases, loop is recognized as unknown in loop formation phase
       // but recognized as countable by parsing phase due to better information
@@ -2654,6 +2661,23 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(ZeroRef);
     HLoop->setStrideDDRef(ZeroRef->clone());
     HLoop->setUpperDDRef(ZeroRef->clone());
+
+    // In some odd cases, ScalarEvolution can return a proper backedge taken
+    // count when queried from loop formation phase but not when queried from
+    // parser. The caching behavior of ScalarEvolution is complicated and can
+    // return different results due to order of queries.
+    //
+    // Another scenario is when parsing for upper fails.
+    //
+    // So for safety purposes, we execute the following code for each unknown
+    // loop.
+
+    // Add the explicit loop label and bottom test back to the loop.
+    if (LF.reattachLoopLabelAndBottomTest(HLoop)) {
+      // Store this loop for Ztt extraction at the end of the phase. Extracting
+      // Ztt in the visitor is not safe as it changes the structure of HIR.
+      CountableToUnkownLoops.insert(HLoop);
+    }
   }
 
   // TODO: assert that SIMD loops are always DO loops.
@@ -4171,7 +4195,6 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
-    Ref->setVolatile(LInst->isVolatile());
     Ref->setAlignment(LInst->getAlignment());
 
     parseMetadata(LInst, Ref);
@@ -4200,7 +4223,6 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
 
-    Ref->setVolatile(SInst->isVolatile());
     Ref->setAlignment(SInst->getAlignment());
 
     parseMetadata(Inst, Ref);
@@ -4263,6 +4285,14 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
 
   if (!DbgIntrin) {
     return false;
+  }
+
+  // Framework only handles dbg intrinsics which have a single instruction as
+  // the location. CodeGen emits a llvm.dbg.declare() intrinsic for each of
+  // them.
+  // TODO: Investigate whether other intrinsics can be preserved.
+  if (DbgIntrin->getNumVariableLocationOps() != 1) {
+    return true;
   }
 
   Value *Variable = DbgIntrin->getVariableLocationOp(0);
@@ -4412,14 +4442,15 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   return true;
 }
 
-static HLLoop *getNextLexicalLoop(HLNode *Node) {
+HLLoop *HIRParser::getNextLexicalLoop(HLNode *Node) {
   HLNode *NextNode = Node;
 
   do {
-    NextNode = NextNode->getNextNode();
-  } while (NextNode && !isa<HLLoop>(NextNode));
+    NextNode = &*std::next(NextNode->getIterator());
+  } while (!isa<HLLoop>(NextNode) &&
+           !HLNodeUtils::isLexicalLastChildOfParent(NextNode));
 
-  return cast_or_null<HLLoop>(NextNode);
+  return dyn_cast<HLLoop>(NextNode);
 }
 
 bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
@@ -4658,9 +4689,10 @@ void HIRParser::phase2Parse() {
   }
 
   for (auto *Call : DistributePoints) {
-    auto *NextNode = Call->getNextNode();
-    assert(NextNode &&
+    assert(!HLNodeUtils::isLexicalLastChildOfParent(Call) &&
            "Could not find next node of distribute point intrinsic!");
+
+    auto *NextNode = &*std::next(Call->getIterator());
     assert(isa<HLDDNode>(NextNode) &&
            "Next node of distribute point intrinsic is not a HLDDNode!");
 

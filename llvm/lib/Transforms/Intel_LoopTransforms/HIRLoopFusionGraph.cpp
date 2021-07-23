@@ -735,7 +735,10 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       // No existing relationship, need to create a new edge.
       addDirectedEdgeInternal(NodeV, NodeY);
 
-      getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
+      // Note: must create new edge before getting the existing edge otherwise
+      // we may invalidate existing edges.
+      auto &FEdge = getOrCreateFuseEdge(NodeV, NodeY);
+      FEdge = getFuseEdge(NodeX, NodeY);
       Heap.replaceEdge<false, false>(NodeX, NodeY, NodeV, NodeY);
     }
 
@@ -779,7 +782,9 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       // No existing relationship, need to create a new edge.
       addDirectedEdgeInternal(NodeY, NodeV);
 
-      getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
+      // Note on this call in updateSuccessors()
+      auto &FEdge = getOrCreateFuseEdge(NodeY, NodeV);
+      FEdge = getFuseEdge(NodeY, NodeX);
       Heap.replaceEdge<false, false>(NodeY, NodeX, NodeY, NodeV);
     }
 
@@ -811,7 +816,9 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         Heap.remove<true>(NodeX, NodeY);
       } else {
         // No direct edge, create one.
-        getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
+        // Note on this call in updateSuccessors()
+        auto &FEdge = getOrCreateFuseEdge(NodeV, NodeY);
+        FEdge = getFuseEdge(NodeX, NodeY);
         Heap.replaceEdge<true, false>(NodeX, NodeY, NodeV, NodeY);
 
         addDirectedEdgeInternal(NodeV, NodeY);
@@ -828,7 +835,9 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         Heap.remove<true>(NodeX, NodeY);
       } else {
         // No direct edge, create one.
-        getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
+        // Note on this call in updateSuccessors()
+        auto &FEdge = getOrCreateFuseEdge(NodeY, NodeV);
+        FEdge = getFuseEdge(NodeY, NodeX);
         Heap.replaceEdge<true, false>(NodeX, NodeY, NodeY, NodeV);
 
         addDirectedEdgeInternal(NodeY, NodeV);
@@ -846,7 +855,9 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
 
       addNeighborEdgeInternal(NodeV, NodeY);
 
-      getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
+      // Note on this call in updateSuccessors()
+      auto &FEdge = getOrCreateFuseEdge(NodeV, NodeY);
+      FEdge = getFuseEdge(NodeX, NodeY);
       Heap.replaceEdge<true, true>(NodeX, NodeY, NodeV, NodeY);
     }
 

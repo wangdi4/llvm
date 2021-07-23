@@ -121,8 +121,13 @@ struct LoopResourceInfo::LoopResourceVisitor final : public HLNodeVisitorBase {
 
   /// Sets the threshold cost for non-memory expensive instructions.
   /// Memory related instructions should not reach here.
-  static unsigned getNormalizedCost(int Cost) {
-    return std::min(Cost, (int)LoopResourceInfo::OperationCost::ExpensiveOp);
+  static unsigned getNormalizedCost(InstructionCost Cost) {
+    if (!Cost.isValid()) {
+      assert(0 && "Invalid cost not expected!");
+      return (unsigned)LoopResourceInfo::OperationCost::ExpensiveOp;
+    }
+    return std::min(*Cost.getValue(),
+                    (int)LoopResourceInfo::OperationCost::ExpensiveOp);
   }
 
   /// Main entry function to compute loop resource.
@@ -331,8 +336,10 @@ void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex,
   if (!FoundCoeff) {
     unsigned Cost =
         isPowerOf2_64(Coeff)
-            ? getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Shl, BlobTy))
-            : getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Mul, BlobTy));
+            ? getNormalizedCost(
+                  TTI.getArithmeticInstrCost(Instruction::Shl, BlobTy))
+            : getNormalizedCost(
+                  TTI.getArithmeticInstrCost(Instruction::Mul, BlobTy));
 
     SelfLRI->addIntOps(Cost);
   }
@@ -618,7 +625,7 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
   auto Inst = HInst->getLLVMInstruction();
   auto InstTy = Inst->getType();
 
-  int Cost = LoopResourceInfo::OperationCost::BasicOp;
+  InstructionCost Cost;
 
   if (isa<BinaryOperator>(Inst)) {
     Cost = TTI.getArithmeticInstrCost(Inst->getOpcode(), InstTy);
@@ -679,7 +686,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
     auto *OpTy = (*HInst->rval_op_ddref_begin())->getDestType();
 
     if (IsSelect) {
-      unsigned SelectCost = TTI.getCmpSelInstrCost(
+      InstructionCost SelectCost = TTI.getCmpSelInstrCost(
           Instruction::Select, OpTy, CmpInst::makeCmpResultType(OpTy));
       SelfLRI->addIntOps(getNormalizedCost(SelectCost));
     }
@@ -1004,9 +1011,7 @@ unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
   }
 
   return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
-      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency)
-          .getValue()
-          .getValue());
+      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency));
 }
 
 unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {

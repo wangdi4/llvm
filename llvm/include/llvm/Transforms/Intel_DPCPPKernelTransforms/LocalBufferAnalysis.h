@@ -61,8 +61,9 @@ private:
   /// size needed to store all of them and add to that the max size of local
   /// buffer needed by all called functions.
   /// \param F the function which need to go over its local values.
+  /// \param maxDepth the maximum depth of recursive functions.
   /// \returns The total size of local buffer needed by given function.
-  size_t calculateLocalsSize(Function *F);
+  size_t calculateLocalsSize(Function *F, unsigned maxDepth);
 
   /// A mapping between function pointer and the set of local values the
   /// function uses directly.

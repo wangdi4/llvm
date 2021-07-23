@@ -80,6 +80,14 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
+#if INTEL_CUSTOMIZATION
+/// * Fortran NonPOD operands. Example:
+///      FullName = "QUAL.OMP.PRIVATE:F90_NONPOD"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "F90_NONPOD"
+///      Id = QUAL_OMP_PRIVATE
+///
+#endif // INTEL_CUSTOMIZATION
 /// * MAP clause for aggregate objects. Example:
 ///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
@@ -134,6 +142,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "PTR_TO_PTR"
 ///      Id = QUAL_OMP_USE_DEVICE_PTR
 ///
+/// * TASK modifier on REDUCTION clause. Example:
+///      FullName = "QUAL.OMP.REDUCTION.ADD:TASK"
+///      BaseName = "QUAL.OMP.REDUCTION.ADD"
+///      Modifier = "TASK"
+///      Id = QUAL_OMP_REDUCTION_ADD
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -150,6 +164,7 @@ private:
   bool IsNonPod:1;
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
+  bool IsF90NonPod:1;
   bool IsCptr:1;
   bool IsWILocal:1;
   bool IsAllocatable:1;
@@ -184,6 +199,9 @@ private:
   bool IsInitTargetSync:1;
   bool IsInitPrefer:1;
 
+  // Modifier for reduction clause
+  bool IsTask:1;
+
 public:
 
   // Constructor
@@ -205,6 +223,7 @@ public:
   void setIsInitTarget()           { IsInitTarget = true; }
   void setIsInitTargetSync()       { IsInitTargetSync = true; }
   void setIsInitPrefer()           { IsInitPrefer = true; }
+  void setIsTask()                 { IsTask = true; }
   void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
   void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
   void setIsScheduleSimd()         { IsScheduleSimd = true; }
@@ -234,6 +253,7 @@ public:
   bool getIsInitTarget() const { return IsInitTarget; }
   bool getIsInitTargetSync() const { return IsInitTargetSync; }
   bool getIsInitPrefer() const { return IsInitPrefer; }
+  bool getIsTask() const { return IsTask; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
@@ -243,6 +263,8 @@ public:
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector(bool Flag = true) {IsF90DopeVector = Flag; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
+  void setIsF90NonPod(bool Flag = true) {IsF90NonPod = Flag; }
+  bool getIsF90NonPod() const { return IsF90NonPod; }
   void setIsCptr(bool Flag = true) { IsCptr = Flag; }
   bool getIsCptr() const { return IsCptr; }
   void setIsWILocal() { IsWILocal = true; }

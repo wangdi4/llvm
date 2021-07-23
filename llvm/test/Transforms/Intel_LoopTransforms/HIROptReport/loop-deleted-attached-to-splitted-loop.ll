@@ -16,15 +16,15 @@
 
 ; TODO: Currently we are forcing a VF=4 for vectorization, hence the check statements are hard-coded with this VF
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-optreport-emitter -hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length 4{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN
-; OPTREPORT-NEXT:             remark: Loop completely unrolled
+; OPTREPORT-NEXT:             remark #25532: Loop completely unrolled
 ; OPTREPORT-NEXT:         LOOP END
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
@@ -32,7 +32,7 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]]{{.*}}[[M2:!.*]]{{.*}}}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
@@ -41,7 +41,7 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
 ; CHECK: [[M9]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
 ; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}

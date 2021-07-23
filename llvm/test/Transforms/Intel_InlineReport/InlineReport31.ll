@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -inline -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
@@ -400,3 +402,4 @@ while.end:                                        ; preds = %if.end, %while.cond
   ret void
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

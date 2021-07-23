@@ -60,7 +60,6 @@ using namespace llvm::PatternMatch;
 
 static const char *LLVMLoopDisableNonforced = "llvm.loop.disable_nonforced";
 static const char *LLVMLoopDisableLICM = "llvm.licm.disable";
-static const char *LLVMLoopMustProgress = "llvm.loop.mustprogress";
 
 bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
                                    MemorySSAUpdater *MSSAU,
@@ -115,7 +114,15 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
   // them, but only visit each one once.
   SmallPtrSet<BasicBlock *, 4> Visited;
   for (auto *BB : L->blocks())
+#ifdef INTEL_COLLAB
+  {
+    // Copy the block succs, as the succ list may be modified by the exit
+    // rewrite.
+    SmallVector<BasicBlock *, 4> SuccsCopy(successors(BB));
+    for (auto *SuccBB : SuccsCopy) {
+#else // INTEL_COLLAB
     for (auto *SuccBB : successors(BB)) {
+#endif // INTEL_COLLAB
       // We're looking for exit blocks so skip in-loop successors.
       if (L->contains(SuccBB))
         continue;
@@ -126,6 +133,9 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 
       Changed |= RewriteExit(SuccBB);
     }
+#ifdef INTEL_COLLAB
+  }
+#endif
 
   return Changed;
 }
@@ -259,50 +269,8 @@ void llvm::addStringMetadataToLoop(Loop *TheLoop, const char *StringMD,
   TheLoop->setLoopID(NewLoopID);
 }
 
-/// Find string metadata for loop
-///
-/// If it has a value (e.g. {"llvm.distribute", 1} return the value as an
-/// operand or null otherwise.  If the string metadata is not found return
-/// Optional's not-a-value.
-Optional<const MDOperand *> llvm::findStringMetadataForLoop(const Loop *TheLoop,
-                                                            StringRef Name) {
-  MDNode *MD = findOptionMDForLoop(TheLoop, Name);
-  if (!MD)
-    return None;
-  switch (MD->getNumOperands()) {
-  case 1:
-    return nullptr;
-  case 2:
-    return &MD->getOperand(1);
-  default:
-    llvm_unreachable("loop metadata has 0 or 1 operand");
-  }
-}
-
-static Optional<bool> getOptionalBoolLoopAttribute(const Loop *TheLoop,
-                                                   StringRef Name) {
-  MDNode *MD = findOptionMDForLoop(TheLoop, Name);
-  if (!MD)
-    return None;
-  switch (MD->getNumOperands()) {
-  case 1:
-    // When the value is absent it is interpreted as 'attribute set'.
-    return true;
-  case 2:
-    if (ConstantInt *IntMD =
-            mdconst::extract_or_null<ConstantInt>(MD->getOperand(1).get()))
-      return IntMD->getZExtValue();
-    return true;
-  }
-  llvm_unreachable("unexpected number of options");
-}
-
-bool llvm::getBooleanLoopAttribute(const Loop *TheLoop, StringRef Name) {
-  return getOptionalBoolLoopAttribute(TheLoop, Name).getValueOr(false);
-}
-
 Optional<ElementCount>
-llvm::getOptionalElementCountLoopAttribute(Loop *TheLoop) {
+llvm::getOptionalElementCountLoopAttribute(const Loop *TheLoop) {
   Optional<int> Width =
       getOptionalIntLoopAttribute(TheLoop, "llvm.loop.vectorize.width");
 
@@ -313,20 +281,6 @@ llvm::getOptionalElementCountLoopAttribute(Loop *TheLoop) {
   }
 
   return None;
-}
-
-llvm::Optional<int> llvm::getOptionalIntLoopAttribute(Loop *TheLoop,
-                                                      StringRef Name) {
-  const MDOperand *AttrMD =
-      findStringMetadataForLoop(TheLoop, Name).getValueOr(nullptr);
-  if (!AttrMD)
-    return None;
-
-  ConstantInt *IntMD = mdconst::extract_or_null<ConstantInt>(AttrMD->get());
-  if (!IntMD)
-    return None;
-
-  return IntMD->getSExtValue();
 }
 
 Optional<MDNode *> llvm::makeFollowupLoopID(
@@ -418,11 +372,7 @@ bool llvm::hasDisableLICMTransformsHint(const Loop *L) {
   return getBooleanLoopAttribute(L, LLVMLoopDisableLICM);
 }
 
-bool llvm::hasMustProgress(const Loop *L) {
-  return getBooleanLoopAttribute(L, LLVMLoopMustProgress);
-}
-
-TransformationMode llvm::hasUnrollTransformation(Loop *L) {
+TransformationMode llvm::hasUnrollTransformation(const Loop *L) {
   if (getBooleanLoopAttribute(L, "llvm.loop.unroll.disable"))
     return TM_SuppressedByUser;
 
@@ -443,7 +393,7 @@ TransformationMode llvm::hasUnrollTransformation(Loop *L) {
   return TM_Unspecified;
 }
 
-TransformationMode llvm::hasUnrollAndJamTransformation(Loop *L) {
+TransformationMode llvm::hasUnrollAndJamTransformation(const Loop *L) {
   if (getBooleanLoopAttribute(L, "llvm.loop.unroll_and_jam.disable"))
     return TM_SuppressedByUser;
 
@@ -461,7 +411,7 @@ TransformationMode llvm::hasUnrollAndJamTransformation(Loop *L) {
   return TM_Unspecified;
 }
 
-TransformationMode llvm::hasVectorizeTransformation(Loop *L) {
+TransformationMode llvm::hasVectorizeTransformation(const Loop *L) {
   Optional<bool> Enable =
       getOptionalBoolLoopAttribute(L, "llvm.loop.vectorize.enable");
 
@@ -497,7 +447,7 @@ TransformationMode llvm::hasVectorizeTransformation(Loop *L) {
   return TM_Unspecified;
 }
 
-TransformationMode llvm::hasDistributeTransformation(Loop *L) {
+TransformationMode llvm::hasDistributeTransformation(const Loop *L) {
   if (getBooleanLoopAttribute(L, "llvm.loop.distribute.enable"))
     return TM_ForcedByUser;
 
@@ -507,7 +457,7 @@ TransformationMode llvm::hasDistributeTransformation(Loop *L) {
   return TM_Unspecified;
 }
 
-TransformationMode llvm::hasLICMVersioningTransformation(Loop *L) {
+TransformationMode llvm::hasLICMVersioningTransformation(const Loop *L) {
   if (getBooleanLoopAttribute(L, "llvm.loop.licm_versioning.disable"))
     return TM_SuppressedByUser;
 
@@ -1083,7 +1033,8 @@ Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder,
 
 Value *llvm::createTargetReduction(IRBuilderBase &B,
                                    const TargetTransformInfo *TTI,
-                                   RecurrenceDescriptor &Desc, Value *Src) {
+                                   const RecurrenceDescriptor &Desc,
+                                   Value *Src) {
   // TODO: Support in-order reductions based on the recurrence descriptor.
   // All ops in the reduction inherit fast-math-flags from the recurrence
   // descriptor.
@@ -1093,8 +1044,8 @@ Value *llvm::createTargetReduction(IRBuilderBase &B,
 }
 
 Value *llvm::createOrderedReduction(IRBuilderBase &B,
-                                    RecurrenceDescriptor &Desc, Value *Src,
-                                    Value *Start) {
+                                    const RecurrenceDescriptor &Desc,
+                                    Value *Src, Value *Start) {
   assert(Desc.getRecurrenceKind() == RecurKind::FAdd &&
          "Unexpected reduction kind");
   assert(Src->getType()->isVectorTy() && "Expected a vector type");
@@ -1904,8 +1855,7 @@ Optional<IVConditionInfo> llvm::hasPartialIVCondition(Loop &L,
 
     // We could also allow loops with known trip counts without mustprogress,
     // but ScalarEvolution may not be available.
-    Info.PathIsNoop &=
-        L.getHeader()->getParent()->mustProgress() || hasMustProgress(&L);
+    Info.PathIsNoop &= isMustProgress(&L);
 
     // If the path is considered a no-op so far, check if it reaches a
     // single exit block without any phis. This ensures no values from the

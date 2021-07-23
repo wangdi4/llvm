@@ -1,13 +1,13 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -disable-output \
+; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s
 
 ; The test checks that OVLS group is detected by CM ("OVLS" string in
 ; the dump) and verifies that the first Load of VLS group receive whole Cost
 ; of the group, while consequent group members receive Cost 0.
 
-; CHECK: Cost 18000 for i64 {{.*}} = load i64* {{.*}} *OVLS*
-; CHECK: Cost 0 for i64 {{.*}} = load i64* {{.*}} *OVLS*
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 18000
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 0
 
 target triple = "x86_64-unknown-linux-gnu"
 

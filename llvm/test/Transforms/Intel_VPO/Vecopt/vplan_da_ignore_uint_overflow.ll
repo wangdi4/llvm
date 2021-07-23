@@ -2,8 +2,8 @@
 ; Test to check that DA ignores integer overflow clamping pattern, and propagates shape of operand being checked for overflow.
 
 ; REQUIRES: asserts
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -VPlanDriver -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
-; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-driver" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -vplan-vec -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
+; RUN: opt %s -vplan-da-ignore-integer-overflow=true -vplan-dump-da -passes="vplan-vec" -vplan-force-vf=4 -disable-output 2>&1 | FileCheck %s
 
 
 define void @test1(i64 %n, i64* %arr, float* %arr1) {
@@ -32,11 +32,11 @@ define void @test1(i64 %n, i64* %arr, float* %arr1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]

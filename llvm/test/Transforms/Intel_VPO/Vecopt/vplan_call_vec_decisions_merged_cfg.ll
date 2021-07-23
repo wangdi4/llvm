@@ -2,7 +2,7 @@
 ; Test to check correctness of CallVecDecisions analysis for merged CFG containing
 ; VPPushVF and VPPopVF instructions.
 
-; RUN: opt < %s -VPlanDriver -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
+; RUN: opt < %s -vplan-vec -disable-output -vplan-print-after-call-vec-decisions -vplan-enable-pushvf -vector-library=SVML | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -15,57 +15,40 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK-NEXT:  VPlan IR for: foo:omp.inner.for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ]
+; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     [DA: Div] double [[VP_CONV:%.*]] = fpext float [[VP0]] to double
+; CHECK-NEXT:     [DA: Div] double [[VP_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_sin4 [x 1]
+; CHECK-NEXT:     [DA: Div] float [[VP_LIB_TRUNC:%.*]] = fptrunc double [[VP_LIB_CALL]] to float
+; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_LIB_TRUNC]] float* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ]
-; CHECK-NEXT:       [DA: Div] float* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds [1024 x float]* @src i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] float [[VP0:%.*]] = load float* [[VP_ARRAYIDX]]
-; CHECK-NEXT:       [DA: Div] double [[VP_CONV:%.*]] = fpext float [[VP0]] to double
-; CHECK-NEXT:       [DA: Div] double [[VP_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_sin4 [x 1]
-; CHECK-NEXT:       [DA: Div] float [[VP_LIB_TRUNC:%.*]] = fptrunc double [[VP_LIB_CALL]] to float
-; CHECK-NEXT:       [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:       [DA: Div] store float [[VP_LIB_TRUNC]] float* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] br middle.block
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni] popvf
+; CHECK-NEXT:     [DA: Uni] br final.merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:      middle.block: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 1024 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] i64 [[VP1:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 0, [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i64 [[VP1]] }
-; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_40:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_40]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
-; CHECK-NEXT:       [DA: Uni] br [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB5]], middle.block
-; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB5]] ],  [ i64 live-out0, middle.block ]
-; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
+; CHECK-NEXT:    final.merge: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = phi-merge  [ i64 live-out0, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:

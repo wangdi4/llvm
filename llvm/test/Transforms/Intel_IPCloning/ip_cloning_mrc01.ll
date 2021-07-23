@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -ip-manyreccalls-splitting=false -debug-only=ipcloning 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false -debug-only=ipcloning 2>&1 | FileCheck %s
 
@@ -153,3 +154,4 @@ entry:
   ret i32 %call
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

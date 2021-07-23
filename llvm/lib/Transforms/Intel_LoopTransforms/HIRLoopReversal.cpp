@@ -422,7 +422,8 @@ bool HIRLoopReversal::run() {
 
     // Reverse the loop
     bool LoopIsReversed = doHIRReversalTransform(Lp);
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "Loop was reversed");
+    // Loop was reversed
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
 
     // Update Loops-Reversal-Triggered Counter
     if (LoopIsReversed) {
@@ -750,9 +751,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   return true;
 }
 
-void HIRLoopReversal::clearWorkingSetMemory(void) {
-  MCEAV.clear();
-}
+void HIRLoopReversal::clearWorkingSetMemory(void) { MCEAV.clear(); }
 
 PreservedAnalyses HIRLoopReversalPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {

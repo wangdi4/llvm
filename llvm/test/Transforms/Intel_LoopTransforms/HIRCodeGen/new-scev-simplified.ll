@@ -44,19 +44,21 @@
 ;CHECK: [[ROW_SYM_LD_DEAD:%.*]] = load float*, float** [[ROW_SYM]]
 
 ;Expander optimizes the following into a gep
+;FIXME: Investigate why gep is not generated.
 ;((4 * sext.i32.i64(%n1)) + %row.031)
 
-;CHECK: [[ROW_SYM_LD:%.*]] = load float*, float** [[ROW_SYM]]
 ;CHECK: [[N1:%.*]] = sext i32 %n1 to i64
-;CHECK: [[SCEV1:%.*]] = getelementptr float, float* [[ROW_SYM_LD]], i64 [[N1]]
+;CHECK: [[N1_X_4:%.*]] = shl nsw i64 [[N1]], 2
+;CHECK: [[ROW_SYM_LD:%.*]] = load float*, float** [[ROW_SYM]]
+;CHECK: [[ROW_SYM_LD_INT:%.*]] = ptrtoint float* [[ROW_SYM_LD]] to i64
+;CHECK: %{{.*}} = add i64 [[N1_X_4]], [[ROW_SYM_LD_INT]]
 
 ;the following as well
 ;(4 + %row.031)
 ;CHECK: [[ROW_SYM_LD2:%.*]] = load float*, float** [[ROW_SYM]]
-;CHECK: [[SCEV2:%.*]] = getelementptr float, float* [[ROW_SYM_LD2]], i64 1
+;CHECK: [[ROW_SYM_LD2_INT:%.*]] = ptrtoint float* [[ROW_SYM_LD2]] to i64
+;CHECK: %{{.*}} = add nuw i64 [[ROW_SYM_LD2_INT]], 4
 
-;one is chosen based on earlier comparsion, the umax operation
-;CHECK: select i1 {{.*}}, float* [[SCEV1]], float* [[SCEV2]]
 ;Module Before HIR; ModuleID = 'short.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

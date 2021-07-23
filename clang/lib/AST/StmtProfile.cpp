@@ -466,6 +466,16 @@ void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   if (C->getStride())
     Profiler->VisitStmt(C->getStride());
 }
+
+void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
+  for (auto *E : C->val_exprs())
+    Profiler->VisitStmt(E);
+}
+
+void OMPClauseProfiler::VisitOMPAlignClause(const OMPAlignClause *C) {
+  if (C->getAlignment())
+    Profiler->VisitStmt(C->getAlignment());
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
@@ -499,6 +509,13 @@ void OMPClauseProfiler::VisitOMPSizesClause(const OMPSizesClause *C) {
   for (auto E : C->getSizesRefs())
     if (E)
       Profiler->VisitExpr(E);
+}
+
+void OMPClauseProfiler::VisitOMPFullClause(const OMPFullClause *C) {}
+
+void OMPClauseProfiler::VisitOMPPartialClause(const OMPPartialClause *C) {
+  if (const Expr *Factor = C->getFactor())
+    Profiler->VisitExpr(Factor);
 }
 
 void OMPClauseProfiler::VisitOMPAllocatorClause(const OMPAllocatorClause *C) {
@@ -571,6 +588,10 @@ void OMPClauseProfiler::VisitOMPWriteClause(const OMPWriteClause *) {}
 void OMPClauseProfiler::VisitOMPUpdateClause(const OMPUpdateClause *) {}
 
 void OMPClauseProfiler::VisitOMPCaptureClause(const OMPCaptureClause *) {}
+
+#if INTEL_COLLAB
+void OMPClauseProfiler::VisitOMPCompareClause(const OMPCompareClause *) {}
+#endif // INTEL_COLLAB
 
 void OMPClauseProfiler::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
 
@@ -826,6 +847,10 @@ void OMPClauseProfiler::VisitOMPMapClause(const OMPMapClause *C) {
 void OMPClauseProfiler::VisitOMPAllocateClause(const OMPAllocateClause *C) {
   if (Expr *Allocator = C->getAllocator())
     Profiler->VisitStmt(Allocator);
+#if INTEL_COLLAB
+  if (Expr *Alignment = C->getAlignment())
+    Profiler->VisitStmt(Alignment);
+#endif // INTEL_COLLAB
   VisitOMPClauseList(C);
 }
 void OMPClauseProfiler::VisitOMPNumTeamsClause(const OMPNumTeamsClause *C) {
@@ -941,6 +966,10 @@ void StmtProfiler::VisitOMPTileDirective(const OMPTileDirective *S) {
   VisitOMPLoopBasedDirective(S);
 }
 
+void StmtProfiler::VisitOMPUnrollDirective(const OMPUnrollDirective *S) {
+  VisitOMPLoopBasedDirective(S);
+}
+
 void StmtProfiler::VisitOMPForDirective(const OMPForDirective *S) {
   VisitOMPLoopDirective(S);
 }
@@ -986,6 +1015,10 @@ void StmtProfiler::VisitOMPParallelGenericLoopDirective(
 void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
     const OMPTargetParallelGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPPrefetchDirective(const OMPPrefetchDirective *S) {
+  VisitOMPExecutableDirective(S);
 }
 #endif // INTEL_COLLAB
 
@@ -1253,6 +1286,17 @@ void StmtProfiler::VisitDeclRefExpr(const DeclRefExpr *S) {
     if (S->hasExplicitTemplateArgs())
       VisitTemplateArguments(S->getTemplateArgs(), S->getNumTemplateArgs());
   }
+}
+
+void StmtProfiler::VisitSYCLUniqueStableNameExpr(
+    const SYCLUniqueStableNameExpr *S) {
+  VisitExpr(S);
+  VisitType(S->getTypeSourceInfo()->getType());
+}
+
+void StmtProfiler::VisitSYCLUniqueStableIdExpr(
+    const SYCLUniqueStableIdExpr *S) {
+  VisitExpr(S);
 }
 
 void StmtProfiler::VisitPredefinedExpr(const PredefinedExpr *S) {
@@ -1877,6 +1921,28 @@ void StmtProfiler::VisitCXXConstCastExpr(const CXXConstCastExpr *S) {
 void StmtProfiler::VisitBuiltinBitCastExpr(const BuiltinBitCastExpr *S) {
   VisitExpr(S);
   VisitType(S->getTypeInfoAsWritten()->getType());
+}
+
+void StmtProfiler::VisitSYCLBuiltinNumFieldsExpr(
+    const SYCLBuiltinNumFieldsExpr *E) {
+  VisitType(E->getSourceType());
+}
+
+void StmtProfiler::VisitSYCLBuiltinFieldTypeExpr(
+    const SYCLBuiltinFieldTypeExpr *E) {
+  VisitType(E->getSourceType());
+  VisitExpr(E->getIndex());
+}
+
+void StmtProfiler::VisitSYCLBuiltinNumBasesExpr(
+    const SYCLBuiltinNumBasesExpr *E) {
+  VisitType(E->getSourceType());
+}
+
+void StmtProfiler::VisitSYCLBuiltinBaseTypeExpr(
+    const SYCLBuiltinBaseTypeExpr *E) {
+  VisitType(E->getSourceType());
+  VisitExpr(E->getIndex());
 }
 
 void StmtProfiler::VisitCXXAddrspaceCastExpr(const CXXAddrspaceCastExpr *S) {

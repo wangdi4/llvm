@@ -53,14 +53,14 @@
 
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:      Selecting VF for VPlan #1
 ; CHECK-NEXT: Cost of Scalar VPlan: 92
 ; CHECK-NEXT: '#pragma vector always'/ '#pragma omp simd' is used for the given loop
-; CHECK-NEXT: Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
+; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
 ; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 1 x 519188 + 0 = 519188
 ; CHECK:      Selecting VPlan with VF=2
 

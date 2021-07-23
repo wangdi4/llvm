@@ -41,18 +41,12 @@
 // CHECK-HOST-NOT: addrspace({{[0-9]+}})
 
 // Verify that the attributes are honored for the target compilation:
-// CHECK-TARG-DAG: @foo.strAS1 = internal addrspace(1) constant [7 x i8] c"qwerty\00"
 // CHECK-TARG-DAG: @foo.strAS2 = internal addrspace(2) constant [7 x i8] c"qwerty\00"
-// CHECK-TARG-DAG: @foo.strAS3 = internal addrspace(3) global i8 undef
 
 #pragma omp declare target
 char foo(int i) {
-  static const __attribute__((opencl_global)) char strAS1[] =
-    "qwerty";
   static const __attribute__((opencl_constant)) char strAS2[] =
     "qwerty";
-  static __attribute__((opencl_local)) char strAS3;
-  strAS3 = 'a';
-  return strAS2[i] + strAS3 + strAS1[i];
+  return strAS2[i];
 }
 #pragma omp end declare target

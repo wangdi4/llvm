@@ -48,7 +48,6 @@ class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
-class VPlanCostModel;
 class VPlanRemainderEvaluator;
 class VPlanPeelEvaluator;
 class VPlanCFGMerger;
@@ -58,7 +57,9 @@ extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
+extern bool EnableSOAAnalysisHIR;
 extern bool EnableNewCFGMerge;
+extern unsigned DefaultTripCount;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for
@@ -107,6 +108,7 @@ public:
   const AuxLoopDescr &getPeel() const { return Peel; }
   auto rem_begin() const { return Remainders.begin(); }
   auto rem_end() const { return Remainders.end(); }
+  auto remainders() const { return make_range(rem_begin(), rem_end()); }
   unsigned getMainUF() const { return MainUF; }
 
   AuxLoopKind getMainKind() const { return Main.Kind; }
@@ -117,6 +119,7 @@ public:
   /// Convenience methods
   bool hasPeel() const { return Peel.Kind != LKNone; }
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
+  bool hasRemainder() const { return !Remainders.empty(); }
 
   /// Return list of vector factors used for the current selection.
   void getUsedVFs(SmallSet<unsigned, 4> &Ret) {
@@ -299,7 +302,7 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(MDNode *MD, LLVMContext *Context,
+  unsigned buildInitialVPlans(LLVMContext *Context,
                               const DataLayout *DL, std::string VPlanName,
                               ScalarEvolution *SE = nullptr);
 
@@ -345,7 +348,7 @@ public:
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
-  template <typename CostModelTy = VPlanCostModel>
+  template <typename CostModelTy>
   std::pair<unsigned, VPlanVector *> selectBestPlan();
 
   /// \Returns the VPlan for selected best vectorization factor.
@@ -357,8 +360,25 @@ public:
   /// \Returns the selected best unroll factor.
   unsigned getBestUF() {return VecScenario.getMainUF();}
 
+  /// Reads all metadata specified by pragmas
+  void readLoopMetadata() {
+    VectorlengthMD =
+        findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
+    IsVecRemainder = readVecRemainderEnabled();
+    IsDynAlign = readDynAlignEnabled();
+  }
+
+  bool isVecRemainderDisabled() const {
+    return IsVecRemainder.hasValue() ? !IsVecRemainder.getValue() : false;
+  }
+  bool isVecRemainderEnforced() const {
+    return IsVecRemainder.getValueOr(false);
+  }
+
+  bool isDynAlignEnabled() const { return IsDynAlign; }
+
   /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
-  void extractVFsFromMetadata(MDNode *MD, unsigned SafeLen);
+  void extractVFsFromMetadata(unsigned SafeLen);
 
   /// Returns vector of allowed VFs
   ArrayRef<unsigned> getVectorFactors();
@@ -375,11 +395,9 @@ public:
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr);
 
   /// Perform VPlan loop unrolling if needed
-  void
-  unroll(VPlanVector &Plan,
-         VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
+  virtual bool unroll(VPlanVector &Plan);
 
-  template <typename CostModelTy = VPlanCostModel>
+  template <typename CostModelTy>
   void printCostModelAnalysisIfRequested(const std::string &Header);
 
   virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
@@ -425,24 +443,6 @@ public:
     return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
 
-  /// Returns true if the loop has normalized induction:
-  /// - the main induction is integer
-  /// - the induction is incremented with step 1
-  /// - start value is 0
-  /// - upper bound is invariant
-  /// - the update instruction is used only in latch condition and
-  ///   in the header phi
-  /// - the latch condition is used only as back-edge condition.
-  /// - the latch condition and back edge are in a form that allows
-  ///   us to use the upper bound as the loop trip count.
-  ///   One example of normalized case:
-  ///     cond = cmp lt iv_incr, ub
-  ///     br cond loopheader, loopexit
-  ///   One example of non-normalized case:
-  ///     cond = cmp le iv_incr, ub
-  ///     br cond loopheader, loopexit
-  static bool hasLoopNormalizedInduction(const VPLoop *Loop);
-
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -461,7 +461,51 @@ protected:
   /// with values from metadata. Else if "llvm.loop.vector.vectorlength"
   /// metadata is not specified, defines MinVF and MaxVF and fills vector of VFs
   /// with default vector values between MinVF and MaxVF.
-  int setDefaultVectorFactors(MDNode *MD);
+  int setDefaultVectorFactors();
+
+  /// Returns true if the loop has normalized induction:
+  /// - the main induction is integer
+  /// - the induction is incremented with step 1
+  /// - start value is 0
+  /// - upper bound is invariant
+  /// - the update instruction is used only in latch condition and
+  ///   in the header phi
+  /// - the latch condition is used only as back-edge condition.
+  /// - the latch condition and back edge are in a form that allows
+  ///   us to use the upper bound as the loop trip count.
+  /// If second returned value \p ExactUB set to true, it means that the
+  /// upper bound value can be directly used as the exact trip count of the
+  /// loop. That basically depends on the loop latch comparison predicate:
+  /// ExactUB is true => UB is the exact loop trip count:
+  ///     iv = add iv, 1
+  ///     cond = cmp lt iv, ub
+  ///     br cond loopheader, loopexit
+  /// ExactUB is false ==> the loop trip count is "UB + 1":
+  ///     iv = add iv, 1
+  ///     cond = cmp le iv, ub
+  ///     br cond loopheader, loopexit
+  static bool hasLoopNormalizedInduction(const VPLoop *Loop, bool &ExactUB);
+
+  /// Contains metadata slecified by "llvm.loop.vector.vectorlength"
+  MDNode *VectorlengthMD;
+
+  /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
+  /// if it was set on the loop otherwise is None.
+  Optional<bool> IsVecRemainder;
+
+  /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
+  /// metadata
+  bool IsDynAlign = true;
+
+  /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
+  /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
+  ///  no such metadata, returns None.
+  Optional<bool> readVecRemainderEnabled();
+
+  /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
+  /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
+  /// is no such metadata, returns true.
+  bool readDynAlignEnabled();
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlanVector *Plan);
@@ -562,7 +606,8 @@ private:
   // The order of latch's successors isn't changed which is ensured by selecting
   // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
   // are no remaining uses of it after the transformation above.
-  void emitVectorLoopIV(VPlanVector *Plan, VPValue *TripCount, VPValue *VF);
+  void emitVectorLoopIV(VPlanVector *Plan, VPValue *TripCount, VPValue *VF,
+                        VPValue *IVUpdate, bool ExactUB);
 
   /// Utility to dump and verify VPlan details after initial set of transforms.
   void printAndVerifyAfterInitialTransforms(VPlan *Plan);

@@ -648,15 +648,18 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   VPlan *CurPlan = NewMainPlan;
   UsedPlans.insert(CurPlan);
 
-  bool ScalarUsed = false;
-
   switch (Scen.getPeelKind()) {
   case LK::LKNone:
     break;
   case LK::LKScalar: {
-    ScalarUsed = true;
+    bool ScalarUsed = llvm::any_of(Scen.remainders(), [](auto &PlanDescr) {
+      return PlanDescr.Kind == LK::LKScalar;
+    });
     ScalarPeelVPlanFab Fab;
     auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
+    // Update the NeedClone flag in scalar peel. We use the original
+    // loop for remainder and create a clone for peel if that's needed.
+    ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
     PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
     dumpNewVPlan(CurPlan);
@@ -689,16 +692,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   // scalar remainder at front while others before the anchor. So the scalar
   // remainder is inserted in CFG first.
   auto AnchorIter = PlanDescrs.begin();
-  for (auto Rem : make_range(Scen.rem_begin(), Scen.rem_end()))
+  for (auto Rem : Scen.remainders())
     switch (Rem.Kind) {
     case LK::LKNone:
       break;
     case LK::LKScalar: {
       ScalarRemainderVPlanFab Fab;
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
-      // Update the NeedClone flag in scalar remainder. We use the original
-      // loop first for peel and create a clone for remainder if that happen.
-      ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
       PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
       dumpNewVPlan(CurPlan);
@@ -800,7 +800,7 @@ void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
 
   // At this point we have non-masked VPlan (assert at the first function line).
   if (Descr.Plan != &Plan) {
-    // For non-main VPlan we need to clone its upper bound and surrond it
+    // For non-main VPlan we need to clone its upper bound and surround it
     // with pushVF/popVF.
     VectorUB = cast<VPVectorTripCountCalculation>(VectorUB->clone());
     VectorUB->setOperand(0, OrigUB);
@@ -838,11 +838,9 @@ VPCmpInst *VPlanCFGMerger::createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
                                                 CmpInst::Predicate Pred,
                                                 unsigned VF) {
   // Create the check for VF+PeelCount is greater then UB.
-  VPValue *PeelCnt = PeelCount;
-  if (UB->getType() != PeelCnt->getType()) {
-    PeelCnt = Builder.createNaryOp(Instruction::SExt, UB->getType(), {PeelCnt});
+  VPValue *PeelCnt = Builder.createIntCast(PeelCount, UB->getType());
+  if (PeelCnt != PeelCount)
     Plan.getVPlanDA()->markUniform(*PeelCnt);
-  }
   VPValue *VFUF = Plan.getVPConstant(ConstantInt::get(UB->getType(), VF));
   PeelCnt = Builder.createAdd(PeelCnt, VFUF);
   Plan.getVPlanDA()->markUniform(*PeelCnt);
@@ -893,7 +891,7 @@ VPBasicBlock *VPlanCFGMerger::createTopTest(VPlan *VecPlan,
   //  both Succ* are parameters and
   //  for the case with peel:
   //     LHS = peel_cnt + VF*UF
-  //     RHS = vector_ub
+  //     RHS = orig_ub
   //     cmp = ugt
   //  for the case w/o peel:
   //     LHS = 0
@@ -901,13 +899,13 @@ VPBasicBlock *VPlanCFGMerger::createTopTest(VPlan *VecPlan,
   //     cmp = eq
   //
   VPValue *Cmp;
-  auto *VectorUB =
-      cast<VPVectorTripCountCalculation>(findVectorUB(*VecPlan)->clone());
-  VectorUB->setOperand(0, OrigUB);
-  insertVectorUBInst(VectorUB, TestBB, VF, VecPlan == &Plan);
   if (Peel) {
-    Cmp = createPeelCntVFCheck(VectorUB, Builder, CmpInst::ICMP_UGT, VF);
+    Cmp = createPeelCntVFCheck(OrigUB, Builder, CmpInst::ICMP_UGT, VF);
   } else {
+    auto *VectorUB =
+        cast<VPVectorTripCountCalculation>(findVectorUB(*VecPlan)->clone());
+    VectorUB->setOperand(0, OrigUB);
+    insertVectorUBInst(VectorUB, TestBB, VF, VecPlan == &Plan);
     auto *Zero =
         Plan.getVPConstant(ConstantInt::getNullValue(VectorUB->getType()));
     Cmp =
@@ -1046,12 +1044,14 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
       Builder.createNaryOp(Instruction::PtrToInt, VTy, {PeelBasePtr});
   Plan.getVPlanDA()->markUniform(*PtrToInt);
   // Create low bits mask and "and"
-  auto *LowBitMask = getInt64Const(Peeling.requiredAlignment().value() - 1);
+  auto *LowBitMask = Plan.getVPConstant(
+      ConstantInt::get(VTy, Peeling.requiredAlignment().value() - 1));
   auto BitAnd = Builder.createAnd(PtrToInt, LowBitMask, "peel.lowbit.and");
   Plan.getVPlanDA()->markUniform(*BitAnd);
   // Compare with 0.
-  VPCmpInst *Cmp = Builder.createCmpInst(CmpInst::ICMP_EQ, getInt64Const(0),
-                                         BitAnd, "peel.lowbitzero.check");
+  VPConstant *Zero = Plan.getVPConstant(ConstantInt::get(VTy, 0));
+  VPCmpInst *Cmp = Builder.createCmpInst(CmpInst::ICMP_EQ, Zero, BitAnd,
+                                         "peel.lowbitzero.check");
   Plan.getVPlanDA()->markUniform(*Cmp);
   // set successors
   TestBB->setTerminator(InsertBefore, NonZeroMerge, Cmp);
@@ -1059,6 +1059,7 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
 }
 
 void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
+                                            VPBasicBlock *FinalRemainderMerge,
                                             VPBasicBlock *RemainderMerge) {
 
   assert(P.Type == CfgMergerPlanDescr::LoopType::LTPeel &&
@@ -1076,7 +1077,8 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   if (StaticPeel) {
     // No check for static peel count
     assert(StaticPeel->peelCount() && "unexpected zero peel count");
-    PeelCount = getInt64Const(StaticPeel->peelCount());
+    PeelCount = Plan.getVPConstant(
+        ConstantInt::get(OrigUB->getType(), StaticPeel->peelCount()));
     TestBB->setTerminator(P.FirstBB);
   } else {
     assert(RemainderMerge && "expected remainder");
@@ -1084,9 +1086,14 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     VPValue *PeelBasePtr = nullptr;
     VPLoadStoreInst *PeelMemref = cast<VPLoadStoreInst>(Peeling->memref());
     if (PeelMemref->getAlignment() < Peeling->requiredAlignment()) {
-      // If alignemnt of peeled memref is unknown create the check for low bits
+      // If alignment of peeled memref is unknown create the check for low bits
       // of the peeled pointer
-      createPeelPtrCheck(*Peeling, TestBB, RemainderMerge, *P.Plan,
+      // If we need peel for safety then we can't execute vectorized code and
+      // should goto scalar remainder thus select either FinalRemainderMerge
+      // of the marge block before main loop.
+      VPBasicBlock *UnalignedMerge =
+          needPeelForSafety() ? FinalRemainderMerge : RemainderMerge;
+      createPeelPtrCheck(*Peeling, TestBB, UnalignedMerge, *P.Plan,
                          PeelBasePtr);
     }
     PeelCount = emitDynamicPeelCount(*Peeling, PeelBasePtr, Builder);
@@ -1107,15 +1114,37 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     return isa<VPlanPeelAdapter>(I);
   });
   assert(Adapter != P.FirstBB->end() && "expected peel adapter");
-  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCount);
+  // Set upper bound of the peel. We need to adjust it subtracting one if the
+  // the loop is marked as having not exact UB. E.g. it's  latch condition looks
+  // like below:
+  //   %c = icmp ule %ind_var, %UB
+  //   br %c, label %header, label %exit
+  //
+  // In this case to execute e.g. 3 iterations, we should set UB to 2 as
+  // induction always starts with 0.
+  VPLoop *VLoop = Plan.getMainLoop(true);
+  VPValue *PeelCnt = PeelCount;
+  if (!VLoop->exactUB()) {
+    Type *Ty = PeelCount->getType();
+    if (StaticPeel) {
+      PeelCnt =
+          Plan.getVPConstant(ConstantInt::get(Ty, StaticPeel->peelCount() - 1));
+    } else {
+      auto *I = cast<VPInstruction>(PeelCount);
+      Builder.setInsertPoint(I->getParent(), std::next(I->getIterator()));
+      VPConstant *One = Plan.getVPConstant(ConstantInt::get(Ty, 1));
+      PeelCnt = Builder.createNaryOp(Instruction::Sub, Ty, {PeelCount, One});
+    }
+  }
+  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCnt);
 
   // Merge block after peel needs live out values.
   updateMergeBlockIncomings(P, P.PrevMerge, P.FirstBB, false /* UseLiveIn */);
 
-  if (!RemainderMerge) {
+  if (!FinalRemainderMerge) {
     // No remainder. A bit strange with peel but that can happen when TC is
     // known and static peel. Will not generate anything.
-    assert(StaticPeel && "remainder is expecte with non-static peel");
+    assert(StaticPeel && "remainder is expected with non-static peel");
     return;
   }
 
@@ -1129,8 +1158,8 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
       createPeelCntVFCheck(OrigUB, Builder, CmpInst::ICMP_UGE, MainVF * MainUF);
   Plan.getVPlanDA()->markUniform(*Cmp);
   // goto merge before remainder or to peel
-  TestBB2->setTerminator(RemainderMerge, P.FirstBB, Cmp);
-  updateMergeBlockIncomings(Plan, RemainderMerge, TestBB2,
+  TestBB2->setTerminator(FinalRemainderMerge, P.FirstBB, Cmp);
+  updateMergeBlockIncomings(Plan, FinalRemainderMerge, TestBB2,
                             true /* UseLiveIn */);
 }
 
@@ -1279,18 +1308,19 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
         // After peel we should have at least two loops created, main and
         // remainder. The situation with one loop (e.g. masked mode loop) is not
         // supported.
-        auto PrevP = std::prev(Iter, 1);
-        assert(PrevP != Plans.begin() && "unsupported scenario with peel");
-        auto PPrev = std::prev(Iter, 2);
+        auto PrevP = std::prev(Iter, 1); // main VPlan
+        // Get a remainder VPlan that was placed before main VPlan. It's not
+        // required in case when we have static peel and a known trip count. All
+        // the needed assertions are done in the called routine.
+        PlanDescr *RemDescr = nullptr;
+        if (PrevP != Plans.begin())
+          RemDescr = &*std::prev(Iter, 2);
+
         // Create peel count instruction, updating the upper bound of the
         // peel and insert the needed checks before peel.
-        // If we need peel for safety then we can't execute vectorized code and
-        // should goto scalar remainder thus select either FinalRemainderMerge
-        // of the marge block before main loop.
-        insertPeelCntAndChecks(P, needPeelForSafety() ? FinalRemainderMerge
-                                                      : PrevP->PrevMerge);
+        insertPeelCntAndChecks(P, FinalRemainderMerge, PrevP->PrevMerge);
         // Create trip count checks before main loop.
-        createTCCheckBeforeMain(&P, *PrevP, &*PPrev);
+        createTCCheckBeforeMain(&P, *PrevP, RemDescr);
       } else {
         // Create the needed trip count checks after VPlan when needed.
         // See Check6, Check7 on the diagram above.
@@ -1334,6 +1364,24 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
   // non-empty block. We use it in several places of CFG and need it to be in
   // the most dominating block.
   moveOrigUBToBegin();
+
+  // Update every VPVectorTripCountCalculation to account peeling.
+  if (PeelCount) {
+    SmallVector<VPUser *, 8> OrigUbUsers(
+        make_filter_range(OrigUB->users(), [](auto *U) {
+          return isa<VPVectorTripCountCalculation>(U);
+        }));
+    for (auto UbUse : OrigUbUsers) {
+      auto VTC = cast<VPVectorTripCountCalculation>(UbUse);
+      assert(VTC->getNumOperands() == 1 && "unexpected VTC operand");
+      VPBuilder Builder;
+      Builder.setInsertPoint(VTC);
+      VPValue *Casted = Builder.createIntCast(PeelCount, OrigUB->getType());
+      if (Casted != PeelCount)
+        Plan.getVPlanDA()->markUniform(*Casted);
+      VTC->addOperand(Casted);
+    }
+  }
   VPLAN_DUMP(MergeSkeletonDumpControl, Plan);
 }
 
@@ -1349,14 +1397,12 @@ void VPlanCFGMerger::updateOrigUB() {
     OrigUB = findVectorUB(Plan)->getOperand(0);
   else {
     // Get the UB from the latch condition (its invariant operand).
+    // Note that if the original loop did not have normalized loop IV, here
+    // we know that we emitted one. Thus we rely on that.
     VPLoop *L = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-    VPCmpInst *Cond = L->getLatchComparison();
-    assert(Cond && "expected comparison instruction");
-    auto Op = Cond->getOperand(0);
-    if (isa<VPInstruction>(Op) && L->contains(cast<VPInstruction>(Op)))
-      OrigUB = Cond->getOperand(1);
-    else
-      OrigUB = Cond->getOperand(0);
+    std::tie(OrigUB, std::ignore) =
+        L->getLoopUpperBound(/*AssumeNormalizedIV*/ true);
+
     // TODO: remove this when masked vplan creation is fixed to use original UB
     // in the latch.
     if (auto OrigUBInst = dyn_cast<VPVectorTripCountCalculation>(OrigUB))
@@ -1417,8 +1463,7 @@ void VPlanCFGMerger::moveOrigUBToBegin() {
 
 void VPlanCFGMerger::copyDA(std::list<PlanDescr> &Plans) {
   using LT = CfgMergerPlanDescr::LoopType;
-  VPlanDivergenceAnalysis *DA =
-      cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+  VPlanDivergenceAnalysis *DA = Plan.getVPlanDA();
   for (auto P : Plans) {
     if (P.Type == LT::LTMain)
       continue;
@@ -1459,8 +1504,8 @@ void VPlanCFGMerger::replaceAdapterUses(VPlanAdapter *Adapter, VPlan &P) {
       P, [](const VPBasicBlock &BB) { return BB.getNumSuccessors() == 0; });
 
   VPBasicBlock *AdapterParent = Adapter->getParent();
-
-  for (auto U : Adapter->users()) {
+  SmallVector<VPUser *, 4> AdapterUsers(Adapter->users());
+  for (auto U : AdapterUsers) {
     auto *Phi = cast<VPPHINode>(U);
     unsigned MergeId = Phi->getMergeId();
     if (MergeId == VPExternalUse::UndefMergeId)
@@ -1552,6 +1597,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
     else
       DestLI->addTopLevelLoop(NewLoop);
 
+    NewLoop->copyHasNormalizedInductionFlag(L);
+
     // Add all of the blocks in L to the new loop.
     for (auto BB : L->getBlocks())
       if (SrcLI->getLoopFor(BB) == L)
@@ -1578,13 +1625,19 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
     VPBasicBlock *End = &*find_if(*P.Plan, [](const VPBasicBlock &BB) {
       return BB.getNumSuccessors() == 0;
     });
-    Plan.getBasicBlockList().splice(P.FirstBB->getIterator(),
+    VPBasicBlock *VPFirstBB = P.FirstBB;
+    Plan.getBasicBlockList().splice(VPFirstBB->getIterator(),
                                     P.Plan->getBasicBlockList());
     // Relink blocks in CFG.
-    P.FirstBB->getSinglePredecessor()->replaceSuccessor(P.FirstBB, Begin);
-    End->setTerminator(P.FirstBB->getSingleSuccessor());
-    P.FirstBB->setTerminator();
-    Plan.getBasicBlockList().erase(P.FirstBB);
+    VPFirstBB->getSinglePredecessor()->replaceSuccessor(VPFirstBB, Begin);
+    End->setTerminator(VPFirstBB->getSingleSuccessor());
+    VPFirstBB->setTerminator();
+
+    // Add the instructions we're about to remove into the UnlinkedVPInsns.
+    for (auto &VPI : make_early_inc_range(reverse(*VPFirstBB)))
+      VPFirstBB->eraseInstruction(&VPI);
+
+    Plan.getBasicBlockList().erase(VPFirstBB);
     if (auto VecPlan = dyn_cast<VPlanVector>(P.Plan))
       mergeLoopInfo(*VecPlan);
   }

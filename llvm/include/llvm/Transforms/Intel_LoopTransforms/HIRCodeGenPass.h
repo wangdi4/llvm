@@ -22,6 +22,7 @@ namespace loopopt {
 class HIRCodeGenPass : public PassInfoMixin<HIRCodeGenPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &);
+  static bool isRequired() { return true; }
 };
 
 }

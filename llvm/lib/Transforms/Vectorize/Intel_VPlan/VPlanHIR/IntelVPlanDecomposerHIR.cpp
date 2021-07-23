@@ -17,6 +17,7 @@
 #include "IntelVPlanDecomposerHIR.h"
 #include "../IntelVPlanIDF.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
@@ -284,7 +285,9 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
   // Set debug locations for all newly created VPIs from decomposition of this
@@ -488,7 +491,17 @@ static Align getAlignForMemref(RegDDRef *Ref) {
 //    as operand.
 //
 VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Check if Ref is related to VConflict idiom. In legality, we mark the store
+  // instructions, but we cannot do the same for load instructions since the
+  // load memory references might not be in separate instructions. For this
+  // reason, in legality, we mark the DDRef that includes VConflict load memory
+  // references. Here, we collect load instructions along with their index.
+  const HIRVectorIdioms *Idioms =
+      HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp));
+  bool IsVConflictLoad = Idioms->isVConflictLoad(Ref);
+
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
              dbgs() << "\n");
 
@@ -548,6 +561,14 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       VPValue *DecompStride =
           decomposeCanonExpr(Ref, Ref->getDimensionStride(I));
       VPValue *DecompIndex = decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
+
+      if (IsVConflictLoad) {
+        assert(NumDims == 1 &&
+               "VConflict is only supported for one-dimensional arrays.");
+        // Add the conflicting index in the map.
+        RefToConflictingIndex[Ref] = DecompIndex;
+      }
+
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompLower: "; DecompLower->dump();
                  dbgs() << "\n");
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompStride: ";
@@ -612,8 +633,16 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     MemOpVPI = Builder.createLoad(
         cast<PointerType>(MemOpVPI->getType())->getElementType(), MemOpVPI);
 
-    // Save away scalar memref symbase and original alignment for later use.
+    // Copy metadata for the created load instruction.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
+    MemOpVPInst->readUnderlyingMetadata(Ref);
+
+    if (IsVConflictLoad)
+      // Add newly created load instruction to the map that we keep VConflict
+      // load instructions.
+      RefToVPLoadConflict[Ref] = MemOpVPInst;
+
+    // Save away scalar memref symbase and original alignment for later use.
     MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
@@ -884,10 +913,23 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else
+    } else if(isa<GetElementPtrInst>(LLVMInst)) {
+      assert(VPOperands.size() <= 2 && "Unexpected GEP being created.");
+      NewVPInst = Builder.createGEP(
+          // FIXME: Should come from elsewhere. Or, even better, the GEP
+          // shouldn't be created at all.
+          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
+          cast<PointerType>(VPOperands[0]->getType()->getScalarType())->getElementType(),
+          VPOperands[0],
+          ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
+          nullptr /* Inst */);
+      if (DDNode)
+        NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
+    }
 
     // Capture operator flags like FastMathFlags, overflowing flags (nsw/nuw)
     // and exact flag.
@@ -899,7 +941,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   };
 
   if (auto *HInst = dyn_cast<HLInst>(Node)) {
-    VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+    // Note: the insert location guard also guards builder debug location.
+    VPBuilder::InsertPointGuard Guard(Builder);
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
     assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
     // Set debug location for VPInstruction generated for given HLInst.
@@ -971,7 +1014,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
 VPInstruction *
 VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
                                       ArrayRef<VPValue *> VPOperands) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   // Check if number of operands for a HLIf is twice the number of its
   // predicates
   assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
@@ -1208,7 +1252,8 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // created VPInstruction. Only normalized loops are expected so we use step 1.
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpLatch);
   Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
@@ -1584,7 +1629,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
 void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
   // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
-  // missing undef incoming value on edges where Symbase is not defined.
+  // missing explicit representation for early-exit loops.
   if (OutermostHLp->isDoMultiExit())
     return;
 
@@ -1593,12 +1638,6 @@ void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
     assert(HIROp && "Cannot find HIR operand for external use.");
     auto *HIROpBlob = cast<VPBlob>(HIROp);
     DDRef *DDR = const_cast<DDRef *>(HIROpBlob->getBlob());
-
-    // Always create ExternalDef for live-out symbases.
-    // TODO: This may lead to incorrect IR if ExternalDef of a liveout symbase
-    // is needed as r-val for any initialization/finalization. We may need to
-    // use undef instead in such cases.
-    Plan->getVPExternalDefForDDRef(DDR);
 
     auto *ExitPhi = getOrCreateEmptyPhiForDDRef(ExtUse->getType(), ExitBB, DDR);
     LLVM_DEBUG(dbgs() << "Empty PHI was created for live out temp: ";
@@ -1654,20 +1693,25 @@ void VPDecomposerHIR::fixPhiNodes() {
     movePhiToFront(PHIMapIt.first);
 
   // 2. Set the incoming values of all tracked Symbases to their ExternalDef
-  // values or nullptr before HCFG entry
+  // values before CFG entry. If Symbase has no ExternalDef because of lack of
+  // r-val use in the loop, then we create a new ExternalDef using the DDRef
+  // associated with the Symbase. NOTE: This guarantees that a Symbase is always
+  // defined at the entry block of VPlan CFG. Is this always valid to assume?
   PhiNodePassData::VPValMap VPValues;
   for (auto Sym : TrackedSymbases) {
     LLVM_DEBUG(dbgs() << "Sym: " << Sym << "\n");
 
     VPValue *ExtDef = Plan->getVPExternalDefForSymbase(Sym);
     if (ExtDef) {
-      LLVM_DEBUG(dbgs() << "ExtDef: "; ExtDef->dump(); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "ExtDef was found for symbase.\n");
     } else {
-      assert(!OutermostHLp->isLiveIn(Sym) &&
-             "External def not found for a live-in symbase.");
-      LLVM_DEBUG(dbgs() << "ExtDef: nullptr\n");
+      LLVM_DEBUG(dbgs() << "Create new ExtDef for symbase using DDRef.\n ");
+      DDRef *DDR = getDDRefForTrackedSymbase(Sym);
+      assert(DDR && "DDRef not found for tracked symbase.");
+      ExtDef = Plan->getVPExternalDefForDDRef(DDR);
     }
 
+    LLVM_DEBUG(dbgs() << "ExtDef: "; ExtDef->dump(); dbgs() << "\n");
     VPValues[Sym] = ExtDef;
   }
 
@@ -1957,7 +2001,7 @@ void VPDecomposerHIR::fixPhiNodePass(
 // operands accordingly.
 void VPDecomposerHIR::fixExternalUses() {
   // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
-  // missing undef incoming value on edges where Symbase is not defined.
+  // missing explicit representation for early-exit loops.
   if (OutermostHLp->isDoMultiExit())
     return;
 
@@ -2027,6 +2071,8 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Create new VPInstruction with previous operands.
   VPInstruction *NewVPInst = createVPInstruction(Node, VPOperands);
+  if (NewVPInst->getOpcode() == Instruction::Store)
+    cast<VPLoadStoreInst>(NewVPInst)->readUnderlyingMetadata();
 
   // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
   // resulting from decomposing its operands.

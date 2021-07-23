@@ -191,6 +191,13 @@ enum OpenMPAdjustArgsOpKind {
 #include "clang/Basic/OpenMPKinds.def"
   OMPC_ADJUST_ARGS_unknown
 };
+
+/// OpenMP modifiers for 'allocate' clause.
+enum OpenMPAllocateClauseModifier {
+#define OPENMP_ALLOCATE_MODIFIER(Name) OMPC_ALLOCATE_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_ALLOCATE_unknown,
+};
 #endif // INTEL_COLLAB
 
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,

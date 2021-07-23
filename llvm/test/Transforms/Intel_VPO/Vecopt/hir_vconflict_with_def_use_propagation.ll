@@ -4,7 +4,9 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
+
+; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
 
 ; <15>               + DO i1 = 0, 1023, 1   <DO_LOOP>
 ; <3>                |   %0 = (%B)[i1];
@@ -12,9 +14,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; <8>                |   (%A)[%0] = %add;
 ; <15>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %add = (%A)[%0]  +  2.000000e+00;
-; CHECK: [VConflict Idiom] Detected!
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %add = (%A)[%0]  +  2.000000e+00;
+; CHECK-VCONFLICT: [VConflict Idiom] Detected!
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo1PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {

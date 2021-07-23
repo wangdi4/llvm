@@ -72,7 +72,7 @@ unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
 // Selects the best peeling variant (none, scalar, masked vector).
 VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
-  if (!PeelingVariant) {
+  if (!PeelingVariant || getScalarPeelTripCount(MainLoopVF) == 0) {
     PeelKind = PeelLoopKind::None;
     LoopCost = 0;
     PeelTC = 0;
@@ -195,11 +195,25 @@ VPlanRemainderEvaluator::calculateBestVariant() {
                     << " masked cost=" << MaskedVectorCost
                     << " unmasked cost=" << UnMaskedVectorCost << "\n");
 
-  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainderOpt) {
+  if (Planner.isVecRemainderDisabled() ||
+      (!EnableMaskedVectorizedRemainder &&
+       !EnableNonMaskedVectorizedRemainder)) {
+    LLVM_DEBUG(dbgs() << "No vector remainder enabled");
+    LLVM_DEBUG(dbgs() << "Pragma: " << Planner.isVecRemainderDisabled()
+                      << "opts: " << EnableMaskedVectorizedRemainder << ", "
+                      << EnableNonMaskedVectorizedRemainder);
+    return RemainderKind;
+  }
+
+  // if vectorization of remainder is enforced disregard scalar cost
+  if (Planner.isVecRemainderEnforced())
+    LoopCost = std::numeric_limits<unsigned>::max();
+
+  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainder) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;
   }
-  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainderOpt) {
+  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainder) {
     RemainderKind = RemainderLoopKind::VectorScalar;
     LoopCost = UnMaskedVectorCost;
     RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;

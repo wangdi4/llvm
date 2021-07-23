@@ -257,7 +257,7 @@ static bool SemaBuiltinAlignment(Sema &S, CallExpr *TheCall, unsigned ID) {
     }
     if (llvm::APSInt::compareValues(AlignValue, MaxValue) > 0) {
       S.Diag(AlignOp->getExprLoc(), diag::err_alignment_too_big)
-          << MaxValue.toString(10);
+          << toString(MaxValue, 10);
       return true;
     }
     if (!AlignValue.isPowerOf2()) {
@@ -776,8 +776,8 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
 
   DiagRuntimeBehavior(TheCall->getBeginLoc(), TheCall,
                       PDiag(DiagID)
-                          << FunctionName << ObjectSize.toString(/*Radix=*/10)
-                          << UsedSize.getValue().toString(/*Radix=*/10));
+                          << FunctionName << toString(ObjectSize, /*Radix=*/10)
+                          << toString(UsedSize.getValue(), /*Radix=*/10));
 }
 
 static bool SemaBuiltinSEHScopeCheck(Sema &SemaRef, CallExpr *TheCall,
@@ -842,8 +842,7 @@ static bool checkOpenCLBlockArgs(Sema &S, Expr *BlockArg) {
 }
 
 static bool checkOpenCLSubgroupExt(Sema &S, CallExpr *Call) {
-  if (!S.getOpenCLOptions().isAvailableOption("cl_khr_subgroups",
-                                              S.getLangOpts())) {
+  if (!S.getOpenCLOptions().isSupported("cl_khr_subgroups", S.getLangOpts())) {
     S.Diag(Call->getBeginLoc(), diag::err_opencl_requires_extension)
         << 1 << Call->getDirectCallee() << "cl_khr_subgroups";
     return true;
@@ -1632,6 +1631,31 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_signbit:
   case Builtin::BI__builtin_signbitf:
   case Builtin::BI__builtin_signbitl:
+#if INTEL_CUSTOMIZATION
+    switch (BuiltinID) {
+    default:
+      break;
+    case Builtin::BI__builtin_isinf:
+    case Builtin::BI__builtin_isinff:
+    case Builtin::BI__builtin_isinfl:
+    case Builtin::BI__builtin_isinf_sign: {
+      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+      if (FPO.getNoHonorInfs())
+        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+            << "infinity" << TheCall->getSourceRange();
+      break;
+    }
+    case Builtin::BI__builtin_isnan:
+    case Builtin::BI__builtin_isnanf:
+    case Builtin::BI__builtin_isnanl: {
+      FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
+      if (FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares())
+        Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
+            << "NaN" << TheCall->getSourceRange();
+      break;
+    }
+    }
+#endif // INTEL_CUSTOMIZATION
     if (SemaBuiltinFPClassification(TheCall, 1))
       return ExprError();
     break;
@@ -1650,6 +1674,10 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_alloca:
     Diag(TheCall->getBeginLoc(), diag::warn_alloca)
         << TheCall->getDirectCallee();
+    break;
+  case Builtin::BI__arithmetic_fence:
+    if (SemaBuiltinArithmeticFence(TheCall))
+      return ExprError();
     break;
   case Builtin::BI__assume:
   case Builtin::BI__builtin_assume:
@@ -3402,33 +3430,34 @@ static QualType DecodePPCMMATypeFromStr(ASTContext &Context, const char *&Str,
   }
 }
 
+static bool isPPC_64Builtin(unsigned BuiltinID) {
+  // These builtins only work on PPC 64bit targets.
+  switch (BuiltinID) {
+  case PPC::BI__builtin_divde:
+  case PPC::BI__builtin_divdeu:
+  case PPC::BI__builtin_bpermd:
+  case PPC::BI__builtin_ppc_ldarx:
+  case PPC::BI__builtin_ppc_stdcx:
+    return true;
+  }
+  return false;
+}
+
+static bool SemaFeatureCheck(Sema &S, CallExpr *TheCall,
+                             StringRef FeatureToCheck, unsigned DiagID) {
+  if (!S.Context.getTargetInfo().hasFeature(FeatureToCheck))
+    return S.Diag(TheCall->getBeginLoc(), DiagID) << TheCall->getSourceRange();
+  return false;
+}
+
 bool Sema::CheckPPCBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                        CallExpr *TheCall) {
   unsigned i = 0, l = 0, u = 0;
-  bool Is64BitBltin = BuiltinID == PPC::BI__builtin_divde ||
-                      BuiltinID == PPC::BI__builtin_divdeu ||
-                      BuiltinID == PPC::BI__builtin_bpermd;
   bool IsTarget64Bit = TI.getTypeWidth(TI.getIntPtrType()) == 64;
-  bool IsBltinExtDiv = BuiltinID == PPC::BI__builtin_divwe ||
-                       BuiltinID == PPC::BI__builtin_divweu ||
-                       BuiltinID == PPC::BI__builtin_divde ||
-                       BuiltinID == PPC::BI__builtin_divdeu;
 
-  if (Is64BitBltin && !IsTarget64Bit)
+  if (isPPC_64Builtin(BuiltinID) && !IsTarget64Bit)
     return Diag(TheCall->getBeginLoc(), diag::err_64_bit_builtin_32_bit_tgt)
            << TheCall->getSourceRange();
-
-  if ((IsBltinExtDiv && !TI.hasFeature("extdiv")) ||
-      (BuiltinID == PPC::BI__builtin_bpermd && !TI.hasFeature("bpermd")))
-    return Diag(TheCall->getBeginLoc(), diag::err_ppc_builtin_only_on_pwr7)
-           << TheCall->getSourceRange();
-
-  auto SemaVSXCheck = [&](CallExpr *TheCall) -> bool {
-    if (!TI.hasFeature("vsx"))
-      return Diag(TheCall->getBeginLoc(), diag::err_ppc_builtin_only_on_pwr7)
-             << TheCall->getSourceRange();
-    return false;
-  };
 
   switch (BuiltinID) {
   default: return false;
@@ -3455,11 +3484,22 @@ bool Sema::CheckPPCBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case PPC::BI__builtin_vsx_xxpermdi:
   case PPC::BI__builtin_vsx_xxsldwi:
     return SemaBuiltinVSX(TheCall);
+  case PPC::BI__builtin_divwe:
+  case PPC::BI__builtin_divweu:
+  case PPC::BI__builtin_divde:
+  case PPC::BI__builtin_divdeu:
+    return SemaFeatureCheck(*this, TheCall, "extdiv",
+                            diag::err_ppc_builtin_only_on_pwr7);
+  case PPC::BI__builtin_bpermd:
+    return SemaFeatureCheck(*this, TheCall, "bpermd",
+                            diag::err_ppc_builtin_only_on_pwr7);
   case PPC::BI__builtin_unpack_vector_int128:
-    return SemaVSXCheck(TheCall) ||
+    return SemaFeatureCheck(*this, TheCall, "vsx",
+                            diag::err_ppc_builtin_only_on_pwr7) ||
            SemaBuiltinConstantArgRange(TheCall, 1, 0, 1);
   case PPC::BI__builtin_pack_vector_int128:
-    return SemaVSXCheck(TheCall);
+    return SemaFeatureCheck(*this, TheCall, "vsx",
+                            diag::err_ppc_builtin_only_on_pwr7);
   case PPC::BI__builtin_altivec_vgnb:
      return SemaBuiltinConstantArgRange(TheCall, 1, 2, 7);
   case PPC::BI__builtin_altivec_vec_replace_elt:
@@ -3478,7 +3518,7 @@ bool Sema::CheckPPCBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
      return SemaBuiltinConstantArgRange(TheCall, 2, 0, 7);
   case PPC::BI__builtin_vsx_xxpermx:
      return SemaBuiltinConstantArgRange(TheCall, 3, 0, 7);
-#define CUSTOM_BUILTIN(Name, Types, Acc) \
+#define CUSTOM_BUILTIN(Name, Intr, Types, Acc) \
   case PPC::BI__builtin_##Name: \
     return SemaBuiltinPPCMMACall(TheCall, Types);
 #include "clang/Basic/BuiltinsPPC.def"
@@ -3564,6 +3604,26 @@ bool Sema::CheckAMDGCNBuiltinFunctionCall(unsigned BuiltinID,
   return false;
 }
 
+bool Sema::CheckRISCVLMUL(CallExpr *TheCall, unsigned ArgNum) {
+  llvm::APSInt Result;
+
+  // We can't check the value of a dependent argument.
+  Expr *Arg = TheCall->getArg(ArgNum);
+  if (Arg->isTypeDependent() || Arg->isValueDependent())
+    return false;
+
+  // Check constant-ness first.
+  if (SemaBuiltinConstantArg(TheCall, ArgNum, Result))
+    return true;
+
+  int64_t Val = Result.getSExtValue();
+  if ((Val >= 0 && Val <= 3) || (Val >= 5 && Val <= 7))
+    return false;
+
+  return Diag(TheCall->getBeginLoc(), diag::err_riscv_builtin_invalid_lmul)
+         << Arg->getSourceRange();
+}
+
 bool Sema::CheckRISCVBuiltinFunctionCall(const TargetInfo &TI,
                                          unsigned BuiltinID,
                                          CallExpr *TheCall) {
@@ -3595,7 +3655,145 @@ bool Sema::CheckRISCVBuiltinFunctionCall(const TargetInfo &TI,
         << TheCall->getSourceRange() << StringRef(FeatureStr);
   }
 
-  return FeatureMissing;
+  if (FeatureMissing)
+    return true;
+
+  switch (BuiltinID) {
+  case RISCV::BI__builtin_rvv_vsetvli:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 3) ||
+           CheckRISCVLMUL(TheCall, 2);
+  case RISCV::BI__builtin_rvv_vsetvlimax:
+    return SemaBuiltinConstantArgRange(TheCall, 0, 0, 3) ||
+           CheckRISCVLMUL(TheCall, 1);
+  case RISCV::BI__builtin_rvv_vget_v_i8m2_i8m1:
+  case RISCV::BI__builtin_rvv_vget_v_i16m2_i16m1:
+  case RISCV::BI__builtin_rvv_vget_v_i32m2_i32m1:
+  case RISCV::BI__builtin_rvv_vget_v_i64m2_i64m1:
+  case RISCV::BI__builtin_rvv_vget_v_f32m2_f32m1:
+  case RISCV::BI__builtin_rvv_vget_v_f64m2_f64m1:
+  case RISCV::BI__builtin_rvv_vget_v_u8m2_u8m1:
+  case RISCV::BI__builtin_rvv_vget_v_u16m2_u16m1:
+  case RISCV::BI__builtin_rvv_vget_v_u32m2_u32m1:
+  case RISCV::BI__builtin_rvv_vget_v_u64m2_u64m1:
+  case RISCV::BI__builtin_rvv_vget_v_i8m4_i8m2:
+  case RISCV::BI__builtin_rvv_vget_v_i16m4_i16m2:
+  case RISCV::BI__builtin_rvv_vget_v_i32m4_i32m2:
+  case RISCV::BI__builtin_rvv_vget_v_i64m4_i64m2:
+  case RISCV::BI__builtin_rvv_vget_v_f32m4_f32m2:
+  case RISCV::BI__builtin_rvv_vget_v_f64m4_f64m2:
+  case RISCV::BI__builtin_rvv_vget_v_u8m4_u8m2:
+  case RISCV::BI__builtin_rvv_vget_v_u16m4_u16m2:
+  case RISCV::BI__builtin_rvv_vget_v_u32m4_u32m2:
+  case RISCV::BI__builtin_rvv_vget_v_u64m4_u64m2:
+  case RISCV::BI__builtin_rvv_vget_v_i8m8_i8m4:
+  case RISCV::BI__builtin_rvv_vget_v_i16m8_i16m4:
+  case RISCV::BI__builtin_rvv_vget_v_i32m8_i32m4:
+  case RISCV::BI__builtin_rvv_vget_v_i64m8_i64m4:
+  case RISCV::BI__builtin_rvv_vget_v_f32m8_f32m4:
+  case RISCV::BI__builtin_rvv_vget_v_f64m8_f64m4:
+  case RISCV::BI__builtin_rvv_vget_v_u8m8_u8m4:
+  case RISCV::BI__builtin_rvv_vget_v_u16m8_u16m4:
+  case RISCV::BI__builtin_rvv_vget_v_u32m8_u32m4:
+  case RISCV::BI__builtin_rvv_vget_v_u64m8_u64m4:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 1);
+  case RISCV::BI__builtin_rvv_vget_v_i8m4_i8m1:
+  case RISCV::BI__builtin_rvv_vget_v_i16m4_i16m1:
+  case RISCV::BI__builtin_rvv_vget_v_i32m4_i32m1:
+  case RISCV::BI__builtin_rvv_vget_v_i64m4_i64m1:
+  case RISCV::BI__builtin_rvv_vget_v_f32m4_f32m1:
+  case RISCV::BI__builtin_rvv_vget_v_f64m4_f64m1:
+  case RISCV::BI__builtin_rvv_vget_v_u8m4_u8m1:
+  case RISCV::BI__builtin_rvv_vget_v_u16m4_u16m1:
+  case RISCV::BI__builtin_rvv_vget_v_u32m4_u32m1:
+  case RISCV::BI__builtin_rvv_vget_v_u64m4_u64m1:
+  case RISCV::BI__builtin_rvv_vget_v_i8m8_i8m2:
+  case RISCV::BI__builtin_rvv_vget_v_i16m8_i16m2:
+  case RISCV::BI__builtin_rvv_vget_v_i32m8_i32m2:
+  case RISCV::BI__builtin_rvv_vget_v_i64m8_i64m2:
+  case RISCV::BI__builtin_rvv_vget_v_f32m8_f32m2:
+  case RISCV::BI__builtin_rvv_vget_v_f64m8_f64m2:
+  case RISCV::BI__builtin_rvv_vget_v_u8m8_u8m2:
+  case RISCV::BI__builtin_rvv_vget_v_u16m8_u16m2:
+  case RISCV::BI__builtin_rvv_vget_v_u32m8_u32m2:
+  case RISCV::BI__builtin_rvv_vget_v_u64m8_u64m2:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 3);
+  case RISCV::BI__builtin_rvv_vget_v_i8m8_i8m1:
+  case RISCV::BI__builtin_rvv_vget_v_i16m8_i16m1:
+  case RISCV::BI__builtin_rvv_vget_v_i32m8_i32m1:
+  case RISCV::BI__builtin_rvv_vget_v_i64m8_i64m1:
+  case RISCV::BI__builtin_rvv_vget_v_f32m8_f32m1:
+  case RISCV::BI__builtin_rvv_vget_v_f64m8_f64m1:
+  case RISCV::BI__builtin_rvv_vget_v_u8m8_u8m1:
+  case RISCV::BI__builtin_rvv_vget_v_u16m8_u16m1:
+  case RISCV::BI__builtin_rvv_vget_v_u32m8_u32m1:
+  case RISCV::BI__builtin_rvv_vget_v_u64m8_u64m1:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 7);
+  case RISCV::BI__builtin_rvv_vset_v_i8m1_i8m2:
+  case RISCV::BI__builtin_rvv_vset_v_i16m1_i16m2:
+  case RISCV::BI__builtin_rvv_vset_v_i32m1_i32m2:
+  case RISCV::BI__builtin_rvv_vset_v_i64m1_i64m2:
+  case RISCV::BI__builtin_rvv_vset_v_f32m1_f32m2:
+  case RISCV::BI__builtin_rvv_vset_v_f64m1_f64m2:
+  case RISCV::BI__builtin_rvv_vset_v_u8m1_u8m2:
+  case RISCV::BI__builtin_rvv_vset_v_u16m1_u16m2:
+  case RISCV::BI__builtin_rvv_vset_v_u32m1_u32m2:
+  case RISCV::BI__builtin_rvv_vset_v_u64m1_u64m2:
+  case RISCV::BI__builtin_rvv_vset_v_i8m2_i8m4:
+  case RISCV::BI__builtin_rvv_vset_v_i16m2_i16m4:
+  case RISCV::BI__builtin_rvv_vset_v_i32m2_i32m4:
+  case RISCV::BI__builtin_rvv_vset_v_i64m2_i64m4:
+  case RISCV::BI__builtin_rvv_vset_v_f32m2_f32m4:
+  case RISCV::BI__builtin_rvv_vset_v_f64m2_f64m4:
+  case RISCV::BI__builtin_rvv_vset_v_u8m2_u8m4:
+  case RISCV::BI__builtin_rvv_vset_v_u16m2_u16m4:
+  case RISCV::BI__builtin_rvv_vset_v_u32m2_u32m4:
+  case RISCV::BI__builtin_rvv_vset_v_u64m2_u64m4:
+  case RISCV::BI__builtin_rvv_vset_v_i8m4_i8m8:
+  case RISCV::BI__builtin_rvv_vset_v_i16m4_i16m8:
+  case RISCV::BI__builtin_rvv_vset_v_i32m4_i32m8:
+  case RISCV::BI__builtin_rvv_vset_v_i64m4_i64m8:
+  case RISCV::BI__builtin_rvv_vset_v_f32m4_f32m8:
+  case RISCV::BI__builtin_rvv_vset_v_f64m4_f64m8:
+  case RISCV::BI__builtin_rvv_vset_v_u8m4_u8m8:
+  case RISCV::BI__builtin_rvv_vset_v_u16m4_u16m8:
+  case RISCV::BI__builtin_rvv_vset_v_u32m4_u32m8:
+  case RISCV::BI__builtin_rvv_vset_v_u64m4_u64m8:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 1);
+  case RISCV::BI__builtin_rvv_vset_v_i8m1_i8m4:
+  case RISCV::BI__builtin_rvv_vset_v_i16m1_i16m4:
+  case RISCV::BI__builtin_rvv_vset_v_i32m1_i32m4:
+  case RISCV::BI__builtin_rvv_vset_v_i64m1_i64m4:
+  case RISCV::BI__builtin_rvv_vset_v_f32m1_f32m4:
+  case RISCV::BI__builtin_rvv_vset_v_f64m1_f64m4:
+  case RISCV::BI__builtin_rvv_vset_v_u8m1_u8m4:
+  case RISCV::BI__builtin_rvv_vset_v_u16m1_u16m4:
+  case RISCV::BI__builtin_rvv_vset_v_u32m1_u32m4:
+  case RISCV::BI__builtin_rvv_vset_v_u64m1_u64m4:
+  case RISCV::BI__builtin_rvv_vset_v_i8m2_i8m8:
+  case RISCV::BI__builtin_rvv_vset_v_i16m2_i16m8:
+  case RISCV::BI__builtin_rvv_vset_v_i32m2_i32m8:
+  case RISCV::BI__builtin_rvv_vset_v_i64m2_i64m8:
+  case RISCV::BI__builtin_rvv_vset_v_f32m2_f32m8:
+  case RISCV::BI__builtin_rvv_vset_v_f64m2_f64m8:
+  case RISCV::BI__builtin_rvv_vset_v_u8m2_u8m8:
+  case RISCV::BI__builtin_rvv_vset_v_u16m2_u16m8:
+  case RISCV::BI__builtin_rvv_vset_v_u32m2_u32m8:
+  case RISCV::BI__builtin_rvv_vset_v_u64m2_u64m8:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 3);
+  case RISCV::BI__builtin_rvv_vset_v_i8m1_i8m8:
+  case RISCV::BI__builtin_rvv_vset_v_i16m1_i16m8:
+  case RISCV::BI__builtin_rvv_vset_v_i32m1_i32m8:
+  case RISCV::BI__builtin_rvv_vset_v_i64m1_i64m8:
+  case RISCV::BI__builtin_rvv_vset_v_f32m1_f32m8:
+  case RISCV::BI__builtin_rvv_vset_v_f64m1_f64m8:
+  case RISCV::BI__builtin_rvv_vset_v_u8m1_u8m8:
+  case RISCV::BI__builtin_rvv_vset_v_u16m1_u16m8:
+  case RISCV::BI__builtin_rvv_vset_v_u32m1_u32m8:
+  case RISCV::BI__builtin_rvv_vset_v_u64m1_u64m8:
+    return SemaBuiltinConstantArgRange(TheCall, 1, 0, 7);
+  }
+
+  return false;
 }
 
 bool Sema::CheckSystemZBuiltinFunctionCall(unsigned BuiltinID,
@@ -3744,12 +3942,10 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvttss2usi32:
   case X86::BI__builtin_ia32_vcvttss2usi64:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvttsh2si32:
   case X86::BI__builtin_ia32_vcvttsh2si64:
   case X86::BI__builtin_ia32_vcvttsh2usi32:
   case X86::BI__builtin_ia32_vcvttsh2usi64:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     ArgNum = 1;
@@ -3759,18 +3955,14 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_minpd512:
   case X86::BI__builtin_ia32_minps512:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_maxph512:
   case X86::BI__builtin_ia32_minph512:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 2;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtph2pd512_mask:
   case X86::BI__builtin_ia32_vcvtph2psx512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtps2pd512_mask:
   case X86::BI__builtin_ia32_cvttpd2dq512_mask:
@@ -3782,23 +3974,19 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvttps2udq512_mask:
   case X86::BI__builtin_ia32_cvttps2uqq512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvttph2w512_mask:
   case X86::BI__builtin_ia32_vcvttph2uw512_mask:
   case X86::BI__builtin_ia32_vcvttph2dq512_mask:
   case X86::BI__builtin_ia32_vcvttph2udq512_mask:
   case X86::BI__builtin_ia32_vcvttph2qq512_mask:
   case X86::BI__builtin_ia32_vcvttph2uqq512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_exp2pd_mask:
   case X86::BI__builtin_ia32_exp2ps_mask:
   case X86::BI__builtin_ia32_getexppd512_mask:
   case X86::BI__builtin_ia32_getexpps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getexpph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rcp28pd_mask:
   case X86::BI__builtin_ia32_rcp28ps_mask:
@@ -3807,9 +3995,7 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcomisd:
   case X86::BI__builtin_ia32_vcomiss:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcomish:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vcvtph2ps512_mask:
     ArgNum = 3;
@@ -3819,56 +4005,42 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cmpsd_mask:
   case X86::BI__builtin_ia32_cmpss_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_cmpsh_mask:
   case X86::BI__builtin_ia32_vcvtsh2sd_round_mask:
   case X86::BI__builtin_ia32_vcvtsh2ss_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtss2sd_round_mask:
   case X86::BI__builtin_ia32_getexpsd128_round_mask:
   case X86::BI__builtin_ia32_getexpss128_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getexpsh128_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_getmantpd512_mask:
   case X86::BI__builtin_ia32_getmantps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getmantph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_maxsd_round_mask:
   case X86::BI__builtin_ia32_maxss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_maxsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_minsd_round_mask:
   case X86::BI__builtin_ia32_minss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_minsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rcp28sd_round_mask:
   case X86::BI__builtin_ia32_rcp28ss_round_mask:
   case X86::BI__builtin_ia32_reducepd512_mask:
   case X86::BI__builtin_ia32_reduceps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_reduceph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rndscalepd_mask:
   case X86::BI__builtin_ia32_rndscaleps_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_rndscaleph_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rsqrt28sd_round_mask:
   case X86::BI__builtin_ia32_rsqrt28ss_round_mask:
@@ -3885,9 +4057,7 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_getmantsd_round_mask:
   case X86::BI__builtin_ia32_getmantss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getmantsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rangepd512_mask:
   case X86::BI__builtin_ia32_rangeps512_mask:
@@ -3896,16 +4066,12 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_reducesd_mask:
   case X86::BI__builtin_ia32_reducess_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_reducesh_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_rndscalesd_round_mask:
   case X86::BI__builtin_ia32_rndscaless_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_rndscalesh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 5;
     break;
@@ -3918,30 +4084,24 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvtss2usi32:
   case X86::BI__builtin_ia32_vcvtss2usi64:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtsh2si32:
   case X86::BI__builtin_ia32_vcvtsh2si64:
   case X86::BI__builtin_ia32_vcvtsh2usi32:
   case X86::BI__builtin_ia32_vcvtsh2usi64:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_sqrtpd512:
   case X86::BI__builtin_ia32_sqrtps512:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_sqrtph512:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 1;
     HasRC = true;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_addph512:
   case X86::BI__builtin_ia32_divph512:
   case X86::BI__builtin_ia32_mulph512:
   case X86::BI__builtin_ia32_subph512:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_addpd512:
   case X86::BI__builtin_ia32_addps512:
@@ -3958,12 +4118,10 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvtusi2ss32:
   case X86::BI__builtin_ia32_cvtusi2ss64:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtusi2sh:
   case X86::BI__builtin_ia32_vcvtusi642sh:
   case X86::BI__builtin_ia32_vcvtsi2sh:
   case X86::BI__builtin_ia32_vcvtsi642sh:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     ArgNum = 2;
     HasRC = true;
@@ -3971,10 +4129,8 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvtdq2ps512_mask:
   case X86::BI__builtin_ia32_cvtudq2ps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtpd2ph512_mask:
   case X86::BI__builtin_ia32_vcvtps2phx512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtpd2ps512_mask:
   case X86::BI__builtin_ia32_cvtpd2dq512_mask:
@@ -3990,7 +4146,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_cvtuqq2pd512_mask:
   case X86::BI__builtin_ia32_cvtuqq2ps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtdq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtudq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtw2ph512_mask:
@@ -4003,7 +4158,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vcvtph2uqq512_mask:
   case X86::BI__builtin_ia32_vcvtqq2ph512_mask:
   case X86::BI__builtin_ia32_vcvtuqq2ph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   case X86::BI__builtin_ia32_vcvtbf162ph512_mask:
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
@@ -4012,60 +4166,44 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
     HasRC = true;
     break;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_addsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_addss_round_mask:
   case X86::BI__builtin_ia32_addsd_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_divsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_divss_round_mask:
   case X86::BI__builtin_ia32_divsd_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_mulsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_mulss_round_mask:
   case X86::BI__builtin_ia32_mulsd_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_subsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_subss_round_mask:
   case X86::BI__builtin_ia32_subsd_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_scalefph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_scalefpd512_mask:
   case X86::BI__builtin_ia32_scalefps512_mask:
   case X86::BI__builtin_ia32_scalefsd_round_mask:
   case X86::BI__builtin_ia32_scalefss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_scalefsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_cvtsd2ss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vcvtss2sh_round_mask:
   case X86::BI__builtin_ia32_vcvtsd2sh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_sqrtsd_round_mask:
   case X86::BI__builtin_ia32_sqrtss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_sqrtsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsd3_mask:
   case X86::BI__builtin_ia32_vfmaddsd3_maskz:
@@ -4074,11 +4212,9 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddss3_maskz:
   case X86::BI__builtin_ia32_vfmaddss3_mask3:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsh3_mask:
   case X86::BI__builtin_ia32_vfmaddsh3_maskz:
   case X86::BI__builtin_ia32_vfmaddsh3_mask3:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddpd512_mask:
   case X86::BI__builtin_ia32_vfmaddpd512_maskz:
@@ -4089,12 +4225,10 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddps512_mask3:
   case X86::BI__builtin_ia32_vfmsubps512_mask3:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddph512_mask:
   case X86::BI__builtin_ia32_vfmaddph512_maskz:
   case X86::BI__builtin_ia32_vfmaddph512_mask3:
   case X86::BI__builtin_ia32_vfmsubph512_mask3:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddsubpd512_mask:
   case X86::BI__builtin_ia32_vfmaddsubpd512_maskz:
@@ -4105,7 +4239,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddsubps512_mask3:
   case X86::BI__builtin_ia32_vfmsubaddps512_mask3:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_vfmaddsubph512_mask:
   case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
@@ -4121,7 +4254,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmulcph512_mask:
   case X86::BI__builtin_ia32_vfcmulcsh_mask:
   case X86::BI__builtin_ia32_vfcmulcph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
@@ -4609,7 +4741,7 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     break;
   case X86::BI__builtin_ia32_icecode_loadseg:
   case X86::BI__builtin_ia32_icecode_storeseg:
-    i = 1; l = 1; u = 6;
+    i = 1; l = 1; u = 10;
     break;
   case X86::BI__builtin_ia32_icecode_cmodemov:
     i = 2; l = 0; u = 15;
@@ -4733,11 +4865,9 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_getmantpd512_mask:
   case X86::BI__builtin_ia32_getmantps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getmantph128_mask:
   case X86::BI__builtin_ia32_getmantph256_mask:
   case X86::BI__builtin_ia32_getmantph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_ext_v16qi:
   case X86::BI__builtin_ia32_vec_ext_v16hi:
@@ -4758,9 +4888,7 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_getmantsd_round_mask:
   case X86::BI__builtin_ia32_getmantss_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_getmantsh_round_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vec_set_v16qi:
   case X86::BI__builtin_ia32_vec_set_v16hi:
@@ -4815,9 +4943,7 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_rndscaleps_mask:
   case X86::BI__builtin_ia32_rndscalepd_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_rndscaleph_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_reducepd128_mask:
   case X86::BI__builtin_ia32_reducepd256_mask:
@@ -4826,11 +4952,9 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_reduceps256_mask:
   case X86::BI__builtin_ia32_reduceps512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_reduceph128_mask:
   case X86::BI__builtin_ia32_reduceph256_mask:
   case X86::BI__builtin_ia32_reduceph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
   case X86::BI__builtin_ia32_avxcompress_vprold128:
   case X86::BI__builtin_ia32_avxcompress_vprold256:
@@ -4861,18 +4985,14 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_fpclassps512_mask:
   case X86::BI__builtin_ia32_fpclasspd512_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_fpclassph128_mask:
   case X86::BI__builtin_ia32_fpclassph256_mask:
   case X86::BI__builtin_ia32_fpclassph512_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_fpclasssd_mask:
   case X86::BI__builtin_ia32_fpclassss_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_fpclasssh_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_pslldqi128_byteshift:
   case X86::BI__builtin_ia32_pslldqi256_byteshift:
@@ -4888,6 +5008,11 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_kshiftrihi:
   case X86::BI__builtin_ia32_kshiftrisi:
   case X86::BI__builtin_ia32_kshiftridi:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+  case X86::BI__builtin_ia32_dvplutsincosw:
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
     i = 1; l = 0; u = 255;
     break;
   case X86::BI__builtin_ia32_vperm2f128_pd256:
@@ -4953,9 +5078,13 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_avxcompress_vpshrdw128:
   case X86::BI__builtin_ia32_avxcompress_vpshrdw256:
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
   case X86::BI__builtin_ia32_mpsadbw512:
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_DSPV1
+  case X86::BI__builtin_ia32_dvpcmulwrs:
+  case X86::BI__builtin_ia32_dvpccmulwrs:
+#endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
     i = 2; l = 0; u = 255;
     break;
@@ -4987,6 +5116,14 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_pternlogq128_maskz:
   case X86::BI__builtin_ia32_pternlogq256_mask:
   case X86::BI__builtin_ia32_pternlogq256_maskz:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_SM3
+  case X86::BI__builtin_ia32_vsm3rnds2:
+#endif // INTEL_FEATURE_ISA_SM3
+#if INTEL_FEATURE_ISA_DSPV1
+  case X86::BI__builtin_ia32_dvpcr2bfrsw:
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
     i = 3; l = 0; u = 255;
     break;
   case X86::BI__builtin_ia32_gatherpfdpd:
@@ -5004,10 +5141,8 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_rndscalesd_round_mask:
   case X86::BI__builtin_ia32_rndscaless_round_mask:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
   case X86::BI__builtin_ia32_rndscalesh_round_mask:
   case X86::BI__builtin_ia32_reducesh_mask:
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     i = 4; l = 0; u = 255;
     break;
@@ -5205,7 +5340,7 @@ bool Sema::CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
     if (Result <= 0)
       return Diag(VLengthArg->getBeginLoc(),
                   diag::err_vector_length_passing)
-             << 0 << Result.toString(10) << 0;
+             << 0 << toString(Result, 10) << 0;
 
     // Check the user-specified variant list.
     Expr *VariantArg = TheCall->getArg(2);
@@ -5283,7 +5418,7 @@ bool Sema::CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
         if (Result <= 0)
           return Diag(TArg.getAsExpr()->getBeginLoc(),
                       diag::err_vector_length_passing)
-                 << 0 << Result.toString(10) << 0;
+                 << 0 << toString(Result, 10) << 0;
       }
     }
     // The return type of the expression should be taken from the table
@@ -5583,8 +5718,9 @@ void Sema::CheckArgAlignment(SourceLocation Loc, NamedDecl *FDecl,
 
   // Find expected alignment, and the actual alignment of the passed object.
   // getTypeAlignInChars requires complete types
-  if (ParamTy->isIncompleteType() || ArgTy->isIncompleteType() ||
-      ParamTy->isUndeducedType() || ArgTy->isUndeducedType())
+  if (ArgTy.isNull() || ParamTy->isIncompleteType() ||
+      ArgTy->isIncompleteType() || ParamTy->isUndeducedType() ||
+      ArgTy->isUndeducedType())
     return;
 
   CharUnits ParamAlign = Context.getTypeAlignInChars(ParamTy);
@@ -5666,6 +5802,9 @@ void Sema::checkCall(NamedDecl *FDecl, const FunctionProtoType *Proto,
     for (unsigned ArgIdx = 0; ArgIdx < N; ++ArgIdx) {
       // Args[ArgIdx] can be null in malformed code.
       if (const Expr *Arg = Args[ArgIdx]) {
+        if (Arg->containsErrors())
+          continue;
+
         QualType ParamTy = Proto->getParamType(ArgIdx);
         QualType ArgTy = Arg->getType();
         CheckArgAlignment(Arg->getExprLoc(), FDecl, std::to_string(ArgIdx + 1),
@@ -5777,6 +5916,9 @@ bool Sema::CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
 
   CheckAbsoluteValueFunction(TheCall, FDecl);
   CheckMaxUnsignedZero(TheCall, FDecl);
+#if INTEL_CUSTOMIZATION
+  CheckInfNaNFunction(TheCall, FDecl);
+#endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().ObjC)
     DiagnoseCStringFormatDirectiveInCFAPI(*this, FDecl, Args, NumArgs);
@@ -8116,7 +8258,7 @@ ExprResult Sema::SemaBuiltinShuffleVector(CallExpr *TheCall) {
 ExprResult Sema::SemaConvertVectorExpr(Expr *E, TypeSourceInfo *TInfo,
                                        SourceLocation BuiltinLoc,
                                        SourceLocation RParenLoc) {
-  ExprValueKind VK = VK_RValue;
+  ExprValueKind VK = VK_PRValue;
   ExprObjectKind OK = OK_Ordinary;
   QualType DstTy = TInfo->getType();
   QualType SrcTy = E->getType();
@@ -8159,6 +8301,29 @@ bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
     if (SemaBuiltinConstantArgRange(TheCall, i, 0, i == 1 ? 1 : 3))
       return true;
 
+  return false;
+}
+
+/// SemaBuiltinArithmeticFence - Handle __arithmetic_fence.
+bool Sema::SemaBuiltinArithmeticFence(CallExpr *TheCall) {
+  if (!Context.getTargetInfo().checkArithmeticFenceSupported())
+    return Diag(TheCall->getBeginLoc(), diag::err_builtin_target_unsupported)
+           << SourceRange(TheCall->getBeginLoc(), TheCall->getEndLoc());
+  if (checkArgCount(*this, TheCall, 1))
+    return true;
+  Expr *Arg = TheCall->getArg(0);
+  if (Arg->isInstantiationDependent())
+    return false;
+
+  QualType ArgTy = Arg->getType();
+  if (!ArgTy->hasFloatingRepresentation())
+    return Diag(TheCall->getEndLoc(), diag::err_typecheck_expect_flt_or_vector)
+           << ArgTy;
+  if (Arg->isLValue()) {
+    ExprResult FirstArg = DefaultLvalueConversion(Arg);
+    TheCall->setArg(0, FirstArg.get());
+  }
+  TheCall->setType(TheCall->getArg(0)->getType());
   return false;
 }
 
@@ -8369,13 +8534,13 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
   if (Result.getSExtValue() < Low || Result.getSExtValue() > High) {
     if (RangeIsError)
       return Diag(TheCall->getBeginLoc(), diag::err_argument_invalid_range)
-             << Result.toString(10) << Low << High << Arg->getSourceRange();
+             << toString(Result, 10) << Low << High << Arg->getSourceRange();
     else
       // Defer the warning until we know if the code will be emitted so that
       // dead code can ignore this.
       DiagRuntimeBehavior(TheCall->getBeginLoc(), TheCall,
                           PDiag(diag::warn_argument_invalid_range)
-                              << Result.toString(10) << Low << High
+                              << toString(Result, 10) << Low << High
                               << Arg->getSourceRange());
   }
 
@@ -8710,18 +8875,18 @@ bool Sema::SemaBuiltinARMSpecialReg(unsigned BuiltinID, CallExpr *TheCall,
 
     bool ValidString = true;
     if (IsARMBuiltin) {
-      ValidString &= Fields[0].startswith_lower("cp") ||
-                     Fields[0].startswith_lower("p");
+      ValidString &= Fields[0].startswith_insensitive("cp") ||
+                     Fields[0].startswith_insensitive("p");
       if (ValidString)
-        Fields[0] =
-          Fields[0].drop_front(Fields[0].startswith_lower("cp") ? 2 : 1);
+        Fields[0] = Fields[0].drop_front(
+            Fields[0].startswith_insensitive("cp") ? 2 : 1);
 
-      ValidString &= Fields[2].startswith_lower("c");
+      ValidString &= Fields[2].startswith_insensitive("c");
       if (ValidString)
         Fields[2] = Fields[2].drop_front(1);
 
       if (FiveFields) {
-        ValidString &= Fields[3].startswith_lower("c");
+        ValidString &= Fields[3].startswith_insensitive("c");
         if (ValidString)
           Fields[3] = Fields[3].drop_front(1);
       }
@@ -11391,6 +11556,24 @@ static bool IsStdFunction(const FunctionDecl *FDecl,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Warn when using isinf isnan in fast floating point modes.
+void Sema::CheckInfNaNFunction(const CallExpr *Call,
+                               const FunctionDecl *FDecl) {
+  if (Call->getNumArgs() != 1)
+    return;
+
+  FPOptions FPO = Call->getFPFeaturesInEffect(getLangOpts());
+  if (IsStdFunction(FDecl, "isnan") && FPO.getNoHonorNaNs() &&
+      !FPO.getHonorNaNCompares())
+    Diag(Call->getBeginLoc(), diag::warn_fast_floating_point_eq)
+        << "NaN" << Call->getSourceRange();
+  else if (IsStdFunction(FDecl, "isinf") && FPO.getNoHonorInfs())
+    Diag(Call->getBeginLoc(), diag::warn_fast_floating_point_eq)
+        << "infinity" << Call->getSourceRange();
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Warn when using the wrong abs() function.
 void Sema::CheckAbsoluteValueFunction(const CallExpr *Call,
                                       const FunctionDecl *FDecl) {
@@ -12353,19 +12536,52 @@ Sema::CheckReturnValExpr(Expr *RetValExp, QualType lhsType,
 
 //===--- CHECK: Floating-Point comparisons (-Wfloat-equal) ---------------===//
 
-/// Check for comparisons of floating point operands using != and ==.
-/// Issue a warning if these are no self-comparisons, as they are not likely
-/// to do what the programmer intended.
-void Sema::CheckFloatComparison(SourceLocation Loc, Expr* LHS, Expr *RHS) {
+#if INTEL_CUSTOMIZATION
+/// Check for comparisons of floating point operands
+/// Issue a warning (unless they are equality self-comparisons)
+/// since they are not likely to do what the programmer intended.
+void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
+                                bool IsEqualityOp) {
+#endif
   Expr* LeftExprSansParen = LHS->IgnoreParenImpCasts();
   Expr* RightExprSansParen = RHS->IgnoreParenImpCasts();
 
   // Special case: check for x == x (which is OK).
   // Do not emit warnings for such cases.
-  if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
-    if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
-      if (DRL->getDecl() == DRR->getDecl())
-        return;
+#if INTEL_CUSTOMIZATION
+  if (IsEqualityOp)
+    if (DeclRefExpr* DRL = dyn_cast<DeclRefExpr>(LeftExprSansParen))
+      if (DeclRefExpr* DRR = dyn_cast<DeclRefExpr>(RightExprSansParen))
+        if (DRL->getDecl() == DRR->getDecl())
+          return;
+
+  // Diagnose comparison to NAN or INFINITY in fast fp modes,
+  // since comparison to NaN or INFINITY is always false in
+  // fast modes: float evaluation will not result in inf or nan.
+  FPOptions FPO = LHS->getFPFeaturesInEffect(getLangOpts());
+  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares();
+  bool NoHonorInfs = FPO.getNoHonorInfs();
+  llvm::APFloat Value(0.0);
+  bool IsConstant;
+  IsConstant = !LHS->isValueDependent() &&
+               LeftExprSansParen->EvaluateAsFloat(Value, Context,
+                                                  Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+  IsConstant = !RHS->isValueDependent() &&
+               RightExprSansParen->EvaluateAsFloat(Value, Context,
+                                                   Expr::SE_AllowSideEffects);
+  if (IsConstant &&
+      ((NoHonorNaNs && Value.isNaN()) || (NoHonorInfs && Value.isInfinity())))
+    Diag(Loc, diag::warn_fast_floating_point_eq)
+        << (Value.isNaN() ? "NaN" : "infinity") << LHS->getSourceRange()
+        << RHS->getSourceRange();
+  if (!IsEqualityOp)
+    return;
+#endif // INTEL_CUSTOMIZATION
 
   // Special case: check for comparisons against literals that can be exactly
   //  represented by APFloat.  In such cases, do not emit a warning.  This
@@ -13230,11 +13446,14 @@ static bool CheckTautologicalComparison(Sema &S, BinaryOperator *E,
             << OtherIsBooleanDespiteType << *Result
             << E->getLHS()->getSourceRange() << E->getRHS()->getSourceRange());
   } else {
-    unsigned Diag = (isKnownToHaveUnsignedValue(OriginalOther) && Value == 0)
-                        ? (HasEnumType(OriginalOther)
-                               ? diag::warn_unsigned_enum_always_true_comparison
-                               : diag::warn_unsigned_always_true_comparison)
-                        : diag::warn_tautological_constant_compare;
+    bool IsCharTy = OtherT.withoutLocalFastQualifiers() == S.Context.CharTy;
+    unsigned Diag =
+        (isKnownToHaveUnsignedValue(OriginalOther) && Value == 0)
+            ? (HasEnumType(OriginalOther)
+                   ? diag::warn_unsigned_enum_always_true_comparison
+                   : IsCharTy ? diag::warn_unsigned_char_always_true_comparison
+                              : diag::warn_unsigned_always_true_comparison)
+            : diag::warn_tautological_constant_compare;
 
     S.Diag(E->getOperatorLoc(), Diag)
         << RhsConstant << OtherT << E->getOpcodeStr() << OS.str() << *Result
@@ -13489,8 +13708,8 @@ static bool AnalyzeBitFieldAssignment(Sema &S, FieldDecl *Bitfield, Expr *Init,
   if (FieldWidth == 1 && Value == 1)
     return false;
 
-  std::string PrettyValue = Value.toString(10);
-  std::string PrettyTrunc = TruncatedValue.toString(10);
+  std::string PrettyValue = toString(Value, 10);
+  std::string PrettyTrunc = toString(TruncatedValue, 10);
 
   S.Diag(InitLoc, diag::warn_impcast_bitfield_precision_constant)
     << PrettyValue << PrettyTrunc << OriginalInit->getType()
@@ -13726,7 +13945,7 @@ static std::string PrettyPrintInRange(const llvm::APSInt &Value,
   llvm::APSInt ValueInRange = Value;
   ValueInRange.setIsSigned(!Range.NonNegative);
   ValueInRange = ValueInRange.trunc(Range.Width);
-  return ValueInRange.toString(10);
+  return toString(ValueInRange, 10);
 }
 
 static bool IsImplicitBoolFloatConversion(Sema &S, Expr *Ex, bool ToBool) {
@@ -14042,7 +14261,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
         adornObjCBoolConversionDiagWithTernaryFixit(
             S, E,
             S.Diag(CC, diag::warn_impcast_constant_value_to_objc_bool)
-                << Result.Val.getInt().toString(10));
+                << toString(Result.Val.getInt(), 10));
       }
       return;
     }
@@ -14226,7 +14445,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
         if (Overflowed) {
           S.DiagRuntimeBehavior(E->getExprLoc(), E,
                                 S.PDiag(diag::warn_impcast_fixed_point_range)
-                                    << Value.toString(/*Radix=*/10) << T
+                                    << toString(Value, /*Radix=*/10) << T
                                     << E->getSourceRange()
                                     << clang::SourceRange(CC));
           return;
@@ -14266,7 +14485,8 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
                 llvm::APFloat::rmNearestTiesToEven);
 
         if (ConversionStatus != llvm::APFloat::opOK) {
-          std::string PrettySourceValue = SourceInt->toString(10);
+          SmallString<32> PrettySourceValue;
+          SourceInt->toString(PrettySourceValue, 10);
           SmallString<32> PrettyTargetValue;
           TargetFloatValue.toString(PrettyTargetValue, TargetPrecision);
 
@@ -14325,7 +14545,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
       if (S.SourceMgr.isInSystemMacro(CC))
         return;
 
-      std::string PrettySourceValue = Value.toString(10);
+      std::string PrettySourceValue = toString(Value, 10);
       std::string PrettyTargetValue = PrettyPrintInRange(Value, TargetRange);
 
       S.DiagRuntimeBehavior(
@@ -14371,7 +14591,7 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
         !S.SourceMgr.isInSystemMacro(CC)) {
       llvm::APSInt Value = Result.Val.getInt();
       if (isSameWidthConstantConversion(S, E, T, CC)) {
-        std::string PrettySourceValue = Value.toString(10);
+        std::string PrettySourceValue = toString(Value, 10);
         std::string PrettyTargetValue = PrettyPrintInRange(Value, TargetRange);
 
         S.DiagRuntimeBehavior(
@@ -16057,7 +16277,8 @@ static getBaseAlignmentAndOffsetFromLValue(const Expr *E, ASTContext &Ctx) {
   case Stmt::MemberExprClass: {
     auto *ME = cast<MemberExpr>(E);
     auto *FD = dyn_cast<FieldDecl>(ME->getMemberDecl());
-    if (!FD || FD->getType()->isReferenceType())
+    if (!FD || FD->getType()->isReferenceType() ||
+        FD->getParent()->isInvalidDecl())
       break;
     Optional<std::pair<CharUnits, CharUnits>> P;
     if (ME->isArrow())
@@ -16281,11 +16502,11 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
   const ConstantArrayType *ArrayTy =
       Context.getAsConstantArrayType(BaseExpr->getType());
 
-  if (!ArrayTy)
-    return;
-
-  const Type *BaseType = ArrayTy->getElementType().getTypePtr();
-  if (EffectiveType->isDependentType() || BaseType->isDependentType())
+  const Type *BaseType =
+      ArrayTy == nullptr ? nullptr : ArrayTy->getElementType().getTypePtr();
+  bool IsUnboundedArray = (BaseType == nullptr);
+  if (EffectiveType->isDependentType() ||
+      (!IsUnboundedArray && BaseType->isDependentType()))
     return;
 
   Expr::EvalResult Result;
@@ -16293,14 +16514,84 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     return;
 
   llvm::APSInt index = Result.Val.getInt();
-  if (IndexNegated)
+  if (IndexNegated) {
+    index.setIsUnsigned(false);
     index = -index;
+  }
 
   const NamedDecl *ND = nullptr;
   if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(BaseExpr))
     ND = DRE->getDecl();
   if (const MemberExpr *ME = dyn_cast<MemberExpr>(BaseExpr))
     ND = ME->getMemberDecl();
+
+  if (IsUnboundedArray) {
+    if (index.isUnsigned() || !index.isNegative()) {
+      const auto &ASTC = getASTContext();
+      unsigned AddrBits =
+          ASTC.getTargetInfo().getPointerWidth(ASTC.getTargetAddressSpace(
+              EffectiveType->getCanonicalTypeInternal()));
+      if (index.getBitWidth() < AddrBits)
+        index = index.zext(AddrBits);
+      Optional<CharUnits> ElemCharUnits =
+          ASTC.getTypeSizeInCharsIfKnown(EffectiveType);
+      // PR50741 - If EffectiveType has unknown size (e.g., if it's a void
+      // pointer) bounds-checking isn't meaningful.
+      if (!ElemCharUnits)
+        return;
+      llvm::APInt ElemBytes(index.getBitWidth(), ElemCharUnits->getQuantity());
+      // If index has more active bits than address space, we already know
+      // we have a bounds violation to warn about.  Otherwise, compute
+      // address of (index + 1)th element, and warn about bounds violation
+      // only if that address exceeds address space.
+      if (index.getActiveBits() <= AddrBits) {
+        bool Overflow;
+        llvm::APInt Product(index);
+        Product += 1;
+        Product = Product.umul_ov(ElemBytes, Overflow);
+        if (!Overflow && Product.getActiveBits() <= AddrBits)
+          return;
+      }
+
+      // Need to compute max possible elements in address space, since that
+      // is included in diag message.
+      llvm::APInt MaxElems = llvm::APInt::getMaxValue(AddrBits);
+      MaxElems = MaxElems.zext(std::max(AddrBits + 1, ElemBytes.getBitWidth()));
+      MaxElems += 1;
+      ElemBytes = ElemBytes.zextOrTrunc(MaxElems.getBitWidth());
+      MaxElems = MaxElems.udiv(ElemBytes);
+
+      unsigned DiagID =
+          ASE ? diag::warn_array_index_exceeds_max_addressable_bounds
+              : diag::warn_ptr_arith_exceeds_max_addressable_bounds;
+
+      // Diag message shows element size in bits and in "bytes" (platform-
+      // dependent CharUnits)
+      DiagRuntimeBehavior(BaseExpr->getBeginLoc(), BaseExpr,
+                          PDiag(DiagID)
+                              << toString(index, 10, true) << AddrBits
+                              << (unsigned)ASTC.toBits(*ElemCharUnits)
+                              << toString(ElemBytes, 10, false)
+                              << toString(MaxElems, 10, false)
+                              << (unsigned)MaxElems.getLimitedValue(~0U)
+                              << IndexExpr->getSourceRange());
+
+      if (!ND) {
+        // Try harder to find a NamedDecl to point at in the note.
+        while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(BaseExpr))
+          BaseExpr = ASE->getBase()->IgnoreParenCasts();
+        if (const auto *DRE = dyn_cast<DeclRefExpr>(BaseExpr))
+          ND = DRE->getDecl();
+        if (const auto *ME = dyn_cast<MemberExpr>(BaseExpr))
+          ND = ME->getMemberDecl();
+      }
+
+      if (ND)
+        DiagRuntimeBehavior(ND->getBeginLoc(), BaseExpr,
+                            PDiag(diag::note_array_declared_here) << ND);
+    }
+    return;
+  }
 
   if (index.isUnsigned() || !index.isNegative()) {
     // It is possible that the type of the base expression after
@@ -16364,13 +16655,12 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
       }
     }
 
-    unsigned DiagID = diag::warn_ptr_arith_exceeds_bounds;
-    if (ASE)
-      DiagID = diag::warn_array_index_exceeds_bounds;
+    unsigned DiagID = ASE ? diag::warn_array_index_exceeds_bounds
+                          : diag::warn_ptr_arith_exceeds_bounds;
 
     DiagRuntimeBehavior(BaseExpr->getBeginLoc(), BaseExpr,
-                        PDiag(DiagID) << index.toString(10, true)
-                                      << size.toString(10, true)
+                        PDiag(DiagID) << toString(index, 10, true)
+                                      << toString(size, 10, true)
                                       << (unsigned)size.getLimitedValue(~0U)
                                       << IndexExpr->getSourceRange());
   } else {
@@ -16381,18 +16671,17 @@ void Sema::CheckArrayAccess(const Expr *BaseExpr, const Expr *IndexExpr,
     }
 
     DiagRuntimeBehavior(BaseExpr->getBeginLoc(), BaseExpr,
-                        PDiag(DiagID) << index.toString(10, true)
+                        PDiag(DiagID) << toString(index, 10, true)
                                       << IndexExpr->getSourceRange());
   }
 
   if (!ND) {
     // Try harder to find a NamedDecl to point at in the note.
-    while (const ArraySubscriptExpr *ASE =
-           dyn_cast<ArraySubscriptExpr>(BaseExpr))
+    while (const auto *ASE = dyn_cast<ArraySubscriptExpr>(BaseExpr))
       BaseExpr = ASE->getBase()->IgnoreParenCasts();
-    if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(BaseExpr))
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(BaseExpr))
       ND = DRE->getDecl();
-    if (const MemberExpr *ME = dyn_cast<MemberExpr>(BaseExpr))
+    if (const auto *ME = dyn_cast<MemberExpr>(BaseExpr))
       ND = ME->getMemberDecl();
   }
 

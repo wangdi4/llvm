@@ -5,7 +5,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 
-;RUN: opt -VPlanDriver -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
+;RUN: opt -vplan-vec -disable-output -vplan-dump-da %s 2>&1 | FileCheck %s
 
 
 define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
@@ -46,7 +46,7 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8]]
@@ -149,7 +149,7 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8]]

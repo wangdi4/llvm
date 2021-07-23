@@ -125,3 +125,11 @@
 // RUN: %clang_cl -### -c /arch:SAPPHIRERAPIDS %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=ARCH-SAPPHIRERAPIDS %s
 // ARCH-SAPPHIRERAPIDS: "-target-cpu" "sapphirerapids"
+
+// RUN: %clang_cl -### -c /arch:ALDERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-ALDERLAKE %s
+// ARCH-ALDERLAKE: "-target-cpu" "alderlake"
+
+// RUN: %clang_cl -### -c /arch:ROCKETLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=ARCH-ROCKETLAKE %s
+// ARCH-ROCKETLAKE: "-target-cpu" "rocketlake"

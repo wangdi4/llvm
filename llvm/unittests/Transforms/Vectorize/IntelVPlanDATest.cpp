@@ -46,7 +46,7 @@ TEST_F(VPlanVPDATest, TestVPlanDAPartialUpdate) {
     auto Plan = buildHCFG(LoopHeader);
     VPLoop *OuterMostVPL = *(Plan->getVPLoopInfo())->begin();
     Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
-    auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
+    auto *DA = Plan->getVPlanDA();
     Plan->computeDT();
     Plan->computePDT();
     DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),

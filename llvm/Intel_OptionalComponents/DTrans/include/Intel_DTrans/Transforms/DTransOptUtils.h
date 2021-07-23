@@ -1,6 +1,6 @@
 //===- DTransOptUtils.h - Common utility functions for DTrans transforms -===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransOptUtils.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransOptUtils.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_OPTIONALCOMPONENTS_INTEL_DTRANS_TRANSFORMS_DTRANSOPTUTILS_H
@@ -24,6 +24,7 @@
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {
+class GEPOperator;
 class TargetLibraryInfo;
 
 namespace dtrans {
@@ -91,6 +92,15 @@ void updatePtrSubDivUserSizeOperand(llvm::BinaryOperator *Sub,
 bool findValueMultipleOfSizeInst(
     User *U, unsigned Idx, uint64_t Size,
     SmallVectorImpl<std::pair<User *, unsigned>> &UseStack);
+
+// Helper function to reset the 'align' argument on load/store users of the GEP
+// used to access an element contained within a structure to a default
+// alignment (For packed structures, the default will be 1, otherwise it will be
+// set to the natural alignment for the type. This is necessary because some
+// accesses may have been computed as using a higher alignment based on layout
+// of the structure prior to changes made to the structure elements by DTrans.
+void resetLoadStoreAlignment(GEPOperator *GEP, const DataLayout &DL,
+                             bool IsPacked);
 
 // Returns 'true' if function, \p F, represents the program's main entry
 // routine.

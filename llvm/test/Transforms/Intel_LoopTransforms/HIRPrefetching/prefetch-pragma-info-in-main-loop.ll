@@ -1,6 +1,6 @@
 ;Test the prefetching pragma info is in the main loop rather than in the remainder loop
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching -hir-details < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching -hir-details < %s 2>&1 | FileCheck %s
 ;
 ;*** IR Dump Before HIR Prefetching ***
 ;Function: sub
@@ -40,10 +40,10 @@
 ;                        |
 ; CHECK:                 |   %.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK:                 |   (<4 x float>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = %.vec;
-; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 160][0]),  0,  3,  1);
-; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 161][0]),  0,  3,  1);
-; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 162][0]),  0,  3,  1);
-; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 163][0]),  0,  3,  1);
+; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 160][0]),  0,  2,  1);
+; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 161][0]),  0,  2,  1);
+; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 162][0]),  0,  2,  1);
+; CHECK:                 |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 163][0]),  0,  2,  1);
 ;                        |
 ; CHECK:                 + END LOOP
 ; CHECK:              }

@@ -160,7 +160,7 @@ public:
   }
 
   static bool isDefaultName(StringRef &N) {
-    return N.find_lower("bb") != StringRef::npos;
+    return N.find_insensitive("bb") != StringRef::npos;
   }
 
   /// Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
@@ -253,6 +253,8 @@ public:
   }
 
   VPBasicBlock(const Twine &Name, VPlan *Plan);
+
+  VPBasicBlock(const Twine &Name, LLVMContext *C);
 
   ~VPBasicBlock();
 

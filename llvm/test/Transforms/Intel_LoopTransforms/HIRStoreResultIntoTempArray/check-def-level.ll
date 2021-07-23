@@ -7,7 +7,7 @@
 ;Function: jacobian_
 ;
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:           + DO i32 i1 = 0, %21 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           + DO i32 i1 = 0, %21 + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:           |   %call = @llvm.stacksave();
 ; CHECK:           |   %array_size = sext.i32.i64(%10) + 1  *  sext.i32.i64(%9) + 1;
 ; CHECK:           |   %array_size5 = sext.i32.i64(%15) + 1  *  %array_size;

@@ -5,7 +5,7 @@
 
 ;   BEGIN REGION { }
 ;        + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-;        |   if (%m > 1024)
+;        |   if (%k > 1024)
 ;        |   {
 ;        |      + DO i2 = 0, 9, 1   <DO_MULTI_EXIT_LOOP>
 ;        |      |   %0 = (%a)[i2];
@@ -30,7 +30,7 @@
 
 ;CHECK:   BEGIN REGION { modified }
 ;CHECK:         + DO i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
-;CHECK:         |   if (%m > 1024)
+;CHECK:         |   if (%k > 1024)
 ;CHECK:         |   {
 ;CHECK:         |      if (%n < 256)
 ;CHECK:         |      {
@@ -76,20 +76,21 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %a, i32 %n, i32 %m) local_unnamed_addr #0 {
+define void @foo(i32* nocapture %a, i32 %n, i32 %m, i32 %k) local_unnamed_addr #0 {
 entry:
   %cmp31 = icmp sgt i32 %n, 0
   br i1 %cmp31, label %for.body.lr.ph, label %cleanup18
 
 for.body.lr.ph:                                   ; preds = %entry
   %cmp1 = icmp sgt i32 %m, 1024
+  %cmp11 = icmp sgt i32 %k, 1024
   %cmp6 = icmp slt i32 %n, 256
   %wide.trip.count = sext i32 %n to i64
   br label %for.body
 
 for.body:                                         ; preds = %L, %for.body.lr.ph
   %indvars.iv33 = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next34, %L ]
-  br i1 %cmp1, label %for.body5.preheader, label %L
+  br i1 %cmp11, label %for.body5.preheader, label %L
 
 for.body5.preheader:                              ; preds = %for.body
   br label %for.body5

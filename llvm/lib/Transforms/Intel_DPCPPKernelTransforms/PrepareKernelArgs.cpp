@@ -18,7 +18,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -64,7 +65,7 @@ char PrepareKernelArgsLegacy::ID = 0;
 
 PrepareKernelArgsLegacy::PrepareKernelArgsLegacy(bool UseTLSGlobals)
     : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializePrepareKernelArgsLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 bool PrepareKernelArgsLegacy::runOnModule(Module &M) {
@@ -122,7 +123,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
       FunctionType::get(F->getReturnType(), NewArgsVec, /*isVarArg*/ false);
 
   // Create a new function
-  Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName());
+  Function *NewF = Function::Create(FTy, F->getLinkage(), F->getName(), M);
   NewF->setCallingConv(F->getCallingConv());
   NewF->copyMetadata(F, 0);
 
@@ -131,7 +132,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(std::move(FnAttrs));
   NewF->addAttributes(AttributeList::FunctionIndex, B);
-  NewF->removeFnAttr("sycl_kernel");
+  F->removeFnAttr(Attribute::OptimizeNone);
   F->removeFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::AlwaysInline);
 
@@ -153,6 +154,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
 
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
@@ -193,9 +195,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
       // support instructions such as MOVUPS
-      unsigned VecSize = 1;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "vectorized_width", VecSize);
+      unsigned VecSize =
+          KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
       if (VecSize != 1 && VectorType::isValidElementType(EltTy))
         EltTy = FixedVectorType::get(EltTy, VecSize);
       Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
@@ -271,9 +272,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
              "Mismatch in arg found in function and expected arg type");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SLMSizeInBytes = 0;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "local_buffer_size", SLMSizeInBytes);
+      uint64_t SLMSizeInBytes =
+          KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
       // TODO: when SLMSizeInBytes equal 0, we might want to set dummy
       // address for debugging!
       if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
@@ -347,9 +347,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     case ImplicitArgsUtils::IA_BARRIER_BUFFER: {
       // We obtain the number of bytes needed per item from the Metadata
       // which is set by the Barrier pass
-      uint64_t SizeInBytes = 0;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "barrier_buffer_size", SizeInBytes);
+      uint64_t SizeInBytes =
+          KIMD.BarrierBufferSize.hasValue() ? KIMD.BarrierBufferSize.get() : 0;
       // BarrierBufferSize := BytesNeededPerWI
       //                      * ((LocalSize(0) + VF - 1) / VF) * VF
       //                      * LocalSize(1) * LocalSize(2)
@@ -366,9 +365,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Work-Group is vectorized with tail here, in such cases, this action
       // may waste a little memory.
       Value *LocalSizeProd = LocalSize[0];
-      unsigned VF = 1;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(WrappedKernel,
-                                                     "vectorized_width", VF);
+      unsigned VF =
+          KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
       if (VF > 1) {
         Value *VFValue = ConstantInt::get(SizetTy, VF);
         Value *VFMinus1 = ConstantInt::get(SizetTy, VF - 1);
@@ -474,6 +472,7 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
   // BIs like enqueue_kernel and kernel query have a function pointer to a
   // block invoke kernel as an argument.
   // Replace these arguments by a pointer to the wrapper function.
+  IRBuilder<> Builder(WrappedKernel->getContext());
   for (auto &EEF : *M) {
     if (!EEF.isDeclaration())
       continue;
@@ -497,40 +496,47 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
         auto *Int8PtrTy = PointerType::get(
             IntegerType::getInt8Ty(M->getContext()),
             DPCPPKernelCompilationUtils::ADDRESS_SPACE_GENERIC);
-
-        auto *NewCast =
-            CastInst::CreatePointerCast(Wrapper, Int8PtrTy, "", EECall);
-        EECall->getArgOperand(BlockInvokeIdx)->replaceAllUsesWith(NewCast);
+        Builder.SetInsertPoint(EECall);
+        auto *NewCast = Builder.CreatePointerCast(Wrapper, Int8PtrTy);
+        EECall->setArgOperand(BlockInvokeIdx, NewCast);
       }
     }
   }
 }
 
 void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
-  for (auto &BB : *F)
+  DebugLoc Loc;
+  for (auto &BB : *F) {
+    if (auto *RI = dyn_cast<ReturnInst>(BB.getTerminator()))
+      Loc = RI->getDebugLoc();
     BB.dropAllReferences();
+  }
   while (!F->empty())
     F->begin()->eraseFromParent();
   auto *BB = BasicBlock::Create(F->getContext(), "", F);
-  ReturnInst::Create(F->getContext(), BB);
+  auto *RI = ReturnInst::Create(F->getContext(), BB);
+  RI->setDebugLoc(Loc);
 }
 
 bool PrepareKernelArgsPass::runOnFunction(Function *F) {
+  const std::string FName = F->getName().str();
+
   // Create wrapper function
   Function *Wrapper = createWrapper(F);
 
   // Change name of old function
-  F->setName("__" + F->getName() + "_separated_args");
+  F->setName("__" + Twine(F->getName()) + "_separated_args");
   CallInst *CI = createWrapperBody(Wrapper, F);
 
-  // Add declaration of original function with its signature
-  M->getFunctionList().push_back(Wrapper);
+  // Set original kernel name to wrapper.
+  Wrapper->setName(FName);
 
   // Replace function pointers to the original function (occures in case of
   // a call of a device execution built-in) by ones to the wrapper
   replaceFunctionPointers(Wrapper, F);
 
-  F->addFnAttr("kernel_wrapper", Wrapper->getName());
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+  KIMD.KernelWrapper.set(Wrapper);
   // TODO move stats from original kernel to the wrapper
 
   // Inline wrapped kernel.

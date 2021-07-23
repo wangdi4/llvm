@@ -2,8 +2,8 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate issue with VLS group cost being applied twice to stores in
 ; the group. This happens the first time when we see a new store group. The
@@ -16,44 +16,51 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
-; CMCHECK-LABEL:  Cost Model for VPlan HIR foo.14 with VF = 4:
-; CMCHECK-NEXT:  Total Cost: 86000
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 4:
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CMCHECK-NEXT:  [[BB0]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 86000
+; CMCHECK-NEXT:  [[BB1]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 0 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*
+; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-18000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 32000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*
+; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+14000) AdjCost: 32000
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 16000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CMCHECK-NEXT:  [[BB2]]: base cost: 86000
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CMCHECK-NEXT:  [[BB3]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
+; CMCHECK-NEXT:  [[BB4]]: base cost: 0
+; CMCHECK-NEXT:  Base Cost: 86000
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
+; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
-; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
-; HIRCHECK-NEXT:  <17>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; HIRCHECK-NEXT:  <18>               |   [[COMB_SHUF0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; HIRCHECK-NEXT:  <19>               |   [[VLS_INTERLEAVE0:%.*]] = shufflevector [[COMB_SHUF0]],  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>
-; HIRCHECK-NEXT:  <20>               |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[VLS_INTERLEAVE0]]
-; HIRCHECK-NEXT:  <17>               + END LOOP
-; HIRCHECK-NEXT:  <0>          END REGION
+; HIRCHECK-NEXT:  BEGIN REGION { modified }
+; HIRCHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; HIRCHECK-NEXT:        |   [[DOTEXTENDED0:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:        |   [[SHUFFLE0:%.*]] = shufflevector undef,  [[DOTEXTENDED0]],  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
+; HIRCHECK-NEXT:        |   [[DOTEXTENDED10:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; HIRCHECK-NEXT:        |   [[SHUFFLE20:%.*]] = shufflevector [[SHUFFLE0]],  [[DOTEXTENDED10]],  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
+; HIRCHECK-NEXT:        |   (<8 x i64>*)([[ARR0:%.*]])[2 * i1] = [[SHUFFLE20]]
+; HIRCHECK-NEXT:        + END LOOP
+; HIRCHECK-NEXT:  END REGION
 ;
 entry:
   br label %for.body

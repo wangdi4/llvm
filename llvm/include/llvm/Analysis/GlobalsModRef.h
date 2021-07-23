@@ -117,6 +117,9 @@ private:
   void AnalyzeGlobals(Module &M);
   void AnalyzeCallGraph(CallGraph &CG, Module &M);
   bool AnalyzeUsesOfPointer(Value *V,
+#if INTEL_CUSTOMIZATION
+                            SmallPtrSetImpl<User *> &VisitedPhis,
+#endif // INTEL_CUSTOMIZATION
                             SmallPtrSetImpl<Function *> *Readers = nullptr,
                             SmallPtrSetImpl<Function *> *Writers = nullptr,
                             GlobalValue *OkayStoreDest = nullptr);

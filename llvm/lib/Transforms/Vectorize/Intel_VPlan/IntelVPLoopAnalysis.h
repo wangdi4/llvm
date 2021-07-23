@@ -50,6 +50,7 @@ class VPBasicBlock;
 class VPBuilder;
 class VPAllocatePrivate;
 class VPReductionFinal;
+class VPDominatorTree;
 
 /// Base class for loop entities
 class VPLoopEntity {
@@ -118,6 +119,10 @@ public:
         getRecurrenceKind());
   }
 
+  virtual StringRef getNameSuffix() const {
+    return isMinMax() ? "minmax.red" : "red";
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void dump(raw_ostream &OS) const override;
 #endif
@@ -151,10 +156,21 @@ public:
   bool isLinearIndex() const { return IsLinearIndex; }
   void setIsLinearIndex(bool V) { IsLinearIndex = V; }
 
+  // Return true if it's last index, false otherwise.
+  bool isForLast() const {
+    return getRecurrenceKind() == RecurKind::SMax ||
+           getRecurrenceKind() == RecurKind::UMax;
+  }
+
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
     return V->getID() == IndexReduction;
   }
+
+  StringRef getNameSuffix() const override{
+    return isLinearIndex() ? "mono.idx.red" : "idx.red";
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 #endif
@@ -274,10 +290,10 @@ public:
   // An additional classification flag for privates without assigned exit
   // instruction.
   enum class PrivateTag {
-    PTUndef,    // Not specified.
-    PTArray,    // Private of an array type.
-    PTInMemory, // In-memory allocated private.
-    PTNonPod,   // Non-POD private.
+    PTRegisterized, // Not specified.
+    PTArray,        // Private of an array type.
+    PTInMemory,     // In-memory allocated private.
+    PTNonPod,       // Non-POD private.
   };
 
   // Explicit destructor to drop references to alias VPInstructions. This is
@@ -789,7 +805,8 @@ private:
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 
-  std::pair<const VPInduction *, bool> getLoopInduction() const;
+  /// Return induction descriptor that corresponds to the main loop IV.
+  const VPInduction *getLoopInduction() const;
 
   /// Return true if live out value of the induction \p Ind is calculated on the
   /// penultimate iteration of the loop.
@@ -852,6 +869,31 @@ private:
   // Look through min/max+index reductions and identify which ones
   // are linears. See comment for VPIndexReduction::isLinearIndex().
   void identifyMinMaxLinearIdxs();
+
+  // Create linear index for min/max + index idiom.
+  // 1) Emit the following set of VPInstructions:
+  // Suppose we have
+  // %loop_header:
+  //    %NonLinPhi = phi[%NonLinStart,%preheader], [%NonLinUpdate,%loop_latch]
+  //    ...
+  //  %loop_body:
+  //    %NonLinUpdate = select %NonLin.cond, %NonLinVal, %NonLinPhi
+  //
+  // The result of the transformation will be:
+  // %loop_header:
+  //   %phi_val = phi [-1, %preheader], [%select, %loop_latch] // new phi
+  //   %NonLinPhi = phi[%NonLinStart,%preheader], [%NonLinUpdate,%loop_latch]
+  //
+  //  %loop_body:
+  //    %NonLinUpdate = select %NonLin.cond, %NonLinVal, %NonLinPhi
+  //    %select = select %NonLin.cond, %loop_induction, %phi_val // new select
+  //
+  // 2) Create VPIndexReduction descriptor for these instructions, setting
+  //    parent reduction to the parent of NonLinNdx.
+  // 3) Set "IsLinearIndex" flag on the new reduction and set parent's index
+  //    reduction to the newly created descriptor.
+  VPIndexReduction *createLinearIndexReduction(VPIndexReduction *NonLinNdx,
+                                               VPDominatorTree &DomTree);
 };
 
 class VPEntityImportDescr {
@@ -1151,7 +1193,7 @@ public:
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
-    PTag = VPPrivate::PrivateTag::PTUndef;
+    PTag = VPPrivate::PrivateTag::PTRegisterized;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -1198,7 +1240,7 @@ private:
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;
-  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTUndef;
+  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTRegisterized;
 };
 
 // Base class for loop entities converter. Used to create a list of converters

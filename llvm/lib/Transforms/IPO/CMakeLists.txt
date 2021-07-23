@@ -15,6 +15,7 @@ add_llvm_component_library(LLVMipo
   ForceFunctionAttrs.cpp
   FunctionAttrs.cpp
   FunctionImport.cpp
+  FunctionSpecialization.cpp
   GlobalDCE.cpp
   GlobalOpt.cpp
   GlobalSplit.cpp
@@ -25,23 +26,38 @@ add_llvm_component_library(LLVMipo
   Intel_AdvancedFastCall.cpp   # INTEL
   Intel_AggInliner.cpp # INTEL
   Intel_ArgNoAliasProp.cpp # INTEL
-  Intel_DeadArrayOpsElimination.cpp   # INTEL
-  Intel_DevirtMultiversioning.cpp # INTEL
-  Intel_DopeVectorConstProp.cpp   # INTEL
-  Intel_QsortRecognizer.cpp # INTEL
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  Intel_DeadArrayOpsElimination.cpp
+#end INTEL_FEATURE_SW_ADVANCED
+  Intel_DevirtMultiversioning.cpp
+  Intel_DopeVectorConstProp.cpp
+#if INTEL_FEATURE_SW_ADVANCED
+  Intel_QsortRecognizer.cpp
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
   InlineSimple.cpp
   Inliner.cpp
   Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
+  Intel_IPODeadArgElimination.cpp #INTEL
   Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPArrayTranspose.cpp     # INTEL
-  Intel_IPCloning.cpp     # INTEL
-  Intel_IPOPrefetch.cpp   # INTEL
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  Intel_IPCloning.cpp
+  Intel_IPOPrefetch.cpp
+#end INTEL_FEATURE_SW_ADVANCED
+#end INTEL_CUSTOMIZATION
   Utils/Intel_IPOUtils.cpp # INTEL
   Intel_InlineLists.cpp   # INTEL
+  Intel_MathLibrariesDeclaration.cpp #INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
+# INTEL_FEATURE_SW_ADVANCED
   Intel_PartialInline.cpp           # INTEL
+# end INTEL_FEATURE_SW_ADVANCED
   Intel_TileMVInlMarker.cpp         # INTEL
+  Intel_VTableFixup.cpp             # INTEL
   Internalize.cpp
   LoopExtractor.cpp
   LowerTypeTests.cpp
@@ -102,9 +118,12 @@ add_llvm_component_library(LLVMipo
   )
 
 # INTEL_CUSTOMIZATION
-if(INTEL_INCLUDE_DTRANS)
+# INTEL_FEATURE_SW_DTRANS
+is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_SW_DTRANS)
+if (p)
   target_link_libraries(LLVMipo PRIVATE LLVMIntel_DTrans LLVMIntel_DTransAnalysis)
-endif(INTEL_INCLUDE_DTRANS)
+endif()
+# end INTEL_FEATURE_SW_DTRANS
 # INTEL_FEATURE_CSA
 is_intel_feature_enabled(p ${LLVM_INTELFEATURE_PREFIX}_CSA)
 if (p)

@@ -176,6 +176,14 @@ static bool isEscapeSource(const Value *V) {
   if (isa<LoadInst>(V))
     return true;
 
+  // The inttoptr case works because isNonEscapingLocalObject considers all
+  // means of converting or equating a pointer to an int (ptrtoint, ptr store
+  // which could be followed by an integer load, ptr<->int compare) as
+  // escaping, and objects located at well-known addresses via platform-specific
+  // means cannot be considered non-escaping local objects.
+  if (isa<IntToPtrInst>(V))
+    return true;
+
   return false;
 }
 
@@ -365,11 +373,14 @@ struct LinearExpression {
   APInt Scale;
   APInt Offset;
 
-  LinearExpression(const ExtendedValue &Val, const APInt &Scale,
-                   const APInt &Offset)
-      : Val(Val), Scale(Scale), Offset(Offset) {}
+  /// True if all operations in this expression are NSW.
+  bool IsNSW;
 
-  LinearExpression(const ExtendedValue &Val) : Val(Val) {
+  LinearExpression(const ExtendedValue &Val, const APInt &Scale,
+                   const APInt &Offset, bool IsNSW)
+      : Val(Val), Scale(Scale), Offset(Offset), IsNSW(IsNSW) {}
+
+  LinearExpression(const ExtendedValue &Val) : Val(Val), IsNSW(true) {
     unsigned BitWidth = Val.getBitWidth();
     Scale = APInt(BitWidth, 1);
     Offset = APInt(BitWidth, 0);
@@ -388,7 +399,7 @@ static LinearExpression GetLinearExpression(
 
   if (const ConstantInt *Const = dyn_cast<ConstantInt>(Val.V))
     return LinearExpression(Val, APInt(Val.getBitWidth(), 0),
-                            Val.evaluateWith(Const->getValue()));
+                            Val.evaluateWith(Const->getValue()), true);
 
   if (const BinaryOperator *BOp = dyn_cast<BinaryOperator>(Val.V)) {
     if (ConstantInt *RHSC = dyn_cast<ConstantInt>(BOp->getOperand(1))) {
@@ -403,6 +414,7 @@ static LinearExpression GetLinearExpression(
       if (!Val.canDistributeOver(NUW, NSW))
         return Val;
 
+      LinearExpression E(Val);
       switch (BOp->getOpcode()) {
       default:
         // We don't understand this instruction, so we can't decompose it any
@@ -417,23 +429,26 @@ static LinearExpression GetLinearExpression(
 
         LLVM_FALLTHROUGH;
       case Instruction::Add: {
-        LinearExpression E = GetLinearExpression(
-            Val.withValue(BOp->getOperand(0)), DL, Depth + 1, AC, DT);
+        E = GetLinearExpression(Val.withValue(BOp->getOperand(0)), DL,
+                                Depth + 1, AC, DT);
         E.Offset += RHS;
-        return E;
+        E.IsNSW &= NSW;
+        break;
       }
       case Instruction::Sub: {
-        LinearExpression E = GetLinearExpression(
-            Val.withValue(BOp->getOperand(0)), DL, Depth + 1, AC, DT);
+        E = GetLinearExpression(Val.withValue(BOp->getOperand(0)), DL,
+                                Depth + 1, AC, DT);
         E.Offset -= RHS;
-        return E;
+        E.IsNSW &= NSW;
+        break;
       }
       case Instruction::Mul: {
-        LinearExpression E = GetLinearExpression(
-            Val.withValue(BOp->getOperand(0)), DL, Depth + 1, AC, DT);
+        E = GetLinearExpression(Val.withValue(BOp->getOperand(0)), DL,
+                                Depth + 1, AC, DT);
         E.Offset *= RHS;
         E.Scale *= RHS;
-        return E;
+        E.IsNSW &= NSW;
+        break;
       }
       case Instruction::Shl:
         // We're trying to linearize an expression of the kind:
@@ -444,12 +459,14 @@ static LinearExpression GetLinearExpression(
         if (RHS.getLimitedValue() > Val.getBitWidth())
           return Val;
 
-        LinearExpression E = GetLinearExpression(
-            Val.withValue(BOp->getOperand(0)), DL, Depth + 1, AC, DT);
+        E = GetLinearExpression(Val.withValue(BOp->getOperand(0)), DL,
+                                Depth + 1, AC, DT);
         E.Offset <<= RHS.getLimitedValue();
         E.Scale <<= RHS.getLimitedValue();
-        return E;
+        E.IsNSW &= NSW;
+        break;
       }
+      return E;
     }
   }
 
@@ -547,7 +564,8 @@ void BasicAAResult::DecomposeSubscript(const SubscriptInst *Subs,
     }
 
     if (!!Scale) {
-      VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits, Scale, {}};
+      VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits,
+                                Scale, {}, LE.IsNSW};
       Entry.CxtI = Subs;
       Decomposed.VarIndices.push_back(Entry);
     }
@@ -763,8 +781,8 @@ BasicAAResult::DecomposeGEPExpression(const Value *V, const DataLayout &DL,
       Scale = adjustToPointerSize(Scale, PointerSize);
 
       if (!!Scale) {
-        VariableGEPIndex Entry = {LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits,
-                                  Scale, CxtI};
+        VariableGEPIndex Entry = {
+            LE.Val.V, LE.Val.ZExtBits, LE.Val.SExtBits, Scale, CxtI, LE.IsNSW};
         Decomposed.VarIndices.push_back(Entry);
       }
     }
@@ -1298,52 +1316,6 @@ AliasResult BasicAAResult::aliasGEP(
     return BaseAlias;
   }
 
-#if INTEL_CUSTOMIZATION
-  // GCD test for same base. https://en.wikipedia.org/wiki/GCD_test
-  // aliasSameBasePointerGEPs.
-  if (DecompGEP1.Base == DecompGEP2.Base && DecompGEP1.Offset != 0 &&
-      V1Size != MemoryLocation::UnknownSize &&
-      V2Size != MemoryLocation::UnknownSize &&
-      // Safe to convert V1Size to int64_t.
-      V1Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-      // Safe to convert V2Size to int64_t.
-      V2Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-      !DecompGEP1.VarIndices.empty()) {
-
-    APInt MinCoeff = DecompGEP1.VarIndices[0].Scale.abs();
-    for (unsigned i = 1, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-      MinCoeff = MinCoeff.sle(DecompGEP1.VarIndices[i].Scale.abs()) ?
-                  MinCoeff : DecompGEP1.VarIndices[i].Scale.abs();
-
-    bool CoeffsAreDivisible = true;
-    for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-      if (!!(DecompGEP1.VarIndices[i].Scale.srem(MinCoeff))) {
-        CoeffsAreDivisible = false;
-        break;
-      }
-
-    if (CoeffsAreDivisible && MinCoeff.sge((int64_t)V1Size.getValue()) &&
-        MinCoeff.sge((int64_t)V2Size.getValue())) {
-      APInt GEP1BaseOffsetReduced = DecompGEP1.Offset.srem(MinCoeff);
-      if (GEP1BaseOffsetReduced.sgt(0)) {
-        // | V2 ... V2 + V2Size |
-        // | GEP1BaseOffsetReduced | V1 ... V1 + V1Size
-        // | MinCoeff                                     |
-        if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
-            GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
-          return AliasResult::NoAlias;
-      } else if (GEP1BaseOffsetReduced.slt(0)) {
-        // | V1 ... V1 + V1Size |
-        // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
-        // | MinCoeff                                     |
-        if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
-            (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
-          return AliasResult::NoAlias;
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // If there is a constant difference between the pointers, but the difference
   // is less than the size of the associated memory object, then we know
   // that the objects are partially overlapping.  If the difference is
@@ -1376,8 +1348,8 @@ AliasResult BasicAAResult::aliasGEP(
         // Conservatively drop processing if a phi was visited and/or offset is
         // too big.
         AliasResult AR = AliasResult::PartialAlias;
-        if (VisitedPhiBBs.empty() && VRightSize.hasValue() &&
-            Off.ule(INT32_MAX) && (Off + VRightSize.getValue()).ule(LSize)) {
+        if (VRightSize.hasValue() && Off.ule(INT32_MAX) &&
+            (Off + VRightSize.getValue()).ule(LSize)) {
           // Memory referenced by right pointer is nested. Save the offset in
           // cache. Note that originally offset estimated as GEP1-V2, but
           // AliasResult contains the shift that represents GEP1+Offset=V2.
@@ -1395,11 +1367,16 @@ AliasResult BasicAAResult::aliasGEP(
     bool AllNonNegative = DecompGEP1.Offset.isNonNegative();
     bool AllNonPositive = DecompGEP1.Offset.isNonPositive();
     for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i) {
-      const APInt &Scale = DecompGEP1.VarIndices[i].Scale;
+      APInt Scale = DecompGEP1.VarIndices[i].Scale;
+      APInt ScaleForGCD = DecompGEP1.VarIndices[i].Scale;
+      if (!DecompGEP1.VarIndices[i].IsNSW)
+        ScaleForGCD = APInt::getOneBitSet(Scale.getBitWidth(),
+                                          Scale.countTrailingZeros());
+
       if (i == 0)
-        GCD = Scale.abs();
+        GCD = ScaleForGCD.abs();
       else
-        GCD = APIntOps::GreatestCommonDivisor(GCD, Scale.abs());
+        GCD = APIntOps::GreatestCommonDivisor(GCD, ScaleForGCD.abs());
 
       if (AllNonNegative || AllNonPositive) {
         // If the Value could change between cycles, then any reasoning about
@@ -1558,6 +1535,8 @@ BasicAAResult::aliasSelect(const SelectInst *SI, LocationSize SISize,
 AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
                                     const Value *V2, LocationSize V2Size,
                                     AAQueryInfo &AAQI) {
+  if (!PN->getNumIncomingValues())
+    return AliasResult::NoAlias;
   // If the values are PHIs in the same block, we can do a more precise
   // as well as efficient check: just check for aliases between the values
   // on corresponding edges.
@@ -2257,9 +2236,10 @@ void BasicAAResult::GetIndexDifference(
 
       // If we found it, subtract off Scale V's from the entry in Dest.  If it
       // goes to zero, remove the entry.
-      if (Dest[j].Scale != Scale)
+      if (Dest[j].Scale != Scale) {
         Dest[j].Scale -= Scale;
-      else
+        Dest[j].IsNSW = false;
+      } else
         Dest.erase(Dest.begin() + j);
       Scale = 0;
       break;
@@ -2267,7 +2247,8 @@ void BasicAAResult::GetIndexDifference(
 
     // If we didn't consume this entry, add it to the end of the Dest list.
     if (!!Scale) {
-      VariableGEPIndex Entry = {V, ZExtBits, SExtBits, -Scale, Src[i].CxtI};
+      VariableGEPIndex Entry = {V,      ZExtBits,    SExtBits,
+                                -Scale, Src[i].CxtI, Src[i].IsNSW};
       Dest.push_back(Entry);
     }
   }

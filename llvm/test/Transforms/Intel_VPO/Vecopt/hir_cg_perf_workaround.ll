@@ -20,8 +20,8 @@
 ;   return sum;
 ; }
 ; ModuleID = 'cg_perf_workaround.c'
-; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=vplan-driver-hir -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -disable-hir-loop-reversal -hir-vplan-vec -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-hir-loop-reversal -print-after=hir-vplan-vec -disable-output -enable-blob-coeff-vec -enable-nested-blob-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ; It used to be a lit test for performance WA bail out in HIR CG.
 ; Now it checks that the input code can be vectorized with VF=4.
@@ -36,7 +36,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline norecurse nounwind readonly uwtable
 define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
-; CHECK-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:         IR Dump After VPlan HIR Vectorizer
+; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
@@ -44,7 +45,7 @@ define double @foo(i32 %n, double %d) local_unnamed_addr #0 {
 ; CHECK-NEXT:  <24>               if (0 <u 4 * [[TGU0]])
 ; CHECK-NEXT:  <24>               {
 ; CHECK-NEXT:  <26>                     [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <23>                  + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:  <23>                  + DO i1 = 0, 4 * [[TGU0]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i16>*)([[TMP0:%.*]])[-1 * i1 + -1 * <i64 0, i64 1, i64 2, i64 3>].2
 ; CHECK-NEXT:  <28>                  |   [[DOTVEC10:%.*]] = uitofp.<4 x i16>.<4 x double>([[DOTVEC0]])
 ; CHECK-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = [[DOTVEC10]]  *  [[D0:%.*]]

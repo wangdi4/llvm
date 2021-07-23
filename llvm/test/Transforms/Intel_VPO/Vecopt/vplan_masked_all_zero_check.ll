@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=8 < %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-enable-all-zero-bypass-loops=false -vplan-force-vf=8 < %s | FileCheck %s
 ; Temporarily disable all-zero bypass until CMPLRLLVM-21686 is resolved.
 
 ; Function Attrs: nounwind
@@ -36,12 +36,12 @@ for.body4.preheader:                              ; preds = %for.body
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
-; CHECK:       VPlannedBB6:
+; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    [[VEC_PHI80:%.*]] = phi <8 x i64> [ [[TMP6:%.*]], [[VPLANNEDBB120:%.*]] ], [ [[WIDE_LOAD0]], [[VPLANNEDBB60:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI90:%.*]] = phi <8 x i1> [ [[TMP3]], [[VPLANNEDBB60]] ], [ [[TMP9:%.*]], [[VPLANNEDBB120:%.*]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:  VPlannedBB10:
 ; CHECK-NEXT:    [[TMP4:%.*]] = and <8 x i1> [[TMP3]], [[VEC_PHI90]]
   %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ]
   %shl = shl i64 %j.020, 3

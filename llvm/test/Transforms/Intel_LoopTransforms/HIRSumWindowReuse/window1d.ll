@@ -50,7 +50,7 @@
 ; Opt report:
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT:     remark: Inner loop sums optimized with sum window reuse
+; OPTREPORT:     remark #25584: Inner loop sums optimized with sum window reuse
 
 ; OPTREPORT:     LOOP BEGIN
 ; OPTREPORT:     <Window sum initialization loop for sum window reuse>

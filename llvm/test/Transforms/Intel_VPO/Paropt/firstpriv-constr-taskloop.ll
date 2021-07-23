@@ -44,7 +44,7 @@
 ; The destructor thunk pointer is inserted to the right place in the task
 ; thunk.
 
-; CHECK: [[DTORPTR:%[^ ]+]] = getelementptr{{.*}} i32 0, i32 3, i32 0
+; CHECK: [[DTORPTR:%[^ ]+]] = getelementptr{{.*}} i32 0, i32 3
 ; CHECK: store{{.*}}dtor_thunk{{.*}}[[DTORPTR]]
 
 ; The firstprivate objects are copy-constructed into the local copy in the

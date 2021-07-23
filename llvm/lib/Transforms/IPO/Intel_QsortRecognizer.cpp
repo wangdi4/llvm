@@ -1,6 +1,7 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -40,7 +42,7 @@ static bool isQsort(Function *F) {
     return false;
   for (auto &I : instructions(*F)) {
     auto CB = dyn_cast<CallBase>(&I);
-    if (!CB)
+    if (!CB || isa<DbgInfoIntrinsic>(I))
       continue;
     Function *Callee = CB->getCalledFunction();
     if (!Callee || Callee == F)
@@ -113,3 +115,4 @@ PreservedAnalyses QsortRecognizerPass::run(Module &M,
   QsortRecognizerImpl(M);
   return PreservedAnalyses::all();
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

@@ -53,9 +53,24 @@ constexpr uint32_t GMinVer = 0;
 constexpr const char *GVerStr = "sycl 1.0";
 #endif // XPTI_ENABLE_INSTRUMENTATION
 
+template <cl::sycl::backend BE>
+void *getPluginOpaqueData(void *OpaqueDataParam) {
+  void *ReturnOpaqueData = nullptr;
+  const cl::sycl::detail::plugin &Plugin =
+      cl::sycl::detail::pi::getPlugin<BE>();
+
+  Plugin.call<cl::sycl::detail::PiApiKind::piextPluginGetOpaqueData>(
+      OpaqueDataParam, &ReturnOpaqueData);
+
+  return ReturnOpaqueData;
+}
+
+template __SYCL_EXPORT void *
+getPluginOpaqueData<cl::sycl::backend::esimd_cpu>(void *);
+
 namespace pi {
 
-static void initializePlugins(vector_class<plugin> *Plugins);
+static void initializePlugins(std::vector<plugin> *Plugins);
 
 bool XPTIInitDone = false;
 
@@ -210,28 +225,25 @@ std::string memFlagsToString(pi_mem_flags Flags) {
 std::shared_ptr<plugin> GlobalPlugin;
 
 // Find the plugin at the appropriate location and return the location.
-bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
-// TODO: Based on final design discussions, change the location where the
-// plugin must be searched; how to identify the plugins etc. Currently the
-// search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
-// env only.
-//
+bool findPlugins(std::vector<std::pair<std::string, backend>> &PluginNames) {
+  // TODO: Based on final design discussions, change the location where the
+  // plugin must be searched; how to identify the plugins etc. Currently the
+  // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
+  // env only.
+  //
   device_filter_list *FilterList = SYCLConfig<SYCL_DEVICE_FILTER>::get();
   if (!FilterList) {
     PluginNames.emplace_back(__SYCL_OPENCL_PLUGIN_NAME, backend::opencl);
     PluginNames.emplace_back(__SYCL_LEVEL_ZERO_PLUGIN_NAME,
                              backend::level_zero);
-#if INTEL_CUSTOMIZATION
-  // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
-  // PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
-#endif // INTEL_CUSTOMIZATION
+    PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
+    PluginNames.emplace_back(__SYCL_ROCM_PLUGIN_NAME, backend::rocm);
   } else {
     std::vector<device_filter> Filters = FilterList->get();
     bool OpenCLFound = false;
     bool LevelZeroFound = false;
-#if INTEL_CUSTOMIZATION
     bool CudaFound = false;
-#endif // INTEL_CUSTOMIZATION
+    bool RocmFound = false;
     for (const device_filter &Filter : Filters) {
       backend Backend = Filter.Backend;
       if (!OpenCLFound &&
@@ -248,6 +260,10 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
       if (!CudaFound && (Backend == backend::cuda || Backend == backend::all)) {
         PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
         CudaFound = true;
+      }
+      if (!RocmFound && (Backend == backend::rocm || Backend == backend::all)) {
+        PluginNames.emplace_back(__SYCL_ROCM_PLUGIN_NAME, backend::rocm);
+        RocmFound = true;
       }
     }
   }
@@ -294,7 +310,7 @@ bool trace(TraceLevel Level) {
 }
 
 // Initializes all available Plugins.
-const vector_class<plugin> &initialize() {
+const std::vector<plugin> &initialize() {
   static std::once_flag PluginsInitDone;
 
   std::call_once(PluginsInitDone, []() {
@@ -304,8 +320,8 @@ const vector_class<plugin> &initialize() {
   return GlobalHandler::instance().getPlugins();
 }
 
-static void initializePlugins(vector_class<plugin> *Plugins) {
-  vector_class<std::pair<std::string, backend>> PluginNames;
+static void initializePlugins(std::vector<plugin> *Plugins) {
+  std::vector<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
   if (PluginNames.empty() && trace(PI_TRACE_ALL))
@@ -347,15 +363,16 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
         PluginNames[I].first.find("opencl") != std::string::npos) {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::opencl, Library);
-#if INTEL_CUSTOMIZATION
-#if 0
     } else if (InteropBE == backend::cuda &&
-               PluginNames[I].first.find("cuda") != std::string::npos)
+               PluginNames[I].first.find("cuda") != std::string::npos) {
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::cuda, Library);
-#endif
-#endif // INTEL_CUSTOMIZATION
+    } else if (InteropBE == backend::rocm &&
+               PluginNames[I].first.find("rocm") != std::string::npos) {
+      // Use the ROCM plugin as the GlobalPlugin
+      GlobalPlugin =
+          std::make_shared<plugin>(PluginInformation, backend::rocm, Library);
     } else if (InteropBE == backend::level_zero &&
                PluginNames[I].first.find("level_zero") != std::string::npos) {
       // Use the LEVEL_ZERO plugin as the GlobalPlugin
@@ -423,7 +440,7 @@ template <backend BE> const plugin &getPlugin() {
   if (Plugin)
     return *Plugin;
 
-  const vector_class<plugin> &Plugins = pi::initialize();
+  const std::vector<plugin> &Plugins = pi::initialize();
   for (const auto &P : Plugins)
     if (P.getBackend() == BE) {
       Plugin = &P;
@@ -434,8 +451,9 @@ template <backend BE> const plugin &getPlugin() {
                       PI_INVALID_OPERATION);
 }
 
-template const plugin &getPlugin<backend::opencl>();
-template const plugin &getPlugin<backend::level_zero>();
+template __SYCL_EXPORT const plugin &getPlugin<backend::opencl>();
+template __SYCL_EXPORT const plugin &getPlugin<backend::level_zero>();
+template __SYCL_EXPORT const plugin &getPlugin<backend::esimd_cpu>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

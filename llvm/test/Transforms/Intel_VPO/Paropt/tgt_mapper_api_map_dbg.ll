@@ -29,7 +29,7 @@ entry:
   %0 = alloca i16, align 2
   store i16 111, i16* %0, align 2
 
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i16* %0) ], !dbg !16
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i16* %0, i16* %0, i64 2, i64 33, i8* null, i8* null) ], !dbg !16
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ], !dbg !16
 
   ret i32 0, !dbg !18

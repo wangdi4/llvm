@@ -287,6 +287,13 @@ uint64_t Attribute::getValueAsInt() const {
   return pImpl->getValueAsInt();
 }
 
+bool Attribute::getValueAsBool() const {
+  if (!pImpl) return false;
+  assert(isStringAttribute() &&
+         "Expected the attribute to be a string attribute!");
+  return pImpl->getValueAsBool();
+}
+
 StringRef Attribute::getKindAsString() const {
   if (!pImpl) return {};
   assert(isStringAttribute() &&
@@ -359,158 +366,13 @@ std::pair<unsigned, unsigned> Attribute::getVScaleRangeArgs() const {
 std::string Attribute::getAsString(bool InAttrGrp) const {
   if (!pImpl) return {};
 
-  if (hasAttribute(Attribute::SanitizeAddress))
-    return "sanitize_address";
-  if (hasAttribute(Attribute::SanitizeHWAddress))
-    return "sanitize_hwaddress";
-  if (hasAttribute(Attribute::SanitizeMemTag))
-    return "sanitize_memtag";
-  if (hasAttribute(Attribute::AlwaysInline))
-    return "alwaysinline";
-  if (hasAttribute(Attribute::ArgMemOnly))
-    return "argmemonly";
-  if (hasAttribute(Attribute::Builtin))
-    return "builtin";
-  if (hasAttribute(Attribute::Convergent))
-    return "convergent";
-  if (hasAttribute(Attribute::SwiftError))
-    return "swifterror";
-  if (hasAttribute(Attribute::SwiftSelf))
-    return "swiftself";
-  if (hasAttribute(Attribute::InaccessibleMemOnly))
-    return "inaccessiblememonly";
-  if (hasAttribute(Attribute::InaccessibleMemOrArgMemOnly))
-    return "inaccessiblemem_or_argmemonly";
-  if (hasAttribute(Attribute::InlineHint))
-    return "inlinehint";
-  if (hasAttribute(Attribute::InReg))
-    return "inreg";
-  if (hasAttribute(Attribute::JumpTable))
-    return "jumptable";
-  if (hasAttribute(Attribute::MinSize))
-    return "minsize";
-  if (hasAttribute(Attribute::Naked))
-    return "naked";
-  if (hasAttribute(Attribute::Nest))
-    return "nest";
-  if (hasAttribute(Attribute::NoAlias))
-    return "noalias";
-  if (hasAttribute(Attribute::NoBuiltin))
-    return "nobuiltin";
-  if (hasAttribute(Attribute::NoCallback))
-    return "nocallback";
-  if (hasAttribute(Attribute::NoCapture))
-    return "nocapture";
-  if (hasAttribute(Attribute::NoDuplicate))
-    return "noduplicate";
-  if (hasAttribute(Attribute::NoFree))
-    return "nofree";
-  if (hasAttribute(Attribute::NoImplicitFloat))
-    return "noimplicitfloat";
-  if (hasAttribute(Attribute::NoInline))
-    return "noinline";
-  if (hasAttribute(Attribute::NonLazyBind))
-    return "nonlazybind";
-  if (hasAttribute(Attribute::NoMerge))
-    return "nomerge";
-  if (hasAttribute(Attribute::NonNull))
-    return "nonnull";
-  if (hasAttribute(Attribute::NoRedZone))
-    return "noredzone";
-  if (hasAttribute(Attribute::NoReturn))
-    return "noreturn";
-  if (hasAttribute(Attribute::NoSync))
-    return "nosync";
-  if (hasAttribute(Attribute::NullPointerIsValid))
-    return "null_pointer_is_valid";
-  if (hasAttribute(Attribute::WillReturn))
-    return "willreturn";
-  if (hasAttribute(Attribute::NoCfCheck))
-    return "nocf_check";
-  if (hasAttribute(Attribute::NoRecurse))
-    return "norecurse";
-  if (hasAttribute(Attribute::NoProfile))
-    return "noprofile";
-  if (hasAttribute(Attribute::NoUnwind))
-    return "nounwind";
-  if (hasAttribute(Attribute::OptForFuzzing))
-    return "optforfuzzing";
-  if (hasAttribute(Attribute::OptimizeNone))
-    return "optnone";
-  if (hasAttribute(Attribute::OptimizeForSize))
-    return "optsize";
-  if (hasAttribute(Attribute::ReadNone))
-    return "readnone";
-  if (hasAttribute(Attribute::ReadOnly))
-    return "readonly";
-  if (hasAttribute(Attribute::WriteOnly))
-    return "writeonly";
-  if (hasAttribute(Attribute::Returned))
-    return "returned";
-  if (hasAttribute(Attribute::ReturnsTwice))
-    return "returns_twice";
-  if (hasAttribute(Attribute::SExt))
-    return "signext";
-  if (hasAttribute(Attribute::SpeculativeLoadHardening))
-    return "speculative_load_hardening";
-  if (hasAttribute(Attribute::Speculatable))
-    return "speculatable";
-  if (hasAttribute(Attribute::StackProtect))
-    return "ssp";
-  if (hasAttribute(Attribute::StackProtectReq))
-    return "sspreq";
-  if (hasAttribute(Attribute::StackProtectStrong))
-    return "sspstrong";
-  if (hasAttribute(Attribute::SafeStack))
-    return "safestack";
-  if (hasAttribute(Attribute::ShadowCallStack))
-    return "shadowcallstack";
-  if (hasAttribute(Attribute::StrictFP))
-    return "strictfp";
-  if (hasAttribute(Attribute::SanitizeThread))
-    return "sanitize_thread";
-  if (hasAttribute(Attribute::SanitizeMemory))
-    return "sanitize_memory";
-  if (hasAttribute(Attribute::UWTable))
-    return "uwtable";
-  if (hasAttribute(Attribute::ZExt))
-    return "zeroext";
-  if (hasAttribute(Attribute::Cold))
-    return "cold";
-  if (hasAttribute(Attribute::Hot))
-    return "hot";
-  if (hasAttribute(Attribute::ImmArg))
-    return "immarg";
-  if (hasAttribute(Attribute::NoUndef))
-    return "noundef";
-  if (hasAttribute(Attribute::MustProgress))
-    return "mustprogress";
+  if (isEnumAttribute())
+    return getNameFromAttrKind(getKindAsEnum()).str();
 
   if (isTypeAttribute()) {
-    std::string Result;
-    raw_string_ostream OS(Result);
-
-    switch (getKindAsEnum()) {
-    case Attribute::ByVal:
-      Result += "byval";
-      break;
-    case Attribute::StructRet:
-      Result += "sret";
-      break;
-    case Attribute::ByRef:
-      Result += "byref";
-      break;
-    case Attribute::Preallocated:
-      Result += "preallocated";
-      break;
-    case Attribute::InAlloca:
-      Result += "inalloca";
-      break;
-    default:
-      llvm_unreachable("unhandled type attribute");
-    }
-
+    std::string Result = getNameFromAttrKind(getKindAsEnum()).str();
     Result += '(';
+    raw_string_ostream OS(Result);
     getValueAsType()->print(OS, false, true);
     OS.flush();
     Result += ')';
@@ -607,6 +469,14 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
   llvm_unreachable("Unknown attribute");
 }
 
+bool Attribute::hasParentContext(LLVMContext &C) const {
+  assert(isValid() && "invalid Attribute doesn't refer to any context");
+  FoldingSetNodeID ID;
+  pImpl->Profile(ID);
+  void *Unused;
+  return C.pImpl->AttrsSet.FindNodeOrInsertPos(ID, Unused) == pImpl;
+}
+
 bool Attribute::operator<(Attribute A) const {
   if (!pImpl && !A.pImpl) return false;
   if (!pImpl) return true;
@@ -640,6 +510,11 @@ Attribute::AttrKind AttributeImpl::getKindAsEnum() const {
 uint64_t AttributeImpl::getValueAsInt() const {
   assert(isIntAttribute());
   return static_cast<const IntAttributeImpl *>(this)->getValue();
+}
+
+bool AttributeImpl::getValueAsBool() const {
+  assert(getValueAsString().empty() || getValueAsString() == "false" || getValueAsString() == "true");
+  return getValueAsString() == "true";
 }
 
 StringRef AttributeImpl::getKindAsString() const {
@@ -759,8 +634,12 @@ AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
 }
 
 AttributeSet AttributeSet::removeAttributes(LLVMContext &C,
-                                              const AttrBuilder &Attrs) const {
+                                            const AttrBuilder &Attrs) const {
   AttrBuilder B(*this);
+  // If there is nothing to remove, directly return the original set.
+  if (!B.overlaps(Attrs))
+    return *this;
+
   B.remove(Attrs);
   return get(C, B);
 }
@@ -833,6 +712,14 @@ std::pair<unsigned, unsigned> AttributeSet::getVScaleRangeArgs() const {
 
 std::string AttributeSet::getAsString(bool InAttrGrp) const {
   return SetNode ? SetNode->getAsString(InAttrGrp) : "";
+}
+
+bool AttributeSet::hasParentContext(LLVMContext &C) const {
+  assert(hasAttributes() && "empty AttributeSet doesn't refer to any context");
+  FoldingSetNodeID ID;
+  SetNode->Profile(ID);
+  void *Unused;
+  return C.pImpl->AttrsSetNodes.FindNodeOrInsertPos(ID, Unused) == SetNode;
 }
 
 AttributeSet::iterator AttributeSet::begin() const {
@@ -1450,17 +1337,12 @@ AttributeList AttributeList::removeAttribute(LLVMContext &C, unsigned Index,
 AttributeList
 AttributeList::removeAttributes(LLVMContext &C, unsigned Index,
                                 const AttrBuilder &AttrsToRemove) const {
-  if (!pImpl)
-    return {};
-
-  Index = attrIdxToArrayIdx(Index);
-  SmallVector<AttributeSet, 4> AttrSets(this->begin(), this->end());
-  if (Index >= AttrSets.size())
-    AttrSets.resize(Index + 1);
-
-  AttrSets[Index] = AttrSets[Index].removeAttributes(C, AttrsToRemove);
-
-  return getImpl(C, AttrSets);
+  AttributeSet Attrs = getAttributes(Index);
+  AttributeSet NewAttrs = Attrs.removeAttributes(C, AttrsToRemove);
+  // If nothing was removed, return the original list.
+  if (Attrs == NewAttrs)
+    return *this;
+  return setAttributes(C, Index, NewAttrs);
 }
 
 AttributeList AttributeList::removeAttributes(LLVMContext &C,
@@ -1583,6 +1465,10 @@ MaybeAlign AttributeList::getParamAlignment(unsigned ArgNo) const {
   return getAttributes(ArgNo + FirstArgIndex).getAlignment();
 }
 
+MaybeAlign AttributeList::getParamStackAlignment(unsigned ArgNo) const {
+  return getAttributes(ArgNo + FirstArgIndex).getStackAlignment();
+}
+
 Type *AttributeList::getParamByValType(unsigned Index) const {
   return getAttributes(Index+FirstArgIndex).getByValType();
 }
@@ -1636,6 +1522,14 @@ AttributeSet AttributeList::getAttributes(unsigned Index) const {
   return pImpl->begin()[Index];
 }
 
+bool AttributeList::hasParentContext(LLVMContext &C) const {
+  assert(!isEmpty() && "an empty attribute list has no parent context");
+  FoldingSetNodeID ID;
+  pImpl->Profile(ID);
+  void *Unused;
+  return C.pImpl->AttrsLists.FindNodeOrInsertPos(ID, Unused) == pImpl;
+}
+
 AttributeList::iterator AttributeList::begin() const {
   return pImpl ? pImpl->begin() : nullptr;
 }
@@ -1652,17 +1546,31 @@ unsigned AttributeList::getNumAttrSets() const {
   return pImpl ? pImpl->NumAttrSets : 0;
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-LLVM_DUMP_METHOD void AttributeList::dump() const {
-  dbgs() << "PAL[\n";
+void AttributeList::print(raw_ostream &O) const {
+  O << "AttributeList[\n";
 
   for (unsigned i = index_begin(), e = index_end(); i != e; ++i) {
-    if (getAttributes(i).hasAttributes())
-      dbgs() << "  { " << i << " => " << getAsString(i) << " }\n";
+    if (!getAttributes(i).hasAttributes())
+      continue;
+    O << "  { ";
+    switch (i) {
+    case AttrIndex::ReturnIndex:
+      O << "return";
+      break;
+    case AttrIndex::FunctionIndex:
+      O << "function";
+      break;
+    default:
+      O << "arg(" << i - AttrIndex::FirstArgIndex << ")";
+    }
+    O << " => " << getAsString(i) << " }\n";
   }
 
-  dbgs() << "]\n";
+  O << "]\n";
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void AttributeList::dump() const { print(dbgs()); }
 #endif
 
 //===----------------------------------------------------------------------===//
@@ -2110,16 +2018,6 @@ static void setOR(Function &Caller, const Function &Callee) {
 /// If the inlined function had a higher stack protection level than the
 /// calling function, then bump up the caller's stack protection level.
 static void adjustCallerSSPLevel(Function &Caller, const Function &Callee) {
-#ifndef NDEBUG
-  if (!Callee.hasFnAttribute(Attribute::AlwaysInline)) {
-    assert(!(!Callee.hasStackProtectorFnAttr() &&
-             Caller.hasStackProtectorFnAttr()) &&
-           "stack protected caller but callee requested no stack protector");
-    assert(!(!Caller.hasStackProtectorFnAttr() &&
-             Callee.hasStackProtectorFnAttr()) &&
-           "stack protected callee but caller requested no stack protector");
-  }
-#endif
   // If upgrading the SSP attribute, clear out the old SSP Attributes first.
   // Having multiple SSP attributes doesn't actually hurt, but it adds useless
   // clutter to the IR.

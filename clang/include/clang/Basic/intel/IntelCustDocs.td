@@ -2185,6 +2185,50 @@ llvm.ldexp.* intrinsics instead of the equivalent math library routines.
   }];
 }
 
+def IntelMempoolCtorDtorDocs : Documentation {
+  let Category = DocCatIntelOptimization;
+  let Option = "IntelCompat";
+  let BugTracker= "CMPLRLLVM-28196";
+  let RegressionTest = "CodeGenCXX/intel/ctor-dtor-attributes.cpp";
+  let Content = [{
+Marks constructors and destructors with intel-mempool-constructor and
+intel-mempool-destructor attributes when the ``-fwhole-program-vtables``
+option is used for LTO compilation.
+
+Example:
+
+.. code-block:: c++
+
+  struct A {
+    double d;
+    A() { d = 20; }
+    ~A() { d = 0;}
+  };
+
+  A a;
+
+Compiled with:
+
+.. code-block:: console
+
+  $ clang -cc1 -fintel-compatibility w.cpp -flto -flto-unit -fwhole-program-vtables -emit-llvm -o -
+
+.. code-block:: llvm
+
+    define linkonce_odr void @_ZN1AC2Ev(%struct.A* nonnull dereferenceable(8) %this) unnamed_addr #1
+
+    define linkonce_odr void @_ZN1AD2Ev(%struct.A* nonnull dereferenceable(8) %this) unnamed_addr #2
+
+    attributes #1 = { "intel-mempool-constructor" }
+    attributes #2 = { "intel-mempool-destructor" }
+
+  }];
+  let UserContent = [{
+LTO transformations use these attributes to identify constructor and
+destructor member functions.
+  }];
+}
+
 def PredeclareAlignValTDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";

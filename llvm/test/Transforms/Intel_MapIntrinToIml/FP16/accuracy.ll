@@ -1,5 +1,3 @@
-; REQUIRES: intel_feature_isa_fp16
-
 ; Check IMF precision attribute is handled correctly, and make sure high
 ; accuracy (medium in fast math) is used by default.
 

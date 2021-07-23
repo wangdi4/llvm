@@ -638,6 +638,11 @@ class DDTest {
   bool checkDstSubscript(const CanonExpr *Dst, const HLLoop *LoopNest,
                          SmallBitVector &Loops);
 
+  // Returns a new CE by stripping either SExt or ZExt based on arguments if
+  // possible, otherwise returns original CE.
+  const CanonExpr *stripExt(const CanonExpr *CE, bool StripSExt,
+                            bool StripZExt);
+
   /// isKnownPredicate - Compare X and Y using the predicate Pred.
   /// Basically a wrapper for CanonExpr::isKnownPredicate,
   /// but tries harder, especially in the presence of sign and zero

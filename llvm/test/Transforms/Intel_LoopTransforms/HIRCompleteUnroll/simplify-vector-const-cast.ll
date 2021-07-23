@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-post-vec-complete-unroll" -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-post-vec-complete-unroll" -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
 
 ; Verify that the vector cast zext.<16 x i32>.<16 x i64>(i1) is correctly
 ; simplified when substituting IV with constant in complete unroll.

@@ -814,6 +814,9 @@ declare void @llvm.directive.region.exit(token)
 
 declare float @llvm.fabs.f32(float)
 
+!llvm.module.flags = !{!0}
+!0 = !{i32 7, !"openmp", i32 50}
+
 ; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]

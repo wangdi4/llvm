@@ -19,7 +19,7 @@
 ;}
 
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=ovls -disable-hir-complete-unroll -vplan-vls-level=always -vplan-force-vf=8 2>&1 | FileCheck %s
 
 ; CHECK:       Printing Groups- Total Groups 2
 ; CHECK-NEXT:  Group#1

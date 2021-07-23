@@ -1,6 +1,6 @@
 ; Test to check SVML call pumping feature for sincos masked and unmasked calls in LLVM-IR vector CG.
 
-; RUN: opt -vector-library=SVML -VPlanDriver -S %s | FileCheck --check-prefixes=CHECK %s
+; RUN: opt -vector-library=SVML -vplan-vec -S %s | FileCheck --check-prefixes=CHECK %s
 
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:

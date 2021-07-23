@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===-------------- Intel_InlineCost.h -----------------------------------===//
 //
 // Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
@@ -39,9 +40,6 @@ class TargetTransformInfo;
 class ProfileSummaryInfo;
 
 using namespace InlineReportTypes;
-
-// A vector of reasons why a given callsite was or was not inlined.
-typedef SmallVector<InlineReason, 2> InlineReasonVector;
 
 // Return 'true' if 'F' is a huge function. In particular, huge functions
 // are less preferred for inlining, even if there is only one callsite.
@@ -86,3 +84,4 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_INTELINLINECOST_H
+#endif // INTEL_FEATURE_SW_ADVANCED

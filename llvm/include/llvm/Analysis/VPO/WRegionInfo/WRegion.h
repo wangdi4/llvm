@@ -49,12 +49,14 @@
 ///   WRNCancelNode           | #pragma omp cancel
 ///   WRNCriticalNode         | #pragma omp critical
 ///   WRNFlushNode            | #pragma omp flush
+///   WRNPrefetchNode         | #pragma omp prefetch
 ///   WRNOrderedNode          | #pragma omp ordered
 ///   WRNMasterNode           | #pragma omp master
 ///   WRNSingleNode           | #pragma omp single
 ///   WRNTaskgroupNode        | #pragma omp taskgroup
 ///   WRNTaskwaitNode         | #pragma omp taskwait
 ///   WRNTaskyieldNode        | #pragma omp taskyield
+///   WRNInteropNode          | #pragma omp interop
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -591,6 +593,9 @@ private:
   EXPR ThreadLimit;
   EXPR NumTeams;
   WRNDefaultKind Default;
+#if INTEL_CUSTOMIZATION
+  uint64_t ConfiguredThreadLimit = 0;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTeamsNode(BasicBlock *BB);
@@ -610,6 +615,14 @@ public:
   EXPR getThreadLimit() const override { return ThreadLimit; }
   EXPR getNumTeams() const override  { return NumTeams; }
   WRNDefaultKind getDefault() const override { return Default; }
+#if INTEL_CUSTOMIZATION
+  void setConfiguredThreadLimit(uint64_t TL) override {
+    ConfiguredThreadLimit = TL;
+  }
+  uint64_t getConfiguredThreadLimit() const override {
+    return ConfiguredThreadLimit;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS,
                   unsigned Depth,
@@ -1086,13 +1099,15 @@ public:
 
 /// \brief Task flags used to invoke tasking RTL for both Task and Taskloop
 enum WRNTaskFlag : uint32_t {
-  Tied         = 0x00000001,  // bit 1
-  Final        = 0x00000002,  // bit 2
-  MergedIf0    = 0x00000004,  // bit 3
-  DtorThunk    = 0x00000008,  // bit 4
-  Proxy        = 0x00000010   // bit 5
-
-  // bits  6-16: reserved for compiler
+  Tied         = 0x00000001,
+  Final        = 0x00000002,
+  MergedIf0    = 0x00000004,
+  DtorThunk    = 0x00000008,
+  Proxy        = 0x00000010,
+  PriorityUsed = 0x00000020,
+  Detachable   = 0x00000040,
+  HiddenHelper = 0x00000080
+  // bits  9-16: reserved for compiler
   // bits 17-20: library flags
   // bits 21-25: task state flags
   // bits 26-32: reserved for library
@@ -1120,6 +1135,8 @@ private:
   unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+  bool IsTargetNowaitTask = false; // set to true when parsing nowait on
+                                   // taskwait as task.
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -1133,6 +1150,7 @@ protected:
   void setMergeable(bool B) override { Mergeable = B; }
   void setIsTargetTask(bool B) override { IsTargetTask = B; }
   void setTaskFlag(unsigned F) override { TaskFlag = F; }
+  void setIsTaskwaitNowaitTask(bool B) override { IsTargetNowaitTask = B; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared,   Shared)
@@ -1150,6 +1168,7 @@ public:
   bool getMergeable() const override { return Mergeable; }
   bool getIsTargetTask() const override { return IsTargetTask; }
   unsigned getTaskFlag() const override { return TaskFlag; }
+  bool getIsTaskwaitNowaitTask() const override { return IsTargetNowaitTask; }
   const SmallVectorImpl<Instruction *> &getCancellationPoints() const override {
     return CancellationPoints;
   }
@@ -1625,6 +1644,35 @@ public:
 
 /// WRN for
 /// \code
+///   #pragma omp prefetch
+/// \endcode
+class WRNPrefetchNode : public WRegionNode {
+private:
+  EXPR IfExpr;
+  DataClause Data;
+
+public:
+  WRNPrefetchNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) override { IfExpr = E; }
+
+public:
+  DEFINE_GETTER(DataClause, getData, Data)
+
+  EXPR getIf() const override { return IfExpr; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNPrefetch;
+  }
+};
+
+/// WRN for
+/// \code
 ///   #pragma omp barrier
 /// \endcode
 class WRNBarrierNode : public WRegionNode {
@@ -1782,15 +1830,17 @@ public:
 class WRNCriticalNode : public WRegionNode {
 private:
   SmallString<64> UserLockName; ///< Lock name provided by the user.
-  // TODO: Add HINT
+  uint32_t  Hint;
 
 protected:
   void setUserLockName(StringRef LN) override { UserLockName = LN; }
+  void setHint(uint32_t N) override { Hint = N; }
 
 public:
   WRNCriticalNode(BasicBlock *BB);
 
   StringRef getUserLockName() const override { return UserLockName.str(); }
+  uint32_t getHint() const override { return Hint; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
@@ -1827,12 +1877,16 @@ public:
 /// \endcode
 class WRNTaskwaitNode : public WRegionNode {
 
+private:
+  DependClause Depend;
+
 public:
   WRNTaskwaitNode(BasicBlock *BB);
 /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
   }
+  DEFINE_GETTER(DependClause, getDepend, Depend)
 };
 
 /// WRN for

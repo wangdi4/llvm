@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransOPOptBase.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransOPOptBase.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_TRANSFORMS_DTRANSOPOPTBASE_H
@@ -168,7 +168,7 @@ public:
       DenseMap<DTransType *, SetVector<DTransType *>>;
 
   DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
-                  StringRef DepTypePrefix);
+                  bool UsingOpaquePtrs, StringRef DepTypePrefix);
 
   DTransOPOptBase(const DTransOPOptBase &) = delete;
   DTransOPOptBase &operator=(const DTransOPOptBase &) = delete;
@@ -218,6 +218,18 @@ protected:
   // Methods that may be implemented by the derived classes that perform some
   // transformation.
   //===-------------------------------------------------------------------===//
+
+  // The ValueMapper takes a materializer object that will be called with
+  // certain Value objects (functions, basic blocks, and constants) during the
+  // type remapping process. This function allows the derived classes to supply
+  // a Materializer to use during the type remapping process.
+  virtual ValueMaterializer* getMaterializer() { return nullptr; }
+
+  // Derived classes may implement this to perform module level work that needs
+  // to be performed on global variables prior to beginning any function
+  // transformation work. For example, creating new global variables needed
+  // for the optimization.
+  virtual void prepareModule(Module &M) {};
 
   // Derived classes may implement this method to create the replacement
   // variable for an existing global variable. If a replacement is made, then

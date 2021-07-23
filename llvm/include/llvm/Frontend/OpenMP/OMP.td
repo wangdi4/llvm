@@ -68,6 +68,8 @@ def OMPC_Private : Clause<"private"> {
   let flangClass = "OmpObjectList";
 }
 def OMPC_Sizes: Clause<"sizes"> { let clangClass = "OMPSizesClause"; }
+def OMPC_Full: Clause<"full"> { let clangClass = "OMPFullClause"; }
+def OMPC_Partial: Clause<"partial"> { let clangClass = "OMPPartialClause"; }
 def OMPC_FirstPrivate : Clause<"firstprivate"> {
   let clangClass = "OMPFirstprivateClause";
   let flangClass = "OmpObjectList";
@@ -158,6 +160,9 @@ def OMPC_Read : Clause<"read"> { let clangClass = "OMPReadClause"; }
 def OMPC_Write : Clause<"write"> { let clangClass = "OMPWriteClause"; }
 def OMPC_Update : Clause<"update"> { let clangClass = "OMPUpdateClause"; }
 def OMPC_Capture : Clause<"capture"> { let clangClass = "OMPCaptureClause"; }
+#if INTEL_COLLAB
+def OMPC_Compare : Clause<"compare"> { let clangClass = "OMPCompareClause"; }
+#endif // INTEL_COLLAB
 def OMPC_SeqCst : Clause<"seq_cst"> { let clangClass = "OMPSeqCstClause"; }
 def OMPC_AcqRel : Clause<"acq_rel"> { let clangClass = "OMPAcqRelClause"; }
 def OMPC_Acquire : Clause<"acquire"> { let clangClass = "OMPAcquireClause"; }
@@ -311,6 +316,12 @@ def OMPC_bind : Clause<"bind"> {
 def OMPC_Subdevice : Clause<"subdevice"> {
   let clangClass = "OMPSubdeviceClause";
 }
+def OMPC_Data : Clause<"data"> {
+  let clangClass = "OMPDataClause";
+}
+def OMPC_Align : Clause<"align"> {
+  let clangClass = "OMPAlignClause";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def OMPC_tile : Clause<"tile"> {
@@ -428,6 +439,12 @@ def OMP_Tile : Directive<"tile"> {
     VersionedClause<OMPC_Sizes, 51>,
   ];
 }
+def OMP_Unroll : Directive<"unroll"> {
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_Full, 51>,
+    VersionedClause<OMPC_Partial, 51>,
+  ];
+}
 def OMP_For : Directive<"for"> {
   let allowedClauses = [
     VersionedClause<OMPC_Private>,
@@ -527,6 +544,9 @@ def OMP_Atomic : Directive<"atomic"> {
     VersionedClause<OMPC_Write>,
     VersionedClause<OMPC_Update>,
     VersionedClause<OMPC_Capture>,
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Compare, 51>,
+#endif // INTEL_COLLAB
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_SeqCst>,
@@ -985,6 +1005,13 @@ def OMP_Distribute : Directive<"distribute"> {
   let allowedOnceClauses = [
     VersionedClause<OMPC_Collapse>,
     VersionedClause<OMPC_DistSchedule>
+  ];
+}
+def OMP_BeginDeclareTarget : Directive<"begin declare target"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_To>,
+    VersionedClause<OMPC_Link>,
+    VersionedClause<OMPC_DeviceType>,
   ];
 }
 def OMP_DeclareTarget : Directive<"declare target"> {
@@ -1583,7 +1610,10 @@ def OMP_TargetTeamsDistributeSimd :
   ];
 }
 def OMP_Allocate : Directive<"allocate"> {
-  let allowedClauses = [
+  let allowedOnceClauses = [
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Align, 51>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocator>
   ];
 }
@@ -1823,6 +1853,14 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_Depend>,
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_IsDevicePtr>
+  ];
+}
+def OMP_prefetch : Directive<"prefetch"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Data>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_If>
   ];
 }
 #endif // INTEL_COLLAB

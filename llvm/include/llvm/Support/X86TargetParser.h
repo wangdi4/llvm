@@ -94,6 +94,9 @@ enum CPUKind {
   CK_Broadwell,
 #if INTEL_CUSTOMIZATION
   CK_CommonAVX512,
+#if INTEL_FEATURE_ISA_AVX256
+  CK_CommonAVX256,
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
   CK_SkylakeClient,
   CK_SkylakeServer,
@@ -101,13 +104,9 @@ enum CPUKind {
   CK_Cooperlake,
   CK_Cannonlake,
   CK_IcelakeClient,
+  CK_Rocketlake,
   CK_IcelakeServer,
   CK_Tigerlake,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  CK_Rocketlake,
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   CK_SapphireRapids,
   CK_Alderlake,
   CK_KNL,

@@ -74,10 +74,6 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
              "region. (This may have performance impact)."));
 
-static cl::opt<bool> EnableDeviceSimdCodeGen(
-    "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
-    cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
-
 cl::opt<bool> llvm::vpo::UseMapperAPI(
     "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to mapper specific functions in tgt RTL."));
@@ -95,6 +91,11 @@ static cl::opt<bool>
                             cl::desc("Enable adding noalias attribute to "
                                      "outlined target function arguments"));
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<bool> DisableParallelBarriers(
+    "vpo-paropt-disable-parallel-workgroup-barriers", cl::Hidden,
+    cl::init(false), cl::ZeroOrMore,
+    cl::desc("Disable adding workgroup barriers after parallel regions"));
 
 // Reset the value in the Map clause to be empty.
 //
@@ -293,7 +294,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    if (isa<PointerType>(*ArgTyI)) {
+    if (auto *PtrTy = dyn_cast<PointerType>(*ArgTyI)) {
       // TODO: OPAQUEPOINTER: this needs to be reimplemented,
       // since we will not be able to detect function pointer
       // arguments after outlining.
@@ -302,11 +303,8 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         // must be declared as 64-bit integers.
         ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
       } else {
-        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
-        // to a specific AddressSpace. The API currently needs the Element Type
-        // as well.
         ParamsTy.push_back(
-            (*ArgTyI)->getPointerElementType()->getPointerTo(AddrSpaceGlobal));
+            PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
       }
     } else {
       // A non-pointer argument may appear as a result of scalar
@@ -369,20 +367,28 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  int simdWidth = W->getSPIRVSIMDWidth();
-  if (EnableDeviceSimdCodeGen) {
-    simdWidth = 1;
+  int SimdWidth = W->getSPIRVSIMDWidth();
+#if INTEL_CUSTOMIZATION
+  const VPOParoptConfig *VPC = WI->getVPOParoptConfig();
+  if (VPC) {
+    uint8_t KernelSimdWidth = VPC->getKernelSPMDSIMDWidth(NFn->getName());
+    if (KernelSimdWidth > 0)
+      SimdWidth = KernelSimdWidth;
+  }
+#endif // INTEL_CUSTOMIZATION
+  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
+    SimdWidth = 1;
     NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
   }
 
-  if (simdWidth > 0) {
+  if (SimdWidth > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(simdWidth)) };
+        ConstantAsMetadata::get(Builder.getInt32(SimdWidth)) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
 
-  if (EnableDeviceSimdCodeGen &&
+  if (VPOParoptUtils::enableDeviceSimdCodeGen() &&
       WRegionUtils::containsWRNsWith(
           W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); }))
     // When W contains a SIMD directive (and SIMD device codegen is enabled),
@@ -494,7 +500,8 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
   auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
 
   if (!CalledF || !CalledF->hasName() ||
-      CalledF->getName() != "__kmpc_critical")
+      CalledF->getName() != "__kmpc_critical" ||
+      CalledF->getName() != "__kmpc_critical_simd")
     return nullptr;
 
   SmallVector<BasicBlock *, 32> WorkStack{CallI->getParent()};
@@ -507,7 +514,8 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
         auto CalledF = EndCallI->getCalledOperand()->stripPointerCasts();
 
         if (CalledF && CalledF->hasName() &&
-            CalledF->getName() == "__kmpc_end_critical")
+            (CalledF->getName() == "__kmpc_end_critical" ||
+             CalledF->getName() == "__kmpc_critical_simd"))
           return EndCallI;
       }
 
@@ -595,7 +603,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   CallInst *KernelExitDir           = cast<CallInst>(W->getExitDirective());
 
   SmallVector<Instruction *, 6> SideEffectInstructions;
-  SmallVector<Instruction *, 6> InsertBarrierAt;
+  SmallPtrSet<Instruction *, 6> InsertBarrierAt;
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
@@ -651,7 +659,8 @@ void VPOParoptTransform::guardSideEffectStatements(
       // Distinguish between entry and other directives, since
       // we want to delete the entry directives after their
       // exit companions.
-      if (!EnableDeviceSimdCodeGen || !isSimdDirective(&*I)) {
+      if (!VPOParoptUtils::enableDeviceSimdCodeGen() ||
+          !isSimdDirective(&*I)) {
         if (VPOAnalysisUtils::isBeginDirective(&*I))
           EntryDirectivesToDelete.push_back(&*I);
         else
@@ -679,7 +688,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       // from the region's exit. Note that we do not need a barrier
       // before the region, since we insert barriers after all side effect
       // instructions that may reach the region's entry.
-      InsertBarrierAt.push_back(ParDirectiveExit);
+      InsertBarrierAt.insert(ParDirectiveExit);
 
       ParDirectiveBegin = nullptr;
       ParDirectiveExit = nullptr;
@@ -711,12 +720,14 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
   SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
 
-  for (auto &CriticalPair : OmpCriticalCalls) {
-    SmallVector<BasicBlock *, 32> BBSet;
-    GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
-                               CriticalPair.second->getParent(),
-                               BBSet);
-    CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+  if (!VPOParoptUtils::enableDeviceSimdCodeGen()) {
+    for (auto &CriticalPair : OmpCriticalCalls) {
+      SmallVector<BasicBlock *, 32> BBSet;
+      GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
+                                 CriticalPair.second->getParent(),
+                                 BBSet);
+      CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+    }
   }
 
   // Iterate over all instructions and add the side effect instructions
@@ -767,12 +778,17 @@ void VPOParoptTransform::guardSideEffectStatements(
     //       used for the target region.
     IRBuilder<> Builder(KernelEntryDir);
     auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
+    Value *LocalId = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
-      Value *LocalId = VPOParoptUtils::genOCLGenericCall(
+      if (VPOParoptUtils::enableDeviceSimdCodeGen())
+        LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, KernelEntryDir);
+      else {
+        auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+        LocalId = VPOParoptUtils::genOCLGenericCall(
           "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
           { Arg }, KernelEntryDir);
+      }
       Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
       if (!MasterCheckPredicate) {
@@ -924,6 +940,81 @@ void VPOParoptTransform::guardSideEffectStatements(
     I = std::next(I);
   }
 
+  auto NeedBarriersAfterParallel = [&](WRegionNode *W) {
+    if (DisableParallelBarriers)
+      return false;
+
+    // With side-effects instructions barriers will be inserted after each
+    // parallel region, but if there are no such instructions we need to
+    // recompute places that require a barrier for correctness.
+    assert(SideEffectInstructions.empty() &&
+           "no side-effects instructions expected");
+    InsertBarrierAt.clear();
+
+    auto IsParallel = [](const WRegionNode *W) {
+      if (W)
+        switch (W->getDirID()) {
+        case DIR_OMP_PARALLEL:
+        case DIR_OMP_PARALLEL_LOOP:
+        case DIR_OMP_PARALLEL_SECTIONS:
+        case DIR_OMP_DISTRIBUTE_PARLOOP:
+          return true;
+        }
+      return false;
+    };
+
+    DenseMap<BasicBlock *, WRegionNode *> Exit2ParRegion;
+
+    // Find all parallel regions at any nesting level inside the target region,
+    // but skip parallel regions nested inside another parallel. Adding a
+    // barrier after such regions may cause a deadlock.
+    SmallVector<WRegionNode *, 8> Worklist;
+    copy(W->getChildren(), std::back_inserter(Worklist));
+    while (!Worklist.empty()) {
+      WRegionNode *W = Worklist.pop_back_val();
+      if (IsParallel(W)) {
+        if (IsParallel(W->getParent()))
+          continue;
+        Exit2ParRegion[W->getExitBBlock()] = W;
+      }
+      copy(W->getChildren(), std::back_inserter(Worklist));
+    }
+
+    // No need to add barriers if there is only one or no parallel regions.
+    if (Exit2ParRegion.size() <= 1)
+      return false;
+
+    // Otherwise for each of parallel region walk predecessors to see if we can
+    // find any parallel region on all paths to the target region entry. All
+    // regions that we find require a barrier.
+    for (auto &P : Exit2ParRegion) {
+      SmallPtrSet<BasicBlock *, 8> Visited{W->getEntryBBlock()};
+      std::queue<BasicBlock *> Worklist;
+      auto GrowWorklist = [&Worklist, &Visited](BasicBlock *BB) {
+        if (Visited.insert(BB).second)
+          for (BasicBlock *PredBB : predecessors(BB))
+            if (!Visited.contains(PredBB))
+              Worklist.push(PredBB);
+      };
+      GrowWorklist(P.second->getEntryBBlock());
+
+      while (!Worklist.empty()) {
+        BasicBlock *BB = Worklist.front();
+        Worklist.pop();
+
+        // If this is an exit block of a parallel region then this region
+        // needs a barrier.
+        auto It = Exit2ParRegion.find(BB);
+        if (It != Exit2ParRegion.end())
+          InsertBarrierAt.insert(It->second->getExitDirective());
+
+        GrowWorklist(BB);
+      }
+    }
+
+    return !InsertBarrierAt.empty();
+  };
+
   if (!SideEffectInstructions.empty() ||
       // FIXME: if there are multiple parallel regions,
       //        then we need to synchronize between them, otherwise
@@ -933,12 +1024,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        because we may read data written in a parallel region
       //        in "omp target" code succeeding the parallel region.
       //        For now to avoid performance regressions, we insert
-      //        barriers only when there are multiple parallel regions
-      //        inside "omp target". The complete fix would be
-      //        to check if any load operation after a parallel region
+      //        barriers only when there are multiple regions inside
+      //        "omp target" at any nesting level. The complete fix would
+      //        be to check if any load operation after a parallel region
       //        may read data that was potentially updated inside
       //        the parallel region. Can we use alias information for that?
-      W->getChildren().size() > 1) {
+      NeedBarriersAfterParallel(W)) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "Insert Barrier at :" << *InsertPt << "\n");
       InsertWorkGroupBarrier(InsertPt);
@@ -965,7 +1056,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
 
-  if (EnableDeviceSimdCodeGen)
+  if (VPOParoptUtils::enableDeviceSimdCodeGen())
     VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 
@@ -986,6 +1077,8 @@ bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
 
   VPOParoptUtils::insertCallsAtRegionBoundary(W, PopCall, PushCall,
                                               InsideRegion);
+  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
   return true;
 }
 
@@ -1005,6 +1098,8 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
 
   VPOParoptUtils::insertCallsAtRegionBoundary(W, PushCall, PopCall,
                                               InsideRegion);
+  VPOParoptUtils::addFuncletOperandBundle(PushCall, W->getDT());
+  VPOParoptUtils::addFuncletOperandBundle(PopCall, W->getDT());
   return true;
 }
 
@@ -1062,8 +1157,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     // The code below replicates the logic of creating map items from the
     // parsing routine WRegionNode::extractMapOpndList().
     if (CS.getIsArraySection()) {
-      assert(MapIt != Map.end());
-      RenameBase(*MapIt++, Args[0]);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() ||
                ((Args.size() == 4 || Args.size() == 6) &&
                 isa<ConstantInt>(Args[3]))) {
@@ -1179,9 +1275,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // Everything below only makes sense on the host.
     return true;
 
-  // allocas should stay close to the call, in case the target region is
-  // enclosed in another region which is outlined later.
-  IRBuilder<> Builder(NewCall->getParent()->getFirstNonPHI());
+  // Insert the .run_host_version alloca in the entry block of the first parent
+  // region what would be outlined, if any, otherwise of the parent function.
+  Instruction *AllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> Builder(AllocaInsertPt);
   AllocaInst *OffloadError = Builder.CreateAlloca(
       Type::getInt32Ty(F->getContext()), nullptr, ".run_host_version");
 
@@ -1198,11 +1296,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     //
     // *** IR Dump After VPO Paropt Pass ***
     // entry:
+    //   %.run_host_version = alloca i32
     //   ...
     //   %arg.addr = alloca i32, align 4
     //   store i32 %arg, i32* %arg.addr, align 4, !tbaa !2
     //   %tobool = icmp ne i32 %arg, 0
-    //   %.run_host_version = alloca i32
     //   %0 = icmp ne i1 %tobool, false
     //   br label %codeRepl
     //
@@ -1445,7 +1543,6 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       continue;
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Working with Map Item: '";
                MapI->dump(); dbgs() << "'.\n");
-    Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
       MapAggrTy *AggrHead = MapChain[0];
@@ -1458,8 +1555,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
         if (!ConstValue) {
           hasRuntimeEvaluationCaptureSize = true;
-          ConstSizes.push_back(ConstantInt::get(
-              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
+          ConstSizes.push_back(Constant::getNullValue(Type::getInt64Ty(C)));
         } else {
           // Sign extend the constant to signed 64-bit integer.
           // This is the format of arg_sizes passed to __tgt_target.
@@ -1562,13 +1658,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         Mappers.push_back(Aggr->getMapper());
       }
     } else {
-      assert(!MapI->getIsArraySection() &&
-             "Map with an array section must have a map chain.");
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, true, true, VIsTargetKernelArg));
-      Names.push_back(getMapNameForVar(MapI->getOrig()));
-      Mappers.push_back(nullptr);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     }
   }
 
@@ -1594,6 +1686,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
       } else {
+        // TODO: OPAQUEPOINTER: element type must be taken from the clause.
         Type *ObjectTy = ItemTy->getPointerElementType();
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                               DL.getTypeAllocSize(ObjectTy)));
@@ -1665,6 +1758,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
                       makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
                                    CLLoopParameterRecTypeArgs.end()),
                       false);
+  // FIXME: Use getInsertionPtForAllocas() for this alloca.
   AllocaInst *DummyCLLoopParameterRec = Builder.CreateAlloca(
       CLLoopParameterRecType, nullptr, "loop.parameter.rec");
   Value *NumLoopsGep =
@@ -1712,47 +1806,6 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   }
 
   return DummyCLLoopParameterRec;
-}
-
-void VPOParoptTransform::genMapChainsForMapArraySections(
-    WRegionNode *W, Instruction *InsertPt) {
-  LLVMContext &C = F->getContext();
-  MapClause const &MpClause = W->getMap();
-  const auto DL = F->getParent()->getDataLayout();
-
-  for (MapItem *MapI : MpClause.items()) {
-    if (!MapI->getIsArraySection())
-      continue;
-
-    computeArraySectionTypeOffsetSize(*MapI, InsertPt);
-    IRBuilder<> GepBuilder(InsertPt);
-    const ArraySectionInfo &ArrSecInfo = MapI->getArraySectionInfo();
-    auto *BasePtr = MapI->getOrig();
-    if (ArrSecInfo.getBaseIsPointer())
-      BasePtr = GepBuilder.CreateLoad(
-          BasePtr->getType()->getPointerElementType(),
-          BasePtr, BasePtr->getName() + ".load");
-
-    auto *ElementTy = ArrSecInfo.getElementType();
-    auto *SectionPtr =
-        GepBuilder.CreateBitCast(BasePtr,
-                                 PointerType::getUnqual(ElementTy),
-                                 BasePtr->getName() + ".cast");
-    SectionPtr = GepBuilder.CreateGEP(SectionPtr, ArrSecInfo.getOffset(),
-                                      SectionPtr->getName() + ".plus.offset");
-
-    auto *NumElements = ArrSecInfo.getSize();
-    NumElements = GepBuilder.CreateSExtOrTrunc(NumElements,
-                                               Type::getInt64Ty(C));
-
-    auto *TypeSize = ConstantInt::get(Type::getInt64Ty(C),
-                                      DL.getTypeAllocSize(ElementTy));
-    auto *Size = GepBuilder.CreateMul(NumElements, TypeSize,
-                                      BasePtr->getName() + ".map.size");
-
-    auto *Chain = new MapAggrTy(BasePtr, SectionPtr, Size);
-    MapI->setMapChainForArraySection(Chain);
-  }
 }
 
 // Generate the initialization code for the directive omp target.
@@ -1811,10 +1864,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
 
-  // Transform array sections in maps to map chains to handle
-  // them uniformly.
-  genMapChainsForMapArraySections(W, InsertPt);
-
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
     Info.NumberOfPtrs++;
 
@@ -1855,6 +1904,19 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     auto *IT = W->wrn_child_begin();
     if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
       WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
+#if INTEL_CUSTOMIZATION
+      // RegionId is a GlobalVariable for the region ID.
+      // Its name is based on the name of the target outlined function.
+      // Use its name to look for the ThreadLimit override in VPOParoptConfig.
+      // To be on the safe side, make sure that RegionId is actually
+      // a GlobalVariable.
+      if (WI && isa<GlobalVariable>(RegionId))
+        if (const VPOParoptConfig *VPC = WI->getVPOParoptConfig()) {
+          uint64_t KernelThreadLimit =
+              VPC->getKernelThreadLimit(RegionId->getName());
+          TW->setConfiguredThreadLimit(KernelThreadLimit);
+        }
+#endif // INTEL_CUSTOMIZATION
       TgtCall = VPOParoptUtils::genTgtTargetTeams(
           TW, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
           Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
@@ -2500,12 +2562,9 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
             hasRuntimeEvaluationCaptureSize, I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
-      assert(!MapI->getIsArraySection() &&
-             "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
-                               /*Size=*/nullptr,
-                               /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
-                               hasRuntimeEvaluationCaptureSize, &BasePtrGEP);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     }
     MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }
@@ -2534,6 +2593,12 @@ void VPOParoptTransform::genOffloadArraysInit(
                     << hasRuntimeEvaluationCaptureSize << "\n");
 
   Value *BPVal;
+  // Insert allocas for offload arrays in a parent region or the parent
+  // function's entry block based on whether there are any parent regions that
+  // may be outlined. See target-task.ll, target_map_in_loop.ll for examples.
+  Instruction *InsertPtForAllocas =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> AllocaBuilder(InsertPtForAllocas);
   IRBuilder<> Builder(InsertPt);
   unsigned Cnt = 0;
   bool Match = false;
@@ -2542,12 +2607,10 @@ void VPOParoptTransform::genOffloadArraysInit(
   Type *I8PTy = Builder.getInt8PtrTy();
 
   // Build the alloca defs of the target parms.
-  // The allocas must be kept in the same region as their uses,
-  // in case more outlining transformations are made.
   if (hasRuntimeEvaluationCaptureSize)
-    SizesArray = Builder.CreateAlloca(
-          ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-          nullptr, ".offload_sizes");
+    SizesArray = AllocaBuilder.CreateAlloca(
+        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs), nullptr,
+        ".offload_sizes");
   else {
     auto *SizesArrayInit = ConstantArray::get(
         ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
@@ -2561,14 +2624,14 @@ void VPOParoptTransform::genOffloadArraysInit(
     SizesArray = SizesArrayGbl;
   }
 
-  AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
+  AllocaInst *TgBasePointersArray = AllocaBuilder.CreateAlloca(
       ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_baseptrs");
 
-  AllocaInst *TgPointersArray = Builder.CreateAlloca(
+  AllocaInst *TgPointersArray = AllocaBuilder.CreateAlloca(
       ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_ptrs");
 
   Constant *MapTypesArrayInit =
-        ConstantDataArray::get(Builder.getContext(), MapTypes);
+      ConstantDataArray::get(AllocaBuilder.getContext(), MapTypes);
   auto *MapTypesArrayGbl =
       new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
                          true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
@@ -2608,7 +2671,7 @@ void VPOParoptTransform::genOffloadArraysInit(
 
   AllocaInst *TgMappersArray = nullptr;
   if (UseMapperAPI)
-    TgMappersArray = Builder.CreateAlloca(
+    TgMappersArray = AllocaBuilder.CreateAlloca(
         ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_mappers");
 
   Info->BaseDataPtrs = TgBasePointersArray;
@@ -2931,9 +2994,10 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     IRBuilder<> Builder(EntryBB->getTerminator());
     Value *NewV = Builder.CreateLaunderInvariantGroup(V);
     NewV->setName(V->getName());
-    LLVM_DEBUG(dbgs() << "createRenamedValueForV : Created renamed value via "
-                         "launder intrinsic: '";
-               V->printAsOperand(dbgs()); dbgs() << "'.\n");
+    LLVM_DEBUG(dbgs() << "createRenamedValueForV : Renamed '";
+               V->printAsOperand(dbgs());
+               dbgs() << "' (via launder intrinsic) to: '";
+               NewV->printAsOperand(dbgs()); dbgs() << "'.\n");
     return NewV;
   };
 
@@ -3088,7 +3152,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
           VNew = createRenamedValueForGlobalsAndConstExprs(
               Aggr->getSectionPtr(), /*MarkForReplacementInRegion=*/false);
           Aggr->setSectionPtr(VNew);
-          VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
+          VNew = createRenamedValueForGlobalsAndConstExprs(
+              Aggr->getBasePtr(), /*MarkForReplacementInRegion=*/false);
           Aggr->setBasePtr(VNew);
         }
       }
@@ -3181,24 +3246,6 @@ bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
                                           "openmp-target-declare"));
 }
 
-// Return true if one of the region W's ancestor is OMP target
-// construct or the function where W lies in has target declare attribute.
-bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
-  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "target.declare"))
-    return true;
-
-  WRegionNode *PW = W->getParent();
-  while (PW) {
-    if (PW->getIsTarget())
-      return true;
-
-    PW = PW->getParent();
-  }
-
-  return false;
-}
-
 // This function inserts artificial uses for arguments of some clauses
 // of the given region.
 //
@@ -3259,6 +3306,9 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 
   bool Changed = false;
   AllocaInst *ArtificialAlloca = nullptr;
+  Instruction *AllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> AllocaBuilder(AllocaInsertPt);
   IRBuilder<> Builder(F->getContext());
 
   auto InsertArtificialUseForValue = [&](Value *V) {
@@ -3267,15 +3317,11 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
     //     %promote.uses = alloca i8
     //     store i8 ptrtoint (type* @G to i8), i8* %promote.uses
     //
-    // FIXME: to aid further optimization, we have to insert
-    //        the alloca either to the entry block of the parent region
-    //        that will be later outlined, or to the entry block
-    //        of the current Function.  Not all optimizations are able
-    //        to handle allocas appearing in the middle of the Function.
+    // Insert the artificial alloca in the entry block of the first parent
+    // region what would be outlined, if any, otherwise of the parent function.
     if (!ArtificialAlloca)
-      ArtificialAlloca =
-        Builder.CreateAlloca(Builder.getInt8Ty(), nullptr,
-                             "promoted.clause.args");
+      ArtificialAlloca = AllocaBuilder.CreateAlloca(
+          Builder.getInt8Ty(), nullptr, "promoted.clause.args");
 
     auto *Cast = Builder.CreateBitOrPointerCast(V, Builder.getInt8Ty());
     Builder.CreateStore(Cast, ArtificialAlloca);

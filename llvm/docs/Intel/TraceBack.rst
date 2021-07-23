@@ -196,6 +196,8 @@ sh_type   SHT_PROGBITS
 sh_flags  SHF_ALLOC
 ========  ============
 
+And if PIC is enabled, the section header has one more flag SHF_WRITE.
+
 ``MacOS MachO``
 ---------------
 To be done.

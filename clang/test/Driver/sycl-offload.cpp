@@ -2,6 +2,7 @@
 //  RUN:  %clang -### -fsycl -c %s 2>&1 | FileCheck -check-prefix=CHECK-OFFLOAD %s
 //  CHECK-OFFLOAD: clang{{.*}} "-cc1" {{.*}} "-fsycl-is-device"
 //  CHECK-OFFLOAD-SAME: "-aux-target-cpu" "[[HOST_CPU_NAME:[^ ]+]]"
+//  CHECK-OFFLOAD-NEXT: append-file{{.*}}
 //  CHECK-OFFLOAD-NEXT: clang{{.*}} "-cc1" {{.*}}
 //  CHECK-OFFLOAD-NEXT-SAME: "-fsycl-is-host"
 //  CHECK-OFFLOAD-NEXT-SAME: "-target-cpu" "[[HOST_CPU_NAME]]"
@@ -11,6 +12,7 @@
 //  RUN:  %clang -fsycl -mavx -c %s -### -o %t.o 2>&1 | FileCheck -check-prefix=OFFLOAD-AVX %s
 //  OFFLOAD-AVX: clang{{.*}} "-cc1" {{.*}} "-fsycl-is-device"
 //  OFFLOAD-AVX-SAME: "-aux-target-cpu" "[[HOST_CPU_NAME:[^ ]+]]" "-aux-target-feature" "+avx"
+//  OFFLOAD-AVX-NEXT: append-file{{.*}}
 //  OFFLOAD-AVX-NEXT: clang{{.*}} "-cc1" {{.*}}
 //  OFFLOAD-AVX-NEXT-SAME: "-fsycl-is-host"
 //  OFFLOAD-AVX-NEXT-SAME: "-target-cpu" "[[HOST_CPU_NAME]]" "-target-feature" "+avx"
@@ -31,3 +33,17 @@
 // CHECK_COVERAGE_MAPPING: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-fprofile-instrument=clang"
 // CHECK_COVERAGE_MAPPING-NOT: "-fcoverage-mapping"
 // CHECK_COVERAGE_MAPPING: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu"{{.*}} "-fsycl-is-host"{{.*}} "-fprofile-instrument=clang"{{.*}} "-fcoverage-mapping"{{.*}}
+
+/// check for PIC for device wrap compilation when using -shared or -fPIC
+// RUN: %clangxx -### -fsycl -target x86_64-unknown-linux-gnu -shared %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_SHARED %s
+// RUN: %clangxx -### -fsycl -target x86_64-unknown-linux-gnu -fPIC %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_SHARED %s
+// CHECK_SHARED: llc{{.*}} "-relocation-model=pic"
+
+/// -S -emit-llvm should generate textual IR for device.
+// RUN: %clangxx -### -fsycl -S -emit-llvm %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM %s
+// CHECK_S_LLVM: clang{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
+// CHECK_S_LLVM: clang{{.*}} "-fsycl-is-host"{{.*}} "-emit-llvm"{{.*}} "-o" "[[HOST:.+\.ll]]"
+// CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-inputs=[[DEVICE]],[[HOST]]"

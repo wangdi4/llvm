@@ -14,9 +14,11 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 namespace llvm {
+
+class BarrierUtils;
 
 /// Barrier in function pass is a module pass that handles barrier/fiber
 /// instructions called from non-kernel functions.
@@ -27,7 +29,6 @@ namespace llvm {
 /// and barrier call at its end.
 /// Remove each fiber instruction that is called from function that has no
 /// barrier.
-
 class BarrierInFunction : public PassInfoMixin<BarrierInFunction> {
 public:
   static StringRef name() { return "Intel Kernel BarrierInFunction"; }
@@ -41,14 +42,9 @@ private:
   /// F function to modify.
   void addBarrierCallsToFunctionBody(Function *F);
 
-  /// Remove all fiber instructions from non handled functions.
-  /// FunctionsSet container with all handled functions,
-  /// M module to optimize.
-  void removeFibersFromNonHandledFunctions(FuncSet &FunctionsSet, Module &M);
-
 private:
   /// This is barrier utility class.
-  DPCPPKernelBarrierUtils BarrierUtils;
+  BarrierUtils Utils;
 };
 
 /// BarrierInFunctionLegacy pass for legacy pass manager.

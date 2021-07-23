@@ -18,9 +18,9 @@
 ; <0>     END REGION
 
 ; Fully VPValue-based HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; Mixed HIR codegen
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 
 ; CHECK-HIR-LABEL: Function: foo_float
 ; CHECK-HIR: if (0 <u 4 * [[UB:%.*]])
@@ -33,15 +33,15 @@
 
 
 ; Fully VPValue-based LLVM-IR codegen
-; RUN: opt -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
+; RUN: opt -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVMIR
 
 ; CHECK-LLVMIR-LABEL: @foo_float
 ; CHECK-LLVMIR-LABEL: vector.body:
-; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [  <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
+; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x float> [  <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[vectorph:%.*]] ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_ADD]] = fadd <4 x float> [[RED_PHI]], {{%.*}}
-; CHECK-LLVMIR-LABEL: VPlannedBB5:
+; CHECK-LLVMIR-LABEL: VPlannedBB6:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[RED_ADD]])
-; CHECK-LLVMIR-LABEL: scalar.ph:
+; CHECK-LLVMIR-LABEL: merge.blk10:
 ; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi float [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ 0.000000e+00, [[VPLANNEDBB20:%.*]] ]
 
 

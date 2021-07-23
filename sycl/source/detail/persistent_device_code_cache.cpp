@@ -10,6 +10,7 @@
 #include <detail/device_impl.hpp>
 #include <detail/persistent_device_code_cache.hpp>
 #include <detail/plugin.hpp>
+#include <detail/program_manager/program_manager.hpp>
 
 #if defined(__SYCL_RT_OS_LINUX)
 #include <unistd.h>
@@ -51,6 +52,11 @@ bool PersistentDeviceCodeCache::isImageCached(const RTDeviceBinaryImage &Img) {
   if (!isEnabled() || Img.getFormat() != PI_DEVICE_BINARY_TYPE_SPIRV)
     return false;
 
+  // Disable cache for ITT-profiled images.
+  if (SYCLConfig<INTEL_ENABLE_OFFLOAD_ANNOTATIONS>::get()) {
+    return false;
+  }
+
   static auto MaxImgSize = getNumParam<SYCL_CACHE_MAX_DEVICE_IMAGE_SIZE>(
       DEFAULT_MAX_DEVICE_IMAGE_SIZE);
   static auto MinImgSize = getNumParam<SYCL_CACHE_MIN_DEVICE_IMAGE_SIZE>(
@@ -72,12 +78,13 @@ void PersistentDeviceCodeCache::putItemToDisc(
     const SerializedObj &SpecConsts, const std::string &BuildOptionsString,
     const RT::PiProgram &NativePrg) {
 
-  if (!isImageCached(Img))
+  std::string DirName =
+      getCacheItemPath(Device, Img, SpecConsts, BuildOptionsString);
+
+  if (!isImageCached(Img) || DirName.empty())
     return;
 
   auto Plugin = detail::getSyclObjImpl(Device)->getPlugin();
-  std::string DirName =
-      getCacheItemPath(Device, Img, SpecConsts, BuildOptionsString);
 
   size_t i = 0;
   std::string FileName;
@@ -130,13 +137,10 @@ std::vector<std::vector<char>> PersistentDeviceCodeCache::getItemFromDisc(
     const device &Device, const RTDeviceBinaryImage &Img,
     const SerializedObj &SpecConsts, const std::string &BuildOptionsString) {
 
-  if (!isImageCached(Img))
-    return {};
-
   std::string Path =
       getCacheItemPath(Device, Img, SpecConsts, BuildOptionsString);
 
-  if (!OSUtil::isPathPresent(Path))
+  if (!isImageCached(Img) || Path.empty() || !OSUtil::isPathPresent(Path))
     return {};
 
   int i = 0;
@@ -309,6 +313,10 @@ std::string PersistentDeviceCodeCache::getCacheItemPath(
     const device &Device, const RTDeviceBinaryImage &Img,
     const SerializedObj &SpecConsts, const std::string &BuildOptionsString) {
   static std::string cache_root{getRootDir()};
+  if (cache_root.empty()) {
+    trace("Disable persistent cache due to unconfigured cache root.");
+    return {};
+  }
 
   std::string ImgString{(const char *)Img.getRawData().BinaryStart,
                         Img.getSize()};
@@ -373,6 +381,8 @@ bool PersistentDeviceCodeCache::isEnabled() {
 }
 
 /* Returns path for device code cache root directory
+ * If environment variables are not available return an empty string to identify
+ * that cache is not available.
  */
 std::string PersistentDeviceCodeCache::getRootDir() {
   static const char *RootDir = SYCLConfig<SYCL_CACHE_DIR>::get();
@@ -385,15 +395,16 @@ std::string PersistentDeviceCodeCache::getRootDir() {
 #if defined(__SYCL_RT_OS_LINUX)
   static const char *CacheDir = std::getenv("XDG_CACHE_HOME");
   static const char *HomeDir = std::getenv("HOME");
+  if (!CacheDir && !HomeDir)
+    return {};
   static std::string Res{
-      std::string(CacheDir
-                      ? CacheDir
-                      : (HomeDir ? std::string(HomeDir) + "/.cache" : ".")) +
+      std::string(CacheDir ? CacheDir : (std::string(HomeDir) + "/.cache")) +
       DeviceCodeCacheDir};
 #else
   static const char *AppDataDir = std::getenv("AppData");
-  static std::string Res{std::string(AppDataDir ? AppDataDir : ".") +
-                         DeviceCodeCacheDir};
+  if (!AppDataDir)
+    return {};
+  static std::string Res{std::string(AppDataDir) + DeviceCodeCacheDir};
 #endif
   return Res;
 }

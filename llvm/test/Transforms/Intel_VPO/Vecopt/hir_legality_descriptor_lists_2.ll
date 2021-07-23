@@ -36,8 +36,8 @@
 ; <0>    END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -hir-vplan-vec -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec" -disable-vplan-codegen -vplan-print-legality -disable-output < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 ; Check contents of the lists from debug log
@@ -58,9 +58,9 @@
 ; CHECK-NEXT: InitValue: %s
 ; CHECK-NEXT: UpdateInstruction: {{.*}} (%s)[0] = {{.*}}
 ; CHECK: AliasRef: [[S_ALIAS_1:%.*]]
-; CHECK-NEXT: InitValue: [[S_ALIAS_1]]
-; CHECK-NEXT: UpdateInstruction: {{.*}} [[S_ALIAS_1]] = {{.*}}
 ; CHECK: AliasRef: [[S_ALIAS_2:%.*]]
+; CHECK-NEXT: InitValue: [[S_ALIAS_2]]
+; CHECK-NEXT: UpdateInstruction: {{.*}} [[S_ALIAS_2]] = ([[TMP_1:%.*]] > [[S_ALIAS_2]]) ? [[TMP_1]] : [[S_ALIAS_2]];
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -165,7 +165,7 @@ def SDTFPToIntOp : SDTypeProfile<1, 1, [    // fp_to_[su]int
   SDTCisInt<0>, SDTCisFP<1>, SDTCisSameNumEltsAs<0, 1>
 ]>;
 def SDTFPToIntSatOp : SDTypeProfile<1, 2, [    // fp_to_[su]int_sat
-  SDTCisInt<0>, SDTCisFP<1>, SDTCisInt<2>, SDTCisSameNumEltsAs<0, 1>
+  SDTCisInt<0>, SDTCisFP<1>, SDTCisSameNumEltsAs<0, 1>, SDTCisVT<2, OtherVT>
 ]>;
 def SDTExtInreg : SDTypeProfile<1, 2, [     // sext_inreg
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisVT<2, OtherVT>,
@@ -369,6 +369,8 @@ def mul        : SDNode<"ISD::MUL"       , SDTIntBinOp,
                         [SDNPCommutative, SDNPAssociative]>;
 def mulhs      : SDNode<"ISD::MULHS"     , SDTIntBinOp, [SDNPCommutative]>;
 def mulhu      : SDNode<"ISD::MULHU"     , SDTIntBinOp, [SDNPCommutative]>;
+def abds       : SDNode<"ISD::ABDS"      , SDTIntBinOp, [SDNPCommutative]>;
+def abdu       : SDNode<"ISD::ABDU"      , SDTIntBinOp, [SDNPCommutative]>;
 def smullohi   : SDNode<"ISD::SMUL_LOHI" , SDTIntBinHiLoOp, [SDNPCommutative]>;
 def umullohi   : SDNode<"ISD::UMUL_LOHI" , SDTIntBinHiLoOp, [SDNPCommutative]>;
 def sdiv       : SDNode<"ISD::SDIV"      , SDTIntBinOp>;
@@ -709,7 +711,6 @@ def SDT_assert : SDTypeProfile<1, 1,
 def assertsext : SDNode<"ISD::AssertSext", SDT_assert>;
 def assertzext : SDNode<"ISD::AssertZext", SDT_assert>;
 def assertalign : SDNode<"ISD::AssertAlign", SDT_assert>;
-
 
 //===----------------------------------------------------------------------===//
 // Selection DAG Condition Codes
@@ -1055,12 +1056,10 @@ def extloadvi32 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
   let ScalarMemoryVT = i32;
 }
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 def extloadvf16 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
   let IsLoad = 1;
   let ScalarMemoryVT = f16;
 }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 def extloadvf32 : PatFrag<(ops node:$ptr), (extload node:$ptr)> {
   let IsLoad = true;
@@ -1127,16 +1126,19 @@ def truncstorei8 : PatFrag<(ops node:$val, node:$ptr),
                            (truncstore node:$val, node:$ptr)> {
   let IsStore = true;
   let MemoryVT = i8;
+  let IsTruncStore = true;
 }
 def truncstorei16 : PatFrag<(ops node:$val, node:$ptr),
                             (truncstore node:$val, node:$ptr)> {
   let IsStore = true;
   let MemoryVT = i16;
+  let IsTruncStore = true;
 }
 def truncstorei32 : PatFrag<(ops node:$val, node:$ptr),
                             (truncstore node:$val, node:$ptr)> {
   let IsStore = true;
   let MemoryVT = i32;
+  let IsTruncStore = true;
 }
 def truncstoref16 : PatFrag<(ops node:$val, node:$ptr),
                             (truncstore node:$val, node:$ptr)> {

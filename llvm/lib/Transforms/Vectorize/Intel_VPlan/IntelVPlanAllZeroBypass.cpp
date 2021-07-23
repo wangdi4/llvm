@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanAllZeroBypass.h"
-#include "IntelVPlanCostModelProprietary.h"
+#include "IntelVPlanCostModel.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
@@ -92,7 +92,7 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
     VPBasicBlock *BypassEnd,
     LiveOutUsersMapTy &LiveOutMap) {
 
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+  auto *DA = Plan.getVPlanDA();
   Builder.setInsertPoint(BypassEnd, BypassEnd->begin());
   // Create a new phi at the end of the split for all values live-out of
   // the bypassed block and replace all users with this phi.
@@ -420,7 +420,7 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected,
-    VPlanCostModel *CM) {
+    VPlanCostModelInterface *CM) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 

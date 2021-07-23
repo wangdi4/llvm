@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----------- Intel_QsortRecognizer.h ----------------------------------===//
 //
 // Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
@@ -29,3 +30,4 @@ public:
 
 } // end namespace llvm
 #endif // LLVM_TRANSFORMS_IPO_INTEL_QSORTRECOGNIZER_H
+#endif // INTEL_FEATURE_SW_ADVANCED

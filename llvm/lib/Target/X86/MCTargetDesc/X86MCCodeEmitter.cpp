@@ -93,6 +93,7 @@ private:
                       const MCSubtargetInfo &STI, raw_ostream &OS) const;
 
   void emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                           const MCSubtargetInfo &STI, // INTEL
                            raw_ostream &OS) const;
 
   void emitSegmentOverridePrefix(unsigned SegOperand, const MCInst &MI,
@@ -714,7 +715,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   uint64_t Encoding = TSFlags & X86II::EncodingMask;
   bool HasREX = false;
   if (Encoding)
-    emitVEXOpcodePrefix(MemoryOperand, MI, OS);
+    emitVEXOpcodePrefix(MemoryOperand, MI, STI, OS); // INTEL
   else
     HasREX = emitOpcodePrefix(MemoryOperand, MI, STI, OS);
 
@@ -771,6 +772,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 
 /// AVX instructions are encoded using a opcode prefix called VEX.
 void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                                           const MCSubtargetInfo &STI, // INTEL
                                            raw_ostream &OS) const {
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
@@ -848,7 +850,10 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::T_MAP6:
     VEX_5M = 0x6;
     break; // 0F 3B
-#endif     // INTEL_CUSTOMIZATION
+  case X86II::T_MAP8:
+    VEX_5M = 0x8;
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // VEX_4V (VEX vvvv field): a register specifier
@@ -1255,6 +1260,10 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     assert((VEX_5M & 0x7) == VEX_5M &&
            "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
+#if INTEL_FEATURE_ISA_AVX256
+    assert((STI.getCPU() != "common-avx256" || !EVEX_L2) &&
+           "ZMM registers are not supported under AVX-256");
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 
     emitByte(0x62, OS);
@@ -1310,8 +1319,7 @@ bool X86MCCodeEmitter::emitREXPrefix(int MemOperand, const MCInst &MI,
           // FIXME: The caller of determineREXPrefix slaps this prefix onto
           // anything that returns non-zero.
           REX |= 0x40; // REX fixed encoding prefix
-      } else if (MO.isExpr() &&
-                 STI.getTargetTriple().getEnvironment() == Triple::GNUX32) {
+      } else if (MO.isExpr() && STI.getTargetTriple().isX32()) {
         // GOTTPOFF and TLSDESC relocations require a REX prefix to allow
         // linker optimizations: even if the instructions we see may not require
         // any prefix, they may be replaced by instructions that do. This is
@@ -1407,8 +1415,21 @@ void X86MCCodeEmitter::emitSegmentOverridePrefix(unsigned SegOperand,
                                                  const MCInst &MI,
                                                  raw_ostream &OS) const {
   // Check for explicit segment override on memory operand.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool IsExt = false;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if (unsigned Reg = MI.getOperand(SegOperand).getReg())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    emitByte(X86::getSegmentOverridePrefixForReg(Reg, IsExt), OS);
+  if (IsExt)
+    emitByte(0xf2, OS);
+#else // INTEL_FEATURE_ICECODE
     emitByte(X86::getSegmentOverridePrefixForReg(Reg), OS);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Emit all instruction prefixes prior to the opcode.

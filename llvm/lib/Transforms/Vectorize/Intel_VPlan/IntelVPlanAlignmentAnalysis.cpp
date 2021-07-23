@@ -63,7 +63,9 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 VPlanPeelingVariant::~VPlanPeelingVariant() {}
 
-VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
+VPlanStaticPeeling VPlanStaticPeeling::NoPeelLoop{0};
+
+VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
                                          VPConstStepInduction AccessAddress,
                                          Align TargetAlignment)
     : VPlanPeelingVariant(VPPK_DynamicPeeling), Memref(Memref),
@@ -73,9 +75,9 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       Multiplier(computeMultiplierForPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
-int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
+int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
                                          Align Alignment) {
-  auto Size = DL->getTypeAllocSize(getLoadStoreType(Mrf));
+  auto Size = DL->getTypeAllocSize(Mrf->getValueType());
   Align BestAlign(VF * MinAlign(0, Size));
   auto Opcode = Mrf->getOpcode();
 
@@ -91,19 +93,19 @@ int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
   llvm_unreachable("Unexpected Opcode");
 }
 
-int VPlanPeelingCostModelGeneral::getCost(VPInstruction *Mrf, int VF,
+int VPlanPeelingCostModelGeneral::getCost(VPLoadStoreInst *Mrf, int VF,
                                           Align Alignment) {
   return CM->getLoadStoreCost(Mrf, Alignment, VF);
 }
 
-VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
+VPlanPeelingCandidate::VPlanPeelingCandidate(VPLoadStoreInst *Memref,
                                              VPConstStepInduction AccessAddress,
                                              KnownBits InvariantBaseKnownBits)
     : Memref(Memref), AccessAddress(AccessAddress),
       InvariantBaseKnownBits(std::move(InvariantBaseKnownBits)) {
 #ifndef NDEBUG
   auto *DL = Memref->getParent()->getParent()->getDataLayout();
-  auto AccessSize = DL->getTypeAllocSize(getLoadStoreType(Memref));
+  auto AccessSize = DL->getTypeAllocSize(Memref->getValueType());
   auto AccessStep = AccessAddress.Step;
   assert(AccessSize == TypeSize::Fixed(AccessStep) &&
          "Non-unit stride memory access");
@@ -120,11 +122,14 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlanVector &Plan) {
 
 std::unique_ptr<VPlanPeelingVariant>
 VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
-                                               VPlanPeelingCostModel &CM) {
+                                               VPlanPeelingCostModel &CM,
+                                               bool EnableDynamic) {
   auto Static = selectBestStaticPeelingVariant(VF, CM);
-  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
-  if (DynamicOrNone && DynamicOrNone->second > Static.second)
-    return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  if (EnableDynamic) {
+    auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
+    if (DynamicOrNone && DynamicOrNone->second > Static.second)
+      return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  }
   return std::make_unique<VPlanStaticPeeling>(Static.first);
 }
 
@@ -138,7 +143,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
   std::vector<int> PeelCountProfit(VF);
 
   for (VPlanPeelingCandidate &Cand : CandidateMemrefs) {
-    VPInstruction *Memref = Cand.memref();
+    VPLoadStoreInst *Memref = Cand.memref();
     auto Step = Cand.accessAddress().Step;
     const KnownBits &KB = Cand.invariantBaseKnownBits();
 
@@ -277,7 +282,6 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
       if (!LS)
         continue;
 
-      auto *Pointer = LS->getPointerOperand();
       auto *Expr = LS->getAddressSCEV();
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
 
@@ -286,18 +290,18 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
         continue;
 
       // Skip accesses that are not unit-strided.
-      Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
+      Type *EltTy = LS->getValueType();
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
-      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, LS);
 
       // Skip the memref if the address is statically known to be misaligned.
       auto RequiredAlignment = MinAlign(0, Ind->Step);
       if ((KB.One & (RequiredAlignment - 1)) != 0)
         continue;
 
-      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
+      CandidateMemrefs.push_back({LS, *Ind, std::move(KB)});
     }
 
   sort(CandidateMemrefs, VPlanPeelingCandidate::ordByStep);
@@ -380,12 +384,18 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
-  assert(isa<VPlanStaticPeeling>(Peeling) &&
-         "Dynamic peeling is not supported yet");
-  assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&
-         "Non-zero peel counts are not supported yet");
+    const VPLoadStoreInst &Memref, VPlanPeelingVariant *Peeling) const {
+  if (!Peeling)
+    return Memref.getAlignment();
+  if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
+    return getAlignmentUnitStrideImpl(Memref, *SP);
+  if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
+    return getAlignmentUnitStrideImpl(Memref, *DP);
+  llvm_unreachable("Unsupported peeling variant");
+}
 
+Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
+    const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -397,8 +407,13 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   if (Ind->Step <= 0)
     return AlignFromIR;
 
-  auto KB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
-  Align AlignFromVPVT{1ULL << KB.countMinTrailingZeros()};
+  auto BaseKB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
+  auto NumKnownLowBits = (BaseKB.One | BaseKB.Zero).countTrailingOnes();
+  uint64_t Mask = ~0ULL << NumKnownLowBits;
+
+  auto Offset = SP.peelCount() * Ind->Step;
+  auto AdjustedBase = (BaseKB.One + Offset) | Mask;
+  Align AlignFromVPVT{1ULL << AdjustedBase.countTrailingZeros()};
 
   // Alignment of access cannot be larger than alignment of the step, which
   // equals to (VF * Step) for widened memrefs.
@@ -407,4 +422,37 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
   // Generally, the resulting alignment is equal to AlignFromVPVT. However, it
   // cannot be lower than AlignFromIR and higher than AlignFromStep.
   return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromVPVT));
+}
+
+Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
+    const VPLoadStoreInst &Memref, VPlanDynamicPeeling &DP) const {
+  Align AlignFromIR = Memref.getAlignment();
+
+  VPlanSCEV *DstScev = Memref.getAddressSCEV();
+  auto DstInd = VPSE->asConstStepInduction(DstScev);
+  if (!DstInd)
+    return AlignFromIR;
+
+  VPlanSCEV *SrcScev = DP.memref()->getAddressSCEV();
+  auto SrcInd = VPSE->asConstStepInduction(SrcScev);
+  assert(SrcInd && "Dynamic peeling on a non-inductive address?");
+
+  auto Step = DstInd->Step;
+  // Dynamic peeling won't help if memrefs have different steps.
+  if (SrcInd->Step != Step)
+    return AlignFromIR;
+
+  VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
+  auto KB = VPVT->getKnownBits(Diff, &Memref);
+  Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
+
+  // Alignment of access cannot be larger than alignment of the step, which
+  // equals to (VF * Step) for widened memrefs.
+  Align AlignFromStep{MinAlign(0, VF * Step)};
+
+  // Generally, the resulting alignment is equal to AlignFromDiff capped by
+  // peeling target alignment. However, it cannot be lower than AlignFromIR and
+  // higher than AlignFromStep.
+  Align AlignFromDiffCapped = std::min(AlignFromDiff, DP.targetAlignment());
+  return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromDiffCapped));
 }

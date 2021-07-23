@@ -12,7 +12,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -22,7 +23,9 @@ class CleanupWrappedKernelLegacy : public ModulePass {
 public:
   static char ID;
 
-  CleanupWrappedKernelLegacy() : ModulePass(ID) {}
+  CleanupWrappedKernelLegacy() : ModulePass(ID) {
+    initializeCleanupWrappedKernelLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
     return "CleanupWrappedKernelLegacy";
@@ -36,7 +39,8 @@ bool runImpl(Module &M) {
   auto Kernels = DPCPPKernelCompilationUtils::getAllKernels(M);
   for (auto *Kernel : Kernels) {
     // If a kernel is wrapped - delete its body
-    if (Kernel->hasFnAttribute("kernel_wrapper")) {
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    if (KIMD.KernelWrapper.hasValue() && KIMD.KernelWrapper.get()) {
       Kernel->eraseMetadata(LLVMContext::MD_dbg);
       Kernel->eraseMetadata(LLVMContext::MD_prof);
       SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;

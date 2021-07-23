@@ -783,6 +783,11 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
                              const APInt *&LowerBound, const APInt *&UpperBound,
                              Type *&Ty, Type *&ExtTy, bool &Signed,
                              unsigned &Opcode);
+
+  /// If \p Val is a Call with a 'returned' attribute argument, returns that
+  /// argument, else returns original value. This is helpful in tracing through
+  /// llvm.ssa.copy() insts added by HIR.
+  Value *traceThroughReturnedArgCall(Value *Val);
 #endif // INTEL_CUSTOMIZATION
   /// Determine the pattern that a select with the given compare as its
   /// predicate and given values as its true/false operands would match.
@@ -867,7 +872,10 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   /// if it is known based on dominating conditions.
   Optional<bool> isImpliedByDomCondition(const Value *Cond,
                                          const Instruction *ContextI,
-                                         const DataLayout &DL);
+#if INTEL_CUSTOMIZATION
+                                         const DataLayout &DL,
+                                         DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
   Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
                                          const Value *LHS, const Value *RHS,
                                          const Instruction *ContextI,

@@ -38,6 +38,12 @@
 // RUN: %clang -target x86_64-unknown-linux -debug parallel -### --intel %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_PARALLEL %s
 // DEBUG_PARALLEL: "-lpdbx" "-lpdbxinst"
+// DEBUG_PARALLEL-NOT: "-Bstatic"
+
+// RUN: %clang -target x86_64-unknown-linux -debug inline-debug-info -shared -### --intel %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_SHARED_LINK %s
+// DEBUG_SHARED_LINK: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
+// DEBUG_SHARED_LINK-NOT: "-Bstatic"
 
 // RUN: %clang -debug expr-source-pos -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s

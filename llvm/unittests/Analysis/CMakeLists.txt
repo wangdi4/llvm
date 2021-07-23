@@ -29,6 +29,7 @@ add_llvm_unittest_with_input_files(AnalysisTests
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
   FunctionPropertiesAnalysisTest.cpp
+  InlineCostTest.cpp
 # INTEL_CUSTOMIZATION
   Intel_FPValueRangeTest.cpp
   Intel_FPValueRangeAnalysisTest.cpp

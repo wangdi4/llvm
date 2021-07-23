@@ -34,9 +34,9 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 // Enable this macro to debug bugpoint itself.
@@ -170,9 +170,9 @@ int main(int argc, char **argv) {
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   initializeDTransPasses(Registry);
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

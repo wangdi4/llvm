@@ -1,5 +1,7 @@
-; RUN: opt -passes=dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
-; RUN: opt -dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-split-on-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -dpcpp-kernel-split-on-barrier -S < %s | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-split-on-barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-split-on-barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass
@@ -28,27 +30,29 @@ L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
   call void @_Z18work_group_barrierj(i32 1)
   ret void
-; CHECK-NEXT: %check = icmp ult i32 %x, 0
-; CHECK-NEXT: br label %[[BARRIER_BB:.*]]
-; CHECK:      [[BARRIER_BB]]:
-; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
-; CHECK-NEXT: br i1 %check, label %L1, label %L2
-; CHECK:      L1:
-; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK-NEXT: br label %[[BARRIER_BB_2:.*]]
-; CHECK:     [[BARRIER_BB_2]]:
-; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
-; CHECK-NEXT: br label %L3
-; CHECK:      L2:
-; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
-; CHECK-NEXT: br label %L3
-; CHECK:      L3:
-; CHECK-NEXT: %isOk = phi i1 [ false, %
+; CHECK: %check = icmp ult i32 %x, 0
+; CHECK: br
+; CHECK: :
+; CHECK: call void @_Z18work_group_barrierj(i32 2)
+; CHECK: br i1 %check, label %L1, label %L2
+; CHECK: L1:
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
+; CHECK: br
+; CHECK: :
+; CHECK: call void @_Z18work_group_barrierj(i32 2)
+; CHECK: br label %L3
+; CHECK: L2:
+; CHECK: call void @_Z18work_group_barrierj(i32 2)
+; CHECK: br label %L3
+; CHECK: L3:
+; CHECK: %isOk = phi i1 [ false, %
   ; CHECK: ], [ true, %L2 ]
-; CHECK-NEXT: br label %[[BARRIER_BB_3:.*]]
-; CHECK:      [[BARRIER_BB_3]]:
-; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
-; CHECK-NEXT: ret void
+; CHECK: br
+; CHECK: :
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
+; CHECK: ret void
 }
 
 declare void @_Z18work_group_barrierj(i32)
+
+; DEBUGIFY-NOT: WARNING

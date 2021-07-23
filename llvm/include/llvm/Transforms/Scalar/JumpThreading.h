@@ -120,7 +120,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   std::unique_ptr<BranchProbabilityInfo> BPI;
   bool HasProfileData = false;
   bool HasGuards = false;
-#ifdef NDEBUG
+#ifndef LLVM_ENABLE_ABI_BREAKING_CHECKS
   SmallPtrSet<const BasicBlock *, 16> LoopHeaders;
   SmallPtrSet<const BasicBlock *, 16> CountableSingleExitLoopHeaders; // INTEL
   SmallPtrSet<const BasicBlock *, 16> CountableSingleExitLoopLatches; // INTEL

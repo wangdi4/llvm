@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-cg -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-runtime-dd -scoped-noalias-aa -hir-loop-reversal -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -hir-cg -disable-output 2>&1 | FileCheck %s
 
 ; Verify that we successfully generate code for this case. An assert was
 ; triggered during codgen because we were trying to convert the pointer blob in
@@ -15,9 +15,9 @@
 
 ; The loop just before CG-
 ; CHECK:   + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
-; CHECK:   |   %.vec = (<4 x i8>*)(%src)[-1 * i1 + -1 * %src + umax((1 + %src), (%len + %src)) + -4];
+; CHECK:   |   %.vec = (<4 x i8>*)(%src)[-1 * i1 + -1 * ptrtoint.i8*.i32(%src) + umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len)) + -4];
 ; CHECK:   |   %reverse = shufflevector %.vec,  undef, <i32 3, i32 2, i32 1, i32 0>;
-; CHECK:   |   (<4 x i8>*)(%dest)[i1 + %src + %len + -1 * umax((1 + %src), (%len + %src))] = %reverse;
+; CHECK:   |   (<4 x i8>*)(%dest)[i1 + ptrtoint.i8*.i32(%src) + %len + -1 * umax((1 + ptrtoint.i8*.i32(%src)), (ptrtoint.i8*.i32(%src) + %len))] = %reverse;
 ; CHECK:   + END LOOP
 
 target datalayout = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"

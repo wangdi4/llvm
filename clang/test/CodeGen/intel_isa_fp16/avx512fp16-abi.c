@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_fp16
 // RUN: %clang_cc1 -triple x86_64-linux -emit-llvm  -target-feature +avx512fp16 < %s | FileCheck %s --check-prefixes=CHECK
 
 struct half1 {

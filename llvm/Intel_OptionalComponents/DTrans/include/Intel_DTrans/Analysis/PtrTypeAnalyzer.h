@@ -13,8 +13,8 @@
 // from opaque pointers in order to identify the types of object that a pointer
 // may be referring to.
 
-#if !INTEL_INCLUDE_DTRANS
-#error PtrTypeAnalyzer.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error PtrTypeAnalyzer.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H
@@ -29,6 +29,7 @@
 namespace llvm {
 class DataLayout;
 class Function;
+class GEPOperator;
 class LLVMContext;
 class Module;
 class TargetLibraryInfo;
@@ -479,6 +480,21 @@ public:
   // that it operates on the type the pointers point to.
   bool isPointeeElementZeroAccess(DTransType *SrcPointeeTy,
                                   DTransType *DestPointeeTy) const;
+
+  // If the GEP was identified as a byte-flattened GEP during the type analysis,
+  // return the type and field number that is indexed by the GEP.
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
+  // Return 'true' if pointers were seen that are not part of the supported
+  // address space for DTrans.
+  bool getUnsupportedAddressSpaceSeen() const;
+
+  // Return 'true' if opaque pointer types were seen.
+  bool sawOpaquePointer() const;
+
+  // Return 'true' if non-opaque pointer types were seen.
+  bool sawNonOpaquePointer() const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);

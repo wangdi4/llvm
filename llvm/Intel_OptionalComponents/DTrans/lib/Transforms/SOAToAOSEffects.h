@@ -17,8 +17,8 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSEFFECTS_H
 #define INTEL_DTRANS_TRANSFORMS_SOATOAOSEFFECTS_H
 
-#if !INTEL_INCLUDE_DTRANS
-#error SOAToAOSEffects.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error SOAToAOSEffects.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
@@ -964,8 +964,7 @@ class DepMap : DepManager {
 public:
   const Dep *getApproximation(const Value *V) const {
     auto It = ValDependencies.find(V);
-    if (It == ValDependencies.end())
-      return nullptr;
+    assert(It != ValDependencies.end() && "Dependency should be found");
     return It->second;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

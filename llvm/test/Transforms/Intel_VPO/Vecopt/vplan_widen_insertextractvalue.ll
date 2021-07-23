@@ -1,7 +1,7 @@
 ; This test checks that insertvalue and extractvalue instructions are correctly
 ; handled (serialized) by the vectorizer.
 ;
-; RUN: opt -VPlanDriver -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=2 -S %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -31,7 +31,7 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE120:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE0]], [10 x i32] [[SERIAL_EXTRACTVALUE90]], 3
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE130:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE110]], [10 x i32] [[SERIAL_EXTRACTVALUE100]], 3
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], <i64 64, i64 64>
-; CHECK-NEXT:    br label [[VPLANNEDBB140:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB13:
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
@@ -46,23 +46,23 @@ define void @test_pointer_induction_escape() {
 ; CHECK-NEXT:    br label [[TMP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  9:
-; CHECK-NEXT:    [[TMP10:%.*]] = phi { double, double } [ undef, [[VPLANNEDBB140]] ], [ [[TMP8]], [[PRED_CALL_IF0]] ]
+; CHECK-NEXT:    [[TMP10:%.*]] = phi { double, double } [ undef, [[VPLANNEDBB140:%.*]] ], [ [[TMP8]], [[PRED_CALL_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
 ; CHECK-NEXT:    [[PREDICATE150:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
 ; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE150]], true
-; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF280:%.*]], label [[TMP13:%.*]]
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF240:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if27:
+; CHECK-NEXT:  pred.call.if24:
 ; CHECK-NEXT:    [[TMP12:%.*]] = tail call { double, double } @bar1(i64 [[DOTEXTRACT_1_0]])
 ; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  13:
-; CHECK-NEXT:    [[TMP14:%.*]] = phi { double, double } [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF280]] ]
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE290:%.*]]
+; CHECK-NEXT:    [[TMP14:%.*]] = phi { double, double } [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF240]] ]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE250:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue28:
+; CHECK-NEXT:  pred.call.continue25:
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE160:%.*]] = extractvalue { double, double } [[TMP10]], 1
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE170:%.*]] = extractvalue { double, double } [[TMP14]], 1
 ; CHECK-NEXT:    [[SERIAL_INSERTVALUE180:%.*]] = insertvalue { i64, double, <4 x i32>, [10 x i32] } [[SERIAL_INSERTVALUE0]], double [[SERIAL_EXTRACTVALUE160]], 1

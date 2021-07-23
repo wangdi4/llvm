@@ -78,6 +78,10 @@ void VPlanPragmaOmpOrderedSimdExtract::getAnalysisUsage(
 }
 
 bool VPlanPragmaOmpOrderedSimdExtract::runOnModule(Module &M) {
+  // Don't run pass if module is skipped in opt-bisect mode.
+  if (skipModule(M))
+    return false;
+
   auto DT = [this](Function &F) -> DominatorTree * {
     return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
   };
@@ -149,6 +153,7 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
           "ordered.simd.region" /*suffix which is appended to the name
                                   of the new function */,
           true /* allow safety check for llvm.eh.typeid.for intrinsic */,
+          false /* don't allow unreachable blocks in the extracted function */,
           nullptr);
 
       CodeExtractorAnalysisCache CEAC(*F);

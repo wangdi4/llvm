@@ -321,6 +321,9 @@ public:
   // 'Idx' of the specified aggregate type 'Ty'
   void addByteFlattenedGEPMapping(GEPOperator *GEP, DTransType *Ty, size_t Idx);
 
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
@@ -338,6 +341,11 @@ public:
   DTransType *getDTransPtrSizedIntPtrType() const {
     return DTransPtrSizedIntPtrType;
   }
+
+  void setSawOpaquePointer() { SawOpaquePointer = true; }
+  bool getSawOpaquePointer() const { return SawOpaquePointer; }
+  void setSawNonOpaquePointer() { SawNonOpaquePointer = true; }
+  bool getSawNonOpaquePointer() const { return SawNonOpaquePointer; }
 
   // If the type is used for a single aggregate type, return the type, provided
   // that any other pointer types are generic equivalents for the type, such as
@@ -389,6 +397,11 @@ public:
   using AggregateElementPair = std::pair<DTransType *, DTransType *>;
   Optional<AggregateElementPair> getElementZeroType(DTransType *Ty);
 
+  void setUnsupportedAddressSpaceSeen() { UnsupportedAddressSpaceSeen = true; }
+  bool getUnsupportedAddressSpaceSeen() const {
+    return UnsupportedAddressSpaceSeen;
+  }
+
 private:
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
@@ -439,6 +452,18 @@ private:
   // Representation of a pointer to an integer type that is the same size as a
   // pointer in the DTransType system.
   DTransPointerType *DTransPtrSizedIntPtrType;
+
+  // Indicates that a pointer was seen that used the non-default address space.
+  // The DTrans analysis does not take into account pointers to different
+  // address spaces, so we need to detect this and disable DTrans in those
+  // cases.
+  bool UnsupportedAddressSpaceSeen = false;
+
+  // 'true' if an Opaque pointer was seen during the analysis.
+  bool SawOpaquePointer = false;
+
+  // 'true' if a Non-opaque pointer was seen during the analysis.
+  bool SawNonOpaquePointer = false;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1114,6 +1139,21 @@ private:
       printValue(dbgs(), V);
       dbgs() << "\n";
     });
+
+    if (auto *PtrTy = dyn_cast<PointerType>(V->getType())) {
+      if (PtrTy->getAddressSpace() != 0) {
+        LLVM_DEBUG({
+          if (!PTA.getUnsupportedAddressSpaceSeen())
+            dbgs() << "Unsupported address space seen: " << *PtrTy << "\n";
+        });
+        PTA.setUnsupportedAddressSpaceSeen();
+      }
+
+      if (PtrTy->isOpaquePointerTy())
+        PTA.setSawOpaquePointer();
+      else
+        PTA.setSawNonOpaquePointer();
+    }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
@@ -3569,6 +3609,11 @@ void PtrTypeAnalyzerImpl::addByteFlattenedGEPMapping(GEPOperator *GEP,
     });
 }
 
+std::pair<DTransType *, size_t>
+PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
+  return ByteFlattenedGEPInfoMap.lookup(GEP);
+}
+
 void PtrTypeAnalyzerImpl::run(Module &M) {
   PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, M.getContext(),
                                           DL, GetTLI);
@@ -3982,6 +4027,22 @@ PtrTypeAnalyzer::getDominantType(ValueTypeInfo &Info,
 
 bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
   return Impl->isPtrToPtr(Info);
+}
+
+std::pair<DTransType *, size_t>
+PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
+  return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {
+  return Impl->getUnsupportedAddressSpaceSeen();
+}
+
+bool PtrTypeAnalyzer::sawOpaquePointer() const {
+  return Impl->getSawOpaquePointer();
+}
+bool PtrTypeAnalyzer::sawNonOpaquePointer() const {
+  return Impl->getSawNonOpaquePointer();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

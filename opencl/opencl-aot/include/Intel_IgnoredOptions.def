@@ -1,0 +1,50 @@
+#pragma once
+
+#include "llvm/Support/CommandLine.h"
+
+using namespace llvm;
+
+enum class EnumClass2 { val0, val1 };
+#define EnumVal2(opt0, opt1)                                                   \
+  cl::values(clEnumValN(EnumClass2::val0, opt0, ""),                           \
+             clEnumValN(EnumClass2::val1, opt1, ""))
+enum class EnumClass3 { val0, val1, val2 };
+#define EnumVal3(opt0, opt1, opt2)                                             \
+  cl::values(clEnumValN(EnumClass3::val0, opt0, ""),                           \
+             clEnumValN(EnumClass3::val1, opt1, ""),                           \
+             clEnumValN(EnumClass3::val2, opt2, ""))
+
+OPTION_VALUE(OptXsAutoPipeline, "Xsauto-pipeline", bool);
+OPTION_VALUE(OptXsBoard, "Xsboard", bool);
+OPTION_VALUE(OptXsBspFlow, "Xsbsp-flow", std::string);
+OPTION_VALUE(OptXsClock, "Xsclock", std::string);
+OPTION_VALUE(OptXsConstCacheBytes, "Xsconst-cache-bytes", unsigned);
+OPTION_VALUE(OptXsDaz, "Xsdaz", bool);
+OPTION_VALUE(OptXsDisableAutoLoopFusion, "Xsdisable-auto-loop-fusion", bool);
+OPTION_ENUM(OptXsDspMode, "Xsdsp-mode", 3, "default", "prefer-dsp", "prefer-softlogic");
+OPTION_VALUE(OptXsEmulator, "Xsemulator", bool);
+OPTION_VALUE(OptXsEnableUnequalTcFusion, "Xsenable-unequal-tc-fusion", bool);
+OPTION_VALUE(OptXsFast, "Xsfast", bool);
+OPTION_VALUE(OptXsFastCompile, "Xsfast-compile", bool);
+OPTION_VALUE(OptXsForceSingleStoreRing, "Xsforce-single-store-ring", bool);
+OPTION_VALUE(OptXsFpRelaxed, "Xsfp-relaxed", bool);
+OPTION_VALUE(OptXsFpc, "Xsfpc", bool);
+OPTION_VALUE(OptXsGlobalRing, "Xsglobal-ring", bool);
+OPTION_VALUE(OptXsHighEffort, "Xshigh-effort", bool);
+OPTION_ENUM(OptXsHyperOptimizedHandshaking, "Xshyper-optimized-handshaking", 2, "auto", "off");
+OPTION_VALUE(OptXsNoAccessorAliasing, "Xsno-accessor-aliasing", bool);
+OPTION_VALUE(OptXsNoHardwareKernelInvocationQueue, "Xsno-hardware-kernel-invocation-queue", bool);
+OPTION_VALUE(OptXsNoInterleaving, "Xsno-interleaving", std::string);
+OPTION_VALUE(OptXsNumReorder, "Xsnum-reorder", unsigned);
+OPTION_VALUE(OptXsO, "Xso", std::string);
+OPTION_VALUE(OptXsParallel, "Xsparallel", unsigned);
+OPTION_VALUE(OptXsProfile, "Xsprofile", bool);
+OPTION_VALUE(OptXsProfileSharedCounters, "Xsprofile-shared-counters", bool);
+OPTION_VALUE(OptXsQ, "Xsq", bool);
+OPTION_VALUE(OptXsReport, "Xsreport", bool);
+OPTION_VALUE(OptXsReuseExe, "Xsreuse-exe", bool);
+OPTION_VALUE(OptXsRingRootArbBalancedRw, "Xsring-root-arb-balanced-rw", bool);
+OPTION_ENUM(OptXsRounding, "Xsrounding", 2, "ieee", "faithful");
+OPTION_VALUE(OptXsSeed, "Xsseed", int);
+OPTION_VALUE(OptXsV, "Xsv", bool);
+OPTION_VALUE(OptXsVersion, "Xsversion", bool);

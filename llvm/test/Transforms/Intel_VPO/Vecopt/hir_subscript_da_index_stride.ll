@@ -18,8 +18,8 @@
 
 
 ; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-dump-da -vplan-dump-subscript-details -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-dump-da -vplan-dump-subscript-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-dump-da -vplan-dump-subscript-details -print-after=hir-vplan-vec -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-dump-da -vplan-dump-subscript-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
 ; Check for results from DA.
@@ -38,7 +38,7 @@
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP3]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]

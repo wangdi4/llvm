@@ -36,10 +36,12 @@
 // 2. A number of types needed to define pi_device_binary_property_set added.
 // 3. Added new ownership argument to piextContextCreateWithNativeHandle.
 // 4. Add interoperability interfaces for kernel.
+// 4.6 Added new ownership argument to piextQueueCreateWithNativeHandle which
+// changes the API version from 3.5 to 4.6.
 //
 #include "CL/cl.h"
-#define _PI_H_VERSION_MAJOR 3
-#define _PI_H_VERSION_MINOR 5
+#define _PI_H_VERSION_MAJOR 4
+#define _PI_H_VERSION_MINOR 6
 
 #define _PI_STRING_HELPER(a) #a
 #define _PI_CONCAT(a, b) _PI_STRING_HELPER(a.b)
@@ -49,9 +51,10 @@
 // TODO: we need a mapping of PI to OpenCL somewhere, and this can be done
 // elsewhere, e.g. in the pi_opencl, but constants/enums mapping is now
 // done here, for efficiency and simplicity.
-#include <CL/cl_ext_intel.h>
+#include <CL/cl_ext.h>
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/export.hpp>
+
 #include <cstdint>
 
 #ifdef __cplusplus
@@ -278,6 +281,8 @@ typedef enum {
       CL_DEVICE_CROSS_DEVICE_SHARED_MEM_CAPABILITIES_INTEL,
   PI_DEVICE_INFO_USM_SYSTEM_SHARED_SUPPORT =
       CL_DEVICE_SHARED_SYSTEM_MEM_CAPABILITIES_INTEL,
+  // Intel UUID extension.
+  PI_DEVICE_INFO_UUID = CL_DEVICE_UUID_KHR,
   // These are Intel-specific extensions.
   PI_DEVICE_INFO_PCI_ADDRESS = 0x10020,
   PI_DEVICE_INFO_GPU_EU_COUNT = 0x10021,
@@ -285,7 +290,9 @@ typedef enum {
   PI_DEVICE_INFO_GPU_SLICES = 0x10023,
   PI_DEVICE_INFO_GPU_SUBSLICES_PER_SLICE = 0x10024,
   PI_DEVICE_INFO_GPU_EU_COUNT_PER_SUBSLICE = 0x10025,
-  PI_DEVICE_INFO_MAX_MEM_BANDWIDTH = 0x10026
+  PI_DEVICE_INFO_MAX_MEM_BANDWIDTH = 0x10026,
+  PI_DEVICE_INFO_IMAGE_SRGB = 0x10027,
+  PI_DEVICE_INFO_ATOMIC_64 = 0x10110
 } _pi_device_info;
 
 typedef enum {
@@ -433,7 +440,8 @@ typedef enum {
   PI_IMAGE_CHANNEL_ORDER_LUMINANCE = CL_LUMINANCE,
   PI_IMAGE_CHANNEL_ORDER_Rx = CL_Rx,
   PI_IMAGE_CHANNEL_ORDER_RGx = CL_RGx,
-  PI_IMAGE_CHANNEL_ORDER_RGBx = CL_RGBx
+  PI_IMAGE_CHANNEL_ORDER_RGBx = CL_RGBx,
+  PI_IMAGE_CHANNEL_ORDER_sRGBA = CL_sRGBA
 } _pi_image_channel_order;
 
 typedef enum {
@@ -515,6 +523,7 @@ typedef enum {
 using pi_mem_flags = pi_bitfield;
 // Access
 constexpr pi_mem_flags PI_MEM_FLAGS_ACCESS_RW = CL_MEM_READ_WRITE;
+constexpr pi_mem_flags PI_MEM_ACCESS_READ_ONLY = CL_MEM_READ_ONLY;
 // Host pointer
 constexpr pi_mem_flags PI_MEM_FLAGS_HOST_PTR_USE = CL_MEM_USE_HOST_PTR;
 constexpr pi_mem_flags PI_MEM_FLAGS_HOST_PTR_COPY = CL_MEM_COPY_HOST_PTR;
@@ -667,12 +676,17 @@ static const uint8_t PI_DEVICE_BINARY_OFFLOAD_KIND_SYCL = 4;
 #define __SYCL_PI_DEVICE_BINARY_TARGET_SPIRV64_FPGA "spir64_fpga"
 /// PTX 64-bit image <-> "nvptx64", 64-bit NVIDIA PTX device
 #define __SYCL_PI_DEVICE_BINARY_TARGET_NVPTX64 "nvptx64"
+#define __SYCL_PI_DEVICE_BINARY_TARGET_AMDGCN "amdgcn"
 
 /// Device binary image property set names recognized by the SYCL runtime.
 /// Name must be consistent with
 /// PropertySetRegistry::SYCL_SPECIALIZATION_CONSTANTS defined in
 /// PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_SPEC_CONST_MAP "SYCL/specialization constants"
+/// PropertySetRegistry::SYCL_SPEC_CONSTANTS_DEFAULT_VALUES defined in
+/// PropertySetIO.h
+#define __SYCL_PI_PROPERTY_SET_SPEC_CONST_DEFAULT_VALUES_MAP                   \
+  "SYCL/specialization constants default values"
 /// PropertySetRegistry::SYCL_DEVICELIB_REQ_MASK defined in PropertySetIO.h
 #define __SYCL_PI_PROPERTY_SET_DEVICELIB_REQ_MASK "SYCL/devicelib req mask"
 /// PropertySetRegistry::SYCL_KERNEL_PARAM_OPT_INFO defined in PropertySetIO.h
@@ -1034,8 +1048,11 @@ piextQueueGetNativeHandle(pi_queue queue, pi_native_handle *nativeHandle);
 /// \param nativeHandle is the native handle to create PI queue from.
 /// \param context is the PI context of the queue.
 /// \param queue is the PI queue created from the native handle.
+/// \param ownNativeHandle tells if SYCL RT should assume the ownership of
+///        the native handle, if it can.
 __SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
-    pi_native_handle nativeHandle, pi_context context, pi_queue *queue);
+    pi_native_handle nativeHandle, pi_context context, pi_queue *queue,
+    bool ownNativeHandle);
 
 //
 // Memory
@@ -1629,6 +1646,15 @@ __SYCL_EXPORT pi_result piextUSMEnqueueMemAdvise(pi_queue queue,
 __SYCL_EXPORT pi_result piextUSMGetMemAllocInfo(
     pi_context context, const void *ptr, pi_mem_info param_name,
     size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+
+/// API to get Plugin internal data, opaque to SYCL RT. Some devices whose
+/// device code is compiled by the host compiler (e.g. CPU emulators) may use it
+/// to access some device code functionality implemented in/behind the plugin.
+/// \param opaque_data_param - unspecified argument, interpretation is specific
+/// to a plugin \param opaque_data_return - placeholder for the returned opaque
+/// data.
+__SYCL_EXPORT pi_result piextPluginGetOpaqueData(void *opaque_data_param,
+                                                 void **opaque_data_return);
 
 /// API to notify that the plugin should clean up its resources.
 /// No PI calls should be made until the next piPluginInit call.

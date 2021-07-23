@@ -8,7 +8,7 @@
 ; CHECK: Function: sub1_
 
 ; CHECK:         BEGIN REGION { }
-; CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:               + DO i1 = 0, zext.i32.i64(%"sub1_$NTIMES_fetch") + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   |   |   %add6 = (%"sub1_$B")[i2][i3]  +  1.000000e+00;

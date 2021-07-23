@@ -55,6 +55,16 @@ public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
+#if INTEL_COLLAB
+/// An overload of LoopSimplifyPass which cannot be skipped.
+/// The pass is unskippable as it is needed to canonicalize OpenMP
+/// loops at -O0 for late outlining.
+class LoopSimplifyUnskippablePass: public LoopSimplifyPass {
+public:
+  static bool isRequired() { return true; }
+};
+
+#endif // INTEL_COLLAB
 /// Simplify each loop in a loop nest recursively.
 ///
 /// This takes a potentially un-simplified loop L (and its children) and turns

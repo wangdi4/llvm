@@ -76,6 +76,10 @@ namespace llvm {
     /// Same as call except it adds the NoTrack prefix.
     NT_CALL,
 
+    // Pseudo for a OBJC call that gets emitted together with a special
+    // marker instruction.
+    CALL_RVMARKER,
+
     /// X86 compare and logical compare instructions.
     CMP,
     FCMP,
@@ -283,11 +287,9 @@ namespace llvm {
     RCP14S,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     // AVX-512-FP16 scalar reciprocal approximations
     FRSQRTS,
     FRCPS,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     // Thread Local Storage.
@@ -465,9 +467,7 @@ namespace llvm {
     MOVSD,
     MOVSS,
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     MOVSH,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     UNPCKL,
     UNPCKH,
@@ -574,7 +574,6 @@ namespace llvm {
     FMSUBADD_RND,
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     // AVX-512-FP16 complex addition and multiplication
     VFMADDC,
     VFMADDC_RND,
@@ -595,7 +594,6 @@ namespace llvm {
     VFMULCSH_RND,
     VFCMULCSH,
     VFCMULCSH_RND,
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -621,6 +619,9 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+    VCVTNE2PS2PH,
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
     MPSADBW,
 #endif // INTEL_CUSTOMIZATION
 
@@ -849,8 +850,11 @@ namespace llvm {
     // subvector broadcast from memory.
     SUBV_BROADCAST_LOAD,
 
-    // Store FP control world into i16 memory.
+    // Store FP control word into i16 memory.
     FNSTCW16m,
+
+    // Load FP control word from i16 memory.
+    FLDCW16m,
 
     /// This instruction implements FP_TO_SINT with the
     /// integer destination in memory and a FP reg source.  This corresponds
@@ -912,6 +916,20 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
     VAADDF,
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+    VCVTNEEBF162PS,
+    VCVTNEEBF162PSZ,
+    VCVTNEEPH2PS,
+    VCVTNEEPH2PSZ,
+    VCVTNEOBF162PS,
+    VCVTNEOBF162PSZ,
+    VCVTNEOPH2PS,
+    VCVTNEOPH2PSZ,
+    VBCSTNEBF162PS,
+    VBCSTNEBF162PSZ,
+    VBCSTNESH2PS,
+    VBCSTNESH2PSZ,
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
 
     // Key locker nodes that produce flags.
@@ -929,6 +947,19 @@ namespace llvm {
     // opcodes will be thought as target memory ops!
   };
   } // end namespace X86ISD
+
+  namespace X86 {
+    /// Current rounding mode is represented in bits 11:10 of FPSR. These
+    /// values are same as corresponding constants for rounding mode used
+    /// in glibc.
+    enum RoundingMode {
+      rmToNearest   = 0,        // FE_TONEAREST
+      rmDownward    = 1 << 10,  // FE_DOWNWARD
+      rmUpward      = 2 << 10,  // FE_UPWARD
+      rmTowardZero  = 3 << 10,  // FE_TOWARDZERO
+      rmMask        = 3 << 10   // Bit mask selecting rounding mode
+    };
+  }
 
   /// Define some predicates that are used for node matching.
   namespace X86 {
@@ -1062,12 +1093,8 @@ namespace llvm {
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       return VT == MVT::f32 || VT == MVT::f64 || VT.isVector() ||
              (VT == MVT::f16 && X86ScalarAVXf16);
-#else // INTEL_FEATURE_ISA_FP16
-      return VT == MVT::f32 || VT == MVT::f64 || VT.isVector();
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1208,12 +1235,8 @@ namespace llvm {
 
     unsigned
     getInlineAsmMemConstraint(StringRef ConstraintCode) const override {
-      if (ConstraintCode == "o")
-        return InlineAsm::Constraint_o;
-      else if (ConstraintCode == "v")
+      if (ConstraintCode == "v")
         return InlineAsm::Constraint_v;
-      else if (ConstraintCode == "X")
-        return InlineAsm::Constraint_X;
       return TargetLowering::getInlineAsmMemConstraint(ConstraintCode);
     }
 
@@ -1256,8 +1279,9 @@ namespace llvm {
     /// of the specified type.
     /// If the AM is supported, the return value must be >= 0.
     /// If the AM is not supported, it returns a negative value.
-    int getScalingFactorCost(const DataLayout &DL, const AddrMode &AM, Type *Ty,
-                             unsigned AS) const override;
+    InstructionCost getScalingFactorCost(const DataLayout &DL,
+                                         const AddrMode &AM, Type *Ty,
+                                         unsigned AS) const override;
 
     /// This is used to enable splatted operand transforms for vector shifts
     /// and vector funnel shifts.
@@ -1356,12 +1380,8 @@ namespace llvm {
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
              (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
              (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
-#else // INTEL_FEATURE_ISA_FP16
-             (VT == MVT::f32 && X86ScalarSSEf32);   // f32 is when SSE1
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1437,7 +1457,7 @@ namespace llvm {
 
     /// If the target has a standard location for the stack protector cookie,
     /// returns the address of that location. Otherwise, returns nullptr.
-    Value *getIRStackGuard(IRBuilder<> &IRB) const override;
+    Value *getIRStackGuard(IRBuilderBase &IRB) const override;
 
     bool useLoadStackGuardNode() const override;
     bool useStackGuardXorFP() const override;
@@ -1451,7 +1471,7 @@ namespace llvm {
     /// Return true if the target stores SafeStack pointer at a fixed offset in
     /// some non-standard address space, and populates the address space and
     /// offset as appropriate.
-    Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
+    Value *getSafeStackPointerLocation(IRBuilderBase &IRB) const override;
 
     std::pair<SDValue, SDValue> BuildFILD(EVT DstVT, EVT SrcVT, const SDLoc &DL,
                                           SDValue Chain, SDValue Pointer,
@@ -1531,9 +1551,7 @@ namespace llvm {
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     bool X86ScalarAVXf16;
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
     /// A list of legal FP immediates.
@@ -1632,6 +1650,7 @@ namespace llvm {
     SDValue lowerEH_SJLJ_SETUP_DISPATCH(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINIT_TRAMPOLINE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFLT_ROUNDS_(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSET_ROUNDING(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGC_TRANSITION(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;

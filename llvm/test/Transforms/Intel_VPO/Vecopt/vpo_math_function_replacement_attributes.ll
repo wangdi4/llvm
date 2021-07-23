@@ -13,9 +13,9 @@
 
 ; MFREPLACE: attributes #2 = { nounwind readnone }
 
-; RUN: opt -replace-with-math-library-functions -VPlanDriver -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
+; RUN: opt -replace-with-math-library-functions -vplan-vec -vplan-print-after-call-vec-decisions -vector-library=SVML -disable-output %s | FileCheck %s --check-prefix=VPLAN
 
-; VPLAN-LABEL: VPlan after CallVecDecisions analysis for VF=8
+; VPLAN-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; VPLAN:        [DA: Uni] i32 [[UREM_CALL:%vp.*]] = call i32 %dividend i32 %divisor _Z4uremDv8_jS_ [x 1]
 ; VPLAN-NEXT:   [DA: Uni] i32 [[SG_BCAST:%vp.*]] = call i32 [[IV:%vp.*]] i32 [[UREM_CALL]] _ZGVbM8vu_Z19sub_group_broadcastjj(_Z19sub_group_broadcastDv8_jjS_) [x 1] [@CurrMask]
 

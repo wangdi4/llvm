@@ -267,6 +267,7 @@ class OpenMPLateOutliner {
   void emitOMPWriteClause(const OMPWriteClause *);
   void emitOMPUpdateClause(const OMPUpdateClause *);
   void emitOMPCaptureClause(const OMPCaptureClause *);
+  void emitOMPCompareClause(const OMPCompareClause *);
   void emitOMPSeqCstClause(const OMPSeqCstClause *);
   void emitOMPDependClause(const OMPDependClause *);
   void emitOMPDeviceClause(const OMPDeviceClause *);
@@ -298,6 +299,7 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPDataClause(const OMPDataClause *);
   void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);
   void emitOMPOrderClause(const OMPOrderClause *);
@@ -323,6 +325,9 @@ class OpenMPLateOutliner {
   void emitOMPDataflowClause(const OMPDataflowClause *);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  void emitOMPAlignClause(const OMPAlignClause *Cl);
+  void emitOMPFullClause(const OMPFullClause *Cl);
+  void emitOMPPartialClause(const OMPPartialClause *Cl);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);
@@ -377,6 +382,9 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapFPrivates;
+#if INTEL_CUSTOMIZATION
+  llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
+#endif  // INTEL_CUSTOMIZATION
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -412,6 +420,9 @@ public:
     }
     PrivateScope.Privatize();
   }
+#if INTEL_CUSTOMIZATION
+  void emitRemark(std::string Str);
+#endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
@@ -453,6 +464,7 @@ public:
   void emitOMPDispatchDirective();
   void emitOMPGenericLoopDirective();
   void emitOMPInteropDirective();
+  void emitOMPPrefetchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();

@@ -18,7 +18,8 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -36,7 +37,10 @@ class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {}
+  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {
+    initializeDPCPPKernelWGLoopCreatorLegacyPass(
+        *PassRegistry::getPassRegistry());
+  }
 
   llvm::StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
 
@@ -104,47 +108,32 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
   IndTy = DPCPPKernelLoopUtils::getIntTy(&M);
   ConstZero = ConstantInt::get(IndTy, 0);
   ConstOne = ConstantInt::get(IndTy, 1);
+
   auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
   for (auto *F : Kernels) {
     // No need to check if NoBarrierPath Value exists, it is guaranteed that
     // KernelAnalysisPass ran before WGLoopCreator pass.
-    assert(F->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelWGLoopCreator: Expect " NO_BARRIER_PATH_ATTRNAME
-           " attribute!");
-    StringRef Value =
-        F->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-    assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelWGLoopCreator: unexpected " NO_BARRIER_PATH_ATTRNAME
-           " value!");
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    bool NoBarrierPath =
+        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : false;
     // Kernel that should be handled in barrier path, skip it.
-    if (Value == "false")
+    if (!NoBarrierPath)
       continue;
 
     unsigned int VectWidth = 0;
-    // Set the vectorized function
-    Function *VectKernel = DPCPPKernelCompilationUtils::getFnAttributeFunction(
-        M, *F, "vectorized_kernel");
+    // Get the vectorized function
+    Function *VectKernel = KIMD.VectorizedKernel.get();
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
     if (VectKernel) {
-      // Set the vectorized width
-      assert(
-          F->hasFnAttribute("vectorized_width") &&
-          "WGLoopCreator: vectorized_width has to be set (but may be empty)!");
-      bool Res = to_integer(
-          VectKernel->getFnAttribute("vectorized_width").getValueAsString(),
-          VectWidth);
-      // silence warning to avoid an extra call
-      (void)Res;
-      assert(Res &&
-             "WGLoopCreator: vectorized_width has to have a numeric value");
+      // Get the vectorized width
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VectKernel);
+      VectWidth = VKIMD.VectorizedWidth.get();
 
       // save the relevant information from the vectorized kernel
       // prior to erasing this information.
-      F->removeFnAttr("vectorized_kernel");
-      F->addFnAttr("vectorized_kernel", "");
-      F->removeFnAttr("vectorized_width");
-      F->addFnAttr("vectorized_width", utostr(VectWidth));
+      KIMD.VectorizedKernel.set(nullptr);
+      KIMD.VectorizedWidth.set(VectWidth);
     }
 
     LLVM_DEBUG(dbgs() << "vectWidth for " << F->getName() << ": " << VectWidth
@@ -271,9 +260,6 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
   // assigned. The easiest way to assign the correct one is to erase both of
   // them by resetting the original scalar subprogram.
   Func->setSubprogram(SSP);
-
-  // Restore sycl_kernel attribute which was overwriten by CloneFunctionInto.
-  Func->addFnAttr("sycl_kernel");
 
   for (auto &VBB : *VectorFunc) {
     BasicBlock *ClonedBB = dyn_cast<BasicBlock>(ValueMap[&VBB]);

@@ -17,10 +17,12 @@
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanValue.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "vploop-analysis"
 
@@ -162,8 +164,8 @@ void VPPrivate::dump(raw_ostream &OS) const {
   if (hasPrivateTag()) {
     OS << "\n  Private tag: ";
     switch (getPrivateTag()) {
-    case PrivateTag::PTUndef:
-      OS << "(undef)";
+    case PrivateTag::PTRegisterized:
+      OS << "Registerized";
       break;
     case PrivateTag::PTArray:
       OS << "Array";
@@ -676,7 +678,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
              std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
 
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
   VPValue *AI = nullptr;
   Builder.setInsertPoint(Preheader);
   Builder.setCurrentDebugLocation(
@@ -707,8 +711,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
 
-  VPInstruction *Init = Builder.createReductionInit(
-      Identity, StartValue, UseStart, Name + ".red.init");
+  VPInstruction *Init =
+      Builder.createReductionInit(Identity, StartValue, UseStart,
+                                  Name + Reduction->getNameSuffix() + ".init");
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                    *Reduction->getRecurrenceStartValue());
@@ -735,20 +740,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPReductionFinal *Final = nullptr;
+  std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
     const VPReduction *Parent = IndexRed->getParentReduction();
     VPInstruction *ParentExit;
     VPReductionFinal *ParentFinal;
     std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
     Final = Builder.create<VPReductionFinal>(
-        Name + ".red.final", Reduction->getReductionOpcode(), Exit, ParentExit,
-        ParentFinal, Reduction->isSigned());
+        FinName, Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
+        Reduction->isSigned());
     if (IndexRed->isLinearIndex())
       Final->setIsLinearIndex();
   } else {
     if (StartIncluded || Reduction->isMinMax()) {
       Final = Builder.create<VPReductionFinal>(
-          Name + ".red.final", Reduction->getReductionOpcode(), Exit);
+          FinName, Reduction->getReductionOpcode(), Exit);
     } else {
       // Create a load for Start value if it's a pointer.
       VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
@@ -758,8 +764,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
       }
       Final = Builder.create<VPReductionFinal>(
-          Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-          FinalStartValue, Reduction->isSigned());
+          FinName, Reduction->getReductionOpcode(), Exit, FinalStartValue,
+          Reduction->isSigned());
     }
   }
   // Attach FastMathFlags to reduction-final.
@@ -821,35 +827,123 @@ void VPLoopEntityList::preprocess() {
 }
 
 void VPLoopEntityList::identifyMinMaxLinearIdxs() {
-  // Relink parents of non-linear indexes.
-  for (auto &RedPtr : ReductionList) {
-    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr.get());
+  // Create the absent linear indexes.
+  VPDominatorTree DomTree;
+  DomTree.recalculate(Plan);
+
+  auto Reds = vpreductions();
+  SmallVector<VPReduction *, 4> RedPtrs(Reds.begin(), Reds.end());
+  for (VPReduction *RedPtr : RedPtrs) {
+    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr);
     if (!Reduction)
       continue;
     if (Reduction->isLinearIndex())
       continue;
     auto *Parent = Reduction->getParentReduction();
     auto Index = getMinMaxIndex(Parent);
-    // TODO: implement adding of a new index-reduction in case when
-    // it's absent in the source.
+    if (!Index)
+      Index = createLinearIndexReduction(Reduction, DomTree);
+
     assert(Index && "linear index is not set for reduction");
+    assert(Index != Reduction && "unexpected linear index");
+
     Reduction->replaceParentReduction(Index);
   }
 }
 
-#if 0 //leaving for the future
 // Create linear index for min/max + index idiom.
+// The new code is created to handle min/max+index idioms that look like below.
+//    for(i = 0....) {
+//       mm = (mm > a[i]) ? mm : a[i];
+//       v2 = (mm > a[i]) ? v2 : b[i];
+//    }
+// Here, we can't calculate v2 last value directly using mm last value. We need
+// to know on which iteration the assignment occurs, select the maximum index
+// from all lanes, and get the corresponding value. We don't have anything to
+// calculate the maximum index as v2 value is not linear. Thus we create fake
+// linear index, effectively creating the following code.
+//    for(i = 0....) {
+//       mm = (mm > a[i]) ? mm : a[i];
+//       fake_i = (mm > a[i]) ? fake_i : i;
+//       v2 = (mm > a[i]) ? v2 : b[i];
+//    }
+// After that, fake_i is used to calculate maximum index which, in turn, allows
+// us to get the final value for v2.
+//
 // 1) Emit the following set of VPInstructions:
 //    ; in the loop header
 //    %phi_val = phi [-1, preheader], [%select, loop_latch]
 //    ; in the loop body, just after NonLinNdx update instruction.
+//    ; this corresponds to fake_i assignment in the source above.
 //    %select = select NonLinNdx.cond, %loop_induction, %phi_val
 // 2) Create VPIndexReduction descriptor for these instructions, setting
 //    parent reduction to the parent of NonLinNdx.
-VPIndexReduction* createLinearIndexReduction(VPIndexReduction* NonLinNdx) {
+// 3) Set "IsLinearIndex" flag on the new reduction and update parent's index
+//    reduction.
+VPIndexReduction *
+VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
+                                             VPDominatorTree &DomTree) {
 
+  assert((isa<VPIndexReduction>(NonLinNdx) && !NonLinNdx->isLinearIndex()) &&
+         "Expected non-linear index reduction");
+  assert(!getMinMaxIndex(NonLinNdx->getParentReduction()) &&
+         "Linear index already exists");
+
+  VPBuilder Builder;
+  VPBasicBlock *Header = Loop.getHeader();
+  const VPInduction *LoopIndex = getLoopInduction();
+
+  // First create the needed VPInstructions.
+  VPPHINode *LoopIVPhi = getRecurrentVPHINode(*LoopIndex);
+
+  assert(LoopIVPhi && "Expected getRecurrentVPHINode() to return a non-null "
+                      "value in this context.");
+
+  // Create init value. This should be the corresponding constant, either max or
+  // min integer value of the corresponding type. Using paropt utility to obtain
+  // it.
+  unsigned Opc = NonLinNdx->getReductionOpcode();
+  bool NeedMaxIntVal =
+      (Opc == VPInstruction::FMin || Opc == VPInstruction::SMin ||
+       Opc == VPInstruction::UMin);
+
+  Constant *MinMaxInt = VPOParoptUtils::getMinMaxIntVal(
+      *Plan.getLLVMContext(), LoopIVPhi->getType(), !NonLinNdx->isSigned(),
+      NeedMaxIntVal);
+
+  Builder.setInsertPointFirstNonPhi(Header);
+  VPConstant *IncomingVal = Plan.getVPConstant(MinMaxInt);
+  VPPHINode *StartPhi = Builder.createPhiInstruction(LoopIVPhi->getType());
+  StartPhi->addIncoming(IncomingVal, Loop.getLoopPreheader());
+  VPInstruction *OrigExit = NonLinNdx->getLoopExitInstr();
+  // TODO. Currently we support only select instructions for min/max+index.
+  // Need to enhance that and then the code below will not work.
+  assert(OrigExit->getOpcode() == Instruction::Select &&
+         "Expected select instruction");
+
+  VPInstruction *OrigPhi = getRecurrentVPHINode(*NonLinNdx);
+  bool IsPhiFirst = OrigExit->getOperand(1) == OrigPhi;
+  Builder.setInsertPoint(OrigExit);
+  VPInstruction *NewExit = Builder.createSelect(
+      OrigExit->getOperand(0), IsPhiFirst ? StartPhi : LoopIVPhi,
+      IsPhiFirst ? LoopIVPhi : StartPhi);
+
+  // TODO. Check whether the current block dominates latch. If not
+  // then we need a phi in the latch.
+  assert(DomTree.dominates(NewExit->getParent(), Loop.getLoopLatch()) &&
+         "Unsupported non-dominating update");
+  StartPhi->addIncoming(NewExit, Loop.getLoopLatch());
+  const auto *LatchCmp = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
+  assert(LatchCmp->getOpcode() == Instruction::ICmp &&
+         "Expected ICmp in latch cond");
+  // Next, create LoopEntity.
+  VPIndexReduction *Ret = addIndexReduction(
+      StartPhi, NonLinNdx->getParentReduction(), IncomingVal, NewExit,
+      LoopIVPhi->getType(), ICmpInst::isSigned(LatchCmp->getPredicate()),
+      NonLinNdx->isForLast(), true /*IsLinNdx*/);
+  MinMaxIndexes[NonLinNdx->getParentReduction()] = Ret;
+  return Ret;
 }
-#endif
 
 // Check whether \p Inst is a consistent update of induction, i.e. it
 // has correct opcode and contains induction step.
@@ -875,9 +969,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
   assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
-  // Set the insert and debug location guard-points.
+  // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
 
   // Process the list of Inductions.
   for (VPInduction *Induction : vpinductions()) {
@@ -964,37 +1057,23 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
   Builder.insert(VPCall);
 }
 
-std::pair<const VPInduction *, bool>
+const VPInduction *
 VPLoopEntityList::getLoopInduction() const {
-  // There are two ways.
+  // There are two ways to find main loop induction:
   // 1) Get latch -> condbit -> operand which is induction. This relies on that
   //    we always have canonical loops with bottom test and will give exactly
   //    loop IV.
-  // 2) Get header, scan phis until induction is found. That is more reliable
-  //    but will give the first IV which is not necessary loop IV.
+  // 2) Get header, scan phis until the induction is found. That is more
+  //    reliable but will give the first IV which is not necessary the main
+  //    loop IV.
+  // The method implements the first way.
 
-  // Going the first way.
-  VPBasicBlock *Latch = Loop.getLoopLatch();
-  VPCmpInst *CondBit = dyn_cast<VPCmpInst>(Latch->getCondBit());
-  assert((CondBit && CondBit->getOpcode() == Instruction::ICmp) &&
-         "Expected ICmp in latch cond");
-  bool IsSigned;
-  auto Pred = CondBit->getPredicate();
-  switch (Pred) {
-  case CmpInst::ICMP_SGT:
-  case CmpInst::ICMP_SGE:
-  case CmpInst::ICMP_SLT:
-  case CmpInst::ICMP_SLE:
-    IsSigned = true;
-    break;
-  default:
-    IsSigned = false;
-    break;
-  }
-  const VPInduction *Ret = getInduction(CondBit->getOperand(0));
+  const auto *LatchCond = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
+  const VPInduction *Ret = getInduction(LatchCond->getOperand(0));
   if (!Ret)
-    Ret = getInduction(CondBit->getOperand(1));
-  return {Ret, IsSigned};
+    Ret = getInduction(LatchCond->getOperand(1));
+  assert(Ret && "Expected non-null induction");
+  return Ret;
 }
 
 static void collectPhiOperands(VPPHINode *I, VPPHINode *HeaderPhi,
@@ -1014,8 +1093,7 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
     VPBasicBlock *PostExit, VPValue *PrivateMem, VPValue *AI) {
   assert(Private.isConditional() && "Expected conditional private");
 
-  const VPInduction *LoopIndex;
-  std::tie(LoopIndex, std::ignore) = getLoopInduction();
+  const VPInduction *LoopIndex = getLoopInduction();
   VPPHINode *InductionHeaderPhi = getRecurrentVPHINode(*LoopIndex);
   assert(InductionHeaderPhi && "Value should not be nullptr!");
   VPConstant *IncomingVal =
@@ -1178,8 +1256,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       // Handling of last privates generating last value calculation.
       if (Private->hasPrivateTag()) {
         // No last value for non-pod types and arrays
-        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTArray &&
-               Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
+        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
                "Unsupported aggregate type");
 
         if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
@@ -1187,6 +1264,15 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
           // private which was completely registerized.
           if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
             continue;
+        }
+
+        if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTArray) {
+          VPBuilder::InsertPointGuard Guard(Builder);
+          Builder.setInsertPoint(PostExit);
+          Builder.createNaryOp(VPInstruction::PrivateFinalArray,
+                               Type::getVoidTy(*Plan.getLLVMContext()),
+                               {PrivateMem, AI});
+          continue;
         }
       }
 
@@ -1253,20 +1339,33 @@ getPrivateKind(const VPInstruction *Inst, const VPBasicBlock *HeaderBB) {
 void VPLoopEntityList::analyzeImplicitLastPrivates() {
   VPBasicBlock *HeaderBB = Loop.getHeader();
   for (auto *BB : Loop.blocks())
-    for (VPInstruction &Inst : *BB)
-      if (Loop.isLiveOut(&Inst) && !getReduction(&Inst) &&
-          !getInduction(&Inst) && !getPrivate(&Inst)) {
+    for (VPInstruction &Inst : *BB) {
 
-        VPPrivate::PrivateKind Kind;
-        VPValue *HeaderPhi;
-        std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
-        // Add new private with empty alias list
-        VPEntityAliasesTy EmptyAliases;
-        auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
-                               /* Explicit */ false, /* AI */ nullptr,
-                               /* MemOnly */ false);
-        linkValue(Priv, HeaderPhi);
-      }
+      if (!Loop.isLiveOut(&Inst) || getReduction(&Inst) || getPrivate(&Inst))
+        continue;
+
+      // Induction can have more than one liveout linked with it. E.g. we can
+      // have the header phi and the increment instruction both liveout. In such
+      // cases, we create a private for instructions that will not be handled by
+      // VPInductionFinal.
+      // TODO: Find a more efficient way. Having a private will cause having
+      // vector value always and last value will be done by extracting value
+      // from last lane. We can try to improve that having a second VPInduction
+      // or just second VPInductionFinal.
+      if (const VPInduction *Ind = getInduction(&Inst))
+        if (&Inst == getInductionLoopExitInstr(Ind))
+          continue;
+
+      VPPrivate::PrivateKind Kind;
+      VPValue *HeaderPhi;
+      std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
+      // Add new private with empty alias list
+      VPEntityAliasesTy EmptyAliases;
+      auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
+                             /* Explicit */ false, /* AI */ nullptr,
+                             /* MemOnly */ false);
+      linkValue(Priv, HeaderPhi);
+    }
 }
 
 // Insert VPInstructions corresponding to the VPLoopEntities like
@@ -1292,14 +1391,19 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   insertPrivateVPInstructions(Builder, Preheader, PostExit);
 }
 
-// Create so called "close-form calculation" for induction. The close-form
-// calculation is calculation by the formula v = i MUL step OP v0. In case of
-// the loop inductions, the need of the close-form means that we need up-to-date
-// induction value at the beginning of each loop iteration. That can be achieved
-// in two ways: insert calculation exactly by the formula at the beginning of
-// the loop, or insert increment of the induction in the end of the loop (see
-// examples below for the "+" induction). In both cases the Init and InitStep
-// are generated. The initial loop is
+// Create close-form calculation for induction.
+// The close-form calculation is the one by the formula:
+//      v = (i MUL step) OP v0
+// where 'v0' is its initial value, 'i' is primary induction variable (IV),
+// 'step' is per iteration increment value of induction variable 'v'.
+// The need of close-form (see also InductionDescr::inductionNeedsCloseForm)
+// means that we need up-to-date induction value at the beginning of each loop
+// iteration. That can be achieved in two ways (assuming "+" induction):
+// either (1) insert calculation exactly by the formula at the beginning of
+// the loop, or (2) insert increment of the induction in the end of the loop
+// (see examples below). In both cases the Init and InitStep are generated.
+//
+// The initial loop (primary IV not shown):
 // DO
 //   %ind = phi(init, %inc_ind)
 //   ... uses of %ind
@@ -1308,48 +1412,49 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 // ENDDO
 //
 // Possible transformations.
-// Init = Initialize(identity, VF, Oper); --- generated always
-// InitStep = InitializeStep(Step, VF, OPer); --- generated always
+// Init = Initialize(identity, VF, OP)      ! generated always
+// InitStep = InitializeStep(Step, VF, OP)  ! generated always
 // ...
-// case 1 (exact close form)
+// variant 1 (exact close form)
 // DO
-//   %temp = InitStep MUL %primary_IV         --- new instruction
-//   %Induction = Init OP %temp               --- new instruction
+//   %temp = InitStep MUL %primary_IV       ! new instruction
+//   %Induction = %temp OP Init             ! new instruction
 //   ... uses of %Induction (replacing %ind)
-//   %inc_ind = %Induction OP step --- step is not replaced in such cases
+//   %inc_ind = %Induction OP step          ! step is not replaced
 //   ... uses of %inc_ind
 // ENDDO
 //
-// case 2 (second variant, simplest case)
+// variant 2 (simplest case)
 // DO
-//   %ind = phi(Init, %Induction) ; %ind replaced by %Induction
+//   %ind = phi(Init, %Induction)       ! %ind replaced by %Induction
 //   ... uses of %ind
-//   %inc_ind = %ind OP step       --- step is not replaced in such cases
+//   %inc_ind = %ind OP step            ! step is not replaced
 //   ... uses of %inc_ind
-//   %Induction = %ind OP %InitStep           --- new instruction
+//   %Induction = %ind OP %InitStep     ! new instruction
 // ENDDO
 //
-// Another loop, in memory induction
+// For loop with in-memory induction (no start-phi), before transformation:
 // DO
-//   %ind = load %induction_mem ;
+//   %ind = load %induction_mem
 //   ... uses of %ind
-//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   %inc_ind = %ind OP step
 //   ... uses of %inc_ind
 //   store %inc_ind, %induction_mem
 // ENDDO
-// case 2 (second variant, in memory induction, no start-phi)
+// (skipping variant 1, it will not be generated anyway)
+// variant 2:
 // DO
-//   %Induction_phi= phi(Init,%Induction)        --- new instruction
-//   store %Induction_phi, %Induction_priv_mem   --- new instruction
-//   %ind = load %Induction_priv_mem ;
+//   %Induction_phi= phi(Init,%Induction)       ! new instruction
+//   store %Induction_phi, %Induction_priv_mem  ! new instruction
+//   %ind = load %Induction_priv_mem
 //   ... uses of %ind
-//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   %inc_ind = %ind OP step                    ! step is not replaced
 //   ... uses of %inc_ind
-//   store %inc_ind, %Induction_priv_mem --------- this is redundant
-//   %Induction = %Induction_phi OP %InitStep    --- new instruction
+//   store %inc_ind, %Induction_priv_mem        ! this is redundant
+//   %Induction = %Induction_phi OP %InitStep   ! new instruction
 // ENDDO
-
-// The second variant looks preferrable.:
+//
+// The routine generates variant 2 as preferable.
 //
 void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
                                                 VPBuilder &Builder,
@@ -1357,29 +1462,43 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
                                                 VPValue &InitStep,
                                                 VPValue &PrivateMem) {
   VPBuilder::InsertPointGuard Guard(Builder);
-  auto Opc = Induction->getInductionOpcode();
-  Type *Ty = Induction->getStartValue()->getType();
+
+  auto CreateNewInductionOp =
+      [&Builder](VPPHINode *Phi, VPValue *Step,
+                 const VPInduction *Ind) -> VPInstruction * {
+    unsigned int Opc = Ind->getInductionOpcode();
+    Type *Ty = Ind->getStartValue()->getType();
+
+    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
+        Opc == Instruction::GetElementPtr) {
+      // FIXME: Don't reference getElementType as it won't exist for opaque
+      // pointers. Propagate it through whole VPEntities framework.
+      auto *GEP =
+          Builder.createGEP(cast<PointerType>(Phi->getType())->getElementType(),
+                            cast<PointerType>(Phi->getType())->getElementType(),
+                            Phi, Step, nullptr);
+      GEP->setIsInBounds(true); // TODO: Why is that correct?
+      return GEP;
+    }
+    return Builder.createNaryOp(Opc, Ty, {Phi, Step});
+  };
+
+  VPBasicBlock *LatchBlock = Loop.getLoopLatch();
+  assert(LatchBlock && "expected non-null latch");
+
   if (auto BinOp = Induction->getInductionBinOp()) {
-    VPBasicBlock *Latch = Loop.getLoopLatch();
-    assert(Latch && "expected non-null latch");
-    VPBranchInst *Br = Latch->getTerminator();
-    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     // Non-memory induction.
+    VPBranchInst *Br = LatchBlock->getTerminator();
+    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
     assert(StartPhi && "null induction StartPhi");
-    if (isa<VPPHINode>(BinOp)) {
-      VPBasicBlock *Block = BinOp->getParent();
-      Builder.setInsertPointFirstNonPhi(Block);
-    } else {
-      Builder.setInsertPoint(BinOp);
-    }
-    VPInstruction *NewInd = nullptr;
-    // Can't clone as BinOp can be of any opcode (even VPPHINode, see above).
-    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
-        Opc == Instruction::GetElementPtr)
-      NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
+
+    if (isa<VPPHINode>(BinOp))
+      Builder.setInsertPointFirstNonPhi(BinOp->getParent());
     else
-      NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
+      Builder.setInsertPoint(BinOp);
+    VPInstruction *NewInd =
+        CreateNewInductionOp(StartPhi, &InitStep, Induction);
     // TODO: add copying of other attributes.
     NewInd->setDebugLocation(BinOp->getDebugLocation());
 
@@ -1392,7 +1511,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       VPInstruction *LatchCond2 = LatchCond->clone();
       Builder.setInsertPoint(LatchCond);
       Builder.insert(LatchCond2);
-      Latch->setCondBit(LatchCond2);
+      LatchBlock->setCondBit(LatchCond2);
       LatchCond = LatchCond2;
     }
     LatchCond->replaceUsesOfWith(BinOp, NewInd);
@@ -1401,28 +1520,22 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     if (ExitIns == BinOp)
       relinkLiveOuts(ExitIns, BinOp, Loop);
     linkValue(Induction, NewInd);
-  } else {
-    // In-memory induction.
-    // First insert phi and store after existing PHIs in loop header block.
-    // See comment before the routine.
-    VPBasicBlock *Block = Loop.getHeader();
-    Builder.setInsertPointFirstNonPhi(Block);
-    VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
-    Builder.createStore(IndPhi, &PrivateMem);
-    // Then insert increment of induction and update phi.
-    Block = Loop.getLoopLatch();
-    Builder.setInsertPoint(Block);
-    VPValue *NewInd;
-    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
-        Opc == Instruction::GetElementPtr)
-      NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
-    else
-      NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
-    // Step will be initialized in loop preheader always.
-    VPBasicBlock *InitParent = Loop.getLoopPreheader();
-    IndPhi->addIncoming(&Init, InitParent);
-    IndPhi->addIncoming(NewInd, Block);
+    return;
   }
+
+  // In-memory induction.
+  // First insert phi and store after existing PHIs in loop header block.
+  // See comment before the routine.
+  Builder.setInsertPointFirstNonPhi(Loop.getHeader());
+  VPPHINode *IndPhi =
+      Builder.createPhiInstruction(Induction->getStartValue()->getType());
+  Builder.createStore(IndPhi, &PrivateMem);
+  // Then insert increment of induction and update phi.
+  Builder.setInsertPoint(LatchBlock);
+  VPInstruction *NewInd = CreateNewInductionOp(IndPhi, &InitStep, Induction);
+  // Step is always initialized in loop preheader.
+  IndPhi->addIncoming(&Init, Loop.getLoopPreheader());
+  IndPhi->addIncoming(NewInd, LatchBlock);
 }
 
 VPPHINode *VPLoopEntityList::getRecurrentVPHINode(const VPLoopEntity &E) const {
@@ -1787,7 +1900,7 @@ void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (Ctor || Dtor)
     LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
                          AllocaInst);
-  else if (PTag == VPPrivate::PrivateTag::PTUndef) {
+  else if (PTag == VPPrivate::PrivateTag::PTRegisterized) {
     assert(ExitInst && "ExitInst is expected to be non-null here.");
     LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
                    isMemOnly());
@@ -1811,7 +1924,7 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
     }
   }
   if (ExitInst) {
-    PTag = VPPrivate::PrivateTag::PTUndef;
+    PTag = VPPrivate::PrivateTag::PTRegisterized;
     return;
   }
 

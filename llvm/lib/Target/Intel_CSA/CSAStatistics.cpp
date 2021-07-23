@@ -106,7 +106,7 @@ bool CSAStatistics::runOnMachineFunction(MachineFunction &MF) {
   std::error_code EC;
   StringRef srcFilename = MF.getFunction().getParent()->getSourceFileName();
   LLVM_DEBUG(errs() << "Writing '" << Filename << "'...");
-  raw_fd_ostream O(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream O(Filename, EC, sys::fs::OF_Text);
   O << "CSA Statistics for function: " << MF.getName().str() << " in "
     << srcFilename << "\n";
 

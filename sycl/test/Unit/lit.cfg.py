@@ -45,10 +45,6 @@ else:
     # Disable device library fallback for unit tests by default.
     config.environment['SYCL_DEVICELIB_NO_FALLBACK'] = "1"
 
-# Unconditionally enable persistent device code caching, as it is off
-# by default, and some unit tests depend on it.
-config.environment['SYCL_CACHE_PERSISTENT'] = "1"
-
 # INTEL_CUSTOMIZATION
 # Tests assume that the host device is always available
 config.environment['SYCL_ENABLE_HOST_DEVICE'] = "1"
@@ -82,5 +78,7 @@ else:
     lit_config.warning("unable to inject shared library path on '{}'"
                        .format(platform.system()))
 
-config.environment['SYCL_DEVICE_FILTER'] = lit_config.params.get('SYCL_PLUGIN', "opencl")
+config.environment['SYCL_CACHE_DIR'] = config.llvm_obj_root + "/sycl_cache"
+config.environment['SYCL_DEVICE_FILTER'] = lit_config.params.get('SYCL_PLUGIN', "opencl") + ",host"
 lit_config.note("Backend: {}".format(config.environment['SYCL_DEVICE_FILTER']))
+lit_config.note("SYCL cache directory: {}".format(config.environment['SYCL_CACHE_DIR']))

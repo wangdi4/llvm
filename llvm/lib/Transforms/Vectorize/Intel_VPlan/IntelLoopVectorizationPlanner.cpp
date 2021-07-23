@@ -24,7 +24,6 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModel.h"
-#include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanEvaluator.h"
 #include "IntelVPlanHCFGBuilder.h"
@@ -41,6 +40,15 @@
 #include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
+
+static cl::opt<bool>
+    VPlanEnablePeeling("vplan-enable-peeling", cl::init(false),
+    cl::desc("Enable generation of peel loops to improve "
+             "alignment of memory accesses"));
+
+static cl::opt<bool>
+    VPlanEnableDynamicPeeling("vplan-enable-dynamic-peeling-cm", cl::init(true),
+    cl::desc("Use cost model to decide whether to do dynamic peeling or not"));
 
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
@@ -96,6 +104,14 @@ static cl::opt<bool> PrintVecScenario(
     "vplan-print-vec-scenario", cl::init(false), cl::Hidden,
     cl::desc("Print selected single loop vectorization scenario"));
 
+static cl::opt<unsigned> FavorAlignedToleranceNonDefaultTCEst(
+  "vplan-favor-aligned-tolerance-non-default-tc", cl::init(2), cl::Hidden,
+  cl::desc("Favor aligned tolerance percent value for non-default TC estimation"));
+
+static cl::opt<unsigned> FavorAlignedMultiplierDefaultTCEst(
+  "vplan-favor-aligned-multiplier-default-tc", cl::init(2), cl::Hidden,
+  cl::desc("Favour aligned tolerance multiplier for default TC estimation"));
+
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
                                                "LoopCFU transformation");
@@ -142,6 +158,13 @@ static cl::opt<bool, true>
     EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
                          cl::location(EnableSOAAnalysis),
                          cl::desc("Enable VPlan SOAAnalysis."));
+// Flag to enable SOA-analysis for HIR.
+// TODO: Ideally, this should be in the IntelVPlanDriver file. In the future,
+// consider moving it there.
+static cl::opt<bool, true>
+    EnableSOAAnalysisHIROpt("vplan-enable-soa-hir", cl::Hidden,
+                            cl::location(EnableSOAAnalysisHIR),
+                            cl::desc("Enable VPlan SOAAnalysis for HIR."));
 
 static cl::opt<bool>
     PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
@@ -212,8 +235,9 @@ namespace vpo {
 bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
-bool EnableSOAAnalysis = false;
-bool EnableNewCFGMerge = false;
+bool EnableSOAAnalysis = true;
+bool EnableSOAAnalysisHIR = false;
+bool EnableNewCFGMerge = true;
 } // namespace vpo
 } // namespace llvm
 
@@ -235,7 +259,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
+int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
 
 #if INTEL_CUSTOMIZATION
@@ -278,8 +302,8 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
     // min/max VF computation.
     VFs.push_back(1);
 #endif // INTEL_CUSTOMIZATION
-  } else if (MD != nullptr) {
-    extractVFsFromMetadata(MD, Safelen);
+  } else if (VectorlengthMD != nullptr) {
+    extractVFsFromMetadata(Safelen);
   } else {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
@@ -341,13 +365,12 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
   return 1;
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
-                                                      LLVMContext *Context,
+unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL,
                                                       std::string VPlanName,
                                                       ScalarEvolution *SE) {
   ++VPlanOrderNumber;
-  setDefaultVectorFactors(MD);
+  setDefaultVectorFactors();
   if (VFs[0] == 0)
     return 0;
 
@@ -355,8 +378,12 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
   UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
 
   // TODO: revisit when we build multiple VPlans.
-  std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(*Externals, *UnlinkedVPInsts,
-                                                        VPlanName, SE);
+  std::shared_ptr<VPlanVector> Plan =
+      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, SE);
+  if (!Plan) {
+    LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
+    return 0;
+  }
 
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
@@ -389,6 +416,36 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
   Plan->computePDT();
   Plan->computeDA();
 
+  // For VConflict idiom, we should bail-out for some VFs because vconflict
+  // intrinsic might not be available.
+  unsigned MaxVecRegSize =
+      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+          .getFixedSize();
+
+  for (auto &VPInst : vpinstructions(Plan.get()))
+    if (auto *VPConflict = dyn_cast<VPGeneralMemOptConflict>(&VPInst)) {
+      unsigned VConflictIndexSizeInBits = VPConflict->getConflictIndex()
+                                              ->getType()
+                                              ->getPrimitiveSizeInBits()
+                                              .getFixedSize();
+
+      unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
+
+      VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
+                               [MaxVF](unsigned VF) { return VF > MaxVF; }),
+                VFs.end());
+    }
+
+  // When we force VF to have a special value, VFs vector has only one value.
+  // Therefore, we have to check if we removed the only value that was in VFs.
+  if (VFs.empty()) {
+    LLVM_DEBUG(dbgs() << "VConflict idiom cannot be optimized for VF > "
+                         "MaxVecRegSize / VConflictIndexSizeInBits.\n");
+    return 0;
+  }
+
+  assert(!VFs.empty() && "The vector with VFs should have at least one value.");
+
   // TODO: Insert initial run of SVA here for any new users before CM & CG.
   for (unsigned TmpVF : VFs)
     VPlans[TmpVF] = {Plan, nullptr};
@@ -414,6 +471,7 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
   std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
 
+  bool EnableDP = isDynAlignEnabled();
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
     auto *Plan = cast<VPlanNonMasked>(Pair.second.MainPlan.get());
@@ -434,10 +492,10 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
     if (EnableGeneralPeelingCostModel) {
       VPlanCostModel GeneralCM(Plan, VF, TTI, TLI, DL, VLSA);
       VPlanPeelingCostModelGeneral PeelingCM(GeneralCM);
-      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM, EnableDP);
     } else {
       VPlanPeelingCostModelSimple PeelingCM(*DL);
-      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM, EnableDP);
     }
 
     Plan->setPreferredPeeling(VF, std::move(BestPeeling));
@@ -456,11 +514,11 @@ unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   return VPlanForceUF;
 }
 
-void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
-                                                      unsigned Safelen) {
+void LoopVectorizationPlanner::extractVFsFromMetadata(unsigned Safelen) {
   SmallVector<unsigned, 5> TmpVFs;
-  for (unsigned I = 1; I < (MD->getNumOperands()); I++) {
-    ConstantInt *IntMD = mdconst::extract<ConstantInt>(MD->getOperand(I));
+  for (unsigned I = 1; I < (VectorlengthMD->getNumOperands()); I++) {
+    ConstantInt *IntMD =
+        mdconst::extract<ConstantInt>(VectorlengthMD->getOperand(I));
     if (IntMD->getZExtValue() <= Safelen)
       TmpVFs.push_back(IntMD->getZExtValue());
   }
@@ -470,10 +528,10 @@ void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
   TmpVFs.erase(NewEnd, TmpVFs.end());
 
   unsigned I = 0;
-  if(TmpVFs.size() > 1)
+  if (TmpVFs.size() > 1)
     if (TmpVFs[0] <= 1)
       I = 1;
-  if(TmpVFs.size() > 2)
+  if (TmpVFs.size() > 2)
     if (TmpVFs[1] <= 1)
       I = 2;
   for (; I < TmpVFs.size(); I++) {
@@ -496,11 +554,101 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.setVectorMain(VF, UF);
 }
 
+Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vecremainder")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Vector Remainder was set by the user's "
+                               "#pragma vecremainder\n");
+    return true;
+  }
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.novecremainder")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Scalar Remainder was set by the user's #pragma "
+                                "novecremainder\n");
+    return false;
+  }
+  return None;
+}
+
+bool LoopVectorizationPlanner::readDynAlignEnabled() {
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.dynamic_align")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Dynamic Align was set by the user's "
+                               "#pragma vector dynamic_align\n");
+    return true;
+  }
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.nodynamic_align")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "No dynamic Align was set by the user's "
+                               "#pragma vector nodynamic_align\n");
+    return false;
+  }
+  return true;
+}
+
+static bool makeGoUnalignedDecision(int64_t AlignedGain,
+                                    int64_t UnalignedGain,
+                                    uint64_t ScalarCost,
+                                    uint64_t TripCount,
+                                    bool IsLoopTripCountEstimated) {
+  if (!VPlanEnablePeeling)
+    return true;
+
+  if (!VPlanEnableDynamicPeeling)
+    return true;
+
+  LLVM_DEBUG(dbgs() << "Using cost model to enable peeling. ");
+  if (!IsLoopTripCountEstimated) {
+    // When trip count is known, rely on cost model completely.
+    bool GoUnaligned = UnalignedGain > AlignedGain;
+    LLVM_DEBUG(dbgs() << "Trip count is known. "
+                      << "GoUnaligned = UnalignedGain > AlignedGain: "
+                      << UnalignedGain << " > " << AlignedGain << " = "
+                      << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  if (TripCount != DefaultTripCount) {
+    // Otherwise favor aligned with some tolerance of scalar iterations.
+    bool GoUnaligned = UnalignedGain >
+      (int64_t) (AlignedGain +
+                 (ScalarCost * FavorAlignedToleranceNonDefaultTCEst / 100));
+    LLVM_DEBUG(dbgs() << "Trip count != default trip count. GoUnaligned = "
+                      << "UnalignedGain > "
+                      << "(AlignedGain + (ScalarCost * "
+                      << "FavorAlignedToleranceNonDefaultTCEst / 100)): "
+                      << UnalignedGain << " > (" << AlignedGain << " + ("
+                      << ScalarCost << " * "
+                      << FavorAlignedToleranceNonDefaultTCEst << " / 100))"
+                      << " = " << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  if (UnalignedGain > 0 && AlignedGain > 0) {
+    bool GoUnaligned =
+      UnalignedGain > FavorAlignedMultiplierDefaultTCEst * AlignedGain;
+    LLVM_DEBUG(dbgs() << "Aligned and unaligned gains are positive. "
+                      << "GoUnaligned = "
+                      << "UnalignedGain > FavorAlignedMultiplierDefaultTCEst "
+                      << "* AlignedGain: "
+                      << UnalignedGain << " > "
+                      << FavorAlignedMultiplierDefaultTCEst << " * "
+                      << AlignedGain << " = " << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  // We're here when one (or both) is <= 0. Perhaps, going unaligned is correct.
+  return false;
+}
+
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
 /// the corresponding VPlan.
 template <typename CostModelTy>
 std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
+  if (VPlanEnablePeeling)
+   selectBestPeelingVariants();
+
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
   VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
@@ -514,6 +662,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
   unsigned BestUF = getLoopUnrollFactor();
+  bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
   // Reset the current selection to scalar loop only.
@@ -586,7 +735,15 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     // Calculate cost for one iteration of the main loop.
     CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
-    const unsigned MainLoopIterationCost = MainLoopCM.getCost();
+    VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
+
+    // Peeling is not supported for non-normalized loops.
+    VPLoop *L = Plan->getMainLoop(true);
+    if (!L->hasNormalizedInduction())
+      PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
+
+    const unsigned MainLoopIterationCost =
+      MainLoopCM.getCost(PeelingVariant);
     if (MainLoopIterationCost == CostModelTy::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF) {
@@ -596,11 +753,22 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       }
       continue;
     }
-    VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
+    LLVM_DEBUG(dbgs() << "Selected peeling: ";
+      if (PeelingVariant) {
+        if (isa<VPlanDynamicPeeling>(PeelingVariant))
+          dbgs() << "Dynamic\n";
+        else
+          dbgs() << "Static("
+                 << cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
+                 << ")\n";
+      } else {
+        dbgs() << "None\n";
+      }
+    );
+
     // Calculate the total cost of peel loop if there is one.
     VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
                                      VLSA, VF, PeelingVariant);
-
     // Calculate the total cost of remainder loop if there is one.
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
@@ -617,11 +785,38 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           MainLoopIterationCost * MainLoopTripCount +
                           RemainderEvaluator.getLoopCost();
 
+    // Calculate cost of one iteration of the main loop without preferred alignment.
+    const unsigned MainLoopIterationCostWithoutPeel = MainLoopCM.getCost();
+    if (MainLoopIterationCostWithoutPeel == CostModelTy::UnknownCost) {
+      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " without peel is unknown. Skip it.\n");
+      continue;
+    }
+
+    // Calculate the total cost of remainder loop having no peeling, if there is one.
+    VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        0 /*Peel trip count */, VF, BestUF);
+    const decltype(TripCount) MainLoopTripCountWithoutPeel =
+        TripCount / (VF * BestUF);
+    uint64_t VectorCostWithoutPeel =
+        MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
+        RemainderEvaluatorWithoutPeel.getLoopCost();
+
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
       VectorCost = (VectorCost * VecThreshold) / 100;
+      VectorCostWithoutPeel = (VectorCostWithoutPeel * VecThreshold) / 100;
     }
+
+    int64_t GainWithPeel    = ScalarCost - VectorCost;
+    int64_t GainWithoutPeel = ScalarCost - VectorCostWithoutPeel;
+    bool GoUnaligned = makeGoUnalignedDecision(GainWithPeel,
+                                               GainWithoutPeel,
+                                               ScalarCost,
+                                               TripCount,
+                                               IsTripCountEstimated);
+
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
     (void)CmpChar;
@@ -639,6 +834,19 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                << MainLoopTripCount * MainLoopIterationCost << "\n"
                << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
                << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
+               << "\n"
+               // Print out costs without peel.
+               << " VectorCostWithoutPeel = "
+               << MainLoopTripCountWithoutPeel << " x "
+               << MainLoopIterationCostWithoutPeel
+               << " = " << VectorCostWithoutPeel
+               << "\n"
+               << "Main loop vector cost without peel = "
+               << MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel
+               << "\n"
+               << "Remainder loop cost without peel = "
+               << RemainderEvaluatorWithoutPeel.getLoopCost()
+               << " (" << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
                << "\n";);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -653,9 +861,27 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+    if (GoUnaligned) {
+      PeelEvaluator.disable();
+      // Total cost is cost without peeling.
+      VectorCost = VectorCostWithoutPeel;
+      LLVM_DEBUG(dbgs() << "Peeling will not be performed.\n");
+    } else {
+      LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
+    }
+
     if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
-      updateVecScenario(PeelEvaluator, RemainderEvaluator, VF, BestUF);
+      updateVecScenario(PeelEvaluator,
+                        GoUnaligned ? RemainderEvaluatorWithoutPeel
+                                    : RemainderEvaluator,
+                        VF, BestUF);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (PrintVecScenario) {
+        dbgs() << "Updated scenario for VF: " << VF << "\n";
+        VecScenario.dump();
+      }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
     }
   }
 #if INTEL_CUSTOMIZATION
@@ -665,6 +891,18 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (VecScenario.getMainVF() == 1 && IsVectorAlways) {
     selectSimplestVecScenario(VFs[0], 1);
   }
+
+  // Workaround for using DefaultTripCount: in some cases we can have situation
+  // when static peeling and current value of DefaultTripCount can lead to
+  // incorrect decision "the remainder is not needed". E.g. we have
+  // DefaultTripCount = 303, with static peel count 3 we have tc = 300, and for
+  // VF=4 or VF=2 we have no iterations for remainder.
+  // The correct fix should be made in remainder evaluator, but that fix
+  // requires the cost model tuning as with the current cost model we have
+  // regressions.
+  if (IsTripCountEstimated && !VecScenario.hasRemainder())
+    VecScenario.addScalarRemainder();
+
 #endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (!VecScenarioStr.empty()) {
@@ -680,7 +918,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (VecScenario.hasPeel()) {
       VPlanVector *MPlan = getVPlanForVF(VF);
       VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
-      if (VecScenario.hasMaskedPeel() && !hasLoopNormalizedInduction(L)) {
+      if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
@@ -836,14 +1074,14 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
   VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
 }
 
-void LoopVectorizationPlanner::unroll(
-    VPlanVector &Plan,
-    VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart) {
+bool LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
   unsigned UF = getLoopUnrollFactor();
   if (UF > 1) {
     VPlanLoopUnroller Unroller(Plan, UF);
-    Unroller.run(VPInstUnrollPart);
+    Unroller.run();
+    return true;
   }
+  return false;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -868,7 +1106,11 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
     // stderr to Filecheck.
-    CM.print(outs(), Header);
+    //
+    // Issue getCost() method of CM with specified OS argument. Eventually we
+    // want to delete this method and allow normal call to CM.getCost() during
+    // VF selection to dump.
+    CM.getCost(nullptr /* PeelingVariant */, &outs());
   }
 }
 
@@ -1000,7 +1242,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
 
   // Build hierarchical CFG
   VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
-  HCFGBuilder.buildHierarchicalCFG();
+  if (!HCFGBuilder.buildHierarchicalCFG())
+    return nullptr;
 
   return SharedPlan;
 }
@@ -1032,10 +1275,15 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
   VPValue *OrigTC = nullptr;
-  bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop);
+  VPValue *VF = nullptr;
+  Type *VectorLoopIVType = nullptr;
+  VPInstruction *IVUpdate = nullptr;
+  bool ExactUB = true;
+  bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop, ExactUB);
+  CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd, ExactUB);
   if (!HasNormalizedInd) {
     // If loop does not have normalized induction then emit it.
-    Type *VectorLoopIVType = Legal->getWidestInductionType();
+    VectorLoopIVType = Legal->getWidestInductionType();
     if (!VectorLoopIVType) {
       // Ugly workaround for tests forcing VPlan build when we can't actually do
       // that. Shouldn't happen outside stress/forced pipeline.
@@ -1043,31 +1291,27 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
     }
     auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
 
-    auto *VF =
-        Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
+    VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
+  } else {
+    VPCmpInst *Cond;
+    std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
+    IVUpdate = cast<VPInstruction>(Cond->getOperand(0) == OrigTC
+                                       ? Cond->getOperand(1)
+                                       : Cond->getOperand(0));
+    VectorLoopIVType = IVUpdate->getType();
+  }
 
+  if (!OrigTC)
     OrigTC = Builder.create<VPOrigTripCountCalculation>(
         "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
-    auto *TC = Builder.create<VPVectorTripCountCalculation>("vector.trip.count",
-                                                            OrigTC);
-
-    emitVectorLoopIV(Plan, TC, VF);
-  } else {
-    // Having normalized induction we just replace the upper bound.
-    VPInstruction *Cond = nullptr;
-    std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
-    auto *VTC = Builder.create<VPVectorTripCountCalculation>(
-        "vector.trip.count", OrigTC);
-    // TODO: propagate attributes from OrigTC, if possible.
-    if (auto *IOrigTC = dyn_cast<VPInstruction>(OrigTC))
-      VTC->setDebugLocation(IOrigTC->getDebugLocation());
-    Cond->replaceUsesOfWith(OrigTC, VTC);
-  }
+  auto VecTC =
+      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
+  emitVectorLoopIV(Plan, VecTC, VF, IVUpdate, ExactUB);
 }
 
 void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,
-                                                VPValue *TripCount,
-                                                VPValue *VF) {
+                                                VPValue *TripCount, VPValue *VF,
+                                                VPValue *IVUpdate, bool ExactUB) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 
@@ -1077,19 +1321,25 @@ void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,
   assert(PreHeader && "Single pre-header is expected!");
   assert(Latch && "Single loop latch is expected!");
 
-  Type *VectorLoopIVType = TripCount->getType();
-  auto *VPZero =
-      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
-
   VPBuilder Builder;
-  Builder.setInsertPoint(Header, Header->begin());
-  auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
-  IV->addIncoming(VPZero, PreHeader);
+  if (!IVUpdate) {
+    Type *VectorLoopIVType = TripCount->getType();
+    auto *VPZero =
+        Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+
+    Builder.setInsertPoint(Header, Header->begin());
+    auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
+    IV->addIncoming(VPZero, PreHeader);
+    Builder.setInsertPoint(Latch);
+    IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
+    IV->addIncoming(IVUpdate, Latch);
+  }
+
   Builder.setInsertPoint(Latch);
-  auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
-  IV->addIncoming(IVUpdate, Latch);
   auto *ExitCond = Builder.createCmpInst(
-      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_ULT : CmpInst::ICMP_UGE,
+      Latch->getSuccessor(0) == Header
+          ? (ExactUB ? CmpInst::ICMP_ULT : CmpInst::ICMP_ULE)
+          : (ExactUB ? CmpInst::ICMP_UGE : CmpInst::ICMP_UGT),
       IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();
@@ -1101,9 +1351,11 @@ void LoopVectorizationPlanner::emitVectorLoopIV(VPlanVector *Plan,
   // FIXME: "_or_null" here is due to broken stess pipeline that must really
   // stop right after CFG is imported, before *any* transformation is tried on
   // it.
-  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond))
+  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond)) {
+    ExitCond->setDebugLocation(Inst->getDebugLocation());
     if (Inst->getNumUsers() == 0)
       Latch->eraseInstruction(Inst);
+  }
 }
 
 void LoopVectorizationPlanner::doLoopMassaging(VPlanVector *Plan) {
@@ -1174,7 +1426,7 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {
-    LVL.setIsSimd();
+    LVL.setIsSimdFlag();
     LastprivateClause &LastPrivateClause = WRLp->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
 #if INTEL_CUSTOMIZATION
@@ -1298,11 +1550,18 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                             << Inst << "\n");
           return false;
         }
+      } else if (auto *Priv = LE->getPrivate(&Inst)) {
+        // TODO: This is a temporary bailout. Remove when conditional
+        // lastprivate finalization is supported in LLVM-IR vector CG.
+        if (Priv->isConditional()) {
+          LLVM_DEBUG(dbgs() << "LVP: Conditional lastprivate found, bailout "
+                               "since CG support is missing.\n"
+                            << Inst << "\n");
+          return false;
+        }
       } else if (Loop.isLiveOut(&Inst)) {
-        // Liveout that is not an induction or reduction is not supported
-        // currently.
-        LLVM_DEBUG(dbgs() << "LVP: Unsupported liveout found.\n"
-                          << Inst << "\n");
+        // All liveouts should be recognized via legality at this point.
+        assert(false && "Unrecognized liveout found.");
         return false;
       }
     }
@@ -1422,40 +1681,122 @@ void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactory &VPAF) {
 }
 
 // Return true if the compare and branch sequence guarantees the loop trip count
-// to match the invariant operand of the compare.
+// is meaningful, i.e. the loop is executed as a loop. For example, consider the
+// following comination:
+//  %c = cmp EQ i, N
+//  br %c, label %loop_header, label %loop_exit
+// Taking into account that the loop IV starts from 0, this condition will allow
+// only one iteration and only when N is 0. In general, the loop should be
+// optimized into a scalar sequence with the corresponding guard, e.g.
+// Unoptimized version
+//  loop_header:
+//    %i = phi [0, %pre_header], [%add, %body]
+//    loop_body
+//    %c = cmp EQ %i, %N
+//    br %c, label %loop_header, label %loop_exit
+//  loop_exit:
+//  ==>
+// Optimized version (does not have any loop):
+//  loop_header:
+//    %c = cmp EQ 0, %N
+//    br %c label %body, label %loop_exit
+//  body:
+//    loop_body
+//  loop_exit:
+//
+// So having the condition and successors' order above we don't consider the
+// loop as not having normalized induction.
+//
+// \p ExactUB is set to true if the loop trip count is equal to
+// invariant operand of the compare and to false if tc is equal to that
+// operand + 1.
 static bool supportedCmpBranch(VPBasicBlock *Header, VPBasicBlock *Latch,
-                               VPBasicBlock *LoopExit, VPCmpInst *Cond,
-                               VPInstruction *AddI) {
+                               VPCmpInst *Cond, VPInstruction *AddI,
+                               bool &ExactUB) {
   auto Pred = Cond->getPredicate();
-  auto *CondOp0 = Cond->getOperand(0);
-  auto *CondOp1 = Cond->getOperand(1);
-  auto *LatchSucc0 = Latch->getSuccessor(0);
-  auto *LatchSucc1 = Latch->getSuccessor(1);
+  bool IsFirstOpIV = Cond->getOperand(0) == AddI;
+  bool IsFirstSuccHeader = Latch->getSuccessor(0) == Header;
 
-  if (Pred == CmpInst::ICMP_EQ && LatchSucc0 == LoopExit &&
-      LatchSucc1 == Header)
+  ExactUB = true;
+  // Starting induction value from 0, we have the following iteration counts
+  // for different combinations of latch condition and successors
+  // EQ i, N                 loop impossible
+  //   br header, exit
+  // EQ i, N                 N
+  //   br exit, header
+  // EQ N, i                 loop impossible
+  //   br header, exit
+  // EQ N, i                 N
+  //   br exit, header
+  if (Pred == CmpInst::ICMP_EQ && !IsFirstSuccHeader)
     return true;
 
-  if (Pred == CmpInst::ICMP_NE && LatchSucc0 == Header &&
-      LatchSucc1 == LoopExit)
+  // NE i, N                 N
+  //   br header, exit
+  // NE i, N                 loop impossible
+  //   br exit, header
+  // NE N, i                 N
+  //   br header, exit
+  // NE N, i                 loop impossible
+  //   br exit, header
+  if (Pred == CmpInst::ICMP_NE && IsFirstSuccHeader)
     return true;
 
-  if (ICmpInst::isLT(Pred) && CondOp0 == AddI && LatchSucc0 == Header &&
-      LatchSucc1 == LoopExit)
+  // LT i, N                 N
+  //   br header, exi
+  // LT i, N                 loop impossible
+  //   br exit, header
+  // LT N, i                 loop impossible
+  //   br header, exit
+  // LT N, i                 N + 1
+  //   br exit, header
+  if (ICmpInst::isLT(Pred) && ((IsFirstOpIV && IsFirstSuccHeader) ||
+                               (!IsFirstOpIV && !IsFirstSuccHeader))) {
+    ExactUB = (IsFirstOpIV && IsFirstSuccHeader);
     return true;
+  }
 
-  if (ICmpInst::isGE(Pred) && CondOp0 == AddI && LatchSucc0 == LoopExit &&
-      LatchSucc1 == Header)
+  // GE i, N                 loop impossible
+  //   br header, exit
+  // GE i, N                 N
+  //   br exit, header
+  // GE N, i                 N +1
+  //   br header, exit
+  // GE N,i                  loop impossible
+  //   Br exit, header
+  if (ICmpInst::isGE(Pred) && ((IsFirstOpIV && !IsFirstSuccHeader) ||
+                               (!IsFirstOpIV && IsFirstSuccHeader))) {
+    ExactUB = (IsFirstOpIV && !IsFirstSuccHeader);
     return true;
+  }
 
-  if (ICmpInst::isGT(Pred) && CondOp1 == AddI && LatchSucc0 == Header &&
-      LatchSucc1 == LoopExit)
+  // GT i, N                 loop impossible
+  //   br header, exit
+  // GT i, N                 N + 1
+  //   br exit, header
+  // GT N, i                 N
+  //   br header, exit
+  // GT N, i                 loop impossible
+  //  br exit, header
+  if (ICmpInst::isGT(Pred) && ((!IsFirstOpIV && IsFirstSuccHeader) ||
+                               (IsFirstOpIV && !IsFirstSuccHeader))) {
+    ExactUB = (!IsFirstOpIV && IsFirstSuccHeader);
     return true;
+  }
 
-  if (ICmpInst::isLE(Pred) && CondOp1 == AddI && LatchSucc0 == LoopExit &&
-      LatchSucc1 == Header)
+  // LE i, N                 N+1
+  //  br header, exit
+  // LE i, N                 loop impossible
+  //  br exit, header
+  // LE N, i                 loop impossible
+  //  br header, exit
+  // LE N, i                 N
+  //  br exit, header
+  if (ICmpInst::isLE(Pred) && ((!IsFirstOpIV && !IsFirstSuccHeader) ||
+                               (IsFirstOpIV && IsFirstSuccHeader))) {
+    ExactUB = (!IsFirstOpIV && !IsFirstSuccHeader);
     return true;
-
+  }
   return false;
 }
 
@@ -1469,7 +1810,9 @@ static bool supportedCmpBranch(VPBasicBlock *Header, VPBasicBlock *Latch,
 // %add = add i64 %ind.phi, %ind.step
 // %cmp = icmp sle i64 %add, %loop.invariant
 //
-bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
+bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop,
+                                                          bool &ExactUB) {
+  ExactUB = true;
   VPBasicBlock *Latch = Loop->getLoopLatch();
   if (!Latch)
     return false;
@@ -1483,7 +1826,6 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
     return false;
 
   VPBasicBlock *Header = Loop->getHeader();
-  VPBasicBlock *LoopExit = Loop->getExitBlock();
   VPInstruction *AddI = nullptr;
   auto getAddInstr = [&AddI, Cond, Loop](int NumOp) -> bool {
     // Check that the NumOp-th operand of Cond is an "add" instruction inside
@@ -1526,11 +1868,6 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
       VPValue *Init = PN->getIncomingValue(Preheader);
       if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
         Init = IndInit->getStartValueOperand();
-        if (auto *VPLiveIn = dyn_cast<VPLiveInValue>(Init))
-          Init = IndInit->getParent()
-                     ->getParent()
-                     ->getExternals()
-                     .getOriginalIncomingValue(VPLiveIn->getMergeId());
       }
       if (isa<VPConstantInt>(Init) &&
           cast<VPConstantInt>(Init)->getValue() == 0)
@@ -1540,7 +1877,7 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
     }
     // All checks succeeded so far. Return true if compare and branch
     // are in supported form.
-    return supportedCmpBranch(Header, Latch, LoopExit, Cond, AddI);
+    return supportedCmpBranch(Header, Latch, Cond, AddI, ExactUB);
   }
   return false;
 }

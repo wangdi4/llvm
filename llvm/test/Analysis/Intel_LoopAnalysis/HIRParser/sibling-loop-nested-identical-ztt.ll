@@ -1,7 +1,8 @@
 ; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -hir-details -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 < %s | FileCheck %s
 
-; Verify that loop formation is able to remove identical nested ifs and set them as ZTTs for both sibling loops.
+; Verify that cleanup phase is able to remove identical nested ifs and loop
+; formation phase is able to set them as ZTTs for both sibling loops.
 
 ; Dump before loop formation showing nested ZTTs-
 

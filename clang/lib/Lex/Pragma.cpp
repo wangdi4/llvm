@@ -412,9 +412,13 @@ void Preprocessor::HandlePragmaOnce(Token &OnceTok) {
   HeaderInfo.MarkFileIncludeOnce(getCurrentFileLexer()->getFileEntry());
 }
 
-void Preprocessor::HandlePragmaMark() {
+void Preprocessor::HandlePragmaMark(Token &MarkTok) {
   assert(CurPPLexer && "No current lexer?");
-  CurLexer->ReadToEndOfLine();
+
+  SmallString<64> Buffer;
+  CurLexer->ReadToEndOfLine(&Buffer);
+  if (Callbacks)
+    Callbacks->PragmaMark(MarkTok.getLocation(), Buffer);
 }
 
 /// HandlePragmaPoison - Handle \#pragma GCC poison.  PoisonTok is the 'poison'.
@@ -992,7 +996,7 @@ struct PragmaMarkHandler : public PragmaHandler {
 
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
                     Token &MarkTok) override {
-    PP.HandlePragmaMark();
+    PP.HandlePragmaMark(MarkTok);
   }
 };
 
@@ -1961,6 +1965,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
     AddPragmaHandler(new PragmaExecCharsetHandler());
     AddPragmaHandler(new PragmaIncludeAliasHandler());
     AddPragmaHandler(new PragmaHdrstopHandler());
+    AddPragmaHandler(new PragmaSystemHeaderHandler());
   }
 
   // Pragmas added by plugins

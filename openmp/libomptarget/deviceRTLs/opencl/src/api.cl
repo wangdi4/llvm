@@ -27,10 +27,14 @@ EXTERN int omp_get_team_num(void) {
 }
 
 EXTERN int omp_get_num_teams(void) {
-  return __kmp_get_num_groups();
+  int ret = __kmp_get_num_groups();
+  return ret;
 }
 
 EXTERN int omp_get_team_size(int level) {
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return __kmp_get_local_size();
+#else
   bool is_spmd_mode = __kmp_is_spmd_mode();
   if (is_spmd_mode)
     return level == 1 ? __kmp_get_local_size() : 1;
@@ -59,6 +63,7 @@ EXTERN int omp_get_team_size(int level) {
 
   // Gray area
   return KMP_UNSPECIFIED;
+#endif
 }
 
 EXTERN int omp_get_thread_num(void) {
@@ -71,12 +76,13 @@ EXTERN int omp_get_thread_num(void) {
 
 EXTERN int omp_get_num_threads(void) {
 #if KMP_ASSUME_SIMPLE_SPMD_MODE
-  int spmd_num_threads = __omp_spirv_global_data.spmd_num_threads;
-  if (spmd_num_threads <= 0)
-    return __kmp_get_local_size();
+  size_t group_id = __kmp_get_group_id();
+  if (__omp_spirv_program_data.device_type == 0 &&
+      group_id < KMP_MAX_SPMD_NUM_GROUPS &&
+      __omp_spirv_spmd_num_threads[group_id] > 0)
+    return __omp_spirv_spmd_num_threads[group_id];
   else
-    // was set by __kmpc_spmd_push_num_threads
-    return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
+    return __kmp_get_local_size();
 #else
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
 #endif
@@ -179,6 +185,7 @@ EXTERN int omp_pause_resource_all(omp_pause_resource_t kind) {
   return -1;
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 // Initialize global barrier
 EXTERN void kmp_global_barrier_init(void) {
 // TODO: decide default implementation based on performance
@@ -197,6 +204,22 @@ EXTERN void kmp_global_barrier(void) {
 #else
   __kmp_barrier_counting(&__omp_spirv_global_data.g_barrier);
 #endif
+}
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
+
+EXTERN void ompx_nbarrier_init(uint nbarrier_count) {
+  __kmpc_nbarrier_init(nbarrier_count);
+}
+
+EXTERN void ompx_nbarrier_wait(uint nbarrier_id) {
+  __kmpc_nbarrier_wait(nbarrier_id);
+}
+
+EXTERN void ompx_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type) {
+  __kmpc_nbarrier_signal(nbarrier_id, num_producers, num_consumers, op_type,
+                         fence_type);
 }
 
 #endif // INTEL_COLLAB

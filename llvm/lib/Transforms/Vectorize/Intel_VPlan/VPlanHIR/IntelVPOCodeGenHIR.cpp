@@ -41,9 +41,9 @@
 #include "llvm/Transforms/Utils/GeneralUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #define DEBUG_TYPE "VPOCGHIR"
 
@@ -154,22 +154,6 @@ static bool refIsUnit(unsigned Level, const RegDDRef *Ref, VPOCodeGenHIR *CG) {
 
   CG->addUnitStrideRef(Ref);
   return true;
-}
-
-/// Create an interleave shuffle mask. This function mimics the interface in
-/// VectorUtils.cpp which requires us to pass in an IRBuilder. This function
-/// creates a shuffle mask for interleaving NumVecs vectors of vectorization
-/// factor VF into a single wide vector. The mask is of the form: <0, VF, VF *
-/// 2, ..., VF * (NumVecs - 1), 1, VF + 1, VF * 2 + 1, ...> For example, the
-/// mask for VF = 4 and NumVecs = 2 is: <0, 4, 1, 5, 2, 6, 3, 7>.
-static Constant *createInterleaveMask(LLVMContext &Context, unsigned VF,
-                                      unsigned NumVecs) {
-  SmallVector<Constant *, 16> Mask;
-  for (unsigned I = 0; I < VF; ++I)
-    for (unsigned J = 0; J < NumVecs; ++J)
-      Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), J * VF + I));
-
-  return ConstantVector::get(Mask);
 }
 
 /// Create a sequential shuffle mask. This function mimics the interface in
@@ -1357,7 +1341,7 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
     return false;
 
   // Check for explicit SIMD reductions.
-  if (auto *Descr = HIRLegality->isReduction(Ref)) {
+  if (auto *Descr = HIRLegality->getReductionDescr(Ref)) {
     Opcode = VPReduction::getReductionOpcode(Descr->Kind);
     return true;
   }
@@ -1384,7 +1368,7 @@ static void setRefAlignment(Type *ScalRefTy, RegDDRef *WideRef) {
 }
 
 RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
-                                  bool InterLeaveAccess) {
+                                  bool LaneZeroOnly) {
   assert(Ref && "DDRef to be widened should not be null.");
 
   RegDDRef *WideRef;
@@ -1443,8 +1427,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   // is set to vector of pointers(scalar desttype).
   if (WideRef->hasGEPInfo()) {
     auto AddressSpace = Ref->getPointerAddressSpace();
-    SmallVector<const RegDDRef *, 1> RefVec = {Ref};
-    propagateMetadata(WideRef, RefVec);
+    propagateMetadata(WideRef, Ref);
     if (WideRef->isAddressOf()) {
       WideRef->setBitCastDestType(VecRefDestTy);
     } else {
@@ -1453,14 +1436,11 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     }
   }
 
-  unsigned NestingLevel = OrigLoop->getNestingLevel();
-  if (CurrentVPInstUnrollPart > 0 && !EnableVPValueCodegenHIR)
-    WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
-
-  // For unit stride ref, nothing else to do. We assume unit stride for
-  // interleaved access.
-  if (isUnitStrideRef(Ref) || InterLeaveAccess)
+  // For unit stride ref, nothing else to do.
+  if (isUnitStrideRef(Ref) || LaneZeroOnly)
     return WideRef;
+
+  unsigned NestingLevel = OrigLoop->getNestingLevel();
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
   RegDDRef::CanonExprsTy WideRefCEs;
@@ -1594,11 +1574,24 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       auto OldSymbase = BlobUtilities.getTempBlobSymbase(BI);
 
-      // A temp blob not widened before is a loop invariant - it will be
-      // broadcast in HIRCG when needed.
+      // A temp blob not widened before is scalarized value - we ignore scalar
+      // types since it will be implicitly broadcasted in HIRCG when needed. For
+      // vector type blobs we do an explicit replication.
       if (auto *WRef = getWideRef(OldSymbase)) {
         AuxRefs.push_back(WRef);
         CE->replaceBlob(BI, WRef->getSingleCanonExpr()->getSingleBlobIndex());
+      } else if (TopBlob->getType()->isVectorTy()) {
+        assert(WideRef->getSingleCanonExpr()->getSingleBlobIndex() == BI &&
+               "Unexpected RegDDRef/Blob for scalarized vector blob");
+        assert(WideRef->getDestType() != VecRefDestTy &&
+               "Vector Blob was not scalarized.");
+        // Replicate vector blob VF times.
+        HLInst *ReplBlobInst = replicateVector(WideRef, VF);
+        // Insert the replicating instruction into vector loop.
+        addInstUnmasked(ReplBlobInst);
+        auto NewRef = ReplBlobInst->getLvalDDRef();
+        AuxRefs.push_back(NewRef);
+        CE->replaceBlob(BI, NewRef->getSingleCanonExpr()->getSingleBlobIndex());
       }
     }
 
@@ -1833,15 +1826,8 @@ HLInst *VPOCodeGenHIR::widenIfNode(const HLIf *HIf, RegDDRef *Mask) {
 }
 
 template <class MDSource>
-void VPOCodeGenHIR::propagateMetadata(
-    RegDDRef *NewRef, SmallVectorImpl<const MDSource *> &MDSrcVec) {
-  SmallVector<unsigned, 6> PreservedMDKinds = {
-      LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
-      LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
-      LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load};
-
-  // Start out by clearing all non-debug related metadata. The metadata for
-  // kinds in the preserved set is added later.
+void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const MDSource *SrcMD) {
+  // Start out by clearing all non-debug related metadata.
   RegDDRef::MDNodesTy MDs;
   NewRef->getAllMetadataOtherThanDebugLoc(MDs);
   for (auto It : MDs) {
@@ -1849,36 +1835,13 @@ void VPOCodeGenHIR::propagateMetadata(
     NewRef->setMetadata(It.first, nullptr);
   }
 
-  assert(MDSrcVec.size() && "Unexpected empty source vector");
-  const MDSource *Src0 = MDSrcVec[0];
-  for (auto Kind : PreservedMDKinds) {
-    MDNode *MD = Src0->getMetadata(Kind);
+  SmallVector<unsigned, 6> PreservedMDKinds = {
+      LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
+      LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
+      LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load};
 
-    for (int J = 1, E = MDSrcVec.size(); MD && J != E; ++J) {
-      const MDSource *SrcJ = MDSrcVec[J];
-      MDNode *MDJ = SrcJ->getMetadata(Kind);
-      switch (Kind) {
-      case LLVMContext::MD_tbaa:
-        MD = MDNode::getMostGenericTBAA(MD, MDJ);
-        break;
-      case LLVMContext::MD_alias_scope:
-        MD = MDNode::getMostGenericAliasScope(MD, MDJ);
-        break;
-      case LLVMContext::MD_fpmath:
-        MD = MDNode::getMostGenericFPMath(MD, MDJ);
-        break;
-      case LLVMContext::MD_noalias:
-      case LLVMContext::MD_nontemporal:
-      case LLVMContext::MD_invariant_load:
-        MD = MDNode::intersect(MD, MDJ);
-        break;
-      default:
-        llvm_unreachable("unhandled metadata");
-      }
-    }
-
-    NewRef->setMetadata(Kind, MD);
-  }
+  for (auto Kind : PreservedMDKinds)
+    NewRef->setMetadata(Kind, SrcMD->getMetadata(Kind));
 }
 
 void VPOCodeGenHIR::propagateDebugLocation(const VPInstruction *VPInst) {
@@ -2069,277 +2032,6 @@ HLInst *VPOCodeGenHIR::replicateVectorElts(RegDDRef *Input,
              dbgs() << "\n");
 
   return ReplVecInst;
-}
-
-HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
-                                             RegDDRef *WLoadRes,
-                                             int64_t InterleaveFactor,
-                                             int64_t InterleaveIndex,
-                                             RegDDRef *Mask) {
-  SmallVector<Constant *, 8> ShuffleMask;
-  // Create the interleaved load shuffle for memory access at position
-  // InterleaveIndex in the VLS group.
-  for (unsigned Index = 0; Index < VF; ++Index) {
-    Constant *Mask =
-        ConstantInt::get(Type::getInt32Ty(Context),
-                         InterleaveIndex + (InterleaveFactor * Index));
-    ShuffleMask.push_back(Mask);
-  }
-
-  // Create shuffle instruction using the result of the wide load and the
-  // computed shuffle mask.
-  RegDDRef *WLvalRef = LvalRef ? widenRef(LvalRef, getVF()) : nullptr;
-  HLInst *Shuffle = createShuffleWithUndef(WLoadRes->clone(), ShuffleMask,
-                                           "vls.shuf", WLvalRef);
-
-  addInst(Shuffle, Mask);
-  if (LvalRef)
-    addToMapAndHandleLiveOut(LvalRef, Shuffle, MainLoop);
-
-  // Shuffle instruction creation creates a new Lval ref if the passed in
-  // Lval ref during HLInst creation is null.
-  WLvalRef = Shuffle->getLvalDDRef();
-  if (WLvalRef->isTerminalRef())
-    WLvalRef->makeSelfBlob();
-  return Shuffle;
-}
-
-HLInst *VPOCodeGenHIR::createInterleavedStore(ArrayRef<RegDDRef *> StoreVals,
-                                              RegDDRef *WStorePtrRef,
-                                              int64_t InterleaveFactor,
-                                              RegDDRef *Mask) {
-  RegDDRef *ConcatVec = concatenateVectors(StoreVals, Mask);
-
-  // Create interleaved store mask shuffle instruction to shuffle the
-  // concatenated vectors in the desired order for the wide store.
-  RegDDRef *UndefRef =
-      DDRefUtilities.createUndefDDRef(ConcatVec->getDestType());
-
-  Constant *InterleaveMask =
-      createInterleaveMask(Context, getVF(), InterleaveFactor);
-  RegDDRef *InterleaveMaskRef = DDRefUtilities.createConstDDRef(InterleaveMask);
-
-  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
-      ConcatVec->clone(), UndefRef, InterleaveMaskRef, "vls.interleave");
-  addInst(Shuffle, Mask);
-
-  // Create the wide store using the shuffled vector values and the widened
-  // store pointer reference.
-  RegDDRef *ShuffleRef = Shuffle->getLvalDDRef();
-  HLInst *WideStore = HLNodeUtilities.createStore(ShuffleRef->clone(),
-                                                  ".vls.store", WStorePtrRef);
-  addInst(WideStore, Mask);
-
-  return WideStore;
-}
-
-bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
-                                     const RegDDRef *Mask,
-                                     const VPInstruction *VPInst) {
-  // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
-  // it's not done, thus disable CG for it.
-  if (Mask)
-    return false;
-
-  // Interleaving makes sense iff Group is non-null.
-  if (!Group)
-    return false;
-
-  // Check for other conditions based on command line switches.
-  if (!EnableVPlanVLSCG)
-    return false;
-
-  auto Opcode = VPInst->getOpcode();
-  if (Opcode == Instruction::Load && !EnableVPlanVLSLoads)
-    return false;
-  if (Opcode == Instruction::Store && !EnableVPlanVLSStores)
-    return false;
-
-  // If the user is limiting the number of vectorized loops for which
-  // VLS optimization is enabled, only interleave for the specified
-  // number of loops.
-  if (VPlanVLSNumLoops >= 0 && LoopsVectorized > (unsigned)VPlanVLSNumLoops)
-    return false;
-
-  // If the reference is unit strided, we do not need interleaving.
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
-  bool IsNegOneStride;
-  if (isUnitStridePtr(PtrOp, IsNegOneStride))
-    return false;
-
-  return true;
-}
-
-void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
-                                           RegDDRef *Mask, const OVLSGroup *Grp,
-                                           int64_t InterleaveFactor,
-                                           int64_t InterleaveIndex) {
-  HLInst *WideInst = nullptr;
-  auto Opcode = VPLdSt->getOpcode();
-
-  // Given a load store instruction and its interleave index in the group,
-  // prepare and return the memory reference for use in the interleaved
-  // load/store. LdSt instruction corresponds to the first load instruction
-  // encountered in VPlan IR for a load group. For a store group, we are
-  // guaranteed to have encountered all the store instructions from a store
-  // group when generating the store. As a result, for the store case, LdInst
-  // corresponds to the first instruction in the store group and
-  // LdStInterleaveIndex is expected to be 0. Mixed CG mode can simply use the
-  // memory reference from the first instruction in the group for both loads and
-  // stores and widen the same. However, in VPValue CG mode, the first
-  // instruction in a load group may not be visited yet during code generation.
-  // Also note that we cannot rely on all operands of this first instruction to
-  // have been visited which prevents us from generating code for this first
-  // instruction on demand. In order to address this, the generated memory
-  // reference is adjusted using LdStInterleaveIndex if non-zero. Examples of
-  // incoming and outgoing HIR are included below.
-  auto prepareMemoryRef = [this, Grp,
-                           InterleaveFactor](const VPLoadStoreInst *LdSt,
-                                             int64_t LdStInterleaveIndex) {
-    // Get scalar memory reference
-    RegDDRef *WMemRef = getMemoryRef(LdSt, true /* Lane0Value */);
-
-    assert((LdSt->getOpcode() == Instruction::Load || !LdStInterleaveIndex) &&
-           "Unexpected store with non-zero interleave index");
-    // Adjust memory reference by subtracting LdStInterleaveIndex
-    if (LdStInterleaveIndex) {
-      if (WMemRef->hasTrailingStructOffsets(1)) {
-        // The memory reference has trailing struct offsets and the first
-        // instruction seen in the load group is not accessing the lowest
-        // memory address. Here is an example:
-        //    %0 = (%sarr)[i1].1;
-        //    %1 = (%sarr)[i1].0;
-        //    (%arr)[i1] = %0 + %1;
-        // For this case, WMemRef would be (%sarr)[i1].1 and interleave index
-        // would be 1. The generated wide VLS load for VF=4 would look like
-        // the following:
-        //    %.addrcopy = &((i64*)(%sarr)[i1].1);
-        //    %.vls.load = (<8 x i64>*)(%.addrcopy)[-1];
-        WMemRef->setAddressOf(true);
-        auto *AddrCopy = HLNodeUtilities.createCopyInst(WMemRef, ".addrcopy");
-        addInstUnmasked(AddrCopy);
-        WMemRef = createMemrefFromBlob(AddrCopy->getLvalDDRef(),
-                                       -LdStInterleaveIndex, 1);
-      } else {
-        // Subtract interleave index from the canon expression for the lowest
-        // dimension. Here is an example:
-        //    %0 = (%sarr)[2 * i1 + 1];
-        //    %1 = (%sarr)[2 * i1];
-        // For this case, WMemRef will be (%sarr)[2 * i1 + 1] and interleave
-        // index would be 1. Once we subtract the interleave index, WMemRef
-        // would be (%sarr)[2 * i1] which is used to generate the load.
-        CanonExpr *CE = WMemRef->getDimensionIndex(1);
-        CE->addConstant(-LdStInterleaveIndex, true /* IsMathAdd */);
-      }
-
-      // The alignment of the wide memory reference needs to be adjusted to be
-      // the same as that of the first memory(lowest offset) reference in the
-      // group.
-      const VPLoadStoreInst *FirstGrpInst = cast<VPLoadStoreInst>(
-          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getInstruction());
-      WMemRef->setAlignment(FirstGrpInst->getAlignment().value());
-    }
-
-    // Set memory ref's bitcast dest type to a pointer to <VF * InterleaveFactor
-    // x ValType>.
-    const VPValue *VPPtr = getLoadStorePointerOperand(LdSt);
-    PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
-    Type *ValTy = PtrTy->getElementType();
-    Type *VecValTy = FixedVectorType::get(ValTy, InterleaveFactor * VF);
-    WMemRef->setBitCastDestType(
-        PointerType::get(VecValTy, PtrTy->getAddressSpace()));
-
-    // Setup vector of instructions in the group. This vector is used to
-    // propagate metadata to the new memory ref.
-    SmallVector<const VPLoadStoreInst *, 4> LdStVec;
-    for (auto *Memref : Grp->getMemrefVec())
-      LdStVec.push_back(cast<VPLoadStoreInst>(
-          cast<VPVLSClientMemrefHIR>(Memref)->getInstruction()));
-
-    propagateMetadata(WMemRef, LdStVec);
-    return WMemRef;
-  };
-
-  if (Opcode == Instruction::Load) {
-    RegDDRef *WLoadRes;
-
-    auto It = VLSGroupLoadMap.find(Grp);
-    if (It == VLSGroupLoadMap.end()) {
-      // We are encountering the first instruction of a load group. Generate a
-      // wide load using the memory reference in the load instruction adjusted
-      // appropriately for InterleaveIndex.
-      RegDDRef *WMemRef = prepareMemoryRef(VPLdSt, InterleaveIndex);
-      assert(WMemRef && "The memory reference should not be null pointer");
-
-      if (Mask)
-        OptRptStats.MaskedVLSLoads += Grp->size();
-      else
-        OptRptStats.UnmaskedVLSLoads += Grp->size();
-
-      HLInst *WideLoad = HLNodeUtilities.createLoad(WMemRef, ".vls.load");
-      addInst(WideLoad, Mask);
-
-      // Set the result of the wide load and add the same to VLS Group load map.
-      WLoadRes = WideLoad->getLvalDDRef();
-      VLSGroupLoadMap[Grp] = WLoadRes;
-
-      DEBUG_WITH_TYPE("ovls",
-                      dbgs() << "Emitted a group-wide vector LOAD for Group#"
-                             << Grp->getDebugId() << ":\n  ");
-      DEBUG_WITH_TYPE("ovls", WideLoad->dump());
-    } else
-      WLoadRes = (*It).second;
-
-    WideInst = createInterleavedLoad(nullptr /* LvalRef */, WLoadRes,
-                                     InterleaveFactor, InterleaveIndex, Mask);
-    // Map the generated DDRef to corresponding VPInstruction.
-    addVPValueWideRefMapping(VPLdSt, WideInst->getLvalDDRef());
-  } else {
-    assert(Opcode == Instruction::Store &&
-           "Unexpected interleaved access instruction");
-    RegDDRef *WStoreValRef = widenRef(VPLdSt->getOperand(0), getVF());
-
-    auto It = VLSGroupStoreMap.find(Grp);
-    if (It == VLSGroupStoreMap.end()) {
-      // We are encountering the first instruction of an OPTVLS store group.
-      // Allocate an array of RegDDRef * that is big enough to store the values
-      // being stored in InterleaveFactor number of stores in the group.
-      // Initialize array elements to null and store in VLSGroupStoreMap.
-      It = VLSGroupStoreMap.try_emplace(Grp, InterleaveFactor).first;
-    }
-
-    // Store the widened store value into RegDDRef array.
-    It->second[InterleaveIndex] = WStoreValRef;
-
-    // Check if we are at the point of the last store in the VLS group.
-    unsigned Index;
-    for (Index = 0; Index < InterleaveFactor; ++Index)
-      if (It->second[Index] == nullptr)
-        break;
-
-    // If we have seen all the instructions in a store group, go ahead and
-    // generate the interleaved store.
-    if (Index == InterleaveFactor) {
-      if (Mask)
-        OptRptStats.MaskedVLSStores += Grp->size();
-      else
-        OptRptStats.UnmaskedVLSStores += Grp->size();
-
-      // Use the first instruction in the store group to generate the memory
-      // ref for interleaved store. The generated memory ref does not need
-      // any adjustment for InterleaveIndex.
-      const VPLoadStoreInst *FirstGrpInst = cast<VPLoadStoreInst>(
-          cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getInstruction());
-      RegDDRef *WStorePtrRef = prepareMemoryRef(FirstGrpInst, 0);
-      WideInst = createInterleavedStore(It->second, WStorePtrRef,
-                                        InterleaveFactor, Mask);
-
-      DEBUG_WITH_TYPE("ovls",
-                      dbgs() << "Emitted a group-wide vector STORE for Group#"
-                             << Grp->getDebugId() << ":\n  ");
-      DEBUG_WITH_TYPE("ovls", WideInst->dump());
-    }
-  }
 }
 
 HLInst *VPOCodeGenHIR::createBitCast(Type *Ty, RegDDRef *Ref,
@@ -2681,7 +2373,7 @@ void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
       if (AddrRef->getConstStrideAtLevel(OrigLoop->getNestingLevel(), &Stride))
         IsUnitStride =
             (Stride == static_cast<int64_t>(MemRef->getDestTypeSizeInBytes()));
-      RegDDRef *VecMemRef = widenRef(MemRef, getVF(), IsUnitStride);
+      RegDDRef *VecMemRef = widenRef(MemRef, getVF(), IsUnitStride /* LaneZeroOnly */);
       Store =
           HLNodeUtilities.createStore(VecValueRef->clone(), Name, VecMemRef);
     } else {
@@ -3038,7 +2730,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
   if (getSearchLoopType() != VPlanIdioms::SearchLoopStrEq)
     return;
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Generate runtime check __Intel_PaddedMallocCounter[0] < PaddedMallocLimit.
   // If condition is false, vector code is not safe to execute.
   if (GlobalVariable *PaddedMallocVariable =
@@ -3069,17 +2761,19 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
         Pred, PaddingIsValid->getLvalDDRef()->clone(), ZeroRef);
     RTChecks.push_back(Check);
   }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
-  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
-          isa<VPExternalUse>(VPVal)) &&
-         "Expected a VPExternalDef/VPConstant/VPExternalUse");
-
+  // Check if VPValue already has scalar Ref for lane 0. Uniform instructions
+  // that are scalarized are expected to be handled here.
   RegDDRef *ScalarRef = nullptr;
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
+
+  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+          isa<VPExternalUse>(VPVal)) &&
+         "Expected a VPExternalDef/VPConstant/VPExternalUse");
 
   auto GetScalarRefForExternal = [this](const VPOperandHIR *HIROperand,
                                         Type *VPValTy) -> RegDDRef * {
@@ -3188,16 +2882,17 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
 }
 
 RegDDRef *
-VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
+VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
+                                                 Type *ScalarAccessType) {
   assert(VPPtr->getType()->isPointerTy() && "Expected VPPtr to be PointerTy.");
 
   // Widened pointer.
   RegDDRef *WidePtr = widenRef(VPPtr, getVF());
 
   auto *PtrType = cast<PointerType>(VPPtr->getType());
-  auto *ElemType = dyn_cast<VectorType>(PtrType->getElementType());
+  auto *VecType = dyn_cast<VectorType>(ScalarAccessType);
   // No replication is needed for non-vector types.
-  if (!ElemType)
+  if (!VecType)
     return WidePtr;
 
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr for replication : ";
@@ -3211,7 +2906,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   //                          V
   //                <VF x Ty addrspace(x)*>
   Type *FlattenedTy = FixedVectorType::get(
-      ElemType->getElementType()->getPointerTo(AddrSpace), getVF());
+      VecType->getElementType()->getPointerTo(AddrSpace), getVF());
   WidePtr->setBitCastDestType(FlattenedTy);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
              WidePtr->dump(1); dbgs() << "\n");
@@ -3222,7 +2917,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   //                          |
   //                          V
   //      < 0, 0, .., OriginalVL times, 1, 1, ..., OriginalVL times, ...>
-  unsigned OriginalVL = ElemType->getNumElements();
+  unsigned OriginalVL = VecType->getNumElements();
   HLInst *ReplWidePtrInst = replicateVectorElts(WidePtr, OriginalVL);
   addInstUnmasked(ReplWidePtrInst);
 
@@ -3232,7 +2927,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   for (unsigned J = 0; J < VF; ++J)
     for (unsigned I = 0; I < OriginalVL; ++I) {
       Indices.push_back(
-          ConstantInt::get(Type::getInt64Ty(ElemType->getContext()), I));
+          ConstantInt::get(Type::getInt64Ty(VecType->getContext()), I));
     }
 
   // Generate a ConstantVector of indices and build a corresponding CanonExpr.
@@ -3257,9 +2952,10 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
-  const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
+  const VPValue *VPPtr = VPLdSt->getPointerOperand();
   bool IsNegOneStride;
-  bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
+  bool IsUnitStride = Plan->getVPlanDA()->isUnitStridePtr(
+      VPPtr, VPLdSt->getValueType(), IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
   if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
@@ -3278,7 +2974,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   if (NeedScalarRef)
     PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
   else
-    PtrRef = getWidenedAddressForScatterGather(VPPtr);
+    PtrRef = getWidenedAddressForScatterGather(VPPtr, VPLdSt->getValueType());
 
   RegDDRef *MemRef;
   if (PtrRef->isAddressOf()) {
@@ -3301,8 +2997,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
         PointerType::get(VecValTy, PtrTy->getAddressSpace()));
   }
   MemRef->setSymbase(ScalSymbase);
-  SmallVector<const VPLoadStoreInst *, 1> LdStVec = {VPLdSt};
-  propagateMetadata(MemRef, LdStVec);
+  propagateMetadata(MemRef, VPLdSt);
 
   // Adjust the memory reference for the negative one stride case so that
   // the client can do a wide load/store.
@@ -3311,6 +3006,26 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   // Set ref alignment using original alignment.
   MemRef->setAlignment(Alignment.value());
+  return MemRef;
+}
+
+template <class VLSOpTy>
+RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
+  RegDDRef *MemRef = getOrCreateScalarRef(LoadStore->getPointerOperand(), 0);
+  if (MemRef->isAddressOf())
+    MemRef->setAddressOf(false);
+  else
+    MemRef = createMemrefFromBlob(MemRef, 0, 1);
+  MemRef->setBitCastDestType(
+      PointerType::get(LoadStore->getValueType(),
+                       cast<PointerType>(LoadStore->getPointerOperand()->getType())
+                           ->getAddressSpace()));
+  MemRef->setAlignment(LoadStore->getAlignment().value());
+  MemRef->setSymbase(LoadStore->HIR().getSymbase());
+
+  for (std::pair<unsigned, MDNode *> It : LoadStore->getMetadata())
+    MemRef->setMetadata(It.first, It.second);
+
   return MemRef;
 }
 
@@ -3850,6 +3565,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         OrigPrivDescr);
     CondPrivFinalInsts.push_back(*PrivExtract);
 
+    // Make the original private descriptor non-linear since we have a
+    // definition to the temp in loop post-exit.
+    PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
+
     // TODO: This should be changed to addInst interface once it is aware of
     // Loop PH or Exit.
     HLNodeUtils::insertAfter(MainLoop, &CondPrivFinalInsts);
@@ -3980,16 +3699,14 @@ void VPOCodeGenHIR::widenUnmaskedUniformStoreImpl(
 }
 
 void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
-                                       RegDDRef *Mask, const OVLSGroup *Group,
-                                       int64_t InterleaveFactor,
-                                       int64_t InterleaveIndex) {
+                                       RegDDRef *Mask) {
   // Loads/stores need to be masked with current mask value if Mask is null.
   if (!Mask)
     Mask = CurMaskValue;
 
   auto Opcode = VPLoadStore->getOpcode();
 
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoadStore);
+  const VPValue *PtrOp = VPLoadStore->getPointerOperand();
   if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
     // Handle uniform load
     if (Opcode == Instruction::Load) {
@@ -4002,19 +3719,13 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     }
   }
 
-  bool InterleaveAccess = interleaveAccess(Group, Mask, VPLoadStore);
-  if (InterleaveAccess) {
-    widenInterleavedAccess(VPLoadStore, Mask, Group, InterleaveFactor,
-                           InterleaveIndex);
-    return;
-  }
-
   RegDDRef *MemRef = getMemoryRef(VPLoadStore);
   HLInst *WInst;
 
   // Reverse mask for negative -1 stride.
   bool IsNegOneStride;
-  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
+  bool IsUnitStride = Plan->getVPlanDA()->isUnitStridePtr(
+      PtrOp, VPLoadStore->getValueType(), IsNegOneStride);
   if (Mask && IsNegOneStride) {
     auto *RevInst = createReverseVector(Mask->clone());
     Mask = RevInst->getLvalDDRef();
@@ -4104,10 +3815,50 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
              dbgs() << "\n");
 }
 
+RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
+                                             int GroupSize) {
+  if (!CurMaskValue) {
+    if (VF * GroupSize == WideValueType->getNumElements())
+      // No mask needed.
+      return nullptr;
+
+    auto *True = ConstantInt::getTrue(WideValueType->getContext());
+    auto *False = ConstantInt::getFalse(WideValueType->getContext());
+    SmallVector<Constant *, 32> Mask;
+    unsigned Idx;
+    for (Idx = 0; Idx < VF*GroupSize; ++Idx)
+      Mask.push_back(True);
+    for (unsigned End = WideValueType->getNumElements(); Idx < End; ++Idx)
+      Mask.push_back(False);
+
+    return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
+  }
+
+  auto *Int32Ty = Type::getInt32Ty(WideValueType->getContext());
+  SmallVector<Constant *, 32> ShuffleMask;
+  for (unsigned Lane = 0; Lane < VF; ++Lane)
+    for (int Elt = 0; Elt < GroupSize; ++Elt)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Lane));
+
+  for (unsigned Idx = VF * GroupSize; Idx < WideValueType->getNumElements();
+       ++Idx)
+    ShuffleMask.push_back(ConstantInt::get(Int32Ty, VF));
+
+  auto *ShuffleMaskRef =
+      DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask));
+
+  auto *False = DDRefUtilities.createConstDDRef(
+      ConstantInt::getFalse(CurMaskValue->getDestType()));
+
+  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+      CurMaskValue->clone(), False, ShuffleMaskRef, "vls.mask");
+  addInstUnmasked(Shuffle);
+
+  return Shuffle->getLvalDDRef();
+}
+
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
-                                const OVLSGroup *Grp, int64_t InterleaveFactor,
-                                int64_t InterleaveIndex, bool Widen,
-                                unsigned ScalarLaneID) {
+                                bool Widen, unsigned ScalarLaneID) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
          "Unxpected instruction for scalar constructs");
 
@@ -4141,8 +3892,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    widenLoadStoreImpl(cast<VPLoadStoreInst>(VPInst), Mask, Grp,
-                       InterleaveFactor, InterleaveIndex);
+    widenLoadStoreImpl(cast<VPLoadStoreInst>(VPInst), Mask);
     return;
   case VPInstruction::Subscript:
     generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen,
@@ -4160,7 +3910,186 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalCond:
     widenLoopEntityInst(VPInst);
     return;
+  case Instruction::ShuffleVector: {
+    if (!Plan->getVPlanDA()->isDivergent(*VPInst)) {
+      auto *Op0 = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+      auto *Op1 = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+      auto *Mask = getOrCreateScalarRef(VPInst->getOperand(2), 0);
+      auto *Shuffle = HLNodeUtilities.createShuffleVectorInst(Op0, Op1, Mask);
+      addInstUnmasked(Shuffle);
+      addVPValueScalRefMapping(VPInst, Shuffle->getLvalDDRef(), 0);
+      return;
+    }
 
+    auto *Op0 = widenRef(VPInst->getOperand(0), VF);
+    auto *Op1 = widenRef(VPInst->getOperand(0), VF);
+    auto *Mask = cast<VPConstant>(VPInst->getOperand(2))->getConstant();
+
+    unsigned OrigSrcVL =
+        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+    int OrigDstVL = cast<VectorType>(VPInst->getType())->getNumElements();
+
+    SmallVector<Constant *, 16> MaskIndices;
+    for (unsigned LogicalLane = 0; LogicalLane < VF; ++LogicalLane) {
+      for (int Idx = 0; Idx < OrigDstVL; ++Idx) {
+        auto *MaskElt = Mask->getAggregateElement(Idx);
+        if (isa<UndefValue>(MaskElt) || isa<PoisonValue>(MaskElt)) {
+          // From the LangRef: If the shuffle mask selects an undefined element
+          // from one of the input vectors, the resulting element is undefined.
+          // An undefined element in the mask vector specifies that the
+          // resulting element is undefined. An undefined element in the mask
+          // vector prevents a poisoned vector element from propagating.
+          //
+          // For poison: Vector elements may be independently poisoned.
+          // Therefore, transforms on instructions such as shufflevector must be
+          // careful to propagate poison across values or elements only as
+          // allowed by the original code... An instruction that depends on a
+          // poison value, produces a poison value itself.
+          MaskIndices.push_back(MaskElt);
+          continue;
+        }
+        unsigned OrigIdx = cast<ConstantInt>(MaskElt)->getZExtValue();
+        unsigned NewIdx;
+        if (OrigIdx < OrigSrcVL) {
+          NewIdx = OrigSrcVL * LogicalLane + OrigIdx;
+        } else {
+          NewIdx =
+              OrigSrcVL * VF + OrigSrcVL * LogicalLane + (OrigIdx - OrigSrcVL);
+        }
+        MaskIndices.push_back(ConstantInt::get(MaskElt->getType(), NewIdx));
+      }
+    }
+    auto *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+        Op0, Op1,
+        DDRefUtilities.createConstDDRef(ConstantVector::get(MaskIndices)));
+    addInstUnmasked(Shuffle);
+    addVPValueWideRefMapping(VPInst, Shuffle->getLvalDDRef());
+
+    return;
+  }
+  case VPInstruction::VLSLoad: {
+    auto *VLSLoad = cast<VPVLSLoad>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSLoad);
+    HLInst *WideLoad = HLNodeUtilities.createLoad(MemRef, ".vls.load");
+    for (unsigned FakeSymbase : VLSLoad->HIR().fakeSymbases()) {
+      RegDDRef *FakeRef = MemRef->clone();
+      FakeRef->setSymbase(FakeSymbase);
+      WideLoad->addFakeRvalDDRef(FakeRef);
+    }
+    RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
+                                         VLSLoad->getGroupSize());
+    addInst(WideLoad, Mask);
+
+    if (Mask)
+      OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
+    else
+      OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
+
+    addVPValueScalRefMapping(VLSLoad, WideLoad->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSExtract: {
+    auto *Extract = cast<VPVLSExtract>(VPInst);
+
+    auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
+
+    auto Offset = Extract->getOffset();
+    auto GroupSize = Extract->getGroupSize();
+
+    auto *Int32Ty = Type::getInt32Ty(Extract->getType()->getContext());
+
+    SmallVector<Constant *, 32> ShuffleMask;
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
+        ShuffleMask.push_back(
+            ConstantInt::get(Int32Ty, Lane * GroupSize + Offset + Part));
+
+    RegDDRef *WideValue = getOrCreateScalarRef(Extract->getOperand(0), 0);
+    HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+        WideValue, WideValue->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)),
+        "vls.extract");
+    addInstUnmasked(Shuffle);
+
+    auto *ResultRef = Shuffle->getLvalDDRef();
+    auto *ResultType = getWidenedType(Extract->getType(), VF);
+    if (ResultType != ResultRef->getDestType()) {
+      auto *Cast = HLNodeUtilities.createBitCast(ResultType, ResultRef->clone(),
+                                                 "vls.extract.cast");
+      addInstUnmasked(Cast);
+      ResultRef = Cast->getLvalDDRef();
+    }
+    addVPValueWideRefMapping(Extract, ResultRef);
+
+    return;
+  }
+  case VPInstruction::VLSInsert: {
+    auto *Insert = cast<VPVLSInsert>(VPInst);
+    RegDDRef *OrigWideValue = getOrCreateScalarRef(Insert->getOperand(0), 0);
+    RegDDRef *ValueToInsert = widenRef(Insert->getOperand(1), VF);
+
+    auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
+    auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
+    Type *GroupEltType = GroupType->getElementType();
+    auto NumEltsInGroup = GroupType->getNumElements();
+
+    auto *CastedType = getWidenedType(GroupEltType, VF * NumEltsPerValue);
+    RegDDRef *Casted = ValueToInsert;
+    if (CastedType != Casted->getDestType()) {
+      auto *Cast =
+          HLNodeUtilities.createBitCast(CastedType, Casted, "vls.insert.cast");
+      addInstUnmasked(Cast);
+      Casted = Cast->getLvalDDRef()->clone();
+    }
+
+    auto *Extend = extendVector(Casted, NumEltsInGroup);
+    addInstUnmasked(Extend);
+
+    auto Offset = Insert->getOffset();
+    auto GroupSize = Insert->getGroupSize();
+    auto *Int32Ty = Type::getInt32Ty(Insert->getType()->getContext());
+    SmallVector<Constant *, 32> ShuffleMask;
+
+    // Initialize as if we'd want to keep OrigWideValue only.
+    for (unsigned Idx = 0; Idx < NumEltsInGroup; ++Idx)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Idx));
+
+    // Now update indices where we'd like to change the data.
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part) {
+        auto TargetIdx = GroupSize * Lane + Offset + Part;
+        auto SrcIdx = NumEltsInGroup + Lane * NumEltsPerValue + Part;
+        ShuffleMask[TargetIdx] = ConstantInt::get(Int32Ty, SrcIdx);
+      }
+
+    auto *Result = HLNodeUtilities.createShuffleVectorInst(
+        OrigWideValue, Extend->getLvalDDRef()->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)));
+    addInstUnmasked(Result);
+    addVPValueScalRefMapping(Insert, Result->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSStore: {
+    auto *VLSStore = cast<VPVLSStore>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSStore);
+    HLInst *WideStore = HLNodeUtilities.createStore(
+        getOrCreateScalarRef(VPInst->getOperand(0), 0), ".vls.store", MemRef);
+    for (unsigned FakeSymbase : VLSStore->HIR().fakeSymbases()) {
+      RegDDRef *FakeRef = MemRef->clone();
+      FakeRef->setSymbase(FakeSymbase);
+      WideStore->addFakeLvalDDRef(FakeRef);
+    }
+    RegDDRef *Mask = getVLSLoadStoreMask(
+        cast<VectorType>(VLSStore->getOperand(0)->getType()),
+        VLSStore->getGroupSize());
+    addInst(WideStore, Mask);
+    if (Mask)
+      OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
+    else
+      OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
+
+    return;
+  }
   case Instruction::Br:
     // Do nothing.
     return;
@@ -4556,6 +4485,53 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
+    if (VPInst->getNumOperands() == 2) {
+      // VPlan VLS transformation introduces this kind of GEPs:
+      //   %base = ....
+      //   %gep = getelementptr %base, i32 offset ; usually negative
+      auto SVA = Plan->getVPlanSVA();
+      (void)SVA;
+      assert(SVA->retValNeedsFirstScalarCode(VPInst) &&
+             !SVA->retValNeedsLastScalarCode(VPInst) &&
+             !SVA->retValNeedsVectorCode(VPInst) &&
+             "GetElementPtr not fully supported!");
+      if (!Widen) {
+        // FIXME: generateHIR is called two times. Non-widen case has more
+        // conditions, so generate during the widening call.
+        return;
+      }
+
+      RegDDRef *PointerRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+      if (PointerRef->getNumDimensions() > 0 &&
+          !PointerRef->hasTrailingStructOffsets()) {
+        if (auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1))) {
+          // Consider VPInst being
+          //   %gep = getelementptr i32* %base i64 -1
+          // with PointerRef for %base
+          //   &((i32*)(@arr1)[0][3 * i1 + 1])
+          //
+          // Instead of storing that to a temp and then creating a new compute
+          // based on that temp, we can fix the CannonExpr in place resulting in
+          // a nicer outgoing HIR, i.e. generate simply
+          //   &((i32*)(@arr1)[0][3 * i1]).
+          CanonExpr *CE = PointerRef->getDimensionIndex(1);
+          CE->addConstant(Const->getSExtValue(), true /* IsMathAdd */);
+          addVPValueScalRefMapping(VPInst, PointerRef, 0);
+          return;
+        }
+      }
+      auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "gep.base");
+      addInstUnmasked(CopyInst);
+      PointerRef = CopyInst->getLvalDDRef()->clone();
+
+      auto *NewRef = DDRefUtilities.createAddressOfRef(
+          PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
+      RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+      NewRef->addDimension(Idx->getSingleCanonExpr());
+      addVPValueScalRefMapping(VPInst, NewRef, 0);
+      return;
+    }
+
     // Any other case of GEP implies it was introduced after decomposer by some
     // VPlan-to-VPlan xform.
     assert(false && "VPlan-to-VPlan xform introduced a new IR-agnostic GEP.");
@@ -4576,7 +4552,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
            "Cannot find call vectorization scenario for VF.");
 
     // Skip ignored calls (for example, lifetime intrinsics).
-    if (!VPCall->getUnderlyingCallInst() ||
+    if (VPCall->getUnderlyingCallInst() &&
         isIgnoredCall(VPCall->getUnderlyingCallInst()))
       return;
 
@@ -4762,11 +4738,32 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // TODO: Dirty hack to handle copy instructions outside the loop region.
     // These are generated for conditional last private recurrent PHIs.
     if (VPInst->getParent() == getVPLoop()->getLoopPreheader()) {
-      // TODO: Dirty hack to get around decomposition issue.
-      if (OrigLoop->isLiveOut(RefOp0->getSymbase()) &&
-          !OrigLoop->isLiveIn(RefOp0->getSymbase())) {
-        NewInst->setRvalDDRef(
-            DDRefUtilities.createUndefDDRef(RefOp0->getDestType()));
+      auto *RValTmp = NewInst->getRvalDDRef();
+      if (RValTmp->isSelfBlob()) {
+        unsigned RvalSym = RValTmp->getSymbase();
+        // Make the r-val temp of pre-loop copies non-linear if we know that
+        // temp will be liveout of current loop. Pre-loop copies are introduced
+        // by deconstruction of loop header reccurrent PHIs. Liveout r-val temps
+        // have to be made non-linear since they will have a definition in the
+        // loop post-exit (finalization) -
+        // DO i1
+        //     %vec = %t
+        //   DO i2
+        //     %vec =
+        //   END DO
+        //     %t = %vec // This definition makes %t non-linear
+        // END DO
+        if (MainLoop->isLiveOut(RvalSym)) {
+          auto *RvalTempCE = RValTmp->getSingleCanonExpr();
+          RvalTempCE->setNonLinear();
+        }
+        // Since we are adding a new r-val use of temp outside the loop, make
+        // the temp live-in at all parent loop levels.
+        auto *ParentLoop = MainLoop->getParentLoop();
+        while (ParentLoop != nullptr) {
+          ParentLoop->addLiveInTemp(RvalSym);
+          ParentLoop = ParentLoop->getParentLoop();
+        }
       }
       HLNodeUtils::insertBefore(MainLoop, NewInst);
       addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
@@ -4789,6 +4786,19 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
+    break;
+  }
+
+  case VPInstruction::ConflictInsn: {
+    auto *VPConflict = cast<VPConflictInsn>(VPInst);
+    Intrinsic::ID ConflictIntrin = VPConflict->getConflictIntrinsic(getVF());
+    assert(ConflictIntrin != Intrinsic::not_intrinsic &&
+           "Valid conflict intrinsic expected here.");
+    Function *ConflictFunc =
+        Intrinsic::getDeclaration(&HLNodeUtilities.getModule(), ConflictIntrin);
+    LLVM_DEBUG(dbgs() << "Conflict func: "; ConflictFunc->dump());
+    // TODO: FMF for these conflict intrinsics?
+    NewInst = HLNodeUtilities.createCall(ConflictFunc, {RefOp0}, "conflicts");
     break;
   }
 
@@ -4844,10 +4854,7 @@ void VPOCodeGenHIR::makeConsistentAndAddToMap(
     addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
 }
 
-void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
-                                  const OVLSGroup *Grp,
-                                  int64_t InterleaveFactor,
-                                  int64_t InterleaveIndex) {
+void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask) {
   // We treat select instruction in HIR specially. When generating code for
   // select instructions, the operands of the compare which generate the select
   // mask are part of the HIR select instruction. The HIR select instruction
@@ -4863,8 +4870,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
   // Generate wide constructs for all VPInstuctions. This will be changed later
   // to use SVA information.
-  generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-              true /*Widen*/);
+  generateHIR(VPInst, Mask, true /*Widen*/);
 
   // Generate a scalar instruction for strided/uniform GEPs/subscripts. This is
   // needed to avoid generating extractelement instructions for unit strided
@@ -4873,8 +4879,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
     if (Plan->getVPlanDA()->getVectorShape(*VPInst).hasKnownStride() ||
         !Plan->getVPlanDA()->isDivergent(*VPInst))
-      generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                  false /*Widen*/, 0 /*LaneID*/);
+      generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
     return;
   }
 
@@ -4882,8 +4887,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // making references non-linear. This is made possible due to support for
   // folding such opcodes. This will be changed later to use SVA information.
   if (isOpcodeForScalarInst(VPInst->getOpcode()))
-    generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                false /*Widen*/, 0 /*LaneID*/);
+    generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
@@ -5009,17 +5013,12 @@ bool VPOCodeGenHIR::targetHasIntelAVX512() const {
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
 }
 
-void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
-                              const OVLSGroup *Grp, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex) {
-
-  auto It = VPInstUnrollPart.find(VPInst);
-  CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
+void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
 
   // Use VPValue based code generation if it is enabled and mixed CG has not
   // been forced
   if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
+    widenNodeImpl(VPInst, Mask);
     return;
   }
 
@@ -5032,14 +5031,14 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   // on using unrolled part. This now enables generating wide loads/stores
   // in mixed codegen path as well when the loads/stores are invalidated.
   if (MainLoopIVInsts.count(VPInst)) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
+    widenNodeImpl(VPInst, Mask);
     return;
   }
 
   // Always generate code for Phis/Blends in mixed code gen mode except for
   // search loops.
   if (!isSearchLoop() && (isa<VPPHINode>(VPInst) || isa<VPBlendInst>(VPInst))) {
-    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
+    widenNodeImpl(VPInst, Mask);
     return;
   }
 
@@ -5101,7 +5100,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     llvm_unreachable("Master VPInstruction with unexpected HLDDNode.");
   }
 
-  widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex);
+  widenNodeImpl(VPInst, Mask);
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
@@ -5120,6 +5119,14 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // Nothing to do if no uniform control flow is seen
   if (!getUniformControlFlowSeen())
     return;
+
+  // Create a HLGoto that is expected to jump to the start of the specified
+  // Block and add it to the needed vectors. Return the created HLGoto.
+  auto createGoto = [this](const VPBasicBlock *Block) {
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
+    GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Block));
+    return Goto;
+  };
 
   // The loop backedge/exit is implicit in the vector loop. Do not emit
   // gotos in the latch block.
@@ -5156,28 +5163,42 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
           DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
       addInst(If, nullptr /* Mask */);
 
-      HLGoto *ThenGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *ThenGoto = createGoto(Succ1);
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(ThenGoto, Succ1));
 
-      HLGoto *ElseGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *ElseGoto = createGoto(Succ2);
       HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(ElseGoto, Succ2));
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
-      HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *Goto = createGoto(Succ1);
       addInst(Goto, nullptr /* Mask */);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Succ1));
     }
   }
 }
 
 void VPOCodeGenHIR::finalizeGotos(void) {
+  // Vector used to contain HLGotos created during vector code generation.
+  // This vector is setup to be used in the call to eliminate redundant
+  // gotos.
+  SmallVector<HLGoto *, 8> Gotos;
+
   for (auto It : GotoTargetVPBBPairVector) {
     HLGoto *Goto = It.first;
     const VPBasicBlock *TargetBB = It.second;
 
     Goto->setTargetLabel(VPBBLabelMap[TargetBB]);
+    Gotos.push_back(Goto);
+  }
+
+  // Eliminate redundant Gotos.
+  HLNodeUtils::RequiredLabelsTy RequiredLabels;
+  HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
+
+  // Eliminate redundant labels.
+  for (auto It : VPBBLabelMap) {
+    auto *Label = It.second;
+    if (!RequiredLabels.count(Label))
+      HLNodeUtils::remove(Label);
   }
 }
 } // end namespace llvm

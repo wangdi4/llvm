@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -ip-cloning -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -ip-manyreccalls-cloning-min-rec-callsites=2 -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
 
@@ -197,3 +199,4 @@ entry:
 !100 = !DILocation(line: 28, column: 3, scope: !46)
 !101= !DILocation(line: 31, column: 3, scope: !46)
 !102 = !DILocation(line: 34, column: 10, scope: !46)
+; end INTEL_FEATURE_SW_ADVANCED

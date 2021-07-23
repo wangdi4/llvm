@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_DTRANS
+; REQUIRES: intel_feature_sw_dtrans
+
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-complete-unroll-force-constprop -print-after=hir-pre-vec-complete-unroll -disable-output  2>&1 | FileCheck %s
 
 ; This test case checks that entries 0 and 1 in the field 1 for
@@ -56,3 +59,5 @@ bb1:
 bb2:
   ret i32 %tmp3
 }
+
+; end INTEL_FEATURE_SW_DTRANS

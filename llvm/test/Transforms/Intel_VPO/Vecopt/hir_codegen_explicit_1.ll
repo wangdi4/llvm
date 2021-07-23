@@ -1,14 +1,14 @@
 ; Test for explicit vectorization going through HIR.
 
 ; Generated from following testcase using:
-; icx -fiopenmp -O2 -mllvm -print-before=VPlanDriver -S -c add.c
+; icx -fiopenmp -O2 -mllvm -print-before=vplan-vec -S -c add.c
 ; Generated ll file was then edited to only retain the vector clone function.
 ; #pragma omp declare simd nomask
 ; float foo(float a, float b){
 ;   return a + b;
 ; }
 
-; RUN: opt -print-after=VPlanDriverHIR -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -print-after=hir-vplan-vec -hir-ssa-deconstruction -hir-framework -hir-vplan-vec < %s 2>&1 -disable-output | FileCheck %s
 ; Check for vectorized HIR loop
 
 ; CHECK:      BEGIN REGION {

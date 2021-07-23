@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
@@ -217,16 +218,33 @@ static bool containsLoopDirective(const BasicBlock *BB, bool BeginDir,
 /// and looks for loop begin/end directive. Returns the bblock containing the
 /// directive.
 static BasicBlock *findLoopDirective(BasicBlock *BB, bool BeginDir) {
+  assert(BB && "Non-null starting bblock expected to find directive!");
 
-  for (; BB != nullptr;) {
+  do {
+    // We shouldn't be trying to cross-over any other kind of terminators like
+    // switches when looking for loop directive as that can result in incorrect
+    // region formation. It is better to give up on the directive if the
+    // incoming IR is not in expected form due to prior optimizations.
+    //
+    // The check is done before or after containsLoopDirective() based on
+    // whether we are looking for begin or end directive.
+    if (BeginDir && !isa<BranchInst>(BB->getTerminator())) {
+      return nullptr;
+    }
+
     // Ignore distribute point directives as they are only found within the loop
     // body.
-    if (containsLoopDirective(BB, BeginDir, true)) {
+    if (containsLoopDirective(BB, BeginDir, /* SkipDistributePoint */ true)) {
       return BB;
     }
 
+    if (!BeginDir && !isa<BranchInst>(BB->getTerminator())) {
+      return nullptr;
+    }
+
     BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
-  }
+
+  } while (BB != nullptr);
 
   return nullptr;
 }
@@ -667,8 +685,6 @@ public:
 
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
-  bool visitLoadInst(const LoadInst &LI);
-  bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 
@@ -856,26 +872,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   return Ret;
 }
 
-bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
-    const LoadInst &LI) {
-  if (LI.isVolatile()) {
-    printOptReportRemark(&Lp, "Throttled due to presence of volatile load.");
-    return false;
-  }
-
-  return visitInstruction(static_cast<const Instruction &>(LI));
-}
-
-bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
-    const StoreInst &SI) {
-  if (SI.isVolatile()) {
-    printOptReportRemark(&Lp, "Throttled due to presence of volatile store.");
-    return false;
-  }
-
-  return visitInstruction(static_cast<const Instruction &>(SI));
-}
-
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
 
@@ -1032,17 +1028,22 @@ static bool isStructFieldLoadCast(const Value *Val) {
     return false;
   }
 
-  auto *BasePtr = GEP->getPointerOperand();
-
-  if (!BasePtr->getType()->getPointerElementType()->isStructTy()) {
+  if (!GEP->getSourceElementType()->isStructTy()) {
     return false;
   }
 
   return true;
 }
 
-static bool isConvolutionReduction(const PHINode *HeaderPhi,
-                                   const Value **CommonFMulOperand) {
+/// A small map type from common fmul operands to reduction counts to keep track
+/// of the number of reductions found per common operand.
+using ReductionsPerCommonOpndMap = SmallDenseMap<const Value *, unsigned, 2>;
+
+/// Determines whether \p HeaderPhi is part of a convolution reduction. If so,
+/// it is counted in \p ReductionsPerCommonOpnd under its common fmul operand.
+static void
+checkConvolutionReduction(const PHINode *HeaderPhi,
+                          ReductionsPerCommonOpndMap &ReductionsPerCommonOpnd) {
   // We are looking for this pattern-
   // loopheader:
   //   %redn = phi double [ %init, %preheader ] [ %add, %latch ]
@@ -1053,13 +1054,13 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
   //   %add = fadd %redn, %mul
 
   if (!HeaderPhi->getType()->isDoubleTy()) {
-    return false;
+    return;
   }
 
   unsigned NumUses = HeaderPhi->getNumUses();
 
   if (NumUses > 2 || NumUses == 0) {
-    return false;
+    return;
   }
 
   const Instruction *FAddInst = nullptr;
@@ -1073,23 +1074,23 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
     if (isa<DbgInfoIntrinsic>(FirstUser)) {
       FAddInst = SecondUser;
     } else if (!isa<DbgInfoIntrinsic>(SecondUser)) {
-      return false;
+      return;
     } else {
       FAddInst = FirstUser;
     }
   }
 
   if (FAddInst->getOpcode() != Instruction::FAdd) {
-    return false;
+    return;
   }
 
   if (FAddInst->getParent() != HeaderPhi->getParent()) {
-    return false;
+    return;
   }
 
   if (HeaderPhi->getOperand(0) != FAddInst &&
       HeaderPhi->getOperand(1) != FAddInst) {
-    return false;
+    return;
   }
 
   auto *Op0 = FAddInst->getOperand(0);
@@ -1097,7 +1098,7 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
       dyn_cast<Instruction>((Op0 == HeaderPhi) ? FAddInst->getOperand(1) : Op0);
 
   if (!FMulInst || FMulInst->getOpcode() != Instruction::FMul) {
-    return false;
+    return;
   }
 
   auto *MulOp0 = FMulInst->getOperand(0);
@@ -1109,16 +1110,10 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
   } else if (isStructFieldLoadCast(MulOp1)) {
     CommonOperand = MulOp0;
   } else {
-    return false;
+    return;
   }
 
-  if (!*CommonFMulOperand) {
-    *CommonFMulOperand = CommonOperand;
-  } else if (CommonOperand != *CommonFMulOperand) {
-    return false;
-  }
-
-  return true;
+  ++ReductionsPerCommonOpnd[CommonOperand];
 }
 
 bool isInnermostConvolutionLoop(const Loop &Lp) {
@@ -1126,16 +1121,16 @@ bool isInnermostConvolutionLoop(const Loop &Lp) {
     return false;
   }
 
-  unsigned ReductionCount = 0;
-  const Value *CommonFMulOperand = nullptr;
+  ReductionsPerCommonOpndMap ReductionsPerCommonOpnd;
 
   for (auto &Phi : Lp.getHeader()->phis()) {
-    if (isConvolutionReduction(&Phi, &CommonFMulOperand)) {
-      ++ReductionCount;
-    }
+    checkConvolutionReduction(&Phi, ReductionsPerCommonOpnd);
   }
 
-  return ReductionCount >= 3;
+  for (const auto &ReductionCount : ReductionsPerCommonOpnd)
+    if (ReductionCount.second >= 3)
+      return true;
+  return false;
 }
 
 static bool isMiddleConvolutionLoop(const Loop &Lp) {
@@ -1339,7 +1334,12 @@ static bool isDistributeMetadata(MDNode *Node) {
 static bool isVectorizeMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
-  return Str && Str->getString().startswith("llvm.loop.vectorize");
+  return Str && Str->getString().startswith("llvm.loop.vector");
+}
+
+static bool isIntelVectorizeMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().startswith("llvm.loop.intel.vector");
 }
 
 static bool isDebugMetadata(MDNode *Node) {
@@ -1363,18 +1363,13 @@ static bool isMustProgressMetadata(MDNode *Node) {
   return Str && Str->getString().equals("llvm.loop.mustprogress");
 }
 
-static bool isVectorVectorlengthMetadata(MDNode *Node) {
-  MDString *Str = getStringMetadata(Node);
-  return Str && Str->getString().equals("llvm.loop.vector.vectorlength");
-}
-
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
       isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node) || isVectorVectorlengthMetadata(Node)) {
+      isMustProgressMetadata(Node) || isIntelVectorizeMetadata(Node)) {
     return true;
   }
 
@@ -1626,6 +1621,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
+    if (Inst->isVolatile()) {
+      printOptReportRemark(
+          Lp, "Volatile instructions are currently not supported.");
+      return false;
+    }
+
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");
@@ -1789,6 +1790,14 @@ void HIRRegionIdentification::createRegion(
 
   BasicBlock *EntryBB = Loops.front()->getHeader();
   BasicBlock *ExitBB = nullptr;
+
+  // If the first outermost loop is the outer loop for a convolution loop nest,
+  // include its preheader block in the region to ensure hoisted kernel base
+  // pointer loads are visible.
+  if (isOuterConvolutionLoop(*Loops.front(), nullptr)) {
+    EntryBB = Loops.front()->getLoopPreheader();
+    NonLoopBBlocks.push_back(EntryBB);
+  }
 
   for (auto *Lp : Loops) {
     bool IsFirstLoop = (Lp == Loops.front());
@@ -1973,7 +1982,7 @@ static bool foundMatchingLoads(
 
       auto *Ptr1 = StoreUser1->getPointerOperand();
       uint64_t AllocSize =
-          DL.getTypeAllocSize(Ptr1->getType()->getPointerElementType());
+          DL.getTypeAllocSize(StoreUser1->getValueOperand()->getType());
 
       if (!haveExpectedDistance(Ptr1, StoreUser2->getPointerOperand(), SE,
                                 AllocSize)) {
@@ -2052,8 +2061,7 @@ foundMatchingStores(const StoreInst *SInst,
   auto *Ptr = SInst->getPointerOperand();
   auto *StoreVal = SInst->getValueOperand();
 
-  uint64_t AllocSize =
-      DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+  uint64_t AllocSize = DL.getTypeAllocSize(StoreVal->getType());
 
   // Suppress stores of the form A[0].1. These are likely to be non-profitable
   // strided accesses.
@@ -2097,19 +2105,11 @@ static bool isLoopMaterializationCandidate(const BasicBlock &BB,
 
   for (auto &Inst : BB) {
     if (auto *LInst = dyn_cast<LoadInst>(&Inst)) {
-      if (LInst->isVolatile()) {
-        return false;
-      }
-
       if (foundMatchingLoads(LInst, CandidateLoads, SE, DL)) {
         return true;
       }
 
     } else if (auto *SInst = dyn_cast<StoreInst>(&Inst)) {
-      if (SInst->isVolatile()) {
-        return false;
-      }
-
       if (foundMatchingStores(SInst, CandidateStores, SE, DL)) {
         return true;
       }
@@ -2229,6 +2229,7 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
 }
 
 void HIRRegionIdentification::formRegions(Function &Func) {
+#if INTEL_FEATURE_SW_ADVANCED
   SmallVector<const Loop *, 32> GenerableLoops;
 
   // LoopInfo::iterator visits loops in reverse program order so we need to
@@ -2254,9 +2255,12 @@ void HIRRegionIdentification::formRegions(Function &Func) {
   }
 
   formRegionsForLoopMaterialization(Func);
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
+#if INTEL_FEATURE_SW_ADVANCED
+
   if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
     printOptReportRemark(nullptr,
                          "Region throttled due to region number threshold.");
@@ -2274,6 +2278,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
                          NonLoopBBlocks, LI.getTopLevelLoops(), false, true);
 
   RegionCount++;
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
@@ -2434,6 +2439,7 @@ HIRRegionIdentification::HIRRegionIdentification(
 }
 
 void HIRRegionIdentification::runImpl(Function &F) {
+#if INTEL_FEATURE_SW_ADVANCED
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
     return;
   }
@@ -2465,6 +2471,9 @@ void HIRRegionIdentification::runImpl(Function &F) {
   } else {
     formRegions(F);
   }
+#else
+  llvm_unreachable("Loopopt Disabled!");
+#endif // INTEL_FEATURE_SW_ADVANCED
 }
 
 HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)

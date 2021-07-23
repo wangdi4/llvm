@@ -61,66 +61,6 @@ entry:
   ret <4 x i64> %1
 }
 
-declare <8 x i16> @llvm.x86.avx2bf16.cvtneps2bf16.128(<4 x float>)
-
-define <2 x i64> @test_mm_cvtneps2bf16_128(<4 x float> %A) {
-; AVX-X86-LABEL: test_mm_cvtneps2bf16_128:
-; AVX-X86:       # %bb.0: # %entry
-; AVX-X86-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0 # encoding: [0xc4,0xe2,0x7a,0x72,0xc0]
-; AVX-X86-NEXT:    retl # encoding: [0xc3]
-;
-; AVX-X64-LABEL: test_mm_cvtneps2bf16_128:
-; AVX-X64:       # %bb.0: # %entry
-; AVX-X64-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0 # encoding: [0xc4,0xe2,0x7a,0x72,0xc0]
-; AVX-X64-NEXT:    retq # encoding: [0xc3]
-;
-; AVX512-X86-LABEL: test_mm_cvtneps2bf16_128:
-; AVX512-X86:       # %bb.0: # %entry
-; AVX512-X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x08,0x72,0xc0]
-; AVX512-X86-NEXT:    retl # encoding: [0xc3]
-;
-; AVX512-X64-LABEL: test_mm_cvtneps2bf16_128:
-; AVX512-X64:       # %bb.0: # %entry
-; AVX512-X64-NEXT:    vcvtneps2bf16 %xmm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x08,0x72,0xc0]
-; AVX512-X64-NEXT:    retq # encoding: [0xc3]
-entry:
-  %0 = tail call <8 x i16> @llvm.x86.avx2bf16.cvtneps2bf16.128(<4 x float> %A)
-  %1 = bitcast <8 x i16> %0 to <2 x i64>
-  ret <2 x i64> %1
-}
-
-declare <8 x i16> @llvm.x86.avx2bf16.cvtneps2bf16.256(<8 x float>)
-
-define <2 x i64> @test_mm256_cvtneps2bf16_256(<8 x float> %A) {
-; AVX-X86-LABEL: test_mm256_cvtneps2bf16_256:
-; AVX-X86:       # %bb.0: # %entry
-; AVX-X86-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0 # encoding: [0xc4,0xe2,0x7e,0x72,0xc0]
-; AVX-X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
-; AVX-X86-NEXT:    retl # encoding: [0xc3]
-;
-; AVX-X64-LABEL: test_mm256_cvtneps2bf16_256:
-; AVX-X64:       # %bb.0: # %entry
-; AVX-X64-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0 # encoding: [0xc4,0xe2,0x7e,0x72,0xc0]
-; AVX-X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
-; AVX-X64-NEXT:    retq # encoding: [0xc3]
-;
-; AVX512-X86-LABEL: test_mm256_cvtneps2bf16_256:
-; AVX512-X86:       # %bb.0: # %entry
-; AVX512-X86-NEXT:    vcvtneps2bf16 %ymm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x28,0x72,0xc0]
-; AVX512-X86-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
-; AVX512-X86-NEXT:    retl # encoding: [0xc3]
-;
-; AVX512-X64-LABEL: test_mm256_cvtneps2bf16_256:
-; AVX512-X64:       # %bb.0: # %entry
-; AVX512-X64-NEXT:    vcvtneps2bf16 %ymm0, %xmm0 # encoding: [0x62,0xf2,0x7e,0x28,0x72,0xc0]
-; AVX512-X64-NEXT:    vzeroupper # encoding: [0xc5,0xf8,0x77]
-; AVX512-X64-NEXT:    retq # encoding: [0xc3]
-entry:
-  %0 = tail call <8 x i16> @llvm.x86.avx2bf16.cvtneps2bf16.256(<8 x float> %A)
-  %1 = bitcast <8 x i16> %0 to <2 x i64>
-  ret <2 x i64> %1
-}
-
 declare <4 x float> @llvm.x86.avx2bf16.dpbf16ps.128(<4 x float>, <4 x i32>, <4 x i32>)
 
 define <4 x float> @test_mm_dpbf16ps_128(<4 x float> %E, <4 x i32> %A, <4 x i32> %B) {

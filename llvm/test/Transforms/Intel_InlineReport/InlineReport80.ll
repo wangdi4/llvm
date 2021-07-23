@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -S -inline -pre-lto-inline-cost -inline-report=7 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='cgscc(inline)' -pre-lto-inline-cost -inline-report=7 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -pre-lto-inline-cost -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK-MD
@@ -1459,3 +1461,4 @@ entry:
 }
 
 attributes #0 = { "may-have-openmp-directive"="true" }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -25,6 +25,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include <unordered_map>
 
 using namespace llvm;
@@ -42,17 +43,6 @@ static cl::opt<bool>
                 cl::desc("Perform only conversions for x86 targets."));
 
 STATISTIC(NumInstConverted, "Number of instructions converted");
-
-class MathLibraryFunctionsReplacementPass
-    : PassInfoMixin<MathLibraryFunctionsReplacementPass> {
-private:
-  bool isOCL;
-
-public:
-  MathLibraryFunctionsReplacementPass(bool isOCL) : isOCL(isOCL) {}
-  // Run the pass over the function.
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
 
 static bool isOptimizableOperation(Instruction *Inst) {
   Value *Divisor = Inst->getOperand(1);

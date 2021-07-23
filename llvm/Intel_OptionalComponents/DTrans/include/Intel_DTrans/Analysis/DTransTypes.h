@@ -18,8 +18,8 @@
 // representing these types, in a similar fashion to the llvm::Type class
 // hierarchy prior to conversion to opaque pointers.
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransTypes.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransTypes.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSTYPES_H
@@ -576,7 +576,11 @@ public:
   DTransType *getElementType() const { return DTType; }
 
   llvm::Type *getLLVMType() const {
-    return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
+    if (getTypeID() == DTransType::DTransArrayTypeID)
+      return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
+    else
+      return VectorType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements(),
+                             /*Scalable=*/false);
   }
 
   // Return a metadata node that describes the type.

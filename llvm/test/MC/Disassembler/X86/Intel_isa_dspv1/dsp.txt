@@ -1,0 +1,62 @@
+# REQUIRES: intel_feature_isa_dspv1
+# RUN: llvm-mc --disassemble %s -triple=i686 | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc --disassemble %s -triple=i686 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+
+# isadb version: 6aa5c837365e1d1e6e53b3fc3d95ab184e9c06eb
+
+# ATT:        dvpcr2bfrsw $123, %xmm4, %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmm4, 123
+0xc4,0xe3,0xe3,0xa3,0xd4,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, 268435456(%esp,%esi,8), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [esp + 8*esi + 268435456], 123
+0xc4,0xe3,0xe3,0xa3,0x94,0xf4,0x00,0x00,0x00,0x10,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, 291(%edi,%eax,4), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [edi + 4*eax + 291], 123
+0xc4,0xe3,0xe3,0xa3,0x94,0x87,0x23,0x01,0x00,0x00,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, (%eax), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [eax], 123
+0xc4,0xe3,0xe3,0xa3,0x10,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, -512(,%ebp,2), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [2*ebp - 512], 123
+0xc4,0xe3,0xe3,0xa3,0x14,0x6d,0x00,0xfe,0xff,0xff,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, 2032(%ecx), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [ecx + 2032], 123
+0xc4,0xe3,0xe3,0xa3,0x91,0xf0,0x07,0x00,0x00,0x7b
+
+# ATT:        dvpcr2bfrsw  $123, -2048(%edx), %xmm3, %xmm2
+# INTEL:      dvpcr2bfrsw xmm2, xmm3, xmmword ptr [edx - 2048], 123
+0xc4,0xe3,0xe3,0xa3,0x92,0x00,0xf8,0xff,0xff,0x7b
+
+# ATT:        dvplutsincosw $123, %xmm3, %xmm2
+# INTEL:      dvplutsincosw xmm2, xmm3, 123
+0xc4,0xe3,0x78,0xa3,0xd3,0x7b
+
+# ATT:        dvplutsincosw  $123, 268435456(%esp,%esi,8), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [esp + 8*esi + 268435456], 123
+0xc4,0xe3,0x78,0xa3,0x94,0xf4,0x00,0x00,0x00,0x10,0x7b
+
+# ATT:        dvplutsincosw  $123, 291(%edi,%eax,4), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [edi + 4*eax + 291], 123
+0xc4,0xe3,0x78,0xa3,0x94,0x87,0x23,0x01,0x00,0x00,0x7b
+
+# ATT:        dvplutsincosw  $123, (%eax), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [eax], 123
+0xc4,0xe3,0x78,0xa3,0x10,0x7b
+
+# ATT:        dvplutsincosw  $123, -512(,%ebp,2), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [2*ebp - 512], 123
+0xc4,0xe3,0x78,0xa3,0x14,0x6d,0x00,0xfe,0xff,0xff,0x7b
+
+# ATT:        dvplutsincosw  $123, 2032(%ecx), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [ecx + 2032], 123
+0xc4,0xe3,0x78,0xa3,0x91,0xf0,0x07,0x00,0x00,0x7b
+
+# ATT:        dvplutsincosw  $123, -2048(%edx), %xmm2
+# INTEL:      dvplutsincosw xmm2, xmmword ptr [edx - 2048], 123
+0xc4,0xe3,0x78,0xa3,0x92,0x00,0xf8,0xff,0xff,0x7b
+

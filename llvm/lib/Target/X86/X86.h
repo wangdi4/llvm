@@ -60,6 +60,8 @@ FunctionPass *createX86PadShortFunctions();
 FunctionPass *createX86CiscizationHelperPass();
 /// This pass performs Fused-Multiply-Add transformations.
 FunctionPass *createX86GlobalFMAPass();
+/// This pass performs peephole optimization for complex fma.
+FunctionPass *createX86CFMAPass();
 FunctionPass *createFeatureInitPass();
 FunctionPass *createIVSplitLegacyPass();
 FunctionPass *createX86SplitVectorValueTypePass();
@@ -89,6 +91,9 @@ FunctionPass *createX86WinAllocaExpander();
 
 /// Return a pass that config the tile registers.
 FunctionPass *createX86TileConfigPass();
+
+/// Return a pass that config the tile registers after fast reg allocation.
+FunctionPass *createX86FastTileConfigPass();
 
 /// Return a pass that insert pseudo tile config instruction.
 FunctionPass *createX86PreTileConfigPass();
@@ -176,6 +181,7 @@ void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
 void initializeX86FeatureInitPassPass(PassRegistry&); // INTEL
 void initializeX86GlobalFMAPass(PassRegistry&); // INTEL
+void initializeX86CFMAPass(PassRegistry&);      // INTEL
 void initializeX86PRAExpandPseudoPassPass(PassRegistry &); // INTEL
 void initializeEvexToVexInstPassPass(PassRegistry &);
 void initializeFixupBWInstPassPass(PassRegistry &);
@@ -202,9 +208,10 @@ void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86FastTileConfigPass(PassRegistry &);
 void initializeX86TileConfigPass(PassRegistry &);
 void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
-void initializeX86LowerAMXIntrinsicsLegacyPassPass(PassRegistry &);
+void initializeX86PreAMXConfigPassPass(PassRegistry &);
 void initializeX86LowerTileCopyPass(PassRegistry &);
 void initializeX86LowerAMXIntrinsicsLegacyPassPass(PassRegistry &);
 

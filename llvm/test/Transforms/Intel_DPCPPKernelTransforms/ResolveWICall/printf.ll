@@ -24,9 +24,12 @@ define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %
 
 declare i32 @printf(i8 addrspace(2)*, ...)
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 
 ; The pass will generate some instructions without debug info. Since these
 ; instructions are not from user code and they will not impact debuggability.
 ; We can ignore the warnings related to them.
 ; DEBUGIFY-NOT: WARNING: Missing line
+
+!sycl.kernels = !{!0}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @A}

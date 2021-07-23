@@ -1,8 +1,9 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; It checks specialization cloning is kicked-in for "foo", which is called
 ; in "bar". It expects "foo" function is cloned 4 times with
 ; specialization.
 
-; REQUIRES: asserts
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -ip-specialization-cloning -debug-only=ipcloning  -disable-output  2>&1 | FileCheck %s
 
@@ -74,3 +75,4 @@ for.body4:                                        ; preds = %for.body4, %for.con
   %exitcond = icmp eq i64 %indvars.iv.next, 2056
   br i1 %exitcond, label %for.cond.cleanup3, label %for.body4
 }
+; end INTEL_FEATURE_SW_ADVANCED

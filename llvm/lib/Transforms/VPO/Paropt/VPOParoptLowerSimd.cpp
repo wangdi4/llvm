@@ -130,7 +130,7 @@ static Instruction *generateVectorGenXForSpirv(CallInst &CI, StringRef Suff,
   Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
       CI.getModule(), ID, {FixedVectorType::get(I32Ty, 3)});
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, CI.getName() + ".esimd", &CI);
+      CallInst::Create(NewFDecl, {}, CI.getName() + ".esimd", &CI);
   int ExtractIndex = getIndexForSuffix(Suff);
   assert(ExtractIndex != -1 && "Extract index is invalid.");
   Twine ExtractName = ValueName + Suff;
@@ -155,7 +155,7 @@ static Instruction *generateGenXForSpirv(CallInst &CI, StringRef Suff,
   Function *NewFDecl =
       GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID, {});
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, IntrinName + Suff.str(), &CI);
+      CallInst::Create(NewFDecl, {}, IntrinName + Suff.str(), &CI);
   Instruction *CastI = addCastInstIfNeeded(&CI, IntrI);
   return CastI;
 }
@@ -179,7 +179,7 @@ static void translateBarrier(CallInst *CI) {
     // 0x01 | 0x20
     Type *I8Ty = Type::getInt8Ty(M->getContext());
     auto CtrlV = ConstantInt::get(I8Ty, 0x21);
-    IntrinsicInst::Create(NewFDecl, {CtrlV}, "", CI);
+    CallInst::Create(NewFDecl, {CtrlV}, "", CI);
   } else
     assert(false && "Unsupported barrier execution scope");
 
@@ -188,7 +188,7 @@ static void translateBarrier(CallInst *CI) {
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "barrier";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(M, ID, {});
-    IntrinsicInst::Create(NewFDecl, {}, "", CI);
+    CallInst::Create(NewFDecl, {}, "", CI);
   }
 }
 
@@ -282,7 +282,7 @@ static Value *translateSqrtOpIntrinsic(CallInst *CI) {
   Function *NewFDecl =
       GenXIntrinsic::getGenXDeclaration(CI->getModule(), GID, {CI->getType()});
   Value *RepI =
-      IntrinsicInst::Create(NewFDecl, {CI->getOperand(0)}, CI->getName(), CI);
+      CallInst::Create(NewFDecl, {CI->getOperand(0)}, CI->getName(), CI);
   CI->replaceAllUsesWith(RepI);
   return RepI;
 }
@@ -515,8 +515,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
         LoadOp->getModule(), ID, {DTy, PtrV->getType()});
-    RepI = IntrinsicInst::Create(NewFDecl, {PtrV}, "svm.block.ld.unaligned",
-                                 LoadOp);
+    RepI = CallInst::Create(NewFDecl, {PtrV}, "svm.block.ld.unaligned", LoadOp);
   } else {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "svm.gather";
@@ -549,7 +548,7 @@ static Value *translateSVMLoad(LoadInst *LoadOp) {
         LoadOp->getModule(), ID, {VDTy, PredV1Ty, VPtrTy});
     auto VecPtr =
         CastInst::CreateBitOrPointerCast(PtrV, VPtrTy, PtrV->getName(), LoadOp);
-    Instruction *IntrI = IntrinsicInst::Create(
+    Instruction *IntrI = CallInst::Create(
         NewFDecl, {OnePred1, NumBlksC, VecPtr, UndefValue::get(VDTy)},
         "svm.gather", LoadOp);
     if (EltBytes == 2) {
@@ -605,16 +604,16 @@ static Instruction *createRdRegion(Value *Input, const Twine &Name,
 static Instruction *createWrRegion(Value *OldVal, Value *Input,
                                    const Twine &Name, Instruction *InsertBefore,
                                    int StartIdx, int VStride, int Width,
-                                   int Stride) {
+                                   int Stride, Value *PredV = nullptr) {
   assert(isa<VectorType>(Input->getType()));
   assert(isa<VectorType>(OldVal->getType()));
   assert(OldVal->getType()->getScalarType() ==
          Input->getType()->getScalarType());
   IntegerType *I32Ty = Type::getInt32Ty(Input->getContext());
   Value *ParentWidthArg = UndefValue::get(I32Ty);
-  // Get the mask value. If R.Mask is 0, then the wrregion is unpredicated
-  // and we just use constant 1.
-  Value *MaskArg = ConstantInt::get(Type::getInt1Ty(Input->getContext()), 1);
+  // if there is no predicate value, set mask to all-one
+  Value *MaskArg =
+      PredV ? PredV : ConstantInt::get(Type::getInt1Ty(Input->getContext()), 1);
   // Build the wrregion.
   Value *Args[] = {
       // Args to new wrregion:
@@ -640,9 +639,13 @@ static Instruction *createWrRegion(Value *OldVal, Value *Input,
 
 // change vector from llllllllhhhhhhhh to lhlhlhlhlhlhlhlh
 static Instruction *formDoubleVector(Value *InputVector,
-                                     Instruction *InsertBefore) {
+                                     Instruction *InsertBefore,
+                                     Value *PredV = nullptr,
+                                     Value *OldVal = nullptr) {
   auto VTy = InputVector->getType();
   assert(VTy->isVectorTy());
+  // if Pred-value is not null then old-value cannot be null
+  assert(!PredV || OldVal);
   auto VL = cast<VectorType>(VTy)->getNumElements();
   assert(VL == 16 || VL == 32);
   auto EltTy = cast<VectorType>(VTy)->getElementType();
@@ -656,15 +659,18 @@ static Instruction *formDoubleVector(Value *InputVector,
   auto HighHalf = createRdRegion(
       InputVector, InputVector->getName() + ".2ndHalf", InsertBefore, Width,
       Width * EltBytes /*startIdx*/, 0 /*VStride*/, Width, 1 /*HStride*/);
-  auto Undef = UndefValue::get(VTy);
+  if (OldVal == nullptr)
+    OldVal = UndefValue::get(VTy);
+  else
+    assert(OldVal->getType() == VTy);
   // write low half
   auto Partial = createWrRegion(
-      Undef, LowHalf, InputVector->getName() + ".InsLow", InsertBefore,
-      0 /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/);
+      OldVal, LowHalf, InputVector->getName() + ".InsLow", InsertBefore,
+      0 /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/, PredV);
   // write high half
   auto Complete = createWrRegion(
       Partial, HighHalf, InputVector->getName() + ".InsHigh", InsertBefore,
-      EltBytes /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/);
+      EltBytes /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/, PredV);
   return Complete;
 }
 
@@ -733,10 +739,10 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
       // create the intrinsic call
       Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
           LoadOp->getModule(), ID, {DTy, PredVTy, VOffset->getType()});
-      RepI = IntrinsicInst::Create(NewFDecl,
-                                   {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset,
-                                    VOffset, UndefValue::get(DTy)},
-                                   "slm.block.gather", LoadOp);
+      RepI = CallInst::Create(NewFDecl,
+                              {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset,
+                               VOffset, UndefValue::get(DTy)},
+                              "slm.block.gather", LoadOp);
     } else if (EltBytes == 8) {
       // there is no surface load of i64 type, therefore we need to use gather4
       std::string IntrName =
@@ -752,10 +758,10 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
       Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
           LoadOp->getModule(), ID, {Dx2Ty, PredVTy, VOffset->getType()});
       auto Gather4I =
-          IntrinsicInst::Create(NewFDecl,
-                                {OnePredV, ChanMask, ScaleC, BTI, SLMOffset,
-                                 VOffset, UndefValue::get(Dx2Ty)},
-                                "slm.block.gather", LoadOp);
+          CallInst::Create(NewFDecl,
+                           {OnePredV, ChanMask, ScaleC, BTI, SLMOffset, VOffset,
+                            UndefValue::get(Dx2Ty)},
+                           "slm.block.gather", LoadOp);
       // reorder the vector
       auto ShuffleV = formDoubleVector(Gather4I, LoadOp);
       // cast back to the original 64-bit type
@@ -789,10 +795,10 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
         SLMOffset, VOffsetTy, SLMOffset->getName(), LoadOp);
     auto GOffsetC = ConstantInt::get(CIntTy, 0);
     Instruction *IntrI =
-        IntrinsicInst::Create(NewFDecl,
-                              {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC,
-                               VecOffset, UndefValue::get(VDTy)},
-                              "slm.gather", LoadOp);
+        CallInst::Create(NewFDecl,
+                         {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC, VecOffset,
+                          UndefValue::get(VDTy)},
+                         "slm.gather", LoadOp);
     auto ZeroC = ConstantInt::get(CIntTy, 0);
     auto OneC = ConstantInt::get(CIntTy, 1);
     if (EltBytes <= 4)
@@ -802,10 +808,10 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
       auto ResTy = llvm::FixedVectorType::get(EltTy, 2);
       GOffsetC = ConstantInt::get(CIntTy, 4);
       Instruction *IntrI2 =
-          IntrinsicInst::Create(NewFDecl,
-                                {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC,
-                                 VecOffset, UndefValue::get(VDTy)},
-                                "slm.gather", LoadOp);
+          CallInst::Create(NewFDecl,
+                           {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC,
+                            VecOffset, UndefValue::get(VDTy)},
+                           "slm.gather", LoadOp);
       auto LowHalf = Builder.CreateExtractElement(IntrI, ZeroC,
                                                   LoadOp->getName() + ".low");
       auto HighHalf = Builder.CreateExtractElement(IntrI2, ZeroC,
@@ -839,7 +845,7 @@ static Value *translateSVMStore(StoreInst *StoreOp) {
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
         StoreOp->getModule(), ID, {PtrV->getType(), DTy});
-    RepI = IntrinsicInst::Create(
+    RepI = CallInst::Create(
         NewFDecl, {PtrV, DTV},
         NewFDecl->getReturnType()->isVoidTy() ? "" : "svm.block.st", StoreOp);
   } else {
@@ -1129,8 +1135,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             Inst->getModule(), ID, {DTy, PtrV->getType()});
-        auto VecDT = IntrinsicInst::Create(NewFDecl, {PtrV},
-                                           "svm.block.ld.unaligned", CallOp);
+        auto VecDT = CallInst::Create(NewFDecl, {PtrV},
+                                      "svm.block.ld.unaligned", CallOp);
         auto RepI =
             Builder.CreateSelect(CallOp->getArgOperand(2), VecDT,
                                  CallOp->getArgOperand(3), CallOp->getName());
@@ -1143,30 +1149,63 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
-        std::string IntrName =
-            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
-            "gather.scaled";
-        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+        auto PredV = CallOp->getArgOperand(2);
         auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
-        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-        int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
         // create constant for offset
         auto VOffset = getConstVector(CIntTy, VL, EltBytes);
-        // create constant for predicate
-        auto PredV = CallOp->getArgOperand(2);
-        // crease constant for num-blocks
-        auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
-        // create the intrinsic call
-        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-            CallOp->getModule(), ID,
-            {DTy, PredV->getType(), VOffset->getType()});
-        auto RepI =
-            IntrinsicInst::Create(NewFDecl,
-                                  {PredV, NumBlksC, ScaleC, BTI, SLMOffset,
-                                   VOffset, UndefValue::get(DTy)},
-                                  "slm.block.gather", CallOp);
-        return RepI;
+        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 ||
+               EltBytes == 8);
+        if (EltBytes == 1 || EltBytes == 2 || EltBytes == 4) {
+          std::string IntrName =
+              std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+              "gather.scaled";
+          auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+          int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+          // crease constant for num-blocks
+          auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+          // create the intrinsic call
+          Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+              CallOp->getModule(), ID,
+              {DTy, PredV->getType(), VOffset->getType()});
+          auto RepI =
+              IntrinsicInst::Create(NewFDecl,
+                                    {PredV, NumBlksC, ScaleC, BTI, SLMOffset,
+                                     VOffset, CallOp->getArgOperand(3)},
+                                    "slm.block.gather", CallOp);
+          return RepI;
+        }
+        if (EltBytes == 8) {
+          // there is no surface load of i64 type,
+          // therefore we need to use gather4
+          std::string IntrName =
+              std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+              "gather4.scaled";
+          auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+          // create constant for channel-mask GR-enabled
+          auto ChanMask = ConstantInt::get(CIntTy, 3);
+          // need to create the double-vec-type
+          auto Dx2Ty =
+              llvm::FixedVectorType::get(IntegerType::getInt32Ty(CTX), VL * 2);
+          // create the intrinsic call
+          Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+              CallOp->getModule(), ID,
+              {Dx2Ty, PredV->getType(), VOffset->getType()});
+          auto Gather4I =
+              IntrinsicInst::Create(NewFDecl,
+                                    {PredV, ChanMask, ScaleC, BTI, SLMOffset,
+                                     VOffset, UndefValue::get(Dx2Ty)},
+                                    "slm.block.gather", CallOp);
+          // cast the old value
+          auto OldVal = CastInst::CreateBitOrPointerCast(
+              CallOp->getArgOperand(3), Dx2Ty, "", CallOp);
+          // reorder the vector
+          auto ShuffleV = formDoubleVector(Gather4I, CallOp, PredV, OldVal);
+          // cast back to the original 64-bit type
+          auto RepI = CastInst::CreateBitOrPointerCast(
+              ShuffleV, DTy, CallOp->getName(), CallOp);
+          return RepI;
+        }
       } else
         return CallOp;
     } break;
@@ -1190,8 +1229,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
         auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             Inst->getModule(), ID, {DTV->getType(), PtrV->getType()});
-        auto VecDT = IntrinsicInst::Create(NewFDecl, {PtrV},
-                                           "svm.block.ld.unaligned", CallOp);
+        auto VecDT = CallInst::Create(NewFDecl, {PtrV},
+                                      "svm.block.ld.unaligned", CallOp);
 
         auto SelI = Builder.CreateSelect(CallOp->getArgOperand(3), DTV, VecDT);
 
@@ -1200,7 +1239,7 @@ static Value *translateLLVMInst(Instruction *Inst) {
         ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         NewFDecl = GenXIntrinsic::getGenXDeclaration(
             Inst->getModule(), ID, {PtrV->getType(), DTV->getType()});
-        auto RepI = IntrinsicInst::Create(
+        auto RepI = CallInst::Create(
             NewFDecl, {PtrV, SelI},
             NewFDecl->getReturnType()->isVoidTy() ? "" : "svm.block.st",
             CallOp);
@@ -1211,27 +1250,54 @@ static Value *translateLLVMInst(Instruction *Inst) {
         assert(SLMOffset);
         auto CIntTy = Type::getInt32Ty(CTX);
         auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
-        std::string IntrName =
-            std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
-            "scatter.scaled";
-        auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
         auto VL = cast<VectorType>(DTy)->getNumElements();
         auto EltTy = cast<VectorType>(DTy)->getElementType();
         auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
-        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-        int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
-        auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto PredV = CallOp->getArgOperand(3);
-        // create constant for num-blocks
-        auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+        auto VOffset = getConstVector(CIntTy, VL, EltBytes);
         auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
-        // create the intrinsic call
-        Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-            CallOp->getModule(), ID,
-            {PredV->getType(), VOffset->getType(), DTy});
-        auto RepI = Builder.CreateCall(
-            NewFDecl, {PredV, NumBlksC, ScaleC, BTI, SLMOffset, VOffset, DTV});
-        return RepI;
+        assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 ||
+               EltBytes == 8);
+        if (EltBytes == 1 || EltBytes == 2 || EltBytes == 4) {
+          std::string IntrName =
+              std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+              "scatter.scaled";
+          auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+          int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+          // create constant for num-blocks
+          auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+          // create the intrinsic call
+          Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+              CallOp->getModule(), ID,
+              {PredV->getType(), VOffset->getType(), DTy});
+          auto RepI =
+              Builder.CreateCall(NewFDecl, {PredV, NumBlksC, ScaleC, BTI,
+                                            SLMOffset, VOffset, DTV});
+          return RepI;
+        }
+        if (EltBytes == 8) {
+          // cast it into i32 vector
+          std::string IntrName =
+              std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+              "scatter4.scaled";
+          auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+          auto Dx2Ty = llvm::FixedVectorType::get(CIntTy, 2 * VL);
+          auto VecDTV = CastInst::CreateBitOrPointerCast(
+              DTV, Dx2Ty, DTV->getName() + ".cast", CallOp);
+          // shuffle it into 2-channel
+          auto VectDTV2 = disbandDoubleVector(VecDTV, CallOp);
+          // create the scatter4
+          // create channel-mask, red-green enabled
+          auto ChanMask = ConstantInt::get(CIntTy, 3);
+          // create the intrinsic call
+          Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+              CallOp->getModule(), ID,
+              {PredV->getType(), VOffset->getType(), Dx2Ty});
+          auto RepI =
+              Builder.CreateCall(NewFDecl, {PredV, ChanMask, ScaleC, BTI,
+                                            SLMOffset, VOffset, VectDTV2});
+          return RepI;
+        }
       } else
         return CallOp;
     } break;
@@ -1278,8 +1344,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
       Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
           Inst->getModule(), ID, {VDTy, MaskV->getType(), PtrV->getType()});
-      RepI = IntrinsicInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, OldV},
-                                   CallOp->getName(), CallOp);
+      RepI = CallInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, OldV},
+                              CallOp->getName(), CallOp);
       if (EltBytes < 4) {
         // bitcast to i32 type
         auto VInt32 = llvm::FixedVectorType::get(CIntTy, NumElts);
@@ -1329,17 +1395,17 @@ static Value *translateLLVMInst(Instruction *Inst) {
       auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
       Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
           Inst->getModule(), ID, {MaskV->getType(), PtrV->getType(), VDTy});
-      RepI = IntrinsicInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, DataV},
-                                   CallOp->getName(), CallOp);
+      RepI = CallInst::Create(NewFDecl, {MaskV, NumBlksC, PtrV, DataV},
+                              CallOp->getName(), CallOp);
       return RepI;
     } break;
     case Intrinsic::vector_reduce_add:
     case Intrinsic::vector_reduce_mul:
     case Intrinsic::vector_reduce_xor:
     case Intrinsic::vector_reduce_or:
-      return translateReduceOpIntrinsic(CallOp);
+      return translateReduceOpIntrinsic(cast<CallInst>(CallOp));
     case Intrinsic::sqrt:
-      return translateSqrtOpIntrinsic(CallOp);
+      return translateSqrtOpIntrinsic(cast<CallInst>(CallOp));
     default: {
       auto DTy = CallOp->getType()->getScalarType();
       GenXIntrinsic::ID GID = GenXIntrinsic::not_genx_intrinsic;
@@ -1368,8 +1434,8 @@ static Value *translateLLVMInst(Instruction *Inst) {
         Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
             CallOp->getModule(), GID, {CallOp->getType()});
         SmallVector<Value *, 2> ValueOperands(CallOp->arg_operands());
-        Value *RepI = IntrinsicInst::Create(NewFDecl, ValueOperands,
-                                            CallOp->getName(), CallOp);
+        Value *RepI = CallInst::Create(NewFDecl, ValueOperands,
+                                       CallOp->getName(), CallOp);
         CallOp->replaceAllUsesWith(RepI);
         return RepI;
       }
@@ -1389,6 +1455,10 @@ static unsigned int assignSLMOffset(Module &M) {
       auto DTy = GV.getValueType();
       auto BufferSize = static_cast<size_t>(DL->getTypeAllocSize(DTy));
       auto align = GV.getAlignment();
+      if (align == 0) {
+        int EltBytes = DTy->getScalarType()->getPrimitiveSizeInBits()/8;
+        align = (EltBytes > 0 && EltBytes < 8) ? EltBytes : 8;
+      }
       SLMSize = ((SLMSize + align - 1) / align) * align;
       if (!GV.hasAttribute(GENX_SLM_OFFSET))
         GV.addAttribute(GENX_SLM_OFFSET, std::to_string(SLMSize));

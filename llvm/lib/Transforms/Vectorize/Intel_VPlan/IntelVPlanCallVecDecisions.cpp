@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -260,9 +261,15 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   }
 
   // If underlying CallInst is not available for further analysis, serialize
-  // conservatively.
+  // conservatively if current decision is undefined.
   if (!UnderlyingCI) {
-    VPCall->setShouldBeSerialized();
+    if (VPCall->getVectorizationScenario() ==
+        VPCallInstruction::CallVecScenariosTy::Undefined) {
+      VPCall->setShouldBeSerialized();
+    } else {
+      assert(VPCall->getVFForScenario() == VF &&
+             "No known scenario for call without underlying CI.");
+    }
     return;
   }
 
@@ -336,6 +343,24 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
            "Operands of call are not uniform.");
     VPCall->setShouldNotBeWidened();
     return;
+  }
+
+  // llvm.experimental.noalias.scope.decl intrinsic calls should not be widened.
+  if (VPCall->isIntrinsicFromList(
+          {Intrinsic::experimental_noalias_scope_decl})) {
+    VPCall->setShouldNotBeWidened();
+    return;
+  }
+
+  // lifetime_start/end intrinsics operating on private memory optimized for
+  // SOA-layout are not widened.
+  if (VPCall->isLifetimeStartOrEndIntrinsic()) {
+    auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
+        getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
+    if (PrivPtr && PrivPtr->isSOALayout()) {
+      VPCall->setShouldNotBeWidened();
+      return;
+    }
   }
 
   // All other cases implies default properties i.e. call serialization.

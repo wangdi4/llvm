@@ -18,6 +18,8 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCLEANUP_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 namespace llvm {
 
@@ -28,13 +30,13 @@ class BasicBlock;
 namespace loopopt {
 
 class HIRCreation;
-class HLNodeUtils;
+class HLGoto;
 class HLNode;
 class HLLabel;
 
 class HIRCleanup {
 public:
-  typedef SmallVector<HLLabel *, 64> RequiredLabelsTy;
+  typedef HLNodeUtils::RequiredLabelsTy RequiredLabelsTy;
 
 private:
   /// Analysis results
@@ -48,11 +50,15 @@ private:
   /// RequiredLabels - HLLabels which aren't redundant.
   RequiredLabelsTy RequiredLabels;
 
-  /// \brief Eliminates redundant HLGotos created by HIRCreation pass.
-  void eliminateRedundantGotos();
+  /// Regions where Ifs were optimized out.
+  SmallPtrSet<const HLRegion *, 8> OptimizedRegions;
 
-  /// \brief Eliminates redundant HLLabels created by HIRCreation pass.
+  /// Eliminates redundant HLLabels created by HIRCreation pass.
   void eliminateRedundantLabels();
+
+  /// Eliminates redundant HLIfs in the incoming IR which can be proven to be
+  /// true or false.
+  void eliminateRedundantIfs();
 
 public:
   HIRCleanup(LoopInfo &LI, HIRCreation &HIRC, HLNodeUtils &HNU)
@@ -60,11 +66,16 @@ public:
 
   void run();
 
-  /// \brief Returns the set of required labels.
+  /// Returns the set of required labels.
   const RequiredLabelsTy &getRequiredLabels() const { return RequiredLabels; }
 
-  /// \brief Finds a hook in the HIR which corresponds to this basic block.
+  /// Finds a hook in the HIR which corresponds to this basic block.
   HLNode *findHIRHook(const BasicBlock *BB) const;
+
+  /// Returns true if (non-label/goto) nodes were eliminated from the region.
+  bool isOptimizedRegion(const HLRegion *Reg) const {
+    return OptimizedRegions.count(Reg);
+  }
 };
 
 } // End namespace loopopt

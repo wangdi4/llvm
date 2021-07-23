@@ -39,15 +39,6 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
-#if INTEL_CUSTOMIZATION
-// The option unconditionally enables reassociating optimizations that
-// may affect SLP vectorizer and/or DTrans. Its intended use is in LIT
-// tests only when need to override default pipeline builder behavior.
-static cl::opt<bool> EnableInstCombineAddSubReassoc(
-    "enable-instcombine-add-sub-reassoc", cl::init(false), cl::Hidden,
-    cl::desc("Enable InstCombine Add/Sub reassociating transformations."));
-#endif // INTEL_CUSTOMIZATION
-
 namespace {
 
   /// Class representing coefficient of floating-point addend.
@@ -1458,6 +1449,14 @@ Instruction *InstCombinerImpl::visitAdd(BinaryOperator &I) {
         Builder.CreateIntrinsic(Intrinsic::umax, {I.getType()}, {A, B}));
   }
 
+  // ctpop(A) + ctpop(B) => ctpop(A | B) if A and B have no bits set in common.
+  if (match(LHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(A)))) &&
+      match(RHS, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(B)))) &&
+      haveNoCommonBitsSet(A, B, DL, &AC, &I, &DT))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::ctpop, {I.getType()},
+                                   {Builder.CreateOr(A, B)}));
+
   return Changed ? &I : nullptr;
 }
 
@@ -1820,14 +1819,39 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
 #if INTEL_CUSTOMIZATION
   // There are couple of transforms that do affect SLP vectorizer behavior which
   // specifically turn out harmful for x264 test performance.
-  // This is considered a work around of the problem to temporarily (hopefully)
-  // disable these optimizations when there is interference with SLP vectorizer.
   // (See CMPLRLLVM-27771, CMPLRLLVM-20204 for details)
-  // Here we use enableFcmpMinMaxCombine since it tied to SLP and also check for
-  // ifFortran() to limit gamut of the restriction.
-  bool NoSLPVectorizerInterference =
-      enableFcmpMinMaxCombine() || I.getFunction()->isFortran();
-  if (EnableInstCombineAddSubReassoc || NoSLPVectorizerInterference) {
+  // Unless we find a reliable way to handle this in SLP vectorizer here we try
+  // to pattern match for a specific situation where we want both of these
+  // transformations not being applied.
+  // We specifically look for a pattern when single user of a binary op
+  // instruction is a store and its right operand has multiple uses or, if the
+  // user is another add/sub, then we descend and look for the pattern again.
+  // Initial value of Depth determines how deep we are descending over add/sub
+  // def-use chain.
+
+  auto StoreUserPattern = [](BinaryOperator *I) -> Instruction * {
+    if (Use *SingleUse = I->getSingleUndroppableUse()) {
+      Instruction *SingleUser = cast<Instruction>(SingleUse->getUser());
+      unsigned Opcode = SingleUser->getOpcode();
+
+      if ((Opcode == Instruction::Store && !I->getOperand(1)->hasOneUse()) ||
+          Opcode == Instruction::Add || Opcode == Instruction::Sub)
+        return SingleUser;
+    }
+    return nullptr;
+  };
+
+  bool NoSLPVectorizerInterference = true;
+  unsigned Depth = 2;
+  for (Instruction *IUser = StoreUserPattern(&I); IUser && Depth > 0; --Depth) {
+    if (isa<StoreInst>(IUser)) {
+      NoSLPVectorizerInterference = false;
+      break;
+    }
+    IUser = StoreUserPattern(cast<BinaryOperator>(IUser));
+  }
+
+  if (NoSLPVectorizerInterference) {
     // Reassociate sub/add sequences to create more add instructions and
     // reduce dependency chains:
     // ((X - Y) + Z) - Op1 --> (X + Z) - (Y + Op1)
@@ -1840,8 +1864,7 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     }
   }
 
-  if (EnableInstCombineAddSubReassoc ||
-      (!preserveForDTrans() && NoSLPVectorizerInterference)) {
+  if (!preserveForDTrans() && NoSLPVectorizerInterference) {
     // ((X - Y) - Op1)  -->  X - (Y + Op1)
     // DTrans currently can't handle Add operator. Disable this transformation
     // when PreserveForDTrans is true.
@@ -2136,33 +2159,59 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
           canonicalizeCondSignextOfHighBitExtractToSignextHighBitExtract(I))
     return V;
 
+  // X - usub.sat(X, Y) => umin(X, Y)
+  if (match(Op1, m_OneUse(m_Intrinsic<Intrinsic::usub_sat>(m_Specific(Op0),
+                                                           m_Value(Y)))))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::umin, {I.getType()}, {Op0, Y}));
+
+  // C - ctpop(X) => ctpop(~X) if C is bitwidth
+  if (match(Op0, m_SpecificInt(Ty->getScalarSizeInBits())) &&
+      match(Op1, m_OneUse(m_Intrinsic<Intrinsic::ctpop>(m_Value(X)))))
+    return replaceInstUsesWith(
+        I, Builder.CreateIntrinsic(Intrinsic::ctpop, {I.getType()},
+                                   {Builder.CreateNot(X)}));
+
   return TryToNarrowDeduceFlags();
 }
 
 /// This eliminates floating-point negation in either 'fneg(X)' or
 /// 'fsub(-0.0, X)' form by combining into a constant operand.
 static Instruction *foldFNegIntoConstant(Instruction &I) {
+  // This is limited with one-use because fneg is assumed better for
+  // reassociation and cheaper in codegen than fmul/fdiv.
+  // TODO: Should the m_OneUse restriction be removed?
+  Instruction *FNegOp;
+  if (!match(&I, m_FNeg(m_OneUse(m_Instruction(FNegOp)))))
+    return nullptr;
+
   Value *X;
   Constant *C;
 
-  // Fold negation into constant operand. This is limited with one-use because
-  // fneg is assumed better for analysis and cheaper in codegen than fmul/fdiv.
+  // Fold negation into constant operand.
   // -(X * C) --> X * (-C)
-  // FIXME: It's arguable whether these should be m_OneUse or not. The current
-  // belief is that the FNeg allows for better reassociation opportunities.
-  if (match(&I, m_FNeg(m_OneUse(m_FMul(m_Value(X), m_Constant(C))))))
+  if (match(FNegOp, m_FMul(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFMulFMF(X, ConstantExpr::getFNeg(C), &I);
   // -(X / C) --> X / (-C)
-  if (match(&I, m_FNeg(m_OneUse(m_FDiv(m_Value(X), m_Constant(C))))))
+  if (match(FNegOp, m_FDiv(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFDivFMF(X, ConstantExpr::getFNeg(C), &I);
   // -(C / X) --> (-C) / X
-  if (match(&I, m_FNeg(m_OneUse(m_FDiv(m_Constant(C), m_Value(X))))))
-    return BinaryOperator::CreateFDivFMF(ConstantExpr::getFNeg(C), X, &I);
+  if (match(FNegOp, m_FDiv(m_Constant(C), m_Value(X)))) {
+    Instruction *FDiv =
+        BinaryOperator::CreateFDivFMF(ConstantExpr::getFNeg(C), X, &I);
 
+    // Intersect 'nsz' and 'ninf' because those special value exceptions may not
+    // apply to the fdiv. Everything else propagates from the fneg.
+    // TODO: We could propagate nsz/ninf from fdiv alone?
+    FastMathFlags FMF = I.getFastMathFlags();
+    FastMathFlags OpFMF = FNegOp->getFastMathFlags();
+    FDiv->setHasNoSignedZeros(FMF.noSignedZeros() & OpFMF.noSignedZeros());
+    FDiv->setHasNoInfs(FMF.noInfs() & OpFMF.noInfs());
+    return FDiv;
+  }
   // With NSZ [ counter-example with -0.0: -(-0.0 + 0.0) != 0.0 + -0.0 ]:
   // -(X + C) --> -X + -C --> -C - X
-  if (I.hasNoSignedZeros() &&
-      match(&I, m_FNeg(m_OneUse(m_FAdd(m_Value(X), m_Constant(C))))))
+  if (I.hasNoSignedZeros() && match(FNegOp, m_FAdd(m_Value(X), m_Constant(C))))
     return BinaryOperator::CreateFSubFMF(ConstantExpr::getFNeg(C), X, &I);
 
   return nullptr;
@@ -2203,6 +2252,35 @@ Instruction *InstCombinerImpl::visitFNeg(UnaryOperator &I) {
 
   if (Instruction *R = hoistFNegAboveFMulFDiv(I, Builder))
     return R;
+
+  // Try to eliminate fneg if at least 1 arm of the select is negated.
+  Value *Cond;
+  if (match(Op, m_OneUse(m_Select(m_Value(Cond), m_Value(X), m_Value(Y))))) {
+    // Unlike most transforms, this one is not safe to propagate nsz unless
+    // it is present on the original select. (We are conservatively intersecting
+    // the nsz flags from the select and root fneg instruction.)
+    auto propagateSelectFMF = [&](SelectInst *S) {
+      S->copyFastMathFlags(&I);
+      if (auto *OldSel = dyn_cast<SelectInst>(Op))
+        if (!OldSel->hasNoSignedZeros())
+          S->setHasNoSignedZeros(false);
+    };
+    // -(Cond ? -P : Y) --> Cond ? P : -Y
+    Value *P;
+    if (match(X, m_FNeg(m_Value(P)))) {
+      Value *NegY = Builder.CreateFNegFMF(Y, &I, Y->getName() + ".neg");
+      SelectInst *NewSel = SelectInst::Create(Cond, P, NegY);
+      propagateSelectFMF(NewSel);
+      return NewSel;
+    }
+    // -(Cond ? X : -P) --> Cond ? -X : P
+    if (match(Y, m_FNeg(m_Value(P)))) {
+      Value *NegX = Builder.CreateFNegFMF(X, &I, X->getName() + ".neg");
+      SelectInst *NewSel = SelectInst::Create(Cond, NegX, P);
+      propagateSelectFMF(NewSel);
+      return NewSel;
+    }
+  }
 
   return nullptr;
 }

@@ -12,7 +12,8 @@ namespace {
 class CloneVPlan : public vpo::VPlanTestBase {};
 
 DenseMap<const VPBasicBlock *, const VPBasicBlock *>
-CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
+CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan,
+                                         VPlanVector *OrigVPlan,
                                          VPlanVector::UpdateDA UDA) {
   SmallVector<std::pair<const VPBasicBlock *, const VPBasicBlock *>, 5>
       Worklist;
@@ -53,10 +54,9 @@ CompareGraphsAndCreateClonedOrigVPBBsMap(VPlan *ClonedVPlan, VPlan *OrigVPlan,
       // Check DA
       if (UDA == VPlanVector::UpdateDA::CloneDA ||
           UDA == VPlanVector::UpdateDA::RecalculateDA) {
-        EXPECT_FALSE(cast<VPlanDivergenceAnalysis>(OrigVPlan->getVPlanDA())
-                         ->shapesAreDifferent(
-                             OrigVPlan->getVPlanDA()->getVectorShape(*ItO),
-                             ClonedVPlan->getVPlanDA()->getVectorShape(*ItC)));
+        EXPECT_FALSE(OrigVPlan->getVPlanDA()->shapesAreDifferent(
+            OrigVPlan->getVPlanDA()->getVectorShape(*ItO),
+            ClonedVPlan->getVPlanDA()->getVectorShape(*ItC)));
       }
     }
 

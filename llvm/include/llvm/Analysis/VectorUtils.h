@@ -32,7 +32,7 @@ enum class VFParamKind {
   OMP_LinearPos,     // declare simd linear(i:c) uniform(c)
   OMP_LinearValPos,  // declare simd linear(val(i:c)) uniform(c)
   OMP_LinearRefPos,  // declare simd linear(ref(i:c)) uniform(c)
-  OMP_LinearUValPos, // declare simd linear(uval(i:c)) uniform(c
+  OMP_LinearUValPos, // declare simd linear(uval(i:c)) uniform(c)
   OMP_Uniform,       // declare simd uniform(i)
   GlobalPredicate,   // Global logical predicate that acts on all lanes
                      // of the input and output mask concurrently. For
@@ -128,12 +128,6 @@ struct VFInfo {
   std::string ScalarName; /// Scalar Function Name.
   std::string VectorName; /// Vector Function Name associated to this VFInfo.
   VFISAKind ISA;          /// Instruction Set Architecture.
-
-  // Comparison operator.
-  bool operator==(const VFInfo &Other) const {
-    return std::tie(Shape, ScalarName, VectorName, ISA) ==
-           std::tie(Shape, Other.ScalarName, Other.VectorName, Other.ISA);
-  }
 };
 
 namespace VFABI {
@@ -325,6 +319,11 @@ bool isTriviallyVectorizable(Intrinsic::ID ID);
 
 /// Identifies if the vector form of the intrinsic has a scalar operand.
 bool hasVectorInstrinsicScalarOpd(Intrinsic::ID ID, unsigned ScalarOpdIdx);
+
+/// Identifies if the vector form of the intrinsic has a scalar operand that has
+/// an overloaded type.
+bool hasVectorInstrinsicOverloadedScalarOpd(Intrinsic::ID ID,
+                                            unsigned ScalarOpdIdx);
 
 /// Returns intrinsic ID for call.
 /// For the input call instruction it finds mapping intrinsic and returns
@@ -826,10 +825,6 @@ public:
 
   bool isReverse() const { return Reverse; }
   uint32_t getFactor() const { return Factor; }
-  LLVM_ATTRIBUTE_DEPRECATED(uint32_t getAlignment() const,
-                            "Use getAlign instead.") {
-    return Alignment.value();
-  }
   Align getAlign() const { return Alignment; }
   uint32_t getNumMembers() const { return Members.size(); }
 

@@ -408,6 +408,12 @@ private:
   static const HLNode *getLexicalChildImpl(const HLNode *Parent,
                                            const HLNode *Node, bool First);
 
+  // Returns true if \p Node is last child of its parent. It could be the last
+  // child of any case for HLIf/HLSwitch.
+  // This is used by framework so the implementation avoids using top sort
+  // numbers.
+  static bool isLexicalLastChildOfParent(const HLNode *Node);
+
   /// Returns true if the lexical link have structured flow between Parent's
   /// first/last child and Node. The direction is dictated by UpwardTraversal
   /// flag. TargetNode is used for early termination of the traversal.
@@ -1713,6 +1719,29 @@ public:
   /// if it causes performance regressions.
   static void addCloningInducedLiveouts(HLLoop *LiveoutLoop,
                                         const HLLoop *OrigLoop = nullptr);
+
+  /// Check if a blob is defined outside the region.
+  static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
+
+  struct LabelNumberCompareLess {
+    bool operator()(const HLLabel *L1, const HLLabel *L2) const {
+      return L1->getNumber() < L2->getNumber();
+    }
+  };
+
+  typedef std::set<HLLabel *, LabelNumberCompareLess> RequiredLabelsTy;
+
+  /// Eliminates redundant HLGotos passed in Gotos and fills up
+  /// RequiredLabels with needed Labels. This utility does not invalidate any
+  /// analyses. Caller is responsible for doing the necessary invalidation.
+  /// Note that this interface makes use of the private erase method to
+  /// delete unnecessary Gotos. In general, transforms methods are not
+  /// supposed to use erase. Gotos are not expected to be cached and it should
+  /// be OK to use erase method.
+  static void eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
+                                      RequiredLabelsTy &RequiredLabels);
+  /// Returns true if "IF/SWITCH" never falls through.
+  static bool hasGotoOnAllBranches(HLNode *Node);
 };
 
 } // End namespace loopopt

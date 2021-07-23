@@ -156,7 +156,8 @@ static Type *getScalarType(const std::string ST) {
   return nullptr;
 }
 
-static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
+static void parseInput(unsigned &GroupSize,
+                       OVLSVector<std::unique_ptr<OVLSMemref>> &Mrfs) {
 
   char MemrefId, InputChar;
   int Dist;
@@ -215,7 +216,7 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
         mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
                                false, VsId);
     }
-    Mrfs.push_back(mrf);
+    Mrfs.emplace_back(mrf);
   }
 }
 
@@ -250,7 +251,7 @@ int main(int argc, char **argv) {
   unsigned GroupSize = 0;
 
   // parse Input File
-  OVLSMemrefVector Mrfs;
+  OVLSVector<std::unique_ptr<OVLSMemref>> Mrfs;
   OVLSTest::parseInput(GroupSize, Mrfs);
 
   OVLSGroupVector Grps;
@@ -277,24 +278,15 @@ int main(int argc, char **argv) {
     OVLSCostModel CM(TTI, OVLSTest::getContext());
 
     // Do something with the grps.
-    for (OVLSGroup *Grp : Grps) {
+    for (auto &Grp : Grps) {
       OVLSInstructionVector InstVec;
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec)) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        for (OVLSInstruction *I : InstVec)
-          OVLSdbgs() << *I << "\n";
+        for (auto &I : InstVec)
+          OVLSdbgs() << I.get() << "\n";
 #endif
       }
     }
-  }
-
-  // Release memory
-  for (OVLSMemref *Memref : Mrfs) {
-    delete Memref;
-  }
-
-  for (OVLSGroup *Grp : Grps) {
-    delete Grp;
   }
 
   return 0;

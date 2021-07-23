@@ -19,13 +19,13 @@
 // Only version 2021.1.0 was encoded using format YYYYMP or 202110
 // TODO: Auto-populate __INTEL_LLVM_COMPILER and __INTEL_CLANG_COMPILER
 //       macros using build settings and remove XMAIN_VERSION_NUMBER
-#define XMAIN_VERSION_NUMBER "20210300"
+#define XMAIN_VERSION_NUMBER "20210400"
 
 // XMAIN_VERSION_STRING is updated to the proper update string when the
 // release branch is taken.  This allows us to differentiate via version
 // output if the compiler is from the developent or release branch.  For
 // example, the 2021.3.0 update will have "3.0" as the string.
-#define XMAIN_VERSION_STRING "3.0"
+#define XMAIN_VERSION_STRING "4.0"
 
 #ifndef BUILD_DATE_STAMP
 #define BUILD_DATE_STAMP        YYYYMMDD

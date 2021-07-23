@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert --vector-library=SVML -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" --vector-library=SVML -print-after=vplan-driver-hir -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert --vector-library=SVML -hir-vplan-vec -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" --vector-library=SVML -print-after=hir-vplan-vec -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ; Test that the memory reference created for the masked uniform store is created
 ; correctly. We were failing to set the canon expr src type correctly which made
@@ -17,7 +17,8 @@
 ;    (<4 x float>*)(@r)[0] = %.vec; Mask = @{%.vec1}
 ;    <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]
 ;
-; CHECK-LABEL: *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:    IR Dump After VPlan HIR Vectorizer
+; PM2:    IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:  DO i64 i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK:    (<4 x float>*)(@r)[0] = %.vec; Mask = @{%.vec1}
 ; CHECK:     <LVAL-REG> {al:4}(<4 x float>*)(LINEAR float* @r)[<4 x i64> 0]

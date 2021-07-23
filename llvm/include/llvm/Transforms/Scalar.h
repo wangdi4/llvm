@@ -324,10 +324,16 @@ FunctionPass *createCleanupFakeLoadsPass();
 // FunctionRecognizer - Mark recognizable Functions with Function Attributes
 FunctionPass *createFunctionRecognizerLegacyPass(void);
 
+#if INTEL_FEATURE_SW_DTRANS
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info and/or DTrans Field Single Value Info if possible
 FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false,
                                                bool UseDTrans = false);
+#else // INTEL_FEATURE_SW_DTRANS
+// IndirectCallConv - Converts indirect calls to direct calls using
+// points-to info
+FunctionPass *createIndirectCallConvLegacyPass(bool UseAndersen = false);
+#endif // INTEL_FEATURE_SW_DTRANS
 
 // LoopOptMarker - Indicates loopopt based throttling to subsequent passes.
 FunctionPass *createLoopOptMarkerLegacyPass();
@@ -336,9 +342,11 @@ FunctionPass *createLoopOptMarkerLegacyPass();
 // new Phi Node if their latch values have the same binary operation.
 FunctionPass *createLoopCarriedCSEPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 // NontemporalStore - Convert unaligned nontemporal stores to aligned stores by
 // use of a buffer.
 FunctionPass *createNontemporalStoreWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #endif // INTEL_CUSTOMIZATION
 

@@ -111,6 +111,7 @@ int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
 void __kmpc_proxy_task_completed_ooo(void *);
+void kmp_set_defaults(const char *);
 #endif
 #else  // INTEL_COLLAB
 int omp_get_default_device(void) __attribute__((weak));
@@ -141,15 +142,12 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
   Device.DataMapMtx.lock();
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
-#if INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
-         DPxMOD " " DPxMOD " %-8" PRIuPTR " %-8" PRId64 " %s at %s:%d:%d\n",
+         DPxMOD " " DPxMOD " %-8" PRIuPTR " %-8s %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin,
-         HostTargetMap.getRefCount(), Info.getName(), Info.getFilename(),
-         Info.getLine(), Info.getColumn());
-#endif // INTEL_CUSTOMIZATION
-
+         HostTargetMap.refCountToStr().c_str(), Info.getName(),
+         Info.getFilename(), Info.getLine(), Info.getColumn());
   }
   Device.DataMapMtx.unlock();
 }
@@ -185,11 +183,9 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
       type = "alloc";
     else
       type = "use_address";
-#if INTEL_CUSTOMIZATION
+
     INFO(OMP_INFOTYPE_ALL, DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
          getNameFromMapping(varName).c_str(), ArgSizes[i], implicit);
-#endif // INTEL_CUSTOMIZATION
-
   }
 }
 

@@ -40,7 +40,7 @@
 // STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs={{.+}}-2.o"
 // STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs={{.+}}-3.o"
 // STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=a"
-// STATIC_LIB_MULTI_O: llvm-link{{.*}}
+// STATIC_LIB_MULTI_O: llvm-link{{.*}} "--only-needed" {{.*}}
 
 /// ###########################################################################
 
@@ -82,7 +82,8 @@
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=ao" "-targets=host-x86_64-unknown-linux-gnu" "-inputs=[[INPUTLIB]]" "-check-section"
 // STATIC_LIB_NOSRC: clang-offload-bundler{{.*}} "-type=a" "-targets=openmp-spir64" "-inputs=[[INPUTLIB]]" "-outputs=[[OUTLIB:.+\.a]]" "-unbundle"
 // STATIC_LIB_NOSRC: llvm-link{{.*}} "[[OUTLIB]]" "-o" "[[OUTFILE:.+\.bc]]"
-// STATIC_LIB_NOSRC: sycl-post-link{{.*}} "-o" "[[BCFILE:.+\.bc]]" "[[OUTFILE]]"
+// STATIC_LIB_NOSRC: llvm-link{{.*}} "--only-needed" "[[OUTFILE]]" {{.*}} "-o" "[[OUTFILE2:.+\.bc]]"
+// STATIC_LIB_NOSRC: sycl-post-link{{.*}} "-o" "[[BCFILE:.+\.bc]]" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.spv]]" {{.*}} "[[BCFILE]]"
 // STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: clang{{.*}} "-o" "[[FINALOBJ:.+\.o]]" {{.*}} "[[BCFILE2]]"

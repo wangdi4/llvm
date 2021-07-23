@@ -11,7 +11,7 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, sext.i32.i64(%n) + -2, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   + DO i2 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   |   %0 = (%A)[i1 + 1];
 ; CHECK: |   |   (%A)[i1 + 1] = %0 + %t.026;
 ; CHECK: |   |   %1 = (%B)[i1 + 1];

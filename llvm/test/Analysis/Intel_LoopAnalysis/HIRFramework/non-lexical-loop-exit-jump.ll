@@ -13,10 +13,6 @@
 ; CHECK: |   |   <i2 = 0>
 ; CHECK: |   |   bb124:
 ; CHECK: |   |   %tmp125.out = &((%tmp125)[0]);
-; CHECK: |   |   if (undef #UNDEF# undef)
-; CHECK: |   |   {
-; CHECK: |   |      goto bb136;
-; CHECK: |   |   }
 ; CHECK: |   |   %tmp134 = (%tmp125.out)[0].3;
 ; CHECK: |   |   %tmp125 = &((%tmp134)[0]);
 ; CHECK: |   |   if (&((%tmp134)[0]) != &((undef)[0]))
@@ -27,7 +23,7 @@
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   goto bb145;
-; CHECK: |   bb136:
+; CHECK: |   Unused.{{[0-9]+}}:
 ; CHECK: |   %tmp = &((%tmp125.out)[0]);
 ; CHECK: |   if (&((%tmp125.out)[0]) != &((undef)[0]))
 ; CHECK: |   {
@@ -44,12 +40,13 @@ target triple = "x86_64-unknown-linux-gnu"
 %struct.snork = type { i32, i64, %struct.wobble*, %struct.wobble*, i16, %struct.snork*, %struct.snork*, i64, i64 }
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @snork() local_unnamed_addr {
+define void @snork(i32 %c) local_unnamed_addr {
 bb:
   br i1 undef, label %bb448, label %bb120
 
 bb120:                                            ; preds = %bb119
-  br i1 undef, label %bb122, label %bb121
+  %cond = icmp sgt i32 %c, 0
+  br i1 %cond, label %bb122, label %bb121
 
 bb121:                                            ; preds = %bb120
   br label %bb123
@@ -63,7 +60,7 @@ bb123:                                            ; preds = %bb143, %bb121
 
 bb124:                                            ; preds = %bb132, %bb123
   %tmp125 = phi %struct.wobble* [ %tmp, %bb123 ], [ %tmp134, %bb132 ]
-  br i1 undef, label %bb132, label %bb136
+  br i1 %cond, label %bb136, label %bb132
 
 bb132:                                            ; preds = %bb129, %bb124
   %tmp133 = getelementptr inbounds %struct.wobble, %struct.wobble* %tmp125, i64 0, i32 3

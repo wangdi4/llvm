@@ -3,8 +3,8 @@
 ; For this case, the gep indices are constant, but the ptr is unit stride.
 
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver" -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="vplan-vec" -vplan-dump-da -vplan-force-vf=2 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %p) {
@@ -17,12 +17,12 @@ define dso_local void @foo(i32* nocapture %p) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_0]] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in1 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P0:%.*]] i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]
@@ -78,10 +78,10 @@ define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3, i32* %p4) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 3
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in1 i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in2 i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in3 i64 -4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 3
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P10:%.*]] i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P20:%.*]] i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P40:%.*]] i64 -4
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]

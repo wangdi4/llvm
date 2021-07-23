@@ -4,8 +4,8 @@
 ; one divergent icmp instruction (VP_CMPZ) that is used as a CondBit in two different blocks.
 ; This should cause two phis, VP_DIV_PHI and VP_DIV_PHI2, to be marked as divergent.
 
-; RUN: opt < %s -VPlanDriver -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="vplan-driver" -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
+; RUN: opt < %s -vplan-vec -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="vplan-vec" -vplan-dump-da -disable-output -S 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind
 define void @foo() {
@@ -49,7 +49,7 @@ define void @foo() {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB11]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB12]]

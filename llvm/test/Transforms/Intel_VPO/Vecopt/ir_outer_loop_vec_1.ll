@@ -1,10 +1,10 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -S -vplan-vec -disable-vplan-predicator -vplan-force-vf=4 < %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; CHECK: [[INNER_LOOP_HEADER:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]], %vector.body
 ; CHECK: store <4 x i32>
 ; CHECK: [[INNER_LOOP_EXIT:VPlannedBB.*]]:{{.*}} preds = %[[INNER_LOOP_HEADER]]
-; CHECK: middle.block:
+
 
 ; ModuleID = 'krtest.c'
 source_filename = "krtest.c"

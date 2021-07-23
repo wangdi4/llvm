@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
@@ -327,3 +329,4 @@ define internal fastcc void @fun0_(double* noalias nocapture %0, double* noalias
   ret void
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

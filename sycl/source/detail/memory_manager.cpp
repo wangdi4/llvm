@@ -129,7 +129,8 @@ void *MemoryManager::allocateInteropMemObject(
 static RT::PiMemFlags getMemObjCreationFlags(void *UserPtr,
                                              bool HostPtrReadOnly) {
   // Create read_write mem object to handle arbitrary uses.
-  RT::PiMemFlags Result = PI_MEM_FLAGS_ACCESS_RW;
+  RT::PiMemFlags Result =
+      HostPtrReadOnly ? PI_MEM_ACCESS_READ_ONLY : PI_MEM_FLAGS_ACCESS_RW;
   if (UserPtr)
     Result |= HostPtrReadOnly ? PI_MEM_FLAGS_HOST_PTR_COPY
                               : PI_MEM_FLAGS_HOST_PTR_USE;
@@ -705,6 +706,19 @@ void MemoryManager::prefetch_usm(void *Mem, QueueImplPtr Queue, size_t Length,
     Plugin.call<PiApiKind::piextUSMEnqueuePrefetch>(
         Queue->getHandleRef(), Mem, Length, PI_USM_MIGRATION_TBD0,
         DepEvents.size(), DepEvents.data(), &OutEvent);
+  }
+}
+
+void MemoryManager::advise_usm(const void *Mem, QueueImplPtr Queue,
+                               size_t Length, pi_mem_advice Advice,
+                               std::vector<RT::PiEvent> /*DepEvents*/,
+                               RT::PiEvent &OutEvent) {
+  sycl::context Context = Queue->get_context();
+
+  if (!Context.is_host()) {
+    const detail::plugin &Plugin = Queue->getPlugin();
+    Plugin.call<PiApiKind::piextUSMEnqueueMemAdvise>(Queue->getHandleRef(), Mem,
+                                                     Length, Advice, &OutEvent);
   }
 }
 

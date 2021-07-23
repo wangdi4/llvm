@@ -11,11 +11,11 @@ void foo(_Complex double *dest) {
 
   for (l1 = 0; l1 < 100; l1++) {
     dest[l1] = __builtin_complex((double)(l1), (double)(l1 + 1));
-    // PATH: %ptridx = getelementptr inbounds
-    // PATH: %ptridx.realp = getelementptr inbounds { double, double }, { double, double }* %ptridx, i32 0, i32 0, !intel-tbaa [[TAG_realp:!.*]]
-    // PATH: store double {{.*}} double* %ptridx.realp, align 8, !tbaa [[TAG_realp]]
-    // PATH: %ptridx.imagp = getelementptr inbounds { double, double }, { double, double }* %ptridx, i32 0, i32 1, !intel-tbaa [[TAG_imagp:!.*]]
-    // PATH: store double %conv1, double* %ptridx.imagp, align 8, !tbaa [[TAG_imagp]]
+    // PATH: %arrayidx = getelementptr inbounds
+    // PATH: %arrayidx.realp = getelementptr inbounds { double, double }, { double, double }* %arrayidx, i32 0, i32 0, !intel-tbaa [[TAG_realp:!.*]]
+    // PATH: store double {{.*}} double* %arrayidx.realp, align 8, !tbaa [[TAG_realp]]
+    // PATH: %arrayidx.imagp = getelementptr inbounds { double, double }, { double, double }* %arrayidx, i32 0, i32 1, !intel-tbaa [[TAG_imagp:!.*]]
+    // PATH: store double %conv1, double* %arrayidx.imagp, align 8, !tbaa [[TAG_imagp]]
   }
 }
 // PATH: [[TYPE_char:!.*]] = !{!"omnipotent char", [[TAG_cxx_tbaa:!.*]], {{.*}}

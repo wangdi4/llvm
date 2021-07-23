@@ -80,20 +80,32 @@ public:
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 };
 
+struct PrintPassOptions {
+  /// Print adaptors and pass managers.
+  bool Verbose = false;
+  /// Don't print information for analyses.
+  bool SkipAnalyses = false;
+  /// Indent based on hierarchy.
+  bool Indent = false;
+};
+
 // Debug logging for transformation and analysis passes.
 class PrintPassInstrumentation {
+  raw_ostream &print();
+
 public:
-  PrintPassInstrumentation(bool DebugLogging)
+  PrintPassInstrumentation(bool Enabled, PrintPassOptions Opts)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      : DebugLogging(DebugLogging)
+      : Enabled(Enabled), Opts(Opts)
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  {
-  }
+      {} // INTEL
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 private:
-  bool DebugLogging;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  bool Enabled;
+  PrintPassOptions Opts;
+  int Indent = 0;
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 };
 
@@ -138,7 +150,7 @@ public:
                     FunctionAnalysisManager::Invalidator &);
   };
 
-#ifndef NDEBUG
+#ifdef LLVM_ENABLE_ABI_BREAKING_CHECKS
   SmallVector<StringRef, 8> PassStack;
 #endif
 
@@ -420,7 +432,8 @@ class StandardInstrumentations {
   bool VerifyEach;
 
 public:
-  StandardInstrumentations(bool DebugLogging, bool VerifyEach = false);
+  StandardInstrumentations(bool DebugLogging, bool VerifyEach = false,
+                           PrintPassOptions PrintPassOpts = PrintPassOptions());
 
   // Register all the standard instrumentation callbacks. If \p FAM is nullptr
   // then PreservedCFGChecker is not enabled.

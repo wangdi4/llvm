@@ -111,7 +111,7 @@ TEST_P(SamplerPropertiesTest, piCheckAddressingMode) {
   ASSERT_EQ(actualAddressMode, addressMode_);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SamplerPropertiesTesttImpl, SamplerPropertiesTest,
     ::testing::Combine(
         ::testing::Values(PI_TRUE, PI_FALSE),
@@ -121,5 +121,5 @@ INSTANTIATE_TEST_CASE_P(
                           PI_SAMPLER_ADDRESSING_MODE_CLAMP_TO_EDGE,
                           PI_SAMPLER_ADDRESSING_MODE_NONE,
                           PI_SAMPLER_ADDRESSING_MODE_MIRRORED_REPEAT,
-                          PI_SAMPLER_ADDRESSING_MODE_REPEAT)), );
+                          PI_SAMPLER_ADDRESSING_MODE_REPEAT)));
 } // namespace

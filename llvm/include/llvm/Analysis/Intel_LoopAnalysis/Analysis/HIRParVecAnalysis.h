@@ -188,7 +188,8 @@ public:
   }
 
   /// \brief Main analysis function.
-  void analyze(HLLoop *Loop, TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+  void analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
+               TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
                HIRSafeReductionAnalysis *SRA);
 
   /// \brief Print the analysis result.
@@ -196,8 +197,9 @@ public:
 
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode, HIRParVecInfoMapType &InfoMap,
-                         TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
-                         HIRSafeReductionAnalysis *SRA, HLLoop *Loop) {
+                         const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
+                         HLLoop *Loop) {
 
     auto &Info = InfoMap[Loop];
 
@@ -207,7 +209,7 @@ public:
     //       to deal with such situation.
 
     if (!Info->isDone())
-      Info->analyze(Loop, TLI, DDA, SRA);
+      Info->analyze(Loop, TTI, TLI, DDA, SRA);
 
     return Info.get();
   }
@@ -236,15 +238,18 @@ public:
 
 class HIRParVecAnalysis : public HIRAnalysis {
   bool Enabled;
+  const TargetTransformInfo *TTI;
   TargetLibraryInfo *TLI;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
   HIRParVecInfoMapType InfoMap;
 
 public:
-  HIRParVecAnalysis(bool Enabled, TargetLibraryInfo *TLI, HIRFramework *HIRF,
+  HIRParVecAnalysis(bool Enabled, const TargetTransformInfo *TTI,
+                    TargetLibraryInfo *TLI, HIRFramework *HIRF,
                     HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA)
-      : HIRAnalysis(*HIRF), Enabled(Enabled), TLI(TLI), DDA(DDA), SRA(SRA) {}
+      : HIRAnalysis(*HIRF), Enabled(Enabled), TTI(TTI), TLI(TLI), DDA(DDA),
+        SRA(SRA) {}
 
   /// \brief Analyze (if invalid) the loop and return the info.
   const ParVecInfo *getInfo(ParVecInfo::AnalysisMode Mode, HLLoop *Loop);
@@ -308,13 +313,14 @@ public:
     // Non-monotonic value, the last value calculation requires a MMFirstLastIdx
     // to be present and uses its last value for final calculation.
     MMFirstLastVal,
-    VConflict,
+    VConflictLikeStore,
   };
 
 private:
   using IdiomListTy = MapVector<const Instruction *, IdiomId>;
   using IdiomLinksTy =
       DenseMap<const Instruction *, SmallPtrSet<const Instruction *, 2>>;
+  SmallDenseMap<const HLInst *, DDRef *> VConflictStoreToLoadMap;
 
 public:
   using iterator = typename IdiomListTy::iterator;
@@ -372,9 +378,7 @@ public:
   static bool isStandaloneIdiom(IdiomId Id) { return false; }
 
   /// Predicate whether \p Id marks idioms that require the linked ones.
-  static bool isMasterIdiom(IdiomId Id) {
-    return Id == MinOrMax || Id == VConflict;
-  }
+  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -399,10 +403,27 @@ public:
 
   static const char *getIdiomName(IdiomId Id) {
     static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastIdx",
-                                  "MMFirstLastVal", "VConflict"};
+                                  "MMFirstLastVal", "VConflictLikeStore"};
     return Names[Id];
   }
 #endif
+
+  void recordVConflictIdiom(const HLInst *StoreInst, DDRef *LoadRef) {
+    // Add the root of VConflict idiom (StoreInst) in idiom list.
+    addIdiom(StoreInst, VectorIdioms::VConflictLikeStore);
+    // Add load and store of VConflict idiom in VConflictStoreToLoadMap.
+    VConflictStoreToLoadMap[StoreInst] = LoadRef;
+  }
+
+  DDRef *getVConflictLoad(const HLInst *StoreInst) const {
+    return VConflictStoreToLoadMap.find(StoreInst)->second;
+  }
+
+  bool isVConflictLoad(DDRef *LoadRef) const {
+    return llvm::find_if(VConflictStoreToLoadMap, [LoadRef](const auto &Pair) {
+             return Pair.second == LoadRef;
+           }) != VConflictStoreToLoadMap.end();
+  }
 
 private:
   IdiomListTy IdiomData;
@@ -421,8 +442,9 @@ class HIRVectorIdiomAnalysis {
 public:
   HIRVectorIdiomAnalysis() = default;
 
-  void gatherIdioms(HIRVectorIdioms &IList, const DDGraph &DDG,
-                    HIRSafeReductionAnalysis &SRA, HLLoop *Loop);
+  void gatherIdioms(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
+                    const DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
+                    HLLoop *Loop);
 };
 
 } // namespace loopopt

@@ -43,7 +43,7 @@
 ; CHECK:           |   %add = %mul4  +  %conv;
 ; CHECK:           |   %conv5 = fptrunc.double.float(%add);
 ; CHECK:           |   (@A)[0][i1] = %conv5;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10]),  0,  2,  1);
+; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10]),  0,  1,  1);
 ; CHECK:           + END LOOP
 ;
 ; CHECK:           ret &((undef)[0]);

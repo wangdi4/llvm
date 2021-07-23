@@ -11,6 +11,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/StringRef.h" // INTEL
 #include <functional>
 
 namespace llvm {

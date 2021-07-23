@@ -132,7 +132,8 @@ IndirectCallCodeGenerator::generateIndirectCall(VPCallInstruction *VPCallInst,
                                                 Value *CurrentFuncPtr) {
   unsigned MatchedVecVariantIdx = VPCallInst->getVectorVariantIndex();
   auto EC = ElementCount::getFixed(VF);
-  Type *VecRetTy = VectorType::get(VPCallInst->getType(), EC);
+  Type *CallTy = VPCallInst->getType();
+  Type *VecRetTy = CallTy->isVoidTy() ? CallTy :  VectorType::get(CallTy, EC);
   FunctionType *VecFuncTy = FunctionType::get(VecRetTy, CallArgsTy, false);
   unsigned AS = OrigCall->getArgOperand(0)->getType()->getPointerAddressSpace();
   Value *BitCast = State->Builder.CreateBitCast(
@@ -210,17 +211,21 @@ void IndirectCallCodeGenerator::generateCodeForNonUniformIndirectCall(
 void IndirectCallCodeGenerator::fillIndirectCallLoopEntryBB(
     VPCallInstruction *VPCallInst) {
   auto EC = ElementCount::getFixed(VF);
-  Constant *NullPtrVec = ConstantVector::getSplat(
-      EC, Constant::getNullValue(VPCallInst->getType()));
 
   State->Builder.SetInsertPoint(IndirectCallLoopEntryBB);
   VectorOfFuncPtrs = State->Builder.CreatePHI(
       VectorType::get(OrigCall->getArgOperand(0)->getType(), EC), 2,
       "vector_of_func_ptrs");
   VectorOfFuncPtrs->addIncoming(OriginalVectorOfFuncPtrs, CurrentBB);
-  CurIndirectCallReturn = State->Builder.CreatePHI(NullPtrVec->getType(), 2,
-                                                   "cur_indirect_call_return");
-  CurIndirectCallReturn->addIncoming(NullPtrVec, CurrentBB);
+
+  if (!VPCallInst->getType()->isVoidTy()) {
+    Constant *NullPtrVec = ConstantVector::getSplat(
+        EC, Constant::getNullValue(VPCallInst->getType()));
+    CurIndirectCallReturn = State->Builder.CreatePHI(
+        NullPtrVec->getType(), 2, "cur_indirect_call_return");
+    CurIndirectCallReturn->addIncoming(NullPtrVec, CurrentBB);
+  }
+
   Index = State->Builder.CreatePHI(Type::getInt64Ty(*Plan->getLLVMContext()), 2,
                                    "indx");
   Constant *Zero =
@@ -275,10 +280,13 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
 
   // Generate the call to the vectorized version of the function pointer.
   Value *IndirectCallReturn = generateIndirectCall(VPCallInst, CurrentFPtr);
+
   // Blend the return value of the current function pointer in a vector.
-  IndirectCallReturnUpdated = State->Builder.CreateSelect(
-      FinalMask, IndirectCallReturn, CurIndirectCallReturn,
-      "indirect_call_return_updated");
+  if (!VPCallInst->getType()->isVoidTy())
+    IndirectCallReturnUpdated = State->Builder.CreateSelect(
+        FinalMask, IndirectCallReturn, CurIndirectCallReturn,
+        "indirect_call_return_updated");
+
   // Add zeros in the vector lanes that we have the same function pointer as
   // the one that we currently process.
   VectorOfFuncPtrsUpdated = State->Builder.CreateSelect(
@@ -292,20 +300,23 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopLatchBB(
   auto EC = ElementCount::getFixed(VF);
   Constant *NullptrVec = ConstantVector::getSplat(
       EC, Constant::getNullValue(OrigCall->getArgOperand(0)->getType()));
-  Constant *NullValueVec = ConstantVector::getSplat(
-      EC, Constant::getNullValue(VPCallInst->getType()));
 
   State->Builder.SetInsertPoint(IndirectCallLoopLatchBB);
   // FinalIndirectCallReturn has the complete blended vector with the return
   // value of the indirect call.
-  FinalIndirectCallReturn = State->Builder.CreatePHI(
-      NullValueVec->getType(), 2, "final_indirect_call_return");
-  FinalIndirectCallReturn->addIncoming(IndirectCallReturnUpdated,
-                                       VectorIndirectCallBB);
-  FinalIndirectCallReturn->addIncoming(CurIndirectCallReturn,
-                                       IndirectCallLoopEntryBB);
-  CurIndirectCallReturn->addIncoming(FinalIndirectCallReturn,
-                                     IndirectCallLoopLatchBB);
+  if (!VPCallInst->getType()->isVoidTy()) {
+    Constant *NullValueVec = ConstantVector::getSplat(
+        EC, Constant::getNullValue(VPCallInst->getType()));
+    FinalIndirectCallReturn = State->Builder.CreatePHI(
+        NullValueVec->getType(), 2, "final_indirect_call_return");
+    FinalIndirectCallReturn->addIncoming(IndirectCallReturnUpdated,
+                                         VectorIndirectCallBB);
+    FinalIndirectCallReturn->addIncoming(CurIndirectCallReturn,
+                                         IndirectCallLoopEntryBB);
+    CurIndirectCallReturn->addIncoming(FinalIndirectCallReturn,
+                                       IndirectCallLoopLatchBB);
+  }
+
   PHINode *CurVectorOfFuncPtrs = State->Builder.CreatePHI(
       NullptrVec->getType(), 2, "current_vector_of_func_ptrs");
   CurVectorOfFuncPtrs->addIncoming(VectorOfFuncPtrsUpdated,
@@ -331,13 +342,16 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopExitBB(
   State->Builder.SetInsertPoint(IndirectCallLoopExitBB);
   // To keep the LCSSA form of the loop, we emit a phi node for the return value
   // of the indirect call.
-  auto EC = ElementCount::getFixed(VF);
-  PHINode *IndirectCallReturnLCSSAPhi =
-      State->Builder.CreatePHI(VectorType::get(VPCallInst->getType(), EC), 1,
-                               "indirect_call_return_lcssa_phi");
-  IndirectCallReturnLCSSAPhi->addIncoming(FinalIndirectCallReturn,
-                                          IndirectCallLoopLatchBB);
-  CodeGen->addToWidenMap(VPCallInst, IndirectCallReturnLCSSAPhi);
+  if (!VPCallInst->getType()->isVoidTy()) {
+    auto EC = ElementCount::getFixed(VF);
+    PHINode *IndirectCallReturnLCSSAPhi =
+        State->Builder.CreatePHI(VectorType::get(VPCallInst->getType(), EC), 1,
+                                 "indirect_call_return_lcssa_phi");
+    IndirectCallReturnLCSSAPhi->addIncoming(FinalIndirectCallReturn,
+                                            IndirectCallLoopLatchBB);
+    CodeGen->addToWidenMap(VPCallInst, IndirectCallReturnLCSSAPhi);
+  }
+
   UnreachableInst *Terminator = State->Builder.CreateUnreachable();
   State->Builder.SetInsertPoint(Terminator);
   State->CFG.PrevBB = IndirectCallLoopExitBB;

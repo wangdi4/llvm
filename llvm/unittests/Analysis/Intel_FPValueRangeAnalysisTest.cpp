@@ -263,6 +263,6 @@ TEST_P(FPValueRangeAnalysisTest, ComputeValueRange) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     FPValueRangeAnalysisTest, FPValueRangeAnalysisTest,
-    ::testing::ValuesIn(FPValueRangeAnalysisTests), );
+    ::testing::ValuesIn(FPValueRangeAnalysisTests));

@@ -14,6 +14,7 @@ define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_P0:%.*]] = alloca <2 x float*>, align 16
 ; CHECK-NEXT:    [[VEC_P_CAST0:%.*]] = bitcast <2 x float*>* [[VEC_P0]] to float**
+; CHECK-NEXT:    store <2 x float*> [[P0]], <2 x float*>* [[VEC_P0]], align 16
 ; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:

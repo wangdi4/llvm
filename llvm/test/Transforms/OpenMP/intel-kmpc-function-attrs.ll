@@ -1,5 +1,5 @@
-; RUN: opt -openmpopt -S < %s | FileCheck %s
-; RUN: opt -passes=openmpopt -S < %s | FileCheck %s
+; RUN: opt -openmp-opt-cgscc -S < %s | FileCheck %s
+; RUN: opt -passes='devirt<2>(cgscc(openmp-opt-cgscc))' -S < %s | FileCheck %s
 ;
 ; This test checks that kmpc library calls get appropriate attributes.
 ;
@@ -31,3 +31,5 @@ define dso_local void @foo() {
   ret void
 }
 
+!llvm.module.flags = !{!0}
+!0 = !{i32 7, !"openmp", i32 50}

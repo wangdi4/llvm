@@ -1,17 +1,17 @@
 ; HIR vector code generation currently does not support in memory entities. Test
 ; checks that we bail out during vectorization for such cases.
 ;
-; RUN: opt -hir-framework -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="vplan-driver-hir" -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-framework -hir-vplan-vec -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-vplan-vec" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
-; CHECK-LABEL: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
+; PM1: IR Dump After VPlan HIR Vectorizer
+; PM2: IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP> <simd> <vectorize>
 ; CHECK-NEXT:    |   %val = (%arr)[i1];
 ; CHECK-NEXT:    |   %retval = (%ret)[0];
 ; CHECK-NEXT:    |   (%ret)[0] = %val + %retval;
 ; CHECK-NEXT:    + END LOOP
 ;
-
 define dso_local i64 @foo(i64* %arr) {
 entry:
   %ret = alloca i64, align 8

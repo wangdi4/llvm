@@ -44,7 +44,6 @@ STATISTIC(NumSExtArg, "Number of arguments inferred as signext");
 STATISTIC(NumReadOnlyArg, "Number of arguments inferred as readonly");
 STATISTIC(NumNoAlias, "Number of function returns inferred as noalias");
 STATISTIC(NumNoUndef, "Number of function returns inferred as noundef returns");
-STATISTIC(NumNonNull, "Number of function returns inferred as nonnull returns");
 STATISTIC(NumReturnedArg, "Number of arguments inferred as returned");
 #if INTEL_CUSTOMIZATION
 STATISTIC(NumNoReturn, "Number of functions inferred as noreturn");
@@ -299,13 +298,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotCapture(F, 1);
     Changed |= setOnlyReadsMemory(F, 0);
     return Changed;
-  case LibFunc_strcpy:
-  case LibFunc_strncpy:
   case LibFunc_strcat:
   case LibFunc_strncat:
   case LibFunc_wcscpy:                      // INTEL
   case LibFunc_wcsncat:                     // INTEL
+    Changed |= setOnlyAccessesArgMemory(F);
+    Changed |= setDoesNotThrow(F);
     Changed |= setWillReturn(F);
+    Changed |= setReturnedArg(F, 0);
+    Changed |= setDoesNotCapture(F, 1);
+    Changed |= setOnlyReadsMemory(F, 1);
+    Changed |= setDoesNotAlias(F, 0);
+    Changed |= setDoesNotAlias(F, 1);
+    return Changed;
+  case LibFunc_strcpy:
+  case LibFunc_strncpy:
     Changed |= setReturnedArg(F, 0);
     LLVM_FALLTHROUGH;
   case LibFunc_stpcpy:
@@ -626,7 +633,6 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
 #endif // INTEL_CUSTOMIZATION
   case LibFunc_calloc:
   case LibFunc_vec_calloc:
-    Changed |= setOnlyAccessesInaccessibleMemory(F);
     Changed |= setRetAndArgsNoUndef(F);
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
@@ -1388,6 +1394,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_atomic_float8_add:
     return Changed;
   case LibFunc_kmpc_critical:
+  case LibFunc_kmpc_critical_with_hint:
     return Changed;
   case LibFunc_kmpc_dispatch_init_4:
   case LibFunc_kmpc_dispatch_init_4u:
@@ -1934,6 +1941,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
+    return Changed;
+  case LibFunc_ZSt28__throw_bad_array_new_lengthv:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
   case LibFunc_std_basic_ostream_std_endl:
   case LibFunc_std_basic_ostream_std_flush:

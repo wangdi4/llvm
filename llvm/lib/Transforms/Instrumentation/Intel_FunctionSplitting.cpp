@@ -666,7 +666,7 @@ static void writeGraph(const Function *F, FunctionSplitter *FS) {
   errs() << "Writing '" << Filename << "'...";
 
   std::error_code EC;
-  raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
 
   if (!EC)
     WriteGraph(File, FS, false);

@@ -214,8 +214,7 @@ public:
       // IR may not in the right form (consummable by HIR framework) which can
       // lead to assertion. We get around this issue by discarding all the
       // created regions.
-      // TODO: Add something similar to new pass manager when it has opt-bisect
-      // support.
+      // Note: Pass is marked as required in new PM.
       RI.discardRegions();
       return false;
     }
@@ -1022,7 +1021,7 @@ static void invalidateSCEVableInsts(ScalarEvolution &SE, Instruction *Inst) {
 
 void HIRSSADeconstruction::processNonLoopRegionLiveouts() {
   auto *ExitingBB = CurRegIt->getExitBBlock();
-  auto *ExitBB = ExitingBB->getSingleSuccessor();
+  auto *ExitBB = CurRegIt->getSuccBBlock();
 
   for (auto BBIt = CurRegIt->non_loop_bb_begin(),
             EndIt = CurRegIt->non_loop_bb_end();
@@ -1092,10 +1091,12 @@ void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) {
 
     if (SplitPos) {
       // Check if the exit block of this region is also the entry block of the
-      // next region. If so, update next region's entry block.
+      // next region. If so, split the edge so we don't jump directly from one
+      // region to another and also update next region's entry block.
       auto NextRegIt = std::next(CurRegIt);
       if ((NextRegIt != RI->end()) &&
           (NextRegIt->getEntryBBlock() == RegionExitBB)) {
+        SplitEdge(RegionExitBB, NewSplitBB, DT, LI);
         NextRegIt->replaceEntryBBlock(NewSplitBB);
       }
     }
@@ -1158,11 +1159,15 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
   } else if (auto *RegionEntryIntrin =
                  findRegionEntryIntrinsic(RegionEntryBB)) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
-    // starting at that instruction if it is not the first instruction or if the
-    // region entry block is also the function entry block.
+    // starting at that instruction if-
+    // 1) It is not the first bblock instruction, Or
+    // 2) The region entry block is also the function entry block, Or
+    // 3) Entry bblock is the same as previous region's successor bblock.
 
     if ((RegionEntryIntrin != &(*RegionEntryBB->begin())) ||
-        (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock())) {
+        (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock()) ||
+        ((CurRegIt != RI->begin()) &&
+         (std::prev(CurRegIt)->getSuccBBlock() == RegionEntryBB))) {
       auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
       CurRegIt->replaceEntryBBlock(NewEntryBB);
 

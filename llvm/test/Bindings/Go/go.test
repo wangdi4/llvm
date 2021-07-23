@@ -1,4 +1,10 @@
-; RUN: llvm-go test llvm.org/llvm/bindings/go/llvm
+; INTEL_CUSTOMIZATION
+; The test doesn't have proper REQUIRES and/or depends on the system setup. It's
+  not interesting for xmain, so just disable it to get rid of false failures in
+  some developers' local runs.
+; RUN: true
+; Old Run command: llvm-go test llvm.org/llvm/bindings/go/llvm
+; END INTEL_CUSTOMIZATION
 
 ; REQUIRES: shell, default_triple
 ; UNSUPPORTED: asan, ubsan, msan

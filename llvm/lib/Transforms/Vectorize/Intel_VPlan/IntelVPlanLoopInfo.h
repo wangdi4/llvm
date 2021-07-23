@@ -74,18 +74,44 @@ public:
   bool isLCSSAForm() const;
   bool isRecursivelyLCSSAForm(const VPLoopInfo &LI) const;
 
-  /// If the loop has a normalized IV then return upper bound of the loop and
-  /// compare instruction where it's used. Otherwise return <nullptr, nullptr>.
-  std::pair<VPValue *, VPInstruction *> getLoopUpperBound() const;
+  /// Return pair: a value which represents upper bound of the loop and
+  /// the latch compare instruction. The upper bound value is one of the compare
+  /// instruction operands.
+  /// The argument \p AssumeNormalizedIV tells whether we honor that the
+  /// original loop must have normalized IV. When set to true that effectively
+  /// means that normalized IV code has been added to VPlan but the original
+  /// loop does not necessarily have IV normalized, so that we need to bypass
+  /// that assertion.
+  std::pair<VPValue *, VPCmpInst *>
+  getLoopUpperBound(bool AssumeNormalizedIV = false) const;
 
-  /// Returns the comparison that is used for latch's condition. If the latch
-  /// condition does not use VPCmpInst return nullptr.
+  /// Return the comparison used for loop latch condition.
+  /// If not found, return nullptr.
   VPCmpInst *getLatchComparison() const;
 
-  /// Added as a preparatory step to allow for subsequent changes to mark loop
-  /// as having normalized induction early in the pipeline and return the value
-  /// of this marker.
-  Optional<bool> hasNormalizedInduction() const;
+  /// Return true if the loop has normalized induction.
+  bool hasNormalizedInduction() const {
+    assert(HasNormalizedInduction.hasValue() && "The flag is unset");
+    return HasNormalizedInduction.getValue();
+  }
+
+  /// Return true if the loop trip count is equal to upper bound.
+  bool exactUB() const {
+    assert(HasNormalizedInduction.hasValue() && "The flag is unset");
+    return ExactUB;
+  }
+
+
+  void setHasNormalizedInductionFlag(bool Val, bool EUB) {
+    assert(!HasNormalizedInduction.hasValue() && "The flag is already set");
+    HasNormalizedInduction = Val;
+    ExactUB = EUB;
+  }
+
+  void copyHasNormalizedInductionFlag(const VPLoop* L) {
+    HasNormalizedInduction = L->HasNormalizedInduction;
+    ExactUB = L->ExactUB;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
@@ -107,6 +133,14 @@ public:
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }
+
+private:
+  Optional<bool> HasNormalizedInduction;
+  // Flag indicating how the loop iteration count is related to the
+  // upper bound (invariant operand of the latch condition). False means
+  // trip count is equal to upper bound + 1, true means trip count is
+  // equal to upper bound exactly.
+  bool ExactUB = true;
 };
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   using Base = LoopInfoBase<VPBasicBlock, VPLoop>;

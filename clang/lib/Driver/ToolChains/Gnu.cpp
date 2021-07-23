@@ -51,9 +51,9 @@ static void normalizeCPUNamesForAssembler(const ArgList &Args,
                                           ArgStringList &CmdArgs) {
   if (Arg *A = Args.getLastArg(options::OPT_mcpu_EQ)) {
     StringRef CPUArg(A->getValue());
-    if (CPUArg.equals_lower("krait"))
+    if (CPUArg.equals_insensitive("krait"))
       CmdArgs.push_back("-mcpu=cortex-a15");
-    else if(CPUArg.equals_lower("kryo"))
+    else if (CPUArg.equals_insensitive("kryo"))
       CmdArgs.push_back("-mcpu=cortex-a57");
     else
       Args.AddLastArg(CmdArgs, options::OPT_mcpu_EQ);
@@ -170,6 +170,10 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-lstdc++");
         continue;
       }
+#if INTEL_CUSTOMIZATION
+      if (A.getOption().matches(options::OPT_Z_reserved_lib_imf))
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       // Don't render as input, we need gcc to do the translations.
       A.render(Args, CmdArgs);
@@ -313,7 +317,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::csa:
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-    if (T.getEnvironment() == llvm::Triple::GNUX32)
+    if (T.isX32())
       return "elf32_x86_64";
     return "elf_x86_64";
   case llvm::Triple::ve:
@@ -553,7 +557,7 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
   // -debug parallel implies -shared-intel, but allow it to be overridden by
   // -static-intel below.
   if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
-    isSharedIntel = StringRef(A->getValue()) == "parallel";
+    isSharedIntel |= StringRef(A->getValue()) == "parallel";
   if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
@@ -611,17 +615,6 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
     }
   }
   addIntelLib("-lirc", TC, CmdArgs, Args);
-}
-
-// By default, libimf is linked in to match libm.  If a user specifies
-// -static-intel or -shared-intel, link according to those behaviors.
-static void addIntelLibimf(const ToolChain &TC, ArgStringList &CmdArgs,
-                           const ArgList &Args) {
-  if (Args.hasArg(options::OPT_static_intel, options::OPT_shared_intel)) {
-    addIntelLib("-limf", TC, CmdArgs, Args);
-    return;
-  }
-  CmdArgs.push_back("-limf");
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -985,10 +978,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-Bdynamic");
     }
 #if INTEL_CUSTOMIZATION
-    // Add -limf before -lm, it will be linked in the same manner as -lm so
-    // don't add with addIntelLib
+    // Add -limf before -lm.
     if (D.IsIntelMode())
-      addIntelLibimf(ToolChain, CmdArgs, Args);
+      addIntelLib("-limf", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
@@ -997,7 +989,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
     if (D.IsIntelMode())
-      addIntelLibimf(ToolChain, CmdArgs, Args);
+      addIntelLib("-limf", ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -1060,6 +1052,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
         if (StringRef(A->getValue()) == "parallel")
           WantPthread = true;
+      // -fortlib implies pthread
+      if (Args.hasArg(options::OPT_fortlib))
+        WantPthread = true;
 #endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
@@ -1082,8 +1077,15 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
       }
 
-      if (WantPthread && !isAndroid)
+#if INTEL_CUSTOMIZATION
+      if (WantPthread && !isAndroid) {
+        if (Args.hasArg(options::OPT_fortlib))
+          CmdArgs.push_back("--as-needed");
         CmdArgs.push_back("-lpthread");
+        if (Args.hasArg(options::OPT_fortlib))
+          CmdArgs.push_back("--no-as-needed");
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (Args.hasArg(options::OPT_fsplit_stack))
         CmdArgs.push_back("--wrap=pthread_create");
@@ -1138,6 +1140,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fortlib))
+    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
+#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
@@ -1194,7 +1201,7 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
     CmdArgs.push_back("--32");
     break;
   case llvm::Triple::x86_64:
-    if (getToolChain().getTriple().getEnvironment() == llvm::Triple::GNUX32)
+    if (getToolChain().getTriple().isX32())
       CmdArgs.push_back("--x32");
     else
       CmdArgs.push_back("--64");
@@ -2202,7 +2209,7 @@ static bool findBiarchMultilibs(const Driver &D,
   // Determine default multilib from: 32, 64, x32
   // Also handle cases such as 64 on 32, 32 on 64, etc.
   enum { UNKNOWN, WANT32, WANT64, WANTX32 } Want = UNKNOWN;
-  const bool IsX32 = TargetTriple.getEnvironment() == llvm::Triple::GNUX32;
+  const bool IsX32 = TargetTriple.isX32();
   if (TargetTriple.isArch32Bit() && !NonExistent(Alt32))
     Want = WANT64;
   else if (TargetTriple.isArch64Bit() && IsX32 && !NonExistent(Altx32))
@@ -2610,7 +2617,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
       "i686-pc-linux-gnu",  "i386-redhat-linux6E",
       "i686-redhat-linux",  "i386-redhat-linux",
       "i586-suse-linux",    "i686-montavista-linux",
-      "i686-linux-android", "i386-gnu",
+      "i686-linux-android", "i686-gnu",
   };
 
   static const char *const M68kLibDirs[] = {"/lib"};
@@ -2839,7 +2846,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
-    if (TargetTriple.getEnvironment() == llvm::Triple::GNUX32) {
+    if (TargetTriple.isX32()) {
       LibDirs.append(begin(X32LibDirs), end(X32LibDirs));
       TripleAliases.append(begin(X32Triples), end(X32Triples));
       BiarchLibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
@@ -3435,17 +3442,51 @@ void Generic_GCC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+void Generic_GCC::AddIntelLibimfLibArgs(
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+  if (!getDriver().IsIntelMode())
+    return;
+
+  bool IsStatic = false;
+  for (const char *&AS : CmdArgs) {
+    IsStatic = llvm::StringSwitch<bool>(AS)
+                   .Cases("-Bdynamic", "-shared", false)
+                   .Cases("-Bstatic", "-static", true)
+                   .Default(IsStatic);
+  }
+  if (!IsStatic &&
+      !Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
+    CmdArgs.push_back("-Bstatic");
+    CmdArgs.push_back("-limf");
+    CmdArgs.push_back("-Bdynamic");
+  } else
+    CmdArgs.push_back("-limf");
+}
+#endif // INTEL_CUSTOMIZATION
+
 void
 Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                                    llvm::opt::ArgStringList &CC1Args) const {
+  const Driver &D = getDriver();
+  std::string SysRoot = computeSysRoot();
+  std::string Target = getTripleString();
+
   auto AddIncludePath = [&](std::string Path) {
     std::string Version = detectLibcxxVersion(Path);
-    std::string IncludePath = Path + "/c++/" + Version;
-    if (Version.empty() || !getVFS().exists(IncludePath))
+    if (Version.empty())
       return false;
-    addSystemInclude(DriverArgs, CC1Args, IncludePath);
+
+    // First add the per-target include path if it exists.
+    std::string TargetDir = Path + "/" + Target + "/c++/" + Version;
+    if (D.getVFS().exists(TargetDir))
+      addSystemInclude(DriverArgs, CC1Args, TargetDir);
+
+    // Second add the generic one.
+    addSystemInclude(DriverArgs, CC1Args, Path + "/c++/" + Version);
     return true;
   };
+
   // Android never uses the libc++ headers installed alongside the toolchain,
   // which are generally incompatible with the NDK libraries anyway.
   if (!getTriple().isAndroid())
@@ -3454,7 +3495,6 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   // If this is a development, non-installed, clang, libcxx will
   // not be found at ../include/c++ but it likely to be found at
   // one of the following two locations:
-  std::string SysRoot = computeSysRoot();
   if (AddIncludePath(SysRoot + "/usr/local/include"))
     return;
   if (AddIncludePath(SysRoot + "/usr/include"))
@@ -3499,12 +3539,10 @@ bool Generic_GCC::addLibStdCXXIncludePaths(Twine IncludeDir, StringRef Triple,
   return true;
 }
 
-bool
-Generic_GCC::addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
-                                         llvm::opt::ArgStringList &CC1Args) const {
-  // Use GCCInstallation to know where libstdc++ headers are installed.
-  if (!GCCInstallation.isValid())
-    return false;
+bool Generic_GCC::addGCCLibStdCxxIncludePaths(
+    const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
+    StringRef DebianMultiarch) const {
+  assert(GCCInstallation.isValid());
 
   // By default, look for the C++ headers in an include directory adjacent to
   // the lib directory of the GCC installation. Note that this is expect to be
@@ -3520,11 +3558,8 @@ Generic_GCC::addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
           LibDir.str() + "/../" + TripleStr + "/include/c++/" + Version.Text,
           TripleStr, Multilib.includeSuffix(), DriverArgs, CC1Args))
     return true;
+
   // Detect Debian g++-multiarch-incdir.diff.
-  StringRef DebianMultiarch =
-      GCCInstallation.getTriple().getArch() == llvm::Triple::x86
-          ? "i386-linux-gnu"
-          : TripleStr;
   if (addLibStdCXXIncludePaths(LibDir.str() + "/../include/c++/" + Version.Text,
                                DebianMultiarch, Multilib.includeSuffix(),
                                DriverArgs, CC1Args, /*Debian=*/true))
@@ -3552,7 +3587,10 @@ Generic_GCC::addGCCLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
 void
 Generic_GCC::addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                                       llvm::opt::ArgStringList &CC1Args) const {
-  addGCCLibStdCxxIncludePaths(DriverArgs, CC1Args);
+  if (GCCInstallation.isValid()) {
+    addGCCLibStdCxxIncludePaths(DriverArgs, CC1Args,
+                                GCCInstallation.getTriple().str());
+  }
 }
 
 llvm::opt::DerivedArgList *

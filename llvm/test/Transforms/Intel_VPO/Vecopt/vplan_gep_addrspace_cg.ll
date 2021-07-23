@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -vplan-force-vf=8 -vplan-dump-da -S %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=8 -vplan-dump-da -S %s 2>&1 | FileCheck %s
 
 ; CHECK: Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
 ; CHECK-EMPTY:
@@ -11,24 +11,24 @@
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_OP:%.*]] i32 addrspace(4)* [[VP_GEP_ASCAST]]
 
 define dso_local void @test_gep_addrpspace_cast([1024 x i32]* %src) {
-; CHECK:       VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label %scalar.ph, label %vector.ph
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    br label %vector.body
+; CHECK-NEXT:  VPlannedBB1:
+; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, %vector.ph ], [ [[UNI_PHI1_NEXT:%.*]], %vector.body ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, %vector.ph ], [ [[VEC_PHI_NEXT:%.]], %vector.body ]
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* %src, i64 0, i64 [[UNI_PHI1]]
-; CHECK-NEXT:    [[SCALAR_GEP_ASCAST:%.*]] = addrspacecast i32* [[SCALAR_GEP]] to i32 addrspace(4)*
-; CHECK-NEXT:    [[ASCAST_WIDE_LOAD:%.*]] = bitcast i32 addrspace(4)* [[SCALAR_GEP_ASCAST]] to <8 x i32> addrspace(4)*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x i32>, <8 x i32> addrspace(4)* [[ASCAST_WIDE_LOAD]]
-; CHECK-NEXT:    [[OP:%.*]] = mul <8 x i32> [[WIDE_LOAD]], <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>
-; CHECK-NEXT:    [[ASCAST_WIDE_STORE:%.*]] = bitcast i32 addrspace(4)* [[SCALAR_GEP_ASCAST]] to <8 x i32> addrspace(4)*
-; CHECK-NEXT:    store <8 x i32> [[OP]], <8 x i32> addrspace(4)* [[ASCAST_WIDE_STORE]]
-; CHECK-NEXT:    [[VEC_PHI_NEXT]] = add nuw nsw <8 x i64> [[VEC_PHI]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
-; CHECK-NEXT:    [[UNI_PHI1_NEXT]] = add nuw nsw i64 [[UNI_PHI1]], 8
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VPLANNEDBB10]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[SRC0:%.*]], i64 0, i64 [[UNI_PHI0]]
+; CHECK-NEXT:    [[TMP0:%.*]] = addrspacecast i32* [[SCALAR_GEP0]] to i32 addrspace(4)*
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32 addrspace(4)* [[TMP0]] to <8 x i32> addrspace(4)*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <8 x i32>, <8 x i32> addrspace(4)* [[TMP1]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = mul <8 x i32> [[WIDE_LOAD0]], <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32 addrspace(4)* [[TMP0]] to <8 x i32> addrspace(4)*
+; CHECK-NEXT:    store <8 x i32> [[TMP2]], <8 x i32> addrspace(4)* [[TMP3]], align 4
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 8
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

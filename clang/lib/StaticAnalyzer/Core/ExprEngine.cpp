@@ -1252,6 +1252,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPParallelGenericLoopDirectiveClass:
     case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
     case Stmt::OMPTargetVariantDispatchDirectiveClass:
+    case Stmt::OMPPrefetchDirectiveClass:
 #endif // INTEL_COLLAB
     case Stmt::OMPSingleDirectiveClass:
     case Stmt::OMPMasterDirectiveClass:
@@ -1305,7 +1306,8 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPInteropDirectiveClass:
     case Stmt::OMPDispatchDirectiveClass:
     case Stmt::OMPMaskedDirectiveClass:
-    case Stmt::CapturedStmtClass: {
+    case Stmt::CapturedStmtClass:
+    case Stmt::OMPUnrollDirectiveClass: {
       const ExplodedNode *node = Bldr.generateSink(S, Pred, Pred->getState());
       Engine.addAbortedBlock(node, currBldrCtx->getBlock());
       break;
@@ -1401,6 +1403,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::ConceptSpecializationExprClass:
     case Stmt::CXXRewrittenBinaryOperatorClass:
     case Stmt::RequiresExprClass:
+    case Stmt::SYCLBuiltinNumFieldsExprClass:
+    case Stmt::SYCLBuiltinFieldTypeExprClass:
+    case Stmt::SYCLBuiltinNumBasesExprClass:
+    case Stmt::SYCLBuiltinBaseTypeExprClass:
       // Fall through.
 
     // Cases we intentionally don't evaluate, since they don't need
@@ -1427,6 +1433,8 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPArraySectionExprClass:
     case Stmt::OMPArrayShapingExprClass:
     case Stmt::OMPIteratorExprClass:
+    case Stmt::SYCLUniqueStableNameExprClass:
+    case Stmt::SYCLUniqueStableIdExprClass:
     case Stmt::TypeTraitExprClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet preVisit;

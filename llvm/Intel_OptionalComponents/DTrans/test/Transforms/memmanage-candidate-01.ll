@@ -1,7 +1,8 @@
+; REQUIRES: asserts
+
 ; This test verifies that %"XStringCachedAllocator" is considered as
 ; candidate for MemManageTrans.
 
-; REQUIRES: asserts
 
 ; RUN: opt < %s -disable-output  -inline -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -passes='cgscc(inline)' -pre-lto-inline-cost -debug-only=dtrans-memmanageinfo 2>&1 | FileCheck %s

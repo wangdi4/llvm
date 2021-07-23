@@ -22,7 +22,7 @@ namespace vpo {
 
 class VPlanVector;
 class VPInstruction;
-class VPlanCostModel;
+class VPlanCostModelInterface;
 class VPlanValueTracking;
 class VPLoadStoreInst;
 
@@ -52,6 +52,9 @@ public:
 
   int peelCount() { return PeelCount; }
 
+  // VPlanStaticPeeling{0}
+  static VPlanStaticPeeling NoPeelLoop;
+
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_StaticPeeling;
   }
@@ -73,10 +76,11 @@ private:
 /// least RequiredAlignment bytes.
 struct VPlanDynamicPeeling final : public VPlanPeelingVariant {
 public:
-  VPlanDynamicPeeling(VPInstruction *Memref, VPConstStepInduction AccessAddress,
+  VPlanDynamicPeeling(VPLoadStoreInst *Memref,
+                      VPConstStepInduction AccessAddress,
                       Align TargetAlignment);
 
-  VPInstruction *memref() { return Memref; }
+  VPLoadStoreInst *memref() { return Memref; }
   VPlanSCEV *invariantBase() { return InvariantBase; }
   Align requiredAlignment() { return RequiredAlignment; }
   Align targetAlignment() { return TargetAlignment; }
@@ -89,7 +93,7 @@ public:
 private:
   /// Memory reference (Load or Store instruction) that is the primary target
   /// for peeling.
-  VPInstruction *Memref;
+  VPLoadStoreInst *Memref;
 
   /// Symbolic invariant expression that can be computed before vector code. The
   /// run-time value of this expression is used in the formula above.
@@ -117,7 +121,7 @@ public:
 
   /// Compute cost of unit stride memory access \p Mrf with the given
   /// \p Alignment and \p VF.
-  virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
+  virtual int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) = 0;
 };
 
 /// A simple (but reasonable) implementation of VPlanPeelingCostModel. It
@@ -127,7 +131,7 @@ class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
 
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
   const DataLayout *DL;
@@ -137,12 +141,12 @@ private:
 /// model. It is the most precise cost model for peeling analysis.
 class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
 public:
-  VPlanPeelingCostModelGeneral(VPlanCostModel &CM) : CM(&CM) {}
+  VPlanPeelingCostModelGeneral(VPlanCostModelInterface &CM) : CM(&CM) {}
 
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
-  VPlanCostModel *CM;
+  VPlanCostModelInterface *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
@@ -150,11 +154,11 @@ private:
 /// misaligned (asserts in the constructor).
 class VPlanPeelingCandidate final {
 public:
-  VPlanPeelingCandidate(VPInstruction *Memref,
+  VPlanPeelingCandidate(VPLoadStoreInst *Memref,
                         VPConstStepInduction AccessAddress,
                         KnownBits InvariantBaseKnownBits);
 
-  VPInstruction *memref() const { return Memref; }
+  VPLoadStoreInst *memref() const { return Memref; }
   const VPConstStepInduction &accessAddress() const { return AccessAddress; }
   const KnownBits &invariantBaseKnownBits() const {
     return InvariantBaseKnownBits;
@@ -167,7 +171,7 @@ public:
 
 private:
   /// Load or Store instruction.
-  VPInstruction *Memref;
+  VPLoadStoreInst *Memref;
 
   /// Access address.
   VPConstStepInduction AccessAddress;
@@ -194,7 +198,8 @@ public:
 
   /// Find the most profitable peeling variant for a particular \p VF.
   std::unique_ptr<VPlanPeelingVariant>
-  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM);
+  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM,
+                           bool EnableDynamic);
 
   /// Returns best static peeling variant and its profit. The algorithm for
   /// selecting best peeling variant always succeeds. In the worst case
@@ -226,7 +231,7 @@ private:
   /// pairs [(MrfX, AlignX)], where AlignX is the maximum alignment that can be
   /// propagated from Mrf to MrfX. Notice that for the sake of efficiency, the
   /// map doesn't contain non-interesting cases with AlignX ≤ RequiredAlignment.
-  DenseMap<VPInstruction *, std::vector<std::pair<VPInstruction *, Align>>>
+  DenseMap<VPLoadStoreInst *, std::vector<std::pair<VPLoadStoreInst *, Align>>>
       CongruentMemrefs;
 };
 
@@ -258,18 +263,26 @@ public:
                          int VF)
       : VPSE(&VPSE), VPVT(&VPVT), VF(VF) {}
 
-  /// Compute alignment of a unit-stride \p Memref in the vectorized loop with
-  /// the given \p Peeling. The returned alignment is computed using the memory
-  /// address either in the first vector lane (if the stride is positive) or in
-  /// the last lane (if the stride is negative).
-  Align getAlignmentUnitStride(const VPLoadStoreInst &Memref,
-                               VPlanPeelingVariant &Peeling) const;
+  /// Compute alignment of a \p UnitStrideMemref in the vectorized loop with the
+  /// given \p GuaranteedPeeling (nullptr should be passed if the peeling is not
+  /// guaranteed). The returned alignment is computed using the memory address
+  /// either in the first vector lane (if the stride is positive) or in the last
+  /// lane (if the stride is negative).
+  Align getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
+                               VPlanPeelingVariant *GuaranteedPeeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be
   /// used when either \p Memref is not unit-strided or when exact run-time
   /// peeling is unknown.
   Align getAlignment(VPLoadStoreInst &Memref);
+
+private:
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanStaticPeeling &SP) const;
+
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanDynamicPeeling &DP) const;
 
 private:
   VPlanScalarEvolution *VPSE;

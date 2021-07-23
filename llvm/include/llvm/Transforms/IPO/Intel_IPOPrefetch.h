@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===----  Intel_IPOPrefetch.h - Prefetch in IPO   --------===//
 //
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
@@ -28,3 +29,4 @@ public:
 } // End namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INTEL_IPOPREFETCH_H
+#endif // INTEL_FEATURE_SW_ADVANCED

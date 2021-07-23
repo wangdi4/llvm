@@ -30,14 +30,14 @@ enum V {
 const size_t OCL_VERSIONS = 6;
 } // namespace width
 
-typedef std::vector<std::shared_ptr<ParamType>> TypeVector;
+typedef std::vector<RefParamType> TypeVector;
 
 struct FunctionDescriptor {
   // returns: a human readable string representation of the function's
   // prototype.
   std::string toString() const;
   // The name of the function (stripped).
-  StringRef Name;
+  std::string Name;
   // Parameter list of the function
   TypeVector Parameters;
   //'version width'; the width to which this function is suitable for

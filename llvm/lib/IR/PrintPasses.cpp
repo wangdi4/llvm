@@ -38,6 +38,11 @@ static cl::opt<bool> HIRPrintBeforeAll("hir-print-before-all",
 static cl::opt<bool> HIRPrintAfterAll("hir-print-after-all",
             llvm::cl::desc("Prints IR after each pass starting with 'hir'"),
             cl::init(false), cl::Hidden);
+
+static cl::opt<bool> PrintModuleBeforeLoopopt(
+    "print-module-before-loopopt", cl::init(false), cl::Hidden,
+    cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
+             "deconstruction)"));
 #endif //INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -77,6 +82,8 @@ bool llvm::shouldPrintAfterAll() { return PrintAfterAll; }
 bool llvm::shouldHIRPrintBeforeAll() { return HIRPrintBeforeAll; }
 
 bool llvm::shouldHIRPrintAfterAll() { return HIRPrintAfterAll; }
+
+bool llvm::shouldPrintModuleBeforeLoopopt() { return PrintModuleBeforeLoopopt; }
 #endif //INTEL_CUSTOMIZATION
 
 bool llvm::shouldPrintBeforePass(StringRef PassID) {

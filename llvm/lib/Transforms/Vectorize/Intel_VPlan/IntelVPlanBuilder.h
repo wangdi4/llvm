@@ -33,6 +33,9 @@ protected:
            "Expected 2 operands");
     assert((!Instruction::isUnaryOp(Opcode) || Operands.size() == 1) &&
            "Expected 1 operand");
+    assert((Opcode != Instruction::GetElementPtr &&
+            Opcode != Instruction::Load && Opcode != Instruction::Store) &&
+           "Expected to be handled elsewhere!");
 
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     insert(Instr);
@@ -169,6 +172,52 @@ public:
                              {LHS, RHS}, Name);
   }
 
+  VPInstruction *createFAdd(VPValue *LHS, VPValue *RHS,
+                            const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::FAdd, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createMul(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::Mul, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createFMul(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
+    assert(LHS->getType() == RHS->getType() &&
+           "LHS and RHs do not have the same types.");
+    return createInstruction(Instruction::FMul, LHS->getType(), {LHS, RHS},
+                             Name);
+  }
+
+  VPValue *createSIToFp(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      Val = createNaryOp(Instruction::SIToFP, Ty, {Val});
+    }
+    return Val;
+  }
+
+  VPValue *createZExtOrTrunc(VPValue *Val, Type *DestTy) {
+    if (Val->getType() == DestTy)
+      return Val;
+    assert(Val->getType()->isIntOrIntVectorTy() &&
+           DestTy->isIntOrIntVectorTy() &&
+           "Can only zero extend/truncate integers!");
+    Type *VTy = Val->getType();
+    unsigned Opcode = 0;
+    if (VTy->getScalarSizeInBits() < DestTy->getScalarSizeInBits())
+      Opcode = Instruction::ZExt;
+    if (VTy->getScalarSizeInBits() > DestTy->getScalarSizeInBits())
+      Opcode = Instruction::Trunc;
+
+    Val = createNaryOp(Opcode, DestTy, {Val});
+    return Val;
+  }
+
   VPValue *createAllZeroCheck(VPValue *Operand, const Twine &Name = "") {
     return createInstruction(VPInstruction::AllZeroCheck, Operand->getType(),
                              {Operand}, Name);
@@ -199,7 +248,7 @@ public:
                              {Operand});
   }
 
-  VPValue *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
+  VPInstruction *createSelect(VPValue *Mask, VPValue *Tval, VPValue *Fval,
                         const Twine &Name = "") {
     return createInstruction(Instruction::Select, Tval->getType(),
                              {Mask, Tval, Fval}, Name);
@@ -242,27 +291,20 @@ public:
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
   // pointer \p Ptr and list of index operands \p IdxList
-  VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
-                           Instruction *Inst) {
+  VPGEPInstruction *createGEP(Type *SourceElementType, Type *ResultElementType,
+                              VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+                              Instruction *Inst) {
     assert((Inst || Ptr->getType()->isPointerTy()) &&
            "Can't define type for GEP instruction");
     // TODO. Currently, it's expected that newly created GEP (e.g. w/o
     // underlying IR) is created for a non-array types. Need to handle those
     // arrays when simd reductions/privates will support arrays.
     Type *Ty = Inst ? Inst->getType() : Ptr->getType();
-    VPInstruction *NewVPInst = new VPGEPInstruction(Ty, Ptr, IdxList);
+    auto *NewVPInst = new VPGEPInstruction(SourceElementType, ResultElementType,
+                                           Ty, Ptr, IdxList);
     insert(NewVPInst);
     if (Inst)
       NewVPInst->setUnderlyingValue(*Inst);
-    return NewVPInst;
-  }
-
-  // Build an inbounds VPGEPInstruction for the LLVM-IR instruction \p Inst
-  // using base pointer \p Ptr and list of index operands \p IdxList
-  VPInstruction *createInBoundsGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
-                                   Instruction *Inst) {
-    VPInstruction *NewVPInst = createGEP(Ptr, IdxList, Inst);
-    cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
     return NewVPInst;
   }
 
@@ -333,8 +375,10 @@ public:
         new VPLoadStoreInst(Instruction::Load, Ty, {Ptr});
     NewLoad->setName(Name);
     insert(NewLoad);
-    if (Inst)
+    if (Inst) {
       NewLoad->setUnderlyingValue(*Inst);
+      NewLoad->readUnderlyingMetadata();
+    }
     return NewLoad;
   }
 
@@ -347,8 +391,10 @@ public:
         {Val, Ptr});
     NewStore->setName(Name);
     insert(NewStore);
-    if (Inst)
+    if (Inst) {
       NewStore->setUnderlyingValue(*Inst);
+      NewStore->readUnderlyingMetadata();
+    }
     return NewStore;
   }
 
@@ -383,6 +429,20 @@ public:
     return New;
   }
 
+  /// Create a cast of \p Val to \p Ty if needed.
+  VPValue *createIntCast(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      assert((Ty->isIntegerTy() && Val->getType()->isIntegerTy()) &&
+             "Expected integer type");
+      unsigned Opcode = Ty->getPrimitiveSizeInBits() <
+                                Val->getType()->getPrimitiveSizeInBits()
+                            ? Instruction::Trunc
+                            : Instruction::SExt;
+      Val = createNaryOp(Opcode, Ty, {Val});
+    }
+    return Val;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//
@@ -394,33 +454,20 @@ public:
     // TODO: AssertingVH<VPBasicBlock> Block;
     VPBasicBlock* Block;
     VPBasicBlock::iterator Point;
+    DebugLoc DbgLoc;
 
   public:
     InsertPointGuard(VPBuilder &B)
-        : Builder(B), Block(B.getInsertBlock()), Point(B.getInsertPoint()) {}
+        : Builder(B), Block(B.getInsertBlock()), Point(B.getInsertPoint()),
+          DbgLoc(B.getCurrentDebugLocation()) {}
 
     InsertPointGuard(const InsertPointGuard &) = delete;
     InsertPointGuard &operator=(const InsertPointGuard &) = delete;
 
     ~InsertPointGuard() {
       Builder.restoreIP(VPInsertPoint(Block, Point));
+      Builder.setCurrentDebugLocation(DbgLoc);
     }
-  };
-
-  /// RAII object that stores the current builder debug location and restores it
-  /// when the object is destroyed.
-  class DbgLocGuard {
-    VPBuilder &Builder;
-    DebugLoc DbgLoc;
-
-  public:
-    DbgLocGuard(const DbgLocGuard &) = delete;
-    DbgLocGuard &operator=(const DbgLocGuard &) = delete;
-
-    DbgLocGuard(VPBuilder &B) : Builder(B) {
-      DbgLoc = Builder.getCurrentDebugLocation();
-    }
-    ~DbgLocGuard() { Builder.setCurrentDebugLocation(DbgLoc); }
   };
 };
 } // namespace vpo

@@ -46,14 +46,15 @@
 /// Check of the commands passed to each tool when using valid OpenMP targets.
 // RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 -fno-openmp-device-lib=all %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-COMMANDS %s
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-fopenmp" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[BCFILE]]"
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}libomp-spirvdevicertl.o" "-outputs=[[RTLHOST:.+\.o]],[[RTLTGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.o" "-outputs=[[ITT1HOST:.+\.o]],[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.o" "-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-unknown-linux-gnu,openmp-spir64" "-inputs={{.*}}libomp-itt-stubs.o" "-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-Wspir-compat" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fsycl-instrument-device-code" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
-// CHK-COMMANDS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-Wspir-compat" "-emit-llvm-bc"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-fopenmp"{{.*}} "-fsycl-instrument-device-code" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]"{{.*}} "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
+// CHK-COMMANDS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
+// CHK-COMMANDS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
 // CHK-COMMANDS: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-allow-unknown-intrinsics"{{.*}} "[[POSTLINKFILE]]"
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
@@ -133,7 +134,7 @@
 // RUN:   %clang -### -fiopenmp -c -o %t.o -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64 %s -no-canonical-prefixes 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-BUJOBS %s
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-disable-intel-proprietary-opts" {{.*}} "-o" "[[BCFILE:.+\.bc]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-Wspir-compat" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-Wspir-compat" "-emit-llvm-bc"{{.*}} "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[BCFILE]]"{{.*}} "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[OFFBCFILE:.+\.bc]]"
 // CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-fopenmp" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[BCFILE]]"
 // CHK-BUJOBS: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,host-x86_64-unknown-linux-gnu" "-outputs={{.*}}" "-inputs=[[OFFBCFILE]],[[HOSTOBJ]]"
 
@@ -146,7 +147,8 @@
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-inputs={{.*}}libomp-itt-user-wrappers.o"{{.*}}"-outputs=[[ITT1HOST:.+\.o]],[[ITT1TGT:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-inputs={{.*}}libomp-itt-compiler-wrappers.o"{{.*}}"-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle"
 // CHK-UBJOBS: clang-offload-bundler{{.*}}"-type=o"{{.*}}"-inputs={{.*}}libomp-itt-stubs.o"{{.*}}"-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle"
-// CHK-UBJOBS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
+// CHK-UBJOBS: llvm-link{{.*}} "[[OFFBCFILE]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
+// CHK-UBJOBS: llvm-link{{.*}} "--only-needed" "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[LINKEDBCFILE:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[POSTLINKFILE:.+\.bc]]" "[[LINKEDBCFILE]]"
 // CHK-UBJOBS: llvm-spirv{{.*}}" "-o" {{.*}} "[[POSTLINKFILE]]"
 // CHK-UBJOBS: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64"
@@ -224,7 +226,7 @@
 // FOFFLOAD_STATIC_LIB_SRC: 16: compiler, {15}, ir, (device-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 17: offload, "host-openmp (x86_64-unknown-linux-gnu)" {3}, "device-openmp (spir64)" {16}, ir
 // FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, ir, (device-openmp)
-// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {0, 5, 7, 9, 11, 13}, image, (host-openmp)
+// FOFFLOAD_STATIC_LIB_SRC: 19: linker, {0, 5, 7, 9, 11, 13}, host_dep_image, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 20: clang-offload-deps, {19}, ir, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 21: input, "[[INPUT1]]", archive
 // FOFFLOAD_STATIC_LIB_SRC: 22: clang-offload-unbundler, {21}, archive
@@ -271,6 +273,7 @@
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"
 // FOPENMP_TARGET_SIMD: "-O2"
 // FOPENMP_TARGET_SIMD: sycl-post-link{{.*}} "--ompoffload-explicit-simd"
+// FOPENMP_TARGET_SIMD: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-allow-unknown-intrinsics" {{.*}}
 // FOPENMP_TARGET_SIMD: clang-offload-wrapper{{.*}} "-compile-opts=-vc-codegen"
 
 /// Test for compile and link opts that are passed to the wrapper
@@ -287,6 +290,11 @@
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS %s
 // CHK-TOOLS-IMPLIED-OPTS: clang-offload-wrapper{{.*}} "-compile-opts=-g -cl-opt-disable -DFOO1 -DFOO2"
 
+/// Check for proper override (device vs host)
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -g -fiopenmp -fopenmp-targets=spir64="-g0" %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-TOOLS-G-OVERRIDE %s
+// CHK-TOOLS-G-OVERRIDE-NOT: clang-offload-wrapper{{.*}} "-compile-opts=-g"
+
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS2 %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qopenmp -Qopenmp-targets=spir64_x86_64 -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \
@@ -299,3 +307,15 @@
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qopenmp -Qopenmp-targets=spir64 -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-OPTS2 %s
 // CHK-TOOLS-OPTS2: clang-offload-wrapper{{.*}} "-link-opts=-DFOO1 -DFOO2"
+
+/// test llvm-link behavior for fopenmp offload
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=OMP_LLVM_LINK_DEVICE_LIB
+// OMP_LLVM_LINK_DEVICE_LIB: llvm-link{{.*}} "--only-needed" "{{.*}}"
+
+/// -S -emit-llvm should generate textual IR for device.
+// RUN: %clangxx -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -S -emit-llvm %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHECK_S_LLVM %s
+// CHECK_S_LLVM: clang{{.*}} "-triple" "spir64"{{.*}} "-emit-llvm"{{.*}} "-o" "[[DEVICE:.+\.ll]]"
+// CHECK_S_LLVM: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu"{{.*}} "-emit-llvm"{{.*}} "-o" "[[HOST:.+\.ll]]"
+// CHECK_S_LLVM: clang-offload-bundler{{.*}} "-type=ll"{{.*}} "-inputs=[[DEVICE]],[[HOST]]"

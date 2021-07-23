@@ -12,7 +12,7 @@
 ; }
 ; 
 ; ModuleID = 't1.c'
-;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -VPlanDriverHIR -hir-cg -mem2reg -print-after=VPlanDriverHIR -S %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=8 -hir-vplan-vec -hir-cg -mem2reg -print-after=hir-vplan-vec -S %s 2>&1 | FileCheck %s
 ;
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:           %red.var = 0;

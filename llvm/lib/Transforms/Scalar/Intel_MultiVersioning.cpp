@@ -381,7 +381,8 @@ class BoolMultiVersioningImpl {
     // All GEPs in the closure are expected to be the same, so we can clone any
     // of them (for example the first).
     auto *GEP = Builder.Insert<>(C.getGEPs().front().first->clone());
-    auto *Load = Builder.CreateLoad(GEP);
+    auto *GEPTy = GEP->getType()->getPointerElementType();
+    auto *Load = Builder.CreateLoad(GEPTy, GEP);
     auto *ICmp = Builder.CreateICmp(ICmpInst::ICMP_NE, Load,
                                     ConstantInt::get(Load->getType(), 0u));
     auto *Br =

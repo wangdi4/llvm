@@ -97,6 +97,12 @@ static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
     "vplan-dump-live-inout", cl::init(false), cl::Hidden,
     cl::desc("Print live-ins and live-outs of main loop"));
 
+static cl::opt<bool>
+    VPGEPPrintSrcElemType("vpgep-print-src-elem-type", cl::init(false),
+                          cl::Hidden,
+                          cl::desc("Print VPGEPInstruction's SourceElementType "
+                                   "even for non-opaque pointers."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   V.print(OS);
@@ -159,8 +165,7 @@ void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  State.ILV->setBuilderDebugLoc(this->getDebugLocation());
-  State.ILV->vectorizeInstruction(this);
+  State.ILV->processInstruction(this);
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
@@ -210,24 +215,7 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   //  2) the decomposed VPInstructions don't precede their master VPInstruction
   //     (rule to be refined), and
   //  3) the decomposed VPInstructions have more than one use.
-
-  const OVLSGroup *Group = nullptr;
-  int InterleaveFactor = 0, InterleaveIndex = 0;
-
-  // Compute group information for VLS optimized accesses that we currently
-  // handle.
-  unsigned Opcode = getOpcode();
-
-  if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
-    VPlanVLSAnalysis *VLSA = CG->getVLS();
-    const VPlan *Plan = CG->getPlan();
-
-    auto GrpData = getOptimizedVLSGroupData(this, VLSA, Plan);
-    if (GrpData)
-      std::tie(Group, InterleaveFactor, InterleaveIndex) = GrpData.getValue();
-  }
-
-  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex);
+  CG->widenNode(this, nullptr);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }
@@ -285,6 +273,7 @@ bool VPInstruction::mayHaveSideEffects() const {
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
       Opcode == Instruction::ExtractElement ||
+      Opcode == Instruction::InsertElement ||
       Opcode == Instruction::ShuffleVector || Opcode == Instruction::Select ||
       Opcode == Instruction::GetElementPtr ||
       Opcode == VPInstruction::Subscript || Opcode == Instruction::PHI ||
@@ -382,6 +371,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-c";
   case VPInstruction::PrivateFinalCondMem:
     return "private-final-c-mem";
+  case VPInstruction::PrivateFinalArray:
+    return "private-final-array";
+  case VPInstruction::GeneralMemOptConflict:
+    return "vp-general-mem-opt-conflict";
+  case VPInstruction::ConflictInsn:
+    return "vpconflict-insn";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -389,7 +384,16 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
 }
 
 void VPInstruction::print(raw_ostream &O) const {
-  const VPlan *Plan = getParent()->getParent();
+  const VPBasicBlock *VPBB = getParent();
+  if (!VPBB) {
+    printWithoutAnalyses(O);
+    return;
+  }
+  const VPlan *Plan = VPBB->getParent();
+  if (!Plan) {
+    printWithoutAnalyses(O);
+    return;
+  }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
   VPlanScalVecAnalysis *SVA = nullptr;
   if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
@@ -476,9 +480,20 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     cast<VPConstStepVector>(this)->printImpl(O);
     break;
   }
-  case Instruction::GetElementPtr:
-    PrintOpcodeWithInBounds(cast<const VPGEPInstruction>(this));
+  case Instruction::GetElementPtr: {
+    auto *GEP = cast<const VPGEPInstruction>(this);
+    PrintOpcodeWithInBounds(GEP);
+    if (GEP->isOpaque() || VPGEPPrintSrcElemType) {
+      // We only print it for opaque so that we won't have to update all the
+      // tests twice - right now and when all the GEPs will have to be
+      // transitioned to be opaque.
+      O << " ";
+      GEP->getSourceElementType()->print(O, false /*IsForDebug*/,
+                                         true /*NoDetails*/);
+      O << ",";
+    }
     break;
+  }
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
@@ -674,6 +689,19 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
         << ", offset=" << Insert->getOffset();
       break;
     }
+    case VPInstruction::GeneralMemOptConflict: {
+      auto *Conflict = cast<VPGeneralMemOptConflict>(this);
+      O << " -> VConflictRegion (";
+      auto *ConflictRegion = Conflict->getRegion();
+      for (VPValue *LIn : ConflictRegion->getLiveIns())
+        O << *LIn << " ";
+      O << ") {\n";
+      O << "    value : none \n";
+      O << "    mask : none \n";
+      ConflictRegion->dump(O);
+      O << "   }";
+      break;
+    }
     }
   }
 }
@@ -779,23 +807,13 @@ void VPlanVector::execute(VPTransformState *State) {
     for (BB = VLoop->getLoopPreheader();
          BB && BB->getSinglePredecessor() &&
          BB->getSinglePredecessor()->getNumSuccessors() == 1;
-         BB = BB->getSinglePredecessor())
-      ;
-    assert(BB && "Can't find first executable VPlan block");
-    if (isa<VPlanNonMasked>(this)) {
-      // Sanity check: lookup for the VPVectorTripCountCalculation in
-      // the predecessor.
-      // We can create main loop w/o trip check, in case when TC is known and
-      // evenly divisible by VF, so check the predecessor.
-      VPBasicBlock* BBToCheck = BB->getSinglePredecessor();
-      if (!BBToCheck)
-        BBToCheck = BB;
-      auto I = llvm::find_if(*BBToCheck, [](VPInstruction &Inst) -> bool {
-        return isa<VPVectorTripCountCalculation>(Inst);
-      });
-      assert(I != BBToCheck->end() && "Incorrect basic block");
-      (void)I;
+         BB = BB->getSinglePredecessor()) {
+      if (any_of(*BB, [](VPInstruction &Inst) {
+            return isa<VPVectorTripCountCalculation>(Inst);
+          }))
+        break;
     }
+    assert(BB && "Can't find first executable VPlan block");
     State->CFG.FirstExecutableVPBB = BB;
   } else {
     BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
@@ -870,8 +888,6 @@ void VPlanVector::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
-  assert(!isSOAAnalysisEnabled() &&
-         "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
 
@@ -969,11 +985,19 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
 
   VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-  VPValue *OrigTC = nullptr;
-  VPInstruction *Cond = nullptr;
+  VPValue *OrigTC;
+  VPCmpInst *Cond;
   std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
-  assert((OrigTC && Cond) && "A normalized loop expected");
-  Cond->replaceUsesOfWith(OrigTC, TC);
+  VPBasicBlock *Header = TopVPLoop->getHeader();
+  // Replace OrigTC in the latch condition and in the header
+  // top condition.
+  OrigTC->replaceUsesWithIf(TC, [Header, Cond](auto *VUse) {
+    if (VUse == Cond)
+      return true;
+    if (auto VCmp = dyn_cast<VPCmpInst>(VUse))
+      return VCmp->getParent() == Header;
+    return false;
+  });
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1367,6 +1391,17 @@ void VPValue::replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
   replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
 }
 
+void VPValue::replaceAllUsesWithInRegion(VPValue *NewVal,
+                                         ArrayRef<VPBasicBlock *> Region,
+                                         bool InvalidateIR) {
+  auto ShouldReplace = [&Region](VPUser *U) {
+    if (auto *I = dyn_cast<VPInstruction>(U))
+      return is_contained(Region, I->getParent());
+    return false;
+  };
+  replaceUsesWithIf(NewVal, ShouldReplace, InvalidateIR);
+}
+
 void VPValue::replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR) {
   replaceUsesWithIf(NewVal, [](VPUser *U) { return true; }, InvalidateIR);
 }
@@ -1400,18 +1435,26 @@ StringRef VPValue::getVPNamePrefix() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPValue::printAsOperandNoType(raw_ostream &OS) const {
+  const unsigned long long AddrBitsUsed = 0xFFFF;
+
+  unsigned long long Num =
+      AddrBitsUsed & ((unsigned long long)this / alignof(VPValue));
+  if (EnableNames && !Name.empty())
+    // There is no interface to enforce uniqueness of the names, so continue
+    // using the pointer-based name for the suffix.
+    OS << '%' << Name << '.' << Num;
+  else
+    OS << "%vp" << Num;
+}
+
 void VPValue::printAsOperand(raw_ostream &OS) const {
   if (getType()->isLabelTy()) {
     OS << "label " << cast<VPBasicBlock>(this)->getName();
     return;
   }
-  if (EnableNames && !Name.empty())
-    // There is no interface to enforce uniqueness of the names, so continue
-    // using the pointer-based name for the suffix.
-    OS << *getType() << " %" << Name << "."
-       << (unsigned short)(unsigned long long)this;
-  else
-    OS << *getType() << " %vp" << (unsigned short)(unsigned long long)this;
+  OS << *getType() << ' ';
+  printAsOperandNoType(OS);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -1425,7 +1468,7 @@ template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
-  auto *DA = cast<VPlanDivergenceAnalysis>(getVPlanDA());
+  auto *DA = getVPlanDA();
   DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
@@ -1501,6 +1544,11 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   ClonedVPLInfo->analyze(*TargetPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
 
+  // Update HasNormalizedInduction
+  VPLoop *ThisLoop = *getVPLoopInfo()->begin();
+  VPLoop *ClonedLoop = *ClonedVPLInfo->begin();
+  ClonedLoop->copyHasNormalizedInductionFlag(ThisLoop);
+
   // Update DA.
   if (UDA != UpdateDA::DoNotUpdateDA) {
     auto TargetPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
@@ -1508,10 +1556,8 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
     if (UDA == UpdateDA::RecalculateDA)
       TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      cast<VPlanDivergenceAnalysis>(getVPlanDA())
-          ->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
-      cast<VPlanDivergenceAnalysis>(TargetPlan->getVPlanDA())
-          ->disableDARecomputation();
+      getVPlanDA()->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }
 }
@@ -1542,4 +1588,15 @@ VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
 
   copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
+}
+
+VPCallInstruction::VPCallInstruction(FunctionCallee Callee,
+                                     ArrayRef<VPValue *> ArgList, VPlan *Plan)
+    : VPInstruction(Instruction::Call,
+                    Callee.getFunctionType()->getReturnType(), ArgList),
+      OrigCall(nullptr) {
+  assert(Callee && "Call instruction does not have Callee");
+  // Add called value to end of operand list for def-use chain.
+  addOperand(Plan->getVPConstant(cast<Constant>(Callee.getCallee())));
+  resetVecScenario(0 /*Initial VF*/);
 }

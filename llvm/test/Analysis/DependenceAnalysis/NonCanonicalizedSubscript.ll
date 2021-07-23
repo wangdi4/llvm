@@ -54,7 +54,7 @@ entry:
   br label %for.cond
 ; INTEL - SCEV improvements yield stronger DA results here
 ; DELIN: da analyze - none!
-; DELIN: da analyze - anti [< >]!
+; DELIN: da analyze - consistent anti [1 -2]!
 ; DELIN: da analyze - none!
 for.cond:                                         ; preds = %for.inc11, %entry
   %indvars.iv11 = phi i64 [ %indvars.iv.next12, %for.inc11 ], [ 1, %entry ]

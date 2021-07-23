@@ -17,7 +17,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -45,7 +45,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<CallGraphWrapperPass>();
     AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.addPreserved<CallGraphWrapperPass>();
     AU.addPreserved<ImplicitArgsAnalysisLegacy>();
   }
 
@@ -72,7 +71,7 @@ char ResolveWICallLegacy::ID = 0;
 ResolveWICallLegacy::ResolveWICallLegacy(bool IsUniformWG, bool UseTLSGlobals)
     : ModulePass(ID), UniformLocalSize(IsUniformWG),
       UseTLSGlobals(UseTLSGlobals) {
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializeResolveWICallLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 bool ResolveWICallLegacy::runOnModule(Module &M) {
@@ -93,7 +92,6 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M, false, false, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
-  PA.preserve<CallGraphAnalysis>();
   PA.preserve<ImplicitArgsAnalysis>();
   return PA;
 }
@@ -418,7 +416,7 @@ Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
     // getelementptr to compute the address into which this argument will
     // be placed.
     GetElementPtrInst *GEPInst = GetElementPtrInst::CreateInBounds(
-        BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
+        BufArrType, BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
 
     Value *Arg = CI->getArgOperand(NumArg);
     Type *Argtype = Arg->getType();
@@ -444,7 +442,7 @@ Value *ResolveWICallPass::updatePrintf(CallInst *CI) {
   IndexArgs.push_back(getConstZeroInt32Value());
 
   GetElementPtrInst *PtrToBuf = GetElementPtrInst::CreateInBounds(
-      BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
+      BufArrType, BufAI, ArrayRef<Value *>(IndexArgs), "", CI);
 
   // Finally create the call to opencl_printf.
   Function *F = M->getFunction("opencl_printf");

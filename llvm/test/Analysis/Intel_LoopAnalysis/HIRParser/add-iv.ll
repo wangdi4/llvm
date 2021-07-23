@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that the addIV() operation for GEP is performed successfully.
 
 ; CHECK: + DO i1 = 0, %vn.0.vn.0. + -1, 1   <DO_LOOP>
-; CHECK: |   {vol}(%p)[(1 + sext.i32.i64(%vn.0.vn.0.)) * i1] = 1;
+; CHECK: |   (%p)[(1 + sext.i32.i64(%vn.0.vn.0.)) * i1] = 1;
 ; CHECK: + END LOOP
 
 ; Function Attrs: nounwind uwtable
@@ -17,7 +17,7 @@ for.body:                                         ; preds = %entry, %for.body
   %mul1 = mul nsw i32 %i.025, %vn.0.vn.0.
   %add.ptr = getelementptr inbounds i32, i32* %p, i32 %mul1
   %add.ptr2 = getelementptr inbounds i32, i32* %add.ptr, i32 %i.025
-  store volatile i32 1, i32* %add.ptr2, align 4
+  store i32 1, i32* %add.ptr2, align 4
   %inc = add nuw nsw i32 %i.025, 1
   %exitcond = icmp eq i32 %inc, %vn.0.vn.0.
   br i1 %exitcond, label %for.end, label %for.body

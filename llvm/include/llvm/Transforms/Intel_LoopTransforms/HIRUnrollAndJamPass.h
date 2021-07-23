@@ -19,7 +19,12 @@ namespace llvm {
 namespace loopopt {
 
 class HIRUnrollAndJamPass : public HIRPassInfoMixin<HIRUnrollAndJamPass> {
+  bool PragmaOnlyUnroll;
+
 public:
+  HIRUnrollAndJamPass(bool PragmaOnlyUnroll = false)
+      : PragmaOnlyUnroll(PragmaOnlyUnroll) {}
+
   static constexpr auto PassName = "hir-unroll-and-jam";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);

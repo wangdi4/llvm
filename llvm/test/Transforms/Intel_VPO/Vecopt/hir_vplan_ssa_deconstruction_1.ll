@@ -29,12 +29,8 @@
 ;   END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=hir-vplan-vec -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
@@ -81,7 +77,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] float [[VP__RED_FINAL:%.*]] = reduction-final{fadd} float [[VP1]] float live-in1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
@@ -92,24 +88,19 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   float [[VP__RED_FINAL]] -> [[VP14:%.*]] = {%red.phi}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:         IR Dump After VPlan HIR Vectorizer
+; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; CHECK-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:  <28>               |   [[BB2]].28:
 ; CHECK-NEXT:  <29>               |   [[DOTVEC0:%.*]] = [[N10]] == 0
 ; CHECK-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
 ; CHECK-NEXT:  <31>               |   {
 ; CHECK-NEXT:  <32>               |      goto [[BB4]].40
 ; CHECK-NEXT:  <31>               |   }
-; CHECK-NEXT:  <31>               |   else
-; CHECK-NEXT:  <31>               |   {
-; CHECK-NEXT:  <33>               |      goto [[BB5]].34
-; CHECK-NEXT:  <31>               |   }
-; CHECK-NEXT:  <34>               |   [[BB5]].34:
 ; CHECK-NEXT:  <35>               |   [[DOTVEC20:%.*]] = (<4 x float>*)([[ARR20]])[i1]
 ; CHECK-NEXT:  <36>               |   [[DOTCOPY0:%.*]] = [[DOTVEC20]]
 ; CHECK-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
@@ -120,47 +111,11 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <42>               |   [[DOTCOPY70:%.*]] = [[DOTVEC60]]
 ; CHECK-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; CHECK-NEXT:  <44>               |   [[PHI_TEMP40]] = [[DOTCOPY70]]
-; CHECK-NEXT:  <45>               |   goto [[BB3]].46
 ; CHECK-NEXT:  <46>               |   [[BB3]].46:
 ; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP40]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <26>               + END LOOP
 ; CHECK-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
-;
-; MIXED-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
-; MIXED-NEXT:  Function: foo
-; MIXED-EMPTY:
-; MIXED-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; MIXED-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-NEXT:  <28>               |   [[BB0:BB[0-9]+]].28:
-; MIXED-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] == 0
-; MIXED-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
-; MIXED-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
-; MIXED-NEXT:  <31>               |   {
-; MIXED-NEXT:  <32>               |      goto [[BB1:BB[0-9]+]].40
-; MIXED-NEXT:  <31>               |   }
-; MIXED-NEXT:  <31>               |   else
-; MIXED-NEXT:  <31>               |   {
-; MIXED-NEXT:  <33>               |      goto [[BB2:BB[0-9]+]].34
-; MIXED-NEXT:  <31>               |   }
-; MIXED-NEXT:  <34>               |   [[BB2]].34:
-; MIXED-NEXT:  <35>               |   [[LD_FALSE_VEC0:%.*]] = (<4 x float>*)([[ARR20:%.*]])[i1]
-; MIXED-NEXT:  <36>               |   [[MERGE_PHI_IN1_VEC0:%.*]] = [[LD_FALSE_VEC0]]
-; MIXED-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; MIXED-NEXT:  <38>               |   [[PHI_TEMP20:%.*]] = [[MERGE_PHI_IN1_VEC0]]
-; MIXED-NEXT:  <39>               |   goto [[BB3:BB[0-9]+]].46
-; MIXED-NEXT:  <40>               |   [[BB1]].40:
-; MIXED-NEXT:  <41>               |   [[LD_TRUE_VEC0:%.*]] = (<4 x float>*)([[ARR10:%.*]])[i1]
-; MIXED-NEXT:  <42>               |   [[MERGE_PHI_IN1_VEC0]] = [[LD_TRUE_VEC0]]
-; MIXED-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; MIXED-NEXT:  <44>               |   [[PHI_TEMP20]] = [[MERGE_PHI_IN1_VEC0]]
-; MIXED-NEXT:  <45>               |   goto [[BB3]].46
-; MIXED-NEXT:  <46>               |   [[BB3]].46:
-; MIXED-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[PHI_TEMP0]]
-; MIXED-NEXT:  <26>               + END LOOP
-; MIXED-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
-; MIXED-NEXT:  <0>          END REGION
 ;
 
 entry:

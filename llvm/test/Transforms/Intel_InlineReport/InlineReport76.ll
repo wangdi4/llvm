@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -inline -inline-report=7 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -disable-output 2>&1 | FileCheck %s
@@ -97,3 +99,4 @@ omp.loop.exit.split:                              ; preds = %omp.inner.for.cond,
 
 attributes #0 = { "may-have-openmp-directive"="true" }
 
+; end INTEL_FEATURE_SW_ADVANCED

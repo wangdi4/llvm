@@ -14,8 +14,7 @@
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK:      Starting llvm::Module pass manager run.
-; CHECK-NEXT: Running pass: Annotation2MetadataPass
+; CHECK: Running pass: Annotation2MetadataPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -26,13 +25,8 @@
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
 ; CHECK-NEXT: Running pass: GlobalDCEPass
-; CHECK: Running pass: IPSCCPPass
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on main
-; CHECK-NEXT: Running analysis: AssumptionAnalysis on main
-; CHECK-NEXT: Running pass: IPCloningPass
-; CHECK-NEXT: Running pass: ForceFunctionAttrsPass
+; CHECK-NEXT: Running pass: IntelFoldWPIntrinsicPass
+; CHECK: Running pass: ForceFunctionAttrsPass
 ; CHECK-NEXT: Running pass: InferFunctionAttrsPass
 ; CHECK: Running pass: {{.*}}SimplifyCFGPass{{.*}}
 ; CHECK-NEXT: Running pass: {{.*}}SimplifyCFGPass{{.*}}
@@ -61,9 +55,10 @@
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
+; CHECK-NEXT: Running pass: ArgumentPromotionPass on (foo)
+; CHECK-NEXT: Running pass: ArgumentPromotionPass on (main)
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
-; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass
 
 ; Make sure we get the IR back out without changes when we print the module.
@@ -86,7 +81,6 @@
 ; CHECK-NEXT:  }
 ;
 ; CHECK-LABEL: attributes #0 = { noinline uwtable }
-; CHECK-NEXT: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 

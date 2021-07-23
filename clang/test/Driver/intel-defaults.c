@@ -182,6 +182,7 @@
 
 // -fp-model=fast and -ffast-math should set preserve-sign
 // RUN: %clang -### -ffp-model=fast -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
 // RUN: %clang -### -ffast-math -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix FP_MODEL_FAST %s
 // FP_MODEL_FAST: "-fdenormal-fp-math=preserve-sign,preserve-sign"
@@ -189,3 +190,10 @@
 // print-search-dirs should contain the Intel lib dir
 // RUN: %clang --intel -target x86_64-unknown-linux-gnu --print-search-dirs 2>&1 | FileCheck -check-prefix CHECK-SEARCH-DIRS %s
 // CHECK-SEARCH-DIRS: libraries:{{.*}} {{.*}}compiler/lib{{(/|\\)}}intel64_lin{{.*}}
+
+// Add -header-base-path for Windows
+// RUN: %clang_cl --intel -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-HEADER-BASE %s
+// RUN: %clangxx --intel -### -target x86_64-pc-windows-msvc -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix CHECK-HEADER-BASE %s
+// CHECK-HEADER-BASE: "-header-base-path"

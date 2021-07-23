@@ -7,7 +7,7 @@
 ; CHECK-NEXT:       |   %0 = (%A)[i1];
 ; CHECK-NEXT:       |   (%A)[i1] = smax((-1 * %0), %0);
 ; CHECK-NEXT:       + END LOOP
-; CHECK-NEXT: END REGION
+; CHECK:      END REGION
 
 define void @_Z3fooPii(i32* nocapture %A, i32 %n) {
 entry:

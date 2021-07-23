@@ -26,9 +26,7 @@
 //  i -> int
 //  h -> half
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
 //  g -> _Float16
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 //  f -> float
 //  d -> double
@@ -115,6 +113,12 @@
 #if defined(BUILTIN) && !defined(LANGBUILTIN)
 #  define LANGBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG) BUILTIN(ID, TYPE, ATTRS)
 #endif
+
+#if INTEL_CUSTOMIZATION
+#if defined(LANGBUILTIN) && !defined(OPENCLBUILTIN)
+#  define OPENCLBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG, FEATURE) LANGBUILTIN(ID, TYPE, ATTRS, BUILTIN_LANG)
+#endif
+#endif // INTEL_CUSTOMIZATION
 
 // Standard libc/libm functions:
 BUILTIN(__builtin_atan2 , "ddd"  , "Fne")
@@ -464,8 +468,6 @@ BUILTIN(__builtin_generate_SIMD_variant, "v.", "nt")
 BUILTIN(__builtin_call_SIMD_variant, "v.", "t")
 
 // CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.
-BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
-BUILTIN(__builtin_malloc,     "v*z",    "Fn")
 // We use here 'void *' instead of 'FILE *' due to icc/gcc compatibility.
 BUILTIN(__builtin_fwrite,     "zvC*zzv*","Fn")
 BUILTIN(__builtin_fwrite_unlocked,     "zvC*zzv*","Fn")
@@ -579,6 +581,7 @@ BUILTIN(__builtin_rotateright32, "UZiUZiUZi", "nc")
 BUILTIN(__builtin_rotateright64, "UWiUWiUWi", "nc")
 
 // Random GCC builtins
+BUILTIN(__builtin_calloc, "v*zz", "nF")
 BUILTIN(__builtin_constant_p, "i.", "nctu")
 BUILTIN(__builtin_classify_type, "i.", "nctu")
 BUILTIN(__builtin___CFStringMakeConstantString, "FC*cC*", "nc")
@@ -595,6 +598,8 @@ BUILTIN(__builtin_bzero, "vv*z", "nF")
 // CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
 BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_free, "vv*", "nF")
+BUILTIN(__builtin_malloc, "v*z", "nF")
 BUILTIN(__builtin_memchr, "v*vC*iz", "nF")
 BUILTIN(__builtin_memcmp, "ivC*vC*z", "nF")
 BUILTIN(__builtin_memcpy, "v*v*vC*z", "nF")
@@ -603,10 +608,6 @@ BUILTIN(__builtin_memmove, "v*v*vC*z", "nF")
 BUILTIN(__builtin_mempcpy, "v*v*vC*z", "nF")
 BUILTIN(__builtin_memset, "v*v*iz", "nF")
 BUILTIN(__builtin_printf, "icC*.", "Fp:0:")
-#if INTEL_CUSTOMIZATION
-// Fix for CQ373625: __builtin_sprintf function is undeclared
-BUILTIN(__builtin_sprintf, "ic*cC*.", "Fp:1:")
-#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_stpcpy, "c*c*cC*", "nF")
 BUILTIN(__builtin_stpncpy, "c*c*cC*z", "nF")
 BUILTIN(__builtin_strcasecmp, "icC*cC*", "nF")
@@ -634,6 +635,7 @@ BUILTIN(__builtin_wmemchr, "w*wC*wz", "nF")
 BUILTIN(__builtin_wmemcmp, "iwC*wC*z", "nF")
 BUILTIN(__builtin_wmemcpy, "w*w*wC*z", "nF")
 BUILTIN(__builtin_wmemmove, "w*w*wC*z", "nF")
+BUILTIN(__builtin_realloc, "v*v*z", "nF")
 BUILTIN(__builtin_return_address, "v*IUi", "n")
 BUILTIN(__builtin_extract_return_addr, "v*v*", "n")
 BUILTIN(__builtin_frame_address, "v*IUi", "n")
@@ -643,7 +645,7 @@ BUILTIN(__builtin_longjmp, "vv**i", "r")
 BUILTIN(__builtin_unwind_init, "v", "")
 BUILTIN(__builtin_eh_return_data_regno, "iIi", "nc")
 BUILTIN(__builtin_snprintf, "ic*zcC*.", "nFp:2:")
-BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
+BUILTIN(__builtin_sprintf, "ic*cC*.", "nFP:1:")
 BUILTIN(__builtin_vsnprintf, "ic*zcC*a", "nFP:2:")
 #if INTEL_CUSTOMIZATION
 // CQ#370451. Prinf/scanf builtin functions.
@@ -656,6 +658,7 @@ BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
 BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
 BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
 #endif // INTEL_CUSTOMIZATION
+BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
 BUILTIN(__builtin_thread_pointer, "v*", "nc")
 BUILTIN(__builtin_launder, "v*v*", "nt")
 LANGBUILTIN(__builtin_is_constant_evaluated, "b", "n", CXX_LANG)
@@ -1245,6 +1248,8 @@ LIBBUILTIN(strtol, "LicC*c**i",   "f",     "stdlib.h", ALL_LANGUAGES)
 LIBBUILTIN(strtoll, "LLicC*c**i", "f",     "stdlib.h", ALL_LANGUAGES)
 LIBBUILTIN(strtoul, "ULicC*c**i", "f",     "stdlib.h", ALL_LANGUAGES)
 LIBBUILTIN(strtoull, "ULLicC*c**i", "f",   "stdlib.h", ALL_LANGUAGES)
+// C11 stdlib.h
+LIBBUILTIN(aligned_alloc, "v*zz", "f",     "stdlib.h", ALL_LANGUAGES)
 // C99 string.h
 LIBBUILTIN(memcpy, "v*v*vC*z",    "f",     "string.h", ALL_LANGUAGES)
 LIBBUILTIN(memcmp, "ivC*vC*z",    "f",     "string.h", ALL_LANGUAGES)
@@ -1326,6 +1331,8 @@ LIBBUILTIN(longjmp, "vJi",        "frT",   "setjmp.h", ALL_LANGUAGES)
 // all languages, because losing this attribute would result in miscompilation
 // when these functions are used in non-GNU mode. PR16138.
 LIBBUILTIN(alloca, "v*z",         "f",     "stdlib.h", ALL_GNU_LANGUAGES)
+// POSIX malloc.h
+LIBBUILTIN(memalign, "v*zz",      "f",     "malloc.h", ALL_GNU_LANGUAGES)
 // POSIX string.h
 LIBBUILTIN(memccpy, "v*v*vC*iz",  "f",     "string.h", ALL_GNU_LANGUAGES)
 LIBBUILTIN(mempcpy, "v*v*vC*z",   "f",     "string.h", ALL_GNU_LANGUAGES)
@@ -1845,69 +1852,75 @@ BUILTIN(__builtin_nontemporal_store, "v.", "t")
 BUILTIN(__builtin_nontemporal_load, "v.", "t")
 
 // Coroutine intrinsics.
-BUILTIN(__builtin_coro_resume, "vv*", "")
-BUILTIN(__builtin_coro_destroy, "vv*", "")
-BUILTIN(__builtin_coro_done, "bv*", "n")
-BUILTIN(__builtin_coro_promise, "v*v*IiIb", "n")
+LANGBUILTIN(__builtin_coro_resume, "vv*", "", COR_LANG)
+LANGBUILTIN(__builtin_coro_destroy, "vv*", "", COR_LANG)
+LANGBUILTIN(__builtin_coro_done, "bv*", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_promise, "v*v*IiIb", "n", COR_LANG)
 
-BUILTIN(__builtin_coro_size, "z", "n")
-BUILTIN(__builtin_coro_frame, "v*", "n")
-BUILTIN(__builtin_coro_noop, "v*", "n")
-BUILTIN(__builtin_coro_free, "v*v*", "n")
+LANGBUILTIN(__builtin_coro_size, "z", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_frame, "v*", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_noop, "v*", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_free, "v*v*", "n", COR_LANG)
 
-BUILTIN(__builtin_coro_id, "v*Iiv*v*v*", "n")
-BUILTIN(__builtin_coro_alloc, "b", "n")
-BUILTIN(__builtin_coro_begin, "v*v*", "n")
-BUILTIN(__builtin_coro_end, "bv*Ib", "n")
-BUILTIN(__builtin_coro_suspend, "cIb", "n")
-BUILTIN(__builtin_coro_param, "bv*v*", "n")
+LANGBUILTIN(__builtin_coro_id, "v*Iiv*v*v*", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_alloc, "b", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_begin, "v*v*", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_end, "bv*Ib", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_suspend, "cIb", "n", COR_LANG)
+LANGBUILTIN(__builtin_coro_param, "bv*v*", "n", COR_LANG)
 
+#if INTEL_CUSTOMIZATION
 // OpenCL v2.0 s6.13.16, s9.17.3.5 - Pipe functions.
 // We need the generic prototype, since the packet type could be anything.
-LANGBUILTIN(read_pipe, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(write_pipe, "i.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(read_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(write_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(reserve_read_pipe, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(reserve_write_pipe, "i.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(reserve_read_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(reserve_write_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(commit_write_pipe, "v.", "tn", OCLC20_LANG)
-LANGBUILTIN(commit_read_pipe, "v.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(commit_write_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(commit_read_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(sub_group_reserve_read_pipe, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(sub_group_reserve_write_pipe, "i.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(sub_group_reserve_read_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(sub_group_reserve_write_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(sub_group_commit_read_pipe, "v.", "tn", OCLC20_LANG)
-LANGBUILTIN(sub_group_commit_write_pipe, "v.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(sub_group_commit_read_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(sub_group_commit_write_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(work_group_reserve_read_pipe, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(work_group_reserve_write_pipe, "i.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(work_group_reserve_read_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(work_group_reserve_write_pipe, "i.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(work_group_commit_read_pipe, "v.", "tn", OCLC20_LANG)
-LANGBUILTIN(work_group_commit_write_pipe, "v.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(work_group_commit_read_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(work_group_commit_write_pipe, "v.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
-LANGBUILTIN(get_pipe_num_packets, "Ui.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(get_pipe_num_packets, "Ui.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
+OPENCLBUILTIN(get_pipe_max_packets, "Ui.", "tn", OCLC2P_LANG, "__opencl_c_pipes")
 
 // OpenCL v2.0 s6.13.17 - Enqueue kernel functions.
 // Custom builtin check allows to perform special check of passed block arguments.
-LANGBUILTIN(enqueue_kernel, "i.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_work_group_size, "Ui.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_preferred_work_group_size_multiple, "Ui.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_max_sub_group_size_for_ndrange, "Ui.", "tn", OCLC20_LANG)
-LANGBUILTIN(get_kernel_sub_group_count_for_ndrange, "Ui.", "tn", OCLC20_LANG)
+OPENCLBUILTIN(enqueue_kernel, "i.", "tn", OCLC2P_LANG,
+              "__opencl_c_device_enqueue")
+OPENCLBUILTIN(get_kernel_work_group_size, "Ui.", "tn", OCLC2P_LANG,
+              "__opencl_c_device_enqueue")
+OPENCLBUILTIN(get_kernel_preferred_work_group_size_multiple, "Ui.", "tn",
+              OCLC2P_LANG, "__opencl_c_device_enqueue")
+OPENCLBUILTIN(get_kernel_max_sub_group_size_for_ndrange, "Ui.", "tn",
+              OCLC2P_LANG, "__opencl_c_device_enqueue")
+OPENCLBUILTIN(get_kernel_sub_group_count_for_ndrange, "Ui.", "tn", OCLC2P_LANG, "__opencl_c_device_enqueue")
 
 // OpenCL v2.0 s6.13.9 - Address space qualifier functions.
 // FIXME: Pointer parameters of OpenCL builtins should have their address space
 // requirement defined.
-LANGBUILTIN(to_global, "v*v*", "tn", OCLC20_LANG)
-LANGBUILTIN(to_local, "v*v*", "tn", OCLC20_LANG)
-LANGBUILTIN(to_private, "v*v*", "tn", OCLC20_LANG)
+OPENCLBUILTIN(to_global, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
+OPENCLBUILTIN(to_local, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
+OPENCLBUILTIN(to_private, "v*v*", "tn", OCLC2P_LANG, "__opencl_c_generic_address_space")
 
 // OpenCL half load/store builtin
-LANGBUILTIN(__builtin_store_half, "vdh*", "n", ALL_OCLC_LANGUAGES)
-LANGBUILTIN(__builtin_store_halff, "vfh*", "n", ALL_OCLC_LANGUAGES)
-LANGBUILTIN(__builtin_load_half, "dhC*", "nc", ALL_OCLC_LANGUAGES)
-LANGBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES)
+OPENCLBUILTIN(__builtin_store_half, "vdh*", "n", ALL_OCLC_LANGUAGES, "")
+OPENCLBUILTIN(__builtin_store_halff, "vfh*", "n", ALL_OCLC_LANGUAGES, "")
+OPENCLBUILTIN(__builtin_load_half, "dhC*", "nc", ALL_OCLC_LANGUAGES, "")
+OPENCLBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES, "")
+#endif // INTEL_CUSTOMIZATION
 
 // Builtins for os_log/os_trace
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")
@@ -1964,6 +1977,9 @@ BUILTIN(__builtin_ms_va_start, "vc*&.", "nt")
 BUILTIN(__builtin_ms_va_end, "vc*&", "n")
 BUILTIN(__builtin_ms_va_copy, "vc*&c*&", "n")
 
+// Arithmetic Fence: to prevent FP reordering and reassociation optimizations
+LANGBUILTIN(__arithmetic_fence, "v.", "t", ALL_LANGUAGES)
+
 // Builtins for Intel FPGA
 BUILTIN(__builtin_intel_fpga_reg, "v.", "nt")
 BUILTIN(__builtin_intel_fpga_mem, "v.", "nt")
@@ -1971,3 +1987,6 @@ BUILTIN(__builtin_intel_fpga_mem, "v.", "nt")
 #undef BUILTIN
 #undef LIBBUILTIN
 #undef LANGBUILTIN
+#if INTEL_CUSTOMIZATION
+#undef OPENCLBUILTIN
+#endif // INTEL_CUSTOMIZATION

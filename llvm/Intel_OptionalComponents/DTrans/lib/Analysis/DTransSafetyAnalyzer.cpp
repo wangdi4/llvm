@@ -33,6 +33,10 @@
 // Print detailed messages regarding the safety checks.
 #define SAFETY_VERBOSE "dtrans-safetyanalyzer-verbose"
 
+// Print messages regarding the collection of values stored to fields of
+// structures.
+#define SAFETY_VALUES "dtrans-safetyanalyzer-values"
+
 using namespace llvm;
 using namespace dtransOP;
 
@@ -62,6 +66,30 @@ static llvm::dtrans::debug::DebugFilter FNFilter;
 // Helper method to check whether 'Ty' is a pointer to a pointer.
 static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
+}
+
+// Helper to print a Value object (and optionally the name of the function it
+// belongs to, if there is one). If the Value represents a GlobalValue, such as
+// a Function or GlobalVariable, just print the object's name instead of the
+// complete definition, otherwise print the Value.
+static void printValue(raw_ostream &OS, Value *V, bool ReportFuncName = true) {
+  if (!V)
+    return;
+
+  if (ReportFuncName) {
+    Function *F = nullptr;
+    if (auto *I = dyn_cast<Instruction>(V))
+      F = I->getFunction();
+    else if (auto *Arg = dyn_cast<Argument>(V))
+      F = Arg->getParent();
+    if (F)
+      dbgs() << "[" << F->getName() << "] ";
+  }
+
+  if (auto *GV = dyn_cast<GlobalObject>(V))
+    OS << "@" << GV->getName();
+  else
+    OS << *V;
 }
 
 // Type used for callback function for reporting additional details in the debug
@@ -171,6 +199,12 @@ private:
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
 // collect the field usage information for structure fields.
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
+
+  // Value type written for field value analysis by a memfunc call to indicate
+  // whether a zero value, non-zero value, or the existing value of a field is
+  // being written by the call.
+  enum FieldWriteType { FWT_ZeroValue, FWT_NonZeroValue, FWT_ExistingValue };
+
 public:
   // TODO: Making this public temporarily to avoid an unused variable warning
   // because the variable is not used yet. Change to private when it is used.
@@ -304,11 +338,114 @@ public:
   // Analyze global variables to mark "Global array", Global instance", and
   // "Global pointer" safety flags on types of interest. Also, analyze the
   // initializer value to collect constants, and check for incompatible types
-  // being stored into the the global.
+  // being stored into the global.
   void analyzeGlobalVariable(GlobalVariable &GV) {
+    // Check whether the initialization value is a global object that
+    // is being used as a type that is not compatible with the expected type
+    // based on the DTrans type information for a structure field or array
+    // element. If so, set a safety flag.
+    //
+    // Note: This uses an exact match of the type, however it may need to be
+    // more flexible for function pointer types used in virtual function tables
+    // in the future.
+    auto CheckInitializerCompatibility =
+        [this](GlobalVariable &GV, DTransType *DType, Constant *ConstVal) {
+          assert(DType && "Expected valid DTransType object");
+          assert(ConstVal && "Expected valid Constant object");
+
+          // Removing pointer casts should only be relevant when using typed
+          // pointers. When opaque pointers are in use, the Constant can be
+          // used without the intervening bitcasts.
+          if (ConstVal->getType()->isPointerTy())
+            ConstVal = ConstVal->stripPointerCasts();
+
+          if (auto *InitializerGlobObj = dyn_cast<GlobalObject>(ConstVal)) {
+            ValueTypeInfo *Info = PTA.getValueTypeInfo(InitializerGlobObj);
+            assert(Info && "Expected pointer type analyzer to collect type "
+                           "for GlobalObject");
+            DTransType *InitializerType =
+                PTA.getDominantAggregateType(*Info, ValueTypeInfo::VAT_Decl);
+            if (InitializerType != DType) {
+              // Mark the value being stored and the global variable that was
+              // being initialized with an appropriate safety flag.
+              setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                          "Object used to initialize an "
+                                          "incompatible structure field",
+                                          &GV);
+
+              ValueTypeInfo *InitializeeInfo = PTA.getValueTypeInfo(&GV);
+              assert(InitializeeInfo && "Expected pointer type analyzer to "
+                                        "collect type for GlobalVariable");
+              setAllAliasedTypeSafetyData(InitializeeInfo,
+                                          dtrans::UnsafePointerStore,
+                                          "Object used to initialize an "
+                                          "incompatible structure field",
+                                          &GV);
+            }
+          }
+        };
+
+    // Analyze the initializer of a global variable, updating the field value
+    // analysis and safety data. Return 'false' if the initializer cannot be
+    // processed.
+    std::function<bool(GlobalVariable &, DTransType *, llvm::Constant *)>
+        AnalyzeInitializer =
+            [this, &AnalyzeInitializer, &CheckInitializerCompatibility](
+                GlobalVariable &GV, DTransType *DTy,
+                llvm::Constant *Init) -> bool {
+      assert(Init && "Initializer constant must not be nullptr");
+
+      // No value collection or checks are needed for 'undef'
+      if (isa<UndefValue>(Init))
+        return true;
+
+      if (auto *DTransStTy = dyn_cast<DTransStructType>(DTy)) {
+        auto *StInfo =
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(DTransStTy));
+        unsigned NumFields = StInfo->getNumFields();
+
+        if (!isa<ConstantAggregateZero>(Init) &&
+            NumFields != Init->getNumOperands())
+          return false;
+
+        for (unsigned I = 0; I < NumFields; ++I) {
+          llvm::Constant *ConstVal = Init->getAggregateElement(I);
+          dtrans::FieldInfo &FI = StInfo->getField(I);
+          if (FI.getLLVMType()->isAggregateType()) {
+            AnalyzeInitializer(GV, FI.getDTransType(), ConstVal);
+          } else {
+            updateFieldValueTracking(*StInfo, FI, I, ConstVal, &GV);
+            CheckInitializerCompatibility(GV, FI.getDTransType(), ConstVal);
+          }
+        }
+      } else if (auto *DTransArTy = dyn_cast<DTransArrayType>(DTy)) {
+        if (!isa<ConstantAggregateZero>(Init) && !isa<ConstantArray>(Init))
+          return false;
+
+        // An array of scalar elements does not need further evaluation because
+        // DTrans does not make use of the values that are stored in the
+        // array. However, if there is an array of structures or structure
+        // pointers, then analysis of those needs to be done to find any
+        // initializers of the structure fields, or incompatible initializers.
+        auto *ElemTy = DTransArTy->getArrayElementType();
+        for (unsigned I = 0, E = DTransArTy->getNumElements(); I < E; ++I) {
+          llvm::Constant *ConstVal = Init->getAggregateElement(I);
+          if (ElemTy->isAggregateType())
+            AnalyzeInitializer(GV, ElemTy, ConstVal);
+          else
+            CheckInitializerCompatibility(GV, ElemTy, ConstVal);
+        }
+      }
+
+      return true;
+    };
+
     // Declarations do not need to be analyzed
     if (GV.isDeclaration())
       return;
+
+    DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                    dbgs() << "Analyzing global var: " << GV << "\n");
 
     ValueTypeInfo *Info = PTA.getValueTypeInfo(&GV);
     assert(Info &&
@@ -347,9 +484,13 @@ public:
     // initializer.
     assert((GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer()) &&
            "Expected initializer");
+
+    // The global variables that are going to be processed will either have a
+    // 'zeroinitializer', 'undef', or an initializer list that specifies the
+    // value for the variable.
     Constant *Initializer = GV.getInitializer();
-    bool HasInitializer = !isa<ConstantAggregateZero>(Initializer) &&
-                          !isa<UndefValue>(Initializer);
+    bool HasNonZeroInitializer = !isa<ConstantAggregateZero>(Initializer) &&
+                                 !isa<UndefValue>(Initializer);
 
     // Look at the information set by the PtrTypeAnalyzer for the variable.
     // There generally should only be a single declared type. We need to rely on
@@ -382,13 +523,26 @@ public:
           setBaseTypeInfoSafetyData(UnitTy, dtrans::GlobalPtr,
                                     "Global array of pointers to type defined",
                                     &GV);
+          if (HasNonZeroInitializer) {
+            DTransType *ElemTy = ArTy->getArrayElementType();
+            for (unsigned I = 0, E = ArTy->getNumElements(); I < E; ++I) {
+              llvm::Constant *ConstVal = Initializer->getAggregateElement(I);
+              CheckInitializerCompatibility(GV, ElemTy, ConstVal);
+            }
+          }
         } else if (UnitTy->isVectorTy()) {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                     "Global array of vector type defined", &GV);
         } else {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                     "Global array of type defined", &GV);
-          if (HasInitializer)
+          if (!AnalyzeInitializer(GV, ElemTy, Initializer))
+            setBaseTypeInfoSafetyData(
+                AliasTy, dtrans::UnhandledUse,
+                "dtrans-safety: Initializer list does not match expected type",
+                &GV);
+
+          if (HasNonZeroInitializer)
             setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
                                       "dtrans-safety: Has initializer list",
                                       &GV);
@@ -405,14 +559,17 @@ public:
       } else {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                   "Instance allocated", &GV);
-        if (HasInitializer)
+        if (!AnalyzeInitializer(GV, ElemTy, Initializer))
+          setBaseTypeInfoSafetyData(
+              AliasTy, dtrans::UnhandledUse,
+              "dtrans-safety: Initializer list does not match expected type",
+              &GV);
+
+        if (HasNonZeroInitializer)
           setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
                                     "dtrans-safety: Has initializer list", &GV);
       }
     }
-
-    // TODO: Analyze the initializer values for constant values or incompatible
-    // types.
   }
 
   void visitFunction(Function &F) {
@@ -936,7 +1093,8 @@ public:
         dtrans::StructInfo *SI =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
-          collectReadInfo(I, SI, /*FieldNum=*/0, !IsWholeStructureRead);
+          collectReadInfo(I, SI, /*FieldNum=*/0, IsWholeStructureRead,
+                          /*ForElementZeroAccess=*/true);
 
           if (IsWholeStructureRead) {
             // Note: For whole structure reference, DTrans does not fill in all
@@ -1182,15 +1340,32 @@ public:
         dtrans::StructInfo *SI =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
-          collectWriteInfo(I, SI, /*FieldNum=*/0, Val, !IsWholeStructureWrite);
+          collectWriteInfo(I, SI, /*FieldNum=*/0, Val, IsWholeStructureWrite,
+                           /*ForElementZeroAccess=*/true);
 
           if (IsWholeStructureWrite) {
             // Note: For whole structure reference, DTrans does not fill in all
             // the field info details for each field, such as frequency or
             // single value because we do not have any transforms that can
-            // handle them.
-            for (auto &FI : SI->getFields())
+            // handle them. It's possible that the write is just copying an
+            // existing version of the structure, but it's also possible to
+            // perform the write using new constant values, such as:
+            //   store %struct.test01 { i32 100, i32 0 }, %struct.test01* %tmp
+            // For this reason, we will set all the fields as multiple value.
+            for (auto &Field : enumerate(SI->getFields())) {
+              dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
+              if (!FI.isMultipleValue()) {
+                FI.setMultipleValue();
+                DEBUG_WITH_TYPE(SAFETY_VALUES, {
+                  dbgs() << "dtrans-values: ";
+                  SI->getDTransType()->print(dbgs(), /*Detailed=*/false);
+                  dbgs() << "@" << Field.index() << ": <MULTIPLE>\n  ";
+                  printValue(dbgs(), &I);
+                  dbgs() << "\n";
+                });
+              }
+            }
           }
         }
       }
@@ -1275,10 +1450,11 @@ public:
         // otherwise walk the nested types to find the actual field being
         // accessed..
         if (IsLoad)
-          collectReadInfo(I, ParentStInfo, ElementNum, !IsWholeStructure);
+          collectReadInfo(I, ParentStInfo, ElementNum, IsWholeStructure,
+                          /*ForElementZeroAccess=*/false);
         else
-          collectWriteInfo(I, ParentStInfo, ElementNum, ValOp,
-                           !IsWholeStructure);
+          collectWriteInfo(I, ParentStInfo, ElementNum, ValOp, IsWholeStructure,
+                           /*ForElementZeroAccess=*/false);
       }
 
       // Check if the types for the value loaded or value operand of the store
@@ -1622,13 +1798,13 @@ public:
       ParentStInfo->getField(FieldNum).setAddressTaken();
     };
 
-    switch(FieldAddressTakenType) {
-      case dtrans::FieldAddressTakenMemory:
-      case dtrans::FieldAddressTakenCall:
-      case dtrans::FieldAddressTakenReturn:
-        break;
-      default:
-        llvm_unreachable("Expected a valid FieldAddressTaken safety mask");
+    switch (FieldAddressTakenType) {
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
+      break;
+    default:
+      llvm_unreachable("Expected a valid FieldAddressTaken safety mask");
     }
 
     for (auto &PointeePair :
@@ -1663,10 +1839,22 @@ public:
   }
 
   void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
-                       size_t FieldNum, bool DescendIntoNested) {
-    if (DescendIntoNested) {
-      dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+                       size_t FieldNum, bool IsWholeStructure,
+                       bool ForElementZeroAccess) {
+    if (!IsWholeStructure) {
+      // When a whole structure is not being read, the read may be using a
+      // pointer to a structure to access the element at index 0 of a contained
+      // structure. Get the corresponding structure type and field being
+      // read.
+      dtrans::StructInfo *ReadStInfo = nullptr;
+      size_t ReadFieldNum = 0;
+      bool Descended = false;
+      getDeepestNestedField(StInfo, FieldNum, &ReadStInfo, &ReadFieldNum,
+                            &Descended);
+      dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
+      if (Descended || ForElementZeroAccess)
+        FI.setNonGEPAccess();
       if (!dtrans::isLoadedValueUnused(&I,
                                        cast<LoadInst>(&I)->getPointerOperand()))
         FI.setValueUnused(false);
@@ -1679,27 +1867,127 @@ public:
   }
 
   void collectWriteInfo(Instruction &I, dtrans::StructInfo *StInfo,
-                        size_t FieldNum, Value *WriteVal,
-                        bool DescendIntoNested) {
-    if (DescendIntoNested) {
-      dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+                        size_t FieldNum, Value *WriteVal, bool IsWholeStructure,
+                        bool ForElementZeroAccess) {
+
+    // Returns true if "WriteVal" is a SelectInst and the true and false values
+    // are both constants.
+    auto IsConstantResultSelectInst = [](Value *WriteVal) {
+      if (auto *SI = dyn_cast<SelectInst>(WriteVal))
+        return isa<Constant>(SI->getTrueValue()) &&
+               isa<Constant>(SI->getFalseValue());
+      return false;
+    };
+
+    auto SetFieldInfo = [this, &IsConstantResultSelectInst](
+                            Instruction &I, dtrans::StructInfo &StInfo,
+                            dtrans::FieldInfo &FI, size_t FieldNum,
+                            Value *WriteVal) {
       FI.setWritten(I);
-    } else {
-      dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
-      FI.setWritten(I);
+
+      // For simple cases where the stored value is the result of select
+      // instruction that always produces a constant result, save both
+      // constants, instead of letting the field value info be marked as
+      // 'incomplete'. For example:
+      //   %70 = select i1 %69, i16 1, i16 2
+      //   store i16 %70, i16* %67
+      if (IsConstantResultSelectInst(WriteVal)) {
+        auto *SelInst = cast<SelectInst>(WriteVal);
+        updateFieldValueTracking(StInfo, FI, FieldNum,
+                                 cast<Constant>(SelInst->getTrueValue()), &I);
+        updateFieldValueTracking(StInfo, FI, FieldNum,
+                                 cast<Constant>(SelInst->getFalseValue()), &I);
+        return;
+      }
+
+      auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal);
+      updateFieldValueTracking(StInfo, FI, FieldNum, ConstVal, &I);
+    };
+
+    if (IsWholeStructure) {
+      // Note: For a whole structure reference, DTrans does not fill in all
+      // the field values for each field because we do not have any transforms
+      // that can handle them. Instead, set all the fields as multiple value.
+      for (auto &Field : enumerate(StInfo->getFields())) {
+        dtrans::FieldInfo &FI = Field.value();
+        FI.setWritten(I);
+        if (!FI.isMultipleValue()) {
+          FI.setMultipleValue();
+          DEBUG_WITH_TYPE(SAFETY_VALUES, {
+            dbgs() << "dtrans-values (whole-structure-write): ";
+            StInfo->getDTransType()->print(dbgs(), /*Detailed=*/false);
+            dbgs() << "@" << Field.index() << ": <MULTIPLE>\n";
+          });
+        }
+      }
+      return;
     }
 
-    // TODO: Update field usage frequency, field single value, field single
-    // allocation functions fields
+    // When a whole structure is not being written, the write may be using a
+    // pointer to a structure to access the element at index 0 of a contained
+    // structure, get the corresponding structure type and field being written.
+    dtrans::StructInfo *WrittenStInfo = nullptr;
+    size_t WrittenFieldNum = 0;
+    bool Descended = false;
+    getDeepestNestedField(StInfo, FieldNum, &WrittenStInfo, &WrittenFieldNum,
+                          &Descended);
+    dtrans::FieldInfo &FI = WrittenStInfo->getField(WrittenFieldNum);
+    SetFieldInfo(I, *WrittenStInfo, FI, WrittenFieldNum, WriteVal);
+    if (Descended || ForElementZeroAccess)
+      FI.setNonGEPAccess();
+
+    // TODO: Update field usage frequency, field single allocation functions
+    // fields
+  }
+
+  // If C is a Constant, add it to the list of values tracked for a field.
+  // Otherwise, mark the field info as being an incomplete multiple value set.
+  // 'StInfo', 'FieldNum', and 'Consumer' are just used for providing
+  // information in the traces regarding which structure, field number and
+  // memory write were responsible for field update.
+  void updateFieldValueTracking(dtrans::StructInfo &StInfo,
+                                dtrans::FieldInfo &FI, size_t FieldNum,
+                                Constant *C, Value *Consumer) {
+    if (!C) {
+      if (!FI.isMultipleValue()) {
+        FI.setMultipleValue();
+        DEBUG_WITH_TYPE(SAFETY_VALUES, {
+          dbgs() << "dtrans-values: ";
+          StInfo.getDTransType()->print(dbgs(), /*Detailed=*/false);
+          dbgs() << "@" << FieldNum << ": <MULTIPLE>\n  ";
+          printValue(dbgs(), Consumer);
+          dbgs() << "\n";
+        });
+      }
+      return;
+    }
+
+    if (FI.processNewSingleValue(C))
+      DEBUG_WITH_TYPE(SAFETY_VALUES, {
+        dbgs() << "dtrans-values: ";
+        StInfo.getDTransType()->print(dbgs(), /*Detailed=*/false);
+        dbgs() << "@" << FieldNum << ": New value: ";
+        printValue(dbgs(), C);
+        dbgs() << "\n  ";
+        printValue(dbgs(), Consumer);
+        dbgs() << "\n";
+      });
   }
 
   // When the pointer type analyzer detects an inner element of a nested type
   // being loaded via a pointer to the container type, it records the container
   // type as the element pointee. In these cases the type nest needs to be
   // traversed to mark the actual field as being 'read' or 'written'. This
-  // function walks the structure to return the field accessed.
-  dtrans::FieldInfo &getDeepestNestedField(dtrans::StructInfo *StInfo,
-                                           size_t FieldNum) {
+  // function walks the structure to return the actual structure and field
+  // number accessed.
+  // 'ActualStInfo', 'ActualFieldNum' and 'Descended' are outputs of this
+  // function. 'ActualStInfo' and 'FieldNum' will record the structure and
+  // field number actually referenced. 'Descended' will be set to 'true' if
+  // the actual element referenced is a nested member of 'StInfo'
+  void getDeepestNestedField(dtrans::StructInfo *StInfo, size_t FieldNum,
+                             dtrans::StructInfo **ActualStInfo,
+                             size_t *ActualFieldNum, bool *Descended) {
+    *Descended = false;
     DTransType *ElemTy = StInfo->getField(FieldNum).getDTransType();
     while (ElemTy->isAggregateType()) {
       if (auto *StElemTy = dyn_cast<DTransStructType>(ElemTy)) {
@@ -1716,6 +2004,7 @@ public:
         FieldNum = 0;
         StInfo = cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
         ElemTy = StInfo->getField(FieldNum).getDTransType();
+        *Descended = true;
       } else if (auto *ArElemTy = dyn_cast<DTransArrayType>(ElemTy)) {
         // Handle the case of the element being an array of nested structures by
         // finding the structure type. If it's not an array of structures, then
@@ -1725,6 +2014,7 @@ public:
         //   [4 x %struct.A] - iterate over element that starts %struct.A
         //   [4 x i32] - cannot continue iterating
         DTransType *MemberTy = getArrayUnitType(ArElemTy);
+        *Descended = true;
         if (MemberTy->isStructTy())
           ElemTy = MemberTy;
         else
@@ -1732,8 +2022,8 @@ public:
       }
     }
 
-    dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
-    return FI;
+    *ActualStInfo = StInfo;
+    *ActualFieldNum = FieldNum;
   }
 
   void visitBitCastInst(BitCastInst &I) {
@@ -2162,7 +2452,8 @@ public:
 
       if (ParamInfo->pointsToSomeElement())
         markFieldAddressTaken(ParamInfo, "Address of member passed to function",
-                              &Call, dtrans::FieldAddressTakenCall, DumpCallback);
+                              &Call, dtrans::FieldAddressTakenCall,
+                              DumpCallback);
 
       // We need to know the signature of the called function in order the check
       // for functions that take i8* parameter types.
@@ -2434,6 +2725,16 @@ public:
     if (isValueTypeInfoUnhandled(*Info))
       DTInfo.setUnhandledPtrType(Call);
 
+    if (Kind == dtrans::AK_Calloc && Info->canAliasToAggregatePointer())
+      for (auto *Ty : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+        if (!Ty->isPointerTy())
+          continue;
+
+        DTransType *ElemTy = Ty->getPointerElementType();
+        dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(ElemTy);
+        markAllFieldsWritten(ParentTI, *Call, FWT_ZeroValue);
+      }
+
     dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(Call, Kind);
     populateCallInfo(*Info, ACI);
 
@@ -2638,6 +2939,9 @@ public:
                           << I.getFunction()->getName() << "] " << I << "\n");
     Value *DestArg = I.getRawDest();
     Value *SetSize = I.getLength();
+    Value *SetValue = I.getValue();
+    bool IsSettingNullValue = isa<ConstantInt>(SetValue) &&
+                              (cast<ConstantInt>(SetValue))->isZeroValue();
 
     // A memset of 0 bytes will not affect the safety of any data structure.
     if (dtrans::isValueEqualToSize(SetSize, 0))
@@ -2663,7 +2967,8 @@ public:
         // Check the structure, and mark any safety flags needed.
         dtrans::MemfuncRegion RegionDesc;
         if (analyzeMemfuncStructureMemberParam(
-                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc,
+                IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
           createMemsetCallInfo(I, StructTy, RegionDesc);
 
         return;
@@ -2698,10 +3003,12 @@ public:
       } else {
         Data = dtrans::BadMemFuncSize;
         Reason = "memset with array, invalid offset or size";
+
+        DTransType *DestPointeeTy = ElementPointees.begin()->first;
+        processBadMemFuncSize(I, DestPointeeTy);
       }
       setAllElementPointeeSafetyData(DstInfo, Data, Reason, &I);
       SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
-
       return;
     }
 
@@ -2722,7 +3029,8 @@ public:
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
-      markAllFieldsWritten(ParentTI, I);
+      markAllFieldsWritten(
+          ParentTI, I, IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue);
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
       createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
@@ -2733,9 +3041,10 @@ public:
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
-      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
-                                             /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc)) {
+      if (analyzeMemfuncStructureMemberParam(
+              I, StructTy, /*FieldNum=*/0,
+              /*PrePadBytes=*/0, SetSize, RegionDesc,
+              IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
         createMemsetCallInfo(I, StructTy, RegionDesc);
         return;
@@ -2745,6 +3054,7 @@ public:
     setAllAliasedAndPointeeTypeSafetyData(
         DstInfo, dtrans::BadMemFuncSize,
         "memset could not match size to aggregate type", &I);
+    processBadMemFuncSize(I, DestPointeeTy);
   }
 
   // Check the source and destination pointer parameters of a call to memcpy or
@@ -2802,6 +3112,7 @@ public:
       setAllAliasedAndPointeeTypeSafetyData(
           SrcInfo, dtrans::BadMemFuncManipulation,
           "memcpy/memmove - src and dest must both be of interest", &I);
+      processBadMemFuncManipulation(I, DstInfo);
       return;
     }
 
@@ -2845,10 +3156,37 @@ public:
       // permitted.
       //
       if (!(DstPtrToMember && SrcPtrToMember)) {
-        // TODO: Add support for the case where one parameter is an element
-        // pointee that is a structure type, and the other is a pointer to a
-        // structure that is not an element pointee, as long as both pointers
-        // represent the same type. For now, mark it as BadMemFuncManipulation.
+        // TODO: Update the field value tracking for the structure fields.
+
+        // Do not set safety issue when the memfunc is for an element pointee
+        // that is to/from a single field which is an aggregate type, where
+        // the field type matches the expected structure type.
+        auto *DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+        auto *SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
+        if (DestParentTy == SrcParentTy) {
+          DTransStructType *OuterStructType;
+          size_t FieldNum;
+          uint64_t PrePadBytes;
+          uint64_t AccessSize;
+          bool IsConstantSize = dtrans::isValueConstant(SetSize, &AccessSize);
+          bool IsSimple = isSimpleStructureMember(
+              DstPtrToMember ? DstInfo : SrcInfo, &OuterStructType, &FieldNum,
+              &PrePadBytes);
+
+          if (IsConstantSize && IsSimple && PrePadBytes == 0) {
+            DTransType *ElemTy = OuterStructType->getFieldType(FieldNum);
+            assert(ElemTy && "Expected non-null field type");
+            if (DL.getTypeStoreSize(ElemTy->getLLVMType()) == AccessSize) {
+              dtrans::MemfuncRegion RegionDesc;
+              RegionDesc.IsCompleteAggregate = true;
+              createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
+                                            RegionDesc);
+              auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
+              markAllFieldsWritten(ElemInfo, I, FWT_ExistingValue);
+              return;
+            }
+          }
+        }
         dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
         StringRef Reason =
             "memcpy/memmove - Element pointee and non-Element pointee";
@@ -2874,6 +3212,7 @@ public:
               DstInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
           SetSafetyDataOnElementPointees(
               SrcInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+          processBadMemFuncManipulation(I, DstInfo);
         } else {
           SetSafetyDataOnElementPointees(
               SrcInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
@@ -2895,6 +3234,7 @@ public:
         SetSafetyDataOnElementPointees(
             SrcInfo, dtrans::BadMemFuncManipulation,
             "memcpy/memmove - dest was not supported", &I);
+        processBadMemFuncSize(I, DstStructTy);
         return;
       }
 
@@ -2910,6 +3250,7 @@ public:
         SetSafetyDataOnElementPointees(
             SrcInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - array, invalid offset or size", &I);
+        processBadMemFuncManipulation(I, DstInfo);
         return;
       }
 
@@ -2925,6 +3266,7 @@ public:
             "memcpy/memmove - non-identical src and dest element pointees";
         SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
         SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        processBadMemFuncManipulation(I, DstInfo);
         return;
       }
 
@@ -2932,10 +3274,11 @@ public:
       dtrans::MemfuncRegion RegionDesc;
       if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                               DstPrePadBytes, SetSize,
-                                              RegionDesc)) {
+                                              RegionDesc, FWT_ExistingValue)) {
         SetSafetyDataOnElementPointees(
             DstInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - unsupport array, or invalid offset/size", &I);
+        processBadMemFuncSize(I, DstStructTy);
         return;
       }
 
@@ -2979,6 +3322,7 @@ public:
       StringRef Reason = "memcpy/memmove - different types for src and dest";
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      processBadMemFuncManipulation(I, DstInfo);
       return;
     }
 
@@ -2987,7 +3331,7 @@ public:
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
       // The call is safe, and is using the entire structure
-      markAllFieldsWritten(ParentTI, I);
+      markAllFieldsWritten(ParentTI, I, FWT_ExistingValue);
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
       createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind,
@@ -3005,7 +3349,7 @@ public:
       dtrans::MemfuncRegion RegionDesc;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc)) {
+                                             RegionDesc, FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
         createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
                                       /*RegionDescDest=*/RegionDesc,
@@ -3024,6 +3368,7 @@ public:
     setAllAliasedAndPointeeTypeSafetyData(
         SrcInfo, dtrans::BadMemFuncSize,
         "memcpy/memmove - could not match size to aggregate type", &I);
+    processBadMemFuncSize(I, DestPointeeTy);
   }
 
   // Helper function for retrieving information when the \p ValueTypeInfo
@@ -3140,7 +3485,8 @@ public:
                                           DTransStructType *StructTy,
                                           size_t FieldNum, uint64_t PrePadBytes,
                                           Value *SetSize,
-                                          dtrans::MemfuncRegion &RegionDesc) {
+                                          dtrans::MemfuncRegion &RegionDesc,
+                                          FieldWriteType WriteType) {
     auto *ParentTI = DTInfo.getTypeInfo(StructTy);
     llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
 
@@ -3156,7 +3502,7 @@ public:
       }
 
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I);
+                              RegionDesc.LastField, I, WriteType);
       return true;
     }
 
@@ -3167,7 +3513,36 @@ public:
     setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize,
                               "size does not equal member field type(s) size",
                               &I);
+    processBadMemFuncSize(I, StructTy);
     return false;
+  }
+
+  // Treat 'Ty' which is the target of a memfunc call as having all the fields
+  // 'incomplete' for value tracking. This is a conservative behavior that may
+  // need to be relaxed for some cases in the future with an approach that only
+  // marks selected fields that are impacted by the call as 'incomplete'
+  void processBadMemFuncSize(Instruction &I, DTransType *Ty) {
+    dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Ty);
+    markAllFieldsWritten(ParentTI, I, FWT_NonZeroValue);
+  }
+
+  // The legacy DTrans local pointer analyzer implementation only marked
+  // selected fields as 'incomplete' when a bad memfunc manipulation was
+  // encountered. It's not clear that all cases of bad memfunc manipulation
+  // would leave a complete known value set for some fields, so for now go
+  // conservative and set them all to 'incomplete'.
+  void processBadMemFuncManipulation(Instruction &I, ValueTypeInfo *Info) {
+    for (auto *AliasTy : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (AliasTy->isPointerTy()) {
+        dtrans::TypeInfo *TI =
+            DTInfo.getTypeInfo(AliasTy->getPointerElementType());
+        markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+      }
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      dtrans::TypeInfo *TI = DTInfo.getTypeInfo(PointeePair.first);
+      markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+    }
   }
 
   // For ReturnInst, we need to perform the following checks:
@@ -3886,7 +4261,8 @@ private:
 
   // Mark all the fields of the type, and fields of aggregates the type contains
   // as written.
-  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I) {
+  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I,
+                            FieldWriteType WriteType) {
     if (TI == nullptr)
       return;
 
@@ -3895,15 +4271,24 @@ private:
     }
 
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (auto &FI : StInfo->getFields()) {
+      for (auto &Field : enumerate(StInfo->getFields())) {
+        dtrans::FieldInfo &FI = Field.value();
+        size_t Idx = Field.index();
         FI.setWritten(I);
+        if (WriteType != FWT_ExistingValue) {
+          Constant *C = (WriteType == FWT_ZeroValue)
+                            ? Constant::getNullValue(FI.getLLVMType())
+                            : nullptr;
+          updateFieldValueTracking(*StInfo, FI, Idx, C, &I);
+        }
+
         // TODO: Update frequency count for field info
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
-        markAllFieldsWritten(ComponentTI, I);
+        markAllFieldsWritten(ComponentTI, I, WriteType);
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
-      markAllFieldsWritten(ComponentTI, I);
+      markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
@@ -3911,7 +4296,8 @@ private:
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
-                               unsigned int LastField, Instruction &I) {
+                               unsigned int LastField, Instruction &I,
+                               FieldWriteType WriteType) {
     assert(TI && isa<dtrans::StructInfo>(TI) &&
            "markStructFieldsWritten requires Structure type");
 
@@ -3922,9 +4308,16 @@ private:
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
       FI.setWritten(I);
+      if (WriteType != FWT_ExistingValue) {
+        Constant *C = (WriteType == FWT_ZeroValue)
+                          ? Constant::getNullValue(FI.getLLVMType())
+                          : nullptr;
+        updateFieldValueTracking(*StInfo, FI, Idx, C, &I);
+      }
+
       // TODO: Update frequency count for field info
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
-      markAllFieldsWritten(ComponentTI, I);
+      markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
@@ -4048,6 +4441,12 @@ void DTransSafetyInfo::analyzeModule(
   PtrAnalyzer->run(M);
   LLVM_DEBUG(dbgs() << "DTransSafetyInfo: PtrTypeAnalyzer complete\n");
 
+  if (PtrAnalyzer->getUnsupportedAddressSpaceSeen()) {
+    LLVM_DEBUG(
+        dbgs() << "  DTransSafetyInfo: Unsupported address space seen\n");
+    return;
+  }
+
   dtrans::DTransAllocAnalyzer DTAA(GetTLI, M);
 
   // TODO: Enable the following code to check for user allocation/free wrapper
@@ -4058,6 +4457,8 @@ void DTransSafetyInfo::analyzeModule(
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
                                   *MDReader, DTAA, Log);
   Visitor.visit(M);
+  PostProcessFieldValueInfo();
+  DTransSafetyAnalysisRan = true;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintSafetyAnalyzerIR) {
@@ -4135,6 +4536,19 @@ bool DTransSafetyInfo::useDTransSafetyAnalysis() const {
   return !UnhandledPtrType && DTransSafetyAnalysisRan;
 }
 
+bool DTransSafetyInfo::getDTransOutOfBoundsOK() const {
+  return dtrans::DTransOutOfBoundsOK;
+}
+
+bool DTransSafetyInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
+                                      dtrans::Transform Transform) {
+  assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
+
+  dtrans::SafetyData Conditions =
+      dtrans::getConditionsForTransform(Transform, getDTransOutOfBoundsOK());
+  return TyInfo->testSafetyData(Conditions);
+}
+
 dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
   auto *TI = getTypeInfo(Ty);
@@ -4189,7 +4603,7 @@ dtrans::TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
 }
 
 void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
-  DTransType *Ty) {
+                                        DTransType *Ty) {
   DEBUG_WITH_TYPE(SAFETY_VERBOSE, {
     dbgs() << "addPtrSubMapping: ";
     if (auto *I = dyn_cast<Instruction>(BinOp))
@@ -4201,6 +4615,16 @@ void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
 
 DTransType *DTransSafetyInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
   return PtrSubInfoMap.lookup(BinOp);
+}
+
+std::pair<DTransType *, size_t>
+DTransSafetyInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
+  return PtrAnalyzer->getByteFlattenedGEPElement(GEP);
+}
+
+std::pair<DTransType *, size_t>
+DTransSafetyInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
+  return getByteFlattenedGEPElement(cast<GEPOperator>(GEP));
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4250,8 +4674,8 @@ void DTransSafetyInfo::printCallInfo() {
     raw_string_ostream Stream(InstStr);
     I->printAsOperand(Stream);
     Stream.flush();
-    Entries.emplace_back(std::make_tuple(
-        I->getFunction()->getName(), CI->getCallInfoKind(), InstStr, CI));
+    Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
+                                         CI->getCallInfoKind(), InstStr, CI));
   }
 
   std::sort(Entries.begin(), Entries.end());
@@ -4266,6 +4690,35 @@ void DTransSafetyInfo::printCallInfo() {
   dbgs().flush();
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Fields of structures that do not meet the necessary safety conditions need to
+// be invalidated to prevent them from being marked as containing a complete set
+// of values.
+void DTransSafetyInfo::PostProcessFieldValueInfo() {
+  bool UsingOutOfBoundsOK = getDTransOutOfBoundsOK();
+
+  for (auto *TI : type_info_entries()) {
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    // There following conditions are reasons to invalidate the constant values
+    // as holding a complete set of possible values.
+    // - The safety flags indicate the structure is used in a non-supported way.
+    //   Note: The safety flags allowed are dependent on the value that
+    //   DTransOutOfBoundsOK is set to.
+    // - The field is address taken, and the value of DTransOutOfBoundsOK
+    //   indicates the address could be used to access other field members.
+    // - The type is an aggregate type. We keep values for individual fields,
+    //   but not for an array or structure element as a whole.
+    bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
+    for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+      if (FSV_Unsafe ||
+          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()) ||
+          StInfo->getField(I).getLLVMType()->isAggregateType())
+        StInfo->getField(I).setMultipleValue();
+  }
+}
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransSafetyAnalyzer::Key;

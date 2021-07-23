@@ -6,146 +6,145 @@
 // of Intel Corporation and may not be disclosed, examined or reproduced in
 // whole or in part without explicit written authorization from the company.
 //
-// ===--------------------------------------------------------------------=== //
+//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 #include <set>
 
 using namespace llvm;
-WIRelatedValue::WIRelatedValue(Module &M) {
-  //Initialize barrier utils class with current module
-  BarrierUtils.init(&M);
 
+WIRelatedValue::WIRelatedValue(Module &M) {
+  // Initialize barrier utils class with current module.
+  Utils.init(&M);
+
+  // Bypass WIRelatedValue analysis since calculateCallingOrder doesn't
+  // support recursion and this action makes all values become uniform.
+  if (!Utils.getRecursiveFunctionsWithSync().empty())
+    return;
   // Calculate the calling order for the functions to be analyzed.
   calculateCallingOrder();
 
   // Run over the functions according to the calling order
   // i.e. analyze caller function before callee.
-  for (Function *F : OrderedFunctionsToAnalyze) {
-    // Update function argument dependency based on passed operands,
+  for (Function *Func : OrderedFunctionsToAnalyze) {
+    // Update function argument dependency based on passed operands.
     // i.e. if there is one caller that passes non-uniform value to
     // and argument, then consider that argument non-uniform too.
-    updateArgumentsDep(F);
-    runOnFunction(*F);
+    updateArgumentsDep(Func);
+    runOnFunction(*Func);
   }
 }
 
 bool WIRelatedValue::runOnFunction(Function &F) {
-  ChangedValues.clear();
+  Changed.clear();
 
-  // Schedule all instructions for calculation.
-  for (auto &I : instructions(F)) {
-    ChangedValues.insert(&I);
-  }
+  // Schedule all instruction for calculation.
+  for (Instruction &I : instructions(F))
+    Changed.insert(&I);
 
   updateDeps();
-
   return false;
 }
 
 void WIRelatedValue::updateDeps() {
-  // As long as we have values to update...
-  while (!ChangedValues.empty()) {
+  // As long as we have values to update.
+  while (!Changed.empty()) {
     // Move the list aside and clear original list for next iteration.
-    std::vector<Value *> Changed = ChangedValues.takeVector();
+    std::vector<Value *> ChangedValues = Changed.takeVector();
     // Update all changed values.
-    for (auto *V : Changed) {
-      // Remove first instruction,
-      // calculate its new dependencey value.
+    for (Value *V : ChangedValues)
       calculateDep(V);
-    }
   }
 }
 
-bool WIRelatedValue::getWIRelation(Value *V) {
+bool WIRelatedValue::getWIRelation(Value *Val) {
   // New instruction to consider.
-  // Mark it as not related to WI Id till farther update.
-  SpecialValues.insert({V, false});
-
-  return SpecialValues[V];
+  // Mark it as not related to WI Id till further update.
+  SpecialValues.insert({Val, false});
+  return SpecialValues[Val];
 }
 
-void WIRelatedValue::calculateDep(Value *V) {
+void WIRelatedValue::calculateDep(Value *Val) {
 
-  Instruction *I = dyn_cast<Instruction>(V);
+  Instruction *Inst = dyn_cast<Instruction>(Val);
 
-  if (!I) {
-    llvm_unreachable("We are runing on instruction list, can we reach here?");
-    // Not an instruction, must be a constant or an argument.
+  if (!Inst) {
+    llvm_unreachable("we are runing on instruction list, can we reach here?");
+    // Not an instruction, must be a constant or an argument
     // Could this vector type be of a constant which is not uniform?
   }
 
   // New instruction to consider.
-  // Mark it as not related to WI Id till farther update.
-  SpecialValues.insert({I, false});
+  // Mark it as not related to WI Id till further update.
+  SpecialValues.insert({Val, false});
 
-  // Our initial value
-  bool OrigRelation = SpecialValues[I];
+  // Our initial value.
+  bool OrigRelation = SpecialValues[Inst];
   bool NewRelation = OrigRelation;
 
   // LLVM does not have compile time polymorphisms.
   // TODO: to make things faster we may want to sort the list below according
   // to the order of their probability of appearance.
-  if (BinaryOperator *Op = dyn_cast<BinaryOperator>(I)) {
-    NewRelation = calculateDep(Op);
-  } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
-    NewRelation = calculateDep(CI);
-  } else if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
-    NewRelation = calculateDep(Cmp);
-  } else if (ExtractElementInst *Inst = dyn_cast<ExtractElementInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (GetElementPtrInst *Inst = dyn_cast<GetElementPtrInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (InsertElementInst *Inst = dyn_cast<InsertElementInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (InsertValueInst *Inst = dyn_cast<InsertValueInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (PHINode *Inst = dyn_cast<PHINode>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (ShuffleVectorInst *Inst = dyn_cast<ShuffleVectorInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (StoreInst *Inst = dyn_cast<StoreInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (I->isTerminator()) {
-    NewRelation = calculateDepTerminator(I);
-  } else if (SelectInst *Inst = dyn_cast<SelectInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (AllocaInst *Inst = dyn_cast<AllocaInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (CastInst *Inst = dyn_cast<CastInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (ExtractValueInst *Inst = dyn_cast<ExtractValueInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (LoadInst *Inst = dyn_cast<LoadInst>(I)) {
-    NewRelation = calculateDep(Inst);
-  } else if (VAArgInst *Inst = dyn_cast<VAArgInst>(I)) {
-    NewRelation = calculateDep(Inst);
+  if (BinaryOperator *I = dyn_cast<BinaryOperator>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (CallInst *I = dyn_cast<CallInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (CmpInst *I = dyn_cast<CmpInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (ExtractElementInst *I = dyn_cast<ExtractElementInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (GetElementPtrInst *I = dyn_cast<GetElementPtrInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (InsertElementInst *I = dyn_cast<InsertElementInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (InsertValueInst *I = dyn_cast<InsertValueInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (PHINode *I = dyn_cast<PHINode>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (ShuffleVectorInst *I = dyn_cast<ShuffleVectorInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (StoreInst *I = dyn_cast<StoreInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (Inst->isTerminator()) {
+    NewRelation = calculateDepTerminator(Inst);
+  } else if (SelectInst *I = dyn_cast<SelectInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (AllocaInst *I = dyn_cast<AllocaInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (CastInst *I = dyn_cast<CastInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (ExtractValueInst *I = dyn_cast<ExtractValueInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (LoadInst *I = dyn_cast<LoadInst>(Inst)) {
+    NewRelation = calculateDep(I);
+  } else if (VAArgInst *I = dyn_cast<VAArgInst>(Inst)) {
+    NewRelation = calculateDep(I);
   }
 
   // If the value was changed in this calculation.
   if (NewRelation != OrigRelation) {
     // Save the new value of this instruction.
-    SpecialValues[I] = NewRelation;
+    SpecialValues[Inst] = NewRelation;
     // Register for update all of the dependent values of this updated
     // instruction.
-    for (auto *U : I->users()) {
-      ChangedValues.insert(U);
+    for (Value *V : Inst->users()) {
+      Changed.insert(V);
     }
   }
 }
 
-bool WIRelatedValue::calculateDep(BinaryOperator *Op) {
+bool WIRelatedValue::calculateDep(BinaryOperator *Inst) {
   // Calculate the WI relation for each of the operands.
-  Value *Op0 = Op->getOperand(0);
-  Value *Op1 = Op->getOperand(1);
+  Value *Op0 = Inst->getOperand(0);
+  Value *Op1 = Inst->getOperand(1);
 
   bool Dep0 = getWIRelation(Op0);
   bool Dep1 = getWIRelation(Op1);
@@ -153,30 +152,57 @@ bool WIRelatedValue::calculateDep(BinaryOperator *Op) {
   return (Dep0 || Dep1);
 }
 
-bool WIRelatedValue::calculateDep(CallInst *CI) {
+bool WIRelatedValue::calculateDep(CallInst *Inst) {
   // TODO: This function requires much more work, to be correct:
   //   2) Some functions (dot_prod, cross_prod) provide "measurable"
   //   behavior (Uniform->strided).
   //   This information should also be obtained from RuntimeServices somehow.
 
-  // Check if the function is in the table of functions.
-  Function *OrigFunc = CI->getCalledFunction();
+  // Check if the function is in the table of functions
+  Function *OrigFunc = Inst->getCalledFunction();
   if (!OrigFunc) {
-    assert(false && "Unexpected indirect call!");
+    llvm_unreachable("Unexpected indirect call!");
     return true;
   }
+  std::string OrigFuncName = OrigFunc->getName().str();
 
   // Check if call is TID-generator.
-  if (OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetLID() ||
-      OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetGID()) {
+  if (DPCPPKernelCompilationUtils::isGetGlobalId(OrigFuncName) ||
+      DPCPPKernelCompilationUtils::isGetLocalId(OrigFuncName)) {
     // These functions return WI Id, they are indeed WI Id related.
     return true;
   }
 
-  // TODO: port analysis of work group functions,
-  // such as all, any, broadcast, etc., together with associated LIT tests.
+  std::string OrigWGFuncName = OrigFuncName;
+  if (DPCPPKernelCompilationUtils::hasWorkGroupFinalizePrefix(OrigFuncName)) {
+    // Remove the finalize prefix from work group function to
+    // get the Original work group function name to check against below.
+    OrigWGFuncName = DPCPPKernelCompilationUtils::removeWorkGroupFinalizePrefix(
+        OrigFuncName);
+  }
 
-  // Check if function is not declared inside "this" module
+  if (DPCPPKernelCompilationUtils::isWorkGroupScan(OrigWGFuncName)) {
+    // WG scan functions are WI Id related.
+    return true;
+  } else if (DPCPPKernelCompilationUtils::isWorkGroupUniform(OrigWGFuncName)) {
+    // WG uniform functions are WI Id unrelated.
+    return false;
+  }
+
+  if (DPCPPKernelCompilationUtils::isWorkGroupReserveReadPipe(OrigWGFuncName) ||
+      DPCPPKernelCompilationUtils::isWorkGroupReserveWritePipe(
+          OrigWGFuncName)) {
+    // WG reserve pipe built-ins are WI unrelated.
+    return false;
+  }
+
+  if (DPCPPKernelCompilationUtils::isAtomicBuiltin(OrigFuncName) ||
+      DPCPPKernelCompilationUtils::isWorkItemPipeBuiltin(OrigFuncName)) {
+    // Atomic and pipe built-ins are WI Id related.
+    return true;
+  }
+
+  // Check if function is not declared inside "this" module.
   if (!OrigFunc->isDeclaration()) {
     // For functions defined (not declared) in this module - it is unsafe to
     // assume anything.
@@ -186,12 +212,12 @@ bool WIRelatedValue::calculateDep(CallInst *CI) {
 
   // Iterate over all input dependencies. If all are not WI Id related -
   // propagate it. Otherwise - return WI Id related.
-  unsigned int NumParams = CI->getNumArgOperands();
+  unsigned int NumParams = Inst->getNumArgOperands();
 
   bool IsWIRelated = false;
   for (unsigned int i = 0; i < NumParams; ++i) {
     // Operand 0 is the function's name.
-    Value *Op = CI->getArgOperand(i);
+    Value *Op = Inst->getArgOperand(i);
     IsWIRelated = IsWIRelated || getWIRelation(Op);
     if (IsWIRelated) {
       break; // Non related check failed. No need to continue.
@@ -200,10 +226,10 @@ bool WIRelatedValue::calculateDep(CallInst *CI) {
   return IsWIRelated;
 }
 
-bool WIRelatedValue::calculateDep(CmpInst *I) {
+bool WIRelatedValue::calculateDep(CmpInst *Inst) {
   // Calculate the WI relation for each of the operands.
-  Value *Op0 = I->getOperand(0);
-  Value *Op1 = I->getOperand(1);
+  Value *Op0 = Inst->getOperand(0);
+  Value *Op1 = Inst->getOperand(1);
 
   bool Dep0 = getWIRelation(Op0);
   bool Dep1 = getWIRelation(Op1);
@@ -211,33 +237,33 @@ bool WIRelatedValue::calculateDep(CmpInst *I) {
   return (Dep0 || Dep1);
 }
 
-bool WIRelatedValue::calculateDep(ExtractElementInst *I) {
+bool WIRelatedValue::calculateDep(ExtractElementInst *Inst) {
   // Return the WI relation of the only one operand.
-  Value *Op0 = I->getOperand(0);
+  Value *Op0 = Inst->getOperand(0);
 
   bool Dep0 = getWIRelation(Op0);
 
   return Dep0;
 }
 
-bool WIRelatedValue::calculateDep(GetElementPtrInst *I) {
+bool WIRelatedValue::calculateDep(GetElementPtrInst *Inst) {
   // Calculate the WI relation for each of the operands.
-  unsigned int Num = I->getNumIndices();
-  Value *Op0 = I->getPointerOperand();
+  unsigned int Num = Inst->getNumIndices();
+  Value *Op0 = Inst->getPointerOperand();
 
   bool Dep = getWIRelation(Op0);
 
   for (unsigned int i = 0; i < Num; ++i) {
-    Dep = Dep || getWIRelation(I->getOperand(i + 1));
+    Dep = Dep || getWIRelation(Inst->getOperand(i + 1));
   }
 
   return Dep;
 }
 
-bool WIRelatedValue::calculateDep(InsertElementInst *I) {
+bool WIRelatedValue::calculateDep(InsertElementInst *Inst) {
   // Calculate the WI relation for each of the operands.
-  Value *Op0 = I->getOperand(0);
-  Value *Op1 = I->getOperand(1);
+  Value *Op0 = Inst->getOperand(0);
+  Value *Op1 = Inst->getOperand(1);
 
   bool Dep0 = getWIRelation(Op0);
   bool Dep1 = getWIRelation(Op1);
@@ -245,31 +271,31 @@ bool WIRelatedValue::calculateDep(InsertElementInst *I) {
   return (Dep0 || Dep1);
 }
 
-bool WIRelatedValue::calculateDep(InsertValueInst *I) {
+bool WIRelatedValue::calculateDep(InsertValueInst * /*Inst*/) {
   // TODO: why should we always return related?
   return true;
 }
 
-bool WIRelatedValue::calculateDep(PHINode *Phi) {
-  // Calculate the WI relation for each of the operands.
-  // unsigned int Num = Phi->getNumIncomingValues();
-  // bool dep = false;
+bool WIRelatedValue::calculateDep(PHINode * /*Inst*/) {
+  // Calculate the WI relation for each of the operands
+  // unsigned int Num = Inst->getNumIncomingValues();
+  // bool Dep = false;
 
   // for ( unsigned int i=0; i < Num; ++i ) {
-  //  Value *op = Phi->getIncomingValue(i);
-  //  dep = dep || getWIRelation(op);
-  //}
+  //   Value *op = Inst->getIncomingValue(i);
+  //   Dep = Dep || getWIRelation(op);
+  // }
 
-  // return dep;
+  // return Dep;
   // TODO: CSSD100007559 (should fix the following case and then remove the
   // always return true!): %isOk.0 = phi i1 [ false, %4 ], [ true, %0 ]
   return true;
 }
 
-bool WIRelatedValue::calculateDep(ShuffleVectorInst *I) {
+bool WIRelatedValue::calculateDep(ShuffleVectorInst *Inst) {
   // Calculate the WI relation for each of the operands.
-  Value *Op0 = I->getOperand(0);
-  Value *Op1 = I->getOperand(1);
+  Value *Op0 = Inst->getOperand(0);
+  Value *Op1 = Inst->getOperand(1);
 
   bool Dep0 = getWIRelation(Op0);
   bool Dep1 = getWIRelation(Op1);
@@ -277,20 +303,20 @@ bool WIRelatedValue::calculateDep(ShuffleVectorInst *I) {
   return (Dep0 || Dep1);
 }
 
-bool WIRelatedValue::calculateDep(StoreInst *I) {
+bool WIRelatedValue::calculateDep(StoreInst * /*Inst*/) {
   // No need to handle store instructions as alloca is handled separately.
   return false;
 }
 
-bool WIRelatedValue::calculateDepTerminator(Instruction *I) {
-  assert(I->isTerminator() && "Expect a terminator instruction!");
+bool WIRelatedValue::calculateDepTerminator(Instruction *Inst) {
+  assert(Inst->isTerminator() && "Expect a terminator instruction!");
   // Instruction has no return value.
   // Just need to know if this inst is uniform or not,
   // because we may want to avoid predication if the control flows
   // in the function are uniform...
-  switch (I->getOpcode()) {
+  switch (Inst->getOpcode()) {
   case Instruction::Br: {
-    BranchInst *BrInst = cast<BranchInst>(I);
+    BranchInst *BrInst = cast<BranchInst>(Inst);
     if (BrInst->isConditional()) {
       // Conditional branch is uniform, if its condition is uniform.
       Value *Op = BrInst->getCondition();
@@ -306,11 +332,11 @@ bool WIRelatedValue::calculateDepTerminator(Instruction *I) {
   }
 }
 
-bool WIRelatedValue::calculateDep(SelectInst *I) {
+bool WIRelatedValue::calculateDep(SelectInst *Inst) {
   // Calculate the WI relation for each of the operands.
-  Value *Op0 = I->getOperand(0);
-  Value *Op1 = I->getOperand(1);
-  Value *Op2 = I->getOperand(2);
+  Value *Op0 = Inst->getOperand(0);
+  Value *Op1 = Inst->getOperand(1);
+  Value *Op2 = Inst->getOperand(2);
 
   bool Dep0 = getWIRelation(Op0);
   bool Dep1 = getWIRelation(Op1);
@@ -319,53 +345,52 @@ bool WIRelatedValue::calculateDep(SelectInst *I) {
   return (Dep0 || Dep1 || Dep2);
 }
 
-bool WIRelatedValue::calculateDep(AllocaInst *Alloca) {
-  // Alloca instruction is assumed to be non-uniform.
-  // In fact, It is stored in special buffer always in the current design!
+bool WIRelatedValue::calculateDep(AllocaInst * /*Inst*/) {
+  // Alloca instruction is assumed to be non-uniform. It is stored in special
+  // buffer always in the current design.
   return true;
 }
 
-bool WIRelatedValue::calculateDep(CastInst *I) {
+bool WIRelatedValue::calculateDep(CastInst *Inst) {
   // Return the WI relation of the only one operand.
-  Value *Op0 = I->getOperand(0);
+  Value *Op0 = Inst->getOperand(0);
 
   bool Dep0 = getWIRelation(Op0);
 
   return Dep0;
 }
 
-bool WIRelatedValue::calculateDep(ExtractValueInst *I) {
+bool WIRelatedValue::calculateDep(ExtractValueInst * /*Inst*/) {
   // TODO: why should we always return related?
   return true;
 }
 
-bool WIRelatedValue::calculateDep(LoadInst *Load) {
-  // No need to handle load instructions as alloca is handled separately.
+bool WIRelatedValue::calculateDep(LoadInst *Inst) {
   // Return the WI relation of the only one operand.
-  Value *Op0 = Load->getOperand(0);
+  Value *Op0 = Inst->getOperand(0);
 
   bool Dep0 = getWIRelation(Op0);
 
   return Dep0;
 }
 
-bool WIRelatedValue::calculateDep(VAArgInst *I) {
-  assert(false && "Are we supporting this ??");
+bool WIRelatedValue::calculateDep(VAArgInst * /*Inst*/) {
+  llvm_unreachable("Are we supporting this ?");
   return false;
 }
 
-void WIRelatedValue::updateArgumentsDep(Function *F) {
-  for (auto IdxArgPair : enumerate(F->args())) {
-    Argument *Arg = &IdxArgPair.value();
-    for (User *U : F->users()) {
+void WIRelatedValue::updateArgumentsDep(Function *Func) {
+  for (auto &ArgItPair : enumerate(Func->args())) {
+    Argument *Arg = &ArgItPair.value();
+    unsigned Idx = ArgItPair.index();
+    for (User *U : Func->users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
-      // Usage of F can be a global variable!
+      // Usage of Func can be a global variable!
       if (!CI)
         continue;
 
-      if (getWIRelation(CI->getOperand(IdxArgPair.index()))) {
+      if (getWIRelation(CI->getOperand(Idx)))
         SpecialValues[Arg] = true;
-      }
     }
   }
 }
@@ -382,34 +407,34 @@ void WIRelatedValue::calculateCallingOrder() {
   // pointer to the function, which gurantees a stable iterator. This relies
   // on the assumption that there are no two functions in the module with the
   // same name.
-  using SetStableIterFunc = std::set<Function *, FuncNameComp>;
-  SetStableIterFunc FuncsToHandle;
+  typedef std::set<Function *, FuncNameComp> SetStableIterFunc;
+  SetStableIterFunc FunctionsToHandle;
 
   // Initialize functionToHandle container with functions that need to be
-  // analyzed Find all functions that call synchronize instructions
-  FuncSet& FuncsWithSync = BarrierUtils.getAllFunctionsWithSynchronization();
-  // Collect data for each function with synchronize instruction
-  for (Function *F : FuncsWithSync) {
-    FuncsToHandle.insert(F);
-  }
-  while (!FuncsToHandle.empty()) {
-    for (Function *F : FuncsToHandle) {
+  // analyzed Find all functions that call synchronize instructions.
+  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
+  // Collect data for each function with synchronize instruction.
+  for (Function *Func : FunctionsWithSync)
+    FunctionsToHandle.insert(Func);
+
+  while (!FunctionsToHandle.empty()) {
+    for (Function *Func : FunctionsToHandle) {
       bool IsRoot = true;
-      for (auto *U : F->users()) {
+      for (User *U : Func->users()) {
         if (!isa<CallInst>(U)) {
           // Something other than CallInst is using function!
           continue;
         }
         CallInst *CI = cast<CallInst>(U);
-        Function *CallerFunc = CI->getFunction();
-        if (FuncsToHandle.count(CallerFunc)) {
+        Function *CallerFunc = CI->getCaller();
+        if (FunctionsToHandle.count(CallerFunc)) {
           IsRoot = false;
           break;
         }
       }
       if (IsRoot) {
-        OrderedFunctionsToAnalyze.push_back(F);
-        FuncsToHandle.erase(F);
+        OrderedFunctionsToAnalyze.push_back(Func);
+        FunctionsToHandle.erase(Func);
         break;
       }
     }
@@ -423,7 +448,6 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
   }
   // Print Module.
   OS << *M;
-
   // Run on all WI related values.
   OS << "\nWI related Values\n";
   ModuleSlotTracker MST(M);

@@ -79,7 +79,7 @@ for.end:                                          ; preds = %for.cond
   %5 = load i32, i32* %map_size.addr, align 4
   %6 = zext i32 %5 to i64
   %7 = mul nuw i64 %6, 4
-  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.IF"(i32 %conv), "QUAL.OMP.MAP.TO"(i32* %map_size.addr), "QUAL.OMP.MAP.TO:AGGRHEAD"([1024 x i32]* %a, i32* %arrayidx2, i64 %7) ]
+  %8 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.IF"(i32 %conv), "QUAL.OMP.MAP.TO"(i32* %map_size.addr, i32* %map_size.addr, i64 4, i64 1, i8* null, i8* null), "QUAL.OMP.MAP.TO"([1024 x i32]* %a, i32* %arrayidx2, i64 %7, i64 1, i8* null, i8* null) ]
 
 ; CHECK: call void @__tgt_target_data_begin(i64 %{{.*}}, i32 2, i8** %{{.*}}, i8** %{{.*}}, i64* %{{.*}}, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @.offload_maptypes{{.*}}, i32 0, i32 0))
 ; CHECK-NEXT: call void @test_target_data_if.DIR.OMP.TARGET.DATA.{{.*}}(i32* %map_size.addr, [1024 x i32]* %a)
@@ -101,7 +101,7 @@ for.end:                                          ; preds = %for.cond
   %9 = load i32, i32* %map_size.addr, align 4
   %cmp3 = icmp sgt i32 %9, 512
   %conv4 = zext i1 %cmp3 to i32
-  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.IF"(i32 %conv4), "QUAL.OMP.MAP.TOFROM"([1024 x i32]* %a), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.FIRSTPRIVATE"(i32* %map_size.addr) ]
+  %10 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.IF"(i32 %conv4), "QUAL.OMP.MAP.TOFROM"([1024 x i32]* %a, [1024 x i32]* %a, i64 4096, i64 547, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.FIRSTPRIVATE"(i32* %map_size.addr) ]
   store i32 0, i32* %j, align 4
   store i32 0, i32* %j, align 4
   br label %for.cond5

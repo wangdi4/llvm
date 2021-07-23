@@ -279,9 +279,28 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
       Idx = Builder.CreateTrunc(Idx, IntPtrTy);
   }
 
+  // If inbounds keyword is not present, Idx * ElementSize can overflow.
+  // Let's assume that ElementSize is 2 and the wanted value is at offset 0.
+  // Then, there are two possible values for Idx to match offset 0:
+  // 0x00..00, 0x80..00.
+  // Emitting 'icmp eq Idx, 0' isn't correct in this case because the
+  // comparison is false if Idx was 0x80..00.
+  // We need to erase the highest countTrailingZeros(ElementSize) bits of Idx.
+  unsigned ElementSize =
+      DL.getTypeAllocSize(Init->getType()->getArrayElementType());
+  auto MaskIdx = [&](Value* Idx){
+    if (!GEP->isInBounds() && countTrailingZeros(ElementSize) != 0) {
+      Value *Mask = ConstantInt::get(Idx->getType(), -1);
+      Mask = Builder.CreateLShr(Mask, countTrailingZeros(ElementSize));
+      Idx = Builder.CreateAnd(Idx, Mask);
+    }
+    return Idx;
+  };
+
   // If the comparison is only true for one or two elements, emit direct
   // comparisons.
   if (SecondTrueElement != Overdefined) {
+    Idx = MaskIdx(Idx);
     // None true -> false.
     if (FirstTrueElement == Undefined)
       return replaceInstUsesWith(ICI, Builder.getFalse());
@@ -302,6 +321,7 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
   // If the comparison is only false for one or two elements, emit direct
   // comparisons.
   if (SecondFalseElement != Overdefined) {
+    Idx = MaskIdx(Idx);
     // None false -> true.
     if (FirstFalseElement == Undefined)
       return replaceInstUsesWith(ICI, Builder.getTrue());
@@ -323,6 +343,7 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
   // where it is true, emit the range check.
   if (TrueRangeEnd != Overdefined) {
     assert(TrueRangeEnd != FirstTrueElement && "Should emit single compare");
+    Idx = MaskIdx(Idx);
 
     // Generate (i-FirstTrue) <u (TrueRangeEnd-FirstTrue+1).
     if (FirstTrueElement) {
@@ -338,6 +359,7 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
   // False range check.
   if (FalseRangeEnd != Overdefined) {
     assert(FalseRangeEnd != FirstFalseElement && "Should emit single compare");
+    Idx = MaskIdx(Idx);
     // Generate (i-FirstFalse) >u (FalseRangeEnd-FirstFalse).
     if (FirstFalseElement) {
       Value *Offs = ConstantInt::get(Idx->getType(), -FirstFalseElement);
@@ -364,6 +386,7 @@ InstCombinerImpl::foldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP,
       Ty = DL.getSmallestLegalIntType(Init->getContext(), ArrayElementCount);
 
     if (Ty) {
+      Idx = MaskIdx(Idx);
       Value *V = Builder.CreateIntCast(Idx, Ty, false);
       V = Builder.CreateLShr(ConstantInt::get(Ty, MagicBitvector), V);
       V = Builder.CreateAnd(ConstantInt::get(Ty, 1), V);
@@ -1452,7 +1475,7 @@ Instruction *InstCombinerImpl::foldICmpWithConstant(ICmpInst &Cmp) {
 
   // icmp(phi(C1, C2, ...), C) -> phi(icmp(C1, C), icmp(C2, C), ...).
   Constant *C = dyn_cast<Constant>(Op1);
-  if (!C)
+  if (!C || C->canTrap())
     return nullptr;
 
   if (auto *Phi = dyn_cast<PHINode>(Op0))
@@ -1513,7 +1536,7 @@ Instruction *InstCombinerImpl::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
     //   br DomCond, CmpBB, FalseBB
     // CmpBB:
     //   Cmp = icmp Pred X, C
-    ConstantRange CR = ConstantRange::makeAllowedICmpRegion(Pred, *C);
+    ConstantRange CR = ConstantRange::makeExactICmpRegion(Pred, *C);
     ConstantRange DominatingCR =
         (CmpBB == TrueBB) ? ConstantRange::makeExactICmpRegion(DomPred, *DomC)
                           : ConstantRange::makeExactICmpRegion(
@@ -1533,6 +1556,12 @@ Instruction *InstCombinerImpl::foldICmpWithDominatingICmp(ICmpInst &Cmp) {
     bool UnusedBit;
     bool IsSignBit = isSignBitCheck(Pred, *C, UnusedBit);
     if (Cmp.isEquality() || (IsSignBit && hasBranchUse(Cmp)))
+      return nullptr;
+
+    // Avoid an infinite loop with min/max canonicalization.
+    // TODO: This will be unnecessary if we canonicalize to min/max intrinsics.
+    if (Cmp.hasOneUse() &&
+        match(Cmp.user_back(), m_MaxOrMin(m_Value(), m_Value())))
       return nullptr;
 
     if (const APInt *EqC = Intersection.getSingleElement())
@@ -1558,11 +1587,11 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
                           ConstantInt::get(V->getType(), 1));
   }
 
+  unsigned DstBits = Trunc->getType()->getScalarSizeInBits(),
+           SrcBits = X->getType()->getScalarSizeInBits();
   if (Cmp.isEquality() && Trunc->hasOneUse()) {
     // Simplify icmp eq (trunc x to i8), 42 -> icmp eq x, 42|highbits if all
     // of the high bits truncated out of x are known.
-    unsigned DstBits = Trunc->getType()->getScalarSizeInBits(),
-             SrcBits = X->getType()->getScalarSizeInBits();
     KnownBits Known = computeKnownBits(X, 0, &Cmp);
 
     // If all the high bits are known, we can do this xform.
@@ -1572,6 +1601,22 @@ Instruction *InstCombinerImpl::foldICmpTruncConstant(ICmpInst &Cmp,
       NewRHS |= Known.One & APInt::getHighBitsSet(SrcBits, SrcBits - DstBits);
       return new ICmpInst(Pred, X, ConstantInt::get(X->getType(), NewRHS));
     }
+  }
+
+  // Look through truncated right-shift of the sign-bit for a sign-bit check:
+  // trunc iN (ShOp >> ShAmtC) to i[N - ShAmtC] < 0  --> ShOp <  0
+  // trunc iN (ShOp >> ShAmtC) to i[N - ShAmtC] > -1 --> ShOp > -1
+  Value *ShOp;
+  const APInt *ShAmtC;
+  bool TrueIfSigned;
+  if (isSignBitCheck(Pred, C, TrueIfSigned) &&
+      match(X, m_Shr(m_Value(ShOp), m_APInt(ShAmtC))) &&
+      DstBits == SrcBits - ShAmtC->getZExtValue()) {
+    return TrueIfSigned
+               ? new ICmpInst(ICmpInst::ICMP_SLT, ShOp,
+                              ConstantInt::getNullValue(X->getType()))
+               : new ICmpInst(ICmpInst::ICMP_SGT, ShOp,
+                              ConstantInt::getAllOnesValue(X->getType()));
   }
 
   return nullptr;
@@ -2315,6 +2360,16 @@ Instruction *InstCombinerImpl::foldICmpShrConstant(ICmpInst &Cmp,
   if (Shr->isExact())
     return new ICmpInst(Pred, X, ConstantInt::get(ShrTy, C << ShAmtVal));
 
+  if (C.isNullValue()) {
+    // == 0 is u< 1.
+    if (Pred == CmpInst::ICMP_EQ)
+      return new ICmpInst(CmpInst::ICMP_ULT, X,
+                          ConstantInt::get(ShrTy, (C + 1).shl(ShAmtVal)));
+    else
+      return new ICmpInst(CmpInst::ICMP_UGT, X,
+                          ConstantInt::get(ShrTy, (C + 1).shl(ShAmtVal) - 1));
+  }
+
   if (Shr->hasOneUse()) {
     // Canonicalize the shift into an 'and':
     // icmp eq/ne (shr X, ShAmt), C --> icmp eq/ne (and X, HiMask), (C << ShAmt)
@@ -2666,7 +2721,35 @@ Instruction *InstCombinerImpl::foldICmpAddConstant(ICmpInst &Cmp,
   // Fold icmp pred (add X, C2), C.
   Value *X = Add->getOperand(0);
   Type *Ty = Add->getType();
-  CmpInst::Predicate Pred = Cmp.getPredicate();
+  const CmpInst::Predicate Pred = Cmp.getPredicate();
+  const APInt SMax = APInt::getSignedMaxValue(Ty->getScalarSizeInBits());
+  const APInt SMin = APInt::getSignedMinValue(Ty->getScalarSizeInBits());
+
+  // Fold compare with offset to opposite sign compare if it eliminates offset:
+  // (X + C2) >u C --> X <s -C2 (if C == C2 + SMAX)
+  if (Pred == CmpInst::ICMP_UGT && C == *C2 + SMax)
+    return new ICmpInst(ICmpInst::ICMP_SLT, X, ConstantInt::get(Ty, -(*C2)));
+
+  // (X + C2) <u C --> X >s ~C2 (if C == C2 + SMIN)
+  if (Pred == CmpInst::ICMP_ULT && C == *C2 + SMin)
+    return new ICmpInst(ICmpInst::ICMP_SGT, X, ConstantInt::get(Ty, ~(*C2)));
+
+
+#if INTEL_CUSTOMIZATION
+  // Following combinations change signed comps into unsigned comps,
+  // which often can hinder loop trip count recognition.
+  if (!Cmp.getFunction()->isPreLoopOpt()) {
+#endif // INTEL_CUSTOMIZATION
+  // (X + C2) >s C --> X <u (SMAX - C) (if C == C2 - 1)
+  if (Pred == CmpInst::ICMP_SGT && C == *C2 - 1)
+    return new ICmpInst(ICmpInst::ICMP_ULT, X, ConstantInt::get(Ty, SMax - C));
+
+  // (X + C2) <s C --> X >u (C ^ SMAX) (if C == C2)
+  if (Pred == CmpInst::ICMP_SLT && C == *C2)
+    return new ICmpInst(ICmpInst::ICMP_UGT, X, ConstantInt::get(Ty, C ^ SMax));
+#if INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // Disabling this particular optimization before loopopt as it interferes with
@@ -3327,14 +3410,24 @@ Instruction *InstCombinerImpl::foldICmpInstWithConstantNotInt(ICmpInst &I) {
     // constant folded and the select turned into a bitwise or.
     Value *Op1 = nullptr, *Op2 = nullptr;
     ConstantInt *CI = nullptr;
-    if (Constant *C = dyn_cast<Constant>(LHSI->getOperand(1))) {
-      Op1 = ConstantExpr::getICmp(I.getPredicate(), C, RHSC);
+
+    auto SimplifyOp = [&](Value *V) {
+      Value *Op = nullptr;
+      if (Constant *C = dyn_cast<Constant>(V)) {
+        Op = ConstantExpr::getICmp(I.getPredicate(), C, RHSC);
+      } else if (RHSC->isNullValue()) {
+        // If null is being compared, check if it can be further simplified.
+        Op = SimplifyICmpInst(I.getPredicate(), V, RHSC, SQ);
+      }
+      return Op;
+    };
+    Op1 = SimplifyOp(LHSI->getOperand(1));
+    if (Op1)
       CI = dyn_cast<ConstantInt>(Op1);
-    }
-    if (Constant *C = dyn_cast<Constant>(LHSI->getOperand(2))) {
-      Op2 = ConstantExpr::getICmp(I.getPredicate(), C, RHSC);
+
+    Op2 = SimplifyOp(LHSI->getOperand(2));
+    if (Op2)
       CI = dyn_cast<ConstantInt>(Op2);
-    }
 
     // We only want to perform this transformation if it will not lead to
     // additional code. This is true if either both sides of the select
@@ -4032,11 +4125,15 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
           APInt AP2Abs = C2->getValue().abs();
           if (AP1Abs.uge(AP2Abs)) {
             ConstantInt *C3 = Builder.getInt(AP1 - AP2);
-            Value *NewAdd = Builder.CreateNSWAdd(A, C3);
+            bool HasNUW = BO0->hasNoUnsignedWrap() && C3->getValue().ule(AP1);
+            bool HasNSW = BO0->hasNoSignedWrap();
+            Value *NewAdd = Builder.CreateAdd(A, C3, "", HasNUW, HasNSW);
             return new ICmpInst(Pred, NewAdd, C);
           } else {
             ConstantInt *C3 = Builder.getInt(AP2 - AP1);
-            Value *NewAdd = Builder.CreateNSWAdd(C, C3);
+            bool HasNUW = BO1->hasNoUnsignedWrap() && C3->getValue().ule(AP2);
+            bool HasNSW = BO1->hasNoSignedWrap();
+            Value *NewAdd = Builder.CreateAdd(C, C3, "", HasNUW, HasNSW);
             return new ICmpInst(Pred, A, NewAdd);
           }
         }
@@ -4080,27 +4177,13 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
       isKnownNonZero(D, Q.DL, /*Depth=*/0, Q.AC, Q.CxtI, Q.DT))
     return new ICmpInst(CmpInst::getFlippedStrictnessPredicate(Pred), C, D);
 
-#if INTEL_CUSTOMIZATION
-  // If icmp's has single user which is branch or a select then restrict
-  // the transformation below to only cases when the icmp is the only user
-  // of its operands. It does not seem to be beneficial otherwise as
-  // it can break other optimizations (such as simplifycfg ability
-  // to fold CFG into a select).
-  Instruction *SingleUser = nullptr;
-  if (Use *SingleUse = I.getSingleUndroppableUse())
-    SingleUser = cast<Instruction>(SingleUse->getUser());
-  if (!SingleUser ||
-      !(isa<BranchInst>(SingleUser) || isa<SelectInst>(SingleUser)) ||
-      (BO0 && BO0->hasOneUse() && BO1 && BO1->hasOneUse())) {
-    // icmp (A-B), (C-B) -> icmp A, C for equalities or if there is no overflow.
-    if (B && D && B == D && NoOp0WrapProblem && NoOp1WrapProblem)
-      return new ICmpInst(Pred, A, C);
+  // icmp (A-B), (C-B) -> icmp A, C for equalities or if there is no overflow.
+  if (B && D && B == D && NoOp0WrapProblem && NoOp1WrapProblem)
+    return new ICmpInst(Pred, A, C);
 
-    // icmp (A-B), (A-D) -> icmp D, B for equalities or if there is no overflow.
-    if (A && C && A == C && NoOp0WrapProblem && NoOp1WrapProblem)
-      return new ICmpInst(Pred, D, B);
-  }
-#endif // INTEL_CUSTOMIZATION
+  // icmp (A-B), (A-D) -> icmp D, B for equalities or if there is no overflow.
+  if (A && C && A == C && NoOp0WrapProblem && NoOp1WrapProblem)
+    return new ICmpInst(Pred, D, B);
 
   // icmp (0-X) < cst --> x > -cst
   if (NoOp0WrapProblem && ICmpInst::isSigned(Pred)) {

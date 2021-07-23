@@ -122,6 +122,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_collapse:
 #if INTEL_COLLAB
   case OMPC_bind:
+  case OMPC_data:
 #endif // INTEL_COLLAB`
   case OMPC_tile:  // INTEL
   case OMPC_private:
@@ -140,6 +141,9 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+#if INTEL_COLLAB
+  case OMPC_compare:
+#endif // INTEL_COLLAB
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -229,6 +233,9 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_write:
   case OMPC_update:
   case OMPC_capture:
+#if INTEL_COLLAB
+  case OMPC_compare:
+#endif // INTEL_COLLAB
   case OMPC_seq_cst:
   case OMPC_acq_rel:
   case OMPC_acquire:
@@ -965,14 +972,50 @@ OMPSizesClause *OMPSizesClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPSizesClause(NumSizes);
 }
 
+OMPFullClause *OMPFullClause::Create(const ASTContext &C,
+                                     SourceLocation StartLoc,
+                                     SourceLocation EndLoc) {
+  OMPFullClause *Clause = CreateEmpty(C);
+  Clause->setLocStart(StartLoc);
+  Clause->setLocEnd(EndLoc);
+  return Clause;
+}
+
+OMPFullClause *OMPFullClause::CreateEmpty(const ASTContext &C) {
+  return new (C) OMPFullClause();
+}
+
+OMPPartialClause *OMPPartialClause::Create(const ASTContext &C,
+                                           SourceLocation StartLoc,
+                                           SourceLocation LParenLoc,
+                                           SourceLocation EndLoc,
+                                           Expr *Factor) {
+  OMPPartialClause *Clause = CreateEmpty(C);
+  Clause->setLocStart(StartLoc);
+  Clause->setLParenLoc(LParenLoc);
+  Clause->setLocEnd(EndLoc);
+  Clause->setFactor(Factor);
+  return Clause;
+}
+
+OMPPartialClause *OMPPartialClause::CreateEmpty(const ASTContext &C) {
+  return new (C) OMPPartialClause();
+}
+
 OMPAllocateClause *
 OMPAllocateClause::Create(const ASTContext &C, SourceLocation StartLoc,
                           SourceLocation LParenLoc, Expr *Allocator,
+#if INTEL_COLLAB
+                          Expr *Alignment,
+#endif // INTEL_COLLAB
                           SourceLocation ColonLoc, SourceLocation EndLoc,
                           ArrayRef<Expr *> VL) {
   // Allocate space for private variables and initializer expressions.
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   auto *Clause = new (Mem) OMPAllocateClause(StartLoc, LParenLoc, Allocator,
+#if INTEL_COLLAB
+                                             Alignment,
+#endif // INTEL_COLLAB
                                              ColonLoc, EndLoc, VL.size());
   Clause->setVarRefs(VL);
   return Clause;
@@ -1476,6 +1519,43 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+OMPDataClause *OMPDataClause::Create(const ASTContext &C,
+                                     SourceLocation StartLoc,
+                                     SourceLocation EndLoc,
+                                     ArrayRef<Expr *> LV) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(LV.size()));
+  auto *Clause = new (Mem) OMPDataClause(StartLoc, EndLoc, LV.size());
+  for (unsigned I = 0; I < LV.size(); ++I)
+    Clause->setDataInfo(I, LV[I]);
+  return Clause;
+}
+
+OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C,
+                                          unsigned NumDataClauseVals) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumDataClauseVals));
+  auto *Clause = new (Mem) OMPDataClause(NumDataClauseVals);
+  for (unsigned I = 0; I < NumDataClauseVals; ++I)
+    Clause->setDataInfo(I, nullptr);
+  return Clause;
+}
+
+void OMPDataClause::setDataInfo(unsigned NumDataClause, Expr *E) {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  getTrailingObjects<Expr *>()[NumDataClause] = E;
+}
+
+Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  return getTrailingObjects<Expr *>()[NumDataClause];
+}
+
+const Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) const {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  return getTrailingObjects<Expr *>()[NumDataClause];
+}
+#endif // INTEL_COLLAB
+
 OMPInclusiveClause *OMPInclusiveClause::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation LParenLoc,
@@ -1665,6 +1745,33 @@ void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   }
   OS << ")";
 }
+
+void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
+  // Some data clauses might have multiple data clause specifications
+  // separated by a comma. Every three values represent one specification.
+  // Emit them and separate each group of three with a comma.
+  //   <addr>:<uint>:<uint>
+  OS << "data(";
+  for (unsigned I = 0, E = Node->getNumDataClauseVals(); I < E; I += 3) {
+    if (I > 0)
+      OS << ", ";
+    Expr *Addr = Node->getDataInfo(I);
+    Expr *Hint = Node->getDataInfo(I + 1);
+    Expr *NumElements = Node->getDataInfo(I + 2);
+    Addr->printPretty(OS, nullptr, Policy);
+    OS << ":";
+    Hint->printPretty(OS, nullptr, Policy);
+    OS << ":";
+    NumElements->printPretty(OS, nullptr, Policy);
+  }
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPAlignClause(OMPAlignClause *Node) {
+  OS << "align(";
+  Node->getAlignment()->printPretty(OS, nullptr, Policy, 0);
+  OS << ")";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
@@ -1731,6 +1838,18 @@ void OMPClausePrinter::VisitOMPSizesClause(OMPSizesClause *Node) {
     First = false;
   }
   OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPFullClause(OMPFullClause *Node) { OS << "full"; }
+
+void OMPClausePrinter::VisitOMPPartialClause(OMPPartialClause *Node) {
+  OS << "partial";
+
+  if (Expr *Factor = Node->getFactor()) {
+    OS << '(';
+    Factor->printPretty(OS, nullptr, Policy, 0);
+    OS << ')';
+  }
 }
 
 void OMPClausePrinter::VisitOMPAllocatorClause(OMPAllocatorClause *Node) {
@@ -1853,6 +1972,12 @@ void OMPClausePrinter::VisitOMPUpdateClause(OMPUpdateClause *Node) {
 void OMPClausePrinter::VisitOMPCaptureClause(OMPCaptureClause *) {
   OS << "capture";
 }
+
+#if INTEL_COLLAB
+void OMPClausePrinter::VisitOMPCompareClause(OMPCompareClause *) {
+  OS << "compare";
+}
+#endif // INTEL_COLLAB
 
 void OMPClausePrinter::VisitOMPSeqCstClause(OMPSeqCstClause *) {
   OS << "seq_cst";
@@ -2006,6 +2131,39 @@ void OMPClausePrinter::VisitOMPAllocateClause(OMPAllocateClause *Node) {
   if (Node->varlist_empty())
     return;
   OS << "allocate";
+#if INTEL_COLLAB
+  bool printComma = false;
+  Expr *Allocator = Node->getAllocator();
+  Expr *Alignment = Node->getAlignment();
+
+  if (Allocator) {
+    OS << "(";
+    // If there's an alignment, use the 'allocator' allocate-modifier when
+    // printing the allocator, as described in OpenMP 5.1 (Allocate Clause)
+    if (Alignment)
+      OS << "allocator(";
+    Allocator->printPretty(OS, nullptr, Policy, 0);
+    if (Alignment)
+      OS << ")";
+    printComma = true;
+  }
+  if (Alignment) {
+    // Print the alignment value using the 'align' allocate-modifier, as
+    // described in OpenMP 5.1 (Allocate Clause)
+    if (printComma)
+      OS << ", ";
+    else
+      OS << "(";
+    OS << "align(";
+    Alignment->printPretty(OS, nullptr, Policy, 0);
+    OS << ")";
+  }
+  if (Allocator || Alignment) {
+    OS << ":";
+    VisitOMPClauseList(Node, ' ');
+  } else
+    VisitOMPClauseList(Node, '(');
+#else // INTEL_COLLAB
   if (Expr *Allocator = Node->getAllocator()) {
     OS << "(";
     Allocator->printPretty(OS, nullptr, Policy, 0);
@@ -2014,6 +2172,7 @@ void OMPClausePrinter::VisitOMPAllocateClause(OMPAllocateClause *Node) {
   } else {
     VisitOMPClauseList(Node, '(');
   }
+#endif // INTEL_COLLAB
   OS << ")";
 }
 

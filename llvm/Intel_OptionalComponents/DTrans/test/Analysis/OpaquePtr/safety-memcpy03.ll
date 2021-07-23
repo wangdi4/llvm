@@ -19,17 +19,13 @@ define void @test01(%struct.test01a* %pStructA, %struct.test01b* %pStructB) !dtr
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 20, i1 false)
   ret void
 }
-; TODO: Copying to/from a nested structure element to a pointer of the same type
-; is not supported yet. It may be needed for deepsjeng, in the future, at which
-; point this should no longer get marked as "Bad memfunc manipulation".
-
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
-; CHECK: Safety data: Bad memfunc manipulation | Nested structure{{ *$}}
+; CHECK: Safety data: Nested structure{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01b
-; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure{{ *$}}
+; CHECK: Safety data: Contains nested structure{{ *$}}
 
 
 ; Test with memcpy where the source and target types match, but the destination
@@ -43,17 +39,13 @@ define void @test02(%struct.test02a* %pStructA, %struct.test02b* %pStructB) !dtr
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 20, i1 false)
   ret void
 }
-; TODO: Copying to/from a nested structure element to a pointer of the same type
-; is not supported yet. It may be needed for deepsjeng, in the future, at which
-; point this should no longer get marked as "Bad memfunc manipulation".
-
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02a
-; CHECK: Safety data: Bad memfunc manipulation | Nested structure{{ *$}}
+; CHECK: Safety data: Nested structure{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02b
-; CHECK: Safety data: Bad memfunc manipulation | Contains nested structure{{ *$}}
+; CHECK: Safety data: Contains nested structure{{ *$}}
 
 
 ; Test with memcpy where the source and target types do not match, when one
@@ -68,8 +60,8 @@ define void @test03(%struct.test03a* %pStructA, %struct.test03c* %pStructC) !dtr
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %pDst, i8* %pSrc, i64 12, i1 false)
   ret void
 }
- ; This case will still be "Bad memfunc manipulation" after support of element
- ; pointee and non-element pointees is implemented.
+ ; This case is "Bad memfunc manipulation" even though one pointer is an element
+ ; pointee, and the other isn't because the structure pointer types do not match.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test03a

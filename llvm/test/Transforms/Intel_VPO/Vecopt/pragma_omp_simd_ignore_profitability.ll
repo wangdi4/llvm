@@ -1,5 +1,5 @@
-;RUN: opt < %s -VPlanDriver -S | FileCheck %s
-;RUN: opt < %s -passes="vplan-driver" -S | FileCheck %s
+;RUN: opt < %s -vplan-vec -S | FileCheck %s
+;RUN: opt < %s -passes="vplan-vec" -S | FileCheck %s
 
 
 ; This test checks that the code is force-vectorized when #pragma omp simd is specified on the loop.
@@ -18,7 +18,7 @@
 
 ; CHECK-LABEL: foo
 ; CHECK: %[[BitCastRes:.*]] = bitcast float* %[[GEPIndVar:.*]] to <{{.*}} x float>*
-; CHECK: %[[WideLoad:.*]] = load <{{.*}} x float>, <{{.*}} x float>* %[[BitCastRes]], align 4
+; CHECK: %[[WideLoad:.*]] = load <{{.*}} x float>, <{{.*}} x float>* %[[BitCastRes]], align 8
 ; CHECK: %[[CmpRes:.*]] = fcmp ogt <{{.*}} x float> %[[WideLoad]], zeroinitializer
 ; CHECK: %[[TruncRes:.*]] = trunc <{{.*}} x i64> %[[VecInd:.*]] to <{{.*}} x i32>
 ; CHECK: %[[AddRes:.*]] = add <{{.*}} x i32> %[[BroadcastSplat1:.*]], %[[TruncRes]]

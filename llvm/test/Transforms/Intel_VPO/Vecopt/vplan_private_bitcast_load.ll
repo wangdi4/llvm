@@ -4,7 +4,7 @@
 ; locations as they could be when we assume SOA layout.
 
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4  2>&1 | FileCheck %s
+; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4  2>&1 | FileCheck %s
 ; CHECK: [[WIDE_ARR:%.*]] = alloca [4 x [2520 x double]], align 8
 ; CHECK: [[WIDE_ARR_BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to [2520 x double]*
 ; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* [[WIDE_ARR_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
@@ -21,10 +21,9 @@
 ; CHECK: VPlannedBB{{.*}}:
 ; CHECK-NEXT: [[BC1:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i64*>
 ; CHECK-NEXT: [[GATHER2:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[BC1]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
-; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, <4 x double addrspace(1)*> {{.*}}, <4 x i64> {{.*}}
-; CHECK-NEXT: [[BC2:%.*]] = bitcast <4 x double addrspace(1)*> [[GEP2]] to <4 x i64 addrspace(1)*>
-; CHECK-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
-; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
+; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, double addrspace(1)* {{.*}}, i64 {{.*}}
+; CHECK-NEXT: [[BC2:%.*]] = bitcast double addrspace(1)* [[GEP2]] to i64 addrspace(1)*
+; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[BC2]] to <4 x i64> addrspace(1)*
 ; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
 ; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[BC]])
 

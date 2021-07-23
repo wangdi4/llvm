@@ -8,7 +8,7 @@
 ; CHECK:    %tB = (%B)[0];
 
 ; CHECK: + Ztt: if (%n > 0)
-; CHECK: + DO i64 i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i64 i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   (%A)[i1] = %tB;
 ; CHECK: + END LOOP
 
@@ -17,7 +17,7 @@
 
 ; CHECK: + Ztt: if (%n > 0)
 ; CHECK: + Loop metadata: No
-; CHECK: + DO i64 i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i64 i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   (%B)[i1] = %tA;
 ; CHECK: + END LOOP
 

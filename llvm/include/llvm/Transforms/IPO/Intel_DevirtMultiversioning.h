@@ -51,10 +51,10 @@ public:
   // Delete the bitcast for the vtable if there is no use of it.
   void deleteVTableCast(Value *VTablePtr);
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Return the MDNode related to Intel multiversioning
   MDNode *getDevirtCallMDNode() { return DevirtCallMDNode; }
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Simplified print of the data collected by the devirtualization process,
@@ -89,16 +89,16 @@ private:
   std::function<const TargetLibraryInfo &(Function &F)> GetTLI;
   bool EnableDevirtMultiversion;
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // Metadata node that will be used to mark a function call as being
   // created by the devirtualizer to help DTrans analyze bitcast function calls.
   MDNode *DevirtCallMDNode = nullptr;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   // Helper function to generate the branches for multiversioning
   void
   multiversionVCallSite(Module &M, CallBase *VCallSite, bool LibFuncFound,
-                        const SmallVectorImpl<Function *> &TargetFunctions);
+                        const SetVector<Function *> &TargetFunctions);
 
   // Compute the basic block where all targets will jump after executing
   // the call instruction
@@ -107,7 +107,7 @@ private:
   // Create the call sites and basic blocks for each target
   void createCallSiteBasicBlocks(
       Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-      const SmallVectorImpl<Function *> &TargetFunctions, MDNode *Node);
+      const SetVector<Function *> &TargetFunctions, MDNode *Node);
 
   // Build the basic block for the default case
   TargetData *buildDefaultCase(Module &M, CallBase *VCallSite);
@@ -133,7 +133,7 @@ private:
 
   // Structure to store the basic information needed by the multiversioning
   struct VirtualCallsDataForMV {
-    SmallVector<Function *, 10> TargetFunctions; // vector of Function* with
+    SetVector<Function *> TargetFunctions;        // Vector of Function* with
                                                  //   the targets
     std::vector<CallBase *> VirtualCallSites;    // vector of CallBase* with
                                                  //   the virtual callsites

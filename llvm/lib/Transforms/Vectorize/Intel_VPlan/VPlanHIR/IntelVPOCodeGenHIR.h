@@ -58,8 +58,7 @@ public:
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef,
-                const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart)
+                const RegDDRef *SearchLoopPeelArrayRef)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
@@ -70,8 +69,7 @@ public:
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()),
-        VPInstUnrollPart(VPInstUnrollPart) {
+        HLNodeUtilities(Loop->getHLNodeUtils()) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -81,8 +79,6 @@ public:
     WidenMap.clear();
     VPValWideRefMap.clear();
     SCEVWideRefMap.clear();
-    VLSGroupLoadMap.clear();
-    VLSGroupStoreMap.clear();
   }
 
   // Setup vector loop to perform the actual loop widening (vectorization) using
@@ -139,8 +135,7 @@ public:
   // Propagate metadata using elements of MdSrcVec which are expected to be
   // either RegDDRefs or VPLoadStoreInsts to NewRef.
   template <class MDSource>
-  void propagateMetadata(RegDDRef *NewRef,
-                         SmallVectorImpl<const MDSource *> &MDSrcVec);
+  void propagateMetadata(RegDDRef *NewRef, const MDSource * SrcMD);
 
   // Propagate debug location information from VPInstruction to the generated
   // HIR constructs. This is a post processing approach i.e. we don't attach
@@ -158,14 +153,8 @@ public:
 
   // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
-  // current mask value if non-null. Group is non-null if Inst is part of a
-  // VLS group and in such a case InterleaveFactor specifies the memory access
-  // interleaving factor, InterleaveIndex specifies the index of the current
-  // memory access reference in the group, and GrpStartInst specifies the HLInst
-  // corresponding to the lowest memory address access in the group.
-  void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr,
-                 const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
-                 int64_t InterleaveIndex = 0);
+  // current mask value if non-null.
+  void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr);
 
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
@@ -187,16 +176,6 @@ public:
 
   /// Widen call instruction \p VPCall using vector intrinsic.
   HLInst *widenTrivialIntrinsic(const VPCallInstruction *VPCall);
-
-  // Return true if we want to interleave the memory access.
-  bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
-                        const VPInstruction *VPInst);
-
-  // Widen an interleaved memory access - operands correspond to operands of
-  // WidenNode.
-  void widenInterleavedAccess(const VPLoadStoreInst *VPLdSt, RegDDRef *Mask,
-                              const OVLSGroup *Group, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex);
 
   // A helper function for concatenating vectors. This function concatenates two
   // vectors having the same element type. If the second vector has fewer
@@ -238,35 +217,6 @@ public:
   /// LLVM-IR version in VectorUtils.cpp. Example -
   /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v0, v1, v1, v2, v2, v3, v3 }
   HLInst *replicateVectorElts(RegDDRef *Input, unsigned ReplicationFactor);
-
-  // Given the LvalRef of a load instruction belonging to an interleaved group,
-  // and the result of the corresponding wide interleaved load WLoadRes,
-  // generate a shuffle using WLoadRes and the interleave index of the
-  // current load instruction within the group. As an example, consider the
-  // following load group(factor = 2, VF = 4)
-  //     R = Pic[2*i];             // Member of index 0
-  //     G = Pic[2*i+1];           // Member of index 1
-  // The following shuffle is generated where for interleave index 0 and
-  // %wide.vec = load <8 x i32> Pic[2*i]
-  //    %R.vec = shuffle %wide.vec, undef, <0, 2, 4, 6>   ; R elements
-  HLInst *createInterleavedLoad(const RegDDRef *LvalRef, RegDDRef *WLoadRes,
-                                int64_t InterleaveFactor,
-                                int64_t InterleaveIndex, RegDDRef *Mask);
-
-  // Given the vector of values being stored for an interleaved store group,
-  // generate the sequence of shuffles to combine the stored values, interleave
-  // the concatenated vector and generate the wide store using the interleaved
-  // value.
-  // Given something like (factor = 2, VF=4)
-  //     Pic[2*i] = R;           // Member of index 0
-  //     Pic[2*i+1] = G;         // Member of index 1
-  // this function generates the following sequence
-  //     %R_G.vec = shuffle %R.vec, %G.vec, <0, 1, 2, ..., 7>
-  //     %interleaved.vec = shuffle %R_G.vec, undef,
-  //                                 <0, 4, 1, 5, 2, 6, 3, 7>
-  //     store <8 x i32> %interleaved.vec, Pic[2*i]
-  HLInst *createInterleavedStore(ArrayRef<RegDDRef *> StoreVals, RegDDRef *WStorePtrRef,
-                                 int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
 
@@ -442,11 +392,9 @@ public:
     return UnitStrideRefSet.count(Ref);
   }
 
-  // Widen Ref to specified VF if needed and return the widened ref. If
-  // Interleaveaccess is true we widen the reference treating it as a unit
-  // stride reference.
+  // Widen Ref to specified VF if needed and return the widened ref.
   RegDDRef *widenRef(const RegDDRef *Ref, unsigned VF,
-                     bool InterleaveAccess = false);
+                     bool LaneZeroOnly = false);
 
   // Return the widened DDRef corresponding to VPVal - when we enable full
   // VPValue based codegen, this function will generate the widened DDRef
@@ -456,13 +404,6 @@ public:
   // Returns the expression IV + <0, 1, .., VF-1> where IV is the current loop's
   // main induction variable.
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
-
-  // Return true if the given VPPtr has a stride of 1 or -1. IsNegOneStride is
-  // set to true if stride is -1 and false otherwise.
-  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
-    return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
-        ->isUnitStridePtr(VPPtr, IsNegOneStride);
-  }
 
   // Given a pointer ref that is a selfblob, create and return memory reference
   // for PtrRef[Index]. NumElements if greater than 1 is used to set the
@@ -474,7 +415,8 @@ public:
   // replicated and flattened if we are dealing with re-vectorization scenarios.
   // In the generated code, the returned DDRef is itself used as operand for
   // Scatter/Gather memrefs.
-  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr);
+  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr,
+                                              Type *ScallarAccessType);
 
   // Given a load/store instruction, setup and return the memory ref to use in
   // generating the load/store HLInst. The given load/store instruction is also
@@ -488,6 +430,11 @@ public:
   // during serialization?
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
+
+  /// Given VPVLSLoad/VPVLSStore setup the memory ref to be used as wide memory
+  /// operation.
+  template <class VLSOpTy>
+  RegDDRef *getVLSMemoryRef(const VLSOpTy *LoadStore);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -632,14 +579,6 @@ private:
   // Map of SCEV expression and widened DDRef.
   DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;
 
-  // Map of load OVLSGroup and the corresponding RegDDRef containing the result
-  // of the interleaved wide store.
-  SmallDenseMap<const OVLSGroup *, RegDDRef *> VLSGroupLoadMap;
-
-  // Map of store OVLSGroup and the vector of values(RegDDRefs) being stored
-  // into memrefs in this group.
-  SmallDenseMap<const OVLSGroup *, SmallVector<RegDDRef *, 2>> VLSGroupStoreMap;
-
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.
   HLLoop *RednHoistLp = nullptr;
@@ -701,12 +640,6 @@ private:
 
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
-
-  // Mapping of VPInstructions to their unrolled part numbers.
-  const VPlanLoopUnroller::VPInstUnrollPartTy &VPInstUnrollPart;
-
-  // Unrolled part number for the VPInstruction currently being processed.
-  unsigned CurrentVPInstUnrollPart;
 
   // Track HIR temp created for each deconstructed PHI ID.
   SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
@@ -822,16 +755,12 @@ private:
   // the given VPInstruction. Widen parameter is used to specify if we are
   // generating VF wide constructs. If Widen is false, we generate scalar
   // constructs for lane given in ScalarLaneID.
-  void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
-                   const OVLSGroup *Group, int64_t InterleaveFactor,
-                   int64_t InterleaveIndex, bool Widen,
+  void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask, bool Widen,
                    unsigned ScalarLaneID = -1);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.
-  void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
-                     const OVLSGroup *Group, int64_t InterleaveFactor,
-                     int64_t InterleaveIndex);
+  void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask);
 
   // Implementation of blend widening.
   void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
@@ -861,9 +790,7 @@ private:
   void widenUnmaskedUniformStoreImpl(const VPLoadStoreInst *VPStore);
 
   // Implementation of load/store widening.
-  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask,
-                          const OVLSGroup *Group, int64_t InterleaveFactor,
-                          int64_t InterleaveIndex);
+  void widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore, RegDDRef *Mask);
 
   // Implementation of codegen for subscript instruction.
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
@@ -961,6 +888,8 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

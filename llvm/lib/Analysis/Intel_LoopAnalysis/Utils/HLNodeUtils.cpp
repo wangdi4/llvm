@@ -217,11 +217,12 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
     assert(RvalRef->isMemRef() &&
            "Rval of load instruction should be a mem ref!");
 
-    auto DummyPtrType = PointerType::get(RvalRef->getDestType(),
-                                         RvalRef->getPointerAddressSpace());
+    Type *RvalType = RvalRef->getDestType();
+    auto DummyPtrType =
+        PointerType::get(RvalType, RvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
 
-    InstVal = DummyIRBuilder->CreateLoad(DummyPtrVal, false, Name);
+    InstVal = DummyIRBuilder->CreateLoad(RvalType, DummyPtrVal, false, Name);
     break;
   }
 
@@ -1251,9 +1252,8 @@ HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,
 
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
                                   RegDDRef *Size) {
-  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
-      Type::getInt1Ty(getContext()),
-      LoadRef->isVolatile() || StoreRef->isVolatile());
+  RegDDRef *IsVolatile =
+      getDDRefUtils().createConstDDRef(Type::getInt1Ty(getContext()), false);
 
   Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
                  Size->getDestType()};
@@ -1278,8 +1278,8 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
 
 HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
                                   RegDDRef *Size) {
-  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
-      Type::getInt1Ty(getContext()), StoreRef->isVolatile());
+  RegDDRef *IsVolatile =
+      getDDRefUtils().createConstDDRef(Type::getInt1Ty(getContext()), false);
 
   Type *Tys[] = {StoreRef->getDestType(), Size->getDestType()};
   Function *MemsetFunc =
@@ -2275,7 +2275,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
 
   // Keep moving up the parent chain till we find a successor.
   while (Parent) {
-    if (auto Reg = dyn_cast<HLRegion>(Parent)) {
+    if (auto Loop = dyn_cast<HLLoop>(Parent)) {
+      if (std::next(Iter) != Loop->Children.end()) {
+        Succ = &*(std::next(Iter));
+        break;
+      }
+
+    } else if (auto Reg = dyn_cast<HLRegion>(Parent)) {
       if (std::next(Iter) != Reg->Children.end()) {
         Succ = &*(std::next(Iter));
         break;
@@ -2577,6 +2583,8 @@ bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
   assert(LastNode && "Last node is null!");
 
   unsigned Num = Node->getTopSortNum();
+  assert(Num != 0 && "Node does not have a top sort number!");
+
   unsigned FirstNum =
       IsMaxMode ? FirstNode->getMinTopSortNum() : FirstNode->getTopSortNum();
   unsigned LastNum =
@@ -2675,6 +2683,34 @@ const HLNode *HLNodeUtils::getLastLexicalChild(const HLNode *Parent,
 HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
   return const_cast<HLNode *>(getLastLexicalChild(
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
+}
+
+bool HLNodeUtils::isLexicalLastChildOfParent(const HLNode *Node) {
+  auto *Parent = Node->getParent();
+
+  if (auto *If = dyn_cast<HLIf>(Parent)) {
+    return (Node == If->getLastThenChild()) || (Node == If->getLastElseChild());
+  }
+
+  if (auto *Switch = dyn_cast<HLSwitch>(Parent)) {
+    if (Node == Switch->getLastDefaultCaseChild()) {
+      return true;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Node == Switch->getLastCaseChild(I)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (auto *Lp = dyn_cast<HLLoop>(Parent)) {
+    return (Node == Lp->getLastChild());
+  }
+
+  return (Node == cast<HLRegion>(Parent)->getLastChild());
 }
 
 const HLNode *
@@ -3284,7 +3320,8 @@ public:
   bool isLiveInBlob() const { return IsLiveIn; }
 };
 
-static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx) {
+bool HLNodeUtils::isRegionLiveIn(HLRegion *Reg, BlobUtils &BU,
+                                 unsigned BlobIdx) {
   LiveInBlobChecker LBC(Reg, BU);
   SCEVTraversal<LiveInBlobChecker> Checker(LBC);
   Checker.visitAll(BU.getBlob(BlobIdx));
@@ -4635,6 +4672,20 @@ HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
   return make_range(NodeRange.first, std::next(LastNode));
 }
 
+static HLNode *getLastNodeOrLabel(HLNode *Node) {
+  HLNode *LastNode = nullptr;
+  auto *NodeToRemove = Node->getNextNode();
+  if (NodeToRemove && !isa<HLLabel>(NodeToRemove)) {
+    auto *NextNode = NodeToRemove->getNextNode();
+    while (NextNode && !isa<HLLabel>(NextNode)) {
+      NodeToRemove = NextNode;
+      NextNode = NextNode->getNextNode();
+    }
+    LastNode = NodeToRemove;
+  }
+  return LastNode;
+}
+
 namespace {
 
 STATISTIC(InvalidatedRegions, "Number of regions invalidated by utility");
@@ -5133,7 +5184,33 @@ public:
     postVisitImpl(Loop);
   }
 
+  // Remove nodes after IF-stmt if it does not fall through.
+  void postVisit(HLIf *If) {
+    LastNodeToRemove = nullptr;
+
+    if (HLNodeUtils::hasGotoOnAllBranches(If)) {
+      // remove all nodes after IF-stmt up to label or end of linear code.
+      LastNodeToRemove = getLastNodeOrLabel(If);
+    }
+
+    postVisitImpl(If);
+  }
+
+  // Remove nodes after switch-stmt if it does not fall through.
+  void postVisit(HLSwitch *Switch) {
+    LastNodeToRemove = nullptr;
+
+    if (HLNodeUtils::hasGotoOnAllBranches(Switch)) {
+      // remove all nodes after switch up to label or end of linear code.
+      LastNodeToRemove = getLastNodeOrLabel(Switch);
+    }
+
+    postVisitImpl(Switch);
+  }
+
   template <typename NodeTy> void postVisit(NodeTy *Node) {
+    LastNodeToRemove = nullptr;
+
     postVisitImpl(Node);
   }
 
@@ -5142,8 +5219,6 @@ public:
            "Node is removed, should be no further actions.");
 
     IsJoinNode = true;
-
-    LastNodeToRemove = nullptr;
 
     EmptyNodeRemoverVisitorImpl::postVisit(Node);
   }
@@ -5154,8 +5229,8 @@ public:
 
   static bool containsSideEffect(HLDDNode *Node) {
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
-      // Record side effect of LVal or volatile memref.
-      if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
+      // Record side effect of LVal memref.
+      if (Ref->isMemRef() && Ref->isLval()) {
         return true;
       }
     }
@@ -5439,4 +5514,139 @@ void HLNodeUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
   for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
     LiveoutLoop->addLiveOutTemp(LiveoutSB);
   }
+}
+
+void HLNodeUtils::eliminateRedundantGotos(
+    const SmallVectorImpl<HLGoto *> &Gotos, RequiredLabelsTy &RequiredLabels) {
+  for (auto *Goto : Gotos) {
+    auto TargetLabel = Goto->getTargetLabel();
+
+    HLNode *CurNode = Goto;
+
+    if (!Goto->isAttached()) {
+      HLNodeUtils::erase(Goto);
+      continue;
+    }
+
+    // We either remove Goto as redundant by looking at its control flow
+    // successors or link it to its target HLLabel.
+    while (1) {
+      auto *Successor = HLNodeUtils::getLexicalControlFlowSuccessor(CurNode);
+
+      bool Erase = false, CheckNext = false;
+
+      if (!Successor) {
+        auto TargetBB = Goto->getTargetBBlock();
+        if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
+          // Goto is redundant if it has no lexical successor and jumps to
+          // region exit.
+          Erase = true;
+        }
+      } else if (auto LabelSuccessor = dyn_cast<HLLabel>(Successor)) {
+
+        if (TargetLabel == LabelSuccessor) {
+          // Goto is redundant if its lexical successor is the same as its
+          // target.
+          Erase = true;
+        } else {
+          // If successor is a label, goto can still be redundant based on
+          // label's successor.
+          // Example-
+          // goto L1; << This goto is redundant.
+          // L2:
+          // L1:
+          CurNode = Successor;
+          CheckNext = true;
+        }
+      } else if (auto GotoSuccessor = dyn_cast<HLGoto>(Successor)) {
+        // If the successor is a goto which also jumps to the same label,
+        // this goto is redundant.
+        // Example-
+        // goto L1; << This goto is redundant.
+        // goto L1;
+        auto SuccTargetLabel = GotoSuccessor->getTargetLabel();
+        if (SuccTargetLabel == TargetLabel) {
+          Erase = true;
+        }
+      }
+
+      if (Erase) {
+        HLNodeUtils::erase(Goto);
+        break;
+
+      } else if (!CheckNext) {
+        if (TargetLabel)
+          RequiredLabels.insert(TargetLabel);
+        break;
+      }
+    }
+  }
+}
+
+// Returns true for nodes that does not fall through on any path.
+// E.g. for if:
+// if (C1) {
+//    ...
+//    if (C3) {
+//      ...
+//      goto L1;
+//    } else {
+//      goto L2;
+//    }
+// } else if (C4) {
+//    ...
+//    if (C5) {
+//      ...
+//    }
+//    ...
+//    goto L3;
+//  } else {
+//    goto L4;
+//  }
+//  <some code>
+//  L1:
+//  L2:
+//  L3:
+//  L4:
+//  ...
+//
+// Here we never reach <some code> after if, so <some code> can be cleaned up.
+// Same logic applies for switches as well.
+bool HLNodeUtils::hasGotoOnAllBranches(HLNode *Node) {
+  assert(Node && "Expect non-null HLNode!\n");
+
+  // Every last branch node must either be goto or another switch/if w/goto.
+  // Bailout if inverse.
+  if (auto *If = dyn_cast<HLIf>(Node)) {
+    auto *IfLastThenChild = If->getLastThenChild();
+    auto *IfLastElseChild = If->getLastElseChild();
+
+    if (!IfLastThenChild ||
+        (!isa<HLGoto>(IfLastThenChild) &&
+         !HLNodeUtils::hasGotoOnAllBranches(IfLastThenChild)))
+      return false;
+
+    if (!IfLastElseChild ||
+        (!isa<HLGoto>(IfLastElseChild) &&
+         !HLNodeUtils::hasGotoOnAllBranches(IfLastElseChild)))
+      return false;
+
+    return true;
+  } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      auto *LastChild = Switch->getLastCaseChild(I);
+      if (!LastChild || (!isa<HLGoto>(LastChild) &&
+                         !HLNodeUtils::hasGotoOnAllBranches(LastChild)))
+        return false;
+    }
+
+    auto *LastChild = Switch->getLastDefaultCaseChild();
+    if (!LastChild || (!isa<HLGoto>(LastChild) &&
+                       !HLNodeUtils::hasGotoOnAllBranches(LastChild)))
+      return false;
+
+    return true;
+  }
+
+  return false;
 }

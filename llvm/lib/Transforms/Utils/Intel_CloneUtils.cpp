@@ -23,6 +23,7 @@
 
 using namespace llvm;
 
+#if INTEL_FEATURE_SW_ADVANCED
 // Maximium period for recursive progression clone argument
 static cl::opt<unsigned> IPRPCloningMaxPeriod("ip-rp-cloning-max-period",
                                               cl::init(4), cl::ReallyHidden);
@@ -514,6 +515,11 @@ extern bool isRecProgressionCloneCandidate(Function &F,
   }
   return false;
 }
+
+} // namespace llvm
+#endif // INTEL_FEATURE_SW_ADVANCED
+
+namespace llvm {
 
 extern CallInst *uniqueCallSite(Function &F) {
   CallInst *CISave = nullptr;

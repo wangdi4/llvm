@@ -24,9 +24,9 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -65,15 +65,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0),
-      DummyGepLoc(nullptr) {}
+      AddressOf(false), IsCollapsed(false), Alignment(0), DummyGepLoc(nullptr) {
+}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
-      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
       MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
@@ -295,10 +295,6 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
       if (isAddressOf()) {
         OS << "&(";
       } else {
-        // Only print these for loads/stores.
-        if (isVolatile()) {
-          OS << "{vol}";
-        }
 
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";
@@ -380,7 +376,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 void RegDDRef::printWithBlobDDRefs(formatted_raw_ostream &OS,
-                               unsigned Depth) const {
+                                   unsigned Depth) const {
 #if !INTEL_PRODUCT_RELEASE
   const HLDDNode *ParentNode = getHLDDNode();
   auto Indent = [&]() {
@@ -784,6 +780,10 @@ bool RegDDRef::isStructurallyRegionInvariant() const {
   auto &BU = getBlobUtils();
   auto *Reg = getHLDDNode()->getParentRegion();
 
+  if (isSelfBlob()) {
+    return Reg->isLiveIn(getSymbase());
+  }
+
   for (auto *BlobRef : make_range(blob_begin(), blob_end())) {
 
     // Takes care of blobs defined inside loops.
@@ -921,7 +921,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   (void)HasConstStride;
   assert(HasConstStride && "Constant loop stride expected!");
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
   // allocate more than 4GB of memory. As soon as currently there's no
@@ -929,7 +929,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   // that if pointer is padded, 4GB check is inserted.
   if (Value *Base = getTempBaseValue())
     FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
@@ -1028,7 +1028,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   (void)LoopHasConstStride;
   assert(LoopHasConstStride && "Constant loop stride expected!");
 
-#if INTEL_INCLUDE_DTRANS
+#if INTEL_FEATURE_SW_DTRANS
   // IPO's padding transformation and propagation is also responsible to
   // generate RT check on malloc site to check that user doesn't try to
   // allocate more than 4GB of memory. As soon as currently there's no
@@ -1036,7 +1036,7 @@ bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
   // that if pointer is padded, 4GB check is inserted.
   if (Value *Base = getTempBaseValue())
     FitsIn32Bits = llvm::getPaddingForValue(Base) > 0;
-#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_FEATURE_SW_DTRANS
 
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
@@ -1143,6 +1143,20 @@ BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) {
 
 const BlobDDRef *RegDDRef::getBlobDDRef(unsigned Index) const {
   return const_cast<RegDDRef *>(this)->getBlobDDRef(Index);
+}
+
+const BlobDDRef *RegDDRef::getSingleNonLinearBlobRef() const {
+  const BlobDDRef *NonLinearBlobRef = nullptr;
+
+  for (auto *BlobRef : blobs()) {
+    if (BlobRef->isNonLinear()) {
+      if (NonLinearBlobRef) {
+        return nullptr;
+      }
+      NonLinearBlobRef = BlobRef;
+    }
+  }
+  return NonLinearBlobRef;
 }
 
 bool RegDDRef::usesTempBlob(unsigned Index, bool *IsSelfBlob,
@@ -1301,6 +1315,17 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
 bool RegDDRef::replaceTempBlobs(
     const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
     bool AssumeLvalIfDetached) {
+  bool Res = false;
+
+  for (auto &Pair : BlobMap) {
+    Res = replaceTempBlob(Pair.first, Pair.second, AssumeLvalIfDetached) || Res;
+  }
+
+  return Res;
+}
+
+bool RegDDRef::replaceTempBlobs(const DenseMap<unsigned, unsigned> &BlobMap,
+                                bool AssumeLvalIfDetached) {
   bool Res = false;
 
   for (auto &Pair : BlobMap) {

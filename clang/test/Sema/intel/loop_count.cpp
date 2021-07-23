@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only %s -ast-dump -verify | FileCheck %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -fsyntax-only %s -ast-dump -verify | FileCheck %s
 #include <stdint.h>
 
 void foo() {
@@ -90,10 +90,10 @@ void bar() {
 int main() {
   bar<int>();
 
-  // expected-note@+1 {{in instantiation of function template specialization 'size_test<0>' requested here}}
+  // expected-note@+1 {{in instantiation of function template specialization 'size_test<0L>' requested here}}
   size_test<0>();
-  // expected-note@+1 {{in instantiation of function template specialization 'size_test<-2>' requested here}}
+  // expected-note@+1 {{in instantiation of function template specialization 'size_test<-2L>' requested here}}
   size_test<-2>();
-  // expected-note@+1 {{in instantiation of function template specialization 'size_test<1844674407370955161>' requested here}}
+  // expected-note@+1 {{in instantiation of function template specialization 'size_test<1844674407370955161L>' requested here}}
   size_test<1844674407370955161>();
 }

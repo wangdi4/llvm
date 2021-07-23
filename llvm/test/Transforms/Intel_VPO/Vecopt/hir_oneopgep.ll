@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -tbaa -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -tbaa -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -enable-vp-value-codegen-hir -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ;
 ; Test to check that we handle one operand GEPs correctly. This can happen for
@@ -21,7 +21,8 @@
 ;   i8* %vp38320 = getelementptr inbounds i8* %vp61520 i64 40
 ;   i64* %vp61840 = bitcast i8* %vp38320
 ;
-; CHECK-LABEL: *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:         IR Dump After VPlan HIR Vectorizer
+; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; CHECK:              %red.var = 0;
 ; CHECK-NEXT:         %red.var = insertelement %red.var,  %n.09,  0;
 ; CHECK-NEXT:         DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>

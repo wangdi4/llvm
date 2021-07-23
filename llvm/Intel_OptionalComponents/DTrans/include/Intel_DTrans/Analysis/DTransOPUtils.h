@@ -12,8 +12,8 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransOPUtils.h included in a non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransOPUtils.h included in a non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSOPUTILS_H
@@ -24,9 +24,6 @@ class LLVMContext;
 
 namespace dtransOP {
 class DTransType;
-
-// Return 'true' if pointer types are opaque.
-bool areOpaquePtrsEnabled(LLVMContext &Ctx);
 
 // Returns 'true' if a pointer type can be reached from 'Ty', with
 // the exception of a pointer that is a named structure's field member.

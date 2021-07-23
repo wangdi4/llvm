@@ -12,8 +12,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
 
@@ -23,7 +22,9 @@ INITIALIZE_PASS(SplitBBonBarrierLegacy, "dpcpp-kernel-split-on-barrier",
 
 char SplitBBonBarrierLegacy::ID = 0;
 
-SplitBBonBarrierLegacy::SplitBBonBarrierLegacy() : ModulePass(ID) {}
+SplitBBonBarrierLegacy::SplitBBonBarrierLegacy() : ModulePass(ID) {
+  initializeSplitBBonBarrierLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool SplitBBonBarrierLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
@@ -35,10 +36,10 @@ PreservedAnalyses SplitBBonBarrier::run(Module &M, ModuleAnalysisManager &) {
 
 bool SplitBBonBarrier::runImpl(Module &M) {
   // Initialize barrier utils class with current module.
-  BarrierUtils.init(&M);
+  Utils.init(&M);
 
   // Find all synchronize instructions.
-  InstVector &SyncInsts = BarrierUtils.getAllSyncInstructions();
+  InstVector &SyncInsts = Utils.getAllSynchronizeInstructions();
 
   bool Changed = false;
 

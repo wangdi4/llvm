@@ -11,28 +11,23 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "CPUDetect.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-builtin-import"
 
 static cl::opt<std::string>
     OptCPUPrefix("dpcpp-kernel-cpu-prefix", cl::init(""),
                  cl::desc("Set CPU prefix for BuiltinImport Pass"));
-
-static cl::list<std::string>
-    OptBuiltinModuleFiles(cl::CommaSeparated, "dpcpp-kernel-builtin-lib",
-                          cl::desc("Builtin declarations (bitcode) libraries"),
-                          cl::value_desc("filename1,filename2"));
 
 namespace {
 
@@ -46,7 +41,9 @@ public:
   BuiltinImportLegacy(const SmallVector<Module *, 2> &BuiltinModules =
                           SmallVector<Module *, 2>(),
                       StringRef CPUPrefix = "")
-      : ModulePass(ID), Impl(BuiltinModules, CPUPrefix) {}
+      : ModulePass(ID), Impl(BuiltinModules, CPUPrefix) {
+    initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   ~BuiltinImportLegacy() {}
 
@@ -106,7 +103,9 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
 
 BuiltinImportPass::BuiltinImportPass(
     const SmallVector<Module *, 2> &BuiltinModules, StringRef CPUPrefix)
-    : BuiltinModules(BuiltinModules), CPUPrefix(CPUPrefix) {}
+    : BuiltinModules(BuiltinModules), CPUPrefix(CPUPrefix) {
+  initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 // This function replaces keyword "shared" in the builtin name by current CPU
 // prefix, for example:
@@ -118,6 +117,7 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
 
   // Get svml calling convention based on cpu perfix.
   CallingConv::ID CC = CallingConv::C; // default
+  std::string SVMLCPUPrefix = CPUPrefix.str();
   if (CPUPrefix.compare(CPUDetect::GetCPUPrefixSSE(true)) == 0 ||
       CPUPrefix.compare(CPUDetect::GetCPUPrefixSSE(false)) == 0)
     CC = CallingConv::Intel_OCL_BI;
@@ -129,6 +129,19 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
   else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX512(true)) == 0 ||
            CPUPrefix.compare(CPUDetect::GetCPUPrefixAVX512(false)) == 0)
     CC = CallingConv::Intel_OCL_BI_AVX512;
+  else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAMX(true)) == 0) {
+    CC = CallingConv::Intel_OCL_BI_AVX512;
+    // FIXME:
+    // ocl_svml lib for AMX 64bit is not available yet (__ocl_svml_z1.so/dll)
+    // Use AVX512 implementations as a workaround
+    SVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(true);
+  } else if (CPUPrefix.compare(CPUDetect::GetCPUPrefixAMX(false)) == 0) {
+    CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
+    // FIXME:
+    // ocl_svml lib for AMX 32bit is not available yet (__ocl_svml_x1.so/dll)
+    // Use AVX512 implementations as a workaround
+    SVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(false);
+  }
 
   for (auto &SvmlF : SvmlFunctions) {
     for (auto &RTL : BuiltinModules) {
@@ -139,7 +152,7 @@ void BuiltinImportPass::UpdateSvmlBuiltin(const FuncVec &SvmlFunctions,
       if (!F)
         continue;
       std::string NewName = FName.str();
-      NewName.replace(11, 6, std::string(CPUPrefix));
+      NewName.replace(11, 6, SVMLCPUPrefix);
       F->setName(NewName);
       F->setCallingConv(CC);
 
@@ -316,25 +329,6 @@ CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
   }
 
   return New;
-}
-
-/// Load builtin library modules from files specified by commandline option
-/// OptBuiltinModuleFiles.
-static SmallVector<std::unique_ptr<Module>, 2>
-loadBuiltinModulesFromCommandLine(LLVMContext &Ctx) {
-  SmallVector<std::unique_ptr<Module>, 2> BuiltinModules;
-  for (auto &ModuleFile : OptBuiltinModuleFiles) {
-    if (ModuleFile.empty()) {
-      BuiltinModules.push_back(std::make_unique<Module>("empty", Ctx));
-    } else {
-      SMDiagnostic Err;
-      std::unique_ptr<Module> BuiltinModule =
-          getLazyIRFileModule(ModuleFile, Err, Ctx);
-      assert(BuiltinModule && "failed to load builtin lib from file");
-      BuiltinModules.push_back(std::move(BuiltinModule));
-    }
-  }
-  return BuiltinModules;
 }
 
 bool BuiltinImportPass::runImpl(Module &M) {

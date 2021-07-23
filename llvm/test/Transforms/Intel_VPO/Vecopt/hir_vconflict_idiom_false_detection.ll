@@ -4,10 +4,14 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; REQUIRES: asserts
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -S -mattr=+avx512vl,+avx512cd -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis -tbaa < %s 2>&1 | FileCheck %s --check-prefix=CHECK-VCONFLICT
 
-; CHECK: Idiom List
-; CHECK: No idioms detected.
+; RUN: opt -S -mattr=+avx2 -hir-ssa-deconstruction -hir-vec-dir-insert -enable-vconflict-idiom -debug-only=parvec-analysis < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NO-VCONFLICT
+
+; CHECK-VCONFLICT: Idiom List
+; CHECK-VCONFLICT: No idioms detected.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z3foo1PfPi(float* nocapture %A, i32* nocapture readonly %B) local_unnamed_addr #0 {
@@ -38,13 +42,15 @@ for.body:                                         ; preds = %entry, %for.body
 ; <12>               |   (%C)[%0] = %2 + 3;
 ; <19>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %1 + 2;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %0 = (%B)[i1];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM1:[0-9]+]]>          (%A)[%0] = %1 + 2;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM2:[0-9]+]]>          %0 = (%B)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM3:[0-9]+]]>         (%C)[%0] = %2 + 3;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM4:[0-9]+]]>          %0 = (%B)[i1];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM3:[0-9]+]]>         (%C)[%0] = %2 + 3;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM4:[0-9]+]]>          %0 = (%B)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo2PiS_S_(i32* nocapture %A, i32* nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {
@@ -79,9 +85,11 @@ for.body:                                         ; preds = %entry, %for.body
 ; <9>                |   (%A)[%0 + 2] = %add3;
 ; <16>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM5:[0-9]+]]>          (%A)[%0 + 2] = %add3;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM6:[0-9]+]]>          %0 = (%B)[i1];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM5:[0-9]+]]>          (%A)[%0 + 2] = %add3;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM6:[0-9]+]]>          %0 = (%B)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo3PfPi(float* nocapture %A, i32* nocapture readonly %B) local_unnamed_addr #0 {
@@ -116,9 +124,11 @@ for.body:                                         ; preds = %entry, %for.body
 ; <27>               |   + END LOOP
 ; <26>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>         (%A)[%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>         %1 = (%A)[i2];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM7:[0-9]+]]>         (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM8:[0-9]+]]>         %1 = (%A)[i2];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo4PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
@@ -162,14 +172,16 @@ for.body4:                                        ; preds = %for.body, %for.body
 ; <12>               |   (%A)[i1] = %add7;
 ; <19>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>          (%A)[%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM10:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM11:[0-9]+]]>         %2 = (%A)[i1];
-; CHECK: [VConflict Idiom] Skipped: Too many dependencies.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM9:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM10:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM11:[0-9]+]]>         %2 = (%A)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Too many dependencies.
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM12:[0-9]+]]>         (%A)[i1] = %add7;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM13:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM12:[0-9]+]]>         (%A)[i1] = %add7;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM13:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo5PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
@@ -204,9 +216,11 @@ for.body:                                         ; preds = %entry, %for.body
 ; <8>                |   (@K)[0][%0] = %add;
 ; <15>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM14:[0-9]+]]>          (@K)[0][%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM15:[0-9]+]]>          %1 = (@K)[0][%0];
-; CHECK: [VConflict Idiom] Skipped: Multidimensional arrays are not supported.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM14:[0-9]+]]>          (@K)[0][%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM15:[0-9]+]]>          %1 = (@K)[0][%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Multidimensional arrays are not supported.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 @K = dso_local local_unnamed_addr global [1024 x float] zeroinitializer, align 16
 @L = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
@@ -244,14 +258,16 @@ for.body:                                         ; preds = %entry, %for.body
 ; <15>               |   (%A)[%2] = %add9;
 ; <22>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM16:[0-9]+]]>          (%A)[%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM17:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM18:[0-9]+]]>         %3 = (%A)[%2];
-; CHECK: [VConflict Idiom] Skipped: Too many dependencies.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM16:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM17:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM18:[0-9]+]]>         %3 = (%A)[%2];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Too many dependencies.
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM19:[0-9]+]]>         (%A)[%2] = %add9;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM20:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM19:[0-9]+]]>         (%A)[%2] = %add9;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM20:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped:  Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo7PfPiS0_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* noalias nocapture readonly %C) local_unnamed_addr #0 {
@@ -294,14 +310,16 @@ for.body:                                         ; preds = %entry, %for.body
 ; <16>               |   (%A)[i1] = %conv10;
 ; <23>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM21:[0-9]+]]>         (%A)[%0] = %conv6;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM22:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM23:[0-9]+]]>          %2 = (%A)[i1];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM21:[0-9]+]]>         (%A)[%0] = %conv6;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM22:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM23:[0-9]+]]>          %2 = (%A)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Too many dependencies.
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM24:[0-9]+]]>         (%A)[i1] = %conv10;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM25:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM24:[0-9]+]]>         (%A)[i1] = %conv10;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM25:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo8PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
@@ -342,13 +360,15 @@ for.body:                                         ; preds = %entry, %for.body
 ; <11>               |   (%A)[i1] = %add7;
 ; <18>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM26:[0-9]+]]>          (%A)[%0] = %add;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM27:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Skipped: The output dependency is expected to be self-dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM26:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM27:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: The output dependency is expected to be self-dependency.
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM28:[0-9]+]]>         (%A)[i1] = %add7;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM29:[0-9]+]]>          %1 = (%A)[%0];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM28:[0-9]+]]>         (%A)[i1] = %add7;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM29:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z4foo9PfPi(float* noalias nocapture %A, i32* noalias nocapture readonly %B) local_unnamed_addr #0 {
@@ -381,9 +401,11 @@ for.body:                                         ; preds = %entry, %for.body
 ; <8>                |   (%A)[%0] = %1 + 2;
 ; <15>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM30:[0-9]+]]>          (%A)[%0] = %1 + 2;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM31:[0-9]+]]>          %0 = (%A)[i1];
-; CHECK: [VConflict Idiom] Skipped: Wrong memory dependency.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM30:[0-9]+]]>          (%A)[%0] = %1 + 2;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM31:[0-9]+]]>          %0 = (%A)[i1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Wrong memory dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z5foo10Pi(i32* nocapture %A) local_unnamed_addr #0 {
@@ -420,9 +442,11 @@ for.body:                                         ; preds = %entry, %for.body
 ; <20>               |   (%A)[%index.0.lcssa] = %temp2.0.lcssa;
 ; <27>               + END LOOP
 
-; CHECK: [VConflict Idiom] Looking at store candidate:<[[NUM32:[0-9]+]]>         (%A)[%index.0.lcssa] = %temp2.0.lcssa;
-; CHECK: [VConflict Idiom] Depends(WAR) on:<[[NUM33:[0-9]+]]>         %2 = (%A)[%1];
-; CHECK: [VConflict Idiom] Skipped: Source is in another loop.
+; CHECK-VCONFLICT: [VConflict Idiom] Looking at store candidate:<[[NUM32:[0-9]+]]>         (%A)[%index.0.lcssa] = %temp2.0.lcssa;
+; CHECK-VCONFLICT: [VConflict Idiom] Depends(WAR) on:<[[NUM33:[0-9]+]]>         %2 = (%A)[%1];
+; CHECK-VCONFLICT: [VConflict Idiom] Skipped: Sink node has another parent.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
 
 ; Function Attrs: nofree norecurse nounwind uwtable mustprogress
 define dso_local void @_Z5foo11PiS_ii(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %L) local_unnamed_addr #0 {
@@ -468,3 +492,180 @@ for.cond.cleanup3:                                ; preds = %for.cond1.preheader
 }
 
 attributes #0 = { nofree norecurse nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="core-avx2" "target-features"="+avx,+avx2,+bmi,+bmi2,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+popcnt,+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsaveopt" "unsafe-fp-math"="true" "use-soft-float"="false" }
+
+;<0>          BEGIN REGION { }
+;<29>               + DO i1 = 0, 1023, 1   <DO_LOOP>
+;<3>                |   %0 = (%B)[i1];
+;<4>                |   %conv = sitofp.i32.float(%0);
+;<6>                |   %1 = (%C)[i1];
+;<8>                |   if (%1 < %conv)
+;<8>                |   {
+;<14>               |      %2 = (%A)[%0];
+;<15>               |      (%C)[i1] = %2;
+;<8>                |   }
+;<8>                |   else
+;<8>                |   {
+;<20>               |      (%A)[%0] = %1;
+;<8>                |   }
+;<29>               + END LOOP
+;<0>          END REGION
+
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM34:[0-9]+]]>         (%C)[i1] = %2;
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM35:[0-9]+]]>         (%A)[%0] = %1;
+; CHECK-VCONFLICT:  [VConflict Idiom] Depends(WAR) on:<[[NUM36:[0-9]+]]>         %2 = (%A)[%0];
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Sink node is in a different IF-branch.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
+
+; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
+define dso_local void @_Z3foo12PfPiS_(float* noalias nocapture %A, i32* nocapture readonly %B, float* noalias nocapture %C) local_unnamed_addr #0 {
+;
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %if.end
+  ret void
+
+for.body:                                         ; preds = %entry, %if.end
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
+  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %conv = sitofp i32 %0 to float
+  %arrayidx2 = getelementptr inbounds float, float* %C, i64 %indvars.iv
+  %1 = load float, float* %arrayidx2, align 4
+  %cmp3 = fcmp fast olt float %1, %conv
+  br i1 %cmp3, label %if.then, label %if.else
+
+if.then:                                          ; preds = %for.body
+  %idxprom4 = sext i32 %0 to i64
+  %arrayidx5 = getelementptr inbounds float, float* %A, i64 %idxprom4
+  %2 = load float, float* %arrayidx5, align 4
+  store float %2, float* %arrayidx2, align 4
+  br label %if.end
+
+if.else:                                          ; preds = %for.body
+  %idxprom10 = sext i32 %0 to i64
+  %arrayidx11 = getelementptr inbounds float, float* %A, i64 %idxprom10
+  store float %1, float* %arrayidx11, align 4
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+}
+
+attributes #0 = { nofree norecurse nosync nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+
+;<0>          BEGIN REGION { }
+;<29>               + DO i1 = 0, 1023, 1   <DO_LOOP>
+;<3>                |   %0 = (%B)[i1];
+;<4>                |   %conv = sitofp.i32.float(%0);
+;<6>                |   %1 = (%C)[i1];
+;<8>                |   if (%1 < %conv)
+;<8>                |   {
+;<14>               |      (%A)[%0] = %1;
+;<8>                |   }
+;<8>                |   else
+;<8>                |   {
+;<19>               |      %2 = (%A)[%0];
+;<20>               |      (%C)[i1] = %2;
+;<8>                |   }
+;<29>               + END LOOP
+;<0>          END REGION
+
+
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM37:[0-9]+]]>         (%A)[%0] = %1;
+; CHECK-VCONFLICT:  [VConflict Idiom] Depends(WAR) on:<[[NUM38:[0-9]+]]>         %2 = (%A)[%0];
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Sink node is in a different IF-branch.
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM39:[0-9]+]]>         (%C)[i1] = %2;
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Store address should have one flow-dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
+
+; Function Attrs: nofree norecurse nosync nounwind uwtable mustprogress
+define dso_local void @_Z3foo13PfPiS_(float* noalias nocapture %A, i32* nocapture readonly %B, float* noalias nocapture %C) local_unnamed_addr #0 {
+;
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %if.end
+  ret void
+
+for.body:                                         ; preds = %entry, %if.end
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
+  %arrayidx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %0 = load i32, i32* %arrayidx, align 4
+  %conv = sitofp i32 %0 to float
+  %arrayidx2 = getelementptr inbounds float, float* %C, i64 %indvars.iv
+  %1 = load float, float* %arrayidx2, align 4
+  %cmp3 = fcmp fast olt float %1, %conv
+  br i1 %cmp3, label %if.then, label %if.else
+
+if.then:                                          ; preds = %for.body
+  %idxprom6 = sext i32 %0 to i64
+  %arrayidx7 = getelementptr inbounds float, float* %A, i64 %idxprom6
+  store float %1, float* %arrayidx7, align 4
+  br label %if.end
+
+if.else:                                          ; preds = %for.body
+  %idxprom8 = sext i32 %0 to i64
+  %arrayidx9 = getelementptr inbounds float, float* %A, i64 %idxprom8
+  %2 = load float, float* %arrayidx9, align 4
+  store float %2, float* %arrayidx2, align 4
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+}
+
+;<0>          BEGIN REGION { }
+;<18>               + DO i1 = 0, 1023, 1   <DO_LOOP>
+;<3>                |   %0 = (%B)[i1];
+;<6>                |   %conv = sitofp.i32.float(%0);
+;<7>                |   %add = %conv  +  2.000000e+00;
+;<8>                |   (%A)[%0] = %add;
+;<9>                |   %1 = (%A)[%0];
+;<10>               |   %add2 = %1  +  2.000000e+00;
+;<11>               |   (%A)[%0] = %add2;
+;<18>               + END LOOP
+;<0>          END REGION
+;
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM38:[0-9]+]]>          (%A)[%0] = %add;
+; CHECK-VCONFLICT:  [VConflict Idiom] Depends(WAR) on:<[[NUM39:[0-9]+]]>          %1 = (%A)[%0];
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: Nodes are not in the right order.
+; CHECK-VCONFLICT:  [VConflict Idiom] Looking at store candidate:<[[NUM40:[0-9]+]]>         (%A)[%0] = %add2;
+; CHECK-VCONFLICT:  [VConflict Idiom] Skipped: The output dependency is expected to be self-dependency.
+
+; CHECK-NO-VCONFLICT: No idioms detected.
+
+; Function Attrs: nofree norecurse nounwind uwtable mustprogress
+define dso_local void @_Z4foo14PiS_S_(float* noalias nocapture %A, i32* noalias nocapture readonly %B, i32* nocapture %C) local_unnamed_addr #0 {
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  ret void
+
+for.body:                                         ; preds = %entry, %for.body
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %ptridx = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  %0 = load i32, i32* %ptridx, align 4
+  %idxprom1 = sext i32 %0 to i64
+  %ptridx2 = getelementptr inbounds float, float* %A, i64 %idxprom1
+  %conv = sitofp i32 %0 to float
+  %add = fadd float %conv, 2.
+  store float %add, float* %ptridx2, align 4
+  %1 = load float, float* %ptridx2, align 4
+  %add2 = fadd float %1, 2.
+  store float %add2, float* %ptridx2, align 4
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+}
+
+attributes #0 = { nofree norecurse nosync nounwind uwtable mustprogress "denormal-fp-math"="preserve-sign,preserve-sign" "denormal-fp-math-f32"="ieee,ieee" "frame-pointer"="none" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "no-trapping-math"="true" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+

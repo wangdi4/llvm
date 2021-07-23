@@ -64,6 +64,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
 
+#include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
@@ -83,6 +84,7 @@
 
 #include "HIRPrintDiag.h"
 #include "HIRStencilPattern.h"
+#include <deque>
 #include <unordered_set>
 
 #define OPT_SWITCH "hir-inter-loop-blocking"
@@ -98,9 +100,9 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden, cl::desc("Disable " OPT_DESC "."));
 
 static cl::opt<int>
-    PresetStripmineSize(OPT_SWITCH "-stripmine-size", cl::init(2),
-                        cl::ReallyHidden,
-                        cl::desc("Preset stripmine size for " OPT_DESC));
+    DefaultStripmineSize(OPT_SWITCH "-stripmine-size", cl::init(2),
+                         cl::ReallyHidden,
+                         cl::desc("Preset stripmine size for " OPT_DESC));
 
 static cl::opt<std::string>
     FilterFunc(OPT_SWITCH "-filter-func", cl::ReallyHidden,
@@ -769,10 +771,11 @@ public:
       const HLLoop *Loop, unsigned OutermostLoopLevel,
       SmallVectorImpl<DimInfoTy> &DimInfos,
       BaseIndexToLowersAndStridesTy &BaseIndexToLowersAndStrides,
-      StringRef FuncName)
+      StringRef FuncName, bool RelaxedMode = false)
       : InnermostLoop(Loop), DimInfos(DimInfos),
         BaseIndexToLowersAndStrides(BaseIndexToLowersAndStrides),
-        Func(FuncName), OutermostLoopLevel(OutermostLoopLevel) {
+        Func(FuncName), OutermostLoopLevel(OutermostLoopLevel),
+        RelaxedMode(RelaxedMode) {
 
     MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
                                 InnermostLoop->child_end(), Refs);
@@ -826,14 +829,21 @@ private:
   bool checkDepToUpwardLoops(BasePtrIndexSetTy &DefinedBasePtr,
                              const RegDDRef *RepDefRef);
 
-  const RegDDRef *getALval() const {
+  const RegDDRef *getLvalWithMinDims() const {
 
+    const RegDDRef *RepRef = nullptr;
+    unsigned MinDimNums = MaxLoopNestLevel;
     for (auto *Ref : Refs) {
-      if (Ref->isLval())
-        return Ref;
+      if (Ref->isRval())
+        continue;
+
+      if (Ref->getNumDimensions() < MinDimNums) {
+        MinDimNums = Ref->getNumDimensions();
+        RepRef = Ref;
+      }
     }
 
-    return nullptr;
+    return RepRef;
   }
 
   // Alignment of making every Lval in the form of Array[I_n][I_n+1][I_n+2]
@@ -856,7 +866,7 @@ private:
   // However, RHSs of the loads (marked with * and **, respectively) are the
   // same.
   //
-  // %2122 = (@globalvar_mod_mp_ezsize_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // %2122 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
   // i32]:6)]; (*)
   // + DO i2 = 0, sext.i32.i64((1 + %2)) + -2, 1   <DO_LOOP>
   // |   + DO i3 = 0, sext.i32.i64(%1) + -1, 1   <DO_LOOP>
@@ -865,7 +875,7 @@ private:
   // 1:8 * sext.i32.i64((1 + (-1 * %2118) +
   // %2119))(double*:0)][%2118:2:8(double*:0)] ...
 
-  // %4773 = (@globalvar_mod_mp_ezsize_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // %4773 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
   // i32]:6)]; (**)
   // + DO i2 = 0, sext.i32.i64(%1) + -1 * sext.i32.i64(%4925), 1   <DO_LOOP>
   // |   + DO i3 = 0, sext.i32.i64(%0) + -1 * zext.i32.i64(%4837), 1   <DO_LOOP>
@@ -888,16 +898,8 @@ private:
   bool checkEqualityOfBlobDimensions(const RefGroupTy &OneGroup,
                                      const DimInfoVecTy &FirstRefDimInfoVec,
                                      const BasePtrIndexSetTy &DefinedBasePtr,
-                                     BasePtrIndexSetTy &ReadOnlyBasePtr) const;
-
-  // Check across all groups if DimInfos are the same.
-  using NumDimsToDimInfoVecTy =
-      std::unordered_map<unsigned, std::pair<const RegDDRef *, DimInfoVecTy>>;
-  bool checkAcrossGroups(NumDimsToDimInfoVecTy &NumDimsToDimInfoVec,
-                         const RegDDRef *FirstRef,
-                         const DimInfoVecTy &FirstRefDimInfoVec,
-                         const BasePtrIndexSetTy &DefinedBasePtr,
-                         BasePtrIndexSetTy &ReadOnlyBasePtr) const;
+                                     BasePtrIndexSetTy &ReadOnlyBasePtr,
+                                     unsigned CommonDims) const;
 
   // - DimInfo should be picked from a ref with
   //     1 the largest number of Dimensions
@@ -911,7 +913,8 @@ private:
   bool canCalcDimInfo(const RefGroupVecTy &Groups,
                       BasePtrIndexSetTy &DefinedBasePtr,
                       BasePtrIndexSetTy &ReadOnlyBasePtr, DDGraph DDG,
-                      DimInfoVecImplTy *DimInfos, const HLLoop *LCA = nullptr);
+                      DimInfoVecImplTy &DimInfos, const RegDDRef *RepDef,
+                      const HLLoop *LCA = nullptr);
 
   // Checks each CE has in one of the three forms:
   //  - single IV + (optional constant) + (optional blob)
@@ -928,6 +931,12 @@ private:
   // - blob-only + <optional constant>
   bool isValidDim(const CanonExpr *CE, DimInfoTy &DimInfo) const;
 
+  static bool DimInfoCompPred(const DimInfoTy &DI1, const DimInfoTy &DI2);
+  static bool DimInfoCompPredRelaxed(const DimInfoTy &DI1,
+                                     const DimInfoTy &DI2);
+  static bool containsEqualTempBlobs(const CanonExpr *CE1,
+                                     const CanonExpr *CE2);
+
 private:
   const HLLoop *InnermostLoop;
   SmallVectorImpl<DimInfoTy> &DimInfos;
@@ -937,6 +946,8 @@ private:
 
   // level of the loop enclosing all spatial loops.
   unsigned OutermostLoopLevel;
+
+  bool RelaxedMode;
 };
 
 const RegDDRef *
@@ -967,20 +978,20 @@ InnermostLoopAnalyzer::couldBeAMember(BasePtrIndexSetTy &DefinedBasePtr,
 
   // See if memrefs in the loopbody are in the right form to utilize
   // spatial locality across multiple loopnests.
-  if (!canCalcDimInfo(Groups, DefinedBasePtr, ReadOnlyBasePtr, DDG, &DimInfos,
-                      LCA)) {
+  if (!canCalcDimInfo(Groups, DefinedBasePtr, ReadOnlyBasePtr, DDG, DimInfos,
+                      RepDefRef, LCA)) {
     printDiag("calcDimInfo ", Func, InnermostLoop);
     return nullptr;
+  }
+
+  // Interim quick fix
+  if (RelaxedMode) {
+    return RepDefRef;
   }
 
   if (!areMostlyStructuallyStencilRefs(Groups)) {
     printDiag("Failed Stencil check", Func, InnermostLoop);
     return nullptr;
-  }
-
-  // Interim quick fix
-  if (ForceTestDriver) {
-    return RepDefRef;
   }
 
   // Check DEP against previous loops
@@ -1043,7 +1054,7 @@ const RegDDRef *InnermostLoopAnalyzer::checkDefsForAlignment() const {
   // For example, if a loop body contains
   // A[i][j][k] and B[k], we pick A[i][j][k] because, that reference
   // will have more pieces of information.
-  const RegDDRef *Representative = getALval();
+  const RegDDRef *Representative = getLvalWithMinDims();
 
   // No Def
   if (!Representative)
@@ -1081,10 +1092,10 @@ bool InnermostLoopAnalyzer::areEqualLowerBoundsAndStrides(
     if (NumDims != Ref->getNumDimensions()) {
       // This function does not check anything for following cases.
       // Fortran dope-vectors.
-      // (@upml_mod_mp_byh_)[0].6[0].2;
-      // (@upml_mod_mp_byh_)[0].0;
-      // (@upml_mod_mp_ayh_)[0].6[0].2;
-      // (@upml_mod_mp_ayh_)[0].0;
+      // (@b_)[0].6[0].2;
+      // (@b_)[0].0;
+      // (@a_)[0].6[0].2;
+      // (@a_)[0].0;
 
       // TODO: work around - not correct
       if (FirstRef->hasTrailingStructOffsets() &&
@@ -1264,7 +1275,7 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
   unsigned BasePtrIndex = Ref->getBasePtrBlobIndex();
   if (BaseIndexToLowersAndStrides.find(BasePtrIndex) ==
       BaseIndexToLowersAndStrides.end()) {
-    BaseIndexToLowersAndStrides.insert(std::make_pair(BasePtrIndex, Ref));
+    BaseIndexToLowersAndStrides.insert({BasePtrIndex, Ref});
   } else {
     if (!tracebackEqualityOfLowersAndStrides(
             BaseIndexToLowersAndStrides[BasePtrIndex], Ref, DDG, LCA))
@@ -1273,18 +1284,50 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
   return true;
 }
 
+bool InnermostLoopAnalyzer::containsEqualTempBlobs(const CanonExpr *CE1,
+                                                   const CanonExpr *CE2) {
+  if (CE1->numBlobs() != 1 || CE1->numBlobs() != CE2->numBlobs()) {
+    return false;
+  }
+
+  SmallVector<unsigned> Ind1;
+  SmallVector<unsigned> Ind2;
+  BlobUtils &BU = CE1->getBlobUtils();
+
+  for (auto I : make_range(CE1->blob_begin(), CE1->blob_end()))
+    BU.collectTempBlobs((I).Index, Ind1);
+
+  for (auto I : make_range(CE2->blob_begin(), CE2->blob_end()))
+    BU.collectTempBlobs((I).Index, Ind2);
+
+  std::sort(Ind1.begin(), Ind1.end());
+  std::sort(Ind2.begin(), Ind2.end());
+
+  return std::equal(Ind1.begin(), Ind1.end(), Ind2.begin());
+}
+
 bool InnermostLoopAnalyzer::checkEqualityOfBlobDimensions(
     const RefGroupTy &OneGroup, const DimInfoVecTy &FirstRefDimInfoVec,
-    const BasePtrIndexSetTy &DefinedBasePtr,
-    BasePtrIndexSetTy &ReadOnlyBasePtr) const {
+    const BasePtrIndexSetTy &DefinedBasePtr, BasePtrIndexSetTy &ReadOnlyBasePtr,
+    unsigned CommonDims) const {
   auto *FirstRef = OneGroup.front();
 
   for (auto *Ref : make_range(std::next(OneGroup.begin()), OneGroup.end())) {
-    for (unsigned DimNum = 1, Size = FirstRefDimInfoVec.size(); DimNum <= Size;
-         DimNum++) {
+
+    unsigned MinIVLevel = MaxLoopNestLevel;
+    for (unsigned
+             DimNum = 1,
+             Size = std::min(CommonDims, (unsigned)(FirstRefDimInfoVec.size()));
+         DimNum <= Size; DimNum++) {
+
+      if (FirstRefDimInfoVec[DimNum - 1].hasIV())
+        MinIVLevel = FirstRefDimInfoVec[DimNum - 1].LevelOffset;
 
       if (!FirstRefDimInfoVec[DimNum - 1].isBlob())
         continue;
+
+      if (MinIVLevel == 1)
+        return true;
 
       // Blobs should be the same throughout refs.
       if (!CanonExprUtils::areEqual(FirstRef->getDimensionIndex(DimNum),
@@ -1295,7 +1338,20 @@ bool InnermostLoopAnalyzer::checkEqualityOfBlobDimensions(
           // Defer the check by storing this piece of information.
           ReadOnlyBasePtr.insert(FirstRef->getBasePtrBlobIndex());
 
+        } else if (RelaxedMode &&
+                   containsEqualTempBlobs(FirstRef->getDimensionIndex(DimNum),
+                                          Ref->getDimensionIndex(DimNum))) {
+          printMarker("blobs are similar enough: ", {FirstRef, Ref});
         } else {
+          // Some examples:
+          // RepDefRef:  (%50)[%10][i1 + sext.i32.i64(%160)][i2 +
+          // sext.i32.i64(%130)] FirstRef: (%1082)[i1 + sext.i32.i64(%160)][i2 +
+          // sext.i32.i64(%130) + -1] FirstRef: (%1080)[i1 +
+          // sext.i32.i64(%160)][i2 + sext.i32.i64(%130) + -1] FirstRef:
+          // (%92)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130) + -1]
+          // FirstRef: (%89)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130) +
+          // -1] FirstRef: (%50)[%9][i1 + sext.i32.i64(%160)][i2 +
+          // sext.i32.i64(%130)]
           printMarker("Def but different blobIndex: ", {FirstRef, Ref});
 
           return false;
@@ -1308,46 +1364,18 @@ bool InnermostLoopAnalyzer::checkEqualityOfBlobDimensions(
   return true;
 }
 
-bool InnermostLoopAnalyzer::checkAcrossGroups(
-    NumDimsToDimInfoVecTy &NumDimsToDimInfoVec, const RegDDRef *FirstRef,
-    const DimInfoVecTy &FirstRefDimInfoVec,
-    const BasePtrIndexSetTy &DefinedBasePtr,
-    BasePtrIndexSetTy &ReadOnlyBasePtr) const {
+bool InnermostLoopAnalyzer::DimInfoCompPredRelaxed(const DimInfoTy &DI1,
+                                                   const DimInfoTy &DI2) {
+  return (DI1 == DI2) ||
+         (DI1.LevelOffset == DimInfoTy::KONST &&
+          DI2.LevelOffset == DimInfoTy::BLOB) ||
+         (DI1.LevelOffset == DimInfoTy::BLOB &&
+          DI2.LevelOffset == DimInfoTy::KONST);
+}
 
-  // For one given innermost loop, and for a number of dimensions,
-  // check if all DimInfo is equal.
-  if (NumDimsToDimInfoVec.count(FirstRef->getNumDimensions())) {
-    // Make sure the equality with the Dim info of the current group and
-    // a recorded Dim info.
-    std::pair<const RegDDRef *, DimInfoVecTy> &Recorded =
-        NumDimsToDimInfoVec[FirstRef->getNumDimensions()];
-
-    // Mismatch of IndexCEs are all right if refs are read-only.
-    // caveat - Being read-only are checked only up to this loopnest from
-    // lexically upward loopnests. However, to be correct and safe,
-    // checking truely being read-only throughout all loopnests in
-    // candidate set should be done. At this point, lexically downward
-    // loopnests hasn't been examined yet.
-    // Notice that DimInfos are considered same if LevelOffset is the same.
-    // Const and Blob dim only stores their kinds to LevelOffset.
-    if (!std::equal(Recorded.second.begin(), Recorded.second.end(),
-                    FirstRefDimInfoVec.begin())) {
-      if (!DefinedBasePtr.count(FirstRef->getBasePtrBlobIndex())) {
-        ReadOnlyBasePtr.insert(FirstRef->getBasePtrBlobIndex());
-      } else {
-        printMarker("Mismatch in Refs with the same num of dims", {FirstRef});
-
-        return false;
-      }
-    }
-
-  } else {
-    NumDimsToDimInfoVec.insert(
-        {FirstRef->getNumDimensions(),
-         {std::make_pair(FirstRef, FirstRefDimInfoVec)}});
-  }
-
-  return true;
+bool InnermostLoopAnalyzer::DimInfoCompPred(const DimInfoTy &DI1,
+                                            const DimInfoTy &DI2) {
+  return (DI1 == DI2);
 }
 
 // - DimInfo should be picked from a ref with
@@ -1359,18 +1387,17 @@ bool InnermostLoopAnalyzer::checkAcrossGroups(
 // - Actually, co-existence of A[K][J][I] and B[K][1][I] suggests bail-out
 //             we cannot gurantee a safe tiling in that case.
 //             Equality of A and B doesn't matter here.
-bool InnermostLoopAnalyzer::canCalcDimInfo(const RefGroupVecTy &Groups,
-                                           BasePtrIndexSetTy &DefinedBasePtr,
-                                           BasePtrIndexSetTy &ReadOnlyBasePtr,
-                                           DDGraph DDG,
-                                           DimInfoVecImplTy *DimInfos,
-                                           const HLLoop *LCA) {
+bool InnermostLoopAnalyzer::canCalcDimInfo(
+    const RefGroupVecTy &Groups, BasePtrIndexSetTy &DefinedBasePtr,
+    BasePtrIndexSetTy &ReadOnlyBasePtr, DDGraph DDG, DimInfoVecImplTy &DimInfos,
+    const RegDDRef *RepDefRef, const HLLoop *LCA) {
 
   // A map from the number of dimensions (of a ref) to DimInfoTy
   // Different refs with the same number of dimensions are
   // expected to have the same DimInfo
   // RegDDRef* is not being actively used. Mostly for debugging.
-  NumDimsToDimInfoVecTy NumDimsToDimInfoVec;
+
+  auto DimInfoPred = RelaxedMode ? DimInfoCompPredRelaxed : DimInfoCompPred;
 
   for (auto OneGroup : Groups) {
 
@@ -1419,7 +1446,7 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(const RefGroupVecTy &Groups,
 
       // Compare against Front
       if (!std::equal(FirstRefDimInfoVec.begin(), FirstRefDimInfoVec.end(),
-                      DimInfoVec.begin()))
+                      DimInfoVec.begin(), DimInfoPred))
         return false;
     }
 
@@ -1438,34 +1465,17 @@ bool InnermostLoopAnalyzer::canCalcDimInfo(const RefGroupVecTy &Groups,
     // Check the equality of indices, whose type is blob. Consult
     // upward defined baseptrs and update read-only baseptr as needed.
     if (!checkEqualityOfBlobDimensions(OneGroup, FirstRefDimInfoVec,
-                                       DefinedBasePtr, ReadOnlyBasePtr)) {
+                                       DefinedBasePtr, ReadOnlyBasePtr,
+                                       RepDefRef->getNumDimensions())) {
       return false;
     }
 
-    // Check across all groups if DimInfos are the same.
-    if (!checkAcrossGroups(NumDimsToDimInfoVec, FirstRef, FirstRefDimInfoVec,
-                           DefinedBasePtr, ReadOnlyBasePtr)) {
-      return false;
-    }
   } // end Groups
 
-  // Now pick a DimInfo with the maximum DimNum
-  // TODO: It is not clear if for a konst dim, if the ref with
-  //       the smallest value is captured. Same for a blob dim.
-  //       Make sure how it affects handling dependencies with
-  //       konst and blob dims.
-  //
-  //       Also, consider just picking DimInfo of any LvalDDRef
-  //       (or RepDefRef) since now the equality of num dims are
-  //       Verified.
-  using PairTy = decltype(NumDimsToDimInfoVec)::value_type;
-  auto MaxEntry = std::max_element(
-      NumDimsToDimInfoVec.begin(), NumDimsToDimInfoVec.end(),
-      [](const PairTy &P1, const PairTy &P2) { return P1.first <= P2.first; });
-
-  if (DimInfos)
-    std::copy((*MaxEntry).second.second.begin(),
-              (*MaxEntry).second.second.end(), std::back_inserter(*DimInfos));
+  if (!analyzeDims(RepDefRef, DimInfos)) {
+    LLVM_DEBUG(dbgs() << "CalcDimInfo failed 2\n");
+    return false;
+  }
 
   return true;
 }
@@ -1568,6 +1578,14 @@ HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLNode *Limit) {
 }
 
 class Transformer {
+  struct TopSortCompare {
+    bool operator()(const HLInst *Inst1, const HLInst *Inst2) const {
+      return Inst1->getTopSortNum() < Inst2->getTopSortNum();
+    }
+  };
+
+  typedef std::set<const HLInst *, TopSortCompare> InstsToCloneSetTy;
+
 public:
   HIRDDAnalysis &DDA;
 
@@ -1577,12 +1595,14 @@ public:
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
               const InnermostLoopToShiftTy &InnermostLoopToShift,
-              HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA)
+              HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
+              StringRef Func)
       : DDA(DDA), StripmineSizes(StripmineSizes),
         InnermostLoopToDimInfos(InnermostLoopToDimInfos),
         InnermostLoopToRepRef(InnermostLoopToRepRef),
         InnermostLoopToShift(InnermostLoopToShift),
-        OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0) {
+        OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0),
+        Func(Func) {
     unsigned NumDims = StripmineSizes.size();
     ByStripLoopLowerBlobs.resize(NumDims);
     ByStripLoopUpperBlobs.resize(NumDims);
@@ -1649,8 +1669,9 @@ public:
                                           : static_cast<HLNode *>(OuterIf);
     HLRegion *Region = OutermostNode->getParentRegion();
 
-    printMarker("Initial: ", {OutermostNode}, true);
-
+    printMarker("Initial: ", {OutermostNode}, true, false);
+    LLVM_DEBUG(dbgs() << "Region to update: " << Region->getNumber() << "\n");
+    LLVM_DEBUG(Region->dump(1));
     LLVM_DEBUG(dbgs() << "== * == AAAA \n"; for (auto &LoopAndDimInfo
                                                  : InnermostLoopToDimInfos) {
       dbgs() << LoopAndDimInfo.first->getNumber() << "\n";
@@ -1678,11 +1699,18 @@ public:
     //    A[i] = B[i - t] + 1
     //  Notice M has chaned to M + t.
     //  For the alignment itself, see comments on alignSpatialLoopBody.
-    SmallPtrSet<const HLInst *, 32> LoadInstsToClone;
+    //  Notice that not all insts cloned are load insts, but the name
+    //  is used as the majorities are loads.
+    InstsToCloneSetTy LoadInstsToClone;
     SmallVector<std::pair<unsigned, unsigned>, 16> CopyToLoadIndexMap;
 
     if (CloneDVLoads) {
-      collectLoadsToClone(AnchorNode, LoadInstsToClone, CopyToLoadIndexMap);
+      if (!collectLoadsToClone(AnchorNode, LoadInstsToClone,
+                               CopyToLoadIndexMap)) {
+        LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Cannot collect"
+                                           "insts to clone\n");
+        return false;
+      }
     }
 
     // Align original spatial loops
@@ -1743,7 +1771,7 @@ public:
       unsigned NewKey = KV.first;
       unsigned NewVal = OrigToCloneIndexMap[KV.second];
       assert(NewVal);
-      OrigToCloneIndexMap.insert(std::make_pair(NewKey, NewVal));
+      OrigToCloneIndexMap.insert({NewKey, NewVal});
     }
 
     if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef,
@@ -1791,7 +1819,7 @@ public:
     // Normalize all spatial Loops and byStripLoops.
     normalizeSpatialLoops();
 
-    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating: \n";
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating in " << Func << ": ";
                              OutermostNode->dump());
     printMarker("Detail: After updating inner Loops: ", {OutermostNode}, true,
                 true);
@@ -2167,47 +2195,6 @@ private:
     }
   }
 
-  // Start from the RHS of Copy to find the eventual load instruction.
-  // If not found, return nullptr.
-  // Example)
-  //   %t1 = %a[..] -- (1)
-  //   %t2 = %t1    -- (2)
-  // Starting from %t1, a load instruction (1) is found.
-  const HLInst *tracebackToLoad(const HLInst *Copy, DDGraph DDG) const {
-    assert(Copy->isCopyInst());
-    const RegDDRef *Rval = Copy->getRvalDDRef();
-    const HLInst *Load = nullptr;
-
-    while (Rval) {
-      for (auto *Edge : DDG.incoming(Rval)) {
-        if (!Edge->isFlow())
-          continue;
-
-        HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
-        if (const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode)) {
-          if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
-            // Found Load
-            printMarker(" == Found Load: \n", {LoadOrCopy});
-
-            Load = LoadOrCopy;
-            return Load;
-
-          } else if (LoadOrCopy->isCopyInst()) {
-            printMarker("Found Copy: \n", {SrcNode});
-
-            // Trace-back to load.
-            Rval = LoadOrCopy->getRvalDDRef();
-          }
-        } else {
-          return Load;
-        }
-      }
-      break;
-    } // while
-
-    return Load;
-  }
-
   // Only for debugging.
   static void printDDEdges(const HLInst *LoadInst, DDGraph DDG) {
     auto *RvalOfLoad = LoadInst->getRvalDDRef();
@@ -2242,105 +2229,193 @@ private:
     }
   }
 
-  void checkInvariance(const HLInst *HInst) const {
+  bool checkInvariance(const HLInst *HInst) const {
     if (OutermostLoop) {
       unsigned Level = OutermostLoop->getNestingLevel();
       for (auto *Rval : make_range(HInst->rval_op_ddref_begin(),
                                    HInst->rval_op_ddref_end())) {
         if (!Rval->isLinearAtLevel(Level)) {
-          llvm_unreachable("We don't expect dependency to non-linear ops.");
+          LLVM_DEBUG(dbgs()
+                     << "We don't expect dependency to non-linear ops.\n");
+          return false;
         }
       }
     } else {
       for (auto *Rval : make_range(HInst->rval_op_ddref_begin(),
                                    HInst->rval_op_ddref_end())) {
         if (!Rval->isStructurallyRegionInvariant()) {
-          llvm_unreachable("Should be region live-in.");
+          LLVM_DEBUG(dbgs() << "Should be region live-in.\n");
+          return false;
         }
       }
     }
+    return true;
+  }
+
+  // Start from the RHS of Copy or any other instruction
+  // to find the eventual load instruction or the instruction
+  // whose rvals are all liveIn to the region.
+  // If not found or meet an unexpected situation, return false.
+  // Example 1)
+  //   %t1 = %a[..] -- (1)
+  //   %t2 = %t1    -- (2)
+  // Starting from %t1, a load instruction (1) is found.
+  // Example 2)
+  //   %t1 = %a[..] -- (1)
+  //   %t3 = %b[..] -- (2)
+  //   %t2 = %t1 + %t3   -- (3)
+  // Starting from  %t1 and %t3, loads (1) and (2) are found.
+  // Example 3)
+  //   %t1 = %liveIn0 < %liveIn1; --(1)
+  //   %t2 = (%liveIn2 != 1) ? -1 : %t1; --(2)
+  // From %t1 in (2) inst (1) is found.
+  bool tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
+                       SmallVectorImpl<const HLInst *> &Res) const {
+
+    std::deque<const RegDDRef *> RvalQueue;
+    RvalQueue.push_back(Rval);
+
+    while (!RvalQueue.empty()) {
+      Rval = RvalQueue[0];
+      RvalQueue.pop_front();
+      if (Rval->isStructurallyRegionInvariant())
+        continue;
+
+      for (auto *Edge : DDG.incoming(Rval)) {
+        if (!Edge->isFlow())
+          continue;
+
+        HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
+        const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
+        if (!LoadOrCopy)
+          return false;
+
+        if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
+
+          printMarker(" == Found Load: \n", {LoadOrCopy});
+
+          if (!checkInvariance(LoadOrCopy))
+            return false;
+
+          Res.push_back(LoadOrCopy);
+
+        } else if (LoadOrCopy->isCopyInst()) {
+
+          printMarker("Found Copy: \n", {LoadOrCopy});
+
+          RvalQueue.push_back(LoadOrCopy->getRvalDDRef());
+
+        } else if (LoadOrCopy->isCallInst()) {
+
+          printMarker("Found CallInst: \n", {LoadOrCopy});
+
+          return false;
+
+        } else {
+          for (auto *RvalRef : make_range(LoadOrCopy->rval_op_ddref_begin(),
+                                          LoadOrCopy->rval_op_ddref_end())) {
+            RvalQueue.push_back(RvalRef);
+          }
+        }
+      }
+    } // while
+    return true;
   }
 
   // Find the load instruction starting from SrcNode.
   // If SrcNode is a load, return it.
   // If it is a copy, trace back to a load and return it.
-  const std::pair<const HLInst *, const HLInst *>
-  findLoad(const HLDDNode *SrcNode, DDGraph DDG) const {
+  bool findLoad(
+      const HLDDNode *SrcNode, DDGraph DDG,
+      SmallVectorImpl<std::pair<const HLInst *, const HLInst *>> &Res) const {
 
     const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
     if (!LoadOrCopy)
-      return std::make_pair(nullptr, nullptr);
+      return false;
 
     if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
-      LLVM_DEBUG(dbgs() << "Found Load: \n");
-      LLVM_DEBUG(SrcNode->dump());
-      LLVM_DEBUG(dbgs() << "\n");
 
-      checkInvariance(LoadOrCopy);
+      printMarker(" == Found Load: \n", {LoadOrCopy});
 
-      return std::make_pair(LoadOrCopy, nullptr);
+      Res.push_back({LoadOrCopy, nullptr});
+      return checkInvariance(LoadOrCopy);
+
     } else if (LoadOrCopy->isCopyInst()) {
-      const HLInst *CopyInst = LoadOrCopy;
 
-      LLVM_DEBUG(dbgs() << "Found Copy: \n");
-      LLVM_DEBUG(SrcNode->dump());
-      LLVM_DEBUG(dbgs() << "\n");
+      printMarker("Found Copy: \n", {LoadOrCopy});
 
-      auto *Load = tracebackToLoad(LoadOrCopy, DDG);
-      checkInvariance(Load);
+      SmallVector<const HLInst *> Insts;
+      if (!tracebackToLoad(LoadOrCopy->getRvalDDRef(), DDG, Insts) ||
+          Insts.size() != 1)
+        return false;
 
-      // Trace-back to load.
-      return std::make_pair(Load, CopyInst);
+      Res.push_back({Insts.back(), LoadOrCopy});
+
     } else if (LoadOrCopy->isCallInst()) {
 
-      llvm_unreachable("We don't expect a dependency to a call.");
-    } else {
-      // any other inst
-      LLVM_DEBUG(dbgs() << "Found non-load clone: \n");
-      LLVM_DEBUG(LoadOrCopy->dump());
-      LLVM_DEBUG(dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "We don't expect a dependency to a call.");
 
-      checkInvariance(LoadOrCopy);
+      return false;
 
-      return std::make_pair(LoadOrCopy, nullptr);
+    } else { // any other inst
+
+      printMarker("Found non-load clone: \n", {LoadOrCopy});
+
+      Res.push_back({LoadOrCopy, nullptr});
+      SmallVector<const HLInst *> Insts;
+      for (auto *Rval : make_range(LoadOrCopy->rval_op_ddref_begin(),
+                                   LoadOrCopy->rval_op_ddref_end())) {
+        if (!tracebackToLoad(Rval, DDG, Insts))
+          return false;
+      }
+
+      for (auto *Inst : Insts) {
+        Res.push_back({Inst, nullptr});
+      }
     }
-
-    return std::make_pair(nullptr, nullptr);
+    return true;
   }
 
   template <typename IteratorTy>
-  void findLoadsOfTemp(
+  bool findLoadsOfTemp(
       DDGraph DDG, IteratorTy begin, IteratorTy end,
-      unsigned AnchorNodeTopSortNum, SmallPtrSetImpl<const HLInst *> &LoadInsts,
+      unsigned AnchorNodeTopSortNum, InstsToCloneSetTy &LoadInsts,
       std::map<const HLInst *, const HLInst *> &CopyToLoadMap) const {
 
     for (IteratorTy It = begin; It != end; ++It) {
       auto *DestRef = *It;
+
       for (auto *Edge : DDG.incoming(DestRef)) {
+
         if (!Edge->isFlow())
           continue;
 
-        std::pair<const HLInst *, const HLInst *> LoadAndCopy =
-            findLoad(Edge->getSrc()->getHLDDNode(), DDG);
+        SmallVector<std::pair<const HLInst *, const HLInst *>> InstPairs;
+        if (!findLoad(Edge->getSrc()->getHLDDNode(), DDG, InstPairs))
+          return false;
 
-        if (!LoadAndCopy.first ||
-            LoadAndCopy.first->getTopSortNum() < AnchorNodeTopSortNum)
-          return;
+        for (auto &LoadAndCopy : InstPairs) {
 
-        LLVM_DEBUG_DD_EDGES(printDDEdges(LoadAndCopy.first, DDG));
+          if (!LoadAndCopy.first ||
+              LoadAndCopy.first->getTopSortNum() < AnchorNodeTopSortNum)
+            continue;
 
-        if (LoadAndCopy.second)
-          CopyToLoadMap.emplace(LoadAndCopy.second, LoadAndCopy.first);
+          LLVM_DEBUG_DD_EDGES(printDDEdges(LoadAndCopy.first, DDG));
 
-        LoadInsts.insert(LoadAndCopy.first);
+          if (LoadAndCopy.second)
+            CopyToLoadMap.emplace(LoadAndCopy.second, LoadAndCopy.first);
+
+          LoadInsts.insert(LoadAndCopy.first);
+        }
       }
     }
+    return true;
   }
 
-  void collectLoadsToClone(
-      const HLNode *AnchorNode,
-      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
-      SmallVectorImpl<std::pair<unsigned, unsigned>> &CopyToLoadIndexMap) {
+  bool collectLoadsToClone(const HLNode *AnchorNode,
+                           InstsToCloneSetTy &LoadInstsToClone,
+                           SmallVectorImpl<std::pair<unsigned, unsigned>>
+                               &CopyToLoadIndexMap) const {
 
     DDGraph DDG;
     if (OutermostLoop) {
@@ -2390,8 +2465,10 @@ private:
           RefsInIndices.push_back(BRef);
       }
 
-      findLoadsOfTemp(DDG, std::begin(RefsInIndices), std::end(RefsInIndices),
-                      AnchorNodeTopSortNum, LoadInstsToClone, CopyToLoadMap);
+      if (!findLoadsOfTemp(DDG, std::begin(RefsInIndices),
+                           std::end(RefsInIndices), AnchorNodeTopSortNum,
+                           LoadInstsToClone, CopyToLoadMap))
+        return false;
     }
 
     // Collect loads for Spatial loop's upper bounds
@@ -2410,9 +2487,11 @@ private:
         if (!TargetLoop)
           continue;
 
-        findLoadsOfTemp(DDG, TargetLoop->getUpperDDRef()->all_dd_begin(),
-                        TargetLoop->getUpperDDRef()->all_dd_end(),
-                        AnchorNodeTopSortNum, LoadInstsToClone, CopyToLoadMap);
+        if (!findLoadsOfTemp(DDG, TargetLoop->getUpperDDRef()->all_dd_begin(),
+                             TargetLoop->getUpperDDRef()->all_dd_end(),
+                             AnchorNodeTopSortNum, LoadInstsToClone,
+                             CopyToLoadMap))
+          return false;
       }
     }
 
@@ -2434,6 +2513,8 @@ private:
                  CopyToLoad.first->dump(1); dbgs() << "\n";
                  CopyToLoad.second->dump(1); dbgs() << "\n");
     }
+
+    return true;
   }
 
   // LB(UB) of a By-strip loop is the "min"("max") of all lower bounds of
@@ -2444,10 +2525,6 @@ private:
       const LoopToRefTy &InnermostLoopToAdjustingRef,
       const DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefs) {
-
-    SmallVector<std::pair<unsigned, unsigned>, 16> BlobIndexMap;
-    std::copy(OrigToCloneIndexMap.begin(), OrigToCloneIndexMap.end(),
-              std::back_inserter(BlobIndexMap));
 
     assert(InnermostLoopToAdjustingRef.size() > 0);
     LLVMContext &Context = (*InnermostLoopToAdjustingRef.begin())
@@ -2473,7 +2550,7 @@ private:
           continue;
 
         RegDDRef *NewLBRef = TargetLoop->getLowerDDRef()->clone();
-        bool Replaced = NewLBRef->replaceTempBlobs(BlobIndexMap);
+        bool Replaced = NewLBRef->replaceTempBlobs(OrigToCloneIndexMap);
         (void)Replaced;
         AlignedLowerBounds[DimNum - 1].push_back(
             NewLBRef->getSingleCanonExpr());
@@ -2483,7 +2560,7 @@ private:
                    NewLBRef->dump(1); dbgs() << "\n");
 
         RegDDRef *NewUBRef = TargetLoop->getUpperDDRef()->clone();
-        Replaced = NewUBRef->replaceTempBlobs(BlobIndexMap);
+        Replaced = NewUBRef->replaceTempBlobs(OrigToCloneIndexMap);
         AlignedUpperBounds[DimNum - 1].push_back(
             NewUBRef->getSingleCanonExpr());
         AuxRefs.push_back(TargetLoop->getUpperDDRef());
@@ -2553,16 +2630,20 @@ private:
 
   // Replace all use with new Lval
   void cloneAndAddLoadInsts(
-      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone, HLNode *AnchorNode,
+      InstsToCloneSetTy &LoadInstsToClone, HLNode *AnchorNode,
       DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefsForByStripBounds
 
   ) {
+
+    SmallVector<HLInst *> NewLoads;
+
     for (auto *Load : LoadInstsToClone) {
       HLInst *NewLoad = Load->clone();
       RegDDRef *NewLval = Load->getHLNodeUtils().createTemp(
           NewLoad->getLvalDDRef()->getDestType(), "clone");
       NewLoad->replaceOperandDDRef(NewLoad->getLvalDDRef(), NewLval);
+      NewLoads.push_back(NewLoad);
 
       unsigned OldIndex =
           Load->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex();
@@ -2572,7 +2653,7 @@ private:
 
       assert(OldIndex != NewIndex);
 
-      OrigToCloneIndexMap.insert(std::make_pair(OldIndex, NewIndex));
+      OrigToCloneIndexMap.insert({OldIndex, NewIndex});
 
       printMarker("Orig Load: ", Load, true, true);
       printMarker("New Load: ", NewLoad, true, true);
@@ -2581,6 +2662,21 @@ private:
 
       LiveInsOfAllSpatialLoop.push_back(NewLoad->getLvalDDRef()->getSymbase());
       AuxRefsForByStripBounds.push_back(NewLoad->getLvalDDRef());
+    }
+
+    // Replace rvals in the cloned instructions as needed.
+    // The need can arise because of dependencies among the cloned nodes.
+    // E.g. before clone
+    // A = load ..
+    // B = k < 1 ? A : 1;
+    // after clone
+    // A' = load ..
+    // B' = k < 1 ? A' : 1; -- rval A should be replaced by A'
+    for (auto *Load : NewLoads) {
+      for (auto *Ref :
+           make_range(Load->rval_op_ddref_begin(), Load->rval_op_ddref_end())) {
+        Ref->replaceTempBlobs(OrigToCloneIndexMap);
+      }
     }
   }
 
@@ -2591,11 +2687,10 @@ private:
   //          tile_end = min(IV + by_strip_step - 1, by_strip_ub)
   //   IV is the tile's begin.
   //   tile_end is the last element of tile, not the past the last.
-  HLLoop *
-  addByStripLoops(HLNode *AnchorNode,
-                  const SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
-                  const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
-                  ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
+  HLLoop *addByStripLoops(HLNode *AnchorNode,
+                          const InstsToCloneSetTy &LoadInstsToClone,
+                          const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
+                          ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
 
     HLRegion *Region = AnchorNode->getParentRegion();
 
@@ -2753,7 +2848,7 @@ private:
         for (const CanonExpr *CE :
              make_range(Ref->canon_begin(), Ref->canon_end())) {
           if (CanonExprUtils::areEqual(CE, TargetCE, false, true))
-            return std::make_pair(Ref, CE->getDefinedAtLevel());
+            return {Ref, CE->getDefinedAtLevel()};
         }
       }
     }
@@ -3119,11 +3214,9 @@ private:
 
     int64_t Val;
     if (CE->isIntConstant(&Val)) {
-      return std::make_pair(BU.createBlob(Val, CE->getDestType()),
-                            InvalidBlobIndex);
+      return {BU.createBlob(Val, CE->getDestType()), InvalidBlobIndex};
     } else {
-      return std::make_pair(BU.getBlob(CE->getSingleBlobIndex()),
-                            CE->getSingleBlobIndex());
+      return {BU.getBlob(CE->getSingleBlobIndex()), CE->getSingleBlobIndex()};
     }
   }
 
@@ -3139,7 +3232,7 @@ private:
     //       available.
     for (auto *CE : make_range(Bounds.begin(), Bounds.end())) {
       if (!CE->isIntConstant() && !CE->convertToStandAloneBlobOrConstant()) {
-        return std::make_pair(nullptr, InvalidBlobIndex);
+        return {nullptr, InvalidBlobIndex};
       }
     }
 
@@ -3170,7 +3263,7 @@ private:
                                             !BlobsAreConstant, &BlobIndex);
     }
 
-    return std::make_pair(LowerBlob, BlobIndex);
+    return {LowerBlob, BlobIndex};
   }
 
   // Given a ByStrip Loop, calculate the UB of the inner unit-strided loop
@@ -3253,6 +3346,8 @@ private:
   // Number of ByStrip loops. Could be different from StripmineSizes.size()
   // because StripmineSizes can contain zeros.
   unsigned NumByStripLoops;
+
+  StringRef Func;
 
   // A map from an innermost loop to its outer enclosing loops
   // matching to dimnum (includes the innermost loop).
@@ -3465,25 +3560,30 @@ private:
   bool postCheck(const HLLoop *StopLoop) const {
 
     // We don't work on a single spatial loopnest.
-    if (!FirstSpatialLoop || FirstSpatialLoop == LastSpatialLoop) {
+    if (!FirstSpatialLoop)
+      return false;
+
+    if (FirstSpatialLoop == LastSpatialLoop) {
+      LLVM_DEBUG(dbgs() << "Fail 1: " << FirstSpatialLoop->getNumber() << "\n");
       return false;
     }
 
     // State in term of profitablity, should be SECONDHALF.
     // Otherwise, it is not profitable
     if (State != SECONDHALF) {
+      LLVM_DEBUG(dbgs() << "Fail 2 state: " << State << "\n");
       return false;
     }
 
     // I/O calls are supposedly removed by OptVarPred by now.
     if (hasIOCall()) {
+      LLVM_DEBUG(dbgs() << "Fail 3 : \n");
       return false;
     }
 
     // Structural check.
-    if (!isCleanCut(LastSpatialLoop, StopLoop)) {
+    if (!isCleanCut(LastSpatialLoop, StopLoop))
       return false;
-    }
 
     assert(verifyTopSortOrderOfInnermostLoops() &&
            "InnermostLoops are not in Order.");
@@ -3493,6 +3593,7 @@ private:
     if (llvm::any_of(ReadOnlyBasePtr, [this](unsigned BasePtrIndex) {
           return this->DefinedBasePtr.count(BasePtrIndex);
         })) {
+      LLVM_DEBUG(dbgs() << "Fail 4 : \n");
       return false;
     }
 
@@ -3523,7 +3624,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
                       const LoopToConstRefTy &InnermostLoopToRepRef,
                       const InnermostLoopToShiftTy &InnermostLoopToShift,
                       HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
-                      StringRef Func) {
+                      StringRef Func, bool UseKnownGoodSizes) {
 
   if (DisableTransform) {
     LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
@@ -3540,16 +3641,29 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
 
   // Magic numbers.
   unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
-  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, PresetStripmineSize);
-  if (Size == 3) {
-    PreSetStripmineSizes[0] = 0;
-    PreSetStripmineSizes[1] = 1;
-    PreSetStripmineSizes[2] = 8;
+  SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
+  if (UseKnownGoodSizes) {
+    for (unsigned I = 0; I < Size; I++) {
+      switch (I) {
+      case 0:
+        PreSetStripmineSizes[I] = 0;
+        break;
+      case 1:
+        PreSetStripmineSizes[I] = 1;
+        break;
+      case 2:
+        PreSetStripmineSizes[I] = 8;
+        break;
+      default:
+        PreSetStripmineSizes[I] = DefaultStripmineSize;
+        break;
+      }
+    }
   }
 
   return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
                      InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
-                     OuterIf, DDA)
+                     OuterIf, DDA, Func)
       .rewrite();
 }
 
@@ -3559,7 +3673,11 @@ static int64_t getMaxUseDist(ArrayRef<const RegDDRef *> Rvals,
   const CanonExpr *RepCE = RepRef->getDimensionIndex(DimIndex);
   int64_t Kmax = 0;
   for (auto *Rval : Rvals) {
-    assert(DimIndex <= Rval->getNumDimensions());
+
+    // This can happen for some local rvals (e.g.
+    // (@upml_mod_mp_bx_ilow_)[0].0$2)
+    if (DimIndex > Rval->getNumDimensions())
+      continue;
 
     const CanonExpr *CE = Rval->getDimensionIndex(DimIndex);
     int64_t Dist = -1;
@@ -3770,6 +3888,41 @@ void testCalcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
                       << IsNonZeroAmtFound << "\n";);
 }
 
+void calcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                       const LoopToConstRefTy &InnermostLoopToRepRef,
+                       unsigned MinDimNums,
+                       InnermostLoopToShiftTy &InnermostLoopToShiftVec) {
+
+  InnermostLoopToShiftVec.resize(MinDimNums);
+
+  for (unsigned DimNum = 1; DimNum <= MinDimNums; DimNum++) {
+    SmallVector<int64_t, 32> ShiftAmt;
+    testCalcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, DimNum,
+                          ShiftAmt);
+
+    int64_t SumShifts = 0;
+    for (auto LI : enumerate(InnermostLoopToDimInfo)) {
+      int LoopID = LI.index();
+      SumShifts += ShiftAmt[LoopID];
+
+      InnermostLoopToShiftVec[DimNum - 1].push_back(SumShifts);
+    }
+
+    // All members are zero, then clean-up shifts.
+    if (!InnermostLoopToShiftVec[DimNum - 1].empty() &&
+        InnermostLoopToShiftVec[DimNum - 1].back() == 0) {
+      InnermostLoopToShiftVec[DimNum - 1].clear();
+    }
+  }
+
+  LLVM_DEBUG(for (unsigned DimNum = 1; DimNum <= MinDimNums;
+                  DimNum++) if (!InnermostLoopToShiftVec[DimNum - 1].empty()) {
+    dbgs() << "DimNum: " << DimNum
+           << " ShiftAmt: " << InnermostLoopToShiftVec[DimNum - 1].back()
+           << "\n";
+  });
+}
+
 bool funcFilter(const Function &F) {
   if (DisablePass) {
     return false;
@@ -3784,27 +3937,263 @@ bool funcFilter(const Function &F) {
   return true;
 }
 
-bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-                HIRDDAnalysis &DDA, const Function &F) {
+class testDriver {
+public:
+  testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
+             HIRDDAnalysis &DDA, TargetTransformInfo &TTI,
+             HIRLoopStatistics &HLS, const Function &F)
+      : HIRF(HIRF), HASA(HASA), DDA(DDA), HLS(HLS), Func(F),
+        UseKnownGoodSizes(false), RelaxedCheck(true) {
 
-  if (!funcFilter(F)) {
-    return false;
+    UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
   }
 
-  SmallVector<HLLoop *, 4> InnermostLoops;
+  // TODO: return value does not have a lot of meaning.
+  bool run();
 
-  // Collect only the innermost loops of the first region
-  HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
-  for (auto It = HLRangeIterator(Reg->child_begin()),
-            EIt = HLRangeIterator(Reg->child_end());
-       It != EIt; ++It) {
-    if (HLLoop *Lp = dyn_cast<HLLoop>(*It)) {
-      if (Lp->isInnermost())
-        InnermostLoops.push_back(Lp);
+private:
+  // Only two loops and they are in the mutually exclusive paths
+  static bool areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
+                                          const HLLoop *Loop2);
+
+  // In general, InnermostLoop is the innermost loops of a Perfect spatial
+  // loopnest, with a few exceptions.
+  static bool
+  isInAlmostPerfectLoopNest(const HLLoop *InnermostLoop, unsigned Index,
+                            const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                            const HLNode *OuterNode);
+
+  static bool
+  hasCommonAncestorThanReg(const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                           const HLRegion *Reg);
+
+  static unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                                  bool &AllCommonDimNum);
+
+  bool isProfitableUseDefPattern(
+      const SmallVectorImpl<HLLoop *> &InnermostLoops) const;
+  void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                          const HLRegion *Reg) const;
+
+private:
+  HIRFramework &HIRF;
+  HIRArraySectionAnalysis &HASA;
+  HIRDDAnalysis &DDA;
+  HIRLoopStatistics &HLS;
+
+  const Function &Func;
+
+  bool UseKnownGoodSizes;
+  bool RelaxedCheck;
+};
+
+unsigned
+testDriver::getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                            bool &AllCommonDimNum) {
+  unsigned Min = InnermostLoopToDimInfo.front().second.size();
+  AllCommonDimNum = true;
+  for (auto P : InnermostLoopToDimInfo) {
+    if (Min > P.second.size()) {
+      Min = P.second.size();
+      AllCommonDimNum = false;
     }
   }
 
+  return Min;
+}
+
+bool testDriver::isInAlmostPerfectLoopNest(
+    const HLLoop *InnermostLoop, unsigned Index,
+    const SmallVectorImpl<HLLoop *> &InnermostLoops, const HLNode *OuterNode) {
+
+  const HLLoop *Lp = InnermostLoop;
+  const HLNode *Parent = Lp->getParent();
+  bool NonLoopParent = false;
+
+  unsigned LowestSpatialLoopLevel = Lp->getNestingLevel();
+  SmallVector<const HLInst *> InBetweenNodes;
+  while (Parent && Parent != OuterNode) {
+    if (auto *PLoop = dyn_cast<HLLoop>(Parent)) {
+      if (NonLoopParent) {
+        LLVM_DEBUG(dbgs() << "0 Lp: " << Lp->getNumber()
+                          << " PLoop: " << PLoop->getNumber() << "\n");
+        return false;
+      }
+
+      // If PLoop's first child is Lp, no further exceptions need to be checked.
+      if (PLoop->getFirstChild() != Lp) {
+
+        if (!Lp->isInnermost())
+          return false;
+
+        if (Index < 1)
+          return false;
+
+        const HLNode *PrevNode = Lp->getPrevNode();
+        if (!PrevNode)
+          return false;
+
+        if (PrevNode != InnermostLoops[Index - 1]) {
+          if (!isa<HLInst>(PrevNode) ||
+              InnermostLoops[Index - 1]->getNextNode() != PrevNode) {
+            return false;
+          } else {
+            InBetweenNodes.push_back(cast<HLInst>(PrevNode));
+          }
+        }
+      }
+
+      LowestSpatialLoopLevel = PLoop->getNestingLevel();
+      Lp = PLoop;
+
+    } else {
+      LLVM_DEBUG(if (Lp) dbgs() << "2 Lp: " << Lp->getNumber();
+                 if (PLoop) dbgs() << " PLoop: " << PLoop->getNumber() << "\n");
+
+      NonLoopParent = true;
+    }
+
+    Parent = Parent->getParent();
+  }
+
+  // Scan InBetweenNodes
+  // Example:
+  // + DO i1 = 0, -1 * sext.i32.i64(%160) + sext.i32.i64(%190), 1   <DO_LOOP>
+  // |   + DO i2 = 0, zext.i32.i64(((-1 * %130) + %140)), 1   <DO_LOOP>
+  // |   |   %1705 = (%52)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130)]...
+  // |   |   %1744 = %1743  +  %1737;
+  // |   |   ...
+  // |   |   (%78)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130)] = %1745;
+  // |   + END LOOP
+  // |
+  // |   %1754 = (i1 + sext.i32.i64(%160) < %180) ? -1 : %1676; // In-between
+  // |
+  // |   + DO i2 = 0, zext.i32.i64(((-1 * %110) + %140)), 1   <DO_LOOP>
+  // |   |   %1776 = (%513)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%110)]...
+  // |   |   %1815 = %1776  *  %1814;
+  // |   |   ...
+  // |   |   (%77)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%110)] = %1815;
+  // |   + END LOOP
+  // + END LOOP
+  for (auto *Node : InBetweenNodes) {
+    for (auto *Ref :
+         make_range(Node->rval_op_ddref_begin(), Node->rval_op_ddref_end())) {
+
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        if (CE->isNonLinear() ||
+            CE->getDefinedAtLevel() >= LowestSpatialLoopLevel) {
+
+          LLVM_DEBUG(dbgs() << "Ref is not invariant at Level: "
+                            << LowestSpatialLoopLevel << "\n";
+                     Ref->dump(); CE->dump(); dbgs() << "\n");
+
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+bool testDriver::hasCommonAncestorThanReg(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops, const HLRegion *Reg) {
+
+  HLNode *CommonAncestor = findTheLowestAncestor(InnermostLoops.front(), Reg);
+  for (auto *Lp :
+       make_range(std::next(InnermostLoops.begin()), InnermostLoops.end())) {
+    HLNode *Ancestor = findTheLowestAncestor(Lp, Reg);
+    if (CommonAncestor != Ancestor) {
+      LLVM_DEBUG(dbgs() << "No common outer node other than region\n";
+                 dbgs() << Lp->getNumber() << " ";
+                 dbgs() << Ancestor->getNumber() << " "
+                        << CommonAncestor->getNumber() << "\n");
+
+      return false;
+    }
+  }
+  return true;
+}
+
+bool testDriver::isProfitableUseDefPattern(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops) const {
+
+  SmallVector<SparseBitVector<>, 64> InnermostLoopToDefs, InnermostLoopToUses;
+  SparseBitVector<> BaseUniverse;
+
+  std::map<unsigned, int> BaseToLoopCounts;
+  for (auto *Lp : InnermostLoops) {
+
+    SmallVector<RegDDRef *, 32> Refs;
+    MemRefGatherer::gather(Lp, Refs);
+
+    // Count BasePtr only once for a loop
+    auto &ASAR = HASA.getOrCompute(Lp);
+    SparseBitVector<> BasePtrsInLoop;
+    std::for_each(Refs.begin(), Refs.end(), [&](const RegDDRef *Ref) {
+      unsigned BasePtr = Ref->getBasePtrBlobIndex();
+      auto *SectionInfo = ASAR.get(BasePtr);
+      if (!SectionInfo)
+        return;
+      BasePtrsInLoop.set(BasePtr);
+    });
+
+    for (auto Base : BasePtrsInLoop) {
+      int &Count = BaseToLoopCounts[Base];
+      Count++;
+
+      BaseUniverse.set(Base);
+    }
+  }
+
+  int TotalBases = BaseUniverse.count();
+
+  int NumHighReuse = 0;
+  int NumMidReuse = 0;
+  int Size = InnermostLoops.size();
+  for (auto P : BaseToLoopCounts) {
+    float percent = (((float)P.second) / ((float)(Size))) * 100.0;
+
+    if (percent > 25)
+      NumHighReuse++;
+    else if (percent > 9)
+      NumMidReuse++;
+  }
+
+  // #(percent >= 25%) > 18%     (in terms of num_bases / total_num_bases)
+  // #(percent > 9% && percent < 25%) > 25%
+  if ((NumHighReuse <= (TotalBases * 0.18)) &&
+      (NumMidReuse <= (TotalBases * 0.25))) {
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Not Profitable in testDriver\n");
+    LLVM_DEBUG(dbgs() << "NumHighReuse: " << NumHighReuse << ", NumMidResuse: "
+                      << NumMidReuse << ", TotalBases: " << TotalBases << "\n");
+    return false;
+  }
+
+  return true;
+}
+
+void testDriver::testInnermostLoops(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops,
+    const HLRegion *Reg) const {
+
+  // Bails out for a few trivial cases.
+  if (InnermostLoops.size() < 2) {
+    LLVM_DEBUG(dbgs() << "Empty LV -- skip\n");
+    return;
+  }
+
   HLNode *OuterNode = findTheLowestAncestor(InnermostLoops.front(), Reg);
+  const HLIf *OutermostIf = dyn_cast<HLIf>(OuterNode);
+  if (!ForceTestDriver &&
+      (!OutermostIf || OutermostIf->getNumElseChildren() > 0))
+    return;
+
+  if (InnermostLoops.size() == 2 &&
+      areTwoLoopsInExclusiveFlows(InnermostLoops[0], InnermostLoops[1]))
+    return;
+
   unsigned Level = OuterNode->getNodeLevel();
 
   BasePtrIndexSetTy DefinedBasePtr;
@@ -3815,65 +4204,170 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   LoopToConstRefTy InnermostLoopToRepRef;
 
   DDGraph DDG = DDA.getGraph(Reg);
+
+  for (auto V : enumerate(InnermostLoops)) {
+    if (!isInAlmostPerfectLoopNest(V.value(), V.index(), InnermostLoops,
+                                   OuterNode)) {
+      LLVM_DEBUG(dbgs() << "Fail isValidLoopNest: " << V.value()->getNumber()
+                        << "\n");
+      LLVM_DEBUG(Reg->dump(1));
+      return;
+    }
+  }
+
+  if (!hasCommonAncestorThanReg(InnermostLoops, Reg))
+    return;
+
+  if (!isProfitableUseDefPattern(InnermostLoops))
+    return;
+
+  // Legality check
   for (auto *Lp : InnermostLoops) {
 
     SmallVector<DimInfoTy, 4> DimInfos;
     InnermostLoopAnalyzer IA(Lp, Level, DimInfos, BaseIndexToLowersAndStrides,
-                             F.getName());
+                             Func.getName(), RelaxedCheck);
 
     const RegDDRef *RepRef =
         IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, nullptr);
 
-    // Pass should be guaranteed.
-    assert(RepRef && "couldBeAMember() failed");
+    if (!RepRef) {
+      LLVM_DEBUG(dbgs() << "Fail Loop: " << Lp->getNumber() << "\n");
+      return;
+    }
 
     InnermostLoopToDimInfo.emplace_back(Lp, DimInfos);
     InnermostLoopToRepRef.emplace(Lp, RepRef);
   }
 
-  // Calc Shift amount for a loop, given a DimNum
-  unsigned DimNum = 1;
-  SmallVector<int64_t, 32> ShiftAmt;
-  testCalcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, DimNum,
-                        ShiftAmt);
+  bool AllCommonDimNum = true;
+  unsigned MinDimNums =
+      getCommonDimNum(InnermostLoopToDimInfo, AllCommonDimNum);
 
-  InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
-  int64_t SumShifts = 0;
-  for (auto LI : enumerate(InnermostLoopToDimInfo)) {
-    int LoopID = LI.index();
-    SumShifts += ShiftAmt[LoopID];
+  LLVM_DEBUG(dbgs() << "MinDimNums: " << MinDimNums << "\n");
+  LLVM_DEBUG(dbgs() << "AllCommonDimNum: " << AllCommonDimNum << "\n");
+  (void)AllCommonDimNum;
+  LLVM_DEBUG(for (unsigned I = 0; I < InnermostLoopToDimInfo.size(); I++) {
+    const HLLoop *Lp = InnermostLoopToDimInfo[I].first;
+    dbgs() << "Loop: " << InnermostLoopToDimInfo[I].first->getNumber() << " ";
+    InnermostLoopToRepRef[Lp]->dump();
+    for (auto J : InnermostLoopToDimInfo[I].second) {
+      dbgs() << J << " ";
+    }
+    dbgs() << "\n";
+  });
 
-    InnermostLoopToShiftVec[DimNum - 1].push_back(SumShifts);
-  }
-
-  // All members are zero, then clean-up shifts.
-  if (!InnermostLoopToShiftVec[DimNum - 1].empty() &&
-      InnermostLoopToShiftVec[DimNum - 1].back() == 0) {
-    InnermostLoopToShiftVec[DimNum - 1].clear();
-  }
+  InnermostLoopToShiftTy InnermostLoopToShiftVec;
+  calcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, MinDimNums,
+                    InnermostLoopToShiftVec);
 
   HLLoop *OutermostLoop = dyn_cast<HLLoop>(OuterNode);
   HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
   doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
                    InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
-                   F.getName());
+                   Func.getName(), UseKnownGoodSizes);
+}
+
+bool testDriver::areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
+                                             const HLLoop *Loop2) {
+  auto *LCAParent =
+      HLNodeUtils::getLexicalLowestCommonAncestorParent(Loop1, Loop2);
+
+  // Check if nodes are in mutually exclusive paths of the parent if/switch.
+  if (auto *If = dyn_cast<HLIf>(LCAParent)) {
+    if (If->isThenChild(Loop1) != If->isThenChild(Loop2)) {
+      return true;
+    }
+
+  } else if (auto *Switch = dyn_cast<HLSwitch>(LCAParent)) {
+
+    if (Switch->getChildCaseNum(Loop1) != Switch->getChildCaseNum(Loop2)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// TODO: Make printMarker work
+void printLoopVec(const SmallVectorImpl<HLLoop *> &LV) {
+  for (auto *L : LV) {
+    dbgs() << "Loop number: " << L->getNumber() << "\n";
+  }
+  dbgs() << "=======================\n";
+}
+#endif
+bool testDriver::run() {
+
+  if (!funcFilter(Func))
+    return false;
+
+  if (HIRF.hir_begin() == HIRF.hir_end())
+    return false;
+
+  SmallVector<HLLoop *, 4> InnermostLoops;
+  HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
+
+  for (auto It = HLRangeIterator(Reg->child_begin()),
+            EIt = HLRangeIterator(Reg->child_end());
+       It != EIt; ++It) {
+
+    if (HLLoop *Lp = dyn_cast<HLLoop>(*It)) {
+      if (!Lp->isInnermost())
+        continue;
+
+      const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+
+      if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
+        InnermostLoops.clear();
+        continue;
+      }
+
+      InnermostLoops.push_back(Lp);
+    } else if (HLGoto *HGoto = dyn_cast<HLGoto>(*It)) {
+
+      printMarker("Met a goto ", {HGoto}, true);
+      LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
+      LLVM_DEBUG(printLoopVec(InnermostLoops));
+
+      testInnermostLoops(InnermostLoops, Reg);
+      InnermostLoops.clear();
+
+    } else if (HLInst *HInst = dyn_cast<HLInst>(*It)) {
+      if (HInst->isCallInst()) {
+
+        printMarker("Met a CallInst ", {HInst}, true);
+        LLVM_DEBUG(dbgs() << "2. Innermost loops collected: ");
+        LLVM_DEBUG(printLoopVec(InnermostLoops));
+
+        testInnermostLoops(InnermostLoops, Reg);
+        InnermostLoops.clear();
+      }
+    }
+  }
+
+  if (!InnermostLoops.empty())
+    testInnermostLoops(InnermostLoops, Reg);
+
   return true;
 }
 
 bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-                  HIRDDAnalysis &DDA, StringRef FuncName,
-                  HLLoop *OutermostLoop) {
+                  HIRDDAnalysis &DDA, StringRef FuncName, HLLoop *OutermostLoop,
+                  bool UseKnownGoodSizes) {
 
   ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA, OutermostLoop,
                                          FuncName);
 
   bool FoundLegalAndProfitableCand = Checker.run();
+  LLVM_DEBUG(dbgs() << "Found Legal & Profitable Cand:"
+                    << FoundLegalAndProfitableCand << "\n");
   if (FoundLegalAndProfitableCand) {
     InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
                             Checker.getInnermostLoopToRepRef(),
                             InnermostLoopToShiftVec, Checker.getOutermostLoop(),
-                            nullptr, DDA, FuncName);
+                            nullptr, DDA, FuncName, UseKnownGoodSizes);
   }
 
   return false;
@@ -3881,8 +4375,8 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
 // Main driver for HIRInterLoopBlocking.
 bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-            HIRDDAnalysis &DDA, const Function &F) {
-
+            HIRDDAnalysis &DDA, TargetTransformInfo &TTI,
+            HIRLoopStatistics &HLS, const Function &F) {
   if (!funcFilter(F)) {
     return false;
   }
@@ -3891,6 +4385,10 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return false;
   }
 
+  // Strictly for lit-tests
+  if (ForceTestDriver)
+    return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();
+
   StringRef FuncName = F.getName();
 
   ProfitabilityChecker PC(HIRF, HASA, DDA, FuncName);
@@ -3898,10 +4396,11 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   // Looks profitable if true. Actual profitablity
   // can be decided after optVarPred.
   bool CouldBeProfitable = PC.isProfitable();
-
   if (!CouldBeProfitable) {
-    LLVM_DEBUG(dbgs() << "NOT Profitable\n");
-    return false;
+    LLVM_DEBUG(dbgs() << "NOT Profitable at first try.\n");
+
+    // Look for a second chance
+    return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();
   }
 
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Profitable\n");
@@ -3910,12 +4409,15 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   LLVM_DEBUG(dbgs() << PC.getOutermostLoop()->getNumber() << "\n";);
 
+  bool UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
+
   if (!isOptVarPredNeeded(PC)) {
     // Needed to lit-test cases
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
-    bool Success =
-        tryTransform(HIRF, HASA, DDA, FuncName, PC.getOutermostLoop());
+    bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
+                                PC.getOutermostLoop(), UseKnownGoodSizes);
     if (Success) {
       return true;
     }
@@ -3951,8 +4453,8 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   }
 
   // Heuristic: try to work only on OutLoops.back()
-  bool Success =
-      tryTransform(HIRF, HASA, DDA, FuncName, OutLoops[OutLoops.size() - 1]);
+  bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
+                              OutLoops[OutLoops.size() - 1], UseKnownGoodSizes);
   return Success;
 }
 } // namespace
@@ -3960,13 +4462,9 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
-  if (ForceTestDriver) {
-    testDriver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
-               AM.getResult<HIRDDAnalysisPass>(F), F);
-  } else {
-    driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
-           AM.getResult<HIRDDAnalysisPass>(F), F);
-  }
+  driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
+         AM.getResult<HIRDDAnalysisPass>(F), AM.getResult<TargetIRAnalysis>(F),
+         AM.getResult<HIRLoopStatisticsAnalysis>(F), F);
 
   return PreservedAnalyses::all();
 }
@@ -3984,7 +4482,9 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override {
@@ -3992,16 +4492,11 @@ public:
       return false;
     }
 
-    if (ForceTestDriver) {
-      return testDriver(
-          getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-          getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-          getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(), F);
-    } else {
-      return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                    getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-                    getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(), F);
-    }
+    return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                  getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
+                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                  getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), F);
   }
 };
 
@@ -4011,6 +4506,7 @@ INITIALIZE_PASS_BEGIN(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRArraySectionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
                     false)
 

@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===- Intel_FunctionRecognizer.h - Function Recognition --------------===//
 ////
 //// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
@@ -33,3 +34,4 @@ public:
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_INTEL_FUNCTION_RECOGNIZER_H
+#endif // INTEL_FEATURE_SW_ADVANCED

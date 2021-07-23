@@ -1,6 +1,6 @@
 ;
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -disable-output -print-after=VPlanDriverHIR  -hir-details < %s 2>&1  | FileCheck %s --check-prefix=HIRCHECK
-; RUN: opt -VPlanDriver -disable-output -print-after=VPlanDriver  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
+; RUN: opt -tbaa -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -print-after=hir-vplan-vec  -hir-details < %s 2>&1  | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -vplan-vec -disable-output -print-after=vplan-vec  < %s 2>&1  | FileCheck %s --check-prefix=LLVMCHECK
 ;
 ; LIT test to check that alignment is being set correctly for VLS group load and store.
 ; The alignment value to be used needs to come from the alignment of the first memory
@@ -27,8 +27,8 @@ for.body:                                         ; preds = %entry, %for.body
   %l1.014 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %b = getelementptr inbounds [100 x %struct.f2], [100 x %struct.f2]* @farr, i64 0, i64 %l1.014, i32 1, !intel-tbaa !2
 ;
-; HIRCHECK:    %{{.*}} = (<8 x i32>*)([[ADDRCOPY:%.*]])[-1];
-; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR i32* [[ADDRCOPY]])[i64 -1]
+; HIRCHECK:    [[GEP_BASE:%.*]] = &((i32*)(@farr)[0][i1].1);
+; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR i32* [[GEP_BASE]])[i64 -1]
 ; LLVMCHECK:   %{{.*}} = load <8 x i32>, <8 x i32>* %{{.*}}, align 8
 ;
   %0 = load i32, i32* %b, align 4, !tbaa !2

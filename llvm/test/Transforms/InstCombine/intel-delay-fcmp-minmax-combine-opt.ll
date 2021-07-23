@@ -43,7 +43,7 @@ define dso_local i32 @delayFCmpMinMaxOpt(float* %in0, float* %in1) {
 ; DISABLE-NEXT:    [[TMP1:%.*]] = load <4 x float>, <4 x float>* [[TMP0]], align 4
 ; DISABLE-NEXT:    [[M:%.*]] = load float, float* [[IN1:%.*]], align 4
 ; DISABLE-NEXT:    [[TMP2:%.*]] = insertelement <4 x float> poison, float [[M]], i32 0
-; DISABLE-NEXT:    [[TMP3:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> undef, <4 x i32> zeroinitializer
+; DISABLE-NEXT:    [[TMP3:%.*]] = shufflevector <4 x float> [[TMP2]], <4 x float> poison, <4 x i32> zeroinitializer
 ; DISABLE-NEXT:    [[TMP4:%.*]] = fcmp fast ogt <4 x float> [[TMP1]], [[TMP3]]
 ; DISABLE-NEXT:    [[TMP5:%.*]] = bitcast <4 x i1> [[TMP4]] to i4
 ; DISABLE-NEXT:    [[DOTNOT:%.*]] = icmp eq i4 [[TMP5]], 0

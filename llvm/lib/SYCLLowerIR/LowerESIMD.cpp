@@ -32,6 +32,12 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+#include "llvm/GenXIntrinsics/GenXMetadata.h"
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 #include <cctype>
 #include <cstring>
 #include <unordered_map>
@@ -76,6 +82,47 @@ ModulePass *llvm::createSYCLLowerESIMDPass() {
 }
 
 namespace {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+enum class lsc_subopcode : uint8_t {
+  load = 0x00,
+  load_strided = 0x01,
+  load_quad = 0x02,
+  load_block2d = 0x03,
+  store = 0x04,
+  store_strided = 0x05,
+  store_quad = 0x06,
+  store_block2d = 0x07,
+  //
+  atomic_iinc = 0x08,
+  atomic_idec = 0x09,
+  atomic_load = 0x0a,
+  atomic_store = 0x0b,
+  atomic_iadd = 0x0c,
+  atomic_isub = 0x0d,
+  atomic_smin = 0x0e,
+  atomic_smax = 0x0f,
+  atomic_umin = 0x10,
+  atomic_umax = 0x11,
+  atomic_icas = 0x12,
+  atomic_fadd = 0x13,
+  atomic_fsub = 0x14,
+  atomic_fmin = 0x15,
+  atomic_fmax = 0x16,
+  atomic_fcas = 0x17,
+  atomic_and = 0x18,
+  atomic_or = 0x19,
+  atomic_xor = 0x1a,
+  //
+  load_status = 0x1b,
+  store_uncompressed = 0x1c,
+  ccs_update = 0x1d,
+  read_state_info = 0x1e,
+  fence = 0x1f,
+};
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 // The regexp for ESIMD intrinsics:
 // /^_Z(\d+)__esimd_\w+/
 static constexpr char ESIMD_INTRIN_PREF0[] = "_Z";
@@ -92,15 +139,19 @@ struct ESIMDIntrinDesc {
     SRC_TMPL_ARG, // is an integer template argument
     NUM_BYTES,    // is a number of bytes (gather.scaled and scatter.scaled)
     UNDEF,        // is an undef value
+    CONST_INT8,   // is an i8 constant
     CONST_INT16,  // is an i16 constant
     CONST_INT32,  // is an i32 constant
     CONST_INT64,  // is an i64 constant
   };
 
-  enum GenXArgConversion {
-    NONE,  // no conversion
-    TO_I1, // convert vector of N-bit integer to 1-bit
-    TO_SI  // convert to 32-bit integer surface index
+  enum class GenXArgConversion : int16_t {
+    NONE,   // no conversion
+    TO_SI,  // convert to 32-bit integer surface index
+    TO_I1,  // convert vector of N-bit integer to 1-bit
+    TO_I8,  // convert vector of N-bit integer to 18-bit
+    TO_I16, // convert vector of N-bit integer to 16-bit
+    TO_I32, // convert vector of N-bit integer to 32-bit
   };
 
   // Denotes GenX intrinsic name suffix creation rule kind.
@@ -116,13 +167,13 @@ struct ESIMDIntrinDesc {
     GenXArgRuleKind Kind;
     union Info {
       struct {
-        int16_t CallArgNo; // SRC_CALL_ARG: source call arg num
-                           // UNDEF: source call arg num to get type from
-                           // -1 denotes return value
-        int16_t Conv;      // GenXArgConversion
+        int16_t CallArgNo;      // SRC_CALL_ARG: source call arg num
+                                // SRC_TMPL_ARG: source template arg num
+                                // UNDEF: source call arg num to get type from
+                                // -1 denotes return value
+        GenXArgConversion Conv; // GenXArgConversion
       } Arg;
       int NRemArgs;           // SRC_CALL_ALL: number of remaining args
-      unsigned int TmplArgNo; // SRC_TMPL_ARG: source template arg num
       unsigned int ArgConst;  // CONST_I16 OR CONST_I32: constant value
     } I;
   };
@@ -167,9 +218,38 @@ private:
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::Kind, {{N, {}}}};         \
   }
   DEF_ARG_RULE(l, SRC_CALL_ALL)
-  DEF_ARG_RULE(t, SRC_TMPL_ARG)
   DEF_ARG_RULE(u, UNDEF)
   DEF_ARG_RULE(nbs, NUM_BYTES)
+
+  static constexpr ESIMDIntrinDesc::ArgRule t(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::NONE}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t1(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I1}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t8(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I8}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t16(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I16}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t32(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I32}}};
+  }
 
   static constexpr ESIMDIntrinDesc::ArgRule a(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{
@@ -188,6 +268,17 @@ private:
         ESIMDIntrinDesc::SRC_CALL_ARG,
         {{N, ESIMDIntrinDesc::GenXArgConversion::TO_SI}}};
   }
+
+  static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
+  }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
+    return c8(static_cast<uint8_t>(OpCode));
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule c16(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT16, {{N, {}}}};
@@ -331,10 +422,97 @@ public:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ESIMD_EMBARGO
         {"wait", {"dummy.mov", {a(0)}}},
-        {"dpas", {"dpas", {a(0), a(1), a(2), a(3)}}},
+        {"dpas", {"dpas2", {a(0), a(1), a(2),
+                            a(3), a(4), a(5), a(6), a(7), a(8)}}},
         {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+        {"bf_cvt", { "bf.cvt", { a(0) }}},
+        {"tf32_cvt", { "tf32.cvt", { a(0) }}},
+        {"qf_cvt", { "qf.cvt", { a(0) }}},
+        {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
+        {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
+        {"lsc_load_slm",
+         {"lsc.load.slm",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_load_bti",
+         {"lsc.load.bti",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), aSI(2)}}},
+        {"lsc_load_stateless",
+         {"lsc.load.stateless",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_prefetch_bti",
+         {"lsc.prefetch.bti",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), aSI(2)}}},
+        {"lsc_prefetch_stateless",
+         {"lsc.prefetch.stateless",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_store_slm",
+         {"lsc.store.slm",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+        {"lsc_store_bti",
+         {"lsc.store.bti",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
+        {"lsc_store_stateless",
+         {"lsc.store.stateless",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+        {"lsc_load2d_stateless",
+         {"lsc.load2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6)}}},
+        {"lsc_prefetch2d_stateless",
+         {"lsc.prefetch2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6)}}},
+        {"lsc_store2d_stateless",
+         {"lsc.store2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6), a(7)}}},
+        {"lsc_xatomic_slm_0",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_slm_1",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_slm_2",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
+        {"lsc_xatomic_bti_0",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), aSI(2), u(-1)}}},
+        {"lsc_xatomic_bti_1",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), aSI(3), u(-1)}}},
+        {"lsc_xatomic_bti_2",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), aSI(4), u(-1)}}},
+        {"lsc_xatomic_stateless_0",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_stateless_1",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_stateless_2",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
+        {"lsc_fence", {"lsc.fence", {ai1(0), t8(0), t8(1), t8(2)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"satf", {"sat", {a(0)}}},
@@ -355,6 +533,10 @@ public:
         {"uushl_sat", {"uushl.sat", {a(0), a(1)}}},
         {"rol", {"rol", {a(0), a(1)}}},
         {"ror", {"ror", {a(0), a(1)}}},
+        {"rndd", {"rndd", {a(0)}}},
+        {"rnde", {"rnde", {a(0)}}},
+        {"rndu", {"rndu", {a(0)}}},
+        {"rndz", {"rndz", {a(0)}}},
         {"umulh", {"umulh", {a(0), a(1)}}},
         {"smulh", {"smulh", {a(0), a(1)}}},
         {"frc", {"frc", {a(0)}}},
@@ -392,6 +574,9 @@ public:
         {"ssdp4a_sat", {"ssdp4a.sat", {a(0), a(1), a(2)}}},
         {"any", {"any", {ai1(0)}}},
         {"all", {"all", {ai1(0)}}},
+        {"lane_id", {"lane.id", {}}},
+        {"test_src_tmpl_arg",
+         {"test.src.tmpl.arg", {t(0), t1(1), t8(2), t16(3), t32(4), c8(17)}}},
     };
   }
 
@@ -458,6 +643,7 @@ Type *parsePrimitiveTypeString(StringRef TyStr, LLVMContext &Ctx) {
       .Case("unsigned", IntegerType::getInt32Ty(Ctx))
       .Case("unsigned long long", IntegerType::getInt64Ty(Ctx))
       .Case("long long", IntegerType::getInt64Ty(Ctx))
+      .Case("_Float16", IntegerType::getHalfTy(Ctx))
       .Case("float", IntegerType::getFloatTy(Ctx))
       .Case("double", IntegerType::getDoubleTy(Ctx))
       .Case("void", IntegerType::getVoidTy(Ctx))
@@ -474,26 +660,59 @@ static const T *castNodeImpl(const id::Node *N, id::Node::Kind K) {
   castNodeImpl<id::NodeKind>(NodeObj, id::Node::K##NodeKind)
 
 static APInt parseTemplateArg(id::FunctionEncoding *FE, unsigned int N,
-                              Type *&Ty, LLVMContext &Ctx) {
+                              Type *&Ty, LLVMContext &Ctx,
+                              ESIMDIntrinDesc::GenXArgConversion Conv =
+                                  ESIMDIntrinDesc::GenXArgConversion::NONE) {
+  // parseTemplateArg returns APInt with a certain bitsize
+  // This bitsize (primitive size in bits) is deduced by the following rules:
+  // If Conv is not None, then bitsize is taken from Conv
+  // If Conv is None and Arg is IntegerLiteral, then bitsize is taken from
+  // Arg size
+  // If Conv is None and Arg is BoolExpr or Enum, the bitsize falls back to 32
+
   const auto *Nm = castNode(FE->getName(), NameWithTemplateArgs);
   const auto *ArgsN = castNode(Nm->TemplateArgs, TemplateArgs);
   id::NodeArray Args = ArgsN->getParams();
   assert(N < Args.size() && "too few template arguments");
   id::StringView Val;
+  switch (Conv) {
+  case ESIMDIntrinDesc::GenXArgConversion::NONE:
+    // Default fallback case, if we cannot deduce bitsize
+    Ty = IntegerType::getInt32Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I1:
+    Ty = IntegerType::getInt1Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I8:
+    Ty = IntegerType::getInt8Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I16:
+    Ty = IntegerType::getInt16Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I32:
+  case ESIMDIntrinDesc::GenXArgConversion::TO_SI:
+    Ty = IntegerType::getInt32Ty(Ctx);
+    break;
+  }
 
   switch (Args[N]->getKind()) {
   case id::Node::KIntegerLiteral: {
     auto *ValL = castNode(Args[N], IntegerLiteral);
     const id::StringView &TyStr = ValL->getType();
-    Ty = TyStr.size() == 0 ? IntegerType::getInt32Ty(Ctx)
-                           : parsePrimitiveTypeString(
-                                 StringRef(TyStr.begin(), TyStr.size()), Ctx);
+    if (Conv == ESIMDIntrinDesc::GenXArgConversion::NONE && TyStr.size() != 0)
+      // Overwrite Ty with IntegerLiteral's size
+      Ty =
+          parsePrimitiveTypeString(StringRef(TyStr.begin(), TyStr.size()), Ctx);
     Val = ValL->getValue();
+    break;
+  }
+  case id::Node::KBoolExpr: {
+    auto *ValL = castNode(Args[N], BoolExpr);
+    ValL->match([&Val](bool Value) { Value ? Val = "1" : Val = "0"; });
     break;
   }
   case id::Node::KEnumLiteral: {
     auto *CE = castNode(Args[N], EnumLiteral);
-    Ty = IntegerType::getInt32Ty(Ctx);
     Val = CE->getIntegerValue();
     break;
   }
@@ -745,12 +964,44 @@ static void translateUnPackMask(CallInst &CI) {
   CI.replaceAllUsesWith(TransCI);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+
+// This function sets VCNamedBarrierCount attribute to set
+// the number of named barriers required by a kernel
+static void translateNbarrierInit(CallInst &CI) {
+  auto F = CI.getParent()->getParent();
+
+  auto *ArgV = CI.getArgOperand(0);
+  assert(isa<ConstantInt>(ArgV) && "integral constant expected for nbarrier count");
+
+  auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
+  assert(NewVal != 0 && "zero nbarrier count being requested");
+
+  if (llvm::MDNode *Node = getSLMSizeMDNode(F)) {
+    if (llvm::Value *OldCount =
+            getVal(Node->getOperand(genx::KernelMDOp::NBarrierCnt))) {
+      assert(isa<llvm::ConstantInt>(OldCount) && "integer constant expected");
+      llvm::Value *NewCount =
+          llvm::ConstantInt::get(OldCount->getType(), NewVal);
+      uint64_t OldVal = cast<llvm::ConstantInt>(OldCount)->getZExtValue();
+      if (OldVal < NewVal)
+        Node->replaceOperandWith(genx::KernelMDOp::NBarrierCnt,
+                                 getMD(NewCount));
+    }
+  } else {
+    llvm_unreachable("esimd_nbarrier_init can only be called by a kernel");
+  }
+}
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
+
 static bool translateVLoad(CallInst &CI, SmallPtrSet<Type *, 4> &GVTS) {
   if (GVTS.find(CI.getType()) != GVTS.end())
     return false;
   IRBuilder<> Builder(&CI);
-  auto *ElemT = CI.getArgOperand(0)->getType()->getPointerElementType();
-  auto LI = Builder.CreateLoad(ElemT, CI.getArgOperand(0), CI.getName());
+  auto LI = Builder.CreateLoad(CI.getType(), CI.getArgOperand(0), CI.getName());
   LI->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(LI);
   return true;
@@ -825,7 +1076,7 @@ static Instruction *generateVectorGenXForSpirv(ExtractElementInst *EEI,
   Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
       EEI->getModule(), ID, {FixedVectorType::get(I32Ty, 3)});
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, EEI->getName() + ".esimd", EEI);
+      CallInst::Create(NewFDecl, {}, EEI->getName() + ".esimd", EEI);
   int ExtractIndex = getIndexForSuffix(Suff);
   assert(ExtractIndex != -1 && "Extract index is invalid.");
   Twine ExtractName = ValueName + Suff;
@@ -863,7 +1114,7 @@ static Instruction *generateGenXForSpirv(ExtractElementInst *EEI,
       GenXIntrinsic::getGenXDeclaration(EEI->getModule(), ID, {});
 
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, IntrinName + Suff.str(), EEI);
+      CallInst::Create(NewFDecl, {}, IntrinName + Suff.str(), EEI);
   Instruction *CastI = addCastInstIfNeeded(EEI, IntrI);
   if (EEI->getDebugLoc()) {
     IntrI->setDebugLoc(EEI->getDebugLoc());
@@ -976,7 +1227,8 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       break;
     case ESIMDIntrinDesc::GenXArgRuleKind::SRC_TMPL_ARG: {
       Type *Ty = nullptr;
-      APInt Val = parseTemplateArg(FE, Rule.I.TmplArgNo, Ty, CI.getContext());
+      APInt Val = parseTemplateArg(FE, Rule.I.Arg.CallArgNo, Ty,
+                                   CI.getContext(), Rule.I.Arg.Conv);
       Value *ArgVal = ConstantInt::get(
           Ty, static_cast<uint64_t>(Val.getSExtValue()), true /*signed*/);
       GenXArgs.push_back(ArgVal);
@@ -1002,6 +1254,11 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       GenXArgs.push_back(UndefValue::get(Ty));
       break;
     }
+    case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT8: {
+      auto Ty = IntegerType::getInt8Ty(CI.getContext());
+      GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
+      break;
+    }
     case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT16: {
       auto Ty = IntegerType::getInt16Ty(CI.getContext());
       GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
@@ -1021,13 +1278,30 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
   }
 }
 
+// Create a simple function declaration
+// This is used for testing purposes, when it is impossible to query
+// vc-intrinsics
+static Function *createTestESIMDDeclaration(const ESIMDIntrinDesc &Desc,
+                                            SmallVector<Value *, 16> &GenXArgs,
+                                            CallInst &CI) {
+  SmallVector<Type *, 16> ArgTypes;
+  for (unsigned i = 0; i < GenXArgs.size(); ++i)
+    ArgTypes.push_back(GenXArgs[i]->getType());
+  auto *FType = FunctionType::get(CI.getType(), ArgTypes, false);
+  auto Name = GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling;
+  return Function::Create(FType, GlobalVariable::ExternalLinkage, Name,
+                          CI.getModule());
+}
+
 // Demangles and translates given ESIMD intrinsic call instruction. Example
 //
 // ### Source-level intrinsic:
 //
-// sycl::intel::gpu::__vector_type<int, 16>::type __esimd_flat_read<int, 16>(
-//     sycl::intel::gpu::__vector_type<unsigned long long, 16>::type,
-//     sycl::intel::gpu::__vector_type<int, 16>::type)
+// sycl::ext::intel::experimental::esimd::__vector_type<int, 16>::type
+// __esimd_flat_read<int, 16>(
+//     sycl::ext::intel::experimental::esimd::__vector_type<unsigned long long,
+//     16>::type, sycl::ext::intel::experimental::esimd::__vector_type<int,
+//     16>::type)
 //
 // ### Itanium-mangled name:
 //
@@ -1104,23 +1378,28 @@ static void translateESIMDIntrinsicCall(CallInst &CI) {
 
   auto *FTy = F->getFunctionType();
   std::string Suffix = getESIMDIntrinSuffix(FE, FTy, Desc.SuffixRule);
-  auto ID = GenXIntrinsic::lookupGenXIntrinsicID(
-      GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling + Suffix);
-
   SmallVector<Value *, 16> GenXArgs;
   createESIMDIntrinsicArgs(Desc, GenXArgs, CI, FE);
+  Function *NewFDecl = nullptr;
+  if (Desc.GenXSpelling.rfind("test.src.", 0) == 0) {
+    // Special case for testing purposes
+    NewFDecl = createTestESIMDDeclaration(Desc, GenXArgs, CI);
+  } else {
+    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(
+        GenXIntrinsic::getGenXIntrinsicPrefix() + Desc.GenXSpelling + Suffix);
 
-  SmallVector<Type *, 16> GenXOverloadedTypes;
-  if (GenXIntrinsic::isOverloadedRet(ID))
-    GenXOverloadedTypes.push_back(CI.getType());
-  for (unsigned i = 0; i < GenXArgs.size(); ++i)
-    if (GenXIntrinsic::isOverloadedArg(ID, i))
-      GenXOverloadedTypes.push_back(GenXArgs[i]->getType());
+    SmallVector<Type *, 16> GenXOverloadedTypes;
+    if (GenXIntrinsic::isOverloadedRet(ID))
+      GenXOverloadedTypes.push_back(CI.getType());
+    for (unsigned i = 0; i < GenXArgs.size(); ++i)
+      if (GenXIntrinsic::isOverloadedArg(ID, i))
+        GenXOverloadedTypes.push_back(GenXArgs[i]->getType());
 
-  Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID,
-                                                         GenXOverloadedTypes);
+    NewFDecl = GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID,
+                                                 GenXOverloadedTypes);
+  }
 
-  Instruction *NewCI = IntrinsicInst::Create(
+  Instruction *NewCI = CallInst::Create(
       NewFDecl, GenXArgs,
       NewFDecl->getReturnType()->isVoidTy() ? "" : CI.getName() + ".esimd",
       &CI);
@@ -1270,7 +1549,9 @@ SmallPtrSet<Type *, 4> collectGenXVolatileTypes(Module &M) {
     if (!PTy)
       continue;
     auto GTy = dyn_cast<StructType>(PTy->getPointerElementType());
-    if (!GTy || !GTy->getName().endswith("cl::sycl::INTEL::gpu::simd"))
+    // TODO FIXME relying on type name in LLVM IR is fragile, needs rework
+    if (!GTy || !GTy->getName().endswith(
+                    "cl::sycl::ext::intel::experimental::esimd::simd"))
       continue;
     assert(GTy->getNumContainedTypes() == 1);
     auto VTy = GTy->getContainedType(0);
@@ -1353,12 +1634,22 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
 
       // process ESIMD builtins that go through special handling instead of
       // the translation procedure
-      if (Name.startswith("N2cl4sycl5INTEL3gpu8slm_init")) {
+      // TODO FIXME slm_init should be made top-level __esimd_slm_init
+      if (Name.startswith("N2cl4sycl3ext5intel12experimental5esimd8slm_init")) {
         // tag the kernel with meta-data SLMSize, and remove this builtin
         translateSLMInit(*CI);
         ESIMDToErases.push_back(CI);
         continue;
       }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+      if (Name.startswith("__esimd_nbarrier_init")) {
+        translateNbarrierInit(*CI);
+        ESIMDToErases.push_back(CI);
+        continue;
+      }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
       if (Name.startswith("__esimd_pack_mask")) {
         translatePackMask(*CI);
         ESIMDToErases.push_back(CI);

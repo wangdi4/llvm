@@ -26,7 +26,7 @@
 using namespace llvm;
 
 void llvm::initializeIPO(PassRegistry &Registry) {
-  initializeOpenMPOptLegacyPassPass(Registry);
+  initializeOpenMPOptCGSCCLegacyPassPass(Registry);
   initializeArgPromotionPass(Registry);
   initializeAnnotation2MetadataLegacyPass(Registry);
   initializeCalledValuePropagationLegacyPassPass(Registry);
@@ -36,6 +36,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDAHPass(Registry);
   initializeDAESYCLPass(Registry);
   initializeForceFunctionAttrsLegacyPassPass(Registry);
+  initializeFunctionSpecializationLegacyPassPass(Registry);
   initializeGlobalDCELegacyPassPass(Registry);
   initializeGlobalOptLegacyPassPass(Registry);
   initializeGlobalSplitPass(Registry);
@@ -70,20 +71,31 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeSampleProfileLoaderLegacyPassPass(Registry);
   initializeFunctionImportLegacyPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
-  initializeIPCloningLegacyPassPass(Registry);          // INTEL
-  initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
-  initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
-  initializeIntelPartialInlineLegacyPassPass(Registry); // INTEL
-  initializeIntelIPOPrefetchWrapperPassPass(Registry); // INTEL
-  initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
-  initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL
-  initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
-  initializeAggInlinerLegacyPassPass(Registry); // INTEL
-  initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
-  initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
-  initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL
-  initializeIPArrayTransposeLegacyPassPass(Registry); // INTEL
-  initializeArgNoAliasPropPass(Registry);            // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  initializeIPCloningLegacyPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
+  initializeCallTreeCloningLegacyPassPass(Registry);
+  initializeIntelAdvancedFastCallWrapperPassPass(Registry);
+  initializeDopeVectorConstPropLegacyPassPass(Registry);
+  initializeIntelArgumentAlignmentLegacyPassPass(Registry);
+#if INTEL_FEATURE_SW_ADVANCED
+  initializeQsortRecognizerLegacyPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
+  initializeAggInlinerLegacyPassPass(Registry);
+  initializeIntelFoldWPIntrinsicLegacyPassPass(Registry);
+  initializeTileMVInlMarkerLegacyPassPass(Registry);
+  initializeIPArrayTransposeLegacyPassPass(Registry);
+  initializeArgNoAliasPropPass(Registry);
+  initializeIntelVTableFixupLegacyPassPass(Registry);
+  initializeIntelMathLibrariesDeclarationWrapperPass(Registry);
+  initializeIntelIPODeadArgEliminationWrapperPass(Registry);
+#if INTEL_FEATURE_SW_ADVANCED
+  initializeIntelPartialInlineLegacyPassPass(Registry);
+  initializeIntelIPOPrefetchWrapperPassPass(Registry);
+  initializeDeadArrayOpsEliminationLegacyPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

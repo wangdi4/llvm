@@ -115,6 +115,16 @@ bool llvm::hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
   }
 }
 
+bool llvm::hasVectorInstrinsicOverloadedScalarOpd(Intrinsic::ID ID,
+                                                  unsigned ScalarOpdIdx) {
+  switch (ID) {
+  case Intrinsic::powi:
+    return (ScalarOpdIdx == 1);
+  default:
+    return false;
+  }
+}
+
 /// Returns intrinsic ID for call.
 /// For the input call instruction it finds mapping intrinsic and returns
 /// its ID, in case it does not found it return not_intrinsic.
@@ -673,7 +683,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
             // Mark the call argument with the stride value in number of
             // elements.
             AttrList.addAttribute("stride",
-                                  APInt(32, StrideVal).toString(10, false));
+                                  toString(APInt(32, StrideVal), 10, false));
           }
         }
       } else {
@@ -908,6 +918,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     assert(!RetTy->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
+    for (auto &I : enumerate(ArgTys))
+      if (hasVectorInstrinsicOverloadedScalarOpd(ID, I.index()))
+        TysForDecl.push_back(I.value());
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
   }
 
@@ -917,7 +930,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
     Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
-    std::string VLStr = APInt(32, VL).toString(10, false);
+    std::string VLStr = toString(APInt(32, VL), 10, false);
     std::string TyStr =
         typeToString(Alloca->getType()->getPointerElementType());
     std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
@@ -1180,6 +1193,8 @@ MDNode *llvm::intersectAccessGroups(const Instruction *Inst1,
 
 /// \returns \p I after propagating metadata from \p VL.
 Instruction *llvm::propagateMetadata(Instruction *Inst, ArrayRef<Value *> VL) {
+  if (VL.empty())
+    return Inst;
   Instruction *I0 = cast<Instruction>(VL[0]);
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
   I0->getAllMetadataOtherThanDebugLoc(Metadata);
@@ -1389,7 +1404,6 @@ bool llvm::maskIsAllZeroOrUndef(Value *Mask) {
   return true;
 }
 
-
 bool llvm::maskIsAllOneOrUndef(Value *Mask) {
   assert(isa<VectorType>(Mask->getType()) &&
          isa<IntegerType>(Mask->getType()->getScalarType()) &&
@@ -1455,12 +1469,11 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
   DFS.perform(LI);
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO()))
     for (auto &I : *BB) {
-      auto *LI = dyn_cast<LoadInst>(&I);
-      auto *SI = dyn_cast<StoreInst>(&I);
-      if (!LI && !SI)
-        continue;
-
       Value *Ptr = getLoadStorePointerOperand(&I);
+      if (!Ptr)
+        continue;
+      Type *ElementTy = getLoadStoreType(&I);
+
       // We don't check wrapping here because we don't know yet if Ptr will be
       // part of a full group or a group with gaps. Checking wrapping for all
       // pointers (even those that end up in groups with no gaps) will be overly
@@ -1472,8 +1485,7 @@ void InterleavedAccessInfo::collectConstStrideAccesses(
                                     /*Assume=*/true, /*ShouldCheckWrap=*/false);
 
       const SCEV *Scev = replaceSymbolicStrideSCEV(PSE, Strides, Ptr);
-      PointerType *PtrTy = cast<PointerType>(Ptr->getType());
-      uint64_t Size = DL.getTypeAllocSize(PtrTy->getElementType());
+      uint64_t Size = DL.getTypeAllocSize(ElementTy);
       AccessStrideInfo[&I] = StrideDescriptor(Stride, Scev, Size,
                                               getLoadStoreAlignment(&I));
     }

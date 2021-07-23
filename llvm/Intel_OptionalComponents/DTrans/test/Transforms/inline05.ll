@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 ; RUN: opt -passes='cgscc(inline)' -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 
@@ -234,3 +236,4 @@ attributes #3 = { nounwind }
 ;  return 0;
 ;}
 ;
+; end INTEL_FEATURE_SW_ADVANCED

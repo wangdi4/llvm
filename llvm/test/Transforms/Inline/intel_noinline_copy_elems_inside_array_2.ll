@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; This test is same as intel_noinline_copy_elems_inside_array.ll except
 ; a use of the first argument of @copy_inside_array is not directly used
 ; in getelementptr instruction. This test checks that inline decision for
@@ -118,3 +120,4 @@ for.inc8:                                         ; preds = %for.body3
 for.end10:                                        ; preds = %for.inc8
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

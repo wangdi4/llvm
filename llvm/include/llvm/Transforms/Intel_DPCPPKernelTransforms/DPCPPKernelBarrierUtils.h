@@ -18,6 +18,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include <string>
 
@@ -25,17 +26,7 @@
 #define CLK_LOCAL_MEM_FENCE 0x01
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 
-#define NO_BARRIER_PATH_ATTRNAME "dpcpp-no-barrier-path"
-
 namespace llvm {
-
-typedef enum {
-  SyncTypeNone,
-  SyncTypeBarrier,
-  SyncTypeDummyBarrier,
-  SyncTypeFiber,
-  SyncTypeNum
-} SyncType;
 
 using InstVector = SmallVector<llvm::Instruction *, 8>;
 using ValueVector = SmallVector<llvm::Value *, 8>;
@@ -167,8 +158,9 @@ public:
   /// KernelList - list of kernels,
   /// M - Module,
   /// Returns List - out list with collected functions.
-  static FuncVector getAllKernelsAndVectorizedCounterparts(
-      const SmallVectorImpl<Function *> &KernelList, Module *M);
+  static FuncVector
+  getAllKernelsAndVectorizedCounterparts(ArrayRef<Function *> KernelList,
+                                         Module *M);
 
 private:
   /// Clean all collected values and assure

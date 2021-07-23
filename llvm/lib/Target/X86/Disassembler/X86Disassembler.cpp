@@ -157,6 +157,9 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   case THREEBYTE_3B:
     dec = &THREEBYTE3B_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+  case MAP8:
+    dec = &MAP8_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -362,11 +365,7 @@ static int readPrefixes(struct InternalInstruction *insn) {
 
     if ((insn->mode == MODE_64BIT || (byte1 & 0xc0) == 0xc0) &&
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
         ((~byte1 & 0x8) == 0x8) && ((byte2 & 0x4) == 0x4)) {
-#else // INTEL_FEATURE_ISA_FP16
-        ((~byte1 & 0xc) == 0xc) && ((byte2 & 0x4) == 0x4)) {
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       insn->vectorExtensionType = TYPE_EVEX;
     } else {
@@ -945,23 +944,13 @@ static bool readOpcode(struct InternalInstruction *insn) {
   insn->opcodeType = ONEBYTE;
   if (insn->vectorExtensionType == TYPE_EVEX) {
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     switch (mmmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
-#else // INTEL_FEATURE_ISA_FP16
-    switch (mmFromEVEX2of4(insn->vectorExtensionPrefix[1])) {
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     default:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
       LLVM_DEBUG(
           dbgs() << format("Unhandled mmm field for instruction (0x%hhx)",
                            mmmFromEVEX2of4(insn->vectorExtensionPrefix[1])));
-#else // INTEL_FEATURE_ISA_FP16
-      LLVM_DEBUG(
-          dbgs() << format("Unhandled mm field for instruction (0x%hhx)",
-                           mmFromEVEX2of4(insn->vectorExtensionPrefix[1])));
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
       return true;
     case VEX_LOB_0F:
@@ -974,14 +963,12 @@ static bool readOpcode(struct InternalInstruction *insn) {
       insn->opcodeType = THREEBYTE_3A;
       return consume(insn, insn->opcode);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
     case VEX_LOB_0F39:
       insn->opcodeType = THREEBYTE_39;
       return consume(insn, insn->opcode);
     case VEX_LOB_0F3B:
       insn->opcodeType = THREEBYTE_3B;
       return consume(insn, insn->opcode);
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_3B) {
@@ -1006,6 +993,9 @@ static bool readOpcode(struct InternalInstruction *insn) {
       return consume(insn, insn->opcode);
     case VEX_LOB_0F3B:
       insn->opcodeType = THREEBYTE_3B;
+      return consume(insn, insn->opcode);
+    case VEX_LOB_MAP8:
+      insn->opcodeType = MAP8;
       return consume(insn, insn->opcode);
 #endif // INTEL_CUSTOMIZATION
     }
@@ -1156,6 +1146,8 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   case THREEBYTE_3B:
     decision = &THREEBYTE3B_SYM;
     break;
+  case MAP8:
+    decision = &MAP8_SYM;
 #endif // INTEL_CUSTOMIZATION
   }
 

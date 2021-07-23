@@ -5,7 +5,7 @@
 ; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
-; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %small.030.out = %small.030;
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   %1 = (%B)[i1];

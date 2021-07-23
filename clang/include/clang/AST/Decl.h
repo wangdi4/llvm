@@ -358,6 +358,10 @@ public:
   /// a C++ class.
   bool isCXXInstanceMember() const;
 
+  /// Determine if the declaration obeys the reserved identifier rules of the
+  /// given language.
+  ReservedIdentifierStatus isReserved(const LangOptions &LangOpts) const;
+
   /// Determine what kind of linkage this entity has.
   ///
   /// This is not the linkage as defined by the standard or the codegen notion
@@ -1491,6 +1495,9 @@ public:
   void setEscapingByref() {
     NonParmVarDeclBits.EscapingByref = true;
   }
+
+  /// Determines if this variable's alignment is dependent.
+  bool hasDependentAlignment() const;
 
   /// Retrieve the variable declaration from which this variable could
   /// be instantiated, if it is an instantiation (rather than a non-template).

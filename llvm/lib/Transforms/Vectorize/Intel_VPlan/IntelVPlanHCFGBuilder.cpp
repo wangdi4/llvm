@@ -118,11 +118,14 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     assert(Lp &&
            "VPLoopLatch does not correspond to Latch, massaging happened?");
     assert(SE && "SCEV has not been calculated.");
-    if (auto KnownTC = SE->getSmallConstantMaxTripCount(Lp)) {
+    if (auto KnownTC = SE->getSmallConstantTripCount(Lp)) {
       VPL->setKnownTripCount(KnownTC);
       LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getLoopDepth()
                         << " is " << KnownTC << "\n";);
       continue;
+    } else {
+      LLVM_DEBUG(dbgs() << "Could not estimate trip count for loop "
+                        << Lp->getLoopDepth() << " using ScalarEvolution\n";);
     }
     TripCountInfo TCInfo = readIRLoopMetadata(Lp);
     TCInfo.calculateEstimatedTripCount();
@@ -130,12 +133,14 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
   }
 }
 
-void VPlanHCFGBuilder::buildHierarchicalCFG() {
+bool VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   VPLoopEntityConverterList CvtVec;
 
   // Build Top Region enclosing the plain CFG
-  buildPlainCFG(CvtVec);
+  if (!buildPlainCFG(CvtVec))
+    return false;
+
   Plan->computeDT();
   auto &VPDomTree = *Plan->getDT();
 
@@ -170,6 +175,8 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
              Plan->getPDT()->print(dbgs()));
 
   VPLAN_DUMP(PlainCFGDumpControl, Plan);
+
+  return true;
 }
 
 class PrivatesListCvt;
@@ -616,11 +623,12 @@ void PlainCFGBuilder::convertEntityDescriptors(
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
 }
 
-void VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
+bool VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
   PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
+  return true;
 }
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {

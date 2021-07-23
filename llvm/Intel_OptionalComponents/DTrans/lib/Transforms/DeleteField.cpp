@@ -130,7 +130,8 @@ private:
   Constant *getReplacement(Constant *Init, ValueMapper &Mapper);
 
   bool processGEPIndex(GetElementPtrInst *GEP, ArrayRef<Value *> BaseIndices,
-                      Value *Idx, uint64_t &NewIndex, bool IsPreCloning);
+                       Value *Idx, uint64_t &NewIndex, bool &AffectedStructure,
+                       bool &IsPacked, bool IsPreCloning);
   bool processGEPInst(GetElementPtrInst *GEP, bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
   void postprocessCall(CallBase *Call);
@@ -347,7 +348,23 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       if (!isa<llvm::StructType>(ParentTy))
         continue;
 
-      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
+      auto *ParentTI =
+          dyn_cast_or_null<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
+
+      // If no type info was found for the ParentTy, it means that the type was
+      // referenced by a type that is no longer used within the IR. This is
+      // possible because the DTransAnalysis pass collects types by walking the
+      // IR, but the DTransOptBase class was made to operate without requiring
+      // the DTransAnalysis walk of the full IR. This results in the basename
+      // version of a structure being included in the list of enclosing types,
+      // even though the type will not be referenced. For example:
+      // The following two types may be in memory, but only %struct.simple.1 is
+      // used by the IR, and has safety data associated with it, so we want to
+      // skip the safety check on %struct.simple.
+      //   %struct.simple = type { %struct.test }
+      //   %struct.simple.1 = type { %struct.test }
+      if (!ParentTI)
+        continue;
 
       // Skip types that are already considered.
       if (std::find(StructsToConvert.begin(), StructsToConvert.end(),
@@ -595,9 +612,15 @@ bool DeleteFieldImpl::processPossibleByteFlattenedGEP(GetElementPtrInst *GEP) {
 // argument should be updated and the \p NewIndex argument will be set to
 // the new index value. If the index argument should not be updated the
 // function will return false and the \p NewIndex argument will not be used.
+//
+// \p AffectedStructure and \p IsPacked will be updated if the GEP indexes a
+// structure type that will have its size changed as a result of this
+// transformation.
 bool DeleteFieldImpl::processGEPIndex(GetElementPtrInst *GEP,
                                       ArrayRef<Value *> BaseIndices, Value *Idx,
-                                      uint64_t &NewIndex, bool IsPreCloning) {
+                                      uint64_t &NewIndex,
+                                      bool &AffectedStructure, bool &IsPacked,
+                                      bool IsPreCloning) {
   if (BaseIndices.empty())
     return false;
 
@@ -617,10 +640,14 @@ bool DeleteFieldImpl::processGEPIndex(GetElementPtrInst *GEP,
     llvm::Type *OrigTy = ONPair.first;
     llvm::Type *ReplTy = ONPair.second;
 
-    // Skip enclosing type, it isn't a type with deleted fields.
-    if (OrigEnclosingTypes.count(OrigTy))
+    // Skip enclosing type, it isn't a type with deleted fields. However,
+    // remember that it was encountered because alignments may change for
+    // accesses due to the change in the nested type.
+    if (OrigEnclosingTypes.count(OrigTy)) {
+      AffectedStructure = true;
+      IsPacked |= cast<StructType>(OrigTy)->isPacked();
       continue;
-
+    }
     // The original types should only be seen before cloning and the
     // replacement types should only be seen after cloning.
     assert((IsPreCloning || (OrigTy != IndexedTy)) &&
@@ -643,6 +670,8 @@ bool DeleteFieldImpl::processGEPIndex(GetElementPtrInst *GEP,
     // The GEP instruction would have its index in terms of the original
     // type. Get the corresponding index in the new type.
     uint64_t NewIdx = FieldIdxMap[OrigTy][GEPIdx];
+    AffectedStructure = true;
+    IsPacked |= cast<StructType>(OrigTy)->isPacked();
 
     // In the pre-cloning case, we only need to know whether the field was
     // deleted or not.
@@ -673,12 +702,16 @@ bool DeleteFieldImpl::processGEPIndex(GetElementPtrInst *GEP,
 bool DeleteFieldImpl::processGEPInst(GetElementPtrInst *GEP,
                                      bool IsPreCloning) {
   bool Modified = false;
+  bool AffectedStructure = false;
+  bool IsPacked = false;
+
   SmallVector<Value *, 8> IdxValues;
   for (auto I = GEP->idx_begin(), E = GEP->idx_end(); I != E; ++I) {
     Value *IdxValue = *I;
 
     uint64_t NewIndex;
-    if (processGEPIndex(GEP, IdxValues, IdxValue, NewIndex, IsPreCloning)) {
+    if (processGEPIndex(GEP, IdxValues, IdxValue, NewIndex, AffectedStructure,
+                        IsPacked, IsPreCloning)) {
       if (IsPreCloning) {
         // Return true indicating that GEP should be removed.
         assert((I == std::prev(GEP->idx_end())) &&
@@ -702,6 +735,9 @@ bool DeleteFieldImpl::processGEPInst(GetElementPtrInst *GEP,
 
   if (Modified)
     LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+
+  if (AffectedStructure)
+    dtrans::resetLoadStoreAlignment(cast<GEPOperator>(GEP), DL, IsPacked);
 
   return Modified;
 }
@@ -781,8 +817,12 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
 bool DeleteFieldImpl::typeContainsDeletedFields(llvm::Type *Ty) {
   if (!Ty->isAggregateType())
     return false;
-  if (Ty->isStructTy())
-    return FieldIdxMap.count(Ty);
+
+  // For structure types, we need to consider types that directly have fields
+  // being removed, and any types that contain the type as a nested type when
+  // determining whether an initializer needs to be updated.
+  if (auto *StTy = dyn_cast<llvm::StructType>(Ty))
+    return OrigToNewTypeMapping.count(StTy);
   if (Ty->isArrayTy())
     return typeContainsDeletedFields(Ty->getArrayElementType());
   llvm_unreachable("Unexpected aggregate type");
@@ -839,12 +879,22 @@ Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
 Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
                                                 ValueMapper &Mapper) {
   llvm::Type *OrigTy = StInit->getType();
-  assert(FieldIdxMap.count(OrigTy) &&
-         "initializeGlobalVariableReplacement called for dependent type!");
+  bool OuterType = OrigEnclosingTypes.count(OrigTy);
+
+  // When traversing the fields of an outer type, a nested type that is not
+  // having fields deleted may be encountered. In that case, 'FieldIdxMap' will
+  // not contain a mapping for the field. Since the nested type is not changing
+  // the type remapper can handle it directly.
+  if (!OuterType && !OrigToNewTypeMapping.count(OrigTy))
+    return Mapper.mapConstant(*StInit);
+
+  assert(OuterType ||
+         FieldIdxMap.count(OrigTy) && "initializeGlobalVariableReplacement "
+                                      "called for pointer-dependent type!");
   unsigned OrigNumFields = OrigTy->getStructNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
-    if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
+    if (OuterType || FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
       NewInitVals.push_back(
           getReplacement(StInit->getAggregateElement(Idx), Mapper));
   auto *NewTy = OrigToNewTypeMapping[OrigTy];
@@ -888,7 +938,8 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
       assert(GEP->getOperand(0) == OrigGV && "Unexpected GV GEP use!");
 
       bool IsModified = false;
-
+      bool AffectedStructure = false;
+      bool IsPacked = false;
       SmallVector<Constant *, 8> OrigIndices;
       SmallVector<Constant *, 8> NewIndices;
 
@@ -910,10 +961,13 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
             // then it means that the current structure (IndexedType) wasn't
             // modified, in this case we don't need to change the current
             // index (FieldIdx) for the GEP.
-            if (FieldIdxMap[IndexedType].empty())
+            if (FieldIdxMap[IndexedType].empty()) {
               NewFieldIdx = FieldIdx;
-            else
+            } else {
               NewFieldIdx = FieldIdxMap[IndexedType][FieldIdx];
+              AffectedStructure = true;
+              IsPacked |= cast<llvm::StructType>(IndexedType)->isPacked();
+            }
 
             // Although each operator GEP looks like it appears directly in an
             // instruction and therefore should have a single use, there is
@@ -940,6 +994,7 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
         OrigIndices.push_back(Idx);
       }
 
+      GEPOperator *AffectedGEP = GEP;
       if (IsModified) {
         auto *NewGEP = ConstantExpr::getGetElementPtr(ReplTy, NewGV, NewIndices,
                                                       GEP->isInBounds());
@@ -949,7 +1004,11 @@ void DeleteFieldImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
         // can just add an entry to the map that will replace the use of this
         // constant when the instruction is remapped.
         VMap[GEP] = NewGEP;
+        AffectedGEP = cast<GEPOperator>(NewGEP);
       }
+
+      if (AffectedStructure)
+        dtrans::resetLoadStoreAlignment(AffectedGEP, DL, IsPacked);
     }
   }
 

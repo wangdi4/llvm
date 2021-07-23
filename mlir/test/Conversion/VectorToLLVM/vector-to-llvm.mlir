@@ -1035,26 +1035,6 @@ func @insert_strided_slice3(%arg0: vector<2x4xf32>, %arg1: vector<16x4x8xf32>) -
 
 // -----
 
-func @extract_strides(%arg0: vector<3x3xf32>) -> vector<1x1xf32> {
-  %0 = vector.extract_slices %arg0, [2, 2], [1, 1]
-    : vector<3x3xf32> into tuple<vector<2x2xf32>, vector<2x1xf32>, vector<1x2xf32>, vector<1x1xf32>>
-  %1 = vector.tuple_get %0, 3 : tuple<vector<2x2xf32>, vector<2x1xf32>, vector<1x2xf32>, vector<1x1xf32>>
-  return %1 : vector<1x1xf32>
-}
-// CHECK-LABEL: @extract_strides(
-// CHECK-SAME: %[[ARG:.*]]: vector<3x3xf32>)
-//      CHECK: %[[VAL_1:.*]] = constant 0.000000e+00 : f32
-//      CHECK: %[[VAL_2:.*]] = splat %[[VAL_1]] : vector<1x1xf32>
-//      CHECK: %[[A:.*]] = llvm.mlir.cast %[[ARG]] : vector<3x3xf32> to !llvm.array<3 x vector<3xf32>>
-//      CHECK: %[[T2:.*]] = llvm.extractvalue %[[A]][2] : !llvm.array<3 x vector<3xf32>>
-//      CHECK: %[[T3:.*]] = llvm.shufflevector %[[T2]], %[[T2]] [2] : vector<3xf32>, vector<3xf32>
-//      CHECK: %[[VAL_6:.*]] = llvm.mlir.cast %[[VAL_2]] : vector<1x1xf32> to !llvm.array<1 x vector<1xf32>>
-//      CHECK: %[[T4:.*]] = llvm.insertvalue %[[T3]], %[[VAL_6]][0] : !llvm.array<1 x vector<1xf32>>
-//      CHECK: %[[VAL_8:.*]] = llvm.mlir.cast %[[T4]] : !llvm.array<1 x vector<1xf32>> to vector<1x1xf32>
-//      CHECK: return %[[VAL_8]] : vector<1x1xf32>
-
-// -----
-
 func @vector_fma(%a: vector<8xf32>, %b: vector<2x4xf32>) -> (vector<8xf32>, vector<2x4xf32>) {
   // CHECK-LABEL: @vector_fma
   //  CHECK-SAME: %[[A:.*]]: vector<8xf32>
@@ -1295,6 +1275,26 @@ func @transfer_read_index_1d(%A : memref<?xindex>, %base: index) -> vector<17xin
 
 // -----
 
+func @transfer_read_1d_aligned(%A : memref<?xf32>, %base: index) -> vector<17xf32> {
+  memref.assume_alignment %A, 32 : memref<?xf32>
+  %f7 = constant 7.0: f32
+  %f = vector.transfer_read %A[%base], %f7
+      {permutation_map = affine_map<(d0) -> (d0)>} :
+    memref<?xf32>, vector<17xf32>
+  vector.transfer_write %f, %A[%base]
+      {permutation_map = affine_map<(d0) -> (d0)>} :
+    vector<17xf32>, memref<?xf32>
+  return %f: vector<17xf32>
+}
+//       CHECK: llvm.intr.masked.load
+//  CHECK-SAME: {alignment = 32 : i32}
+//  CHECK-SAME: (!llvm.ptr<vector<17xf32>>, vector<17xi1>, vector<17xf32>) -> vector<17xf32>
+//       CHECK: llvm.intr.masked.store
+//  CHECK-SAME: {alignment = 32 : i32}
+//  CHECK-SAME: vector<17xf32>, vector<17xi1> into !llvm.ptr<vector<17xf32>>
+
+// -----
+
 func @transfer_read_2d_to_1d(%A : memref<?x?xf32>, %base0: index, %base1: index) -> vector<17xf32> {
   %f7 = constant 7.0: f32
   %f = vector.transfer_read %A[%base0, %base1], %f7
@@ -1487,6 +1487,22 @@ func @vector_load_op_index(%memref : memref<200x100xindex>, %i : index, %j : ind
 
 // -----
 
+func @vector_load_op_aligned(%memref : memref<200x100xf32>, %i : index, %j : index) -> vector<8xf32> {
+  memref.assume_alignment %memref, 32 : memref<200x100xf32>
+  %0 = vector.load %memref[%i, %j] : memref<200x100xf32>, vector<8xf32>
+  return %0 : vector<8xf32>
+}
+
+// CHECK-LABEL: func @vector_load_op_aligned
+// CHECK: %[[c100:.*]] = llvm.mlir.constant(100 : index) : i64
+// CHECK: %[[mul:.*]] = llvm.mul %{{.*}}, %[[c100]]  : i64
+// CHECK: %[[add:.*]] = llvm.add %[[mul]], %{{.*}}  : i64
+// CHECK: %[[gep:.*]] = llvm.getelementptr %{{.*}}[%[[add]]] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
+// CHECK: %[[bcast:.*]] = llvm.bitcast %[[gep]] : !llvm.ptr<f32> to !llvm.ptr<vector<8xf32>>
+// CHECK: llvm.load %[[bcast]] {alignment = 32 : i64} : !llvm.ptr<vector<8xf32>>
+
+// -----
+
 func @vector_store_op(%memref : memref<200x100xf32>, %i : index, %j : index) {
   %val = constant dense<11.0> : vector<4xf32>
   vector.store %val, %memref[%i, %j] : memref<200x100xf32>, vector<4xf32>
@@ -1510,6 +1526,23 @@ func @vector_store_op_index(%memref : memref<200x100xindex>, %i : index, %j : in
 }
 // CHECK-LABEL: func @vector_store_op_index
 // CHECK: llvm.store %{{.*}}, %{{.*}} {alignment = 8 : i64} : !llvm.ptr<vector<4xi64>>
+
+// -----
+
+func @vector_store_op_aligned(%memref : memref<200x100xf32>, %i : index, %j : index) {
+  memref.assume_alignment %memref, 32 : memref<200x100xf32>
+  %val = constant dense<11.0> : vector<4xf32>
+  vector.store %val, %memref[%i, %j] : memref<200x100xf32>, vector<4xf32>
+  return
+}
+
+// CHECK-LABEL: func @vector_store_op_aligned
+// CHECK: %[[c100:.*]] = llvm.mlir.constant(100 : index) : i64
+// CHECK: %[[mul:.*]] = llvm.mul %{{.*}}, %[[c100]]  : i64
+// CHECK: %[[add:.*]] = llvm.add %[[mul]], %{{.*}}  : i64
+// CHECK: %[[gep:.*]] = llvm.getelementptr %{{.*}}[%[[add]]] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
+// CHECK: %[[bcast:.*]] = llvm.bitcast %[[gep]] : !llvm.ptr<f32> to !llvm.ptr<vector<4xf32>>
+// CHECK: llvm.store %{{.*}}, %[[bcast]] {alignment = 32 : i64} : !llvm.ptr<vector<4xf32>>
 
 // -----
 
@@ -1577,13 +1610,30 @@ func @gather_op(%arg0: memref<?xf32>, %arg1: vector<3xi32>, %arg2: vector<3xi1>,
 
 // -----
 
-func @gather_op_index(%arg0: memref<?xindex>, %arg1: vector<3xi32>, %arg2: vector<3xi1>, %arg3: vector<3xindex>) -> vector<3xindex> {
+func @gather_op_index(%arg0: memref<?xindex>, %arg1: vector<3xindex>, %arg2: vector<3xi1>, %arg3: vector<3xindex>) -> vector<3xindex> {
   %0 = constant 0: index
-  %1 = vector.gather %arg0[%0][%arg1], %arg2, %arg3 : memref<?xindex>, vector<3xi32>, vector<3xi1>, vector<3xindex> into vector<3xindex>
+  %1 = vector.gather %arg0[%0][%arg1], %arg2, %arg3 : memref<?xindex>, vector<3xindex>, vector<3xi1>, vector<3xindex> into vector<3xindex>
   return %1 : vector<3xindex>
 }
+
 // CHECK-LABEL: func @gather_op_index
-// CHECK: %{{.*}} = llvm.intr.masked.gather %{{.*}}, %{{.*}}, %{{.*}} {alignment = 8 : i32} : (!llvm.vec<3 x ptr<i64>>, vector<3xi1>, vector<3xi64>) -> vector<3xi64>
+// CHECK: %[[P:.*]] = llvm.getelementptr %{{.*}}[%{{.*}}] : (!llvm.ptr<i64>, vector<3xi64>) -> !llvm.vec<3 x ptr<i64>>
+// CHECK: %[[G:.*]] = llvm.intr.masked.gather %{{.*}}, %{{.*}}, %{{.*}} {alignment = 8 : i32} : (!llvm.vec<3 x ptr<i64>>, vector<3xi1>, vector<3xi64>) -> vector<3xi64>
+// CHECK: %{{.*}} = llvm.mlir.cast %[[G]] : vector<3xi64> to vector<3xindex>
+
+// -----
+
+func @gather_op_aligned(%arg0: memref<?xf32>, %arg1: vector<3xi32>, %arg2: vector<3xi1>, %arg3: vector<3xf32>) -> vector<3xf32> {
+  memref.assume_alignment %arg0, 32 : memref<?xf32>
+  %0 = constant 0: index
+  %1 = vector.gather %arg0[%0][%arg1], %arg2, %arg3 : memref<?xf32>, vector<3xi32>, vector<3xi1>, vector<3xf32> into vector<3xf32>
+  return %1 : vector<3xf32>
+}
+
+// CHECK-LABEL: func @gather_op_aligned
+// CHECK: %[[P:.*]] = llvm.getelementptr %{{.*}}[%{{.*}}] : (!llvm.ptr<f32>, vector<3xi32>) -> !llvm.vec<3 x ptr<f32>>
+// CHECK: %[[G:.*]] = llvm.intr.masked.gather %[[P]], %{{.*}}, %{{.*}} {alignment = 32 : i32} : (!llvm.vec<3 x ptr<f32>>, vector<3xi1>, vector<3xf32>) -> vector<3xf32>
+// CHECK: return %[[G]] : vector<3xf32>
 
 // -----
 
@@ -1613,13 +1663,28 @@ func @scatter_op(%arg0: memref<?xf32>, %arg1: vector<3xi32>, %arg2: vector<3xi1>
 
 // -----
 
-func @scatter_op_index(%arg0: memref<?xindex>, %arg1: vector<3xi32>, %arg2: vector<3xi1>, %arg3: vector<3xindex>) {
+func @scatter_op_index(%arg0: memref<?xindex>, %arg1: vector<3xindex>, %arg2: vector<3xi1>, %arg3: vector<3xindex>) {
   %0 = constant 0: index
-  vector.scatter %arg0[%0][%arg1], %arg2, %arg3 : memref<?xindex>, vector<3xi32>, vector<3xi1>, vector<3xindex>
+  vector.scatter %arg0[%0][%arg1], %arg2, %arg3 : memref<?xindex>, vector<3xindex>, vector<3xi1>, vector<3xindex>
   return
 }
+
 // CHECK-LABEL: func @scatter_op_index
-// CHECK: llvm.intr.masked.scatter %{{.*}}, %{{.*}}, %{{.*}} {alignment = 8 : i32} : vector<3xi64>, vector<3xi1> into !llvm.vec<3 x ptr<i64>>
+// CHECK: %[[P:.*]] = llvm.getelementptr %{{.*}}[%{{.*}}] : (!llvm.ptr<i64>, vector<3xi64>) -> !llvm.vec<3 x ptr<i64>>
+// CHECK: llvm.intr.masked.scatter %{{.*}}, %[[P]], %{{.*}} {alignment = 8 : i32} : vector<3xi64>, vector<3xi1> into !llvm.vec<3 x ptr<i64>>
+
+// -----
+
+func @scatter_op_aligned(%arg0: memref<?xf32>, %arg1: vector<3xi32>, %arg2: vector<3xi1>, %arg3: vector<3xf32>) {
+  memref.assume_alignment %arg0, 32 : memref<?xf32>
+  %0 = constant 0: index
+  vector.scatter %arg0[%0][%arg1], %arg2, %arg3 : memref<?xf32>, vector<3xi32>, vector<3xi1>, vector<3xf32>
+  return
+}
+
+// CHECK-LABEL: func @scatter_op_aligned
+// CHECK: %[[P:.*]] = llvm.getelementptr %{{.*}}[%{{.*}}] : (!llvm.ptr<f32>, vector<3xi32>) -> !llvm.vec<3 x ptr<f32>>
+// CHECK: llvm.intr.masked.scatter %{{.*}}, %[[P]], %{{.*}} {alignment = 32 : i32} : vector<3xf32>, vector<3xi1> into !llvm.vec<3 x ptr<f32>>
 
 // -----
 

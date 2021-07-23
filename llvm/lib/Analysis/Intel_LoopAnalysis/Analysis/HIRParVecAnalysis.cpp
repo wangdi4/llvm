@@ -56,7 +56,7 @@ cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
                                     cl::desc("Enable vconflict idiom"));
 
 static cl::opt<bool> DisableNonMonotonicIndexes(
-    "disable-nonlinear-mmindex", cl::init(true), cl::Hidden,
+    "disable-nonlinear-mmindex", cl::init(false), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
 
 namespace {
@@ -69,6 +69,8 @@ private:
   ParVecInfo::AnalysisMode Mode;
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
   HIRParVecInfoMapType &InfoMap;
+
+  const TargetTransformInfo *TTI;
   /// TLI - Target library info analysis.
   TargetLibraryInfo *TLI;
   /// DDA - Data dependency analysis handle.
@@ -77,10 +79,10 @@ private:
   HIRSafeReductionAnalysis *SRA;
 
 public:
-  ParVecVisitor(ParVecInfo::AnalysisMode Mode, TargetLibraryInfo *TLI,
-                HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
-                HIRParVecInfoMapType &InfoMap)
-      : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
+  ParVecVisitor(ParVecInfo::AnalysisMode Mode, const TargetTransformInfo *TTI,
+                TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+                HIRSafeReductionAnalysis *SRA, HIRParVecInfoMapType &InfoMap)
+      : Mode(Mode), InfoMap(InfoMap), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
 
@@ -191,7 +193,7 @@ private:
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
-  ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
+  ParVecInfo::get(Mode, InfoMap, TTI, TLI, DDA, SRA, Loop);
 }
 
 FunctionPass *llvm::createHIRParVecAnalysisPass() {
@@ -207,6 +209,7 @@ HIRParVecAnalysisWrapperPass::HIRParVecAnalysisWrapperPass()
 
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
@@ -216,6 +219,7 @@ INITIALIZE_PASS_END(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
 
 void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
@@ -224,11 +228,12 @@ void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
-    HPVA.reset(
-        new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr));
+    HPVA.reset(new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr,
+                                     nullptr));
     return false;
   }
 
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
@@ -238,11 +243,11 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   // In the debug mode, run actual analysis in ParallelVector mode, print
   // the result, and releas memory as if nothing happened. "opt -analyze"
   // doesn't print anything.
-  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA)));
+  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA)));
   LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
   LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
 
-  HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA));
+  HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA));
 
   return false;
 }
@@ -252,14 +257,16 @@ AnalysisKey HIRParVecAnalysisPass::Key;
 HIRParVecAnalysis HIRParVecAnalysisPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F))
-    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr);
+    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr,
+                             nullptr);
 
+  auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
   auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
   auto SRA = &AM.getResult<HIRSafeReductionAnalysisPass>(F);
 
-  return HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA);
+  return HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA);
 }
 
 const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
@@ -267,7 +274,7 @@ const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return nullptr;
   }
-  auto Info = ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
+  auto Info = ParVecInfo::get(Mode, InfoMap, TTI, TLI, DDA, SRA, Loop);
   return Info;
 }
 
@@ -275,7 +282,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HIRF.getHLNodeUtils().visitAll(Vis);
 }
 
@@ -284,7 +291,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HLNodeUtils::visit(Vis, Region);
 }
 
@@ -292,7 +299,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HLNodeUtils::visit(Vis, Loop);
 }
 
@@ -518,8 +525,9 @@ static bool loopInSIMD(HLLoop *Loop) {
   return false;
 }
 
-void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
-                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
+void ParVecInfo::analyze(HLLoop *Loop, const TargetTransformInfo *TTI,
+                         TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+                         HIRSafeReductionAnalysis *SRA) {
   if (Loop->hasCompleteUnrollEnablingPragma()) {
     // Bail out of vectorization if complete unroll requested.
     setVecType(UNROLL_PRAGMA_LOOP);
@@ -565,7 +573,7 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
     HIRVectorIdioms IList;
     if (isVectorMode()) {
       HIRVectorIdiomAnalysis IdAnalysis;
-      IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
+      IdAnalysis.gatherIdioms(TTI, IList, DDA->getGraph(Loop), *SRA, Loop);
     }
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
     // This ignores preheader/postexit blocks in legality check.
@@ -650,6 +658,7 @@ const std::string ParVecInfo::LoopTypeString[4] = {
     "loop has SIMD directive"};
 
 class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
+  const TargetTransformInfo *TTI;
   const DDGraph &DDG;
   HIRSafeReductionAnalysis &SRAnalysis;
 
@@ -659,9 +668,10 @@ class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
   HLLoop *Loop;
 
 public:
-  HIRIdiomAnalyzer(HIRVectorIdioms &IList, const DDGraph &DDG,
-                   HIRSafeReductionAnalysis &SRA, HLLoop *Loop)
-      : DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
+  HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
+                   const DDGraph &DDG, HIRSafeReductionAnalysis &SRA,
+                   HLLoop *Loop)
+      : TTI(TTI), DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
     SRAnalysis.computeSafeReductionChains(Loop);
   }
 
@@ -685,6 +695,11 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   if (!MinMaxInst->isMinOrMax())
     return false;
 
+  const SelectInst *MinMaxSelectInst =
+      dyn_cast<SelectInst>(MinMaxInst->getLLVMInstruction());
+  if (!MinMaxSelectInst)
+    return false;
+
   // If the instruction is safe reduction then it can't be idiom.
   if (SRAnalysis.getSafeRedInfo(MinMaxInst))
     return false;
@@ -699,8 +714,12 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   // Temporary disable FP data types for primary minmax. For FP data type
   // we need some additional checks to be generated (eg for NAN) which is
   // not implemented yet.
-  if (!Lval->getDestType()->isIntegerTy())
-    return false;
+  if (!Lval->getDestType()->isIntegerTy()) {
+    const Instruction *Cond =
+      cast<Instruction>(MinMaxSelectInst->getCondition());
+    if (!Cond->getFastMathFlags().noNaNs())
+      return false;
+  }
 
   PredicateTy Pred = MinMaxInst->getPredicate();
 
@@ -825,6 +844,18 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
           // Can be invariant at that level.
           IdiomKind = HIRVectorIdioms::MMFirstLastVal;
           Msg = "(invariant)\n";
+        } else if (Rhs->getSingleCanonExpr()->hasIVBlobCoeff(
+                       Loop->getNestingLevel()) ||
+                   Rhs->getSingleCanonExpr()->getIVConstCoeff(
+                       Loop->getNestingLevel()) <= 0) {
+          // Can have negative coeff which is currently unsupported.
+          // E.g. something like %3 = (%a > %b) -1 * i1 + 8 ? %3;
+          // We generate code not accounting that negative coefficient.
+          // TODO: Need to account that, probably having another enum
+          // value for negative MMFirstLastIdx and with corresponding
+          // processing in VPlan.
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(negative coeff at loop level)\n";
         }
       }
       if (DisableNonMonotonicIndexes &&
@@ -881,9 +912,26 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 // In this routine, we detect possible dependencies that can be resolved using
 // vconflict. I.e. we check each store if it has memory dependency only on the
 // load from the same address.
-// There are three possible ways to generate code for vconflict idiom depending
-// on OP and some_value classification from above. We don't consider/recognize
-// those different kinds of idiom here, the classification is done in VPlan.
+// There are four possible ways to generate code for vconflict idiom: i. general
+// conflict, ii. general conflict optimized, iii. tree-conflict, iv. histogram.
+// We don't consider/recognize those different kinds of idiom here, the
+// classification is done in VPlan. Moreover, we do not recognize general
+// conflict for now.
+// We bail-out if one of the following does not occut:
+// - there should be only one backward flow dependency (backward dependencies do
+// not
+//   have linear memrefs)
+// - the load and store should have the same memory reference
+// - there should be only one output dependency
+// - the conflict index should not be redefined between load and store
+// - the load and store conflict should be array index (not pointer)
+//
+// In VPlan side, we also check the following:
+// - if the load and the store are in the same basic block
+// - if the load has uses outside of VConflict region
+// - if the instructions of VConflict region has uses outside of VConflict
+//   region and if there is a call or a store in the region
+//
 bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   auto *StoreInst = dyn_cast<HLInst>(CurNode);
   if (!StoreInst)
@@ -897,54 +945,97 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Looking at store candidate:";
              StoreInst->dump());
 
-  // The store address of the above example has two incoming edges:
-  // 7:8 (%A)[%0] --> (%A)[%0] ANTI (*) (?)
+  if (StoreMemDDRef->getBaseCE()->isNonLinear())
+    return Mismatch("Non-linear base address is not supported.");
+
+  // The store address of the above example has two outgoing edges:
+  // 8:7 (%A)[%0] --> (%A)[%0] FLOW (*) (?)
   // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
-  int AntiDepCnt = 0;
-  for (DDEdge *E : DDG.incoming(StoreMemDDRef)) {
+  int FlowDepCnt = 0;
+  DDRef *LoadRef = nullptr;
+  for (DDEdge *E : DDG.outgoing(StoreMemDDRef)) {
     if (E->isOutput()) {
-      if (E->getSrc() != StoreMemDDRef)
+      if (E->getSink() != StoreMemDDRef)
         return Mismatch(
             "The output dependency is expected to be self-dependency.\n");
-    } else {
-      DDRef *SrcRef = E->getSrc();
-      HLDDNode *SrcNode = SrcRef->getHLDDNode();
-      LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
-                 SrcNode->dump());
-
-      if (!E->isAnti())
-        return Mismatch("Expected anti-dependency.");
-
-      if (AntiDepCnt >= 1)
-        return Mismatch("Too many dependencies.");
-
-      AntiDepCnt++;
-      // TODO: Update VConflict search to work with multi-dimensional arrays.
-      // For now, we just bail-out.
-      if (StoreMemDDRef->getNumDimensions() > 1)
-        return Mismatch("Multidimensional arrays are not supported.");
-
-      // Check if both nodes are at top level.
-      if (SrcNode->getParent() != Loop)
-        return Mismatch("Source is in another loop.");
-
-      // Only backward edges are allowed.
-      if (SrcNode->getTopSortNum() > CurNode->getTopSortNum())
-        return Mismatch("Nodes are not in the right order.");
-
-      // Check if both source and sink nodes have the same memory reference.
-      if (SrcRef->isRval() && DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
-        continue;
-
-      return Mismatch("Wrong memory dependency.");
+      continue;
     }
+
+    DDRef *SinkRef = E->getSink();
+    HLDDNode *SinkNode = SinkRef->getHLDDNode();
+    LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
+               SinkNode->dump());
+
+    assert(E->isFlow() && "Expected flow-dependency");
+
+    if (FlowDepCnt >= 1)
+      return Mismatch("Too many dependencies.");
+
+    FlowDepCnt++;
+
+    // TODO: Update VConflict search to work with multi-dimensional arrays.
+    // For now, we just bail-out.
+    if (StoreMemDDRef->getNumDimensions() > 1)
+      return Mismatch("Multidimensional arrays are not supported.");
+
+    // Check if both nodes have the same parent.
+    // Pay attention that we don't require the nodes to be on
+    // the top level of the loop.
+    if (SinkNode->getParent() != CurNode->getParent())
+      return Mismatch("Sink node has another parent.");
+
+    if (auto IfNode = dyn_cast<HLIf>(SinkNode->getParent()))
+      if (IfNode->isThenChild(SinkNode) != IfNode->isThenChild(CurNode))
+        return Mismatch("Sink node is in a different IF-branch.");
+
+    // Only backward edges are allowed.
+    if (E->isForwardDep())
+      return Mismatch("Nodes are not in the right order.");
+
+    // Check if both source and sink nodes have the same memory reference.
+    if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
+      return Mismatch("Wrong memory dependency.");
+
+    LoadRef = SinkRef;
+
+    // Checks to ensure that index has not been modified betwen the load and
+    // store, i.e. reject patterns like -
+    //
+    //  %ld = A[%tmp0]
+    //  %tmp0 = redefine
+    //  A[%tmp0] = %ld + 42
+
+    // If the store memref has only linear blobs then we know that their uses
+    // are defined outside current loop and hence index of such memrefs cannot
+    // be redefined.
+    if (StoreMemDDRef->isLinear())
+      continue;
+
+    // Check that store memref has only one non-linear blob.
+    auto *NonLinearBlob = StoreMemDDRef->getSingleNonLinearBlobRef();
+    if (!NonLinearBlob)
+      return Mismatch("Multiple non-linear blobs in store memref.");
+
+    if (DDG.getNumIncomingEdges(NonLinearBlob) != 1)
+      return Mismatch(
+          "Multiple incoming edges to conflicting memref's non-linear blob.");
+
+    DDEdge *NonLinBlobToStoreEdge = *DDG.incoming_edges_begin(NonLinearBlob);
+    HLDDNode *NonLinBlobDefNode =
+        NonLinBlobToStoreEdge->getSrc()->getHLDDNode();
+    // Check if the node where non-linear blob for store is defined precedes the
+    // load as well.
+    if (NonLinBlobDefNode->getTopSortNum() >=
+        LoadRef->getHLDDNode()->getTopSortNum())
+      return Mismatch(
+          "Non-linear blob operand of store does not precede the load.");
   }
 
-  if (AntiDepCnt == 0 || AntiDepCnt > 1)
-    return Mismatch("Store address should have one anti-dependency.");
+  if (FlowDepCnt == 0)
+    return Mismatch("Store address should have one flow-dependency.");
 
   LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
-  IdiomList.addIdiom(StoreInst, HIRVectorIdioms::VConflict);
+  IdiomList.recordVConflictIdiom(StoreInst, LoadRef);
   return true;
 }
 
@@ -955,18 +1046,19 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   if (MinMaxIndexEnabled && tryMinMaxIdiom(Node))
     return;
 
-  if (VConflictIdiomEnabled && tryVConflictIdiom(Node))
+  if (TTI->hasCDI() && VConflictIdiomEnabled && tryVConflictIdiom(Node))
     return;
 
   return;
 }
 
-void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,
+void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI,
+                                          HIRVectorIdioms &IList,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
   if (MinMaxIndexEnabled || VConflictIdiomEnabled) {
-    HIRIdiomAnalyzer IdiomAnalyzer(IList, DDG, SRA, Loop);
+    HIRIdiomAnalyzer IdiomAnalyzer(TTI, IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
     LLVM_DEBUG(IList.dump());
   } else

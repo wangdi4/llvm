@@ -16,6 +16,7 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanVLSTransform.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -75,8 +76,9 @@ OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                  : nullptr;
 }
 
-void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
-                                      const VPlan *Plan, unsigned VF) {
+void VPlanVLSAnalysis::collectMemrefs(
+    OVLSVector<std::unique_ptr<OVLSMemref>> &MemrefVector, const VPlan *Plan,
+    unsigned VF) {
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
@@ -88,17 +90,18 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
-      if (!isa<VPLoadStoreInst>(VPInst))
+      auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
+      if (!LoadStore)
         continue;
 
       // FIXME: VPOCodeGen does not support widening of VLS groups composed of
       //        types with padding (e.g. <3 x i32> or x86_fp80). See
       //        CMPLRLLVM-23003 for more details.
-      Type *MrfTy = getLoadStoreType(&VPInst);
+      Type *MrfTy = LoadStore->getValueType();
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(&cast<VPLoadStoreInst>(VPInst), VF);
+      OVLSMemref *Memref = createVLSMemref(LoadStore, VF);
       if (!Memref)
         continue;
 
@@ -106,11 +109,10 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       //        sizes. At the moment, it crashes trying to compute access mask
       //        for a group if element size is greater than MAX_VECTOR_LENGTH.
       if (Memref->getType().getElementSize() >= MAX_VECTOR_LENGTH * 8) {
-        delete Memref;
         continue;
       }
 
-      MemrefVector.push_back(Memref);
+      MemrefVector.emplace_back(Memref);
       LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
     }
   }
@@ -127,25 +129,24 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   // we may simply change OVLSType for each collected memref.
   auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   if (!Force && VLSInfoIt != Plan2VLSInfo.end()) {
-    VLSInfoIt->second.eraseGroups();
-    for (auto *Memref : VLSInfoIt->second.Memrefs)
+    for (auto &Memref : VLSInfoIt->second.Memrefs)
       Memref->setNumElements(VF);
     LLVM_DEBUG(
         dbgs() << "Fixed all OVLSTypes for previously collected memrefs.\n";
         this->dump());
+    // Clean grouping info so it won't merge with new analysis results.
+    Plan2VLSInfo[Plan].Groups.clear();
+    Plan2VLSInfo[Plan].Mem2Group.clear();
   } else {
     if (VLSInfoIt != Plan2VLSInfo.end())
       VLSInfoIt->second.erase();
-    else
-      std::tie(VLSInfoIt, std::ignore) = Plan2VLSInfo.insert({Plan, {}});
-
+    else {
+      VLSInfoIt = Plan2VLSInfo.insert(std::make_pair(Plan, VLSInfo{})).first;
+    }
     collectMemrefs(VLSInfoIt->second.Memrefs, Plan, VF);
   }
 
   // Finally run grouping of collected/changed memrefs.
-  // TODO: From vectorizer perspective, formed groups should be same regardless
-  // of VF, so we may not run this interface second time if we just changed
-  // OVLSTypes.
   OptVLSInterface::getGroups(Plan2VLSInfo[Plan].Memrefs,
                              Plan2VLSInfo[Plan].Groups, MaxVectorWidthInBytes,
                              &Plan2VLSInfo[Plan].Mem2Group);
@@ -160,20 +161,21 @@ void VPlanVLSAnalysis::dump(const VPlan *Plan) const {
   }
   const auto VLSInfoIt = Plan2VLSInfo.find(Plan);
   assert(VLSInfoIt != Plan2VLSInfo.end() && "No VLSInfo for a given VPlan.");
-  const OVLSMemrefVector &Memrefs = VLSInfoIt->second.Memrefs;
-  for (const auto *Memref : Memrefs)
+  for(auto &Memref : VLSInfoIt->second.Memrefs)
     Memref->dump();
 
   // For each collected memref print information about distance and dependency
   // to each next memref from the vector of memrefs.
-  for (auto I = Memrefs.begin(), E = Memrefs.end(); I != E; ++I) {
+  for (auto I = VLSInfoIt->second.Memrefs.begin(),
+            E = VLSInfoIt->second.Memrefs.end();
+       I != E; ++I) {
     dbgs() << "Information about ";
-    auto *From = *I;
+    auto *From = I->get();
     From->print(dbgs());
     dbgs() << '\n';
     for (auto J = I + 1; J != E; ++J) {
       dbgs() << "\t distance to ";
-      const auto *To = *J;
+      const auto *To = J->get();
       To->print(dbgs(), 2);
       dbgs() << "  " << From->getConstDistanceFrom(*To);
 
@@ -238,41 +240,13 @@ getOptimizedVLSGroupData(const VPInstruction *VPInst,
   if (!Group)
     return None;
 
-  // We currently only handle group sizes > 1.
-  if (Group->size() <= 1)
+  if (!isTransformableVLSGroup(Group))
     return None;
 
-  Optional<int64_t> GroupStride = Group->getConstStride();
-  if (!GroupStride)
-    return None;
-
-  APInt AccessMask = Group->computeByteAccessMask();
-
-  // Access mask is currently 64 bits, skip groups with group stride >
-  // 64 and access gaps.
-  if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
-      AccessMask.getBitWidth() != *GroupStride)
-    return None;
-
-  // Check that all members of the group have same type. Currently we
-  // do not handle groups such as a[i].i, a[i].d for
-  //   struct {int i; double d};
-  auto *VPInstType = getLoadStoreType(VPInst);
-  VPVLSClientMemref *VPInstMemref = nullptr;
-  for (int64_t Index = 0; Index < Group->size(); ++Index) {
-    auto *Memref = cast<VPVLSClientMemref>(Group->getMemref(Index));
-    auto *MemrefInst = Memref->getInstruction();
-
-    if (MemrefInst == VPInst) {
-      VPInstMemref = Memref;
-      continue;
-    }
-
-    if (VPInstType != getLoadStoreType(MemrefInst))
-      return None;
-  }
-
-  assert(VPInstMemref && "Expected to find memref for VPInst in the group");
+  VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
+      *find_if(*Group, [VPInst](const OVLSMemref *Memref) {
+        return instruction(Memref) == VPInst;
+      }));
   return std::make_tuple(Group, computeInterleaveFactor(VPInstMemref),
                          computeInterleaveIndex(VPInstMemref, Group));
 }

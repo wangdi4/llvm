@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
 
@@ -8,11 +10,11 @@
 ; CHECK: COMPILE FUNC: myadd
 ; CHECK: COMPILE FUNC: mysub
 ; CHECK: COMPILE FUNC: main
-; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK: myadd.1{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
-; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: myadd.2{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: mysub.3{{.*}}Callee has noinline attribute{{.*}}
+; CHECK: mysub.4{{.*}}Callee has noinline attribute{{.*}}
 ; CHECK-NOT: Newly created callsite
 ; CHECK-NOT: Not tested for inlining
 ; CHECK-NOT: DELETE
@@ -48,3 +50,4 @@ entry:
 }
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

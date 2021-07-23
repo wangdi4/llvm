@@ -1,4 +1,3 @@
-// REQUIRES: intel_feature_isa_fp16
 // RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-unknown-linux-gnu -target-feature +avx512fp16 -emit-llvm -o - -Wall -Werror | FileCheck %s --check-prefix=CHECK-AVX512FP16
 
 #include <immintrin.h>
@@ -328,6 +327,18 @@ __m512h test_mm512_mask_pow_ph(__m512h A, __mmask32 B, __m512h C, __m512h D) {
   // CHECK-AVX512FP16: [[MASK:%.*]] = bitcast i32 %{{.*}} to <32 x i1>
   // CHECK-AVX512FP16: call svml_cc <32 x half> @__svml_pows32_mask(<32 x half> %{{.*}}, <32 x i1> [[MASK]], <32 x half> %{{.*}}, <32 x half> %{{.*}})
   return _mm512_mask_pow_ph(A, B, C, D);
+}
+
+__m512h test_mm512_recip_ph(__m512h A) {
+  // CHECK-AVX512FP16-LABEL: test_mm512_recip_ph
+  // CHECK-AVX512FP16: call <32 x half> @llvm.x86.avx512fp16.mask.rcp.ph.512(<32 x half> %{{.*}}, <32 x half> zeroinitializer, i32 -1)
+  return _mm512_recip_ph(A);
+}
+
+__m512h test_mm512_mask_recip_ph(__m512h A, __mmask32 B, __m512h C) {
+  // CHECK-AVX512FP16-LABEL: test_mm512_mask_recip_ph
+  // CHECK-AVX512FP16: call <32 x half> @llvm.x86.avx512fp16.mask.rcp.ph.512(<32 x half> %{{.*}}, <32 x half> %{{.*}}, i32 %8)
+  return _mm512_mask_recip_ph(A, B, C);
 }
 
 __m128h test_mm_svml_sqrt_ph(__m128h A) {

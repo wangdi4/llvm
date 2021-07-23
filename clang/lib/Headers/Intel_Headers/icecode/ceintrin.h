@@ -36,13 +36,22 @@ typedef enum {
   _CE_SEGMENT_SS = 3,
   _CE_SEGMENT_ES = 4,
   _CE_SEGMENT_FS = 5,
-  _CE_SEGMENT_GS = 6
+  _CE_SEGMENT_GS = 6,
+  _CE_SEGMENT_GDTR = 7,
+  _CE_SEGMENT_LDTR = 8,
+  _CE_SEGMENT_IDTR = 9,
+  _CE_SEGMENT_TR = 10
 } _CE_SEGMENT_ENUM;
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("icecode-mode")))
 
 /* Functions for IceCode ISA */
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_ce_loadpphys8(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadpphys_8(addr);
+}
+
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
 _ce_loadpphys16(unsigned long long addr) {
   return __builtin_ia32_icecode_loadpphys_16(addr);
@@ -56,6 +65,11 @@ _ce_loadpphys32(unsigned long long addr) {
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _ce_loadpphys64(unsigned long long addr) {
   return __builtin_ia32_icecode_loadpphys_64(addr);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storepphys8(unsigned char reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storepphys_8(reg, addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
@@ -104,6 +118,26 @@ _ce_loadseg_gs(void *mem) {
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_gdtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_GDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_ldtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_LDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_idtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_IDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_tr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_TR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
 _ce_storeseg_cs(void *mem) {
   __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_CS);
 }
@@ -131,6 +165,26 @@ _ce_storeseg_fs(void *mem) {
 static __inline__ void __DEFAULT_FN_ATTRS
 _ce_storeseg_gs(void *mem) {
   __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_GS);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_gdtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_GDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_ldtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_LDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_idtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_IDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_tr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_TR);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
@@ -322,8 +376,17 @@ _ce_store_tickle_gpa(unsigned long long addr) {
   __asm__ __volatile__ ("store_tickle_gpa" :: "a"(addr));
 }
 
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_flush_ifu(unsigned long long value) {
+  __asm__ __volatile__ ("flush_ifu %0" :: "a"(value));
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_io_tickle_debug(unsigned long long value) {
+  __asm__ __volatile__ ("io_tickle_debug %0" :: "a"(value));
+}
+
 #define _ce_set_tracker(imm) __builtin_ia32_icecode_set_tracker(imm)
-#define _ce_flush_ifu() __asm__ __volatile__ ("flush_ifu")
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
 _ce_loadlin16(unsigned long long addr) {
@@ -354,6 +417,41 @@ static __inline__ void __DEFAULT_FN_ATTRS
 _ce_storelin64(unsigned long long reg, unsigned long long addr) {
   __builtin_ia32_icecode_storelin_64(reg, addr);
 }
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_cccm(unsigned long long reg) {
+  unsigned long long res;
+  __asm__ __volatile__ ("cccm %0" : "=r"(res) : "0"(reg));
+  return res;
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_cccp(unsigned long long reg) {
+  unsigned long long res;
+  __asm__ __volatile__ ("cccp %0" : "=r"(res) : "0"(reg));
+  return res;
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loaduphys(void *mem) {
+  __builtin_ia32_icecode_loaduphys(mem);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeuphys(void *mem) {
+  __builtin_ia32_icecode_storeuphys(mem);
+}
+
+#define _ce_jmp_nopred(addr) __asm__ __volatile__ ("jmp_nopred %0" :: "r"(addr))
+#define _ce_fe_serialize() __asm__ __volatile__ ("fe_serialize")
+#define _ce_fscp_or_32(V, I) __builtin_ia32_icecode_fscp_or_32(I, V)
+#define _ce_fscp_or_64(V, I) __builtin_ia32_icecode_fscp_or_64(I, V)
+#define _ce_creg_or_mt_32(V, I) __builtin_ia32_icecode_creg_or_mt_32(I, V)
+#define _ce_creg_or_mt_64(V, I) __builtin_ia32_icecode_creg_or_mt_64(I, V)
+#define _ce_fscp_andnot_32(V, I) __builtin_ia32_icecode_fscp_andnot_32(I, V)
+#define _ce_fscp_andnot_64(V, I) __builtin_ia32_icecode_fscp_andnot_64(I, V)
+#define _ce_creg_andnot_mt_32(V, I) __builtin_ia32_icecode_creg_andnot_mt_32(I, V)
+#define _ce_creg_andnot_mt_64(V, I) __builtin_ia32_icecode_creg_andnot_mt_64(I, V)
 
 #undef __DEFAULT_FN_ATTRS
 

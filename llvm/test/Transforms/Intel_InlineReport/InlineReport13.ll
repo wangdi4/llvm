@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt -new-double-callsite-inlining-heuristics=true -inline -inline-report=7 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
 ; RUN: opt -new-double-callsite-inlining-heuristics=true -passes='cgscc(inline)' -inline-report=7 -inline-threshold=2000< %s -S 2>&1 | FileCheck %s
@@ -719,3 +721,4 @@ attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.ident = !{!0}
 
 !0 = !{!"clang version 4.0.0 (trunk 20640) (llvm/branches/ltoprof 20717)"}
+; end INTEL_FEATURE_SW_ADVANCED

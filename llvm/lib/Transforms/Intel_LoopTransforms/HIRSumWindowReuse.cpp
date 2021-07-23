@@ -1185,7 +1185,7 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     .addOrigin("Window sum initialization loop for sum window reuse");
   LORBuilder(*LoopSums.OuterLoop)
     .addRemark(OptReportVerbosity::Low,
-               "Inner loop sums optimized with sum window reuse");
+               25584u);
 #endif // INTEL_INTERNAL_BUILD
 }
 

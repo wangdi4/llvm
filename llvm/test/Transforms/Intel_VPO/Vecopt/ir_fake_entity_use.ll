@@ -1,5 +1,5 @@
 
-;RUN: opt -S -VPlanDriver %s | FileCheck %s
+;RUN: opt -S -vplan-vec %s | FileCheck %s
 ; Check that explicit induction with the only use in "bitcast-life.time.start" is not crashed.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -14,7 +14,7 @@ declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
 ; Function Attrs: norecurse nounwind uwtable
 define void @_Z20initialize_variablesiPfS_() {
 entry:
-; CHECK: <4 x i32>
+; CHECK-COUNT-4: call void @llvm.lifetime.start.p0i8
   %0 = alloca i32, align 4
   br label %region
 region:

@@ -143,15 +143,15 @@ private:
 
 public:
   // Provide static "constructors"...
-  static po_iterator begin(GraphT G) {
+  static po_iterator begin(const GraphT &G) {
     return po_iterator(GT::getEntryNode(G));
   }
-  static po_iterator end(GraphT G) { return po_iterator(); }
+  static po_iterator end(const GraphT &G) { return po_iterator(); }
 
-  static po_iterator begin(GraphT G, SetType &S) {
+  static po_iterator begin(const GraphT &G, SetType &S) {
     return po_iterator(GT::getEntryNode(G), S);
   }
-  static po_iterator end(GraphT G, SetType &S) { return po_iterator(S); }
+  static po_iterator end(const GraphT &G, SetType &S) { return po_iterator(S); }
 
   bool operator==(const po_iterator &x) const {
     return VisitStack == x.VisitStack;
@@ -310,7 +310,7 @@ class ReversePostOrderTraversal {
 #if INTEL_CUSTOMIZATION
   // INTEL: Handle non-default combination of GraphT/GT and/or
   // GraphtT != NodeRef.
-  void Initialize(GraphT G) {
+  void Initialize(const GraphT &G) {
     std::copy(po_begin<GraphT, GT, SetType>(G), po_end<GraphT, GT, SetType>(G),
               std::back_inserter(Blocks));
 #endif
@@ -320,7 +320,7 @@ public:
   using rpo_iterator = typename std::vector<NodeRef>::reverse_iterator;
   using const_rpo_iterator = typename std::vector<NodeRef>::const_reverse_iterator;
 
-  ReversePostOrderTraversal(GraphT G) { Initialize(G); } // INTEL
+  ReversePostOrderTraversal(const GraphT &G) { Initialize(G); }
 
   // Because we want a reverse post order, use reverse iterators from the vector
   rpo_iterator begin() { return Blocks.rbegin(); }

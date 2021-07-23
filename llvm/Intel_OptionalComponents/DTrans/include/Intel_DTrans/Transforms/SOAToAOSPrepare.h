@@ -16,8 +16,8 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOS_PREPARE_H
 #define INTEL_DTRANS_TRANSFORMS_SOATOAOS_PREPARE_H
 
-#if !INTEL_INCLUDE_DTRANS
-#error SOAToAOSPrepare.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error SOAToAOSPrepare.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"

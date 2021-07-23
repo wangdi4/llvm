@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/DTransCommon.h"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -27,6 +28,8 @@
 using namespace llvm;
 
 using namespace dvanalysis;
+
+using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtrans-transpose"
 
@@ -72,6 +75,16 @@ static cl::opt<bool> PrintCandidates("dtrans-transpose-print-candidates",
 // 3rd strides for 'tetra'
 static cl::opt<std::string> TransposeOverride("dtrans-transpose-override",
                                               cl::ReallyHidden);
+// We will not perform the transpose unless each dimension of the array has
+// at least this number of elements.
+static cl::opt<uint64_t> TransposeMinDim("dtrans-transpose-min-dim",
+                                         cl::init(8), cl::ReallyHidden);
+
+// If the percentage of references that are indirectly indexed on a dimension
+// is greater than this, this dimension will get a 0.0 gain in the transpose
+// profitability computation.
+static cl::opt<uint64_t> TransposeMinIIRatio("dtrans-transpose-min-ii-ratio",
+                                             cl::init(10), cl::ReallyHidden);
 
 namespace {
 
@@ -80,26 +93,36 @@ namespace {
 class TransposeCandidate {
 public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
-                     uint64_t ArrayLength, uint64_t ElementSize,
-                     llvm::Type *ElementType)
+                     SmallVector<uint64_t, 4> &ArrayLength,
+                     uint64_t ElementSize, llvm::Type *ElementType,
+                     DopeVectorInfo *DVI = nullptr,
+                     Optional<uint64_t> NestedFieldNum = None)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), IsValid(false),
-        IsProfitable(false) {
+        ElementType(ElementType), IsGlobalDV(DVI),
+        NestedFieldNumber(NestedFieldNum), IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
       Strides.push_back(Stride);
-      Stride *= ArrayLength;
+      Stride *= ArrayLength[RankNum];
     }
+    if (DVI)
+      DVI->identifyPtrAddrSubs(SubscriptCalls);
   }
 
   ~TransposeCandidate() { cleanup(); }
 
   // getters and setters for class.
+
   StringRef getName() const { return GV->getName(); }
+
+  Optional<uint64_t> getNestedFieldNumber() const {
+    return NestedFieldNumber;
+  }
+
   uint32_t getArrayRank() const { return ArrayRank; }
   void setIsProfitable(bool Val) { IsProfitable = Val; }
   void setTransposition(ArrayRef<uint32_t> A) {
@@ -118,9 +141,22 @@ public:
   }
 
   // This function analyzes a candidate to check whether all uses of the
-  // variable are supported for the transformation.
+  // variable are supported for the transformation. Either an array which
+  // is a global variable or an allocatable array represented by a dope
+  // vector can be analyzed.
   //
-  // The only valid uses for the global variable itself are:
+  bool analyze(const DataLayout &DL) {
+    if (IsGlobalDV) {
+      // The actual analysis was done during dope vector analysis.
+      // Nothing else to do here.
+      IsValid = true;
+      return true;
+    }
+    return analyzeGlobalVar(DL);
+  }
+
+  // Analyze a global variable array for transpose.
+  // The only valid uses for the global variable are:
   // - Base pointer argument in outermost call of a llvm.intel.subscript
   //   intrinsic call chain.
   // - Storing the array's address into a dope vector that represents the
@@ -134,7 +170,7 @@ public:
   //   of the dope vector fields will be checked to verify that only reads
   //   are done on the dope vector elements.
   //
-  bool analyze(const DataLayout &DL) {
+  bool analyzeGlobalVar(const DataLayout &DL) {
     DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                     dbgs() << "\nAnalyzing variable: " << *GV << "\n");
 
@@ -342,7 +378,8 @@ public:
         return false;
       }
 
-      if (!MatchesConstant(LB, 1) || !MatchesConstant(Extent, ArrayLength) ||
+      if (!MatchesConstant(LB, 1) ||
+          !MatchesConstant(Extent, ArrayLength[Dim]) ||
           !MatchesConstant(Stride, Strides[Dim])) {
         DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                         dbgs() << "Invalid: DV does not capture entire "
@@ -390,8 +427,8 @@ public:
 
     // Check that the field address is where we expect the array address to be
     // stored within the dope vector.
-    if (DopeVectorAnalyzer::identifyDopeVectorField(*FieldGEP) !=
-        DopeVectorAnalyzer::DV_ArrayPtr)
+    if (DopeVectorAnalyzer::identifyDopeVectorField(*(cast<GEPOperator>(FieldGEP))) !=
+        DopeVectorFieldType::DV_ArrayPtr)
       return nullptr;
 
     Value *DVObject = FieldGEP->getPointerOperand();
@@ -460,8 +497,6 @@ public:
     // backedge. If a trip count can be determined, return it, otherwise
     // return 0.
     auto EstimateLoopTripCount = [](Loop *L) -> uint64_t {
-      using namespace llvm::PatternMatch;
-
       if (!L)
         return 0;
 
@@ -527,19 +562,57 @@ public:
       return 0;
     };
 
+    // Return 'true' if 'Inst' represents a PHINode which is the index of
+    // SubscriptInst potentially offset by a constant and then optionally sign or
+    // zero extended. Such a pattern is indicative of indexing into an array.
+    auto IsIndirectIndex = [](Instruction *Inst) -> bool {
+      if (!Inst)
+        return false;
+      auto CI = dyn_cast<CastInst>(Inst);
+      if (CI && (isa<SExtInst>(CI) || isa<ZExtInst>(CI))) {
+        Inst = dyn_cast<Instruction>(CI->getOperand(0));
+        if (!Inst)
+          return false;
+      }
+      Value *V = nullptr;
+      ConstantInt *C = nullptr;
+      if (match(Inst, m_Add(m_Value(V), m_ConstantInt(C))) ||
+          match(Inst, m_Add(m_ConstantInt(C), m_Value(V))) ||
+          match(Inst, m_Sub(m_Value(V), m_ConstantInt(C))) ||
+          match(Inst, m_Sub(m_ConstantInt(C), m_Value(V)))) {
+        Inst = dyn_cast<Instruction>(V);
+        if (!Inst)
+          return false;
+      }
+      auto LI = dyn_cast<LoadInst>(Inst);
+      if (!LI)
+        return false;
+      auto SI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+      if (!SI)
+        return false;
+      while (auto W = dyn_cast<SubscriptInst>(SI->getPointerOperand()))
+        SI = W;
+      return isa<PHINode>(SI->getIndex());
+    };
+
     // This lambda function will recurse down the subscript intrinsic call
     // chain, accumulating a gain value for each dimension which will be used to
     // determine which dimension should be given the smallest stride.
     std::function<void(Instruction *, LoopInfo &,
                        std::array<Instruction *, FortranMaxRank> &,
                        std::array<unsigned, FortranMaxRank> &,
+                       std::array<unsigned, FortranMaxRank> &,
+                       std::array<unsigned, FortranMaxRank> &,
                        std::array<double, FortranMaxRank> &,
                        SmallPtrSetImpl<Instruction *> &)>
         ComputeGain;
-    ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount](
+    ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount,
+                      &IsIndirectIndex](
                       Instruction *I, LoopInfo &LI,
                       std::array<Instruction *, FortranMaxRank> &IndexChain,
                       std::array<unsigned, FortranMaxRank> &IndexVarianceDepth,
+                      std::array<unsigned, FortranMaxRank> &IICount,
+                      std::array<unsigned, FortranMaxRank> &NoIICount,
                       std::array<double, FortranMaxRank> &Gains,
                       SmallPtrSetImpl<Instruction *> &Visited) {
       if (!Visited.insert(I).second)
@@ -554,7 +627,8 @@ public:
       if (isa<SelectInst>(I) || isa<PHINode>(I)) {
         for (auto *UU : I->users())
           if (auto *I2 = dyn_cast<Instruction>(UU))
-            ComputeGain(I2, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+            ComputeGain(I2, LI, IndexChain, IndexVarianceDepth,
+                        IICount, NoIICount, Gains, Visited);
         return;
       }
 
@@ -571,6 +645,11 @@ public:
 
       Value *Index = Subs->getIndex();
       Instruction *IndexInst = dyn_cast<Instruction>(Index);
+      if (IsIndirectIndex(IndexInst))
+        IICount[Dim]++;
+      else
+        NoIICount[Dim]++;
+
       unsigned IndexLoopDepth =
           IndexInst ? LI.getLoopDepth(IndexInst->getParent()) : 0;
 
@@ -582,7 +661,8 @@ public:
       if (Dim != 0) {
         for (auto *UU : Subs->users())
           if (auto *I3 = dyn_cast<Instruction>(UU))
-            ComputeGain(I3, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+            ComputeGain(I3, LI, IndexChain, IndexVarianceDepth,
+                        IICount, NoIICount, Gains, Visited);
       } else {
         // We are relying on the subscript calls being chained together
         // from highest dimension to lowest dimension, when we reach the
@@ -610,7 +690,7 @@ public:
           // If a potential trip count could not be identified, estimate
           // the loop will process half of the array elements.
           if (TC == 0)
-            TC = ArrayLength / 2;
+            TC = ArrayLength[VariantDim] / 2;
 
           // Only consider loops that appear to be good candidates for
           // unit-stride vectorization.
@@ -621,18 +701,16 @@ public:
             for (unsigned Idx = 0; Idx < ArrayRank; ++Idx) {
               // Estimate a factor of 10 for each loop level based on the
               // variance depth of the dimension's index.
-              double Gain =
-                  pow(10.0, IndexVarianceDepth[Idx]) * Subs->getNumUses();
-
-              DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
-                              dbgs() << "  Gain for dimension " << Idx << ": "
-                                     << Gain << "\n");
-
+              double Gain = pow(10.0, IndexVarianceDepth[Idx]) *
+                  Subs->getNumUses();
               // Saturate to avoid numeric overflow.
               double NewGain = Gains[Idx] + Gain;
               Gains[Idx] = NewGain > Gains[Idx]
-                               ? NewGain
-                               : std::numeric_limits<double>::max();
+                           ? NewGain
+                           : std::numeric_limits<double>::max();
+              DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                              dbgs() << "  Gain for dimension "
+                                     << Idx << ": " << Gain << "\n");
             }
           }
         }
@@ -670,6 +748,18 @@ public:
     // nested loop.
     std::array<unsigned, FortranMaxRank> IndexVarianceDepth = {};
 
+    // Number of times a reference to a particular dimension was indirectly
+    // indexed.
+    std::array<unsigned, FortranMaxRank> IICount = {};
+
+    // Number of times a reference to a particular dimension was directly
+    // indexed.
+    std::array<unsigned, FortranMaxRank> NoIICount = {};
+
+    for (unsigned I = 0; I < FortranMaxRank; ++I) {
+      IICount[I] = 0;
+      NoIICount[I] = 0;
+    }
     SmallPtrSet<Instruction *, 32> Visited;
     for (auto &KV : FuncToSubsVec) {
       auto &LI = (GetLI)(*KV.first);
@@ -677,7 +767,20 @@ public:
         continue;
 
       for (auto *Subs : KV.second)
-        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth,
+                    IICount, NoIICount, Gains, Visited);
+    }
+    // Ensure that we do not make an indirectly indexed dimension a fast
+    // moving one if the indirectly indexed references are a significant
+    // percentage of the total.
+    for (unsigned I = 0; I < FortranMaxRank; ++I) {
+      unsigned Total = IICount[I] + NoIICount[I];
+      unsigned Ratio = Total > 0 ? 100 * IICount[I] / Total : 0;
+      if (IICount[I] && (Ratio > TransposeMinIIRatio)) {
+        DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+          dbgs() << "Indirectly Indexed: Forcing Gain[" << I << "] to 0.0\n");
+        Gains[I] = 0.0;
+      }
     }
     double CurrentUnitStridedGain = Gains[0];
 
@@ -721,6 +824,7 @@ public:
       }
     }
   }
+
   // Transform the strides in the subscript calls and dope vector creation, if
   // the candidate is valid for being transposed.
   bool transform() {
@@ -739,12 +843,18 @@ public:
     OS << "Transpose candidate: " << GV->getName() << "\n";
     OS << "Type         : " << *GV->getType() << "\n";
     OS << "Rank         : " << ArrayRank << "\n";
-    OS << "Length       : " << ArrayLength << "\n";
     OS << "Element size : " << ElementSize << "\n";
     OS << "Element type : " << *ElementType << "\n";
+    OS << "Dope vector  : " << IsGlobalDV << "\n";
+    if (getNestedFieldNumber())
+      OS << "Nested Field Number : " << *getNestedFieldNumber() << "\n";
     OS << "Strides      :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << Strides[RankNum];
+    OS << "\n";
+    OS << "Array Length :";
+    for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
+      OS << " " << ArrayLength[RankNum];
     OS << "\n";
 
     OS << "Transposition:";
@@ -765,9 +875,10 @@ private:
   // Number of dimensions (Fortran Rank) for the array
   uint32_t ArrayRank;
 
-  // Number of elements in each dimension of the array. (Candidates must have
-  // the same length in all dimensions)
-  uint64_t ArrayLength;
+  // Number of elements in each dimension of the array.
+  // ArrayLength[I] is the length of the I-th dimension of the array.
+  //
+  SmallVector<uint64_t, 4> ArrayLength;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Size of one element in the array, in bytes.
@@ -776,6 +887,12 @@ private:
 
   // Element type in the array
   llvm::Type *ElementType;
+
+  // 'true' if the candidate is represented by a global dope vector
+  bool IsGlobalDV;
+
+  // If present, the field in the structure containing the candidate
+  Optional<uint64_t> NestedFieldNumber;
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
@@ -819,10 +936,11 @@ private:
   // transposed.
   bool IsProfitable;
 
-  // This function will swap the strides used for indexing into the array. These
-  // need to be changed for subscript operators that directly index into the
-  // global variable, and for the setup of the dope vectors used when passing
-  // the global variable to another function.
+  // This function will swap the strides used for indexing into the array.
+  // These need to be changed for subscript operators that directly index
+  // into the global variable, and for the setup of the dope vectors used
+  // when passing the global variable to another function. Extents in the
+  // dope vectors will also be swapped.
   void transposeStrides() {
     assert(!Transposition.empty() && "New indices should have been set.");
 
@@ -876,9 +994,9 @@ private:
                         dbgs() << "Before: " << Subs.getFunction()->getName()
                                << ":" << Subs << "\n");
         if (TransposeStrides) {
-          assert(isa<Constant>(Subs.getArgOperand(StrideOpNum)) &&
-                 "Subscript call expect to have constant stride");
-
+          // At this point we know the constant stride values whether or not
+          // they have been replaced in the IR. So, we can generate constant
+          // stride arguments for the updated SubscriptInsts regardless.
           uint64_t NewStride = Strides[TransposeIdx];
           auto *NewStrideConst = ConstantInt::get(
               Subs.getArgOperand(StrideOpNum)->getType(), NewStride);
@@ -904,7 +1022,8 @@ private:
     ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides, Visited);
   }
 
-  // Modify the value stored into the stride fields of the dope vector.
+  // Modify the value stored into the stride and extent fields of the
+  // dope vector.
   void transposeDopeVector(DopeVectorAnalyzer &DV) {
 
     for (unsigned Rank = 0; Rank < ArrayRank; ++Rank) {
@@ -913,6 +1032,7 @@ private:
       if (TransposeIdx == Rank)
         continue;
       uint64_t NewStride = Strides[TransposeIdx];
+      uint64_t NewExtent = ArrayLength[TransposeIdx];
 
       auto StrideStores = DV.getStrideStores(Rank);
       for (auto *SI : StrideStores) {
@@ -921,6 +1041,16 @@ private:
         auto *NewStrideConst =
             ConstantInt::get(SI->getOperand(0)->getType(), NewStride);
         SI->setOperand(0, NewStrideConst);
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
+      }
+
+      auto ExtentStores = DV.getExtentStores(Rank);
+      for (auto *SI : ExtentStores) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << *SI << "\n");
+
+        auto *NewExtentConst =
+            ConstantInt::get(SI->getOperand(0)->getType(), NewExtent);
+        SI->setOperand(0, NewExtentConst);
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
       }
     }
@@ -946,7 +1076,9 @@ private:
 // when beneficial.
 class TransposeImpl {
 public:
-  TransposeImpl(dtrans::TransposeLoopInfoFuncType GetLI) : GetLI(GetLI) {}
+  TransposeImpl(dtrans::TransposeLoopInfoFuncType GetLI,
+                dtrans::TransposeTLIType GetTLI) :
+                GetLI(GetLI), GetTLI(GetTLI) {}
 
   bool run(Module &M) {
     const DataLayout &DL = M.getDataLayout();
@@ -973,14 +1105,23 @@ public:
 
     bool Changed = false;
     if (ValidCandidate)
-      for (auto &Cand : Candidates)
+      for (auto &Cand : Candidates) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, {
+          dbgs() << "Transform candidate: " << Cand.getName();
+          Optional<uint64_t> NFN = Cand.getNestedFieldNumber();
+          if (NFN)
+            dbgs() << "[" << *NFN << "]";
+          dbgs() << "\n";
+        });
         Changed |= Cand.transform();
+      }
 
     return Changed;
   }
 
 private:
   dtrans::TransposeLoopInfoFuncType GetLI;
+  dtrans::TransposeTLIType GetTLI;
 
   // Global variable candidates for the transformation.
   SmallVector<TransposeCandidate, 8> Candidates;
@@ -989,47 +1130,162 @@ private:
   //
   // The initial set of candidates meet the following criteria:
   // - Global Variable with internal linkage
-  // - Multi-dimensional array of integer type
-  // - The array lengths in all dimensions are equal
-  // - Variable uses zero initializer
+  // - Multi-dimensional array of integer or floating point type
+  // - Variable uses zero initializer or has no initializer
   void IdentifyCandidates(Module &M) {
+
+    // Return 'true' if 'DVI' with the given 'ArrayRank' and 'ElemType'
+    // is a good candidate for transpose because:
+    //   (1) Its lower bounds are all 1.
+    //   (2) The stride of the zeroth element is the element size.
+    //   (3) The extents are all constant.
+    // When we return 'true', set the dimensions of the array in
+    // 'ArrayLength', and set the 'ElemSize'.
+    //
+    auto IsGoodCandidate = [](DopeVectorInfo *DVI, const DataLayout &DL,
+                              uint32_t ArrayRank, llvm::Type *ElemType,
+                              SmallVector<uint64_t, 4> &ArrayLength,
+                              uint64_t &ElemSize) -> bool {
+      if (ArrayRank <= 1 || ArrayRank >= FortranMaxRank)
+        return false;
+      if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
+        return false;
+      ElemSize = DL.getTypeStoreSize(ElemType);
+      for (uint32_t I = 0; I < ArrayRank; ++I) {
+        auto Extent = DVI->getDopeVectorField(DV_ExtentBase, I);
+        if (!Extent)
+          return false;
+        auto CV = Extent->getConstantValue();
+        if (!CV)
+          return false;
+        uint64_t ThisArrayDim = CV->getZExtValue();
+        if (ThisArrayDim < TransposeMinDim)
+          return false;
+        ArrayLength.push_back(ThisArrayDim);
+        auto Stride = DVI->getDopeVectorField(DV_StrideBase, I);
+        if (!Stride || !Stride->getConstantValue() ||
+            (I == 0 && Stride->getConstantValue()->getZExtValue() != ElemSize))
+          return false;
+        auto LowerBound = DVI->getDopeVectorField(DV_LowerBoundBase, I);
+        if (!LowerBound || !LowerBound->getConstantValue() ||
+            !LowerBound->getConstantValue()->isOne())
+          return false;
+      }
+      return true;
+    };
+
+    // Return 'true' if 'GV' is a pointer to a global dope vector
+    // whose array could be a candidate for transpose.
+    //
+    // This function can generate a single non-nested TransposeCandidate and
+    // push it on the list of Candidates, or generate one or more nested
+    // TransposeCandidates, and push them on the list of Candidates.
+    //
+    // Note that this function will return 'true' if GV is a global dope
+    // vector, even if no TransposeCandidates are created. This keeps us
+    // from checking for the case where 'GV' is a global which is not a
+    // dope vector.
+    //
+    // Note also that this function calls the GlobalDopeVector class member
+    // function collectAndValidate(), which also performs safety checks,
+    // so they do not need to be performed when analyze() is called.
+    //
+    auto GenGlobalDVCandidates = [this, &IsGoodCandidate](GlobalVariable *GV,
+                                  const DataLayout &DL) -> bool {
+      uint32_t ArrayRank = 0;
+      llvm::Type *ElemType = nullptr;
+      if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
+        return false;
+      // In the future, it may be possible to transform some of the nested
+      // dope vectors, but not all. For now, the GlobalDopeVector analysis
+      // is all or nothing, so return immediately if it does not pass.
+      GlobalDopeVector GlobDV(GV, GV->getValueType(), GetTLI);
+      GlobDV.collectAndValidate(DL);
+      auto GAR = GlobDV.getAnalysisResult();
+      if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
+        return true;
+      if (GlobDV.hasNestedDopeVectors()) {
+        for (NestedDopeVectorInfo *NestDVI : GlobDV.getAllNestedDopeVectors()) {
+          if (NestDVI->getAnalysisResult() !=
+             DopeVectorInfo::AnalysisResult::AR_Pass)
+           continue;
+          // Use isDopeVectorType() to get 'NVArrayRank' and 'NVElemType'.
+          uint32_t NVArrayRank = 0;
+          llvm::Type *NVElemType = nullptr;
+          if (!isDopeVectorType(NestDVI->getLLVMStructType(), DL,
+              &NVArrayRank, &NVElemType))
+            continue;
+          SmallVector<uint64_t, 4> NVArrayLength;
+          uint64_t NVElemSize = 0;
+          if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
+                               NVArrayLength, NVElemSize))
+            continue;
+          TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
+                                       NVElemSize, NVElemType, NestDVI,
+                                       NestDVI->getFieldNum());
+          Candidates.push_back(Candidate);
+        }
+        return true;
+      }
+      DopeVectorInfo *DVI = GlobDV.getGlobalDopeVectorInfo();
+      SmallVector<uint64_t, 4> ArrayLength;
+      uint64_t ElemSize = 0;
+      if (!IsGoodCandidate(DVI, DL, ArrayRank, ElemType, ArrayLength, ElemSize))
+        return true;
+      TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
+                                   ElemType, DVI);
+      Candidates.push_back(Candidate);
+      return true;
+    };
+
     const DataLayout &DL = M.getDataLayout();
 
     for (auto &GV : M.globals()) {
-      if (!GV.hasInitializer() || !GV.getInitializer()->isZeroValue())
-        continue;
 
       // All uses of the variable need to be analyzed, therefore we need
       // internal linkage.
       if (!GV.hasInternalLinkage())
         continue;
 
-      llvm::Type *Ty = GV.getValueType();
-      auto *ArrType = dyn_cast<llvm::ArrayType>(Ty);
-      if (!ArrType)
-        continue;
+     if (GenGlobalDVCandidates(&GV, DL))
+       continue;
 
-      uint32_t Dimensions = 1;
-      bool AllSame = true;
-      uint64_t Length = ArrType->getArrayNumElements();
-      llvm::Type *ElemType = ArrType->getArrayElementType();
-      while (ElemType->isArrayTy()) {
-        auto *InnerArrType = cast<llvm::ArrayType>(ElemType);
-        if (InnerArrType->getArrayNumElements() != Length) {
-          AllSame = false;
-          break;
+     if (!GV.hasInitializer() || GV.getInitializer()->isZeroValue()) {
+
+        llvm::Type *Ty = GV.getValueType();
+        auto *ArrType = dyn_cast<llvm::ArrayType>(Ty);
+        if (!ArrType)
+          continue;
+
+        uint32_t Dimensions = 0;
+        SmallVector<uint64_t, 4> ArrayLength;
+        uint64_t ThisArrayDim = ArrType->getArrayNumElements();
+        if (ThisArrayDim < TransposeMinDim)
+          continue;
+        ArrayLength.push_back(ThisArrayDim);
+        llvm::Type *ElemType = ArrType->getArrayElementType();
+        bool SkipCandidate = false;
+        for (Dimensions = 1; ElemType->isArrayTy(); Dimensions++) {
+          auto *InnerArrType = cast<llvm::ArrayType>(ElemType);
+          uint64_t ThisArrayDim = InnerArrType->getArrayNumElements();
+          if (ThisArrayDim < TransposeMinDim) {
+            SkipCandidate = true;
+            break;
+          }
+          ArrayLength.insert(ArrayLength.begin(), ThisArrayDim);
+          ElemType = InnerArrType->getArrayElementType();
         }
-        Dimensions++;
-        ElemType = InnerArrType->getArrayElementType();
-      }
+        if (SkipCandidate)
+          continue;
 
-      if (AllSame && Dimensions > 1 && Dimensions <= FortranMaxRank &&
-          ElemType->isIntegerTy()) {
-        LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
-        uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
-        TransposeCandidate Candidate(&GV, Dimensions, Length, ElemSize,
-                                     ElemType);
-        Candidates.push_back(Candidate);
+        if (Dimensions > 1 && Dimensions <= FortranMaxRank &&
+            (ElemType->isIntegerTy() || ElemType->isFloatingPointTy())) {
+          LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
+          uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
+          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
+                                       ElemType);
+          Candidates.push_back(Candidate);
+        }
       }
     }
   }
@@ -1089,8 +1345,11 @@ public:
     auto GetLI = [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
+    auto GetTLI = [this](const Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
 
-    return Impl.runImpl(M, GetLI);
+    return Impl.runImpl(M, GetLI, GetTLI);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -1101,6 +1360,7 @@ public:
     // an external routine.
 
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
 
     // The swapping of the stride values in the dope vectors and
     // llvm.intel.subscript intrinsic call should not invalidate any analysis.
@@ -1115,6 +1375,7 @@ INITIALIZE_PASS_BEGIN(DTransTransposeWrapper, "dtrans-transpose",
                       "DTrans multi-dimensional array transpose for Fortran",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DTransTransposeWrapper, "dtrans-transpose",
                     "DTrans multi-dimensional array transpose for Fortran",
                     false, false)
@@ -1134,16 +1395,20 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
   auto GetLI = [&FAM](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);
   };
+  auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function*>(&F)));
+  };
 
-  runImpl(M, GetLI);
+  runImpl(M, GetLI, GetTLI);
 
   // The swapping of the stride values in the dope vectors and
   // llvm.intel.subscript intrinsic call should not invalidate any analysis.
   return PreservedAnalyses::all();
 }
 
-bool TransposePass::runImpl(Module &M, TransposeLoopInfoFuncType GetLI) {
-  TransposeImpl Transpose(GetLI);
+bool TransposePass::runImpl(Module &M, TransposeLoopInfoFuncType GetLI,
+                            dtrans::TransposeTLIType GetTLI) {
+  TransposeImpl Transpose(GetLI, GetTLI);
   return Transpose.run(M);
 }
 

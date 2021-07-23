@@ -2,7 +2,7 @@
 ; Check VPlan vectorizer generates valid vector sincos call given
 ; the target CPU and ISA restrictions of available vector-variants.
 
-; RUN: opt -S -VPlanDriver -vector-library=SVML -mcpu=core-avx2 -vplan-force-vf=4 -tti-use-strict-target-isa-for-variant < %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vector-library=SVML -mcpu=core-avx2 -vplan-force-vf=4 -tti-use-strict-target-isa-for-variant < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -14,7 +14,7 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x float], [128 x float]* [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP0]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, <4 x float>* [[TMP0]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = call svml_cc { <4 x float>, <4 x float> } @__svml_sincosf4(<4 x float> [[WIDE_LOAD]])
 ; CHECK-NEXT:    [[SINCOS_SIN:%.*]] = extractvalue { <4 x float>, <4 x float> } [[TMP1]], 0
 ; CHECK-NEXT:    [[SINCOS_COS:%.*]] = extractvalue { <4 x float>, <4 x float> } [[TMP1]], 1
@@ -22,7 +22,7 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK-NEXT:    store <4 x float> [[SINCOS_COS]], <4 x float>* [[COSVAL_VEC:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 128
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 128
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 DIR.OMP.SIMD.1338:

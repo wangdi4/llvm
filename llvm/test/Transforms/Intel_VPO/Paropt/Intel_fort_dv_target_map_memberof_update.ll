@@ -78,7 +78,8 @@ bb2:                                              ; preds = %alloca_0
   "QUAL.OMP.MAP.TO:CHAIN"(%"QNCA_a0$i32*$rank1$"* %"foo_$E", i32* %"foo_$E.addr_a0$_fetch", i64 %mul.3, i64 281474976710673),
   "QUAL.OMP.MAP.TO:CHAIN"(%"QNCA_a0$i32*$rank1$"* %"foo_$E", i64* %"foo_$E.addr_length$", i64 64, i64 281474976710657),
 
-  "QUAL.OMP.MAP.TOFROM"(i32* %"foo_$A"), "QUAL.OMP.FIRSTPRIVATE"(i32* %"foo_$B") ]
+  "QUAL.OMP.MAP.TOFROM"(i32* %"foo_$A", i32* %"foo_$A", i64 4, i64 35, i8* null, i8* null),
+  "QUAL.OMP.FIRSTPRIVATE"(i32* %"foo_$B") ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   ret void
 }

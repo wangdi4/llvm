@@ -310,9 +310,9 @@ namespace clang {
           Ctx.getDiagnosticHandler();
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
         CodeGenOpts, this));
+#endif // INTEL_CUSTOMIZATION
 
       // The diagnostic handler is now processed in OptRecordFileRAII.
-#endif // INTEL_CUSTOMIZATION
 
       // The parallel_for_work_group legalization pass can emit calls to
       // builtins function. Definitions of those builtins can be provided in
@@ -334,7 +334,7 @@ namespace clang {
 #endif // !INTEL_PRODUCT_RELEASE
 
       EmitBackendOutput(Diags, HeaderSearchOpts, CodeGenOpts, TargetOpts,
-                        LangOpts, C.getTargetInfo().getDataLayout(),
+                        LangOpts, C.getTargetInfo().getDataLayoutString(),
                         getModule(), Action, std::move(AsmOutStream));
 
 #if !INTEL_CUSTOMIZATION
@@ -572,7 +572,9 @@ BackendConsumer::StackSizeDiagHandler(const llvm::DiagnosticInfoStackSize &D) {
     // FIXME: Shouldn't need to truncate to uint32_t
     Diags.Report(ND->getASTContext().getFullLoc(ND->getLocation()),
                  diag::warn_fe_frame_larger_than)
-      << static_cast<uint32_t>(D.getStackSize()) << Decl::castToDeclContext(ND);
+        << static_cast<uint32_t>(D.getStackSize())
+        << static_cast<uint32_t>(D.getStackLimit())
+        << Decl::castToDeclContext(ND);
     return true;
   }
 
@@ -886,6 +888,10 @@ llvm::LLVMContext *CodeGenAction::takeLLVMContext() {
   return VMContext;
 }
 
+CodeGenerator *CodeGenAction::getCodeGenerator() const {
+  return BEConsumer->getCodeGenerator();
+}
+
 static std::unique_ptr<raw_pwrite_stream>
 GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
   switch (Action) {
@@ -1034,49 +1040,46 @@ CodeGenAction::loadModule(MemoryBufferRef MBRef) {
   return {};
 }
 
-#if INTEL_CUSTOMIZATION
 namespace {
-  // Handles the initialization and cleanup of the OptRecordFile. This
-  // customization allows initialization before the clang codegen runs
-  // so it can also emit to the opt report.
-  struct OptRecordFileRAII {
-    std::unique_ptr<llvm::ToolOutputFile> OptRecordFile;
-    std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler;
-    llvm::LLVMContext &Ctx;
+// Handles the initialization and cleanup of the OptRecordFile before the clang
+// codegen runs so it can also emit to the opt report.
+struct OptRecordFileRAII {
+  std::unique_ptr<llvm::ToolOutputFile> OptRecordFile;
+  std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler;
+  llvm::LLVMContext &Ctx;
 
-    OptRecordFileRAII(CodeGenAction &CGA, llvm::LLVMContext &Ctx,
-                      BackendConsumer &BC)
-      : OldDiagnosticHandler(Ctx.getDiagnosticHandler()),  Ctx(Ctx) {
+  OptRecordFileRAII(CodeGenAction &CGA, llvm::LLVMContext &Ctx,
+                    BackendConsumer &BC)
+      : OldDiagnosticHandler(Ctx.getDiagnosticHandler()), Ctx(Ctx) {
 
-      CompilerInstance &CI = CGA.getCompilerInstance();
-      CodeGenOptions &CodeGenOpts = CI.getCodeGenOpts();
+    CompilerInstance &CI = CGA.getCompilerInstance();
+    CodeGenOptions &CodeGenOpts = CI.getCodeGenOpts();
 
-      Ctx.setDiagnosticHandler(
-          std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &BC));
+    Ctx.setDiagnosticHandler(
+        std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &BC));
 
-      Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
-          setupLLVMOptimizationRemarks(
-              Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
-              CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
-              CodeGenOpts.DiagnosticsHotnessThreshold);
+    Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
+        setupLLVMOptimizationRemarks(
+            Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
+            CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
+            CodeGenOpts.DiagnosticsHotnessThreshold);
 
-      if (Error E = OptRecordFileOrErr.takeError())
-        reportOptRecordError(std::move(E), CI.getDiagnostics(), CodeGenOpts);
-      else
-        OptRecordFile = std::move(*OptRecordFileOrErr);
+    if (Error E = OptRecordFileOrErr.takeError())
+      reportOptRecordError(std::move(E), CI.getDiagnostics(), CodeGenOpts);
+    else
+      OptRecordFile = std::move(*OptRecordFileOrErr);
 
-      if (OptRecordFile &&
-          CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
-        Ctx.setDiagnosticsHotnessRequested(true);
-    }
-    ~OptRecordFileRAII() {
-      Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
-      if (OptRecordFile)
-        OptRecordFile->keep();
-    }
-  };
-}
-#endif // INTEL_CUSTOMIZATION
+    if (OptRecordFile &&
+        CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
+      Ctx.setDiagnosticsHotnessRequested(true);
+  }
+  ~OptRecordFileRAII() {
+    Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
+    if (OptRecordFile)
+      OptRecordFile->keep();
+  }
+};
+} // namespace
 
 void CodeGenAction::ExecuteAction() {
   if (getCurrentFileKind().getLanguage() != Language::LLVM_IR) {
@@ -1139,7 +1142,7 @@ void CodeGenAction::ExecuteAction() {
 
   EmitBackendOutput(Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts,
                     TargetOpts, CI.getLangOpts(),
-                    CI.getTarget().getDataLayout(), TheModule.get(), BA,
+                    CI.getTarget().getDataLayoutString(), TheModule.get(), BA,
                     std::move(OS));
 
 #if !INTEL_CUSTOMIZATION

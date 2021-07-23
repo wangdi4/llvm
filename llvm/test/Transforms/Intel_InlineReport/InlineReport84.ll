@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -dtrans-inline-heuristics -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
@@ -60,3 +62,4 @@ for.end:                                          ; preds = %for.cond
   call void @llvm.lifetime.end.p0i8(i64 4096, i8* nonnull %t73)
   ret i32 0
 }
+; end INTEL_FEATURE_SW_ADVANCED

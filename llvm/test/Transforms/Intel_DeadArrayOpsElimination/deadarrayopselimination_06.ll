@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
 ; This test verifies that transformations for DeadArrayOpsElimination
 ; optimization is not triggered. "s_qsort" is treated as Qsort function
 ; since it is marked with "is-qsort". This test is same as
@@ -6,7 +9,6 @@
 ; through "baz" call.
 ; Note that the functions don't have any valid IR or meaning.
 
-; REQUIRES: asserts
 ; RUN: opt < %s -S -deadarrayopselimination -debug-only=deadarrayopselimination -disable-output -whole-program-assume 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -passes='module(deadarrayopselimination)' -debug-only=deadarrayopselimination -disable-output -whole-program-assume 2>&1 | FileCheck %s
 
@@ -86,3 +88,5 @@ entry:
 declare void @baz(i8*)
 
 attributes #0 = { "is-qsort" }
+
+; end INTEL_FEATURE_SW_ADVANCED

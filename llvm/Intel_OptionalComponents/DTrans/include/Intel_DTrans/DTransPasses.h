@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !INTEL_INCLUDE_DTRANS
-#error DTransPasses.h include in an non-INTEL_INCLUDE_DTRANS build.
+#if !INTEL_FEATURE_SW_DTRANS
+#error DTransPasses.h include in an non-INTEL_FEATURE_SW_DTRANS build.
 #endif
 
 #ifndef INTEL_DTRANS_DTRANS_PASSES_H
@@ -27,10 +27,12 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzerTest.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
+#include "Intel_DTrans/Transforms/AOSToSOAOP.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
+#include "Intel_DTrans/Transforms/DeleteFieldOP.h"
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"

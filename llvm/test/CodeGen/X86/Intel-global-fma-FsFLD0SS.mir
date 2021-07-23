@@ -95,10 +95,10 @@ machineFunctionInfo: {}
 body:             |
   bb.0.entry:
     ; CHECK-LABEL: name: foo1
-    ; CHECK: [[VMOVSSZrm_alt:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @a, $noreg :: (dereferenceable load 8 from @a, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt1:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @b, $noreg :: (dereferenceable load 8 from @b, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt2:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @c, $noreg :: (dereferenceable load 8 from @c, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt3:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @d, $noreg :: (dereferenceable load 8 from @d, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @a, $noreg :: (dereferenceable load (s64) from @a, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt1:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @b, $noreg :: (dereferenceable load (s64) from @b, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt2:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @c, $noreg :: (dereferenceable load (s64) from @c, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt3:%[0-9]+]]:fr32 = VMOVSSZrm_alt $rip, 1, $noreg, @d, $noreg :: (dereferenceable load (s64) from @d, !tbaa !2)
     ; CHECK: %7:fr32 = nofpexcept VFMSUB213SSr [[VMOVSSZrm_alt1]], [[VMOVSSZrm_alt2]], [[VMOVSSZrm_alt]], implicit $mxcsr
     ; CHECK: [[FsFLD0SS:%[0-9]+]]:fr32 = FsFLD0SS
     ; CHECK: %6:fr32 = nofpexcept VFNMADD213SSr killed %7, [[VMOVSSZrm_alt3]], killed [[FsFLD0SS]], implicit $mxcsr
@@ -133,10 +133,10 @@ machineFunctionInfo: {}
 body:             |
   bb.0.entry:
     ; CHECK-LABEL: name: foo2
-    ; CHECK: [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @a, $noreg :: (dereferenceable load 8 from @a, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @b, $noreg :: (dereferenceable load 8 from @b, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt2:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @c, $noreg :: (dereferenceable load 8 from @c, !tbaa !2)
-    ; CHECK: [[VMOVSSZrm_alt3:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @d, $noreg :: (dereferenceable load 8 from @d, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @a, $noreg :: (dereferenceable load (s64) from @a, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt1:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @b, $noreg :: (dereferenceable load (s64) from @b, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt2:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @c, $noreg :: (dereferenceable load (s64) from @c, !tbaa !2)
+    ; CHECK: [[VMOVSSZrm_alt3:%[0-9]+]]:fr32x = VMOVSSZrm_alt $rip, 1, $noreg, @d, $noreg :: (dereferenceable load (s64) from @d, !tbaa !2)
     ; CHECK: %7:fr32x = nofpexcept VFMSUB213SSZr [[VMOVSSZrm_alt1]], [[VMOVSSZrm_alt2]], [[VMOVSSZrm_alt]], implicit $mxcsr
     ; CHECK: [[AVX512_FsFLD0SS:%[0-9]+]]:fr32x = AVX512_FsFLD0SS
     ; CHECK: %6:fr32x = nofpexcept VFNMADD213SSZr killed %7, [[VMOVSSZrm_alt3]], killed [[AVX512_FsFLD0SS]], implicit $mxcsr
@@ -169,10 +169,10 @@ machineFunctionInfo: {}
 body:             |
   bb.0.entry:
     ; CHECK-LABEL: name: foo3
-    ; CHECK: [[VMOVSDZrm_alt:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @a1, $noreg :: (dereferenceable load 8 from @a1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt1:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @b1, $noreg :: (dereferenceable load 8 from @b1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt2:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @c1, $noreg :: (dereferenceable load 8 from @c1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt3:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @d1, $noreg :: (dereferenceable load 8 from @d1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @a1, $noreg :: (dereferenceable load (s64) from @a1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt1:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @b1, $noreg :: (dereferenceable load (s64) from @b1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt2:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @c1, $noreg :: (dereferenceable load (s64) from @c1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt3:%[0-9]+]]:fr64 = VMOVSDZrm_alt $rip, 1, $noreg, @d1, $noreg :: (dereferenceable load (s64) from @d1, !tbaa !2)
     ; CHECK: %7:fr64 = nofpexcept VFMSUB213SDr [[VMOVSDZrm_alt1]], [[VMOVSDZrm_alt2]], [[VMOVSDZrm_alt]], implicit $mxcsr
     ; CHECK: [[FsFLD0SD:%[0-9]+]]:fr64 = FsFLD0SD
     ; CHECK: %6:fr64 = nofpexcept VFNMADD213SDr killed %7, [[VMOVSDZrm_alt3]], killed [[FsFLD0SD]], implicit $mxcsr
@@ -205,10 +205,10 @@ machineFunctionInfo: {}
 body:             |
   bb.0.entry:
     ; CHECK-LABEL: name: foo4
-    ; CHECK: [[VMOVSDZrm_alt:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @a1, $noreg :: (dereferenceable load 8 from @a1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt1:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @b1, $noreg :: (dereferenceable load 8 from @b1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt2:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @c1, $noreg :: (dereferenceable load 8 from @c1, !tbaa !2)
-    ; CHECK: [[VMOVSDZrm_alt3:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @d1, $noreg :: (dereferenceable load 8 from @d1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @a1, $noreg :: (dereferenceable load (s64) from @a1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt1:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @b1, $noreg :: (dereferenceable load (s64) from @b1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt2:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @c1, $noreg :: (dereferenceable load (s64) from @c1, !tbaa !2)
+    ; CHECK: [[VMOVSDZrm_alt3:%[0-9]+]]:fr64x = VMOVSDZrm_alt $rip, 1, $noreg, @d1, $noreg :: (dereferenceable load (s64) from @d1, !tbaa !2)
     ; CHECK: %7:fr64x = nofpexcept VFMSUB213SDZr [[VMOVSDZrm_alt1]], [[VMOVSDZrm_alt2]], [[VMOVSDZrm_alt]], implicit $mxcsr
     ; CHECK: [[AVX512_FsFLD0SD:%[0-9]+]]:fr64x = AVX512_FsFLD0SD
     ; CHECK: %6:fr64x = nofpexcept VFNMADD213SDZr killed %7, [[VMOVSDZrm_alt3]], killed [[AVX512_FsFLD0SD]], implicit $mxcsr

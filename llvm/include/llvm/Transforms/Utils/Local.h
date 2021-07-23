@@ -17,7 +17,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
@@ -259,7 +258,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
     // Stride is known to be divisible by ElementSize exactly.
     Stride = Builder->CreateExactSDiv(
-        Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
+      Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
   }
 
   auto ExpandToVector = [Builder](Value *V, unsigned VL) {
@@ -336,8 +335,8 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
   Type *BasePtrTy = BasePtr->getType();
 
-  if (IsExact) {
-    // Emit offset in terms of elements.
+  if (IsExact && ConstStride) {
+    // Emit offset in terms of elements. Avoids i8 bitcast overhead.
     Value *ElementOffset =
         emitBaseOffset(Builder, DL, ElTy, BasePtr, Lower, Index, Stride);
 
@@ -377,12 +376,14 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 
     Offsets.back() = ElementOffset;
 
-    return InBounds ? Builder->CreateInBoundsGEP(BasePtr, Offsets)
-                    : Builder->CreateGEP(BasePtr, Offsets);
+    Type *Ty = BasePtr->getType()->getScalarType()->getPointerElementType();
+    return InBounds ? Builder->CreateInBoundsGEP(Ty, BasePtr, Offsets)
+                    : Builder->CreateGEP(Ty, BasePtr, Offsets);
   }
 
   /// The following scheme uses intermediate "bitcast to i8*" to support
-  /// polymorphic types. After shifting the base pointer to a computed number of
+  /// polymorphic types and non-constant stride.
+  /// After shifting the base pointer to a computed number of
   /// bytes the pointer is casted to the ElTy* type.
 
   Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
@@ -392,11 +393,19 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
   }
 
-  Value *BasePtrI8 =
-      Builder->CreateBitCast(BasePtr, I8Ty);
-
   Value *ByteOffset =
       emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
+
+  // Do not create GEP instruction if the Offset is known zero and no type
+  // change is needed.
+  ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ByteOffset);
+  Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+  if (ConstOffset && ConstOffset->isZero() && BaseElTy == ElTy) {
+    return BasePtr;
+  }
+
+  Value *BasePtrI8 =
+      Builder->CreateBitCast(BasePtr, I8Ty);
 
   Value *NewBasePtr = InBounds
                           ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)
@@ -447,21 +456,6 @@ bool LowerDbgDeclare(Function &F);
 void insertDebugValuesForPHIs(BasicBlock *BB,
                               SmallVectorImpl<PHINode *> &InsertedPHIs);
 
-/// Finds all intrinsics declaring local variables as living in the memory that
-/// 'V' points to. This may include a mix of dbg.declare and
-/// dbg.addr intrinsics.
-TinyPtrVector<DbgVariableIntrinsic *> FindDbgAddrUses(Value *V);
-
-/// Like \c FindDbgAddrUses, but only returns dbg.declare intrinsics, not
-/// dbg.addr.
-TinyPtrVector<DbgDeclareInst *> FindDbgDeclareUses(Value *V);
-
-/// Finds the llvm.dbg.value intrinsics describing a value.
-void findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, Value *V);
-
-/// Finds the debug info intrinsics describing a value.
-void findDbgUsers(SmallVectorImpl<DbgVariableIntrinsic *> &DbgInsts, Value *V);
-
 /// Replaces llvm.dbg.declare instruction when the address it
 /// describes is replaced with a new value. If Deref is true, an
 /// additional DW_OP_deref is prepended to the expression. If Offset
@@ -497,7 +491,8 @@ void salvageDebugInfoForDbgValues(Instruction &I,
 /// appended to the expression. \p LocNo: the index of the location operand to
 /// which \p I applies, should be 0 for debug info without a DIArgList.
 DIExpression *salvageDebugInfoImpl(Instruction &I, DIExpression *DIExpr,
-                                   bool StackVal, unsigned LocNo);
+                                   bool StackVal, unsigned LocNo,
+                                   SmallVectorImpl<Value *> &AdditionalValues);
 
 /// Point debug users of \p From to \p To or salvage them. Use this function
 /// only when replacing all uses of \p From with \p To, with a guarantee that
@@ -674,6 +669,15 @@ bool canReplaceOperandWithVariable(const Instruction *I, unsigned OpIdx);
 
 /// Invert the given true/false value, possibly reusing an existing copy.
 Value *invertCondition(Value *Condition);
+
+
+//===----------------------------------------------------------------------===//
+//  Assorted
+//
+
+/// If we can infer one attribute from another on the declaration of a
+/// function, explicitly materialize the maximal set in the IR.
+bool inferAttributesFromOthers(Function &F);
 
 } // end namespace llvm
 

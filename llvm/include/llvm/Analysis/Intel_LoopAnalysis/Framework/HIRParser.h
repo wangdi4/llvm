@@ -502,6 +502,10 @@ class HIRParser {
   /// Clears all the per-region data structures.
   void clearRegionData();
 
+  /// Returns the first loop after \p Node under Node's parent if it exists,
+  /// else returns nullptr.
+  HLLoop *getNextLexicalLoop(HLNode *Node);
+
   /// Processes a block_loop begin directive by copying over information to the
   /// relevant loop. Return true, if it is processed.
   bool processBlockLoopBeginDirective(HLInst *HInst);

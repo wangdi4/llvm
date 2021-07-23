@@ -199,7 +199,6 @@ private:
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
     bool AddressOf;
-    bool Volatile;
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
@@ -622,15 +621,6 @@ public:
     getGEPInfo()->AddressOf = IsAddressOf;
   }
 
-  /// Returns true if this is a volatile load/store.
-  bool isVolatile() const { return getGEPInfo()->Volatile; }
-
-  /// Sets/resets this ref as a volatile load/store.
-  void setVolatile(bool IsVolatile) {
-    createGEP();
-    getGEPInfo()->Volatile = IsVolatile;
-  }
-
   /// Returns alignment info for this ref.
   unsigned getAlignment() const { return getGEPInfo()->Alignment; }
 
@@ -778,6 +768,9 @@ public:
 
   const_blob_iterator blob_begin() const { return BlobDDRefs.begin(); }
   const_blob_iterator blob_end() const { return BlobDDRefs.end(); }
+
+  auto blobs() { return make_range(blob_begin(), blob_end()); }
+  auto blobs() const { return make_range(blob_begin(), blob_end()); }
 
   reverse_blob_iterator blob_rbegin() { return BlobDDRefs.rbegin(); }
   reverse_blob_iterator blob_rend() { return BlobDDRefs.rend(); }
@@ -1066,6 +1059,10 @@ public:
   BlobDDRef *getBlobDDRef(unsigned Index);
   const BlobDDRef *getBlobDDRef(unsigned Index) const;
 
+  // Returns the single non-linear blob that is seen in this RegDDRef. Returns
+  // nullptr if zero or multiple non-linear blob is found.
+  const BlobDDRef *getSingleNonLinearBlobRef() const;
+
   /// Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
@@ -1086,6 +1083,10 @@ public:
   /// Returns true if any blob is replaced.
   bool replaceTempBlobs(
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
+      bool AssumeLvalIfDetached = false);
+
+  bool replaceTempBlobs(
+      const DenseMap<unsigned, unsigned> &BlobMap,
       bool AssumeLvalIfDetached = false);
 
   /// Replaces temp blob with int constant

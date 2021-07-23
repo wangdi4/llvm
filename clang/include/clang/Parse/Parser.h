@@ -114,14 +114,17 @@ class Parser : public CodeCompletionHandler {
   /// Contextual keywords for Microsoft extensions.
   IdentifierInfo *Ident__except;
   mutable IdentifierInfo *Ident_sealed;
+  mutable IdentifierInfo *Ident_abstract;
 
   /// Ident_super - IdentifierInfo for "super", to support fast
   /// comparison.
   IdentifierInfo *Ident_super;
-  /// Ident_vector, Ident_bool - cached IdentifierInfos for "vector" and
-  /// "bool" fast comparison.  Only present if AltiVec or ZVector are enabled.
+  /// Ident_vector, Ident_bool, Ident_Bool - cached IdentifierInfos for "vector"
+  /// and "bool" fast comparison.  Only present if AltiVec or ZVector are
+  /// enabled.
   IdentifierInfo *Ident_vector;
   IdentifierInfo *Ident_bool;
+  IdentifierInfo *Ident_Bool;
   /// Ident_pixel - cached IdentifierInfos for "pixel" fast comparison.
   /// Only present if AltiVec enabled.
   IdentifierInfo *Ident_pixel;
@@ -912,6 +915,7 @@ private:
 
     if (Tok.getIdentifierInfo() != Ident_vector &&
         Tok.getIdentifierInfo() != Ident_bool &&
+        Tok.getIdentifierInfo() != Ident_Bool &&
         (!getLangOpts().AltiVec || Tok.getIdentifierInfo() != Ident_pixel))
       return false;
 
@@ -1830,7 +1834,8 @@ private:
   ExprResult ParsePostfixExpressionSuffix(ExprResult LHS);
   ExprResult ParseUnaryExprOrTypeTraitExpression();
   ExprResult ParseBuiltinPrimaryExpression();
-  ExprResult ParseUniqueStableNameExpression();
+  ExprResult ParseSYCLUniqueStableNameExpression();
+  ExprResult ParseSYCLUniqueStableIdExpression();
 
   ExprResult ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
                                                      bool &isCastExpr,
@@ -2747,6 +2752,10 @@ private:
   /// locations where attributes are not allowed.
   void DiagnoseAndSkipCXX11Attributes();
 
+  /// Emit warnings for C++11 and C2x attributes that are in a position that
+  /// clang accepts as an extension.
+  void DiagnoseCXX11AttributeExtension(ParsedAttributesWithRange &Attrs);
+
   /// Parses syntax-generic attribute arguments for attributes which are
   /// known to the implementation, and adds them to the given ParsedAttributes
   /// list with the given attribute syntax. Returns the number of arguments
@@ -2880,6 +2889,16 @@ private:
                           IdentifierInfo *ScopeName, SourceLocation ScopeLoc,
                           ParsedAttr::Syntax Syntax);
 
+  void ReplayOpenMPAttributeTokens(CachedTokens &OpenMPTokens) {
+    // If parsing the attributes found an OpenMP directive, emit those tokens
+    // to the parse stream now.
+    if (!OpenMPTokens.empty()) {
+      PP.EnterToken(Tok, /*IsReinject*/ true);
+      PP.EnterTokenStream(OpenMPTokens, /*DisableMacroExpansion*/ true,
+                          /*IsReinject*/ true);
+      ConsumeAnyToken(/*ConsumeCodeCompletionTok*/ true);
+    }
+  }
   void MaybeParseCXX11Attributes(Declarator &D) {
     if (standardAttributesAllowed() && isCXX11AttributeSpecifier()) {
       ParsedAttributesWithRange attrs(AttrFactory);
@@ -2909,8 +2928,18 @@ private:
     return false;
   }
 
-  void ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
-                                    SourceLocation *EndLoc = nullptr);
+  void ParseOpenMPAttributeArgs(IdentifierInfo *AttrName,
+                                CachedTokens &OpenMPTokens);
+
+  void ParseCXX11AttributeSpecifierInternal(ParsedAttributes &Attrs,
+                                            CachedTokens &OpenMPTokens,
+                                            SourceLocation *EndLoc = nullptr);
+  void ParseCXX11AttributeSpecifier(ParsedAttributes &Attrs,
+                                    SourceLocation *EndLoc = nullptr) {
+    CachedTokens OpenMPTokens;
+    ParseCXX11AttributeSpecifierInternal(Attrs, OpenMPTokens, EndLoc);
+    ReplayOpenMPAttributeTokens(OpenMPTokens);
+  }
   void ParseCXX11Attributes(ParsedAttributesWithRange &attrs,
                             SourceLocation *EndLoc = nullptr);
   /// Parses a C++11 (or C2x)-style attribute argument list. Returns true
@@ -2919,7 +2948,8 @@ private:
                                SourceLocation AttrNameLoc,
                                ParsedAttributes &Attrs, SourceLocation *EndLoc,
                                IdentifierInfo *ScopeName,
-                               SourceLocation ScopeLoc);
+                               SourceLocation ScopeLoc,
+                               CachedTokens &OpenMPTokens);
 
   IdentifierInfo *TryParseCXX11AttributeIdentifier(SourceLocation &Loc);
 
@@ -3025,6 +3055,7 @@ private:
                                           SourceLocation FriendLoc);
 
   bool isCXX11FinalKeyword() const;
+  bool isClassCompatibleKeyword() const;
 
   /// DeclaratorScopeObj - RAII object used in Parser::ParseDirectDeclarator to
   /// enter a new C++ declarator scope and exit it when the function is
@@ -3171,6 +3202,7 @@ private:
                                        const ParsedTemplateInfo &TemplateInfo,
                                        SourceLocation UsingLoc,
                                        SourceLocation &DeclEnd,
+                                       ParsedAttributesWithRange &Attrs,
                                        AccessSpecifier AS = AS_none);
   Decl *ParseAliasDeclarationAfterDeclarator(
       const ParsedTemplateInfo &TemplateInfo, SourceLocation UsingLoc,
@@ -3313,10 +3345,12 @@ private:
   /// Parse 'omp end assumes' directive.
   void ParseOpenMPEndAssumesDirective(SourceLocation Loc);
 
-  /// Parse clauses for '#pragma omp declare target'.
-  DeclGroupPtrTy ParseOMPDeclareTargetClauses();
+  /// Parse clauses for '#pragma omp [begin] declare target'.
+  void ParseOMPDeclareTargetClauses(Sema::DeclareTargetContextInfo &DTCI);
+
   /// Parse '#pragma omp end declare target'.
-  void ParseOMPEndDeclareTargetDirective(OpenMPDirectiveKind DKind,
+  void ParseOMPEndDeclareTargetDirective(OpenMPDirectiveKind BeginDKind,
+                                         OpenMPDirectiveKind EndDKind,
                                          SourceLocation Loc);
 
   /// Skip tokens until a `annot_pragma_openmp_end` was found. Emit a warning if
@@ -3456,6 +3490,14 @@ private:
   /// nullptr.
   ///
   OMPClause *ParseOpenMPSubdeviceClause(bool ParseOnly);
+
+  /// Parses data clause with list of values describing what and how much
+  /// to prefetch.
+  ///
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPDataClause(bool ParseOnly);
 #endif // INTEL_COLLAB
 
   /// Parses and creates OpenMP 5.0 iterators expression:
@@ -3501,6 +3543,9 @@ public:
     SmallVector<SourceLocation, NumberOfOMPMotionModifiers> MotionModifiersLoc;
     bool IsMapTypeImplicit = false;
     SourceLocation ExtraModifierLoc;
+#if INTEL_COLLAB
+    Expr *AllocAlignModifier = nullptr;
+#endif // INTEL_COLLAB
   };
 
   /// Parses clauses with list.
@@ -3519,6 +3564,13 @@ public:
   /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
   /// where, map-type-modifier ::= always | close | mapper(mapper-identifier)
   bool parseMapTypeModifiers(OpenMPVarListDataTy &Data);
+#if INTEL_COLLAB
+  /// Parses allocate-modifiers in allocate clause.
+  bool ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
+                                    OpenMPClauseKind CKind,
+                                    OpenMPVarListDataTy &Data,
+                                    SourceLocation LParLoc);
+#endif // INTEL_COLLAB
 
 private:
   //===--------------------------------------------------------------------===//
@@ -3616,6 +3668,12 @@ private:
   // Embarcadero: Arary and Expression Traits
   ExprResult ParseArrayTypeTrait();
   ExprResult ParseExpressionTrait();
+
+  /// SYCL Type Traits
+  // __builtin_num_fields, __builtin_num_bases
+  ExprResult ParseSYCLBuiltinNum();
+  // __builtin_field_type, __builtin_base_type
+  ExprResult ParseSYCLBuiltinType();
 
   //===--------------------------------------------------------------------===//
   // Preprocessor code-completion pass-through

@@ -14,8 +14,10 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -29,7 +31,9 @@ public:
   /// Pass identifier.
   static char ID;
 
-  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {}
+  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {
+    initializeDPCPPKernelAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 
@@ -62,15 +66,11 @@ ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
 }
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
-  FuncSet BarrierRootSet;
-  FuncSet SyncFunctions;
-
   // Get all synchronize built-ins declared in module
-  DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(SyncFunctions, M);
+  FuncSet SyncFunctions =
+      DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(*M);
 
-  BarrierRootSet.insert(SyncFunctions.begin(), SyncFunctions.end());
-
-  DPCPPKernelLoopUtils::fillFuncUsersSet(BarrierRootSet, UnsupportedFuncs);
+  DPCPPKernelLoopUtils::fillFuncUsersSet(SyncFunctions, UnsupportedFuncs);
 }
 
 void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs() {
@@ -133,7 +133,8 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
 bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
   this->M = &M;
   UnsupportedFuncs.clear();
-  Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  auto KernelList = DPCPPKernelCompilationUtils::getKernels(M);
+  Kernels.insert(KernelList.begin(), KernelList.end());
 
   fillKernelCallers();
   fillSyncUsersFuncs();
@@ -141,11 +142,8 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
-    if (UnsupportedFuncs.count(Kernel)) {
-      Kernel->addFnAttr(NO_BARRIER_PATH_ATTRNAME, "false");
-    } else {
-      Kernel->addFnAttr(NO_BARRIER_PATH_ATTRNAME, "true");
-    }
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    KIMD.NoBarrierPath.set(!UnsupportedFuncs.count(Kernel));
   }
 
   return (Kernels.size() != 0);
@@ -160,17 +158,10 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
 
-    std::string FuncName = Kernel->getName().str();
+    StringRef FuncName = Kernel->getName();
 
-    assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelAnalysisPass: " NO_BARRIER_PATH_ATTRNAME
-           " has to be set!");
-    StringRef Value =
-        Kernel->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-    assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelAnalysisPass: unexpected " NO_BARRIER_PATH_ATTRNAME
-           " value!");
-    bool NoBarrierPath = Value == "true" ? true : false;
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    bool NoBarrierPath = KIMD.NoBarrierPath.get();
 
     if (NoBarrierPath) {
       OS << FuncName << " yes\n";

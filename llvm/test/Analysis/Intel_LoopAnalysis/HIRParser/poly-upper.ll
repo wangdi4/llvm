@@ -2,10 +2,10 @@
 
 ; Check parsing output for the loop verifying that the polynomial upper of inenr loop is parsed correctly.
 
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %add = %k.020  +  i1;
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %indvars.iv23)), 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   + DO i2 = 0, zext.i32.i64((-1 + %indvars.iv23)), 1 <DO_LOOP> <MAX_TC_EST = 4294967295>
 ; CHECK: |   |   (%A)[i2] = i2;
 ; CHECK: |   + END LOOP
 ; CHECK: |

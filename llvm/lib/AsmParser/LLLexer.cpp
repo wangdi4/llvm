@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LLLexer.h"
+#include "llvm/AsmParser/LLLexer.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -548,7 +548,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(triple);
   KEYWORD(source_filename);
   KEYWORD(unwind);
-  KEYWORD(deplibs);             // FIXME: Remove in 4.0.
   KEYWORD(datalayout);
   KEYWORD(volatile);
   KEYWORD(atomic);
@@ -621,6 +620,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(x86_regcallcc);
   KEYWORD(webkit_jscc);
   KEYWORD(swiftcc);
+  KEYWORD(swifttailcc);
   KEYWORD(anyregcc);
   KEYWORD(preserve_mostcc);
   KEYWORD(preserve_allcc);
@@ -686,6 +686,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(nocf_check);
   KEYWORD(noundef);
   KEYWORD(nounwind);
+  KEYWORD(nosanitize_coverage);
   KEYWORD(null_pointer_is_valid);
   KEYWORD(optforfuzzing);
   KEYWORD(optnone);
@@ -712,6 +713,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(speculative_load_hardening);
   KEYWORD(swifterror);
   KEYWORD(swiftself);
+  KEYWORD(swiftasync);
   KEYWORD(uwtable);
   KEYWORD(vscale_range);
   KEYWORD(willreturn);
@@ -861,6 +863,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   TYPEKEYWORD("x86_mmx",   Type::getX86_MMXTy(Context));
   TYPEKEYWORD("x86_amx",   Type::getX86_AMXTy(Context));
   TYPEKEYWORD("token",     Type::getTokenTy(Context));
+  TYPEKEYWORD("ptr", PointerType::getUnqual(Context));
 
 #undef TYPEKEYWORD
 

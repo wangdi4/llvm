@@ -10,8 +10,8 @@
 #include "InputInfo.h"
 #include "ToolChains/Arch/ARM.h"
 #include "ToolChains/Clang.h"
-#include "ToolChains/InterfaceStubs.h"
 #include "ToolChains/Flang.h"
+#include "ToolChains/InterfaceStubs.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Config/config.h"
@@ -33,9 +33,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
-#if INTEL_CUSTOMIZATION
 #include "llvm/Support/CommandLine.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -78,13 +76,13 @@ ToolChain::ToolChain(const Driver &D, const llvm::Triple &T,
                      const ArgList &Args)
     : D(D), Triple(T), Args(Args), CachedRTTIArg(GetRTTIArgument(Args)),
       CachedRTTIMode(CalculateRTTIMode(Args, Triple, CachedRTTIArg)) {
-  if (D.CCCIsCXX()) {
-    if (auto CXXStdlibPath = getCXXStdlibPath())
-      getFilePaths().push_back(*CXXStdlibPath);
-  }
+  std::string RuntimePath = getRuntimePath();
+  if (getVFS().exists(RuntimePath))
+    getLibraryPaths().push_back(RuntimePath);
 
-  if (auto RuntimePath = getRuntimePath())
-    getLibraryPaths().push_back(*RuntimePath);
+  std::string StdlibPath = getStdlibPath();
+  if (getVFS().exists(StdlibPath))
+    getFilePaths().push_back(StdlibPath);
 
   std::string CandidateLibPath = getArchSpecificLibPath();
   if (getVFS().exists(CandidateLibPath))
@@ -363,6 +361,12 @@ Tool *ToolChain::getBackendCompiler() const {
   return BackendCompiler.get();
 }
 
+Tool *ToolChain::getAppendFooter() const {
+  if (!AppendFooter)
+    AppendFooter.reset(new tools::AppendFooter(*this));
+  return AppendFooter.get();
+}
+
 Tool *ToolChain::getTableTform() const {
   if (!FileTableTform)
     FileTableTform.reset(new tools::FileTableTform(*this));
@@ -423,6 +427,9 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
   case Action::BackendCompileJobClass:
     return getBackendCompiler();
 
+  case Action::AppendFooterJobClass:
+    return getAppendFooter();
+
   case Action::FileTableTformJobClass:
     return getTableTform();
   }
@@ -448,6 +455,9 @@ static StringRef getArchNameForCompilerRTLib(const ToolChain &TC,
 }
 
 StringRef ToolChain::getOSLibName() const {
+  if (Triple.isOSDarwin())
+    return "darwin";
+
   switch (Triple.getOS()) {
   case llvm::Triple::FreeBSD:
     return "freebsd";
@@ -542,41 +552,16 @@ const char *ToolChain::getCompilerRTArgString(const llvm::opt::ArgList &Args,
   return Args.MakeArgString(getCompilerRT(Args, Component, Type));
 }
 
-
-Optional<std::string> ToolChain::getRuntimePath() const {
-  SmallString<128> P;
-
-  // First try the triple passed to driver as --target=<triple>.
-  P.assign(D.ResourceDir);
-  llvm::sys::path::append(P, "lib", D.getTargetTriple());
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  // Second try the normalized triple.
-  P.assign(D.ResourceDir);
-  llvm::sys::path::append(P, "lib", Triple.str());
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  return None;
+std::string ToolChain::getRuntimePath() const {
+  SmallString<128> P(D.ResourceDir);
+  llvm::sys::path::append(P, "lib", getTripleString());
+  return std::string(P.str());
 }
 
-Optional<std::string> ToolChain::getCXXStdlibPath() const {
-  SmallString<128> P;
-
-  // First try the triple passed to driver as --target=<triple>.
-  P.assign(D.Dir);
-  llvm::sys::path::append(P, "..", "lib", D.getTargetTriple(), "c++");
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  // Second try the normalized triple.
-  P.assign(D.Dir);
-  llvm::sys::path::append(P, "..", "lib", Triple.str(), "c++");
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  return None;
+std::string ToolChain::getStdlibPath() const {
+  SmallString<128> P(D.Dir);
+  llvm::sys::path::append(P, "..", "lib", getTripleString());
+  return std::string(P.str());
 }
 
 std::string ToolChain::getArchSpecificLibPath() const {
@@ -871,7 +856,7 @@ ToolChain::UnwindLibType ToolChain::GetUnwindLibType(
   else if (LibName == "platform" || LibName == "") {
     ToolChain::RuntimeLibType RtLibType = GetRuntimeLibType(Args);
     if (RtLibType == ToolChain::RLT_CompilerRT) {
-      if (getTriple().isAndroid())
+      if (getTriple().isAndroid() || getTriple().isOSAIX())
         unwindLibType = ToolChain::UNW_CompilerRT;
       else
         unwindLibType = ToolChain::UNW_None;
@@ -1047,6 +1032,11 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
+                                      ArgStringList &CmdArgs) const {
+  CmdArgs.push_back("-limf");
+}
+
 static const std::string getIntelBasePath(const std::string DriverDir) {
   // Perf libs are located in different locations depending on the package
   // being used.  This is PSXE vs oneAPI installations.
@@ -1108,6 +1098,9 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   CmdArgs.push_back(Args.MakeArgString(P));
 }
 
@@ -1142,10 +1135,14 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
 
 std::string ToolChain::GetMKLLibPath(void) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
-  if (getTriple().getArch() == llvm::Triple::x86_64)
+  llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+  if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   return std::string(P);
 }
 
@@ -1189,6 +1186,9 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
     llvm::sys::path::append(P, "vc14");
   else
     llvm::sys::path::append(P, "gcc4.8");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   CmdArgs.push_back(Args.MakeArgString(P));
 }
 
@@ -1214,10 +1214,14 @@ std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
 
 std::string ToolChain::GetDAALLibPath(void) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
-  if (getTriple().getArch() == llvm::Triple::x86_64)
+  llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+  if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   return std::string(P);
 }
 
@@ -1304,9 +1308,13 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                        options::OPT_fno_openmp, false))))
       return;
     SmallVector<StringRef, 8> MKLLibs;
-    if (!getTriple().isWindowsMSVCEnvironment() &&
-        !Args.hasArg(options::OPT_static) && Args.hasArg(options::OPT_fsycl))
-      MKLLibs.push_back("mkl_sycl");
+    bool IsMSVC = getTriple().isWindowsMSVCEnvironment();
+    if (Args.hasArg(options::OPT_fsycl)) {
+      SmallString<32> LibName("mkl_sycl");
+      if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
+        LibName += "d";
+      MKLLibs.push_back(Args.MakeArgString(LibName));
+    }
     auto addMKLExt = [](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64)
@@ -1315,10 +1323,13 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode())
+      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode()) {
         // Use TBB when -tbb or DPC++
-        MKLLibs.push_back("mkl_tbb_thread");
-      else
+        SmallString<32> LibName("mkl_tbb_thread");
+        if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
+          LibName += "d";
+        MKLLibs.push_back(Args.MakeArgString(LibName));
+      } else
         MKLLibs.push_back("mkl_intel_thread");
     }
     if (A->getValue() == StringRef("cluster")) {
@@ -1353,6 +1364,8 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
   if (const Arg *A = Args.getLastArg(options::OPT_qdaal_EQ)) {
     SmallVector<StringRef, 4> DAALLibs;
+    if (Args.hasArg(options::OPT_fsycl))
+      DAALLibs.push_back("onedal_sycl");
     DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))
       DAALLibs.push_back("onedal_thread");
@@ -1372,8 +1385,8 @@ void ToolChain::AddACTypesLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   SmallVector<StringRef, 4> ACTypesLibs;
   ACTypesLibs.push_back("dspba_mpir");
   ACTypesLibs.push_back("dspba_mpfr");
-  ACTypesLibs.push_back("hls_fixed_point_math_x86");
-  ACTypesLibs.push_back("hls_vpfp_library");
+  ACTypesLibs.push_back("ac_types_fixed_point_math_x86");
+  ACTypesLibs.push_back("ac_types_vpfp_library");
   for (const auto &Lib : ACTypesLibs) {
     std::string LibName(Lib);
     if (Prefix.size() > 0)
@@ -1537,7 +1550,9 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     // matches the current toolchain triple. If it is not present
     // at all, target and host share a toolchain.
     if (A->getOption().matches(options::OPT_m_Group)) {
-      if (SameTripleAsHost)
+      // AMD GPU is a special case, as -mcpu is required for the device
+      // compilation.
+      if (SameTripleAsHost || getTriple().getArch() == llvm::Triple::amdgcn)
         DAL->append(A);
       else
         Modified = true;

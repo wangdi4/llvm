@@ -1,8 +1,11 @@
 ; This test verifies that private-variables escaping out through a write
 ; to an output argument are unsafe for data-layout transformation.
 
-; RUN: opt -disable-output -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
-; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
+; RUN: opt -disable-output -vplan-vec -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+
+; HIR-run.
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-soa-hir -vplan-dump-soa-info\
+; RUN: -disable-output  -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -47,7 +50,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_ne.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LASTPRIVATE"(i32* %index.lpriv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_ne.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %index.lpriv)]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1

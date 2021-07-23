@@ -2,7 +2,7 @@
 ; Test to check that DA propagates stride information for selects with external uniform conditions generating
 ; a strided VectorShape.
 
-; RUN: opt -VPlanDriver -vplan-dump-da -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-dump-da -vplan-force-vf=2 -disable-output %s 2>&1 | FileCheck %s
 
 ; REQUIRES: asserts
 
@@ -22,11 +22,11 @@ define void @foo([1024 x i32]* %src, [1024 x i32]* %dest, i1 %cond) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] i32* [[VP_SELECT_DEST:%.*]] = select i1 [[COND0]] i32* [[VP_ARRAYIDX3]] i32* [[VP_ARRAYIDX4]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP_LOAD]] i32* [[VP_SELECT_DEST]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp ne i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]

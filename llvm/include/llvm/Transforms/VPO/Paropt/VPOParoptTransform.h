@@ -586,15 +586,6 @@ private:
   void useUpdatedUseDevicePtrsInTgtDataRegion(
       WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall);
 
-  /// Transform all array sections in \p W region's map clauses
-  /// into map chains. New instructions to compute parameters of
-  /// the corresponding map chains are inserted \b before \p InsertPt.
-  /// After the transformation a map clause with an array section
-  /// will contain a single map chain element, which is dynamically
-  /// allocated by this method. The MapItem destructor is responsible
-  /// for deallocating this map chain element.
-  void genMapChainsForMapArraySections(WRegionNode *W, Instruction *InsertPt);
-
   /// Return the Value to replace the occurrences of the original clause
   /// operand inside the body of the associated WRegion. It may need to emit
   /// some Instructions, which is done \b before \p InsertPt.
@@ -1799,10 +1790,6 @@ private:
   /// `openmp-declare-target=true` attribute, \b false otherwise.
   bool isFunctionOpenMPTargetDeclare();
 
-  /// Return true if one of the region W's ancestor is OMP target
-  /// construct or the function where W lies in has target declare attribute.
-  bool hasParentTarget(WRegionNode *W);
-
   /// Initialize the loop descriptor struct with the loop level
   /// as well as the lb, ub, stride for each level of the loop.
   /// The loop descriptor struct as follows.
@@ -1894,6 +1881,11 @@ private:
   /// inside the region and all references to the original instance are replaced
   /// with the private one.
   bool privatizeSharedItems(WRegionNode *W);
+
+  /// Analyse work region's clauses and check if they can be simplified. If
+  /// simplification cannot be performed by the compiler emit diagnostic message
+  /// for the user. Return true if work region has been modified.
+  bool simplifyRegionClauses(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id

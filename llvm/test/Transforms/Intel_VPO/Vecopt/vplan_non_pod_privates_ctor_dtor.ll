@@ -4,7 +4,7 @@
 ; constructor and destructor to initialize/deallocate wide-memory that
 ; is created to represent the private.
 
-; RUN: opt -VPlanDriver -S -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-print-after-call-vec-decisions < %s | FileCheck %s
+; RUN: opt -vplan-vec -S -vplan-force-vf=2 -vplan-print-after-vpentity-instrs -vplan-print-after-call-vec-decisions < %s | FileCheck %s
 
 ; Check VPlan-IR after VPEntities instruction lowering
 ; CHECK-LABEL: VPlan after insertion of VPEntities instructions:
@@ -19,8 +19,8 @@
 
 ; Check VPlan-IR after CallVecDecisions. Ctor/Dtor calls to non-POD privates
 ; are expected to be serialized.
-; CHECK-LABEL: VPlan after CallVecDecisions analysis for VF=2:
-; CHECK:         vector.ph: # preds: BB{{.*}}
+; CHECK-LABEL: VPlan after CallVecDecisions analysis for merged CFG:
+; CHECK:         BB{{.*}}: # preds: BB{{.*}}
 ; CHECK:          [DA: Div] %struct.ClassA* [[PRIVATE_MEM]] = allocate-priv %struct.ClassA*, OrigAlign = 4
 ; CHECK-NEXT:     [DA: Div] i32* [[PRIV_GEP]] = getelementptr inbounds %struct.ClassA* [[PRIVATE_MEM]] i64 0 i32 0
 ; CHECK-NEXT:     [DA: Div] %struct.ClassA* [[PRIV_CTOR]] = call %struct.ClassA* [[PRIVATE_MEM]] %struct.ClassA* (%struct.ClassA*)* @_ZTS6ClassA.omp.def_constr [Serial]
@@ -44,20 +44,20 @@ define dso_local void @_Z4funcPiS_i(i32* nocapture %dst, i32* nocapture readonly
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 1
 ; CHECK-NEXT:    [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_:%.*]] = extractelement <2 x %struct.ClassA*> [[VALUE_PRIV_VEC_BASE_ADDR]], i32 0
 ; CHECK-NEXT:    br i1 [[CMP3_NOT20]], label [[OMP_PRECOND_END:%.*]], label [[DIR_OMP_SIMD_1:%.*]]
-
-; CHECK:       vector.ph:
+; CHECK:       VPlannedBB2:
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [[STRUCT_CLASSA]], %struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]], i64 0, i32 0
 ; CHECK-NEXT:    [[TMP2:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    [[TMP3:%.*]] = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
+; CHECK-NEXT:    [[TMP4:%.*]] = and i64 [[WIDE_TRIP_COUNT27:%.*]], 4294967294
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
-
-; CHECK:       VPlannedBB7:
+; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_0_]])
 ; CHECK-NEXT:    call void @_ZTS6ClassA.omp.destr(%struct.ClassA* [[VALUE_PRIV_VEC_BASE_ADDR_EXTRACT_1_]])
-; CHECK-NEXT:    [[TMP14:%.*]] = mul i64 1, [[TMP0:%.*]]
-; CHECK-NEXT:    [[TMP15:%.*]] = add i64 0, [[TMP14]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
+; CHECK-NEXT:    [[TMP15:%.*]] = mul i64 1, [[TMP4]]
+; CHECK-NEXT:    [[TMP16:%.*]] = add i64 0, [[TMP15]]
 ;
+
+
 entry:
   %value.priv = alloca %struct.ClassA, align 4
   %value.priv.constr = call %struct.ClassA* @_ZTS6ClassA.omp.def_constr(%struct.ClassA* %value.priv)

@@ -2067,27 +2067,43 @@ __m512d _mm512_mask_pow_pd(__m512d __src, __mmask8 __k, __m512d __a,
  * Computes the reciprocal of packed single-precision (32-bit) floating-point
  * elements in "a", storing the results in "dst".
  */
-__m512 _mm512_recip_ps(__m512 __a);
+static __inline __m512 __DEFAULT_FN_ATTRS
+_mm512_recip_ps(__m512 __a)
+{
+  return _mm512_div_ps(_mm512_set1_ps(1.0f), __a);
+}
 
 /*
  * Computes the reciprocal of packed single-precision (32-bit) floating-point
  * elements in "a", storing the results in "dst" using writemask "k" (elements
  * are copied from "src" when the corresponding mask bit is not set).
  */
-__m512 _mm512_mask_recip_ps(__m512 __src, __mmask16 __k, __m512 __a);
+static __inline __m512 __DEFAULT_FN_ATTRS
+_mm512_mask_recip_ps(__m512 __src, __mmask16 __k, __m512 __a)
+{
+  return _mm512_mask_div_ps(__src, __k, _mm512_set1_ps(1.0f), __a);
+}
 
 /*
  * Computes the reciprocal of packed double-precision (64-bit) floating-point
  * elements in "a", storing the results in "dst".
  */
-__m512d _mm512_recip_pd(__m512d __a);
+static __inline __m512d __DEFAULT_FN_ATTRS
+_mm512_recip_pd(__m512d __a)
+{
+  return _mm512_div_pd(_mm512_set1_pd(1.0), __a);
+}
 
 /*
  * Computes the reciprocal of packed double-precision (64-bit) floating-point
  * elements in "a", storing the results in "dst" using writemask "k" (elements
  * are copied from "src" when the corresponding mask bit is not set).
  */
-__m512d _mm512_mask_recip_pd(__m512d __src, __mmask8 __k, __m512d __a);
+static __inline __m512d __DEFAULT_FN_ATTRS
+_mm512_mask_recip_pd(__m512d __src, __mmask8 __k, __m512d __a)
+{
+  return _mm512_mask_div_pd(__src, __k, _mm512_set1_pd(1.0), __a);
+}
 
 /*
  * Compute the inverse cosine of packed single-precision (32-bit) floating-point
@@ -2883,7 +2899,6 @@ _mm512_mask_trunc_pd (__m512d __src, __mmask8 __k, __m512d __a)
 #undef __DEFAULT_FN_ATTRS
 
 #endif // defined(__AVX512FINTRIN_H)
-/* INTEL_FEATURE_ISA_FP16 */
 
 #if defined(__AVX512FP16INTRIN_H)
 
@@ -3252,6 +3267,27 @@ __m512h _mm512_pow_ph(__m512h __a, __m512h __b);
  */
 __m512h _mm512_mask_pow_ph(__m512h __src, __mmask32 __k, __m512h __a,
                            __m512h __b);
+
+/*
+ * Computes the reciprocal of packed half-precision (16-bit) floating-point
+ * elements in "a", storing the results in "dst".
+ */
+static __inline __m512h __DEFAULT_FN_ATTRS512
+_mm512_recip_ph(__m512h __a)
+{
+  return _mm512_rcp_ph(__a);
+}
+
+/*
+ * Computes the reciprocal of packed half-precision (16-bit) floating-point
+ * elements in "a", storing the results in "dst" using writemask "k" (elements
+ * are copied from "src" when the corresponding mask bit is not set).
+ */
+static __inline __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_recip_ph(__m512h __src, __mmask32 __k, __m512h __a)
+{
+  return _mm512_mask_rcp_ph(__src, __k, __a);
+}
 
 /*
  * Compute the square root of packed half-precision (16-bit) floating-point
@@ -4104,7 +4140,6 @@ _mm512_mask_trunc_ph(__m512h __src, __mmask32 __k, __m512h __a)
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // defined(__AVX512FP16INTRIN_H)
-/* end INTEL_FEATURE_ISA_FP16 */
 
 #if defined(__cplusplus)
 } // extern "C"

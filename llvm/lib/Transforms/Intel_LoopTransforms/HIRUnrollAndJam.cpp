@@ -53,8 +53,8 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "HIRUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -1496,7 +1496,6 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                               UHelper);
       HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
     }
-
   }
 }
 
@@ -1610,10 +1609,9 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
-    LORBuilder(*MainLoop).addRemark(
-        OptReportVerbosity::Low,
-        "Unknown loop has been partially unrolled with %d factor",
-        UnrollFactor);
+    // While loop unrolled by %d
+    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
+                                    UnrollFactor);
 
   } else {
     // Create the unrolled main loop and setup remainder loop.
@@ -1651,7 +1649,8 @@ PreservedAnalyses HIRUnrollAndJamPass::runImpl(
   HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F), false)
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                  PragmaOnlyUnroll)
       .run();
 
   return PreservedAnalyses::all();

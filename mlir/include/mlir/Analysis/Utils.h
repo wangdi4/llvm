@@ -279,10 +279,11 @@ struct MemRefRegion {
   /// otherwise. Note that the symbols of the region are treated specially,
   /// i.e., the returned bounding constant holds for *any given* value of the
   /// symbol identifiers. The 'shape' vector is set to the corresponding
-  /// dimension-wise bounds major to minor. We use int64_t instead of uint64_t
-  /// since index types can be at most int64_t. `lbs` are set to the lower
-  /// bounds for each of the rank dimensions, and lbDivisors contains the
-  /// corresponding denominators for floorDivs.
+  /// dimension-wise bounds major to minor. The number of elements and all the
+  /// dimension-wise bounds are guaranteed to be non-negative. We use int64_t
+  /// instead of uint64_t since index types can be at most int64_t. `lbs` are
+  /// set to the lower bounds for each of the rank dimensions, and lbDivisors
+  /// contains the corresponding denominators for floorDivs.
   Optional<int64_t> getConstantBoundingSizeAndShape(
       SmallVectorImpl<int64_t> *shape = nullptr,
       std::vector<SmallVector<int64_t, 4>> *lbs = nullptr,
@@ -353,9 +354,6 @@ unsigned getNumCommonSurroundingLoops(Operation &A, Operation &B);
 /// in bytes; if the memory space is unspecified, considers all memory spaces.
 Optional<int64_t> getMemoryFootprintBytes(AffineForOp forOp,
                                           int memorySpace = -1);
-
-/// Returns true if `forOp' is a parallel loop.
-bool isLoopParallel(AffineForOp forOp);
 
 /// Simplify the integer set by simplifying the underlying affine expressions by
 /// flattening and some simple inference. Also, drop any duplicate constraints.

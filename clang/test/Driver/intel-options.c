@@ -125,19 +125,27 @@
 // RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
 // LIBMMT: "-defaultlib:libmmt"
 
-// Behavior with -lm
-// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clang -### --intel -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// CHECK-LIMF: "-limf" "-lm"
+// Behavior with -lm -shared-intel
+// RUN: %clang -### --intel -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-SHARED %s
+// RUN: %clangxx -### --dpcpp -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-SHARED %s
+// CHECK-LIMF-SHARED: "-limf" "-lm"
 
 // Behavior with -lm -static-intel
+// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // RUN: %clang -### --intel -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // RUN: %clangxx -### --dpcpp -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // CHECK-LIMF-STATIC: "-Bstatic" "-limf" "-Bdynamic" "-lm"
+
+// RUN: %clang -### --intel -static-intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC-CMD %s
+// CHECK-LIMF-STATIC-CMD: "-Bstatic" "-limf" "-Bdynamic" "-lm"{{.*}} "-Bstatic" "-limf" "-Bdynamic" "-lm"
+
+// RUN: %clang -### --intel -static-intel -static -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// RUN: %clang -### --intel -static -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// RUN: %clang -### --intel -shared -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// CHECK-LIMF-LM: "-limf" "-lm"{{.*}} "-limf" "-lm"
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
 // and the true functionality is tested in cl-x86-arch.c
@@ -678,3 +686,25 @@
 // RUN: %clang_cl -### -Qvec-threshold:101 -c %s 2>&1 \
 // RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
 // VEC_THRESHOLD: "-mllvm" "-vec-threshold=101"
+
+// -qoverride-limits
+// RUN: %clang -### -qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
+// RUN: %clang_cl -### /Qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
+// OVERRIDE-LIMITS: "-mllvm" "-hir-cost-model-throttling=0"
+
+// -fortlib
+// RUN: %clang -### --intel -target x86_64-unknown-linux -fortlib %s 2>&1 | FileCheck -check-prefix=LIBS_FORTRAN %s
+// LIBS_FORTRAN: "--as-needed" "-lpthread" "--no-as-needed"{{.*}} "-Bstatic" "-lifcoremt" "-Bdynamic"
+
+// Verify /Qextend-arguments= and /Qextend-arguments: are accepted
+// They are aliases to -fextend-arguments= and the functionality is tested in fextend-args.c
+// RUN: %clang_cl -### /Qextend-arguments=64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
+// RUN: %clang_cl -### /Qextend-arguments:64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
+// EXTEND_ARGS: "-cc1" {{.*}}"-fextend-arguments=64"
+
+// Verify /Qprotect-parens and /Qprotect-parens- are accepted
+// They are aliases to -f[no-]protect-parens and the functionality is tested in clang_f_opts.c
+// RUN: %clang_cl -### /Qprotect-parens -c %s 2>&1 | FileCheck -check-prefix=PROTECT-PARENS %s
+// RUN: %clang_cl -### /Qprotect-parens- -c %s 2>&1 | FileCheck -check-prefix=NO-PROTECT-PARENS %s
+// PROTECT-PARENS: "-fprotect-parens"
+// NO-PROTECT-PARENS-NOT: "-fprotect-parens"

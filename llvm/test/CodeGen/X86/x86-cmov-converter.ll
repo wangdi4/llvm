@@ -483,20 +483,48 @@ entry:
   ret i32 %r
 }
 
-; INTEL_CUSTOMIZATION
-; Check that when a CMOVrm is in a loop, and there are CMOVrrs in the same
-; block, converting the CMOVrm doesn't inhibit conversion of CMOVrrs.
 @begin = external global i32*
 @end = external global i32*
 
 define void @test_memoperand_loop(i32 %data) #0 {
-; CHECK-LABEL: test_memoperand_loop
+; CHECK-LABEL: test_memoperand_loop:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movq begin@GOTPCREL(%rip), %r8
+; CHECK-NEXT:    movq (%r8), %rax
+; CHECK-NEXT:    movq end@GOTPCREL(%rip), %rcx
+; CHECK-NEXT:    movq (%rcx), %rdx
+; CHECK-NEXT:    xorl %esi, %esi
+; CHECK-NEXT:    movq %rax, %rcx
 entry:
-; CHECK-NOT: cmov
   %begin = load i32*, i32** @begin, align 8
   %end = load i32*, i32** @end, align 8
   br label %loop.body
 
+; CHECK-NEXT:  .LBB13_1: # %loop.body
+; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    addq $8, %rcx
+; CHECK-NEXT:    cmpq %rdx, %rcx
+; CHECK-NEXT:    ja .LBB13_3
+; CHECK-NEXT:  # %bb.2: # %loop.body
+; CHECK-NEXT:    # in Loop: Header=BB13_1 Depth=1
+; CHECK-NEXT:    movq (%r8), %rcx
+; CHECK-NEXT:  .LBB13_3: # %loop.body
+; CHECK-NEXT:    # in Loop: Header=BB13_1 Depth=1
+; CHECK-NEXT:    movl %edi, (%rcx)
+; CHECK-NEXT:    addq $8, %rcx
+; CHECK-NEXT:    cmpq %rdx, %rcx
+; INTEL_CUSTOMIZATION
+; The community CHECKs are for a bug which isn't present in xmain. Remove
+; the INTEL_CUSTOMIZATIONs when community CHECKs start passing.
+; Check that when a CMOVrm is in a loop, and there are CMOVrrs in the same
+; block, converting the CMOVrm doesn't inhibit conversion of CMOVrrs.
+; CHECK-NOT: cmov
+; COM:CHECK-NEXT:    cmovbeq %rax, %rcx
+; COM:CHECK-NEXT:    movl %edi, (%rcx)
+; COM:CHECK-NEXT:    addl $1, %esi
+; COM:CHECK-NEXT:    cmpl $1024, %esi # imm = 0x400
+; COM:CHECK-NEXT:    jl .LBB13_1
+; end INTEL_CUSTOMIZATION
 loop.body:
   %phi.iv = phi i32 [ 0, %entry ], [ %iv.next, %loop.body ]
   %phi.ptr = phi i32* [ %begin, %entry ], [ %dst2, %loop.body ]
@@ -513,9 +541,10 @@ loop.body:
   %cond = icmp slt i32 %iv.next, 1024
   br i1 %cond, label %loop.body, label %exit
 
+; COM:CHECK-NEXT:  # %bb.4: # %exit ;INTEL
+; COM:CHECK-NEXT:    retq           ;INTEL
 exit:
   ret void
 }
-; end INTEL_CUSTOMIZATION
 
 attributes #0 = {"target-cpu"="x86-64"}

@@ -166,7 +166,7 @@ Pass *createArgumentPromotionPass(unsigned maxElements = 3);
 
 //===----------------------------------------------------------------------===//
 /// createOpenMPOptLegacyPass - OpenMP specific optimizations.
-Pass *createOpenMPOptLegacyPass();
+Pass *createOpenMPOptCGSCCLegacyPass();
 
 //===----------------------------------------------------------------------===//
 /// createIPSCCPPass - This pass propagates constants from call sites into the
@@ -174,6 +174,11 @@ Pass *createOpenMPOptLegacyPass();
 /// in the process.
 ///
 ModulePass *createIPSCCPPass();
+
+//===----------------------------------------------------------------------===//
+/// createFunctionSpecializationPass - This pass propagates constants from call
+/// sites to the specialized version of the callee function.
+ModulePass *createFunctionSpecializationPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -292,17 +297,30 @@ ModulePass *createGlobalSplitPass();
 /// calling convention.
 ModulePass *createIntelAdvancedFastCallWrapperPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass conducts IPO-based prefetching
 ModulePass *createIntelIPOPrefetchWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass implements a constant propagation in those places where
 /// the memory alignment is being computed.
 ModulePass *createIntelArgumentAlignmentLegacyPass();
 
+/// \brief This pass implements a simplified dead argument elimination with
+/// IPO analysis. The goal is to eliminate an argument if it initializes data
+/// that won't be use across multiple functions. The actual value will be
+/// removed too.
+ModulePass *createIntelIPODeadArgEliminationWrapperPass();
+
 /// \brief This pass folds the intrinsic llvm.intel.wholeprogramsafe using the
 /// results from the whole program analysis.
 ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 
+/// \brief This pass will add the declarations for math functions that are
+/// expressed as llvm intrinsics.
+ModulePass *createIntelMathLibrariesDeclarationWrapperPass();
+
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass implements a simple partial inlining for small functions.
 /// This partial inliner will take care of small functions that the compiler
 /// will like to fully inline. The difference between this partial inliner and
@@ -312,13 +330,16 @@ ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 /// the new function that calls the original, creating a partial inline
 /// behavior. The traditional partial inliner will actually do inlining.
 ModulePass *createIntelPartialInlineLegacyPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass conducts IPO-based Array Transpose.
 ModulePass *createIPArrayTransposeLegacyPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
                                       bool IfSwitchHeuristic = false);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass parses -[no]inline-list option and assigns corresponding
 /// attributes to callsites (for experimental purposes).
@@ -341,17 +362,21 @@ ModulePass* createCallTreeCloningPass();
 /// formal parameters).
 ModulePass *createDopeVectorConstPropLegacyPass(void);
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass will attempt to recognize each Function as a "qsort".
 /// For those it recognizes as such, it will add the Function attribute
 /// "is-qsort".
 ModulePass *createQsortRecognizerLegacyPass(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass will mark callsites that should be aggressively
 /// inlined with the "prefer-inline-aggressive" attribute.
 ModulePass *createAggInlinerLegacyPass(void);
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass multiversions for tiling and marks tiled functions for
 /// inlining.
@@ -360,6 +385,8 @@ ModulePass *createTileMVInlMarkerLegacyPass(void);
 /// This pass adds noalias attribute to function arguments where it is safe
 /// to do so.
 ModulePass *createArgNoAliasPropPass(void);
+
+ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

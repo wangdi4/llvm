@@ -35,9 +35,8 @@ void mlir::getLoopIVs(Operation &op, SmallVectorImpl<AffineForOp> *loops) {
   AffineForOp currAffineForOp;
   // Traverse up the hierarchy collecting all 'affine.for' operation while
   // skipping over 'affine.if' operations.
-  while (currOp && ((currAffineForOp = dyn_cast<AffineForOp>(currOp)) ||
-                    isa<AffineIfOp>(currOp))) {
-    if (currAffineForOp)
+  while (currOp) {
+    if (AffineForOp currAffineForOp = dyn_cast<AffineForOp>(currOp))
       loops->push_back(currAffineForOp);
     currOp = currOp->getParentOp();
   }
@@ -54,8 +53,9 @@ void mlir::getEnclosingAffineForAndIfOps(Operation &op,
 
   // Traverse up the hierarchy collecting all `affine.for` and `affine.if`
   // operations.
-  while (currOp && (isa<AffineIfOp, AffineForOp>(currOp))) {
-    ops->push_back(currOp);
+  while (currOp) {
+    if (isa<AffineIfOp, AffineForOp>(currOp))
+      ops->push_back(currOp);
     currOp = currOp->getParentOp();
   }
   std::reverse(ops->begin(), ops->end());
@@ -374,6 +374,7 @@ Optional<int64_t> MemRefRegion::getConstantBoundingSizeAndShape(
         cstWithShapeBounds.getConstantBoundOnDimSize(d, &lb, &lbDivisor);
     if (diff.hasValue()) {
       diffConstant = diff.getValue();
+      assert(diffConstant >= 0 && "Dim size bound can't be negative");
       assert(lbDivisor > 0);
     } else {
       // If no constant bound is found, then it can always be bound by the
@@ -1266,49 +1267,6 @@ void mlir::getSequentialLoops(AffineForOp forOp,
       if (!isLoopParallel(innerFor))
         sequentialLoops->insert(innerFor.getInductionVar());
   });
-}
-
-/// Returns true if 'forOp' is parallel.
-bool mlir::isLoopParallel(AffineForOp forOp) {
-  // Loop is not parallel if it has SSA loop-carried dependences.
-  // TODO: Conditionally support reductions and other loop-carried dependences
-  // that could be handled in the context of a parallel loop.
-  if (forOp.getNumIterOperands() > 0)
-    return false;
-
-  // Collect all load and store ops in loop nest rooted at 'forOp'.
-  SmallVector<Operation *, 8> loadAndStoreOpInsts;
-  auto walkResult = forOp.walk([&](Operation *opInst) -> WalkResult {
-    if (isa<AffineReadOpInterface, AffineWriteOpInterface>(opInst))
-      loadAndStoreOpInsts.push_back(opInst);
-    else if (!isa<AffineForOp, AffineYieldOp, AffineIfOp>(opInst) &&
-             !MemoryEffectOpInterface::hasNoEffect(opInst))
-      return WalkResult::interrupt();
-
-    return WalkResult::advance();
-  });
-
-  // Stop early if the loop has unknown ops with side effects.
-  if (walkResult.wasInterrupted())
-    return false;
-
-  // Dep check depth would be number of enclosing loops + 1.
-  unsigned depth = getNestingDepth(forOp) + 1;
-
-  // Check dependences between all pairs of ops in 'loadAndStoreOpInsts'.
-  for (auto *srcOpInst : loadAndStoreOpInsts) {
-    MemRefAccess srcAccess(srcOpInst);
-    for (auto *dstOpInst : loadAndStoreOpInsts) {
-      MemRefAccess dstAccess(dstOpInst);
-      FlatAffineConstraints dependenceConstraints;
-      DependenceResult result = checkMemrefAccessDependence(
-          srcAccess, dstAccess, depth, &dependenceConstraints,
-          /*dependenceComponents=*/nullptr);
-      if (result.value != DependenceResult::NoDependence)
-        return false;
-    }
-  }
-  return true;
 }
 
 IntegerSet mlir::simplifyIntegerSet(IntegerSet set) {

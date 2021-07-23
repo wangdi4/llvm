@@ -12,7 +12,9 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -21,11 +23,13 @@ using namespace llvm;
 INITIALIZE_PASS(
     BarrierInFunctionLegacy, DEBUG_TYPE,
     "Barrier Pass - Handle barrier instructions called from functions", false,
-    true)
+    false)
 
 char BarrierInFunctionLegacy::ID = 0;
 
-BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {}
+BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {
+  initializeBarrierInFunctionLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool BarrierInFunctionLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
@@ -37,14 +41,13 @@ PreservedAnalyses BarrierInFunction::run(Module &M, ModuleAnalysisManager &) {
 
 bool BarrierInFunction::runImpl(Module &M) {
   // Initialize barrier utils class with current module.
-  BarrierUtils.init(&M);
+  Utils.init(&M);
 
   // Find all the kernel functions.
-  FuncVector &KernelFunctions = BarrierUtils.getAllKernelsWithBarrier();
+  FuncVector &KernelFunctions = Utils.getAllKernelsWithBarrier();
 
   // Find all functions that call synchronize instructions.
-  FuncSet &FunctionsWithSync =
-      BarrierUtils.getAllFunctionsWithSynchronization();
+  FuncSet &FunctionsWithSync = Utils.getAllFunctionsWithSynchronization();
 
   // Set of all functions that allready added to handle container.
   // Will be used to prevent handling functions more than once.
@@ -60,6 +63,8 @@ bool BarrierInFunction::runImpl(Module &M) {
   // It will be initialized with all above function we just added to the set.
   FunctionsToHandle.assign(FunctionsAddedToHandle.begin(),
                            FunctionsAddedToHandle.end());
+
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
 
   // As long as there are functions to handle...
   while (!FunctionsToHandle.empty()) {
@@ -77,19 +82,14 @@ bool BarrierInFunction::runImpl(Module &M) {
         continue;
       }
 
-      // TBD: This neeeds whole CFG exploration.
-      // Skip handling of a kernel funciton unless it is a kernel.
-      if (!(CI->getFunction()->hasFnAttribute("sycl_kernel")))
-        continue;
-
       // Add Barrier before function call instruction.
-      BarrierUtils.createBarrier(CI);
+      Utils.createBarrier(CI);
 
       // Add dummyBarrier after function call instruction.
-      Instruction *DummyBarrierCall = BarrierUtils.createDummyBarrier();
+      Instruction *DummyBarrierCall = Utils.createDummyBarrier();
       DummyBarrierCall->insertAfter(CI);
 
-      Function *CallerFunc = CI->getParent()->getParent();
+      Function *CallerFunc = CI->getCaller();
 
       // Add caller function to FunctionsToHandle and FunctionsAddedToHandle containers.
       bool Inserted = FunctionsAddedToHandle.insert(CallerFunc);
@@ -97,9 +97,6 @@ bool BarrierInFunction::runImpl(Module &M) {
         FunctionsToHandle.push_back(CallerFunc);
     }
   }
-
-  // Remove all fiber instructions from non handled functions.
-  removeFibersFromNonHandledFunctions(FunctionsAddedToHandle, M);
 
   return true;
 }
@@ -113,7 +110,7 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
   assert(!dyn_cast<PHINode>(FirstInst) && "First instruction is a PHINode");
 
   // Add dummyBarrier call before FirstInst.
-  BarrierUtils.createDummyBarrier(FirstInst);
+  Utils.createDummyBarrier(FirstInst);
 
   // Find all reachable return instructions in Func.
   InstVector RetInstructions;
@@ -128,13 +125,8 @@ void BarrierInFunction::addBarrierCallsToFunctionBody(Function *Func) {
 
   // Add barrier call before each ret instruction in Func.
   for (Instruction *RetInst: RetInstructions) {
-    BarrierUtils.createBarrier(RetInst);
+    Utils.createBarrier(RetInst);
   }
-}
-
-void BarrierInFunction::removeFibersFromNonHandledFunctions(
-    FuncSet &FunctionSet, Module &M) {
-  // Don't need this for DPCPP.
 }
 
 ModulePass *llvm::createBarrierInFunctionLegacyPass() {

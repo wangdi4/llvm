@@ -40,7 +40,7 @@ for.cond:                                         ; preds = %for.inc, %entry
   br i1 %cmp, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"(i32* @x), "QUAL.OMP.MAP.FROM"(i32* @y),"QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.MAP.TO"(i32* @x, i32* @x, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.FROM"(i32* @y, i32* @y, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
   %3 = load i32, i32* @x, align 4, !tbaa !1
   %add = add nsw i32 %3, 1
   store i32 %add, i32* @y, align 4, !tbaa !1

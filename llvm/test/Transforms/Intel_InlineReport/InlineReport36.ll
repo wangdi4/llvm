@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; Inline report
 ; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-OLD %s
 ; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-NEW %s
@@ -169,3 +171,4 @@ lpad:
   call void @__clang_call_terminate(i8* %t30)
   unreachable
 }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -800,7 +800,7 @@ PreservedAnalyses HIRGeneralUnrollPass::runImpl(
   HIRGeneralUnroll(HIRF, AM.getResult<HIRLoopResourceAnalysis>(F),
                    AM.getResult<HIRDDAnalysisPass>(F),
                    AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                   AM.getResult<HIRLoopStatisticsAnalysis>(F), false)
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F), PragmaOnlyUnroll)
       .run();
   return PreservedAnalyses::all();
 }

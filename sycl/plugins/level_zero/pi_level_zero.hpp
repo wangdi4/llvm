@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <level_zero/ze_api.h>
+#include <level_zero/zes_api.h>
 
 #include "usm_allocator.hpp"
 
@@ -54,6 +55,109 @@ template <> uint32_t pi_cast(uint64_t Value) {
   std::cerr << "die: " << Message << std::endl;
   std::terminate();
 }
+
+// Returns the ze_structure_type_t to use in .stype of a structured descriptor.
+// Intentionally not defined; will give an error if no proper specialization
+template <class T> ze_structure_type_t getZeStructureType();
+template <class T> zes_structure_type_t getZesStructureType();
+
+template <> ze_structure_type_t getZeStructureType<ze_event_pool_desc_t>() {
+  return ZE_STRUCTURE_TYPE_EVENT_POOL_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_fence_desc_t>() {
+  return ZE_STRUCTURE_TYPE_FENCE_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_command_list_desc_t>() {
+  return ZE_STRUCTURE_TYPE_COMMAND_LIST_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_context_desc_t>() {
+  return ZE_STRUCTURE_TYPE_CONTEXT_DESC;
+}
+template <>
+ze_structure_type_t
+getZeStructureType<ze_relaxed_allocation_limits_exp_desc_t>() {
+  return ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_host_mem_alloc_desc_t>() {
+  return ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_device_mem_alloc_desc_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_command_queue_desc_t>() {
+  return ZE_STRUCTURE_TYPE_COMMAND_QUEUE_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_image_desc_t>() {
+  return ZE_STRUCTURE_TYPE_IMAGE_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_module_desc_t>() {
+  return ZE_STRUCTURE_TYPE_MODULE_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_kernel_desc_t>() {
+  return ZE_STRUCTURE_TYPE_KERNEL_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_event_desc_t>() {
+  return ZE_STRUCTURE_TYPE_EVENT_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_sampler_desc_t>() {
+  return ZE_STRUCTURE_TYPE_SAMPLER_DESC;
+}
+template <> ze_structure_type_t getZeStructureType<ze_driver_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DRIVER_PROPERTIES;
+}
+template <> ze_structure_type_t getZeStructureType<ze_device_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_device_compute_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_command_queue_group_properties_t>() {
+  return ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_device_image_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_IMAGE_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_device_module_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_MODULE_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_device_cache_properties_t>() {
+  return ZE_STRUCTURE_TYPE_DEVICE_CACHE_PROPERTIES;
+}
+template <> ze_structure_type_t getZeStructureType<ze_module_properties_t>() {
+  return ZE_STRUCTURE_TYPE_MODULE_PROPERTIES;
+}
+template <> ze_structure_type_t getZeStructureType<ze_kernel_properties_t>() {
+  return ZE_STRUCTURE_TYPE_KERNEL_PROPERTIES;
+}
+template <>
+ze_structure_type_t getZeStructureType<ze_memory_allocation_properties_t>() {
+  return ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES;
+}
+
+template <> zes_structure_type_t getZesStructureType<zes_pci_properties_t>() {
+  return ZES_STRUCTURE_TYPE_PCI_PROPERTIES;
+}
+
+// The helpers to properly default initialize Level-Zero descriptor and
+// properties structures.
+template <class T> struct ZeStruct : public T {
+  ZeStruct() : T{} { // zero initializes base struct
+    this->stype = getZeStructureType<T>();
+    this->pNext = nullptr;
+  }
+};
+template <class T> struct ZesStruct : public T {
+  ZesStruct() : T{} { // zero initializes base struct
+    this->stype = getZesStructureType<T>();
+    this->pNext = nullptr;
+  }
+};
 
 // Base class to store common data
 struct _pi_object {
@@ -160,6 +264,16 @@ public:
       : USMMemoryAllocBase(Ctx, Dev) {}
 };
 
+// Allocation routines for host memory type
+class USMHostMemoryAlloc : public USMMemoryAllocBase {
+protected:
+  pi_result allocateImpl(void **ResultPtr, size_t Size,
+                         pi_uint32 Alignment) override;
+
+public:
+  USMHostMemoryAlloc(pi_context Ctx) : USMMemoryAllocBase(Ctx, nullptr) {}
+};
+
 struct _pi_device : _pi_object {
   _pi_device(ze_device_handle_t Device, pi_platform Plt,
              pi_device ParentDevice = nullptr)
@@ -177,15 +291,22 @@ struct _pi_device : _pi_object {
   int32_t ZeComputeQueueGroupIndex;
   int32_t ZeCopyQueueGroupIndex;
 
+  // Keep the index of the compute engine
+  int32_t ZeComputeEngineIndex = 0;
+
   // Cache the properties of the compute/copy queue groups.
-  ze_command_queue_group_properties_t ZeComputeQueueGroupProperties = {};
-  ze_command_queue_group_properties_t ZeCopyQueueGroupProperties = {};
+  ZeStruct<ze_command_queue_group_properties_t> ZeComputeQueueGroupProperties;
+  ZeStruct<ze_command_queue_group_properties_t> ZeCopyQueueGroupProperties;
 
   // This returns "true" if a copy engine is available for use.
   bool hasCopyEngine() const { return ZeCopyQueueGroupIndex >= 0; }
 
   // Initialize the entire PI device.
-  pi_result initialize();
+  // Optional param `SubSubDeviceOrdinal` `SubSubDeviceIndex` are the compute
+  // command queue ordinal and index respectively, used to initialize
+  // sub-sub-devices.
+  pi_result initialize(int SubSubDeviceOrdinal = -1,
+                       int SubSubDeviceIndex = -1);
 
   // Level Zero device handle.
   ze_device_handle_t ZeDevice;
@@ -204,8 +325,8 @@ struct _pi_device : _pi_object {
   bool isSubDevice() { return RootDevice != nullptr; }
 
   // Cache of the immutable device properties.
-  ze_device_properties_t ZeDeviceProperties;
-  ze_device_compute_properties_t ZeDeviceComputeProperties;
+  ZeStruct<ze_device_properties_t> ZeDeviceProperties;
+  ZeStruct<ze_device_compute_properties_t> ZeDeviceComputeProperties;
 };
 
 struct _pi_context : _pi_object {
@@ -214,7 +335,7 @@ struct _pi_context : _pi_object {
       : ZeContext{ZeContext},
         OwnZeContext{OwnZeContext}, Devices{Devs, Devs + NumDevices},
         ZeCommandListInit{nullptr}, ZeEventPool{nullptr},
-        NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {
+        NumEventsAvailableInEventPool{}, NumEventsUnreleasedInEventPool{} {
     // Create USM allocator context for each pair (device, context).
     for (uint32_t I = 0; I < NumDevices; I++) {
       pi_device Device = Devs[I];
@@ -229,6 +350,11 @@ struct _pi_context : _pi_object {
       // NOTE: one must additionally call initialize() to complete
       // PI context creation.
     }
+    // Create USM allocator context for host. Device and Shared USM allocations
+    // are device-specific. Host allocations are not device-dependent therefore
+    // we don't need a map with device as key.
+    HostMemAllocContext = std::make_unique<USMAllocContext>(
+        std::unique_ptr<SystemMemory>(new USMHostMemoryAlloc(this)));
 
     if (NumDevices == 1) {
       SingleRootDevice = Devices[0];
@@ -239,6 +365,14 @@ struct _pi_context : _pi_object {
     // include root device itself as well)
     SingleRootDevice =
         Devices[0]->RootDevice ? Devices[0]->RootDevice : Devices[0];
+
+    // For context with sub subdevices, the SingleRootDevice might still
+    // not be the root device.
+    // Check whether the SingleRootDevice is the subdevice or root device.
+    if (SingleRootDevice->isSubDevice()) {
+      SingleRootDevice = SingleRootDevice->RootDevice;
+    }
+
     for (auto &Device : Devices) {
       if ((!Device->RootDevice && Device != SingleRootDevice) ||
           (Device->RootDevice && Device->RootDevice != SingleRootDevice)) {
@@ -310,14 +444,16 @@ struct _pi_context : _pi_object {
   pi_result getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &, size_t &);
 
   // If event is destroyed then decrement number of events living in the pool
-  // and destroy the pool if there are no alive events.
-  pi_result decrementAliveEventsInPool(ze_event_pool_handle_t pool);
+  // and destroy the pool if there are no unreleased events.
+  pi_result decrementUnreleasedEventsInPool(pi_event Event);
 
   // Store USM allocator context(internal allocator structures)
-  // for USM shared/host and device allocations. There is 1 allocator context
+  // for USM shared and device allocations. There is 1 allocator context
   // per each pair of (context, device) per each memory type.
   std::unordered_map<pi_device, USMAllocContext> SharedMemAllocContexts;
   std::unordered_map<pi_device, USMAllocContext> DeviceMemAllocContexts;
+  // Store the host allocator context. It does not depend on any device.
+  std::unique_ptr<USMAllocContext> HostMemAllocContext;
 
   // We need to store all memory allocations in the context because there could
   // be kernels with indirect access. Kernels with indirect access start to
@@ -338,12 +474,12 @@ private:
   // by storing number of empty slots available in the pool.
   std::unordered_map<ze_event_pool_handle_t, pi_uint32>
       NumEventsAvailableInEventPool;
-  // This map will be used to determine number of live events in the pool.
-  // We use separate maps for number of event slots available in the pool.
-  // number of events live in the pool live.
+  // This map will be used to determine number of unreleased events in the pool.
+  // We use separate maps for number of event slots available in the pool from
+  // the number of events unreleased in the pool.
   // This will help when we try to make the code thread-safe.
   std::unordered_map<ze_event_pool_handle_t, pi_uint32>
-      NumEventsLiveInEventPool;
+      NumEventsUnreleasedInEventPool;
 
   // TODO: we'd like to create a thread safe map class instead of mutex + map,
   // that must be carefully used together.
@@ -351,8 +487,8 @@ private:
   // Mutex to control operations on NumEventsAvailableInEventPool map.
   std::mutex NumEventsAvailableInEventPoolMutex;
 
-  // Mutex to control operations on NumEventsLiveInEventPool.
-  std::mutex NumEventsLiveInEventPoolMutex;
+  // Mutex to control operations on NumEventsUnreleasedInEventPool.
+  std::mutex NumEventsUnreleasedInEventPoolMutex;
 };
 
 // If doing dynamic batching, start batch size at 4.
@@ -361,12 +497,13 @@ const pi_uint32 DynamicBatchStartSize = 4;
 struct _pi_queue : _pi_object {
   _pi_queue(ze_command_queue_handle_t Queue,
             ze_command_queue_handle_t CopyQueue, pi_context Context,
-            pi_device Device, pi_uint32 BatchSize,
+            pi_device Device, pi_uint32 BatchSize, bool OwnZeCommandQueue,
             pi_queue_properties PiQueueProperties = 0)
       : ZeComputeCommandQueue{Queue},
         ZeCopyCommandQueue{CopyQueue}, Context{Context}, Device{Device},
         QueueBatchSize{BatchSize > 0 ? BatchSize : DynamicBatchStartSize},
-        UseDynamicBatching{BatchSize == 0},
+        OwnZeCommandQueue{OwnZeCommandQueue}, UseDynamicBatching{BatchSize ==
+                                                                 0},
         PiQueueProperties(PiQueueProperties) {}
 
   // Level Zero compute command queue handle.
@@ -418,6 +555,10 @@ struct _pi_queue : _pi_object {
   // a queue specific basis. And by putting it in the queue itself, this
   // is thread safe because of the locking of the queue that occurs.
   pi_uint32 QueueBatchSize = {0};
+
+  // Indicates if we own the ZeCommandQueue or it came from interop that
+  // asked to not transfer the ownership to SYCL RT.
+  bool OwnZeCommandQueue;
 
   // specifies whether this queue will be using dynamic batch size adjustment
   // or not.  This is set only at queue creation time, and is therefore
@@ -596,7 +737,7 @@ struct _pi_image final : _pi_mem {
 
 #ifndef NDEBUG
   // Keep the descriptor of the image (for debugging purposes)
-  ze_image_desc_t ZeImageDesc;
+  ZeStruct<ze_image_desc_t> ZeImageDesc;
 #endif // !NDEBUG
 
   // Level Zero image handle.
@@ -889,30 +1030,27 @@ struct _pi_kernel : _pi_object {
 
   // Hash function object for the unordered_set below.
   struct Hash {
-    size_t operator()(
-        const std::unordered_map<void *, MemAllocRecord>::iterator &It) const {
-      return std::hash<void *>()(It->first);
+    size_t operator()(const std::pair<void *const, MemAllocRecord> *P) const {
+      return std::hash<void *>()(P->first);
     }
   };
 
   // If kernel has indirect access we need to make a snapshot of all existing
   // memory allocations to defer deletion of these memory allocations to the
   // moment when kernel execution has finished.
-  // We store iterators because iterator is not invalidated by insert/delete for
-  // std::map.
-  // Why need to take a snapshot instead of just reference-counting the
-  // allocations, because picture of active allocations can change during kernel
-  // execution (new allocations can be added) and we need to know which memory
-  // allocations were retained by this kernel to release them (and don't touch
-  // new allocations) at kernel completion.
-  // Same kernel may be submitted several times and retained allocations may be
-  // different at each submission. That's why we have a set of memory
-  // allocations here and increase ref count only once even if kernel is
-  // submitted many times. We don't want to know how many times and which
-  // allocations were retained by each submission. We release all allocations
-  // in the set only when SubmissionsCount == 0.
-  std::unordered_set<std::unordered_map<void *, MemAllocRecord>::iterator, Hash>
-      MemAllocs;
+  // We store pointers to the elements because pointers are not invalidated by
+  // insert/delete for std::unordered_map (iterators are invalidated). We need
+  // to take a snapshot instead of just reference-counting the allocations,
+  // because picture of active allocations can change during kernel execution
+  // (new allocations can be added) and we need to know which memory allocations
+  // were retained by this kernel to release them (and don't touch new
+  // allocations) at kernel completion. Same kernel may be submitted several
+  // times and retained allocations may be different at each submission. That's
+  // why we have a set of memory allocations here and increase ref count only
+  // once even if kernel is submitted many times. We don't want to know how many
+  // times and which allocations were retained by each submission. We release
+  // all allocations in the set only when SubmissionsCount == 0.
+  std::unordered_set<std::pair<void *const, MemAllocRecord> *, Hash> MemAllocs;
 
   // Counter to track the number of submissions of the kernel.
   // When this value is zero, it means that kernel is not submitted for an

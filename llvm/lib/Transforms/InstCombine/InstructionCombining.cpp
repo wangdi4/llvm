@@ -959,6 +959,12 @@ Value *InstCombinerImpl::dyn_castNegVal(Value *V) const {
     return ConstantExpr::getNeg(CV);
   }
 
+  // Negate integer vector splats.
+  if (auto *CV = dyn_cast<Constant>(V))
+    if (CV->getType()->isVectorTy() &&
+        CV->getType()->getScalarType()->isIntegerTy() && CV->getSplatValue())
+      return ConstantExpr::getNeg(CV);
+
   return nullptr;
 }
 
@@ -966,6 +972,22 @@ static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
                                              InstCombiner::BuilderTy &Builder) {
   if (auto *Cast = dyn_cast<CastInst>(&I))
     return Builder.CreateCast(Cast->getOpcode(), SO, I.getType());
+
+  if (auto *II = dyn_cast<IntrinsicInst>(&I)) {
+    assert(canConstantFoldCallTo(II, cast<Function>(II->getCalledOperand())) &&
+           "Expected constant-foldable intrinsic");
+    Intrinsic::ID IID = II->getIntrinsicID();
+    if (II->getNumArgOperands() == 1)
+      return Builder.CreateUnaryIntrinsic(IID, SO);
+
+    // This works for real binary ops like min/max (where we always expect the
+    // constant operand to be canonicalized as op1) and unary ops with a bonus
+    // constant argument like ctlz/cttz.
+    // TODO: Handle non-commutative binary intrinsics as below for binops.
+    assert(II->getNumArgOperands() == 2 && "Expected binary intrinsic");
+    assert(isa<Constant>(II->getArgOperand(1)) && "Expected constant operand");
+    return Builder.CreateBinaryIntrinsic(IID, SO, II->getArgOperand(1));
+  }
 
   assert(I.isBinaryOp() && "Unexpected opcode for select folding");
 
@@ -1133,7 +1155,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     // If the incoming non-constant value is in I's block, we will remove one
     // instruction, but insert another equivalent one, leading to infinite
     // instcombine.
-    if (isPotentiallyReachable(I.getParent(), NonConstBB, &DT, LI))
+    if (isPotentiallyReachable(I.getParent(), NonConstBB, nullptr, &DT, LI))
       return nullptr;
   }
 
@@ -1844,7 +1866,7 @@ Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
         Constant *MaybeUndef =
             ConstOp1 ? ConstantExpr::get(Opcode, UndefScalar, CElt)
                      : ConstantExpr::get(Opcode, CElt, UndefScalar);
-        if (!isa<UndefValue>(MaybeUndef)) {
+        if (!match(MaybeUndef, m_Undef())) {
           MayChange = false;
           break;
         }
@@ -2918,7 +2940,7 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
       } else {
         // Casts, GEP, or anything else: we're about to delete this instruction,
         // so it can not have any valid uses.
-        replaceInstUsesWith(*I, UndefValue::get(I->getType()));
+        replaceInstUsesWith(*I, PoisonValue::get(I->getType()));
       }
       eraseInstFromFunction(*I);
     }
@@ -3058,20 +3080,6 @@ Instruction *InstCombinerImpl::visitFree(CallInst &FI) {
   if (isa<ConstantPointerNull>(Op))
     return eraseInstFromFunction(FI);
 
-  // If we free a pointer we've been explicitly told won't be freed, this
-  // would be full UB and thus we can conclude this is unreachable. Cases:
-  // 1) freeing a pointer which is explicitly nofree
-  // 2) calling free from a call site marked nofree
-  // 3) calling free in a function scope marked nofree
-  if (auto *A = dyn_cast<Argument>(Op->stripPointerCasts()))
-    if (A->hasAttribute(Attribute::NoFree) ||
-        FI.hasFnAttr(Attribute::NoFree) ||
-        FI.getFunction()->hasFnAttribute(Attribute::NoFree)) {
-      // Leave a marker since we can't modify the CFG here.
-      CreateNonTerminatorUnreachable(&FI);
-      return eraseInstFromFunction(FI);
-    }
-
   // If we optimize for code size, try to move the call to free before the null
   // test so that simplify cfg can remove the empty block and dead code
   // elimination the branch. I.e., helps to turn something like:
@@ -3121,27 +3129,39 @@ Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
   return nullptr;
 }
 
+// WARNING: keep in sync with SimplifyCFGOpt::simplifyUnreachable()!
 Instruction *InstCombinerImpl::visitUnreachableInst(UnreachableInst &I) {
   // Try to remove the previous instruction if it must lead to unreachable.
   // This includes instructions like stores and "llvm.assume" that may not get
   // removed by simple dead code elimination.
-  Instruction *Prev = I.getPrevNonDebugInstruction();
-  if (Prev && !Prev->isEHPad() &&
-      isGuaranteedToTransferExecutionToSuccessor(Prev)) {
+  while (Instruction *Prev = I.getPrevNonDebugInstruction()) {
+    // While we theoretically can erase EH, that would result in a block that
+    // used to start with an EH no longer starting with EH, which is invalid.
+    // To make it valid, we'd need to fixup predecessors to no longer refer to
+    // this block, but that changes CFG, which is not allowed in InstCombine.
+    if (Prev->isEHPad())
+      return nullptr; // Can not drop any more instructions. We're done here.
+
+    if (!isGuaranteedToTransferExecutionToSuccessor(Prev))
+      return nullptr; // Can not drop any more instructions. We're done here.
+    // Otherwise, this instruction can be freely erased,
+    // even if it is not side-effect free.
+
     // Temporarily disable removal of volatile stores preceding unreachable,
     // pending a potential LangRef change permitting volatile stores to trap.
     // TODO: Either remove this code, or properly integrate the check into
     // isGuaranteedToTransferExecutionToSuccessor().
     if (auto *SI = dyn_cast<StoreInst>(Prev))
       if (SI->isVolatile())
-        return nullptr;
+        return nullptr; // Can not drop this instruction. We're done here.
 
     // A value may still have uses before we process it here (for example, in
-    // another unreachable block), so convert those to undef.
-    replaceInstUsesWith(*Prev, UndefValue::get(Prev->getType()));
+    // another unreachable block), so convert those to poison.
+    replaceInstUsesWith(*Prev, PoisonValue::get(Prev->getType()));
     eraseInstFromFunction(*Prev);
-    return &I;
   }
+  assert(I.getParent()->sizeWithoutDebug() == 1 && "The block is now empty.");
+  // FIXME: recurse into unconditional predecessors?
   return nullptr;
 }
 
@@ -3331,18 +3351,41 @@ Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
       if (*EV.idx_begin() == 0) {
         Instruction::BinaryOps BinOp = WO->getBinaryOp();
         Value *LHS = WO->getLHS(), *RHS = WO->getRHS();
-        replaceInstUsesWith(*WO, UndefValue::get(WO->getType()));
+        // Replace the old instruction's uses with poison.
+        replaceInstUsesWith(*WO, PoisonValue::get(WO->getType()));
         eraseInstFromFunction(*WO);
         return BinaryOperator::Create(BinOp, LHS, RHS);
       }
 
-      // If the normal result of the add is dead, and the RHS is a constant,
-      // we can transform this into a range comparison.
-      // overflow = uadd a, -4  -->  overflow = icmp ugt a, 3
-      if (WO->getIntrinsicID() == Intrinsic::uadd_with_overflow)
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(WO->getRHS()))
-          return new ICmpInst(ICmpInst::ICMP_UGT, WO->getLHS(),
-                              ConstantExpr::getNot(CI));
+      assert(*EV.idx_begin() == 1 &&
+             "unexpected extract index for overflow inst");
+
+      // If only the overflow result is used, and the right hand side is a
+      // constant (or constant splat), we can remove the intrinsic by directly
+      // checking for overflow.
+      const APInt *C;
+      if (match(WO->getRHS(), m_APInt(C))) {
+        // Compute the no-wrap range [X,Y) for LHS given RHS=C, then
+        // check for the inverted range using range offset trick (i.e.
+        // use a subtract to shift the range to bottom of either the
+        // signed or unsigned domain and then use a single compare to
+        // check range membership).
+        ConstantRange NWR =
+          ConstantRange::makeExactNoWrapRegion(WO->getBinaryOp(), *C,
+                                               WO->getNoWrapKind());
+        APInt Min = WO->isSigned() ? NWR.getSignedMin() : NWR.getUnsignedMin();
+        NWR = NWR.subtract(Min);
+
+        CmpInst::Predicate Pred;
+        APInt NewRHSC;
+        if (NWR.getEquivalentICmp(Pred, NewRHSC)) {
+          auto *OpTy = WO->getRHS()->getType();
+          auto *NewLHS = Builder.CreateSub(WO->getLHS(),
+                                           ConstantInt::get(OpTy, Min));
+          return new ICmpInst(ICmpInst::getInversePredicate(Pred), NewLHS,
+                              ConstantInt::get(OpTy, NewRHSC));
+        }
+      }
     }
   }
   if (LoadInst *L = dyn_cast<LoadInst>(Agg))
@@ -4370,10 +4413,6 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   // Mark all the analyses that instcombine updates as preserved.
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<AAManager>();
-  PA.preserve<BasicAA>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();               // INTEL
   PA.preserve<WholeProgramAnalysis>();      // INTEL
   return PA;
 }

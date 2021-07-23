@@ -107,7 +107,7 @@ protected:
 
 static std::vector<detail::plugin> Plugins = pi::initializeAndRemoveInvalid();
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     EnqueueMemTestImpl, EnqueueMemTest, testing::ValuesIn(Plugins),
     [](const testing::TestParamInfo<EnqueueMemTest::ParamType> &info) {
       return pi::GetBackendString(info.param.getBackend());

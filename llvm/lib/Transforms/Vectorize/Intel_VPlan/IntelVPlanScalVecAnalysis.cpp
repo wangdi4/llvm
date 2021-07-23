@@ -34,6 +34,15 @@ static bool isLoopHeaderPHI(VPlanVector *Plan, const VPPHINode *Phi) {
   return Lp->getHeader() == PhiBlock;
 }
 
+// Helper to check if GEP is non-unit-strided with unit-strided pointer operand
+// in SOA layout.
+static bool isNonUnitStrSOAGEPWithUnitStrPtr(VPlanVector *Plan,
+                                             const VPGEPInstruction *GEP) {
+  auto *DA = Plan->getVPlanDA();
+  return !DA->isSOAUnitStride(GEP) &&
+         DA->isSOAUnitStride(GEP->getPointerOperand());
+}
+
 static bool checkSVAForInstUseSites(
     const VPInstruction *Inst,
     std::function<bool(const VPInstruction *, unsigned)> Predicate) {
@@ -88,7 +97,7 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
     const VPInstruction *Inst) {
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
+  auto *DA = Plan->getVPlanDA();
 
   switch (Inst->getOpcode()) {
   case Instruction::PHI: {
@@ -128,24 +137,48 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return false;
   }
 
+  case Instruction::GetElementPtr: {
+    auto *GEP = cast<VPGEPInstruction>(Inst);
+
+    if (isNonUnitStrSOAGEPWithUnitStrPtr(Plan, GEP)) {
+      // In case of SOA-unit stride pointer for non-unit strided GEP, we
+      // retain the scalar-type pointer, typically <VF x Ty>*. Otherwise, we
+      // get the vector version of the pointer, which is typically a vector of
+      // pointers, i.e., <VF x Ty*>.
+      setSVAKindForInst(GEP, SVAKind::Vector);
+      setSVAKindForOperand(GEP, 0 /*Pointer operand*/, SVAKind::FirstScalar);
+      for (auto *IdxOp : GEP->indices())
+        setSVAKindForOperand(GEP, GEP->getOperandIndex(IdxOp), SVAKind::Vector);
+      return true;
+    }
+
+    // GEP was not processed in a special manner.
+    return false;
+  }
+
   case Instruction::Load:
   case Instruction::Store: {
     // Loads/stores are processed uniquely since the nature of the instruction
     // is not propagated to its operands. Specialization is done for possible
-    // unit-stride and uniform memory accesses.
+    // unit-stride (including SOA) and uniform memory accesses.
+    auto *LoadStore = cast<VPLoadStoreInst>(Inst);
 
-    VPValue *Ptr = getLoadStorePointerOperand(Inst);
-    unsigned PtrOpIdx = Inst->getOperandIndex(Ptr);
+    VPValue *Ptr = LoadStore->getPointerOperand();
+    unsigned PtrOpIdx = LoadStore->getPointerOperandIndex();
+    bool IsLoadOrUnmaskedStore = Inst->getOpcode() == Instruction::Load ||
+                                 (Inst->getOpcode() == Instruction::Store &&
+                                  Inst->getParent()->getPredicate() == nullptr);
 
-    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr)) {
-      // If the load/store is simple (non-atomic and non-volatile) and the
-      // pointer operand is uniform, then the access itself is uniform and hence
-      // scalar (for first/last lane) in nature.
+    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr) &&
+        IsLoadOrUnmaskedStore) {
+      // If the load/unmasked store is simple (non-atomic and non-volatile) and
+      // the pointer operand is uniform, then the access itself is uniform and
+      // hence scalar (for first/last lane) in nature.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
       if (Inst->getOpcode() == Instruction::Load)
         setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      // For uniform stores, the value operand maybe divergent. Set it as
-      // last/first scalar based on uniformity, and accordingly decide the
+      // For uniform unmasked stores, the value operand maybe divergent. Set it
+      // as last/first scalar based on uniformity, and accordingly decide the
       // nature of store itself.
       if (Inst->getOpcode() == Instruction::Store) {
         VPValue *ValueOp = Inst->getOperand(0);
@@ -158,7 +191,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       return true;
     }
 
-    if (isVectorizableLoadStore(Inst) && DA->isUnitStridePtr(Ptr)) {
+    if (isVectorizableLoadStore(Inst) &&
+        DA->isUnitStridePtr(Ptr, LoadStore->getValueType())) {
       // For a vectorizable unit-stride access, pointer will be scalar in
       // nature, specifically requiring first lane value.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
@@ -376,6 +410,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalArray: {
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -516,6 +557,26 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
     // Each lane has its own value that we insert into a wide vector.
     setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::GeneralMemOptConflict: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Wide value is shared across all lanes.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
+  case VPInstruction::ConflictInsn: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Wide value is shared across all lanes.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
     return true;
   }
 
@@ -785,6 +846,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   switch (Inst->getOpcode()) {
   case Instruction::PHI:
     return isLoopHeaderPHI(Plan, cast<VPPHINode>(Inst));
+  case Instruction::GetElementPtr:
+    return isNonUnitStrSOAGEPWithUnitStrPtr(Plan, cast<VPGEPInstruction>(Inst));
   case Instruction::Load:
   case Instruction::Store:
   case Instruction::Call:
@@ -809,11 +872,14 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalCondMem:
   case VPInstruction::PrivateFinalCond:
+  case VPInstruction::PrivateFinalArray:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
   case VPInstruction::VLSStore:
   case VPInstruction::InvSCEVWrapper:
+  case VPInstruction::GeneralMemOptConflict:
+  case VPInstruction::ConflictInsn:
     return true;
   default:
     return false;

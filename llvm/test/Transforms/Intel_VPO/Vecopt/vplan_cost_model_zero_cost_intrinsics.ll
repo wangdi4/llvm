@@ -1,6 +1,6 @@
 ; Test to check VPlan cost-modelling of zero-cost intrinsics.
 
-; RUN: opt -vplan-enable-soa=false < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt -vplan-enable-soa=false < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -disable-output \
 ; RUN:     -vplan-cost-model-use-gettype -vector-library=SVML \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s
@@ -38,7 +38,7 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
-; CHECK-LABEL: Cost Model for VPlan foo.omp.inner.for.body with VF = 4:
+; CHECK-LABEL: Cost Model for VPlan foo:omp.inner.for.body with VF = 4:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %2 = trunc i64 %indvars.iv to i32
   store i32 %2, i32* %i.lpriv, align 4

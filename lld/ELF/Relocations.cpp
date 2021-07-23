@@ -763,7 +763,7 @@ static const Symbol *getAlternativeSpelling(const Undefined &sym,
 
     // Build a map of local defined symbols.
     for (const Symbol *s : sym.file->getSymbols())
-      if (s->isLocal() && s->isDefined())
+      if (s->isLocal() && s->isDefined() && !s->getName().empty())
         map.try_emplace(s->getName(), s);
   }
 
@@ -820,10 +820,10 @@ static const Symbol *getAlternativeSpelling(const Undefined &sym,
 
   // Case mismatch, e.g. Foo vs FOO.
   for (auto &it : map)
-    if (name.equals_lower(it.first))
+    if (name.equals_insensitive(it.first))
       return it.second;
   for (Symbol *sym : symtab->symbols())
-    if (!sym->isUndefined() && name.equals_lower(sym->getName()))
+    if (!sym->isUndefined() && name.equals_insensitive(sym->getName()))
       return sym;
 
   // The reference may be a mangled name while the definition is not. Suggest a
@@ -1097,7 +1097,7 @@ static void addGotEntry(Symbol &sym) {
 
   // Otherwise, we emit a dynamic relocation to .rel[a].dyn so that
   // the GOT slot will be fixed at load-time.
-  if (!sym.isTls() && !sym.isPreemptible && config->isPic && !isAbsolute(sym)) {
+  if (!sym.isTls() && !sym.isPreemptible && config->isPic) {
     addRelativeReloc(in.got, off, &sym, 0, R_ABS, target->symbolicRel);
     return;
   }
@@ -1147,11 +1147,18 @@ static void processRelocAux(InputSectionBase &sec, RelExpr expr, RelType type,
   // relocation will be created, pass the control to relocateAlloc() or
   // relocateNonAlloc() to resolve it.
   //
-  // The behavior of an undefined weak reference is implementation defined. If
-  // the relocation is to a weak undef, and we are producing an executable, let
-  // relocate{,Non}Alloc() resolve it.
+  // The behavior of an undefined weak reference is implementation defined. For
+  // non-link-time constants, we resolve relocations statically (let
+  // relocate{,Non}Alloc() resolve them) for -no-pie and try producing dynamic
+  // relocations for -pie and -shared.
+  //
+  // The general expectation of -no-pie static linking is that there is no
+  // dynamic relocation (except IRELATIVE). Emitting dynamic relocations for
+  // -shared matches the spirit of its -z undefs default. -pie has freedom on
+  // choices, and we choose dynamic relocations to be consistent with the
+  // handling of GOT-generating relocations.
   if (isStaticLinkTimeConstant(expr, type, sym, sec, offset) ||
-      (!config->shared && sym.isUndefWeak())) {
+      (!config->isPic && sym.isUndefWeak())) {
     sec.relocations.push_back({expr, type, offset, addend, &sym});
     return;
   }
@@ -1575,6 +1582,13 @@ static void scanRelocs(InputSectionBase &sec, ArrayRef<RelTy> rels) {
 
   if (config->emachine == EM_PPC64)
     checkPPC64TLSRelax<RelTy>(sec, rels);
+
+  // For EhInputSection, OffsetGetter expects the relocations to be sorted by
+  // r_offset. In rare cases (.eh_frame pieces are reordered by a linker
+  // script), the relocations may be unordered.
+  SmallVector<RelTy, 0> storage;
+  if (isa<EhInputSection>(sec))
+    rels = sortRels(rels, storage);
 
   for (auto i = rels.begin(), end = rels.end(); i != end;)
     scanReloc<ELFT>(sec, getOffset, i, rels.begin(), end);

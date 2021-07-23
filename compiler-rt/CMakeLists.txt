@@ -45,6 +45,8 @@ option(COMPILER_RT_BUILD_MEMPROF "Build memory profiling runtime" ON)
 mark_as_advanced(COMPILER_RT_BUILD_MEMPROF)
 option(COMPILER_RT_BUILD_XRAY_NO_PREINIT "Build xray with no preinit patching" OFF)
 mark_as_advanced(COMPILER_RT_BUILD_XRAY_NO_PREINIT)
+option(COMPILER_RT_BUILD_ORC "Build ORC runtime" ON)
+mark_as_advanced(COMPILER_RT_BUILD_ORC)
 
 set(COMPILER_RT_ASAN_SHADOW_SCALE ""
     CACHE STRING "Override the shadow scale to be used in ASan runtime")
@@ -65,8 +67,12 @@ if (NOT COMPILER_RT_ASAN_SHADOW_SCALE STREQUAL "")
       -D${COMPILER_RT_ASAN_SHADOW_SCALE_DEFINITION})
 endif()
 
-set(COMPILER_RT_HWASAN_WITH_INTERCEPTORS ON CACHE BOOL
-    "Enable libc interceptors in HWASan (testing mode)")
+if(FUCHSIA)
+  set(COMPILER_RT_HWASAN_WITH_INTERCEPTORS_DEFAULT OFF)
+else()
+  set(COMPILER_RT_HWASAN_WITH_INTERCEPTORS_DEFAULT ON)
+endif()
+set(COMPILER_RT_HWASAN_WITH_INTERCEPTORS ${COMPILER_RT_HWASAN_WITH_INTERCEPTORS_DEFAULT} CACHE BOOL "Enable libc interceptors in HWASan (testing mode)")
 
 set(COMPILER_RT_BAREMETAL_BUILD OFF CACHE BOOL
   "Build for a bare-metal target.")
@@ -212,6 +218,23 @@ set(CXXLIBS none default libstdc++ libc++)
 set_property(CACHE SANITIZER_TEST_CXX PROPERTY STRINGS ;${CXXLIBS})
 handle_default_cxx_lib(SANITIZER_TEST_CXX)
 
+# INTEL_CUSTOMIZATION
+# Since we only need to collect code coverage info for our release scope, we
+# remove ccov build flags from cxx/c flags here to avoid them being included
+# by other libs.
+if (CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs" AND CMAKE_CXX_FLAGS MATCHES "-ftest-coverage")
+  set(COMPILER_RT_CCOV_BUILD ON)
+  string(REGEX REPLACE "-fprofile-arcs" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX REPLACE "-ftest-coverage" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REGEX REPLACE "-fprofile-arcs" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REGEX REPLACE "-ftest-coverage" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  set(CCOV_BUILD_FLAGS "-fprofile-arcs -ftest-coverage")
+  # Libirc is not ready when running lit tests, so we disable it when
+  # doing ccov build.
+  string(APPEND CMAKE_CXX_FLAGS " -i_no-use-libirc")
+endif()
+# end INTEL_CUSTOMIZATION
+
 set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER OFF)
 if (FUCHSIA)
   set(DEFAULT_SANITIZER_USE_STATIC_LLVM_UNWINDER ON)
@@ -268,8 +291,8 @@ if(NOT COMPILER_RT_HAS_FUNC_SYMBOL)
   add_definitions(-D__func__=__FUNCTION__)
 endif()
 
-# Provide some common commmandline flags for Sanitizer runtimes.
-if("${ANDROID_API_LEVEL}" GREATER_EQUAL 28)
+# Provide some common commandline flags for Sanitizer runtimes.
+if("${ANDROID_API_LEVEL}" GREATER_EQUAL 29)
   list(APPEND SANITIZER_COMMON_CFLAGS -fno-emulated-tls)
   string(APPEND COMPILER_RT_TEST_COMPILER_CFLAGS " -fno-emulated-tls")
 endif()
@@ -431,10 +454,18 @@ else()
 endif()
 
 append_list_if(COMPILER_RT_HAS_LIBC c SANITIZER_COMMON_LINK_LIBS)
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Fuchsia")
+  list(APPEND SANITIZER_COMMON_LINK_LIBS zircon)
+endif()
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Fuchsia")
-  list(APPEND SANITIZER_COMMON_LINK_FLAGS -Wl,-z,defs,-z,now,-z,relro)
-  list(APPEND SANITIZER_COMMON_LINK_LIBS zircon)
+  set(SANITIZER_NO_UNDEFINED_SYMBOLS_DEFAULT ON)
+else()
+  set(SANITIZER_NO_UNDEFINED_SYMBOLS_DEFAULT OFF)
+endif()
+option(SANITIZER_NO_UNDEFINED_SYMBOLS "Report error on unresolved symbol references" ${SANITIZER_NO_UNDEFINED_SYMBOLS_DEFAULT})
+if (SANITIZER_NO_UNDEFINED_SYMBOLS)
+  list(APPEND SANITIZER_COMMON_LINK_FLAGS -Wl,-z,defs)
 endif()
 
 # INTEL_CUSTOMIZATION
@@ -490,18 +521,14 @@ set(COMPILER_RT_GTEST_CFLAGS
 )
 
 # Mocking support.
-# INTEL: CMPLRTOOLS-21857: gmock-all.cc uses some new c++ features and can not
-#        be compiled by gcc-4.8.5 libraries. Disable it temporarily.
-if(NOT INTEL_CUSTOMIZATION)
-  set(COMPILER_RT_GMOCK_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock)
-  set(COMPILER_RT_GMOCK_SOURCE ${COMPILER_RT_GMOCK_PATH}/src/gmock-all.cc)
-  set(COMPILER_RT_GMOCK_CFLAGS
-    -DGTEST_NO_LLVM_SUPPORT=1
-    -DGTEST_HAS_RTTI=0
-    -I${COMPILER_RT_GMOCK_PATH}/include
-    -I${COMPILER_RT_GMOCK_PATH}
-  )
-endif()
+set(COMPILER_RT_GMOCK_PATH ${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock)
+set(COMPILER_RT_GMOCK_SOURCE ${COMPILER_RT_GMOCK_PATH}/src/gmock-all.cc)
+set(COMPILER_RT_GMOCK_CFLAGS
+  -DGTEST_NO_LLVM_SUPPORT=1
+  -DGTEST_HAS_RTTI=0
+  -I${COMPILER_RT_GMOCK_PATH}/include
+  -I${COMPILER_RT_GMOCK_PATH}
+)
 
 append_list_if(COMPILER_RT_DEBUG -DSANITIZER_DEBUG=1 COMPILER_RT_UNITTEST_CFLAGS)
 append_list_if(COMPILER_RT_HAS_WCOVERED_SWITCH_DEFAULT_FLAG -Wno-covered-switch-default COMPILER_RT_UNITTEST_CFLAGS)

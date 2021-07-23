@@ -1,6 +1,7 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; Test that generic cloning based on the if-switch heuristic occurred.
 
-; REQUIRES: asserts
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -ip-gen-cloning-enable-morphology -debug-only=ipcloning -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
@@ -19,8 +20,8 @@
 ; CHECK: Selecting all Pending FORMALs
 
 ; CHECK: define dso_local i32 @main
-; CHECK: call i32 @foo.2
 ; CHECK: call i32 @foo.1
+; CHECK: call i32 @foo.2
 ; CHECK: define internal i32 @foo.1
 ; CHECK: define internal i32 @foo.2
 
@@ -69,3 +70,4 @@ return:                                           ; preds = %sw.epilog, %sw.bb, 
   %t3 = load i32, i32* %retval, align 4
   ret i32 %t3
 }
+; end INTEL_FEATURE_SW_ADVANCED
