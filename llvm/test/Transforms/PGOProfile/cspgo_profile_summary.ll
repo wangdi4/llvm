@@ -26,8 +26,10 @@
 ; sources and steps used to generate the data in the test is not
 ; present, and this test is likely to be susceptible to be need updating
 ; whenever the pass list changes.
-;
-; XFAIL: *
+; Update: The test started failing in intel/llvm as well with the legacy
+; pass manager and was restricted to run with the new PM only, with which it
+; passes in xmain as well. If that restriction is removed, we would
+; need to mark it as an expected-fail again in xmain.
 ; END INTEL CUSTOMIZATION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
