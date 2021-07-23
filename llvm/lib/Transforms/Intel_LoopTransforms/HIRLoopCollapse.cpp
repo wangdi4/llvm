@@ -333,22 +333,21 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     }
 
     unsigned LoopLevel = CurLp->getNestingLevel();
-    CanonExpr *UBCE = CurLp->getUpperCanonExpr();
 
     // Check: does CurLp have a constant TripCount?
-    // If yes: save its trip count into UBTCArry;
+    // If yes: save its trip count into TCArry;
     if (CurLp->isConstTripLoop(&TripCount)) {
-      UBTCArry[LoopLevel].set(TripCount);
+      TCArry[LoopLevel].set(TripCount);
       continue;
     }
 
-    // Simplest case is single blob with constant==-1 and denominator==1.
-    // This ensures trip count equals the blob value. Other cases require
-    // changes to the blob (refer to convertToStandAloneBlobOrConstant())
-    // TODO: Handle non-unit denominator.
-    if (UBCE->numBlobs() == 1 && !UBCE->hasIV() &&
-        UBCE->getDenominator() == 1 && UBCE->getConstant() == -1) {
-      UBTCArry[LoopLevel].set(UBCE);
+    CanonExpr *UB = CurLp->getUpperCanonExpr();
+    if (UB->canConvertToStandAloneBlobOrConstant()) {
+      CanonExpr *TC = CurLp->getTripCountCanonExpr();
+      const bool CanConvert = TC->convertToStandAloneBlobOrConstant();
+      assert(CanConvert && "Expect a good conversion");
+      (void)CanConvert;
+      TCArry[LoopLevel].set(TC);
       continue;
     }
 
@@ -456,8 +455,8 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
     // 4) The trip count of inner loop matches the number of elements in the
     // lower dimension.
 
-    unsigned IVBlob;
-    int64_t IVCoeff;
+    unsigned IVBlob = 0;
+    int64_t IVCoeff = 0;
 
     auto *OuterIdxCE = GEPRef->getDimensionIndex(Idx);
     OuterIdxCE->getIVCoeff(InnerLoopLevel - 1, &IVBlob, &IVCoeff);
@@ -473,8 +472,8 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
         (InnerDimIVLevel == InnerLoopLevel);
 
     bool Collapsable = OuterDimCollapsible && InnerDimCollapsible &&
-                       UBTCArry[InnerLoopLevel].isConstant() &&
-                       (UBTCArry[InnerLoopLevel].getTripCount() ==
+                       TCArry[InnerLoopLevel].isConstant() &&
+                       (TCArry[InnerLoopLevel].getConstTripCount() ==
                         GEPRef->getNumDimensionElements(Idx - 1));
 
     if (!Collapsable) {
@@ -620,8 +619,6 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
                                   const unsigned OrigInnermostLevel,
                                   const unsigned OrigOutermostLevel) {
 
-  // *** Identify relevant loops for collapsing ***
-
   HLLoop *OrigOutermostLp =
       ToCollapseLp->getParentLoopAtLevel(OrigOutermostLevel);
   LLVM_DEBUG(dbgs() << "Before LoopCollase:\n"; OrigOutermostLp->dump();
@@ -639,15 +636,12 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   // (exclude the Innermost loop)
   for (unsigned Level = OrigInnermostLevel - 1, E = OrigOutermostLevel;
        Level >= E; --Level) {
-    if (UBTCArry[Level].isConstant()) {
+    if (TCArry[Level].isConstant()) {
       AccumulatedTripCountCE->multiplyByConstant(
-          UBTCArry[Level].getTripCount());
+          TCArry[Level].getConstTripCount());
     } else {
-      auto UBCE = UBTCArry[Level].getUBCE();
-      assert(UBCE->getConstant() == -1 &&
-             "Expected UBCE with Blob to be of form '%n-1'\n");
-      AccumulatedTripCountCE->multiplyByConstant(UBCE->getSingleBlobCoeff());
-      AccumulatedTripCountCE->multiplyByBlob(UBCE->getSingleBlobIndex());
+      CanonExpr *TCCE = TCArry[Level].getTripCount();
+      AccumulatedTripCountCE->multiplyByBlob(TCCE->getSingleBlobIndex());
     }
   }
 
@@ -792,14 +786,14 @@ void HIRLoopCollapse::clearWorkingSetMemory(void) {
   RefVec.clear();
   GEPRefVec.clear();
   NumCollapsableLoops = 0;
-  initializeUBTCArry();
+  initializeTCArry();
   IVType = nullptr;
 }
 
 unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
 
-  int64_t IVConstCoeff;
-  unsigned IVIndex;
+  int64_t IVConstCoeff = 0;
+  unsigned IVIndex = 0;
   unsigned LevelsMatched = 0;
 
   // Try to match the 1st level (on InnermostLevel):
@@ -819,11 +813,11 @@ unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
     CE->getIVCoeff(Level, &IVIndex, &IVConstCoeff);
     unsigned PrevLevel = Level + 1;
 
-    if (UBTCArry[PrevLevel].isConstant()) {
-      AccumuConst *= UBTCArry[PrevLevel].getTripCount();
+    if (TCArry[PrevLevel].isConstant()) {
+      AccumuConst *= TCArry[PrevLevel].getConstTripCount();
     } else {
-      CanonExpr *CurUBCE = UBTCArry[PrevLevel].getUBCE();
-      unsigned BlobIndex = CurUBCE->getSingleBlobIndex();
+      CanonExpr *TCCE = TCArry[PrevLevel].getTripCount();
+      unsigned BlobIndex = TCCE->getSingleBlobIndex();
 
       // Accumulate Blob into AccumuBlobIndex:
       if (AccumuBlobIndex == InvalidBlobIndex) {
@@ -832,7 +826,6 @@ unsigned HIRLoopCollapse::getLevelsOfIVPattern(CanonExpr *CE) const {
         unsigned NewBlobIndex = 0;
         BU->createMulBlob(BU->getBlob(AccumuBlobIndex), BU->getBlob(BlobIndex),
                           true, &NewBlobIndex);
-
         AccumuBlobIndex = NewBlobIndex;
       }
     }
@@ -935,8 +928,8 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printCandidateLoops(
   }
 }
 
-LLVM_DUMP_METHOD void HIRLoopCollapse::printUBTCArry(void) const {
-  for (auto &Item : UBTCArry) {
+LLVM_DUMP_METHOD void HIRLoopCollapse::printTCArry(void) const {
+  for (auto &Item : TCArry) {
     Item.print(true, true);
   }
 }

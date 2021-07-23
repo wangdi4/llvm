@@ -2,15 +2,8 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 
-; Verify that Loops with denominator are not collapsed during HIRLoopCollapse
+; Verify that Loops with denominator in UB can now be collapsed
 
-; [Analysis]
-; Applicable: NO, denominator exists for UBCE in i loop
-; Legal:      N/A
-; Profitable: N/A
-; Suitable:   NO
-;
-;
 ; *** Source Code ***
 ; int A[10][10];
 ; void foo(unsigned long n) {
@@ -22,7 +15,8 @@
 ;       A[i][j] = 10;
 ;  }
 
-; CHECK: Function
+; *** IR Dump Before HIR Loop Collapse (hir-loop-collapse) ***
+; Function: foo
 ;
 ; CHECK:  BEGIN REGION { }
 ; CHECK:        + DO i1 = 0, (%n + -1)/u2, 1   <DO_LOOP>
@@ -32,19 +26,19 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
-; CHECK: Function
-;
-; CHECK:  BEGIN REGION { }
-; CHECK:        + DO i1 = 0, (%n + -1)/u2, 1   <DO_LOOP>
-; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |   |   (@A)[0][i1][i2] = 10;
-; CHECK:        |   + END LOOP
-; CHECK:        + END LOOP
-; CHECK:  END REGION
+
+; *** IR Dump After HIR Loop Collapse (hir-loop-collapse) ***
+; Function: foo
+
+; CHECK:     BEGIN REGION { modified }
+; CHECK:           + DO i1 = 0, 10 * ((1 + %n) /u 2) + -1, 1   <DO_LOOP>
+; CHECK:           |   (@A)[0][0][i1] = 10;
+; CHECK:           + END LOOP
+; CHECK:     END REGION
+
+
 
 ;Module Before HIR
-; ModuleID = 'tc'
-source_filename = "t.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
