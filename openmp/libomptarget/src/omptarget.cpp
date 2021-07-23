@@ -616,6 +616,16 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;
         }
+#if INTEL_COLLAB
+        // Obtain offset from the base address of PointerTgtPtrBegin.
+        Device.DataMapMtx.lock();
+        auto PtrLookup =
+            Device.lookupMapping(Pointer_HstPtrBegin, sizeof(void *));
+        Device.DataMapMtx.unlock();
+        size_t PtrOffset = (size_t)((uint64_t)Pointer_HstPtrBegin -
+            (uint64_t)PtrLookup.Entry->HstPtrBase);
+        Device.notifyIndirectAccess(PointerTgtPtrBegin, PtrOffset);
+#endif // INTEL_COLLAB
       } else
         Device.ShadowMtx.unlock();
     }

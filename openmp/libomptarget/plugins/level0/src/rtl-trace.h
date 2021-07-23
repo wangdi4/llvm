@@ -341,6 +341,20 @@ TRACE_FN_DEF(zeDriverGetApiVersion)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDriverGetExtensionFunctionAddress)(
+    ze_driver_handle_t hDriver,
+    const char *name,
+    void **ppFunctionAddress) {
+  auto rc = zeDriverGetExtensionFunctionAddress(
+      hDriver, name, ppFunctionAddress);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDriver);
+  TRACE_FN_ARG_PTR(name);
+  TRACE_FN_ARG_PTR(ppFunctionAddress);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeEventCreate)(
     ze_event_pool_handle_t hEventPool,
     const ze_event_desc_t *desc,

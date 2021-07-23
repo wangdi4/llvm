@@ -1217,6 +1217,9 @@ public:
   /// We need to track the valid address ranges known to libomptarget and users.
   std::map<ze_device_handle_t, std::unique_ptr<MemRangeTy>> MemHostAccessible;
 
+  /// GITS function address for notifying indirect accesses
+  void *GitsIndirectAllocationOffsets = nullptr;
+
   /// Flags, parameters, options
   RTLFlagsTy Flags;
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -2897,6 +2900,14 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
 
   if (DebugLevel > 0)
     DeviceInfo->initMemoryStat();
+
+  // Look up GITS notification function
+  ze_result_t Rc;
+  CALL_ZE(Rc, zeDriverGetExtensionFunctionAddress, DeviceInfo->Driver,
+          "zeGitsIndirectAllocationOffsets",
+          &DeviceInfo->GitsIndirectAllocationOffsets);
+  if (Rc != ZE_RESULT_SUCCESS)
+    DeviceInfo->GitsIndirectAllocationOffsets = nullptr;
 
   if (deviceMode == DEVICE_MODE_TOP) {
     DP("Returning %" PRIu32 " top-level devices\n", DeviceInfo->NumRootDevices);
@@ -4681,6 +4692,19 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     return 1;
   else
     return 0;
+}
+
+EXTERN int32_t __tgt_rtl_notify_indirect_access(
+    int32_t DeviceId, const void *Ptr, size_t Offset) {
+  using FnTy = void(*)(void *, uint32_t, size_t *);
+  auto Fn = reinterpret_cast<FnTy>(DeviceInfo->GitsIndirectAllocationOffsets);
+  void *PtrBase = (void *)((uintptr_t)Ptr - Offset);
+  // This DP is only for testability
+  DP("Notifying indirect access: " DPxMOD " + %zu\n", DPxPTR(PtrBase), Offset);
+  if (Fn) {
+    Fn(PtrBase, 1, &Offset);
+  }
+  return OFFLOAD_SUCCESS;
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

@@ -369,6 +369,7 @@ struct ExtensionsTy {
 #if INTEL_CUSTOMIZATION
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
   ExtensionStatusTy SuggestedGroupSize = ExtensionStatusUnknown;
+  ExtensionStatusTy GitsIndirectAllocationOffsets = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
   // Libdevice extensions that may be supported by device runtime.
@@ -953,6 +954,9 @@ public:
           ExtensionStatusEnabled;
     case clGetKernelSuggestedLocalWorkSizeINTELId:
       return Extensions[DeviceId].SuggestedGroupSize == ExtensionStatusEnabled;
+    case clGitsIndirectAllocationOffsetsId:
+      return Extensions[DeviceId].GitsIndirectAllocationOffsets ==
+          ExtensionStatusEnabled;
 #endif // INTEL_CUSTOMIZATION
     default:
       return true;
@@ -4109,6 +4113,21 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     return 0;
 }
 
+EXTERN int32_t __tgt_rtl_notify_indirect_access(
+    int32_t DeviceId, const void *Ptr, size_t Offset) {
+#if INTEL_CUSTOMIZATION
+  auto Fn = reinterpret_cast<clGitsIndirectAllocationOffsets_fn>(
+      DeviceInfo->getExtensionFunctionPtr(DeviceId,
+                                          clGitsIndirectAllocationOffsetsId));
+  void *PtrBase = (void *)((uintptr_t)Ptr - Offset);
+  // This DP is only for testability
+  DP("Notifying indirect access: " DPxMOD " + %zu\n", DPxPTR(PtrBase), Offset);
+  if (Fn) {
+    Fn(PtrBase, 1, &Offset);
+  }
+#endif // INTEL_CUSTOMIZATION
+  return OFFLOAD_SUCCESS;
+}
 #ifdef __cplusplus
 }
 #endif
