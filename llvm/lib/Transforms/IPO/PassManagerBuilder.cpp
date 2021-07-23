@@ -2407,7 +2407,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRInterLoopBlockingPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-      PM.add(createHIRLoopBlockingPass());
+      PM.add(createHIRLoopBlockingPass(ThroughputModeOpt !=
+                                       ThroughputMode::SingleJob));
       PM.add(createHIRUndoSinkingForPerfectLoopnestPass());
       PM.add(createHIRDeadStoreEliminationPass());
       PM.add(createHIRLoopReversalPass());

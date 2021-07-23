@@ -112,30 +112,6 @@ typedef std::map<const HLLoop *, PragmaPairVecTy> LoopPragmaMapTy;
 
 enum LoopTypeVal { BY_STRIP_LOOP_VAL = 0, STRIPMINE_CAND_VAL = 0 };
 
-struct HIRLoopBlocking {
-
-  HIRFramework &HIRF;
-  HIRDDAnalysis &HDDA;
-  HIRSafeReductionAnalysis &SRA;
-  HIRLoopStatistics &HLS;
-  TargetTransformInfo &TTI;
-
-  StringRef FuncName;
-  LoopPragmaMapTy LoopToPragma;
-  bool HasPragma;
-
-  HIRLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                  HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS,
-                  TargetTransformInfo &TTI)
-      : HIRF(HIRF), HDDA(HDDA), SRA(SRA), HLS(HLS), TTI(TTI) {}
-
-  bool run(bool Pragma);
-
-  void doTransformation(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
-                        LoopMapTy &LoopToBS);
-};
-
-//
 } // namespace blocking
 } // namespace loopopt
 } // namespace llvm
