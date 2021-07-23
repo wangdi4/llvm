@@ -58,8 +58,6 @@
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass on (foo)
 ; CHECK-NEXT: Running pass: ArgumentPromotionPass on (main)
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
-; CHECK: Running pass: IntelArgumentAlignmentPass
-; CHECK: Running pass: TileMVInlMarkerPass
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

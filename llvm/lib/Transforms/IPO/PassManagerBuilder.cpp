@@ -1991,6 +1991,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createIPArrayTransposeLegacyPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled)
+    PM.add(createIPPredOptLegacyPass());
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
 #endif // INTEL_FEATURE_SW_ADVANCED

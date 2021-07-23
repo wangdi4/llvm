@@ -68,6 +68,9 @@
 ; CHECK: Running pass: IntelArgumentAlignmentPass
 ; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass
+; CHECK: Running pass: IPArrayTranspose
+; CHECK: Running pass: IPPredOpt
+; CHECK: Running pass: DeadArrayOpsElimination
 
 ; Make sure we get the IR back out without changes when we print the module.
 ; CHECK-LABEL: define internal fastcc void @foo(i32 %n) unnamed_addr #0 {

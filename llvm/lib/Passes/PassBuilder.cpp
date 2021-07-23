@@ -134,6 +134,7 @@
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#include "llvm/Transforms/IPO/Intel_IPPredOpt.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
@@ -3006,6 +3007,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(IPArrayTransposePass());
 
 #if INTEL_FEATURE_SW_ADVANCED
+  if (DTransEnabled)
+    MPM.addPass(IPPredOptPass());
   if (EnableDeadArrayOpsElim)
     MPM.addPass(DeadArrayOpsEliminationPass());
 #endif // INTEL_FEATURE_SW_ADVANCED

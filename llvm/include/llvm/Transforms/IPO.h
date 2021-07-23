@@ -336,6 +336,8 @@ ModulePass *createIntelPartialInlineLegacyPass();
 ModulePass *createIPArrayTransposeLegacyPass();
 
 #if INTEL_FEATURE_SW_ADVANCED
+/// \brief This pass conducts IPO-based Predicate optimization.
+ModulePass *createIPPredOptLegacyPass();
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
                                       bool IfSwitchHeuristic = false);
