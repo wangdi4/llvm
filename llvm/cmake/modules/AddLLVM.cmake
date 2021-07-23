@@ -1269,6 +1269,7 @@ if(NOT LLVM_TOOLCHAIN_TOOLS)
     llvm-objcopy
     llvm-objdump
     llvm-rc
+    llvm-readobj
     llvm-size
     llvm-strings
     llvm-strip
@@ -1283,6 +1284,7 @@ if(NOT LLVM_TOOLCHAIN_TOOLS)
     nm
     objcopy
     objdump
+    readelf
     size
     strings
     strip
