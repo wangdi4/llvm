@@ -770,7 +770,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-mllvm:-enable-intel-advanced-opts");
     };
     // Given -x, turn on advanced optimizations
-    if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    if (Arg *A = clang::driver::getLastArchArg(Args, false))
       addAdvancedOptimFlag(*A, options::OPT_x);
     // Additional handling for /arch and /Qx
     if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,

@@ -806,6 +806,12 @@ bool isStaticArchiveFile(const StringRef &FileName);
 /// \return True if the argument combination will end up generating remarks.
 bool willEmitRemarks(const llvm::opt::ArgList &Args);
 
+#if INTEL_CUSTOMIZATION
+/// getLastArchArg - Get the last arch option (-march or -x)
+llvm::opt::Arg * getLastArchArg(const llvm::opt::ArgList &Args,
+                                bool claimArg = true);
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace driver
 } // end namespace clang
 

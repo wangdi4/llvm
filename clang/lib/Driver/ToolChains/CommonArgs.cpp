@@ -680,7 +680,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back("-plugin-opt=fintel-advanced-optim");
   };
   // Given -x, turn on advanced optimizations
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+  if (Arg *A = clang::driver::getLastArchArg(Args, false))
     addAdvancedOptimFlag(*A, options::OPT_x);
   // Additional handling for /arch and /Qx
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
@@ -840,7 +840,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // Given -x, turn on multi-versioning
   // FIXME: These checks for Intel -x and -Qx are used in many places, we
   // should improve this by adding some kind of common check.
-  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+  if (Arg *A = clang::driver::getLastArchArg(Args, false))
     addMultiVersionFlag(*A, options::OPT_x);
   // Additional handling for /arch and /Qx
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
@@ -892,8 +892,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       // provided otherwise, we enable lightweight loopopt dependent on various
       // options.  Only add if -loopopt wasn't added via other means.
       bool FullLoopOpt = false;
-      if (const Arg *A =
-              Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+      if (const Arg *A = clang::driver::getLastArchArg(Args, false))
         if (A->getOption().matches(options::OPT_x) &&
             x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
           // -x wins, so full loopopt is enabled
