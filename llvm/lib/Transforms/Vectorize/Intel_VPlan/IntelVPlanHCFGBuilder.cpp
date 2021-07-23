@@ -123,7 +123,7 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     // Check if we know the TC exactly.
     if (TripCountTy KnownTC = SE->getSmallConstantTripCount(Lp)) {
       VPL->setKnownTripCount(KnownTC);
-      LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getLoopDepth()
+      LLVM_DEBUG(dbgs() << "The trip count for loop " << Lp->getName()
                         << " is " << KnownTC << "\n";);
       continue;
     } else {
@@ -136,7 +136,7 @@ void VPlanHCFGBuilder::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
     if (TripCountTy KnownMaxTC = SE->getSmallConstantMaxTripCount(Lp)) {
       // Then see if the compiler can infer a better estimate.
       TCInfo.MaxTripCount = std::min(TCInfo.MaxTripCount, KnownMaxTC);
-      LLVM_DEBUG(dbgs() << "The max trip count for loop " << Lp->getLoopDepth()
+      LLVM_DEBUG(dbgs() << "The max trip count for loop " << Lp->getName()
                         << " is estimated to be " << TCInfo.MaxTripCount
                         << "\n";);
     }

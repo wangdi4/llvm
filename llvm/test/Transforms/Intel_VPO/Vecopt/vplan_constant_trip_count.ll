@@ -5,8 +5,8 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @main() {
-; CHECK:  The trip count for loop 1 is 2048
-; CHECK-NEXT:  The trip count for loop 2 is 256
+; CHECK:  The trip count for loop outer.loop.header is 2048
+; CHECK-NEXT:  The trip count for loop inner.loop.header is 256
 entry:
   br label %preheader
 
