@@ -260,5 +260,37 @@ _mm_dsp_pnccdpwqimm_epi64(__m128i __A, __m128i __B, __m128i __C) {
                                                (__v8hu)__C);
 }
 
+#define _mm_dsp_psrard_epi32(A, B)                                             \
+  (__m128i) __builtin_ia32_dvpsrard((__v4su)(A), (int)(B))
+
+#define _mm_dsp_pslsd_epi32(A, B)                                              \
+  (__m128i) __builtin_ia32_dvpslsd((__v4su)(A), (int)(B))
+
+#define _mm_dsp_psrrud_epi32(A, B)                                             \
+  (__m128i) __builtin_ia32_dvpsrrud((__v4su)(A), (int)(B))
+
+#define _mm_dsp_pslsud_epi32(A, B)                                             \
+  (__m128i) __builtin_ia32_dvpslsud((__v4su)(A), (int)(B))
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_psravrd_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpsravrd((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pslvsd_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpslvsd((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_psrvrud_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpsrvrud((__v4su)__A, (__v4su)__B);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_pslvsud_epi32(__m128i __A, __m128i __B) {
+  return (__m128i)__builtin_ia32_dvpslvsud((__v4su)__A, (__v4su)__B);
+}
+
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H
