@@ -4905,7 +4905,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                                              MSVT.getAsString()));
       else {
         const char *LowestMSVCSupported =
-            "191025017"; // VS2017 v15.0 (initial release)
+            "19.10.25017"; // VS2017 v15.0 (initial release)
         CmdArgs.push_back(Args.MakeArgString(
             Twine("-fms-compatibility-version=") + LowestMSVCSupported));
       }
