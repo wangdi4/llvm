@@ -2867,23 +2867,10 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
                              m_Select(m_Value(), m_Value(), m_ImmConstant()))));
     };
     if (PN->getType()->isIntegerTy(1) &&
-        (IsBinOpOrAnd(PN->getIncomingValue(0)) ||
-         IsBinOpOrAnd(PN->getIncomingValue(1)) || IsBinOpOrAnd(IfCond)) &&
-        !CanHoistNotFromBothValues(PN->getIncomingValue(0),
-                                   PN->getIncomingValue(1)))
-      return Changed;
-
-    // Don't fold i1 branches on PHIs which contain binary operators, unless one
-    // of the incoming values is an 'not' and another one is freely invertible.
-    // These can often be turned into switches and other things.
-    if (PN->getType()->isIntegerTy(1) &&
-        (isa<BinaryOperator>(TrueVal) || isa<BinaryOperator>(FalseVal) ||
-         isa<BinaryOperator>(IfCond)) &&
-        !CanHoistNotFromBothValues(PN->getIncomingValue(0),
-                                   PN->getIncomingValue(1))) {
-      // Continue to look for next "if condition".
+        (IsBinOpOrAnd(TrueVal) || IsBinOpOrAnd(FalseVal) ||
+         IsBinOpOrAnd(IfCond)) &&
+        !CanHoistNotFromBothValues(TrueVal, FalseVal))
       continue;
-    }
 
     // If all PHI nodes are promotable, check to make sure that all
     // instructions in the selected predecessor blocks can be promoted as well.
