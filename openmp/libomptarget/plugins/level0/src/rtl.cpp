@@ -2686,7 +2686,9 @@ static int32_t getSubDevices(
   return OFFLOAD_SUCCESS;
 }
 
-static int32_t appendDeviceProperties(ze_device_handle_t Device) {
+static int32_t appendDeviceProperties(
+    ze_device_handle_t Device, std::string IdStr,
+    uint32_t QueueOrdinal = UINT32_MAX, uint32_t QueueIndex = 0) {
   ze_device_properties_t properties = DevicePropertiesInit;
   ze_device_compute_properties_t computeProperties =
       DeviceComputePropertiesInit;
@@ -2700,6 +2702,14 @@ static int32_t appendDeviceProperties(ze_device_handle_t Device) {
 
   CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
   DeviceInfo->ComputeProperties.push_back(computeProperties);
+
+  DeviceInfo->DeviceIdStr.push_back(IdStr);
+  if (QueueOrdinal == UINT32_MAX)
+    QueueOrdinal = getCmdQueueGroupOrdinal(Device);
+  DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
+  DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
+  DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
+      getCmdQueueGroupOrdinalCopy(Device));
 
   DP("Found a GPU device, Name = %s\n", properties.name);
 
@@ -2744,14 +2754,9 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
       auto device = devices[i];
 
       if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
-        if (appendDeviceProperties(device) != OFFLOAD_SUCCESS)
+        auto Rc = appendDeviceProperties(device, std::to_string(i));
+        if (Rc != OFFLOAD_SUCCESS)
           return 0;
-        DeviceInfo->DeviceIdStr.push_back(std::to_string(i));
-        DeviceInfo->CmdQueueGroupOrdinals.push_back(
-            getCmdQueueGroupOrdinal(device));
-        DeviceInfo->CmdQueueIndices.push_back(0);
-        DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
-            getCmdQueueGroupOrdinalCopy(device));
       }
 
       if (DeviceInfo->Flags.UseMemoryPool) {
@@ -2794,15 +2799,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
           for (size_t k = 0; k < subDeviceLists[0].size(); k++) {
             auto subDevice = subDeviceLists[0][k];
             subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-            if (appendDeviceProperties(subDevice) != OFFLOAD_SUCCESS)
+            auto IdStr = std::to_string(i) + ".0." + std::to_string(k);
+            auto Rc = appendDeviceProperties(subDevice, IdStr);
+            if (Rc != OFFLOAD_SUCCESS)
               return 0;
-            DeviceInfo->DeviceIdStr.push_back(
-                std::to_string(i) + ".0." + std::to_string(k));
-            DeviceInfo->CmdQueueGroupOrdinals.push_back(
-                getCmdQueueGroupOrdinal(subDevice));
-            DeviceInfo->CmdQueueIndices.push_back(0);
-            DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
-                getCmdQueueGroupOrdinalCopy(subDevice));
           }
         }
         // Fill per-device data for subsubdevice
@@ -2814,14 +2814,29 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
             uint32_t ordinal = getCmdQueueGroupOrdinalCCS(subDevice, numQueues);
             for (uint32_t j = 0; j < numQueues; j++) {
               subDeviceIds.back().push_back(DeviceInfo->Devices.size());
-              if (appendDeviceProperties(subDevice) != OFFLOAD_SUCCESS)
+              auto IdStr =
+                  std::to_string(i) + ".1." + std::to_string(k * numQueues + j);
+              auto Rc = appendDeviceProperties(subDevice, IdStr, ordinal, j);
+              if (Rc != OFFLOAD_SUCCESS)
                 return 0;
-              DeviceInfo->DeviceIdStr.push_back(std::to_string(i) + ".1." +
-                  std::to_string(k * numQueues + j));
-              DeviceInfo->CmdQueueGroupOrdinals.push_back(ordinal);
-              DeviceInfo->CmdQueueIndices.push_back(j);
-              DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
-                  getCmdQueueGroupOrdinalCopy(subDevice));
+            }
+          }
+        }
+      } else {
+        // Try to find second-level subdevices of the root device. Tile can be
+        // exposed as root device, so we need to setup second-level subdevices.
+        if (deviceMode != DEVICE_MODE_SUB) {
+          // Only subDeviceIds[1] will be used
+          subDeviceIds.resize(2);
+          uint32_t numQueues = 0;
+          uint32_t ordinal = getCmdQueueGroupOrdinalCCS(device, numQueues);
+          if (ordinal != UINT32_MAX) {
+            for (uint32_t j = 0; j < numQueues; j++) {
+              subDeviceIds.back().push_back(DeviceInfo->Devices.size());
+              auto IdStr = std::to_string(i) + ".1." + std::to_string(j);
+              auto Rc = appendDeviceProperties(device, IdStr, ordinal, j);
+              if (Rc != OFFLOAD_SUCCESS)
+                return 0;
             }
           }
         }
@@ -4029,7 +4044,12 @@ static int32_t runTargetTeamRegionSub(
   uint32_t rootId = SUBDEVICE_GET_ROOT(DeviceIds);
 
   auto &subDeviceIds = DeviceInfo->SubDeviceIds[rootId];
-  auto subIdBase = subDeviceIds[0][0]; // internal ID of the first subdevice
+  int32_t subIdBase = 0;
+  // Internal ID of the first subdevice
+  if (subDeviceIds[0].size() > 0)
+    subIdBase = subDeviceIds[0][0];
+  else
+    subIdBase = subDeviceIds[1][0];
 
   std::vector<ze_event_handle_t> usedEvents;
   std::vector<ze_command_list_handle_t> usedCmdLists;
