@@ -86,6 +86,13 @@ public:
   llvm::LoadInst *CreateAlignedLoad(llvm::Type *Ty, llvm::Value *Addr,
                                     CharUnits Align,
                                     const llvm::Twine &Name = "") {
+#if INTEL_COLLAB
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Addr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace())
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Addr->getType()->getPointerAddressSpace());
+#endif //INTEL_COLLAB
     assert(Addr->getType()->getPointerElementType() == Ty);
     return CreateAlignedLoad(Ty, Addr, Align.getAsAlign(), Name);
   }
@@ -160,6 +167,18 @@ public:
           Ptr->getType()->getPointerAddressSpace());
     }
     return CGBuilderBaseTy::CreateBitCast(Ptr, Ty, Name);
+  }
+
+  using CGBuilderBaseTy::CreateConstInBoundsGEP1_64;
+  llvm::Value *CreateConstInBoundsGEP1_64(llvm::Type *Ty, llvm::Value *Ptr,
+                                          uint64_t Idx0,
+                                          const llvm::Twine &Name = "") {
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Ptr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace())
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Ptr->getType()->getPointerAddressSpace());
+    return CGBuilderBaseTy::CreateConstInBoundsGEP1_64(Ty, Ptr, Idx0, Name);
   }
 #endif  // INTEL_COLLAB
 
