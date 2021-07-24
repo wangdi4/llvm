@@ -203,7 +203,12 @@ public:
   }
   void apply(unsigned TTICost, unsigned &Cost,
              Scope *S, raw_ostream *OS = nullptr) const {
+    unsigned RefCost = Cost;
+    (void)RefCost;
     H.apply(TTICost, Cost, S, OS);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    H.printCostChange(RefCost, Cost, S, OS);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
     // Once any heuristics in the pipeline returns Unknown cost
     // return it immediately.
     if (Cost == VPlanTTICostModel::UnknownCost)
