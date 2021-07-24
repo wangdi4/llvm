@@ -2879,14 +2879,13 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // instructions in the selected predecessor blocks can be promoted as well.
     // If not, we won't be able to get rid of the control flow, so it's not
     // worth promoting to select instructions.
-    BasicBlock *CondBlock = nullptr;
+    BasicBlock *CondBlock = DomBI->getParent();
     BasicBlock *IfBlock1 = IfTrue;
     BasicBlock *IfBlock2 = IfFalse;
 
     if (cast<BranchInst>(IfBlock1->getTerminator())->isConditional()) {
       IfBlock1 = nullptr;
     } else {
-      CondBlock = *pred_begin(IfBlock1);
       for (BasicBlock::iterator I = IfBlock1->begin(); !I->isTerminator();
            ++I) {
         if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I) &&
@@ -2907,7 +2906,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
       IfBlock2 = nullptr;
     } else {
-      CondBlock = *pred_begin(IfBlock2);
       for (BasicBlock::iterator I = IfBlock2->begin(); !I->isTerminator();
            ++I) {
         if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I) &&
@@ -2931,23 +2929,21 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
         (IfBlock2 && IfBlock2->hasAddressTaken()))
       continue;
 
-    assert(CondBlock && "Failed to find root CondBlock");
     LLVM_DEBUG(dbgs() << "FOUND IF CONDITION!  " << *IfCond
                       << "  T: " << IfTrue->getName()
                       << "  F: " << IfFalse->getName() << "\n");
 
     // If we can still promote the PHI nodes after this gauntlet of tests,
     // do all of the PHI's now.
-    Instruction *InsertPt = CondBlock->getTerminator();
-    IRBuilder<NoFolder> Builder(InsertPt);
 
     // Move all 'aggressive' instructions, which are defined in the
     // conditional parts of the if's to the conditional block.
     if (IfBlock1)
-      hoistAllInstructionsInto(CondBlock, InsertPt, IfBlock1);
+      hoistAllInstructionsInto(CondBlock, DomBI, IfBlock1);
     if (IfBlock2)
-      hoistAllInstructionsInto(CondBlock, InsertPt, IfBlock2);
+      hoistAllInstructionsInto(CondBlock, DomBI, IfBlock2);
 
+    IRBuilder<NoFolder> Builder(DomBI);
     // Propagate fast-math-flags from phi nodes to replacement selects.
     IRBuilder<>::FastMathFlagGuard FMFGuard(Builder);
 
@@ -2964,7 +2960,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
 
       if (TrueVal != FalseVal) {
         Value *Select =
-            Builder.CreateSelect(IfCond, TrueVal, FalseVal, "", InsertPt);
+            Builder.CreateSelect(IfCond, TrueVal, FalseVal, "", DomBI);
         SelectInst *NV = cast<SelectInst>(Select);
         // The community code calls Select->takeName(PN) here and removes the
         // PHI node. We cannot do that, because the PHI might still be needed
@@ -2996,8 +2992,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     // At this point, IfBlock1 and IfBlock2 are both empty, so our if
     // statement has been flattened.  Change CondBlock to jump directly to BB
     // to avoid other simplifycfg's kicking in on the diamond.
-    Instruction *OldTI = CondBlock->getTerminator();
-    Builder.SetInsertPoint(OldTI);
     Builder.CreateBr(BB);
 
     SmallVector<DominatorTree::UpdateType, 3> Updates;
@@ -3007,7 +3001,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
         Updates.push_back({DominatorTree::Delete, CondBlock, Successor});
     }
 
-    OldTI->eraseFromParent();
+    DomBI->eraseFromParent();
     if (DTU)
       DTU->applyUpdates(Updates);
 
