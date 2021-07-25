@@ -586,6 +586,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // Whether inlining is decided by cost-benefit analysis.
   bool DecidedByCostBenefit = false;
 
+  // The cost-benefit pair computed by cost-benefit analysis.
+  Optional<CostBenefitPair> CostBenefit = None;
+
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
 
@@ -900,6 +903,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     // savings threshold.
     Size = Size > InlineSizeAllowance ? Size - InlineSizeAllowance : 1;
 
+    CostBenefit.emplace(APInt(128, Size), CycleSavings);
+
     // Return true if the savings justify the cost of inlining.  Specifically,
     // we evaluate the following inequality:
     //
@@ -1136,6 +1141,7 @@ public:
   virtual ~InlineCostCallAnalyzer() {}
   int getThreshold() const { return Threshold; }
   int getCost() const { return Cost; }
+  Optional<CostBenefitPair> getCostBenefitPair() { return CostBenefit; }
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() const { return EarlyExitThreshold; }
   int getEarlyExitCost() const { return EarlyExitCost; }
@@ -3203,9 +3209,10 @@ InlineCost llvm::getInlineCost(
   // as it's not what drives cost-benefit analysis.
   if (CA.wasDecidedByCostBenefit()) {
     if (ShouldInline.isSuccess())
-      return InlineCost::getAlways("benefit over cost");
+      return InlineCost::getAlways("benefit over cost",
+                                   CA.getCostBenefitPair());
     else
-      return InlineCost::getNever("cost over benefit");
+      return InlineCost::getNever("cost over benefit", CA.getCostBenefitPair());
   }
 
   // Check if there was a reason to force inlining or no inlining.
