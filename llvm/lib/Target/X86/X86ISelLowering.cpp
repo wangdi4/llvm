@@ -30250,8 +30250,18 @@ static SDValue LowerRotate(SDValue Op, const X86Subtarget &Subtarget,
   }
 
   // ISD::ROT* uses modulo rotate amounts.
-  Amt = DAG.getNode(ISD::AND, DL, VT, Amt,
-                    DAG.getConstant(EltSizeInBits - 1, DL, VT));
+  if (SDValue BaseRotAmt = DAG.getSplatValue(Amt)) {
+    // If the amount is a splat, perform the modulo BEFORE the splat,
+    // this helps LowerScalarVariableShift to remove the splat later.
+    Amt = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, VT, BaseRotAmt);
+    Amt = DAG.getNode(ISD::AND, DL, VT, Amt,
+                      DAG.getConstant(EltSizeInBits - 1, DL, VT));
+    Amt = DAG.getVectorShuffle(VT, DL, Amt, DAG.getUNDEF(VT),
+                               SmallVector<int>(NumElts, 0));
+  } else {
+    Amt = DAG.getNode(ISD::AND, DL, VT, Amt,
+                      DAG.getConstant(EltSizeInBits - 1, DL, VT));
+  }
 
   bool ConstantAmt = ISD::isBuildVectorOfConstantSDNodes(Amt.getNode());
   bool LegalVarShifts = SupportedVectorVarShift(VT, Subtarget, ISD::SHL) &&
@@ -38596,7 +38606,8 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
       (Depth >= VariablePerLaneShuffleDepth) || HasVariableMask;
   // VPERMI2W/VPERMI2B are 3 uops on Skylake and Icelake so we require a
   // higher depth before combining them.
-  bool AllowBWIVPERMV3 = (Depth >= 2 || HasVariableMask);
+  bool AllowBWIVPERMV3 =
+      (Depth >= (VariableCrossLaneShuffleDepth + 2) || HasVariableMask);
 
   bool MaskContainsZeros = isAnyZero(Mask);
 
@@ -53560,14 +53571,20 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
 /// count. We do this with CMOV rather the generic 'select' because there are
 /// earlier folds that may be used to turn select-of-constants into logic hacks.
 static SDValue pushAddIntoCmovOfConsts(SDNode *N, SelectionDAG &DAG) {
-  // This checks for a zero operand because add-of-0 gets simplified away.
-  // TODO: Allow generating an extra add?
+  // If an operand is zero, add-of-0 gets simplified away, so that's clearly
+  // better because we eliminate 1-2 instructions. This transform is still
+  // an improvement without zero operands because we trade 2 move constants and
+  // 1 add for 2 adds (LEA) as long as the constants can be represented as
+  // immediate asm operands (fit in 32-bits).
   auto isSuitableCmov = [](SDValue V) {
     if (V.getOpcode() != X86ISD::CMOV || !V.hasOneUse())
       return false;
-    return isa<ConstantSDNode>(V.getOperand(0)) &&
-           isa<ConstantSDNode>(V.getOperand(1)) &&
-           (isNullConstant(V.getOperand(0)) || isNullConstant(V.getOperand(1)));
+    if (!isa<ConstantSDNode>(V.getOperand(0)) ||
+        !isa<ConstantSDNode>(V.getOperand(1)))
+      return false;
+    return isNullConstant(V.getOperand(0)) || isNullConstant(V.getOperand(1)) ||
+           (V.getConstantOperandAPInt(0).isSignedIntN(32) &&
+            V.getConstantOperandAPInt(1).isSignedIntN(32));
   };
 
   // Match an appropriate CMOV as the first operand of the add.
