@@ -3,8 +3,8 @@
 
 ; Verify that the loopnest is completely unrolled and that all redundant stores
 ; of the form: ((%ax)[0][2] = %2 + -1;) are eliminated by dead store elimination
-; pass except the one store which is read in the same instruction as the post
-; dominating store.
+; pass except the one self-defined store ((%ax)[0][2] = (%ax)[0][2];) which
+; turns into ((%ax)[0][2] = %2 + -1;)
 
 ; Incoming HIR-
 ; + DO i1 = 0, 38, 1   <DO_LOOP>
@@ -26,7 +26,9 @@
 ; CHECK-NOT: (%ax)[0][2] = %2 + -1;
 
 ; CHECK: (%ax)[0][2] = %2 + -1;
-; CHECK-NEXT: (%ax)[0][2] = (%ax)[0][2];
+; CHECK-NEXT: %4 = (%ax)[0][2];
+; CHECK: %2 = (%ax)[0][2];
+; CHECK: (%ax)[0][2] = (%ax)[0][1];
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
