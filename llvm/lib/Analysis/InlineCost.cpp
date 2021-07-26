@@ -160,6 +160,10 @@ static cl::opt<int> HotCallSiteRelFreq(
              "entry frequency, for a callsite to be hot in the absence of "
              "profile information."));
 
+static cl::opt<int> CallPenalty(
+    "inline-call-penalty", cl::Hidden, cl::init(25),
+    cl::desc("Call penalty that is applied per callsite when inlining"));
+
 static cl::opt<bool> OptComputeFullInlineCost(
     "inline-cost-full", cl::Hidden, cl::init(false), cl::ZeroOrMore,
     cl::desc("Compute the full inline cost of a call site even when the cost "
@@ -629,7 +633,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     addCost(LoadEliminationCost);
     LoadEliminationCost = 0;
   }
-  void onCallPenalty() override { addCost(InlineConstants::CallPenalty); }
+  void onCallPenalty() override { addCost(CallPenalty); }
   void onCallArgumentSetup(const CallBase &Call) override {
     // Pay the price of the argument setup. We account for the average 1
     // instruction per call argument setup here.
@@ -667,7 +671,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       }
     } else
       // Otherwise simply add the cost for merely making the call.
-      addCost(InlineConstants::CallPenalty);
+      addCost(CallPenalty);
   }
 
   void onFinalizeSwitch(unsigned JumpTableSize,
@@ -938,7 +942,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
           continue;
         NumLoops++;
       }
-      addCost(NumLoops * InlineConstants::CallPenalty);
+      addCost(NumLoops * InlineConstants::LoopPenalty);
     }
 
     // We applied the maximum possible vector bonus at the beginning. Now,
@@ -1194,8 +1198,7 @@ private:
   }
 
   void onCallPenalty() override {
-    increment(InlineCostFeatureIndex::CallPenalty,
-              InlineConstants::CallPenalty);
+    increment(InlineCostFeatureIndex::CallPenalty, CallPenalty);
   }
 
   void onCallArgumentSetup(const CallBase &Call) override {
@@ -1300,7 +1303,7 @@ private:
         if (DeadBlocks.count(L->getHeader()))
           continue;
         increment(InlineCostFeatureIndex::NumLoops,
-                  InlineConstants::CallPenalty);
+                  InlineConstants::LoopPenalty);
       }
     }
     set(InlineCostFeatureIndex::DeadBlocks, DeadBlocks.size());
@@ -2951,7 +2954,7 @@ int llvm::getCallsiteCost(CallBase &Call, const DataLayout &DL) {
     }
   }
   // The call instruction also disappears after inlining.
-  Cost += InlineConstants::InstrCost + InlineConstants::CallPenalty;
+  Cost += InlineConstants::InstrCost + CallPenalty;
   return Cost;
 }
 
