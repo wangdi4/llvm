@@ -899,6 +899,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
+
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
@@ -944,7 +945,23 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
                                             Clause<ClauseItemTy> &C) {
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
-
+  bool IsTyped = ClauseInfo.getIsTyped();
+  // Example of a non-Typed POD clause: "QUAL.OMP.PRIVATE"(var)
+  // Example of a Typed POD clause: "QUAL.OMP.PRIVATE:TYPED"(var, type, number
+  // of elements) Example of a non-Typed nonPOD clause: "QUAL.OMP.PRIVATE"(var,
+  // ctor, dtor) Example of a Typed nonPOD clause: "QUAL.OMP.PRIVATE:TYPED"(var,
+  // type, number of elements, ctor, dtor)
+  if (IsTyped) {
+    assert((ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE ||
+            ClauseID == QUAL_OMP_LASTPRIVATE) &&
+           "The TYPED keyword is for PRIVATE, FIRSTPRIVATE, LASTPRIVATE only");
+    // Typed clauses have 2 extra arguments, therefore minimal number of
+    // arguments is 3 (POD private or firstprivate), maximal number of
+    // arguments is 6 (nonPOD lastprivate)
+    assert((NumArgs == 3 || NumArgs == 5 || NumArgs == 6) &&
+           "Expected 3 or 5 (private, firstprivate) or 3 or 6 (lastprivate) "
+           "arguments for TYPED");
+  }
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsConditional = ClauseInfo.getIsConditional();
   if (IsConditional)
@@ -960,10 +977,13 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
     //  - LASTPRIVATE:  4 args : Var, Ctor, CopyAssign, Dtor
+    //  Note: if (IsTyped), 2 extra arguments are used
     if (ClauseID == QUAL_OMP_PRIVATE || ClauseID == QUAL_OMP_FIRSTPRIVATE)
-      assert(NumArgs == 3 && "Expected 3 arguments for [FIRST]PRIVATE NONPOD");
+      assert((NumArgs == 3 || NumArgs == 5) &&
+             "Expected 3 or 5 arguments for [FIRST]PRIVATE NONPOD");
     else if (ClauseID == QUAL_OMP_LASTPRIVATE)
-      assert(NumArgs == 4 && "Expected 4 arguments for LASTPRIVATE NONPOD");
+      assert((NumArgs == 4 || NumArgs == 6) &&
+             "Expected 4 or 6 arguments for LASTPRIVATE NONPOD");
     else
       llvm_unreachable("NONPOD support for this clause type TBD");
 
@@ -971,7 +991,7 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
       return;
     }
-    ClauseItemTy *Item = new ClauseItemTy(Args);
+    ClauseItemTy *Item = new ClauseItemTy(Args, IsTyped);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
     assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
@@ -986,7 +1006,18 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
-  } else
+  } else if (IsTyped) { // Typed PODs
+    assert(NumArgs == 3 && "Expected 3 arguments for a Typed POD");
+    Value *V = Args[0];
+    C.add(V);
+    C.back()->setIsTyped(true);
+    C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+    C.back()->setNumElements(Args[2]);
+    if (IsByRef)
+      C.back()->setIsByRef(true);
+    if (IsConditional)
+      C.back()->setIsConditional(true);
+  } else { // non-Typed PODs
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
       if (!V || isa<ConstantPointerNull>(V)) {
@@ -1000,14 +1031,15 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
       if (IsConditional)
         C.back()->setIsConditional(true);
 #if INTEL_CUSTOMIZATION
-    if (!CurrentBundleDDRefs.empty() &&
-        WRegionUtils::supportsRegDDRefs(ClauseID))
-      C.back()->setHOrig(CurrentBundleDDRefs[I]);
-    if (ClauseInfo.getIsF90DopeVector())
-      C.back()->setIsF90DopeVector(true);
-    C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
+      if (!CurrentBundleDDRefs.empty() &&
+          WRegionUtils::supportsRegDDRefs(ClauseID))
+        C.back()->setHOrig(CurrentBundleDDRefs[I]);
+      if (ClauseInfo.getIsF90DopeVector())
+        C.back()->setIsF90DopeVector(true);
+      C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
+  }
 }
 
 void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
