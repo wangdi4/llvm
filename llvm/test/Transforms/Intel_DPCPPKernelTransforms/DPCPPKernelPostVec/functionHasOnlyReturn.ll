@@ -5,14 +5,12 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind uwtable
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #0 {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) {
 entry:
   ret void
 }
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

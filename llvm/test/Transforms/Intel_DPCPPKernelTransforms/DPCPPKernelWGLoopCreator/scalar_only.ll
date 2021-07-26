@@ -66,7 +66,7 @@ entry:
 
 declare dso_local i64 @_Z13get_global_idj(i64 %0)
 
-attributes #0 = { noinline optnone "no-barrier-path"="true" "sycl-kernel" }
+attributes #0 = { noinline optnone "no-barrier-path"="true" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}

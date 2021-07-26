@@ -8,7 +8,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct1 = type <{i8, i8, i8}>
 
 ; CHECK: @t1
-define void @t1(%struct.struct1* %arg1, <2 x i8> %arg2, i32 %arg3, <8 x i16> %arg4, i8 %arg5, i32* %arg6 ) #0 {
+define void @t1(%struct.struct1* %arg1, <2 x i8> %arg2, i32 %arg3, <8 x i16> %arg4, i8 %arg5, i32* %arg6 ) {
 entry:
   ret void
 }
@@ -43,8 +43,6 @@ entry:
 ; CHECK-NEXT: %explicit_5 = load i32*, i32** [[ARG5_TYPECAST]], align 4
 ;;implicit args
 ; CHECK: ret void
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1}

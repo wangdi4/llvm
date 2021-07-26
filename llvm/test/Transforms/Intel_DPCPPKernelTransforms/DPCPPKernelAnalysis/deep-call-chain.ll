@@ -33,7 +33,7 @@ define void @func_with_lid_level_5(i32 addrspace(1)* %out) {
   ret void
 }
 
-define void @kernel_call_func_with_lid(i32 addrspace(1)* %out) #0 {
+define void @kernel_call_func_with_lid(i32 addrspace(1)* %out) {
   tail call void @func_with_lid_level_5(i32 addrspace(1)* %out)
   ret void
 }
@@ -65,14 +65,12 @@ define void @func_without_tid_level_5(i32 addrspace(1)* %out) {
   ret void
 }
 
-define void @kernel_call_func_without_tid(i32 addrspace(1)* %out) #0 {
+define void @kernel_call_func_without_tid(i32 addrspace(1)* %out) {
   tail call void @func_without_tid_level_5(i32 addrspace(1)* %out)
   ret void
 }
 
 declare i32 @_Z12get_local_idj(i32)
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*)* @kernel_call_func_with_lid, void (i32 addrspace(1)*)* @kernel_call_func_without_tid}
