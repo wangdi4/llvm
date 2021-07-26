@@ -254,10 +254,12 @@ public:
   void visitStoreInst(StoreInst &I);
   void visitCallBase(CallBase &I);
   void visitReturnInst(ReturnInst &I);
-
+  void visitPHINode(PHINode &I);
+  void visitSelectInst(SelectInst &I);
   // TODO: visit other instruction types
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
+  DTransStructType *getDTransStructTypeforValue(Value *V);
 
 private:
   AOSToSOAOPTransformImpl &Transform;
@@ -723,6 +725,56 @@ void AOSCollector::visitReturnInst(ReturnInst &I) {
   }
 }
 
+// For a PHINode instruction, when opaque pointers are in use, if the type
+// represents a pointer to the type being transformed, we need to mark the
+// instruction with the address space to recognize that the type will be changed
+// to an integer index. Also, we need to consider the 'null' value pointer to
+// see if an integer 0 needs to be substituted for the index.
+void AOSCollector::visitPHINode(PHINode &I) {
+  llvm::Type *Ty = I.getType();
+  if (!Ty->isOpaquePointerTy())
+    return;
+
+  DTransStructType *StructTy = getDTransStructTypeforValue(&I);
+  if (!StructTy)
+    return;
+
+  PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+  if (!TypeInAddrSpace)
+    return;
+
+  FuncInfo.InstructionsToMutate.push_back({&I, TypeInAddrSpace});
+  for (auto Elem : enumerate(I.incoming_values()))
+    if (isa<ConstantPointerNull>((Elem.value())))
+      FuncInfo.ConstantsToReplace.push_back(
+          {&I, Elem.index(), TypeInAddrSpace});
+}
+
+// For a select instruction, when opaque pointers are in use, if the type
+// represents a pointer to the type being transformed, we need to mark the
+// instruction with the address space to recognize that the type will be changed
+// to an integer index. Also, we need to consider the 'null' value pointer to
+// see if an integer 0 needs to be substituted for the index.
+void AOSCollector::visitSelectInst(SelectInst &I) {
+  llvm::Type *Ty = I.getType();
+  if (!Ty->isOpaquePointerTy())
+    return;
+
+  DTransStructType *StructTy = getDTransStructTypeforValue(&I);
+  if (!StructTy)
+    return;
+
+  PointerType *TypeInAddrSpace = Transform.getAddrSpacePtrForType(StructTy);
+  if (!TypeInAddrSpace)
+    return;
+
+  FuncInfo.InstructionsToMutate.push_back({&I, TypeInAddrSpace});
+  if (isa<ConstantPointerNull>(I.getTrueValue()))
+    FuncInfo.ConstantsToReplace.push_back({&I, 1, TypeInAddrSpace});
+  if (isa<ConstantPointerNull>(I.getFalseValue()))
+    FuncInfo.ConstantsToReplace.push_back({&I, 2, TypeInAddrSpace});
+}
+
 // Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
 // Instruction 'I' as a constant pointer of the type being transformed.
 void AOSCollector::checkForConstantToConvert(Instruction *I, uint32_t OpNum) {
@@ -751,6 +803,24 @@ void AOSCollector::checkForConstantToConvert(Instruction *I, uint32_t OpNum) {
     if (TypeInAddrSpace)
       FuncInfo.ConstantsToReplace.push_back({I, OpNum, TypeInAddrSpace});
   }
+}
+
+// If the instruction was identified by the PointerTypeAnalyzer as being a
+// pointer to a structure type, return the structure type.
+DTransStructType *AOSCollector::getDTransStructTypeforValue(Value *V) {
+  assert(V && "null input not permitted");
+  if (!V->getType()->isPointerTy())
+    return nullptr;
+
+  auto *Info = PTA.getValueTypeInfo(V);
+  assert(Info && "Expected PointerTypeAnalyzer to collect type");
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (!Ty || !Ty->isPointerTy())
+    return nullptr;
+
+  // Return a struct type or null
+  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  return StructTy;
 }
 
 bool AOSToSOAOPTransformImpl::prepareTypes(Module &M) {
