@@ -1863,6 +1863,11 @@ def OMP_prefetch : Directive<"prefetch"> {
     VersionedClause<OMPC_If>
   ];
 }
+def OMP_DeclareTargetFunction : Directive<"declare target function"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_DeviceType>,
+  ];
+}
 #endif // INTEL_COLLAB
 
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {
