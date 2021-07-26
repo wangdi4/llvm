@@ -1,6 +1,6 @@
 ///
 /// Perform driver tests for OpenMP offloading with -fiopenmp and target spir64
-/// with -device-math-lib option.
+/// pulling in the device libs.
 ///
 
 // REQUIRES: clang-driver
@@ -122,3 +122,10 @@
 // RUN: %clang -fiopenmp -fopenmp-targets=spir64 -device-math-lib=fp32 -c %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=WARNING_CHECK %s
 // WARNING_CHECK: warning: argument '-device-math-lib=fp32' is deprecated, use '-f[no-]openmp-device-lib' instead [-Wdeprecated]
+
+/// Check that the proper device libs are linked with --only-needed
+// RUN: %clang -fiopenmp -fopenmp-targets=spir64 -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=ONLY_NEEDED %s
+// ONLY_NEEDED: llvm-link{{.*}} {{.*}}libomp-spirvdevicertl{{.*}}
+// ONLY_NEEDED: llvm-link{{.*}} "--only-needed"
+// ONLY_NEEDED-SAME: {{.*}}libomp-glibc{{.*}} {{.*}}libomp-complex{{.*}} {{.*}}libomp-complex-fp64{{.*}} {{.*}}libomp-cmath{{.*}} {{.*}}libomp-cmath-fp64{{.*}} {{.*}}libomp-fallback-cassert{{.*}} {{.*}}libomp-fallback-cstring{{.*}} {{.*}}libomp-fallback-complex{{.*}} {{.*}}libomp-fallback-complex-fp64{{.*}} {{.*}}libomp-fallback-cmath{{.*}} {{.*}}libomp-fallback-cmath-fp64{{.*}} {{.*}}libomp-itt-user-wrappers{{.*}} {{.*}}libomp-itt-compiler-wrappers{{.*}} {{.*}}libomp-itt-stubs{{.*}}
