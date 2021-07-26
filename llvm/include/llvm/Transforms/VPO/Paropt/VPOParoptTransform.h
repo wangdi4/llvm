@@ -2196,7 +2196,82 @@ private:
 };
 
 } /// namespace vpo
-} /// namespace llvm
+#if INTEL_CUSTOMIZATION
+
+// Traits of WRegionNode for OptReportBuilder.
+template <> struct OptReportTraits<vpo::WRegionNode> {
+  using ObjectHandleTy = std::pair<vpo::WRegionNode &, vpo::WRegionListTy &>;
+
+  static OptReport getOptReport(const ObjectHandleTy &Handle) {
+    return cast_or_null<MDTuple>(
+        Handle.first.getEntryDirective()->getMetadata(OptReportTag::Root));
+  }
+
+  static void setOptReport(const ObjectHandleTy &Handle, OptReport OR) {
+    assert(OR && "eraseOptReport method should be used to remove OptReport");
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, OR.get());
+  }
+
+  static void eraseOptReport(const ObjectHandleTy &Handle) {
+    Handle.first.getEntryDirective()->setMetadata(OptReportTag::Root, nullptr);
+  }
+
+  static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
+    return Handle.first.getEntryDirective()->getDebugLoc();
+  }
+
+  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+    return "OMP " + Handle.first.getSourceName().upper();
+  }
+
+  static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,
+                                            const OptReportBuilder &Builder) {
+    auto &W = Handle.first;
+    vpo::WRegionNode *PrevSiblingW = nullptr;
+
+    if (auto *Parent = W.getParent())
+      for (auto *Child : reverse(Parent->getChildren())) {
+        if (Child == &W)
+          break;
+        PrevSiblingW = Child;
+      }
+    else
+      for (auto *Region : Handle.second) {
+        if (Region == &W)
+          break;
+        if (!Region->getParent())
+          PrevSiblingW = Region;
+      }
+
+    if (!PrevSiblingW || !PrevSiblingW->getEntryDirective())
+      return nullptr;
+
+    return Builder(*PrevSiblingW, Handle.second).getOrCreateOptReport();
+  }
+
+  static OptReport getOrCreateParentOptReport(const ObjectHandleTy &Handle,
+                                              const OptReportBuilder &Builder) {
+    auto &W = Handle.first;
+
+    // Attach to the parent region, if it exists.
+    if (auto *Dest = W.getParent())
+      return Builder(*Dest, Handle.second).getOrCreateOptReport();
+
+    // Attach to the Function, otherwise.
+    if (Function *Dest = W.getEntryBBlock()->getParent())
+      return Builder(*Dest).getOrCreateOptReport();
+
+    llvm_unreachable("Failed to find a parent.");
+  }
+
+  using ChildLoopTy = vpo::WRegionNode;
+  using ChildHandleTy = typename OptReportTraits<ChildLoopTy>::ObjectHandleTy;
+  using LoopVisitorTy = function_ref<void(ChildHandleTy)>;
+  static void traverseChildLoopsBackward(const ObjectHandleTy &Handle,
+                                         LoopVisitorTy Func) {}
+};
+#endif // INTEL_CUSTOMIZATION
+} // namespace llvm
 
 #endif // LLVM_TRANSFORMS_VPO_PAROPT_TRANSFORM_H
 #endif // INTEL_COLLAB

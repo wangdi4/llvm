@@ -76,7 +76,7 @@ void MachineOptReportEmitter::printOptReportRecursive(
        I != E; ++I)
     printOptReportRecursive(*I, Depth + 1, FOS);
 
-  printLoopFooter(FOS, Depth);
+  printLoopFooter(FOS, Depth, OR);
 
   if (OR && OR.nextSibling())
     printEnclosedOptReport(FOS, Depth, OR.nextSibling());

@@ -481,6 +481,7 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
     NewEntryCI->setCallingConv(EntryCI->getCallingConv());
     NewEntryCI->setAttributes(EntryCI->getAttributes());
     NewEntryCI->setDebugLoc(EntryCI->getDebugLoc());
+    NewEntryCI->copyMetadata(*EntryCI);
     EntryCI->replaceAllUsesWith(NewEntryCI);
     EntryCI->eraseFromParent();
     W->setEntryDirective(NewEntryCI);

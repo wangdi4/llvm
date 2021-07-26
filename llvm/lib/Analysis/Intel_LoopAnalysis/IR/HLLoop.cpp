@@ -601,7 +601,7 @@ void HLLoop::dumpOptReport() const {
   if (OR)
     OptReportUtils::printOptReport(OS, 0, OR);
 
-  OptReportUtils::printLoopFooter(OS, 0);
+  OptReportUtils::printLoopFooter(OS, 0, OR);
 
   if (OR && OR.nextSibling())
     OptReportUtils::printEnclosedOptReport(OS, 0, OR.nextSibling());

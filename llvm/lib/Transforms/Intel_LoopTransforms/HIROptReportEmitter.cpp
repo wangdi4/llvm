@@ -81,10 +81,11 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   }
 
   void postVisit(const HLLoop *Lp) {
-    --Depth;
-    printLoopFooter(FOS, Depth);
-
     OptReport OR = Lp->getOptReport();
+
+    --Depth;
+    printLoopFooter(FOS, Depth, OR);
+
     if (OR && OR.nextSibling())
       printEnclosedOptReport(FOS, Depth, OR.nextSibling());
   }

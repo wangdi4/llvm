@@ -30,6 +30,7 @@ class OptReportRemark;
 struct OptReportTag {
   static constexpr const char *Root = "intel.optreport.rootnode";
   static constexpr const char *Proxy = "intel.optreport";
+  static constexpr const char *Title = "intel.optreport.title";
   static constexpr const char *DebugLoc = "intel.optreport.debug_location";
   static constexpr const char *Origin = "intel.optreport.origin";
   static constexpr const char *Remarks = "intel.optreport.remarks";
@@ -168,6 +169,7 @@ public:
 
   // Setters.
   void addOrigin(OptRemark Origin) const;
+  void setTitle(StringRef Type) const;
   void setDebugLoc(DILocation *Location) const;
   void addRemark(OptRemark Remark) const;
   void addChild(OptReport Child) const;
@@ -176,6 +178,7 @@ public:
 
   // Getters.
   op_range origin() const;
+  StringRef title() const;
   const DILocation *debugLoc() const;
   op_range remarks() const;
   const OptReport nextSibling() const;

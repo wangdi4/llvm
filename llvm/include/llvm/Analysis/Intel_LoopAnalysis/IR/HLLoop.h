@@ -1401,6 +1401,10 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
     return Loop.getDebugLoc();
   }
 
+  static Optional<std::string> getOptReportTitle(const loopopt::HLLoop &Loop) {
+    return None;
+  }
+
   static OptReport getOrCreatePrevOptReport(loopopt::HLLoop &Loop,
                                             const OptReportBuilder &Builder);
 

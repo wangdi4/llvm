@@ -220,6 +220,12 @@ void OptReport::addOrigin(OptRemark Origin) const {
   addOptReportMultiValue(OptReportMD, OptReportTag::Origin, Origin.get());
 }
 
+void OptReport::setTitle(StringRef Title) const {
+  assert(!Title.empty() && "Empty Title");
+  MDString *MDTitle = MDString::get(OptReportMD->getContext(), Title);
+  addOptReportSingleValue(OptReportMD, OptReportTag::Title, MDTitle);
+}
+
 void OptReport::setDebugLoc(DILocation *Location) const {
   assert(Location && "Null Location");
   addOptReportSingleValue(OptReportMD, OptReportTag::DebugLoc, Location);
@@ -271,6 +277,17 @@ const DILocation *OptReport::debugLoc() const {
   const Metadata *MDVal =
       findOptReportSingleValue(OptReportMD, OptReportTag::DebugLoc);
   return cast_or_null<DILocation>(MDVal);
+}
+
+StringRef OptReport::title() const {
+  if (OptReportMD) {
+    const Metadata *MDVal =
+        findOptReportSingleValue(OptReportMD, OptReportTag::Title);
+    if (auto *MDTitle = cast_or_null<MDString>(MDVal))
+      return MDTitle->getString();
+  }
+  // Default title is "LOOP".
+  return "LOOP";
 }
 
 OptReport::op_range OptReport::remarks() const {
