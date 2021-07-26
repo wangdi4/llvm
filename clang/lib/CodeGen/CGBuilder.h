@@ -147,6 +147,22 @@ public:
                                             Ordering, SSID);
   }
 
+#if INTEL_COLLAB
+  llvm::Value *CreateBitCast(llvm::Value *Ptr, llvm::Type *Ty,
+                             const llvm::Twine &Name = "") {
+    if (Ty->isPointerTy() && !Ty->getPointerElementType()->isFunctionTy() &&
+        Ptr->getType()->getPointerAddressSpace() !=
+            Ty->getPointerAddressSpace()) {
+      // According to function-pointer extension for SPIR-V the function
+      // pointers do not have a dedicated address space, so the default 0
+      // (private) address space is used for them
+      Ty = Ty->getPointerElementType()->getPointerTo(
+          Ptr->getType()->getPointerAddressSpace());
+    }
+    return CGBuilderBaseTy::CreateBitCast(Ptr, Ty, Name);
+  }
+#endif  // INTEL_COLLAB
+
   using CGBuilderBaseTy::CreateBitCast;
   Address CreateBitCast(Address Addr, llvm::Type *Ty,
                         const llvm::Twine &Name = "") {

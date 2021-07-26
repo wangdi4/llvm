@@ -683,15 +683,25 @@ bool CodeGenVTables::useRelativeLayout() const {
 llvm::Type *CodeGenVTables::getVTableComponentType() const {
   if (useRelativeLayout())
     return CGM.Int32Ty;
+#if INTEL_COLLAB
+  return CGM.TargetInt8PtrTy;
+#else // INTEL_COLLAB
   return CGM.Int8PtrTy;
+#endif // INTEL_COLLAB
 }
 
 static void AddPointerLayoutOffset(const CodeGenModule &CGM,
                                    ConstantArrayBuilder &builder,
                                    CharUnits offset) {
+#if INTEL_COLLAB
+  builder.add(llvm::ConstantExpr::getIntToPtr(
+      llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
+      CGM.TargetInt8PtrTy));
+#else // INTEL_COLLAB
   builder.add(llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(CGM.PtrDiffTy, offset.getQuantity()),
       CGM.Int8PtrTy));
+#endif  // INTEL_COLLAB
 }
 
 static void AddRelativeLayoutOffset(const CodeGenModule &CGM,
@@ -728,7 +738,12 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
                                   vtableHasLocalLinkage,
                                   /*isCompleteDtor=*/false);
     else
-      return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
+#if INTEL_COLLAB
+      return builder.add(
+          llvm::ConstantExpr::getBitCast(rtti, CGM.TargetInt8PtrTy));
+#else // INTEL_COLLAB
+       return builder.add(llvm::ConstantExpr::getBitCast(rtti, CGM.Int8PtrTy));
+#endif // INTEL_COLLAB
 
   case VTableComponent::CK_FunctionPointer:
   case VTableComponent::CK_CompleteDtorPointer:
@@ -820,7 +835,12 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
           builder, fnPtr, vtableAddressPoint, vtableHasLocalLinkage,
           component.getKind() == VTableComponent::CK_CompleteDtorPointer);
     } else
+#if INTEL_COLLAB
+      return builder.add(llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(
+          fnPtr, CGM.TargetInt8PtrTy));
+#else // INTEL_COLLAB
       return builder.add(llvm::ConstantExpr::getBitCast(fnPtr, CGM.Int8PtrTy));
+#endif // INTEL_COLLAB
   }
 
   case VTableComponent::CK_UnusedFunctionPointer:
