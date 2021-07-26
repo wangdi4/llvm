@@ -135,11 +135,13 @@ TEST_F(TestAtomicMinMaxHalf, Basic) {
   cl_mem max_cmp = createBuffer<cl_half>(num, CL_MEM_READ_WRITE);
   ASSERT_NE(nullptr, max_cmp) << "createBuffer failed";
 
-  ASSERT_TRUE(enqueueNDRange("test_atomic_min_h", 1, &num, NULL, input_buffer_a,
-                             input_buffer_b, min_o, min_cmp))
+  ASSERT_TRUE(enqueueNDRange("test_atomic_min_h", 1, &num, NULL,
+                             /*event*/ nullptr, input_buffer_a, input_buffer_b,
+                             min_o, min_cmp))
       << "enqueueNDRange failed";
-  ASSERT_TRUE(enqueueNDRange("test_atomic_max_h", 1, &num, NULL, input_buffer_a,
-                             input_buffer_b, max_o, max_cmp))
+  ASSERT_TRUE(enqueueNDRange("test_atomic_max_h", 1, &num, NULL,
+                             /*event*/ nullptr, input_buffer_a, input_buffer_b,
+                             max_o, max_cmp))
       << "enqueueNDRange failed";
 
   std::vector<cl_half> min_out(num);

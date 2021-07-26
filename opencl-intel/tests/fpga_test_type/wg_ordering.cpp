@@ -62,10 +62,11 @@ TEST_F(TestWGOrdering, Channels) {
   cl_mem buffer = createBuffer<cl_int4>(numElements, CL_MEM_WRITE_ONLY);
   ASSERT_NE(nullptr, buffer) << "createBuffer failed";
 
-  ASSERT_TRUE(enqueueNDRange("channel_writer", numDims, globalSize, localSize))
+  ASSERT_TRUE(enqueueNDRange("channel_writer", numDims, globalSize, localSize,
+                             /*event*/ nullptr))
       << "enqueueNDRange failed";
-  ASSERT_TRUE(
-      enqueueNDRange("channel_reader", numDims, globalSize, localSize, buffer))
+  ASSERT_TRUE(enqueueNDRange("channel_reader", numDims, globalSize, localSize,
+                             /*event*/ nullptr, buffer))
       << "enqueueNDRange failed";
 
   std::vector<cl_int4> data(numElements);
@@ -145,11 +146,12 @@ TEST_F(TestWGOrdering, Pipes) {
   cl_mem pipe = createPipe<cl_int4>(numElements);
   ASSERT_NE(nullptr, pipe) << "createPipe failed";
 
-  ASSERT_TRUE(
-      enqueueNDRange("pipe_writer", numDims, globalSize, localSize, pipe))
+  ASSERT_TRUE(enqueueNDRange("pipe_writer", numDims, globalSize, localSize,
+                             /*event*/ nullptr, pipe))
       << "enqueueNDRange failed";
   ASSERT_TRUE(enqueueNDRange("pipe_reader", numDims, globalSize, localSize,
-                             pipe, buffer)) << "enqueueNDRange failed";
+                             /*event*/ nullptr, pipe, buffer))
+      << "enqueueNDRange failed";
 
   std::vector<cl_int4> data(numElements);
   ASSERT_TRUE(
@@ -205,7 +207,8 @@ TEST_F(TestWGOrdering, Unordered) {
   size_t globalSize[numDims] = { 8 };
   size_t localSize[numDims] = { 1 };
 
-  ASSERT_TRUE(enqueueNDRange("test", numDims, globalSize, localSize))
+  ASSERT_TRUE(
+      enqueueNDRange("test", numDims, globalSize, localSize, /*event*/ nullptr))
       << "enqueueNDRange failed";
 
   finish("test");
