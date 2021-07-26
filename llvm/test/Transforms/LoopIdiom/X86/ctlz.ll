@@ -785,3 +785,346 @@ while.cond:                                       ; preds = %while.cond, %entry
 while.end:                                        ; preds = %while.cond
   ret i32 %i.0
 }
+
+; INTEL_CUSTOMIZATION
+; Recognize CTLZ builtin pattern.
+; Here it will replace the loop -
+; assume builtin is always profitable.
+;
+; int ctlz_preshift(int n)
+; {
+;   n = n >= 0 ? n : -n;
+;   int i = 0;
+;   while(!(n < 2)) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift(i32 %n) {
+; ALL-LABEL: @ctlz_preshift(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[C:%.*]] = icmp sgt i32 [[N:%.*]], 0
+; ALL-NEXT:    [[NEGN:%.*]] = sub nsw i32 0, [[N]]
+; ALL-NEXT:    [[ABS_N:%.*]] = select i1 [[C]], i32 [[N]], i32 [[NEGN]]
+; ALL-NEXT:    [[TMP0:%.*]] = ashr i32 [[ABS_N]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[ABS_N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = ashr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  %c = icmp sgt i32 %n, 0
+  %negn = sub nsw i32 0, %n
+  %abs_n = select i1 %c, i32 %n, i32 %negn
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %abs_n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ult i32 %n.addr.0, 2
+  %shr = ashr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Recognize CTLZ builtin pattern.
+; Here it will replace the loop -
+; assume builtin is always profitable.
+;
+; int ctlz_lshr_preshift(int n)
+; {
+;   int i = 0;
+;   while(!(n < 2)) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_lshr_preshift(i32 %n) {
+; ALL-LABEL: @ctlz_lshr_preshift(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ult i32 %n.addr.0, 2
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Recognize CTLZ builtin pattern.
+; Here it will replace the loop -
+; assume builtin is always profitable.
+;
+; int ctlz_preshift_ule(int n)
+; {
+;   int i = 0;
+;   while(!(n <= 1)) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_ule(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_ule(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ule i32 %n.addr.0, 1
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Recognize CTLZ builtin pattern.
+; Here it will replace the loop -
+; assume builtin is always profitable.
+;
+; int ctlz_preshift_ugt(int n)
+; {
+;   int i = 0;
+;   while(n > 1) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_ugt(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_ugt(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_COND]], label [[WHILE_END:%.*]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ugt i32 %n.addr.0, 1
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.cond, label %while.end
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Recognize CTLZ builtin pattern.
+; Here it will replace the loop -
+; assume builtin is always profitable.
+;
+; int ctlz_preshift_uge(int n)
+; {
+;   int i = 0;
+;   while(n >= 2) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_uge(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_uge(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp ne i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_COND]], label [[WHILE_END:%.*]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp uge i32 %n.addr.0, 2
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.cond, label %while.end
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; This loop has the wrong predicate/constant pairing; don't transform it.
+;
+; int ctlz_preshift_bad_const(int n)
+; {
+;   int i = 0;
+;   while(!(n <= 2)) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_bad_const(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_bad_const(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N:%.*]], [[ENTRY:%.*]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp ule i32 [[N_ADDR_0]], 2
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[I_0]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ule i32 %n.addr.0, 2
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; This loop has the branch inverted; don't transform it either.
+;
+; int ctlz_preshift_bad_branch(int n)
+; {
+;   int i = 0;
+;   while(n < 2) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_bad_branch(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_bad_branch(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N:%.*]], [[ENTRY:%.*]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp ult i32 [[N_ADDR_0]], 2
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_COND]], label [[WHILE_END:%.*]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[I_0]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ult i32 %n.addr.0, 2
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.cond, label %while.end
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+; end INTEL_CUSTOMIZATION
