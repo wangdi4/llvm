@@ -1499,6 +1499,63 @@ static Value *matchCondition(BranchInst *BI, BasicBlock *LoopEntry,
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Check if the given conditional branch \p BI targets \p LoopEntry in cases
+/// where a variable has a value that would be zero after a 1-bit shift right.
+/// If so, this variable is returned.
+static Value *matchPreRightShiftCondition(BranchInst *BI,
+                                          BasicBlock *LoopEntry) {
+  if (!BI || !BI->isConditional())
+    return nullptr;
+
+  const auto *const Cond = dyn_cast<ICmpInst>(BI->getCondition());
+  if (!Cond)
+    return nullptr;
+
+  const auto *const CmpVal = dyn_cast<ConstantInt>(Cond->getOperand(1));
+  if (!CmpVal)
+    return nullptr;
+
+  // The variable values that would be zero after a 1-bit right shift are 0 and
+  // 1, which can be tested for with the following set of predicates and
+  // constants:
+  //
+  // Pred  Constant Inverted?
+  // ult   2        No
+  // ule   1        No
+  // ugt   1        Yes
+  // uge   2        Yes
+  uint64_t ExpectedCmpVal;
+  bool Inverted;
+  switch (Cond->getPredicate()) {
+  case ICmpInst::ICMP_ULT:
+    ExpectedCmpVal = 2, Inverted = false;
+    break;
+  case ICmpInst::ICMP_ULE:
+    ExpectedCmpVal = 1, Inverted = false;
+    break;
+  case ICmpInst::ICMP_UGT:
+    ExpectedCmpVal = 1, Inverted = true;
+    break;
+  case ICmpInst::ICMP_UGE:
+    ExpectedCmpVal = 2, Inverted = true;
+    break;
+  default:
+    return nullptr;
+  }
+  if (!CmpVal->equalsInt(ExpectedCmpVal))
+    return nullptr;
+
+  const BasicBlock *const TrueSucc = BI->getSuccessor(0);
+  const BasicBlock *const FalseSucc = BI->getSuccessor(1);
+  if ((!Inverted && FalseSucc == LoopEntry) ||
+      (Inverted && TrueSucc == LoopEntry))
+    return Cond->getOperand(0);
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Check if the recurrence variable `VarX` is in the right form to create
 // the idiom. Returns the value coerced to a PHINode if so.
 static PHINode *getRecurrenceVar(Value *VarX, Instruction *DefX,
@@ -1681,27 +1738,61 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, const DataLayout &DL,
   CntPhi = nullptr;
   LoopEntry = *(CurLoop->block_begin());
 
-  // step 1: Check if the loop-back branch is in desirable form.
+#if INTEL_CUSTOMIZATION
+  // step 1: Check if the loop-back branch is in either desirable form.
+  PHINode *PhiX = nullptr;
   if (Value *T = matchCondition(
-          dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry))
+          dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry)) {
     DefX = dyn_cast<Instruction>(T);
-  else
-    return false;
 
-  // step 2: detect instructions corresponding to "x.next = x >> 1 or x << 1"
-  if (!DefX || !DefX->isShift())
-    return false;
-  IntrinID = DefX->getOpcode() == Instruction::Shl ? Intrinsic::cttz :
-                                                     Intrinsic::ctlz;
-  ConstantInt *Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
-  if (!Shft || !Shft->isOne())
-    return false;
-  VarX = DefX->getOperand(0);
+    // step 2: detect instructions corresponding to "x.next = x >> 1 or x << 1"
+    if (!DefX || !DefX->isShift())
+      return false;
+    IntrinID = DefX->getOpcode() == Instruction::Shl ? Intrinsic::cttz
+                                                     : Intrinsic::ctlz;
+    ConstantInt *Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
+    if (!Shft || !Shft->isOne())
+      return false;
+    VarX = DefX->getOperand(0);
 
-  // step 3: Check the recurrence of variable X
-  PHINode *PhiX = getRecurrenceVar(VarX, DefX, LoopEntry);
-  if (!PhiX)
+    // step 3: Check the recurrence of variable X
+    PhiX = getRecurrenceVar(VarX, DefX, LoopEntry);
+    if (!PhiX)
+      return false;
+
+  } else if (Value *T = matchPreRightShiftCondition(
+                 dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry)) {
+    PhiX = dyn_cast<PHINode>(T);
+    if (!PhiX)
+      return false;
+
+    // step 2: Check the recurrence of variable X
+    for (Value *const Incoming : PhiX->incoming_values()) {
+      auto *const IncomingInst = dyn_cast<Instruction>(Incoming);
+      if (!IncomingInst || !IncomingInst->isShift())
+        continue;
+
+      if (IncomingInst->getOperand(0) != PhiX)
+        continue;
+
+      DefX = IncomingInst;
+      break;
+    }
+
+    // step 3: Confirm that DefX is of the form "x.next = x >> 1"
+    if (!DefX)
+      return false;
+    assert(DefX->isShift());
+    if (DefX->getOpcode() == Instruction::Shl)
+      return false;
+    IntrinID = Intrinsic::ctlz;
+    const auto *const Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
+    if (!Shft || !Shft->isOne())
+      return false;
+  } else {
     return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   InitX = PhiX->getIncomingValueForBlock(CurLoop->getLoopPreheader());
 
