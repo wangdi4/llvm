@@ -6287,11 +6287,17 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     Res = ActOnOpenMPBarrierDirective(StartLoc, EndLoc);
     break;
   case OMPD_taskwait:
+#if INTEL_COLLAB
+    assert(AStmt == nullptr &&
+           "No associated statement allowed for 'omp taskwait' directive");
+    Res = ActOnOpenMPTaskwaitDirective(ClausesWithImplicit, StartLoc, EndLoc);
+#else // INTEL_COLLAB
     assert(ClausesWithImplicit.empty() &&
            "No clauses are allowed for 'omp taskwait' directive");
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp taskwait' directive");
     Res = ActOnOpenMPTaskwaitDirective(StartLoc, EndLoc);
+#endif // INTEL_COLLAB
     break;
   case OMPD_taskgroup:
     Res = ActOnOpenMPTaskgroupDirective(ClausesWithImplicit, AStmt, StartLoc,
@@ -11341,10 +11347,54 @@ StmtResult Sema::ActOnOpenMPBarrierDirective(SourceLocation StartLoc,
   return OMPBarrierDirective::Create(Context, StartLoc, EndLoc);
 }
 
+#if INTEL_COLLAB
+static bool checkTaskwaitClauseUsage(Sema &S,
+                                     const ArrayRef<OMPClause *> Clauses) {
+  bool HasDepend = false;
+  bool HasNowait = false;
+  SourceLocation NowaitLoc;
+
+  for (const OMPClause *Clause : Clauses) {
+    if (auto *Depend = dyn_cast<OMPDependClause>(Clause)) {
+      HasDepend = true;
+      OpenMPDependClauseKind DepKind = Depend->getDependencyKind();
+      // For now, only in, out, and inout are valid dependency types
+      // with taskwait.
+      bool ValidDepKindForTaskwait =
+          (DepKind == OMPC_DEPEND_in || DepKind == OMPC_DEPEND_out ||
+           DepKind == OMPC_DEPEND_inout);
+      if (!ValidDepKindForTaskwait) {
+        SourceLocation DepLoc = Depend->getDependencyLoc();
+        S.Diag(DepLoc, diag::err_omp_depend_type_unsupported_taskwait);
+        return true;
+      }
+    } else if (auto *Nowait = dyn_cast<OMPNowaitClause>(Clause)) {
+      assert(!HasNowait && "Expected only one nowait clause on taskwait");
+      HasNowait = true;
+      NowaitLoc = Nowait->getBeginLoc();
+    } else
+      llvm_unreachable("Unexpected clause on taskwait directive");
+  }
+  if (!HasDepend && HasNowait) {
+    S.Diag(NowaitLoc, diag::err_omp_nowait_requires_depend_clause);
+    return true;
+  }
+  return false;
+}
+
+StmtResult Sema::ActOnOpenMPTaskwaitDirective(ArrayRef<OMPClause *> Clauses,
+                                              SourceLocation StartLoc,
+                                              SourceLocation EndLoc) {
+  if (checkTaskwaitClauseUsage(*this, Clauses))
+    return StmtError();
+  return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc, Clauses);
+}
+#else // INTEL_COLLAB
 StmtResult Sema::ActOnOpenMPTaskwaitDirective(SourceLocation StartLoc,
                                               SourceLocation EndLoc) {
   return OMPTaskwaitDirective::Create(Context, StartLoc, EndLoc);
 }
+#endif // INTEL_COLLAB
 
 StmtResult Sema::ActOnOpenMPTaskgroupDirective(ArrayRef<OMPClause *> Clauses,
                                                Stmt *AStmt,
