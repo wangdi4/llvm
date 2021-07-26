@@ -65,9 +65,6 @@ struct X86CFMA : public MachineFunctionPass {
 
   void morphCFMA(MachineInstr *PrevMI, MachineInstr *MI);
 
-  MachineInstr *createCFMA(MachineBasicBlock &MBB, MachineInstr *CFMul,
-                           unsigned CFMAOpc);
-
   X86CFMA() : MachineFunctionPass(ID) {}
 
   /// Return the pass name.
@@ -180,23 +177,6 @@ MachineInstr *X86CFMA::createZero(MachineBasicBlock &MBB, MachineInstr *MI) {
   return Zero;
 }
 
-MachineInstr *X86CFMA::createCFMA(MachineBasicBlock &MBB, MachineInstr *CFMul,
-                                  unsigned CFMAOpc) {
-  const DebugLoc &DL = CFMul->getDebugLoc();
-  Register ZeroReg = createZero(MBB, CFMul)->getOperand(0).getReg();
-  Register DestReg = MRI->cloneVirtualRegister(CFMul->getOperand(0).getReg());
-  MachineInstrBuilder MIB =
-      BuildMI(MBB, CFMul->getIterator(), DL, TII->get(CFMAOpc), DestReg)
-          .addReg(ZeroReg);
-  for (unsigned int I = 1; I < CFMul->getNumOperands(); ++I)
-    MIB.add(CFMul->getOperand(I));
-  MIB->setFlags(CFMul->getFlags());
-  MIB->cloneMemRefs(*MF, *CFMul);
-
-  MRI->replaceRegWith(CFMul->getOperand(0).getReg(), DestReg);
-  return &*MIB;
-}
-
 void X86CFMA::morphCFMA(MachineInstr *PrevMI, MachineInstr *MI) {
   MI->getOperand(1).setReg(PrevMI->getOperand(0).getReg());
 }
@@ -287,6 +267,7 @@ bool X86CFMA::optimizeBasicBlock(MachineBasicBlock &MBB) {
         continue;
       UseMOs.push_back(&MO);
     }
+    assert(Add);
     for (auto *MO : UseMOs)
       MO->setReg(Add->getOperand(0).getReg());
   }
