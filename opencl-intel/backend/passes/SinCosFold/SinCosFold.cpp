@@ -109,11 +109,12 @@ namespace intel {
     bool changedModule = false;
     m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
     assert(m_rtServices && "m_rtServices should exist!");
+    MapVector<llvm::Value *, InstructionData> paramToInstructions;
     for (Module::iterator fn = M.begin(), fne = M.end(); fn != fne; ++fn) {
       if (fn->hasOptNone())
         continue;
       for (Function::iterator bb = fn->begin(), bbe = fn->end(); bb != bbe; ++bb) {
-        DataMap paramToInstructions;
+        paramToInstructions.clear();
         for (BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {
           CallInst* inst = dyn_cast<CallInst>(&*i);
           if (!inst) continue;
@@ -133,31 +134,25 @@ namespace intel {
 
           //add to map
           Value * val = inst->getArgOperand(0);
-          DataMap::iterator iter = paramToInstructions.find(val);
+          auto iter = paramToInstructions.find(val);
 
           //value is not in the map
           if (iter == paramToInstructions.end()) {
-            InstructionData *iData = new InstructionData(fd.Parameters[0]);
-            iData->addInstruction(inst,isSin);
-            paramToInstructions[val] = iData;
+            auto Res = paramToInstructions.insert({val, fd.Parameters[0]});
+            Res.first->second.addInstruction(inst, isSin);
           }
           else {
             //value is in the map
-            InstructionData * iData = paramToInstructions[val];
-            if (!iData->addInstruction(inst,isSin)) {
+            if (!iter->second.addInstruction(inst, isSin)) {
               Additinal_sin_cos_not_replaced+=1;
             }
           }
         }
         //replace all sin cos instructions
-        for (DataMap::iterator i = paramToInstructions.begin(); i != paramToInstructions.end(); ++i) {
-          bool replaced = replaceAllInst((*i).second,M);
+        for (auto &Item : paramToInstructions) {
+          bool replaced = replaceAllInst(&Item.second, M);
           changedModule = changedModule || replaced;
-          //release allocated data
-          delete((*i).second);
         }
-        //clear map
-        paramToInstructions.clear();
       }
       intel::Statistic::pushFunctionStats(m_kernelStats, (*fn), DEBUG_TYPE);
     }
