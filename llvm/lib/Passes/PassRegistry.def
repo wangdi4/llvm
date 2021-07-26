@@ -250,6 +250,7 @@ MODULE_PASS("iparraytranspose", IPArrayTransposePass()) // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass())
+MODULE_PASS("ippredopt", IPPredOptPass())
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 MODULE_PASS("vtable-fixup", IntelVTableFixupPass()) // INTEL

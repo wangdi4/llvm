@@ -235,10 +235,11 @@ void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIROutlinerLegacyPassPass(PassRegistry&);
 void initializeIRSimilarityIdentifierWrapperPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
-void initializeIPArrayTransposeLegacyPassPass(PassRegistry &); // INTEL
 #if INTEL_CUSTOMIZATION
+void initializeIPArrayTransposeLegacyPassPass(PassRegistry &);
 #if INTEL_FEATURE_SW_ADVANCED
 void initializeIPCloningLegacyPassPass(PassRegistry&);
+void initializeIPPredOptLegacyPassPass(PassRegistry &);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
