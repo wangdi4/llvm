@@ -34,13 +34,13 @@ define void @test02(%struct.test01* "intel_dtrans_func_index"="1" %in, i32* "int
 ; Currently, we do not modify the metadata typelist on the function to remove
 ; unused index values, so the pointer will still use index "2". It's still
 ; valid because there will be no references to index "1".
-; CHECK-NONOPAQUE-LABEL: define void @test02.1(i64 %in, i32* "intel_dtrans_func_index"="2" %in1)
+; CHECK-NONOPAQUE-LABEL: define void @test02.1(i64 %in, i32* "intel_dtrans_func_index"="1" %in1)
 ; CHECK-NONOPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, %__SOADT_struct.test01dep* @var01, i64 0, i32 1
 ; CHECK-NONOPAQUE: %alloc_idx = call i64* @llvm.ptr.annotation.p0i64(i64* %p1, i8* getelementptr inbounds ([33 x i8], [33 x i8]* @__intel_dtrans_aostosoa_index, i32 0, i32 0), i8* getelementptr inbounds ([1 x i8], [1 x i8]* @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, i8* null)
 ; CHECK-NONOPAQUE: store i64 %in, i64* %p1, align 8
 ; CHECK-NONOPAQUE: ret void
 
-; CHECK-OPAQUE-LABEL: define void @test02.1(i64 %in, ptr "intel_dtrans_func_index"="2" %in1)
+; CHECK-OPAQUE-LABEL: define void @test02.1(i64 %in, ptr "intel_dtrans_func_index"="1" %in1)
 ; CHECK-OPAQUE: %p1 = getelementptr %__SOADT_struct.test01dep, ptr @var01, i64 0, i32 1
 ; CHECK-OPAQUE: %alloc_idx = call ptr @llvm.ptr.annotation.p0(ptr %p1, ptr getelementptr inbounds ([33 x i8], ptr @__intel_dtrans_aostosoa_index, i32 0, i32 0), ptr getelementptr inbounds ([1 x i8], ptr @__intel_dtrans_aostosoa_filename, i32 0, i32 0), i32 0, ptr null)
 ; CHECK-OPAQUE: store i64 %in, ptr %p1, align 8

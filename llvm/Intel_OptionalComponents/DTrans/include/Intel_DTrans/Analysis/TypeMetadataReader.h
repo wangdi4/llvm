@@ -72,12 +72,10 @@ public:
   // type. If MD is nullptr, clear any existing DTrans metadata from the object.
   static void addDTransMDNode(Value &V, MDNode *MD);
 
-  // If the DTransFuncIndex type attribute is present in 'Attrs' at the
-  // specified 'Index', remove it. The valid values for 'Index' are the ones
-  // defined in AttributeList::AttrIndex. Return 'true' if the attribute was
-  // present.
-  static bool removeDTransFuncIndexAttribute(LLVMContext &Ctx, unsigned Index,
-                                             AttributeList &Attrs);
+  // Remove any existing DTransFuncIndex metadata on 'F'. And set the return and
+  // argument attributes for the DTrans type metadata based on the function type
+  // defined by 'FnType'
+  static void setDTransFuncMetadata(Function *F, DTransFunctionType *FnType);
 
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
