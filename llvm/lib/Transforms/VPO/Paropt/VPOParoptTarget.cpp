@@ -753,7 +753,7 @@ void VPOParoptTransform::guardSideEffectStatements(
         continue;
       if (TargetDirectiveExit == &I)
         break;
-      if (I.mayHaveSideEffects()) {
+      if (I.mayThrow() || I.mayWriteToMemory()) {
         if (ignoreSpecialOperands(&I))
           continue;
 
