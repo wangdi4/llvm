@@ -292,5 +292,25 @@ _mm_dsp_pslvsud_epi32(__m128i __A, __m128i __B) {
   return (__m128i)__builtin_ia32_dvpslvsud((__v4su)__A, (__v4su)__B);
 }
 
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlswuq_epi16(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlswuq((__v8hu)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlswq_epi16(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlswq((__v8hu)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlsduq_epi32(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlsduq((__v4su)__A);
+}
+
+static __inline__ __m128i __DEFAULT_FN_ATTRS128
+_mm_dsp_phaddlsdq_epi32(__m128i __A) {
+  return (__m128i)__builtin_ia32_dvphaddlsdq((__v4su)__A);
+}
+
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H
