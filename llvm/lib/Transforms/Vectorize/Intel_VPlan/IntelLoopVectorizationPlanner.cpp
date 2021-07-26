@@ -432,15 +432,19 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
       unsigned MaxVF = MaxVecRegSize / VConflictIndexSizeInBits;
 
       VFs.erase(std::remove_if(VFs.begin(), VFs.end(),
-                               [MaxVF](unsigned VF) { return VF > MaxVF; }),
+                               [MaxVF, VConflictIndexSizeInBits](unsigned VF) {
+                                 return VF > MaxVF ||
+                                        (VF == 2 &&
+                                         VConflictIndexSizeInBits == 32);
+                               }),
                 VFs.end());
     }
 
   // When we force VF to have a special value, VFs vector has only one value.
   // Therefore, we have to check if we removed the only value that was in VFs.
   if (VFs.empty()) {
-    LLVM_DEBUG(dbgs() << "VConflict idiom cannot be optimized for VF > "
-                         "MaxVecRegSize / VConflictIndexSizeInBits.\n");
+    LLVM_DEBUG(dbgs() << "There is no VF found that all VConflict idioms in "
+                         "loop can be optimized for.\n");
     return 0;
   }
 
