@@ -93,6 +93,7 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
      DPxPTR(newEntry.HstPtrBase), DPxPTR(newEntry.HstPtrBegin),
      DPxPTR(newEntry.HstPtrEnd), DPxPTR(newEntry.TgtPtrBegin),
      newEntry.refCountToStr().c_str());
+  (void)newEntry;
 
   DataMapMtx.unlock();
 
