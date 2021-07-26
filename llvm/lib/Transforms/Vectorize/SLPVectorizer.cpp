@@ -10464,7 +10464,7 @@ public:
       InstructionCost TreeCost =
           V.getTreeCost(makeArrayRef(&ReducedVals[i], ReduxWidth));
       InstructionCost ReductionCost =
-          getReductionCost(TTI, ReducedVals[i], ReduxWidth);
+          getReductionCost(TTI, ReducedVals[i], ReduxWidth, RdxFMF);
       InstructionCost Cost = TreeCost + ReductionCost;
       if (!Cost.isValid()) {
         LLVM_DEBUG(dbgs() << "Encountered invalid baseline cost.\n");
@@ -10569,8 +10569,8 @@ public:
 private:
   /// Calculate the cost of a reduction.
   InstructionCost getReductionCost(TargetTransformInfo *TTI,
-                                   Value *FirstReducedVal,
-                                   unsigned ReduxWidth) {
+                                   Value *FirstReducedVal, unsigned ReduxWidth,
+                                   FastMathFlags FMF) {
     Type *ScalarTy = FirstReducedVal->getType();
     FixedVectorType *VectorTy = FixedVectorType::get(ScalarTy, ReduxWidth);
     InstructionCost VectorCost, ScalarCost;
@@ -10583,7 +10583,7 @@ private:
     case RecurKind::FAdd:
     case RecurKind::FMul: {
       unsigned RdxOpcode = RecurrenceDescriptor::getOpcode(RdxKind);
-      VectorCost = TTI->getArithmeticReductionCost(RdxOpcode, VectorTy);
+      VectorCost = TTI->getArithmeticReductionCost(RdxOpcode, VectorTy, FMF);
       ScalarCost = TTI->getArithmeticInstrCost(RdxOpcode, ScalarTy);
       break;
     }
