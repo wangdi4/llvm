@@ -711,14 +711,14 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   const RegDDRef *Operand4 = MinMaxInst->getOperandDDRef(4);
   const RegDDRef *Lval = MinMaxInst->getLvalDDRef();
 
-  // Temporary disable FP data types for primary minmax. For FP data type
+  // Temporary disable FP data types for primary minmax except the case
+  // when no NANs are guaranteed by fast math flags. In other case
   // we need some additional checks to be generated (eg for NAN) which is
   // not implemented yet.
   if (!Lval->getDestType()->isIntegerTy()) {
-    const Instruction *Cond =
-      cast<Instruction>(MinMaxSelectInst->getCondition());
-    if (!Cond->getFastMathFlags().noNaNs())
-      return false;
+    if (auto *Op = dyn_cast<FPMathOperator>(MinMaxSelectInst->getCondition()))
+      if (!Op->getFastMathFlags().noNaNs())
+        return false;
   }
 
   PredicateTy Pred = MinMaxInst->getPredicate();
