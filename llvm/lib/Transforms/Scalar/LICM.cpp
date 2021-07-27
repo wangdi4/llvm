@@ -1817,12 +1817,16 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
   const unsigned KnownIDs[] = {LLVMContext::MD_std_container_ptr,
                                LLVMContext::MD_std_container_ptr_iter};
 #endif // INTEL_CUSTOMIZATION
-  if (I.hasMetadataOtherThanDebugLoc() &&
+  // Similarly, If I is a call and it is not guaranteed to execute in the loop,
+  // then moving to the preheader means we should strip attributes on the call
+  // that can cause UB since we may be hoisting above conditions that allowed
+  // inferring those attributes. They may not be valid at the preheader.
+  if ((I.hasMetadataOtherThanDebugLoc() || isa<CallInst>(I)) &&
       // The check on hasMetadataOtherThanDebugLoc is to prevent us from burning
       // time in isGuaranteedToExecute if we don't actually have anything to
       // drop.  It is a compile time optimization, not required for correctness.
       !SafetyInfo->isGuaranteedToExecute(I, DT, CurLoop))
-    I.dropUnknownNonDebugMetadata(KnownIDs); // INTEL
+    I.dropUndefImplyingAttrsAndUnknownMetadata(KnownIDs); // INTEL
 
   if (isa<PHINode>(I))
     // Move the new node to the end of the phi list in the destination block.
