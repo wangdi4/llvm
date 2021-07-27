@@ -40,6 +40,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include <unordered_set>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -69,6 +70,11 @@ static cl::list<std::string> CreateFunctionLevelRegionFilterFunc(
     "-filter-func",
     cl::desc("force HIR to create a single region for the given function."),
     cl::CommaSeparated, cl::ReallyHidden);
+
+static cl::list<std::string> DisableRegionsFuncList(
+    "disable-hir-regions-func-list",
+    cl::desc("Disables HIR region creation for the given list of functions."),
+    cl::CommaSeparated, cl::Hidden);
 
 static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
@@ -2441,6 +2447,13 @@ HIRRegionIdentification::HIRRegionIdentification(
 void HIRRegionIdentification::runImpl(Function &F) {
 #if INTEL_FEATURE_SW_ADVANCED
   if (F.hasFnAttribute(Attribute::OptimizeNone)) {
+    return;
+  }
+
+  // Disable region creation based on command line option.
+  std::unordered_set<std::string> DisabledFuncs(DisableRegionsFuncList.begin(),
+                                                DisableRegionsFuncList.end());
+  if (DisabledFuncs.count(std::string(F.getName()))) {
     return;
   }
 
