@@ -34,6 +34,15 @@ bool InitShadow() {
   __sanitizer::InitShadowBounds();
   CHECK_NE(__sanitizer::ShadowBounds.shadow_limit, 0);
 
+  // These variables are used by MemIsShadow for asserting we have a correct
+  // shadow address. On Fuchsia, we only have one region of shadow, so the
+  // bounds of Low shadow can be zero while High shadow represents the true
+  // bounds. Note that these are inclusive ranges.
+  kLowShadowStart = 0;
+  kLowShadowEnd = 0;
+  kHighShadowStart = __sanitizer::ShadowBounds.shadow_base;
+  kHighShadowEnd = __sanitizer::ShadowBounds.shadow_limit - 1;
+
   return true;
 }
 
@@ -162,6 +171,10 @@ void HwasanTSDThreadInit() {}
 // HwasanAtExit are unimplemented for Fuchsia and effectively no-ops, so this
 // function is unneeded.
 void InstallAtExitHandler() {}
+
+// TODO(fxbug.dev/81499): Once we finalize the tagged pointer ABI in zircon, we should come back
+// here and implement the appropriate check that TBI is enabled.
+void InitializeOsSupport() {}
 
 }  // namespace __hwasan
 
