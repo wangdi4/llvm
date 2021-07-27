@@ -36,6 +36,20 @@ let Predicates = [Not64BitMode, HasDSPV1] in {
                  (MemOpFrag addr:$src1), timm:$src2))]>, VEX;
   }
 
+  multiclass dspv1_2op_w<bits<8> Opcode, string OpcodeStr, PatFrag MemOpFrag> {
+      def rr : I<Opcode, MRMSrcReg, (outs VR128:$dst),
+               (ins VR128:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set VR128:$dst,
+                (!cast<Intrinsic>("int_x86_"#OpcodeStr) VR128:$src))]>, VEX;
+      def rm : I<Opcode, MRMSrcMem, (outs VR128:$dst),
+               (ins i128mem:$src),
+               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
+               [(set VR128:$dst,
+                (!cast<Intrinsic>("int_x86_"#OpcodeStr) (MemOpFrag addr:$src)))]>,
+                VEX;
+  }
+
   multiclass dspv1_3op_imm8_w<bits<8> Opcode, string OpcodeStr,
               PatFrag MemOpFrag> {
       def rr : Ii8<Opcode, MRMSrcReg, (outs VR128:$dst),
@@ -184,4 +198,11 @@ defm DVPSLSD :   dspv1_2op_imm8_w<0xa2, "dvpslsd", loadv4i32>, TAXS;
 defm DVPSLSUD :  dspv1_2op_imm8_w<0xa2, "dvpslsud", loadv4i32>, TAPD;
 defm DVPSLVSUD : dspv1_3op_w<0xe2, "dvpslvsud", loadv4i32>, T_MAP8PD;
 // end Chapter 12
+
+// Chapter 13
+defm DVPHADDLSWUQ : dspv1_2op_w<0xd0, "dvphaddlswuq", loadv8i16>, T_MAP8PD, VEX_W;
+defm DVPHADDLSWQ : dspv1_2op_w<0xd0, "dvphaddlswq", loadv8i16>, T_MAP8PS, VEX_W;
+defm DVPHADDLSDUQ : dspv1_2op_w<0xd0, "dvphaddlsduq", loadv4i32>, T_MAP8PD;
+defm DVPHADDLSDQ : dspv1_2op_w<0xd0, "dvphaddlsdq", loadv4i32>, T_MAP8PS;
+// end Chapter 13
 #endif // INTEL_FEATURE_ISA_DSPV1
