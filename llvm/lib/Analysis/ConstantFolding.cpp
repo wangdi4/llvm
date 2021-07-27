@@ -1884,6 +1884,11 @@ Constant *constantFoldVectorReduce(Intrinsic::ID IID, Constant *Op) {
   if (isa<ConstantAggregateZero>(Op))
     return ConstantInt::get(VT->getElementType(), 0);
 
+#if INTEL_CUSTOMIZATION
+  // The code below will crash if it's not a "real" vector constant.
+  if (isa<ConstantExpr>(Op))
+    return nullptr;
+#endif // INTEL_CUSTOMIZATION
   // This is the same as the underlying binops - poison propagates.
   if (isa<PoisonValue>(Op) || Op->containsPoisonElement())
     return PoisonValue::get(VT->getElementType());
