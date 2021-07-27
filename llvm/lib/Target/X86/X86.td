@@ -1301,6 +1301,22 @@ def ProcessorFeatures {
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GRT
+  // Gracemont
+  list<SubtargetFeature> GRTTuning = [FeatureMacroFusion,
+                                      FeatureSlow3OpsLEA,
+                                      FeatureSlowDivide32,
+                                      FeatureSlowDivide64,
+                                      FeatureFastScalarFSQRT,
+                                      FeatureFastVectorFSQRT,
+                                      FeatureFast15ByteNOP,
+                                      FeatureFastVariablePerLaneShuffle,
+                                      FeaturePOPCNTFalseDeps,
+                                      FeatureInsertVZEROUPPER];
+#endif // INTEL_FEATURE_CPU_GRT
+#endif // INTEL_CUSTOMIZATION
+
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
                                         FeatureCMPXCHG8B,
@@ -1749,6 +1765,12 @@ def : ProcModel<"sapphirerapids", SkylakeServerModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;
 def : ProcModel<"alderlake", SkylakeClientModel,
                 ProcessorFeatures.ADLFeatures, ProcessorFeatures.ADLTuning>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_GRT
+def : ProcModel<"gracemont", SkylakeClientModel,
+                ProcessorFeatures.ADLFeatures, ProcessorFeatures.GRTTuning>;
+#endif // INTEL_FEATURE_CPU_GRT
+#endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.
 
