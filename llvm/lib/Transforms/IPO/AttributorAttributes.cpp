@@ -3836,10 +3836,8 @@ ChangeStatus AAIsDeadFunction::updateImpl(Attributor &A) {
 
     // Fast forward for uninteresting instructions. We could look for UB here
     // though.
-    while (!I->isTerminator() && !isa<CallBase>(I)) {
-      Change = ChangeStatus::CHANGED;
+    while (!I->isTerminator() && !isa<CallBase>(I))
       I = I->getNextNode();
-    }
 
     AliveSuccessors.clear();
 
@@ -3872,11 +3870,11 @@ ChangeStatus AAIsDeadFunction::updateImpl(Attributor &A) {
 
     if (UsedAssumedInformation) {
       NewToBeExploredFrom.insert(I);
-    } else {
-      Change = ChangeStatus::CHANGED;
-      if (AliveSuccessors.empty() ||
-          (I->isTerminator() && AliveSuccessors.size() < I->getNumSuccessors()))
-        KnownDeadEnds.insert(I);
+    } else if (AliveSuccessors.empty() ||
+               (I->isTerminator() &&
+                AliveSuccessors.size() < I->getNumSuccessors())) {
+      if (KnownDeadEnds.insert(I))
+        Change = ChangeStatus::CHANGED;
     }
 
     LLVM_DEBUG(dbgs() << "[AAIsDead] #AliveSuccessors: "
@@ -3890,15 +3888,23 @@ ChangeStatus AAIsDeadFunction::updateImpl(Attributor &A) {
         Worklist.push_back(AliveSuccessor);
       } else {
         // record the assumed live edge
-        AssumedLiveEdges.insert(
-            std::make_pair(I->getParent(), AliveSuccessor->getParent()));
+        auto Edge = std::make_pair(I->getParent(), AliveSuccessor->getParent());
+        if (AssumedLiveEdges.insert(Edge).second)
+          Change = ChangeStatus::CHANGED;
         if (assumeLive(A, *AliveSuccessor->getParent()))
           Worklist.push_back(AliveSuccessor);
       }
     }
   }
 
-  ToBeExploredFrom = std::move(NewToBeExploredFrom);
+  // Check if the content of ToBeExploredFrom changed, ignore the order.
+  if (NewToBeExploredFrom.size() != ToBeExploredFrom.size() ||
+      llvm::any_of(NewToBeExploredFrom, [&](const Instruction *I) {
+        return !ToBeExploredFrom.count(I);
+      })) {
+    Change = ChangeStatus::CHANGED;
+    ToBeExploredFrom = std::move(NewToBeExploredFrom);
+  }
 
   // If we know everything is live there is no need to query for liveness.
   // Instead, indicating a pessimistic fixpoint will cause the state to be
@@ -7091,6 +7097,9 @@ ChangeStatus AAMemoryBehaviorFloating::updateImpl(Attributor &A) {
       return ChangeStatus::UNCHANGED;
   }
 
+  // The current assumed state used to determine a change.
+  auto AssumedState = S.getAssumed();
+
   // Make sure the value is not captured (except through "return"), if
   // it is, any information derived would be irrelevant anyway as we cannot
   // check the potential aliases introduced by the capture. However, no need
@@ -7099,11 +7108,9 @@ ChangeStatus AAMemoryBehaviorFloating::updateImpl(Attributor &A) {
       A.getAAFor<AANoCapture>(*this, IRP, DepClassTy::OPTIONAL);
   if (!ArgNoCaptureAA.isAssumedNoCaptureMaybeReturned()) {
     S.intersectAssumedBits(FnMemAssumedState);
-    return ChangeStatus::CHANGED;
+    return (AssumedState != getAssumed()) ? ChangeStatus::CHANGED
+                                          : ChangeStatus::UNCHANGED;
   }
-
-  // The current assumed state used to determine a change.
-  auto AssumedState = S.getAssumed();
 
   // Visit and expand uses until all are analyzed or a fixpoint is reached.
   auto UsePred = [&](const Use &U, bool &Follow) -> bool {
