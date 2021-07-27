@@ -71,6 +71,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/Magic.h"
@@ -180,38 +181,30 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
   // Compute the path to the resource directory.
   ResourceDir = GetResourcesPath(ClangExecutable, CLANG_RESOURCE_DIR);
 }
+#if INTEL_CUSTOMIZATION
+void Driver::parseIntelDriverMode(ArrayRef<const char *> Args) {
+  static const std::string OptIntel =
+      getOpts().getOption(options::OPT__intel).getPrefixedName();
+  static const std::string OptDPCPP =
+      getOpts().getOption(options::OPT__dpcpp).getPrefixedName();
 
-void Driver::ParseDriverMode(StringRef ProgramName,
-                             ArrayRef<const char *> Args) {
-  if (ClangNameParts.isEmpty())
-    ClangNameParts = ToolChain::getTargetAndModeFromProgramName(ProgramName);
-  setDriverModeFromOption(ClangNameParts.DriverMode);
-
-  for (const char *ArgPtr : Args) {
-    // Ignore nullptrs, they are the response file's EOL markers.
-    if (ArgPtr == nullptr)
+  for (StringRef Arg : Args) {
+    if (Arg != OptIntel && Arg != OptDPCPP)
       continue;
-    const StringRef Arg = ArgPtr;
-    setDriverModeFromOption(Arg);
+
+    IntelMode = true;
+    if (Arg != OptDPCPP)
+      continue;
+
+    DPCPPMode = true;
+    return;
   }
 }
-
-void Driver::setDriverModeFromOption(StringRef Opt) {
-#if INTEL_CUSTOMIZATION
-  if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName() ||
-      Opt == getOpts().getOption(options::OPT__dpcpp).getPrefixedName()) {
-    IntelMode = true;
-    if (Opt == getOpts().getOption(options::OPT__dpcpp).getPrefixedName())
-      DPCPPMode = true;
-    return;
-  }
 #endif // INTEL_CUSTOMIZATION
-  const std::string OptName =
-      getOpts().getOption(options::OPT_driver_mode).getPrefixedName();
-  if (!Opt.startswith(OptName))
-    return;
-  StringRef Value = Opt.drop_front(OptName.size());
 
+void Driver::setDriverMode(StringRef Value) {
+  static const std::string OptName =
+      getOpts().getOption(options::OPT_driver_mode).getPrefixedName();
   if (auto M = llvm::StringSwitch<llvm::Optional<DriverMode>>(Value)
                    .Case("gcc", GCCMode)
                    .Case("g++", GXXMode)
@@ -1601,7 +1594,12 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   // We look for the driver mode option early, because the mode can affect
   // how other options are parsed.
-  ParseDriverMode(ClangExecutable, ArgList.slice(1));
+#if INTEL_CUSTOMIZATION
+  parseIntelDriverMode(ArgList.slice(1));
+#endif // INTEL_CUSTOMIZATION
+  auto DriverMode = getDriverMode(ClangExecutable, ArgList.slice(1));
+  if (!DriverMode.empty())
+    setDriverMode(DriverMode);
 
   // FIXME: What are we going to do with -V and -b?
 
@@ -8209,6 +8207,24 @@ bool clang::driver::willEmitRemarks(const ArgList &Args) {
 #endif // INTEL_CUSTOMIZATION
   return false;
 }
+
+llvm::StringRef clang::driver::getDriverMode(StringRef ProgName,
+                                             ArrayRef<const char *> Args) {
+  static const std::string OptName =
+      getDriverOptTable().getOption(options::OPT_driver_mode).getPrefixedName();
+  llvm::StringRef Opt;
+  for (StringRef Arg : Args) {
+    if (!Arg.startswith(OptName))
+      continue;
+    Opt = Arg;
+    break;
+  }
+  if (Opt.empty())
+    Opt = ToolChain::getTargetAndModeFromProgramName(ProgName).DriverMode;
+  return Opt.consume_front(OptName) ? Opt : "";
+}
+
+bool driver::IsClangCL(StringRef DriverMode) { return DriverMode.equals("cl"); }
 
 #if INTEL_CUSTOMIZATION
 Arg * clang::driver::getLastArchArg(const ArgList &Args, bool claimArg) {
