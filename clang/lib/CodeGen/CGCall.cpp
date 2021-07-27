@@ -5422,11 +5422,11 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
       if (A.first == llvm::Attribute::AlwaysInline)
         Attrs = Attrs.addAttribute(getLLVMContext(),
                                    llvm::AttributeList::FunctionIndex,
-                                   "always-inline-recursive");
+                                   llvm::Attribute::AlwaysInlineRecursive);
       else if (A.first == llvm::Attribute::InlineHint)
         Attrs = Attrs.addAttribute(getLLVMContext(),
                                    llvm::AttributeList::FunctionIndex,
-                                   "inline-hint-recursive");
+                                   llvm::Attribute::InlineHintRecursive);
       else
         llvm_unreachable("AlwaysInline or InlineHint expected");
     } else

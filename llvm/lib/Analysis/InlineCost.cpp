@@ -1960,7 +1960,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
 #if INTEL_CUSTOMIZATION
     if (Callee.hasFnAttribute(Attribute::InlineHint) ||
         Call.hasFnAttr(Attribute::InlineHint) ||
-        Call.hasFnAttr("inline-hint-recursive"))
+        Call.hasFnAttr(Attribute::InlineHintRecursive))
 #endif // INTEL_CUSTOMIZATION
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
 
@@ -3091,7 +3091,7 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
     return InlineResult::failure(IsViable.getFailureReason())
         .setIntelInlReason(IsViable.getIntelInlReason());
   }
-  if (Call.hasFnAttr("always-inline-recursive")) {
+  if (Call.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
     auto IsViable = isInlineViable(*Callee);
     if (IsViable.isSuccess())
       return InlineResult::success().setIntelInlReason(

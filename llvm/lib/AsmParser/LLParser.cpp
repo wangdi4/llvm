@@ -1409,18 +1409,6 @@ bool LLParser::parseFnAttributeValuePairs(AttrBuilder &B,
       continue;
     }
 
-#if INTEL_CUSTOMIZATION
-    if (Token == lltok::kw_inlinehint_recursive) {
-      B.addAttribute("inline-hint-recursive");
-      Lex.Lex();
-      continue;
-    }
-    if (Token == lltok::kw_alwaysinline_recursive) {
-      B.addAttribute("always-inline-recursive");
-      Lex.Lex();
-      continue;
-    }
-#endif //INTEL_CUSTOMIZATION
     if (Token == lltok::AttrGrpID) {
       // Allow a function to reference an attribute group:
       //
@@ -1734,13 +1722,9 @@ bool LLParser::parseOptionalParamOrReturnAttrs(AttrBuilder &B, bool IsParam) {
     if (parseEnumAttribute(Attr, B, /* InAttrGroup */ false))
       return true;
 
-    if (IsParam && (!Attribute::canUseAsParamAttr(Attr) || // INTEL
-            Token == lltok::kw_inlinehint_recursive ||     // INTEL
-        Token == lltok::kw_alwaysinline_recursive))        // INTEL
+    if (IsParam && !Attribute::canUseAsParamAttr(Attr))
       HaveError |= error(Loc, "this attribute does not apply to parameters");
-    if (!IsParam && (!Attribute::canUseAsRetAttr(Attr) ||  // INTEL
-            Token == lltok::kw_inlinehint_recursive ||     // INTEL
-        Token == lltok::kw_alwaysinline_recursive))        // INTEL
+    if (!IsParam && !Attribute::canUseAsRetAttr(Attr))
       HaveError |= error(Loc, "this attribute does not apply to return values");
   }
 }

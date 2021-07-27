@@ -610,8 +610,8 @@ IR:
   attributes #1 = { inlinehint }
   attributes #2 = { noinline }
   attributes #3 = { alwaysinline }
-  attributes #4 = { "inline-hint-recursive" }
-  attributes #5 = { "always-inline-recursive" }
+  attributes #4 = { inlinehint_recursive }
+  attributes #5 = { alwaysinline_recursive }
   }];
   let UserContent = [{
 Pragma inline gives a hint to the compiler that the called function and its

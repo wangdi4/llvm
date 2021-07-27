@@ -170,6 +170,8 @@ static llvm::SmallVector<StringRef, 10> OMPDeviceLibList{
     "cmath-fp64",
     "complex",
     "complex-fp64",
+    "fallback-cassert",
+    "fallback-cstring",
     "fallback-cmath",
     "fallback-cmath-fp64",
     "fallback-complex",
@@ -227,8 +229,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     auto isOMPDeviceLib = [&C](const InputInfo &II) {
       const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
       StringRef LibPostfix = ".o";
-      if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
-          C.getDriver().IsCLMode())
+      bool IsMSVC = HostTC->getTriple().isWindowsMSVCEnvironment();
+      if (IsMSVC && C.getDriver().IsCLMode())
         LibPostfix = ".obj";
       StringRef InputFilename =
           llvm::sys::path::filename(StringRef(II.getFilename()));
@@ -242,6 +244,11 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         if (PureLibName.compare(L) == 0)
           return true;
       }
+      // Do a separate check for the CRT device lib, as it is a different name
+      // depending on the target OS.
+      StringRef LibCName = IsMSVC ? "msvc" : "glibc";
+      if (PureLibName.compare(LibCName) == 0)
+        return true;
       return false;
     };
 #endif // INTEL_CUSTOMIZATION
