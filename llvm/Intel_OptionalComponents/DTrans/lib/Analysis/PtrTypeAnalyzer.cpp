@@ -1940,6 +1940,34 @@ private:
   // passed to a function that is declared as taking a pointer of a different
   // type.
   void analyzeCallBase(CallBase *Call, ValueTypeInfo *ResultInfo) {
+    // Check if 'Call' is to an intrinsic function that has special properties.
+    auto ProcessIntrinsicCall = [this](CallBase *Call,
+                                       ValueTypeInfo *ResultInfo) {
+      Function *Target = dtrans::getCalledFunction(*Call);
+      if (!Target)
+        return false;
+      if (Target->isIntrinsic()) {
+        switch (Target->getIntrinsicID()) {
+        case Intrinsic::ptr_annotation: {
+          // The llvm.ptr.annotation.p0() calls returns the first argument, so
+          // we can just the propagate the type information that's been
+          // collected for the parameter to the result value.
+          ValueTypeInfo *ValInfo = analyzeValue(Call->getArgOperand(0));
+          propagate(ValInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+                    DerefType::DT_SameType);
+          return true;
+        }
+        default:
+          return false;
+        }
+      }
+
+      return false;
+    };
+
+    if (ProcessIntrinsicCall(Call, ResultInfo))
+      return;
+
     // Check if the return type should have a pointer type, and the type, if so.
     std::pair<bool, DTransType *> OptRetType = getCallReturnType(Call);
     if (OptRetType.first) {
