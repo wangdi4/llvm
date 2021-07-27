@@ -573,10 +573,9 @@ static Value *operandWithNewAddressSpaceOrCreateUndef(
     SmallVectorImpl<const Use *> *UndefUsesToFix) {
   Value *Operand = OperandUse.get();
 
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *NewPtrTy =
-      Operand->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+      PointerType::getWithSamePointeeType(cast<PointerType>(Operand->getType()),
+                                          NewAddrSpace);
 
   if (Constant *C = dyn_cast<Constant>(Operand))
     return ConstantExpr::getAddrSpaceCast(C, NewPtrTy);
@@ -601,10 +600,9 @@ static Value *cloneInstructionWithNewAddressSpace(
     Instruction *I, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace,
     SmallVectorImpl<const Use *> *UndefUsesToFix) {
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *NewPtrType =
-      I->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+      PointerType::getWithSamePointeeType(cast<PointerType>(I->getType()),
+                                          NewAddrSpace);
 
   if (I->getOpcode() == Instruction::AddrSpaceCast) {
     Value *Src = I->getOperand(0);
@@ -664,10 +662,9 @@ static Value *cloneInstructionWithNewAddressSpace(
 static Value *cloneConstantExprWithNewAddressSpace(
     ConstantExpr *CE, unsigned NewAddrSpace,
     const ValueToValueMapTy &ValueWithNewAddrSpace) {
-  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-  // specific AddressSpace. The API currently needs the Element Type as well.
   Type *TargetType =
-      CE->getType()->getPointerElementType()->getPointerTo(NewAddrSpace);
+      PointerType::getWithSamePointeeType(cast<PointerType>(CE->getType()),
+                                          NewAddrSpace);
 
   if (CE->getOpcode() == Instruction::AddrSpaceCast) {
     // Because CE is flat, the source address space must be specific.
@@ -1329,9 +1326,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
     }
 
     // The optimization is possible.
-    // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
-    // specific AddressSpace. The API currently needs the Element Type as well.
-    auto *NewValType = ValTy->getPointerElementType()->getPointerTo(NewAS);
+    auto *NewValType = PointerType::getWithSamePointeeType(ValTy, NewAS);
 
     // Create new global variable.
     Constant *Initializer = nullptr;
@@ -1361,10 +1356,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       // pointer).
       auto *NewStoreVal = Builder.CreateAddrSpaceCast(
           StoreVal,
-          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
-          // PointerType to a specific AddressSpace. The API currently
-          // needs the Element Type as well.
-          StoreValTy->getPointerElementType()->getPointerTo(NewAS));
+          PointerType::getWithSamePointeeType(StoreValTy, NewAS));
       SI->replaceUsesOfWith(StoreVal, NewStoreVal);
       SI->replaceUsesOfWith(GV, NewGV);
     }
@@ -1377,10 +1369,7 @@ bool llvm::InferAddrSpacesForGlobals(unsigned FlatAddrSpace, Module &M) {
       auto *NewLI = LI->clone();
       NewLI->replaceUsesOfWith(GV, NewGV);
       NewLI->mutateType(
-          // TODO: OPAQUEPOINTER: Use the appropriate API for getting
-          // PointerType to a specific AddressSpace. The API currently
-          // needs the Element Type as well.
-          LoadValTy->getPointerElementType()->getPointerTo(NewAS));
+          PointerType::getWithSamePointeeType(LoadValTy, NewAS));
       NewLI->insertBefore(LI);
       // Cast the new load value to the original flat address space.
       // We could have called InferAddrSpaces() again to optimize
