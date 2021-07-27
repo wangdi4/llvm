@@ -475,6 +475,12 @@ void updateMetadataTreeWithNewFuncs(
     Module *M, DenseMap<Function *, Function *> &FunctionMap,
     MDNode *MDTreeNode, SmallSet<MDNode *, 8> &Visited);
 
+inline bool hasByvalByrefArgs(Function *F) {
+  return llvm::any_of(F->args(), [](auto &Arg) {
+    return Arg.hasByValAttr() || Arg.hasByRefAttr();
+  });
+}
+
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
 
