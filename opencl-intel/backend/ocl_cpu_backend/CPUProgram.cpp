@@ -95,6 +95,7 @@ cl_dev_err_code CPUProgram::Finalize() {
   assert(
       ((m_pExecutionEngine && !m_LLJIT) || (!m_pExecutionEngine && m_LLJIT)) &&
       "Only one of MCJIT and m_LLJIT should be enabled");
+  using CtorTy = void (*)();
   if (m_pExecutionEngine) {
     m_pExecutionEngine->finalizeObject();
     m_pExecutionEngine->runStaticConstructorsDestructors(/*isDtors*/ false);
@@ -107,9 +108,12 @@ cl_dev_err_code CPUProgram::Finalize() {
         jitContainer->SetJITCode(GetPointerToFunction(kernelName));
       }
     }
+    for (const std::string &name : m_globalCtors) {
+      auto ctor = reinterpret_cast<CtorTy>(GetPointerToFunction(name));
+      ctor();
+    }
   } else {
     if (HasCachedExecutable()) {
-      using CtorTy = void (*)();
       for (const std::string &name : m_globalCtors) {
         auto ctor = reinterpret_cast<CtorTy>(GetPointerToFunction(name));
         ctor();
