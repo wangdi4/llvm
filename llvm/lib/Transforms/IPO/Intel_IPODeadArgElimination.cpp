@@ -553,7 +553,10 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Create the new function and set the attributes
   Function *NF =
-      Function::Create(NFTy, F->getLinkage(), F->getAddressSpace(), "", &M);
+      Function::Create(NFTy, F->getLinkage(), F->getAddressSpace());
+  // Insert the function in the same place as the old function to prevent
+  // non-deterministic IR.
+  M.getFunctionList().insert(F->getIterator(), NF);
   // NOTE: copyAttributesFrom is not copying the llvm::Attributes, it is
   // copying information like visibility, linkage, etc.
   NF->copyAttributesFrom(F);
