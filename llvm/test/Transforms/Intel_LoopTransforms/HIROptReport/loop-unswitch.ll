@@ -54,7 +54,7 @@
 ; CHECK-HIR-NEXT:         <Remainder loop for vectorization>
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         remark #25532: Loop completely unrolled
+; CHECK-HIR-NEXT:         remark #25436: Loop completely unrolled by 3
 ; CHECK-HIR-NEXT:     LOOP END
 ; CHECK-HIR-NEXT: LOOP END
 ;

@@ -58,10 +58,12 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s --check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark: Loopnest completely unrolled{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     remark #25436: Loop completely unrolled by 2
+; OPTREPORT:          LOOP BEGIN
+; OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 3
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT:          LOOP BEGIN
+; OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 3
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 

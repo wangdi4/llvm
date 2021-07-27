@@ -16,8 +16,10 @@
 ; If we unroll loop nest, we add the remark about complete unrolling only to the outer loop in the nest.
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark: Loopnest completely unrolled{{[[:space:]]}}
-; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     remark #25436: Loop completely unrolled by 10
+
+; OPTREPORT:          LOOP BEGIN
+; OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 10
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -29,10 +31,10 @@
 ; CHECK: [[M4]] = distinct !{!"llvm.loop.optreport", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.loop.optreport", [[M6:!.*]], [[M8:!.*]]}
 ; CHECK: [[M6]] = !{!"intel.optreport.remarks", [[M7:!.*]]}
-; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 0, !"Loopnest completely unrolled"}
+; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 ; CHECK: [[M8]] = !{!"intel.optreport.first_child", [[M9:!.*]]}
 ; CHECK: [[M9]] = distinct !{!"llvm.loop.optreport", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.loop.optreport"}
+; CHECK: [[M10]] = distinct !{!"intel.loop.optreport", !6}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

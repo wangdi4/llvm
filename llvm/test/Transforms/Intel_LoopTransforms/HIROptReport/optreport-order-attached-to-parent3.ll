@@ -10,18 +10,18 @@
 ;  return;
 ;}
 
-; RUN: opt -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT-NEXT:     remark #25444: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         remark #25532: Loop completely unrolled
+; OPTREPORT-NEXT:         remark #25436: Loop completely unrolled by 6
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
-; RUN: opt -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
@@ -30,7 +30,7 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 6}
 ; CHECK: [[M9:!.*]] = distinct !{[[M9]], [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"llvm.loop.optreport", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.loop.optreport", [[M12:!.*]]}
@@ -93,4 +93,4 @@ define void @foo(i32** noalias nocapture readonly %A, i32 %N) local_unnamed_addr
 !12 = distinct !{!"llvm.loop.optreport", !13}
 !13 = distinct !{!"intel.loop.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
-!15 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!15 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 6}
