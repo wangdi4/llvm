@@ -2533,11 +2533,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // 'get_hygro_rad_props'.
   //
   std::function<bool(Argument *A, const DataLayout &DL,
-                     NestedDopeVectorInfo *NDVInfo, bool &AllocSiteFound,
+                     NestedDopeVectorInfo *NDVInfo,
                      SetVector<Value *> &ValueChecked)>
       CanPropUp = [&](Argument *A, const DataLayout &DL,
                       NestedDopeVectorInfo *NDVInfo,
-                      bool &AllocSiteFound,
                       SetVector<Value *> &ValueChecked) -> bool {
     Function *F = A->getParent();
     unsigned FArgNo = A->getArgNo();
@@ -2554,14 +2553,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
           continue;
         return false;
       }
-      Value *V = CB;
       if (auto BC = dyn_cast<BitCastInst>(AA)) {
-        ValueChecked.insert(A);
-        V = BC;
+        ValueChecked.insert(AA);
         AA = BC->getOperand(0);
       }
       if (auto FA = dyn_cast<Argument>(AA)) {
-        if (!CanPropUp(FA, DL, NDVInfo, AllocSiteFound, ValueChecked))
+        if (!CanPropUp(FA, DL, NDVInfo, ValueChecked))
           return false;
         continue;
       }
@@ -2700,13 +2697,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // 'get_hygro_rad_props'.
   //
   auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL,
-                                NestedDopeVectorInfo *NDVInfo,
-                                bool &AllocSiteFound) -> bool {
+                                NestedDopeVectorInfo *NDVInfo) -> bool {
     Argument *A = PropPtrAssignToArgument(U, DL);
     if (!A)
       return false;
     SetVector<Value *> ValueChecked;
-    if (!CanPropUp(A, DL, NDVInfo, AllocSiteFound, ValueChecked))
+    if (!CanPropUp(A, DL, NDVInfo, ValueChecked))
       return false;
     return true;
   };
@@ -2800,7 +2796,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         if (collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
                                                 ValueChecked, DL, true))
           return true;
-        if (CanPropThruPtrAssn(U, DL, NestedDVInfo, AllocSiteFound))
+        if (CanPropThruPtrAssn(U, DL, NestedDVInfo))
           return true;
         return false;
       } else if (PropagatesToLoadOrStore(U)) {
