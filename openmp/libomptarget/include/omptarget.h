@@ -443,6 +443,9 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_register_lib(__tgt_bin_desc *desc);
 
+/// Initialize all RTLs at once
+void __tgt_init_all_rtls();
+
 /// removes a target shared library from the target execution image
 #if INTEL_COLLAB
 EXTERN
