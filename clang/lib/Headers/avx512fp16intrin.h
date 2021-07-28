@@ -400,12 +400,12 @@ _mm512_maskz_add_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_add_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_add_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_add_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_add_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
@@ -434,12 +434,12 @@ _mm512_maskz_sub_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_sub_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_sub_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_sub_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_sub_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_mul_ph(__m512h __A, __m512h __B) {
@@ -467,12 +467,12 @@ _mm512_maskz_mul_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_mul_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_mul_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_mul_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_mul_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_div_ph(__m512h __A, __m512h __B) {
@@ -500,12 +500,12 @@ _mm512_maskz_div_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_div_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_div_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_div_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_div_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_min_ph(__m512h __A, __m512h __B) {
@@ -534,12 +534,12 @@ _mm512_maskz_min_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_min_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_min_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_min_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_min_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_max_ph(__m512h __A, __m512h __B) {
@@ -568,12 +568,12 @@ _mm512_maskz_max_ph(__mmask32 __U, __m512h __A, __m512h __B) {
 #define _mm512_mask_max_round_ph(W, U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_max_round_ph((A), (B), (R)), \
-                                   (__v32hf)(__m512h)(W));
+                                   (__v32hf)(__m512h)(W))
 
 #define _mm512_maskz_max_round_ph(U, A, B, R) \
   (__m512h)__builtin_ia32_selectph_512((__mmask32)(U), \
                                    (__v32hf)_mm512_max_round_ph((A), (B), (R)), \
-                                   (__v32hf)_mm512_setzero_ph());
+                                   (__v32hf)_mm512_setzero_ph())
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
 _mm512_abs_ph(__m512h __A) {
