@@ -1042,6 +1042,14 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &MF) {
     computeFreeStackSlots(MFI, StackGrowsDown, MinCSFrameIndex, MaxCSFrameIndex,
                           FixedCSEnd, StackBytesFree);
 
+#if INTEL_CUSTOMIZATION
+  if (MFI.VecSpillMap.size()) {
+    // VecSpill alignment boundary is at least 16 bytes (XMM registers).
+    Align Alignment(16);
+    MaxAlign = std::max(MaxAlign, Alignment);
+    Offset = alignTo(Offset, Alignment, Skew);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Now walk the objects and actually assign base offsets to them.
   for (auto &Object : ObjectsToAllocate)
     if (!scavengeStackSlot(MFI, Object, StackGrowsDown, MaxAlign,
