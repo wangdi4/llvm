@@ -12,17 +12,17 @@
 
 ; Verify that the traditional inline report was produced correctly.
 
+; CHECK-IR: Function Attrs: noinline
+; CHECK-IR-NEXT: define float @foo(float* %0, i64 %1, i64 %2) #1 {
+; CHECK-IR-NEXT:   %4 = load float, float* %0, align 4
+; CHECK-IR-NEXT:   ret float %4
+; CHECK-IR-NEXT: }
+
 ; Make sure that dead arg elimination produced the IR we want
 ; CHECK-IR: define float @bas(float* %0, float %1, i64 %2, i64 %3) {
 ; CHECK-IR-NEXT:   %5 = call float @foo(float* %0, i64 %2, i64 %3)
 ; CHECK-IR-NEXT:   %6 = fadd float %1, %5
 ; CHECK-IR-NEXT:   ret float %6
-; CHECK-IR-NEXT: }
-
-; CHECK-IR: Function Attrs: noinline
-; CHECK-IR-NEXT: define float @foo(float* %0, i64 %1, i64 %2) #1 {
-; CHECK-IR-NEXT:   %4 = load float, float* %0, align 4
-; CHECK-IR-NEXT:   ret float %4
 ; CHECK-IR-NEXT: }
 
 ; CHECK-IR: attributes #1 = { noinline }
@@ -43,11 +43,11 @@
 ; For now, we are going to make sure that the metadata was set in the
 ; new function and the call instruction.
 
-; CHECK-IR-MD: define float @bas(float* %0, float %1, i64 %2, i64 %3) !intel.function.inlining.report !24 {
-; CHECK-IR-MD:   %5 = call float @foo(float* %0, i64 %2, i64 %3), !intel.callsite.inlining.report !29
-
 ; CHECK-IR-MD: ; Function Attrs: noinline
 ; CHECK-IR-MD: define float @foo(float* %0, i64 %1, i64 %2) #1 !intel.function.inlining.report !8 {
+
+; CHECK-IR-MD: define float @bas(float* %0, float %1, i64 %2, i64 %3) !intel.function.inlining.report !24 {
+; CHECK-IR-MD:   %5 = call float @foo(float* %0, i64 %2, i64 %3), !intel.callsite.inlining.report !29
 
 ; CHECK-IR-MD: !intel.module.inlining.report = !{!0, !8, !11, !24}
 
