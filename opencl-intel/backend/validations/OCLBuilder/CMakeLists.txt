@@ -3,6 +3,8 @@ set(TARGET_NAME OCLBuilder)
 project(${TARGET_NAME})
 
 add_opencl_library( ${TARGET_NAME} STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   OCLBuilder.h
   OCLBuilder.cpp
 

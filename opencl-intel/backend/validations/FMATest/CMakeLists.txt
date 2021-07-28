@@ -17,7 +17,9 @@ include_directories(
   ${GTEST_INCLUDE_DIR}
   )
 add_opencl_executable(${TARGET_NAME}
-   FusedMAtest.cpp
+  EXCLUDE_FROM_ALL_BUILD
+
+  FusedMAtest.cpp
 )
 
 if (NOT WIN32)

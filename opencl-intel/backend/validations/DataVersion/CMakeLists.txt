@@ -15,6 +15,8 @@ set (DV_INCLUDE_FILES
 
 # Data Version Library
 add_opencl_library(DataVersion STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   ${DV_INCLUDE_FILES}
   DataVersion.cpp
 )

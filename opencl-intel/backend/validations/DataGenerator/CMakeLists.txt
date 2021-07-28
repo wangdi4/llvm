@@ -10,6 +10,8 @@ include_directories(${VALIDATIONS_ROOT}/DataManager )
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
 add_opencl_library(DataGenerator STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   ${DG_INCLUDE_FILES}
   DataGenerator.cpp
   DGHelper.cpp

@@ -23,6 +23,30 @@ list(APPEND BE_TEST_DEPS
   OclCpuBackEnd${BUILD_PLATFORM}
   clang_compiler${BUILD_PLATFORM}
   ${OCL_BUILTIN_LIBS}
+
+  Comparator
+  DataGenerator
+  DataManager
+  DataVersion
+  FMAtest
+  ImathLibd
+  LLVMInterpreterPluggable
+  NEAT
+  NEATChecker
+  OCLBuilder
+  OCLBuiltinsRef
+  OCLKernelDataGenerator
+  OclRecorder
+  OclRecorderTest
+  OpenCLKernelArgumentsParser
+  PlugInNEAT
+  ProgramConfiguration
+  REFALU
+  ReflectionModuleTest
+  SATest
+  TestTypeConversion
+  ValidationTests
+  ref-ocl-tblgen
 )
 
 if (BACKEND_BUILD_VERIFICATION_LIB)
