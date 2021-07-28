@@ -1656,6 +1656,14 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 #endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
+#if INTEL_COLLAB
+  // If the byval was in a different address space, add a cast.
+  if (DL.getAllocaAddrSpace() != ArgTy->getAddressSpace()) {
+    NewAlloca = new AddrSpaceCastInst(
+        NewAlloca, ArgTy, "",
+        cast<Instruction>(NewAlloca)->getNextNonDebugInstruction());
+  }
+#endif // INTEL_COLLAB
   // Uses of the argument in the function should use our new alloca
   // instead.
   return NewAlloca;
