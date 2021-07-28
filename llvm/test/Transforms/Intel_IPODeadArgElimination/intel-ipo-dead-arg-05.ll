@@ -1,32 +1,14 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
 
-; This test case checks that IPO simplified dead argument elimination removes
-; argument %0 in function @foo, and deletes the actual parameter in
-; function @bas.
+; This test case checks that IPO simplified dead argument elimination won't
+; be performed since the target is not AVX2. This is the same test case as
+; intel-ipo-dead-arg-01.ll but it disables target AVX2.
 
 ; CHECK: Debug information for IPO dead arg elimination:
-; CHECK-NEXT:   Candidates collected: 1
-; CHECK-NEXT:     Function: foo
-; CHECK-NEXT:       Arg[0]: float* %0
-
-; CHECK:   Candidates after analysis: 1
-; CHECK-NEXT:     Function: foo
-; CHECK-NEXT:       Arg[0]: float* %0
-
-; CHECK:   Functions transformed:
-
-; CHECK:     Function: foo
-; CHECK-NEXT:         Old number of arguments: 4
-; CHECK-NEXT:         New number of arguments: 3
-
-; CHECK:     Total functions modified: 1
-
-; CHECK:   Actual parameters removed:
-; CHECK-NEXT:     Function: bas
-; CHECK-NEXT:       Instruction:   %5 = alloca float, i64 %3, align 4
-; CHECK-NEXT:    Total of actual parameter removed: 1
+; CHECK-NEXT:   AVX disabled
+; CHECK-NEXT:   Total functions modified: 0
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

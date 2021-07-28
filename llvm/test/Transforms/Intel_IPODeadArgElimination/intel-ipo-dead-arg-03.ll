@@ -1,13 +1,13 @@
 ; REQUIRES: asserts
-; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -passes=intel-ipo-dead-arg-elimination -debug-only=intel-ipo-dead-arg-elimination -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 %s -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that IPO simplified dead argument elimination won't
 ; remove argument %0 in function @foo since the actual parameter is passed
 ; to @bar, which isn't a candidate for the transformation.
 
 ; CHECK: Debug information for IPO dead arg elimination:
-; CHECK-NEXT:   Cadidates collected: 1
+; CHECK-NEXT:   Candidates collected: 1
 ; CHECK-NEXT:     Function: foo
 ; CHECK-NEXT:       Arg[0]: float* %0
 

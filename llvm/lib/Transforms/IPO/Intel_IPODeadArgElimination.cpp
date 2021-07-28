@@ -125,7 +125,7 @@ class IPDeadArgElimination {
 public:
   IPDeadArgElimination(Module &M) : M(M) {}
 
-  bool runImpl();
+  bool runImpl(WholeProgramInfo &WPInfo);
 
 private:
   Module &M;
@@ -730,21 +730,35 @@ bool IPDeadArgElimination::applyTransformation() {
   return Changed;
 }
 
-bool IPDeadArgElimination::runImpl() {
+bool IPDeadArgElimination::runImpl(WholeProgramInfo &WPInfo) {
 
   if (!EnableDeadArgEliminationStore)
     return false;
 
+  // Check if AVX2 is supported.
+  LLVM_DEBUG(dbgs() << "Debug information for IPO dead arg elimination:\n");
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
+  if (!WPInfo.isAdvancedOptEnabled(TTIAVX2)) {
+    LLVM_DEBUG({
+      dbgs() << "  AVX disabled\n";
+      dbgs() << "  Total functions modified: "
+             << NumOfFunctionsTransformed << "\n\n";
+    });
+    return false;
+  }
+
   for (Function &F : M) {
-    if (F.isDeclaration() || F.arg_empty())
+    // The function must be local, no varargs and shouldn't be naked.
+    if (F.isDeclaration() || F.arg_empty() ||
+        !F.hasLocalLinkage() || F.isVarArg() ||
+        F.hasFnAttribute(Attribute::Naked))
       continue;
 
     collectData(F);
   }
 
   LLVM_DEBUG({
-    dbgs() << "Debug information for IPO dead arg elimination:\n";
-    dbgs() << "  Cadidates collected: " << DeadArgsCandidatesMap.size()
+    dbgs() << "  Candidates collected: " << DeadArgsCandidatesMap.size()
            << "\n";
     for (auto Pair : DeadArgsCandidatesMap) {
       dbgs() << "    Function: " << Pair.first->getName() << "\n";
@@ -790,8 +804,9 @@ bool IPDeadArgElimination::runImpl() {
 PreservedAnalyses
 IntelIPODeadArgEliminationPass::run(Module &M, ModuleAnalysisManager &AM) {
 
+  auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   IPDeadArgElimination DeleteDeadArgs(M);
-  if (!DeleteDeadArgs.runImpl())
+  if (!DeleteDeadArgs.runImpl(WPInfo))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -820,10 +835,12 @@ public:
       return false;
 
     IPDeadArgElimination DeleteDeadArgs(M);
-    return DeleteDeadArgs.runImpl();
+    auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
+    return DeleteDeadArgs.runImpl(WPInfo);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
@@ -838,6 +855,7 @@ char IntelIPODeadArgEliminationWrapper::ID = 0;
 
 INITIALIZE_PASS_BEGIN(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
                       "Intel IPO Dead Argument Elimination", false, false)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(IntelIPODeadArgEliminationWrapper, DEBUG_TYPE,
                     "Intel IPO Dead Argument Elimination", false, false)
 
