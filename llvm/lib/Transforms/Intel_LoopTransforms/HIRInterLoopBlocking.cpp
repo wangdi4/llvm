@@ -1587,6 +1587,111 @@ class Transformer {
 
   typedef std::set<const HLInst *, TopSortCompare> InstsToCloneSetTy;
 
+  // Subtract AdjustingRef from a ref in loop's body.
+  // by the same def location.
+  // Example:
+  // Input loop before alignment
+  // for i = 0, N
+  //  for j = 0, M
+  //   a[i][j+1] = b[i][j] + 3;
+  //
+  // After alignment
+  // for i = 0, N
+  //  for j = 1, M + 1
+  //   a[i][j] = b[i][j - 1] + 3;
+  //
+  // This function only takes care of loop's body. Loop bounds are taken care
+  // of another function.
+  // The alignment is achieved by subtracting AdjustingRef, base[0][1] from
+  // a memref.
+  class LoopBodyAligner final : public HLNodeVisitorBase {
+  private:
+    HLNode *SkipNode;
+
+    // Loop to update
+    HLLoop *Loop;
+    const RegDDRef *AdjustingRef;
+    const DenseMap<unsigned, unsigned> &MapFromLevelToDim;
+
+  public:
+    LoopBodyAligner(HLLoop *Loop, const RegDDRef *AdjustingRef,
+                    const DenseMap<unsigned, unsigned> &MapFromLevelToDim)
+        : SkipNode(nullptr), Loop(Loop), AdjustingRef(AdjustingRef),
+          MapFromLevelToDim(MapFromLevelToDim) {}
+
+    void update() {
+      HLNodeUtils::visitRange(*this, Loop->child_begin(), Loop->child_end());
+    }
+
+    // Skip any inner level loops. This visitor is supposed to take care of
+    // only the refs in its self body, not in bodies of its children.
+    void visit(HLLoop *Lp) { SkipNode = Lp; };
+    void visit(HLNode *Node) {}
+    void postVisit(HLNode *Node) {}
+
+    bool skipRecursion(HLNode *Node) { return SkipNode == Node; }
+
+    // Main logic: update all ddrefs of a HLDDNode
+    void visit(HLDDNode *Node) {
+      for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+
+        if (!Ref->hasGEPInfo())
+          continue;
+
+        std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
+
+        // For a Ref, go through dimensions, and get IV Level
+        // Get the dim and get the CE from RepRef
+        for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+
+          assert(CE->numIVs() <= 1);
+
+          // get IV Level from CE
+          unsigned FoundIVLevel = 0;
+          for (auto Level : make_range(AllLoopLevelRange::begin(),
+                                       AllLoopLevelRange::end())) {
+            int64_t Coeff = 0;
+            unsigned Index = 0;
+            CE->getIVCoeff(Level, &Index, &Coeff);
+            if (Coeff != 0) {
+              FoundIVLevel = Level;
+              break;
+            }
+          }
+
+          if (!FoundIVLevel)
+            continue;
+
+          auto It = MapFromLevelToDim.find(FoundIVLevel);
+          assert(It != MapFromLevelToDim.end());
+          unsigned Dim = It->second;
+          const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(Dim);
+
+          CanonExprUtils::subtract(CE, AdjustCE);
+        }
+
+        // Initial makeConsistent using original refs.
+        // After this point, nonlinear is truly nonlinear.
+        // Also, IV + const should have Def@Level zero.
+        printMarker("Orig Ref: ", {OrigRef.get()}, true);
+        printMarker("AdjustingRef: ", {AdjustingRef}, true);
+        printMarker("Ref: ", {Ref}, true);
+
+        // Cannot use RepRef here as an auxiliary ref
+        // because RepRef itself is aligned by this function
+        // and get changed. Instead, use AdjustingRef,
+        // since it is a RepRef minus IVs.
+        // It contains all the blobs.
+        Ref->makeConsistent({OrigRef.get(), AdjustingRef});
+      }
+    }
+
+  private:
+    static void alignSpatialLoopBounds(RegDDRef *Ref,
+                                       const CanonExpr *AdjustingCE,
+                                       const RegDDRef *AdjustingRef);
+  };
+
 public:
   HIRDDAnalysis &DDA;
 
@@ -2023,102 +2128,6 @@ private:
     Ref->updateDefLevel();
   }
 
-  // Subtract AdjustingRef from a ref in loop's body.
-  // by the same def location.
-  // Example:
-  // Input loop before alignment
-  // for i = 0, N
-  //  for j = 0, M
-  //   a[i][j+1] = b[i][j] + 3;
-  //
-  // After alignment
-  // for i = 0, N
-  //  for j = 1, M + 1
-  //   a[i][j] = b[i][j - 1] + 3;
-  //
-  // This function only takes care of loop's body. Loop bounds are taken care
-  // of another function.
-  // The alignment is achieved by subtracting AdjustingRef, base[0][1] from
-  // a memref.
-  void
-  alignSpatialLoopBody(const LoopAndDimInfoTy &LoopAndDimInfo,
-                       const LoopToRefTy &InnermostLoopToAdjustingRef) const {
-
-    HLLoop *InnermostLoop = LoopAndDimInfo.first;
-    // Get a Ref to be used for Adjusting
-    const RegDDRef *AdjustingRef =
-        InnermostLoopToAdjustingRef.at(InnermostLoop);
-
-    LLVM_DEBUG(dbgs() << "*** AdjustingRef for Loop:"
-                      << InnermostLoop->getNumber() << "\n");
-    LLVM_DEBUG(AdjustingRef->dump(); dbgs() << "\n");
-
-    const RegDDRef *RepRef = InnermostLoopToRepRef.at(InnermostLoop);
-    unsigned Level = InnermostLoop->getNestingLevel();
-    const auto &DimInfo = LoopAndDimInfo.second;
-    DenseMap<unsigned, unsigned> MapFromLevelToDim;
-    for (unsigned I = 0, Size = LoopAndDimInfo.second.size(); I < Size; I++) {
-      if (!DimInfo[I].hasIV())
-        continue;
-
-      MapFromLevelToDim.insert({Level - DimInfo[I].LevelOffset, I + 1});
-    }
-
-    printMarker("AdjustingRef at alignRefs: ", {AdjustingRef});
-    printMarker("RepRef at alignRefs: ", {RepRef});
-
-    ForEach<RegDDRef>::visitRange(
-        InnermostLoop->child_begin(), InnermostLoop->child_end(),
-        [AdjustingRef, &MapFromLevelToDim, InnermostLoop](RegDDRef *Ref) {
-          std::unique_ptr<RegDDRef> OrigRef(Ref->clone());
-
-          // For a Ref, go through dimensions, and get IV Level
-          // Get the dim and get the CE from RepRef
-          for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-
-            assert(CE->numIVs() <= 1);
-
-            // get IV Level from CE
-            unsigned FoundIVLevel = 0;
-            for (auto Level : make_range(AllLoopLevelRange::begin(),
-                                         AllLoopLevelRange::end())) {
-              int64_t Coeff = 0;
-              unsigned Index = 0;
-              CE->getIVCoeff(Level, &Index, &Coeff);
-              if (Coeff != 0) {
-                FoundIVLevel = Level;
-                break;
-              }
-            }
-
-            if (!FoundIVLevel)
-              continue;
-
-            auto It = MapFromLevelToDim.find(FoundIVLevel);
-            assert(It != MapFromLevelToDim.end());
-            unsigned Dim = It->second;
-            const CanonExpr *AdjustCE = AdjustingRef->getDimensionIndex(Dim);
-
-            CanonExprUtils::subtract(CE, AdjustCE);
-          }
-
-          // Initial makeConsistent using original refs.
-          // After this point, nonlinear is truly nonlinear.
-          // Also, IV + const should have Def@Level zero.
-          printMarker("Orig Ref: ", {OrigRef.get()}, true);
-          printMarker("AdjustingRef: ", {AdjustingRef}, true);
-          printMarker("Ref: ", {Ref}, true);
-          printMarker("InnermostLoop Number: ", {InnermostLoop});
-
-          // Cannot use RepRef here as an auxiliary ref
-          // because RepRef itself is aligned by this function
-          // and get changed. Instead, use AdjustingRef,
-          // since it is a RepRef minus IVs.
-          // It contains all the blobs.
-          Ref->makeConsistent({OrigRef.get(), AdjustingRef});
-        });
-  }
-
   // Add AdjustingRef to loop's bounds.
   CanonExpr *alignSpatialLoopBounds(RegDDRef *Ref, const RegDDRef *AdjustingRef,
                                     unsigned DimNum) const {
@@ -2150,18 +2159,57 @@ private:
   // for i = 0, N
   //  for j = 1, M + 1
   //   a[i][j] = b[i][j - 1] + 3;
-  void alignSpatialLoops(const LoopToRefTy &InnermostLoopToAdjustingRef) const {
+  void alignSpatialLoops(const LoopToRefTy &InnermostLoopToAdjustingRef) {
 
     // TODO: Why only innermost loop?
     //       This is under the assumption, no other loop body contains
     //       non-loop-invariant memrefs. At least make sure if that is true.
-    for (auto &LoopAndDimInfo : InnermostLoopToDimInfos) {
-      alignSpatialLoopBody(LoopAndDimInfo, InnermostLoopToAdjustingRef);
+
+    // Loops are located from an innermost loop.
+    // A Loop can contain more than one innermost loop.
+    // ProcessedTargetLoops records those (non-innermost) loops
+    // so that each may be processed exactly once.
+    std::unordered_set<const HLLoop *> ProcessedTargetLoops;
+    int GlobalNumDims = StripmineSizes.size();
+
+    // Loop bodies
+    for (auto &LoopAndDimInfoVec : InnermostLoopToDimInfos) {
+
+      DenseMap<unsigned, unsigned> MapFromLevelToDim;
+      auto &DimInfo = LoopAndDimInfoVec.second;
+      unsigned DimInfoVecSize = DimInfo.size();
+      HLLoop *InnermostLoop = LoopAndDimInfoVec.first;
+      unsigned Level = InnermostLoop->getNestingLevel();
+
+      for (unsigned I = 0, Size = DimInfoVecSize; I < Size; I++) {
+        if (!DimInfo[I].hasIV())
+          continue;
+
+        MapFromLevelToDim.insert({Level - DimInfo[I].LevelOffset, I + 1});
+      }
+
+      for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
+
+        HLLoop *TargetLoop =
+            getLoopMatchingDimNum(DimNum, DimInfoVecSize, InnermostLoop);
+        if (!TargetLoop)
+          continue;
+
+        if (ProcessedTargetLoops.count(TargetLoop))
+          continue;
+        else
+          ProcessedTargetLoops.insert(TargetLoop);
+
+        const RegDDRef *AdjustingRef =
+            InnermostLoopToAdjustingRef.at(InnermostLoop);
+
+        LoopBodyAligner(TargetLoop, AdjustingRef, MapFromLevelToDim).update();
+      }
     }
 
-    std::unordered_set<const HLLoop *> ProcessedTargetLoops;
+    ProcessedTargetLoops.clear();
 
-    int GlobalNumDims = StripmineSizes.size();
+    // Loop bounds
     for (int DimNum = 1; DimNum <= GlobalNumDims; DimNum++) {
 
       // Alignment should be done at all levels, regardless of
@@ -2169,9 +2217,9 @@ private:
 
       // Collect all Lower/AlignedUpperBounds from InnermostLoop
       for (auto &LoopAndDimInfoVec : InnermostLoopToDimInfos) {
-        const HLLoop *InnermostLoop = LoopAndDimInfoVec.first;
+        HLLoop *InnermostLoop = LoopAndDimInfoVec.first;
 
-        const HLLoop *TargetLoop = getLoopMatchingDimNum(
+        HLLoop *TargetLoop = getLoopMatchingDimNum(
             DimNum, LoopAndDimInfoVec.second.size(), InnermostLoop);
         if (!TargetLoop)
           continue;
@@ -2183,15 +2231,13 @@ private:
 
         const RegDDRef *AdjustingRef =
             InnermostLoopToAdjustingRef.at(InnermostLoop);
-        RegDDRef *LBRef = const_cast<RegDDRef *>(TargetLoop->getLowerDDRef());
 
-        printMarker("LB before: ", {LBRef}, true);
-
-        alignSpatialLoopBounds(LBRef, AdjustingRef, DimNum);
-
-        RegDDRef *UBRef = const_cast<RegDDRef *>(TargetLoop->getUpperDDRef());
-        alignSpatialLoopBounds(UBRef, AdjustingRef, DimNum);
-        printMarker("LB After: ", {TargetLoop->getLowerDDRef()});
+        printMarker("LB before: ", {TargetLoop->getLowerDDRef()}, true);
+        alignSpatialLoopBounds(TargetLoop->getLowerDDRef(), AdjustingRef,
+                               DimNum);
+        printMarker("LB after: ", {TargetLoop->getLowerDDRef()}, true);
+        alignSpatialLoopBounds(TargetLoop->getUpperDDRef(), AdjustingRef,
+                               DimNum);
       }
     }
   }
