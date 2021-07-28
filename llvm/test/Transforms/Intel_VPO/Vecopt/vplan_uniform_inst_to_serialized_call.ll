@@ -11,9 +11,9 @@ declare token @llvm.directive.region.entry()
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token)
 
-declare void @foo(<2 x i64>, i64)
+declare void @foo(<2 x i64>, i64) #1
 
-declare <2 x i64> @bar(<2 x i64>) nounwind readnone
+declare <2 x i64> @bar(<2 x i64>) nounwind readnone #1
 
 define void @test1(i64 %n, <2 x i64>* %arr) {
 entry:
@@ -66,3 +66,5 @@ for.end:
 exit:
   ret void
 }
+
+attributes #1 = { willreturn }
