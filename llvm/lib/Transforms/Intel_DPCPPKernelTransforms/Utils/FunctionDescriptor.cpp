@@ -85,7 +85,7 @@ bool FunctionDescriptor::operator==(const FunctionDescriptor &that) const {
     return true;
   if (Name != that.Name)
     return false;
-  return equal(Parameters, that.Parameters);
+  return ::equal(Parameters, that.Parameters);
 }
 
 bool FunctionDescriptor::operator<(const FunctionDescriptor &that) const {
