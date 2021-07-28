@@ -36,6 +36,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   CleanupWrappedKernel.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/SGSizeCollector.cpp
+  VectorVariant/SGSizeCollectorIndirect.cpp
   VectorVariant/UpdateCallAttrs.cpp
   VectorVariant/VectorVariantFillIn.cpp
   VectorVariant/VectorVariantLowering.cpp

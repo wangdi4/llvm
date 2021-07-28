@@ -86,6 +86,7 @@ MODULE_PASS("dpcpp-kernel-vector-variant-fillin", VectorVariantFillIn())
 MODULE_PASS("dpcpp-kernel-vector-variant-lowering", VectorVariantLowering())
 MODULE_PASS("dpcpp-kernel-create-simd-variant-propagation", CreateSimdVariantPropagation())
 MODULE_PASS("dpcpp-kernel-sg-size-collector", SGSizeCollectorPass())
+MODULE_PASS("dpcpp-kernel-sg-size-collector-indirect", SGSizeCollectorIndirectPass())
 
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-data-per-value-analysis>", DataPerValuePrinter(dbgs()))
