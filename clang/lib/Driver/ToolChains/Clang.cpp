@@ -6599,7 +6599,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-vpo-paropt-use-offload-metadata=false");
   }
   if (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
-                   false)) {
+                   D.IsIntelMode())) {
     // FIXME: Add better interactions with -fopenmp-simd.
     if (!JA.isDeviceOffloading(Action::OFK_SYCL))
       CmdArgs.push_back("-fopenmp-simd");
@@ -7795,8 +7795,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Only add -paropt for OpenMP offloading or Host.
   if ((Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false) ||
        Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
-                    false)) && (JA.isDeviceOffloading(Action::OFK_None) ||
-                                JA.isDeviceOffloading(Action::OFK_OpenMP))) {
+                    D.IsIntelMode())) &&
+      (JA.isDeviceOffloading(Action::OFK_None) ||
+       JA.isDeviceOffloading(Action::OFK_OpenMP))) {
 #endif // INTEL_CUSTOMIZATION
     int paroptVal = IsOpenMPDevice ? 0x20 : 0x0;
     bool paroptSeen = false;
