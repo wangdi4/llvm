@@ -628,7 +628,6 @@ void initializeHIRMVForVariableStrideLegacyPassPass(PassRegistry&);
 void initializeHIRLoopConcatenationLegacyPassPass(PassRegistry&);
 void initializeHIRArrayTransposeLegacyPassPass(PassRegistry&);
 void initializeHIRAosToSoaLegacyPassPass(PassRegistry&);
-void initializeHIRInterLoopBlockingLegacyPassPass(PassRegistry&);
 void initializeHIRLoopFusionLegacyPassPass(PassRegistry&);
 void initializeHIRDeadStoreEliminationLegacyPassPass(PassRegistry&);
 void initializeHIRLastValueComputationLegacyPassPass(PassRegistry&);
@@ -649,7 +648,10 @@ void initializeHIRSumWindowReuseLegacyPassPass(PassRegistry &);
 void initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRIdentityMatrixSubstitutionLegacyPassPass(PassRegistry&);
 void initializeHIRArrayScalarizationTestLauncherLegacyPassPass(PassRegistry &);
+#if INTEL_FEATURE_SW_ADVANCED
+void initializeHIRInterLoopBlockingLegacyPassPass(PassRegistry &);
 void initializeHIRCrossLoopArrayContractionLegacyPassPass(PassRegistry&);
+#endif // INTEL_FEATURE_SW_ADVANCED
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);

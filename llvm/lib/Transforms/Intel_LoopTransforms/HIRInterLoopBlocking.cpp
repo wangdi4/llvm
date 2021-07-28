@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 // ===- HIRInterLoopBlocking.cpp - Blocking over multiple loopnests -==//
 //
 // Copyright (C) 2020 Intel Corporation. All rights reserved.
@@ -4513,3 +4514,4 @@ INITIALIZE_PASS_END(HIRInterLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
 FunctionPass *llvm::createHIRInterLoopBlockingPass() {
   return new HIRInterLoopBlockingLegacyPass();
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

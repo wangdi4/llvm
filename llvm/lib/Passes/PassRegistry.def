@@ -551,7 +551,6 @@ FUNCTION_PASS("hir-array-transpose", loopopt::HIRArrayTransposePass())
 FUNCTION_PASS("hir-aos-to-soa", loopopt::HIRAosToSoaPass())
 FUNCTION_PASS("hir-general-unroll", loopopt::HIRGeneralUnrollPass())
 FUNCTION_PASS("hir-idiom", loopopt::HIRIdiomRecognitionPass())
-FUNCTION_PASS("hir-inter-loop-blocking", loopopt::HIRInterLoopBlockingPass())
 FUNCTION_PASS("hir-lmm", loopopt::HIRLMMPass())
 FUNCTION_PASS("hir-last-value-computation", loopopt::HIRLastValueComputationPass())
 FUNCTION_PASS("hir-loop-collapse", loopopt::HIRLoopCollapsePass())
@@ -606,7 +605,10 @@ FUNCTION_PASS("hir-non-zero-sinking-for-perfect-loopnest", loopopt::HIRNonZeroSi
 FUNCTION_PASS("hir-identity-matrix-substitution", loopopt::HIRIdentityMatrixSubstitutionPass())
 FUNCTION_PASS("hir-arrayscalarization-test-launcher", loopopt::HIRArrayScalarizationTestLauncherPass())
 FUNCTION_PASS("vpo-paropt-shared-privatization", VPOParoptSharedPrivatizationPass())
+#if INTEL_FEATURE_SW_ADVANCED
+FUNCTION_PASS("hir-inter-loop-blocking", loopopt::HIRInterLoopBlockingPass())
 FUNCTION_PASS("hir-cross-loop-array-contraction", loopopt::HIRCrossLoopArrayContractionPass())
+#endif // INTEL_FEATURE_SW_ADVANCED
 FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())

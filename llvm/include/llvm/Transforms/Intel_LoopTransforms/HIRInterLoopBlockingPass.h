@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===---- HIRInterLoopBlocking.h -----------------------------===//
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
@@ -31,3 +32,4 @@ public:
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRINTERLOOPBLOCKING_H
+#endif // INTEL_FEATURE_SW_ADVANCED

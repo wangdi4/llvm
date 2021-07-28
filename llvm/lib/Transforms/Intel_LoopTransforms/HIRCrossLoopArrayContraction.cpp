@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===---------------- HIRCrossLoopArrayContraction.cpp --------------------===//
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
@@ -199,11 +200,7 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
                         << Loop->getNumber() << "\n";
                  Loop->dump(); dbgs() << "\n";);
 
-#if INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(Loop, nullptr);
-#else // INTEL_FEATURE_SW_DTRANS
-      HIRTransformUtils::doConstantPropagation(Loop);
-#endif // INTEL_FEATURE_SW_DTRANS
     });
   }
 
@@ -1790,3 +1787,4 @@ PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
       .run();
   return PreservedAnalyses::all();
 }
+#endif // INTEL_FEATURE_SW_ADVANCED
