@@ -332,6 +332,9 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
 
+// Print the device information
+void __tgt_rtl_print_device_info(int32_t ID);
+
 #ifdef __cplusplus
 }
 #endif
