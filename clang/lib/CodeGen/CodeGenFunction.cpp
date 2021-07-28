@@ -127,7 +127,7 @@ void CodeGenFunction::SetFastMathFlags(FPOptions FPFeatures) {
   FMF.setAllowReassoc(FPFeatures.getAllowFPReassociate());
 #if INTEL_CUSTOMIZATION
   FMF.setNoNaNs(FPFeatures.getNoHonorNaNs() &&
-                !FPFeatures.getHonorNaNCompares());
+                !getLangOpts().HonorNaNCompares);
 #endif // INTEL_CUSTOMIZATION
   FMF.setNoInfs(FPFeatures.getNoHonorInfs());
   FMF.setNoSignedZeros(FPFeatures.getNoSignedZero());
@@ -188,7 +188,7 @@ void CodeGenFunction::CGFPOptionsRAII::ConstructorHelper(FPOptions FPFeatures) {
   mergeFnAttrValue("no-infs-fp-math", FPFeatures.getNoHonorInfs());
 #if INTEL_CUSTOMIZATION
   mergeFnAttrValue("no-nans-fp-math", FPFeatures.getNoHonorNaNs() &&
-                                      !FPFeatures.getHonorNaNCompares());
+                   !CGF.getLangOpts().HonorNaNCompares);
 #endif // INTEL_CUSTOMIZATION
   mergeFnAttrValue("no-signed-zeros-fp-math", FPFeatures.getNoSignedZero());
   mergeFnAttrValue("unsafe-fp-math", FPFeatures.getAllowFPReassociate() &&

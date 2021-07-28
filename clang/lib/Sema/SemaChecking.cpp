@@ -1649,7 +1649,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     case Builtin::BI__builtin_isnanf:
     case Builtin::BI__builtin_isnanl: {
       FPOptions FPO = TheCall->getFPFeaturesInEffect(getLangOpts());
-      if (FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares())
+      if (FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares)
         Diag(TheCall->getBeginLoc(), diag::warn_fast_floating_point_eq)
             << "NaN" << TheCall->getSourceRange();
       break;
@@ -11672,7 +11672,7 @@ void Sema::CheckInfNaNFunction(const CallExpr *Call,
 
   FPOptions FPO = Call->getFPFeaturesInEffect(getLangOpts());
   if (IsStdFunction(FDecl, "isnan") && FPO.getNoHonorNaNs() &&
-      !FPO.getHonorNaNCompares())
+      !getLangOpts().HonorNaNCompares)
     Diag(Call->getBeginLoc(), diag::warn_fast_floating_point_eq)
         << "NaN" << Call->getSourceRange();
   else if (IsStdFunction(FDecl, "isinf") && FPO.getNoHonorInfs())
@@ -12667,7 +12667,7 @@ void Sema::CheckFloatComparison(SourceLocation Loc, Expr *LHS, Expr *RHS,
   // since comparison to NaN or INFINITY is always false in
   // fast modes: float evaluation will not result in inf or nan.
   FPOptions FPO = LHS->getFPFeaturesInEffect(getLangOpts());
-  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !FPO.getHonorNaNCompares();
+  bool NoHonorNaNs = FPO.getNoHonorNaNs() && !getLangOpts().HonorNaNCompares;
   bool NoHonorInfs = FPO.getNoHonorInfs();
   llvm::APFloat Value(0.0);
   bool IsConstant;

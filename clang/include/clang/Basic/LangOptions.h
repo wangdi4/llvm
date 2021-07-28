@@ -571,9 +571,6 @@ public:
     setNoSignedZero(LO.NoSignedZero);
     setAllowReciprocal(LO.AllowRecip);
     setAllowApproxFunc(LO.ApproxFunc);
-#if INTEL_CUSTOMIZATION
-    setHonorNaNCompares(LO.HonorNaNCompares);
-#endif // INTEL_CUSTOMIZATION
     if (getFPContractMode() == LangOptions::FPM_On &&
         getRoundingMode() == llvm::RoundingMode::Dynamic &&
         getFPExceptionMode() == LangOptions::FPE_Strict)
@@ -704,9 +701,6 @@ public:
     else
       /* Precise mode disabled sets fp_contract=fast and enables ffast-math */
       setAllowFPContractAcrossStatement();
-#if INTEL_CUSTOMIZATION
-    setHonorNaNComparesOverride(Value);
-#endif // INTEL_CUSTOMIZATION
   }
 
   storage_type getAsOpaqueInt() const {
