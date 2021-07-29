@@ -204,16 +204,11 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
     return false;
   }
 
-  // To get the live-in parameters of VPGeneralMemOptConflict, we just have to
-  // skip the first three operands.
-  SmallVector<VPValue *, 2> LiveInParams;
-  for (unsigned i = 3; i < VPConflict->getNumOperands(); i++)
-    LiveInParams.push_back(VPConflict->getOperand(i));
-
   VPlan *Plan = VPConflict->getParent()->getParent();
   auto *DA = Plan->getVPlanDA();
-  bool HasUniformValue = llvm::any_of(
-      LiveInParams, [DA](VPValue *Val) { return DA->isUniform(*Val); });
+  bool HasUniformValue =
+      llvm::all_of(VPConflict->getliveins(),
+                   [DA](VPValue *Val) { return DA->isUniform(*Val); });
 
   // The VConflict idiom is histogram when its region has only live-in which is
   // uniform.
