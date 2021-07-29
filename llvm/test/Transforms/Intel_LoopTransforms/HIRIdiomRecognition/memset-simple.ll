@@ -29,13 +29,13 @@
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT: <Small trip count multiversioned v1>
-;OPTREPORT-NEXT:     remark #25560: Memset(with guard) generated
+;OPTREPORT-NEXT: <Multiversioned v1>
+;OPTREPORT-NEXT:     remark #25408: memset generated
 ;OPTREPORT-NEXT:     remark #25562: The loop has been multiversioned for the small trip count
 ;OPTREPORT-NEXT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT: <Small trip count multiversioned v2 (small)>
+;OPTREPORT-NEXT: <Multiversioned v2>
 ;OPTREPORT-NEXT: LOOP END
 
 

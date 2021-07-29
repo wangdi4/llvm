@@ -524,8 +524,8 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
     OptReportBuilder &ORBuilder =
         Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-    // The memset idiom has been recognized
-    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
+    // Memset generated
+    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25408u);
     return true;
   }
 
@@ -585,8 +585,8 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
   OptReportBuilder &ORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  // The memcpy idiom has been recognized
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
+  // Memcopy generated
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25399u);
   return true;
 }
 
@@ -723,12 +723,14 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
 
       // The loop has been multiversioned for the small trip count
+      // Multiversioned v1
       ORBuilder(*Loop)
-          .addOrigin("Small trip count multiversioned v1")
+          .addOrigin(25474u, 1)
           .addRemark(OptReportVerbosity::Low, 25562u);
 
+      // Multiversioned v2
       ORBuilder(*OrigLoopClone)
-          .addOrigin("Small trip count multiversioned v2 (small)");
+          .addOrigin(25474u, 2);
     }
 
     HLNodeUtils::removeEmptyNodes(Loop, false);
