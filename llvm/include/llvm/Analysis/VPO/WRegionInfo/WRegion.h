@@ -235,6 +235,8 @@ public:
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
+
+  void printNormIVUB(formatted_raw_ostream &OS) const;
 };
 
 /// WRN for

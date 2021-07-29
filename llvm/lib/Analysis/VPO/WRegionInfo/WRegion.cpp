@@ -80,6 +80,30 @@ Type *WRNLoopInfo::getNormUBElemTy(unsigned I) const {
   return NormUBElemTy[I];
 }
 
+void WRNLoopInfo::printNormIVUB(formatted_raw_ostream &OS) const {
+  if (NormIV.size() > 0) {
+    OS << "  IV clause: ";
+    for (unsigned I = 0; I < NormIV.size(); I++) {
+      NormIV[I]->print(OS);
+      OS << ", TYPED (TYPE: ";
+      NormIVElemTy[I]->print(OS);
+      OS << ", NUM_ELEMENTS: i32 1); ";
+    }
+    OS << "\n";
+  }
+
+  if (NormUB.size() > 0) {
+    OS << "  UB clause: ";
+    for (unsigned I = 0; I < NormUB.size(); I++) {
+      NormUB[I]->print(OS);
+      OS << ", TYPED (TYPE: ";
+      NormUBElemTy[I]->print(OS);
+      OS << ", NUM_ELEMENTS: i32 1); ";
+    }
+    OS << "\n";
+  }
+}
+
 void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned Verbosity) const {
   int Ind = 2*Depth;
@@ -90,11 +114,12 @@ void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,
     return;
   }
 
+  printNormIVUB(OS);
+
   vpo::printBB("Loop Preheader", L->getLoopPreheader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Header", L->getHeader(), OS, Ind, Verbosity);
   vpo::printBB("Loop Latch", L->getLoopLatch(), OS, Ind, Verbosity);
   vpo::printBB("Loop ZTTBB", getZTTBBOrNull(), OS, Ind, Verbosity);
-
   OS << "\n";
 }
 
