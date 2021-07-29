@@ -178,7 +178,9 @@ bool HIRLoopDistribution::run() {
     // Single piblock graph isn't worth considering
     if (PG->size() < 2) {
       // TODO might still be able to scalar expand though...
-      LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION:  too many dependences\n");
+      LLVM_DEBUG(
+          dbgs()
+          << "LOOP DISTRIBUTION: Deps result in single-node Piblock-Graph\n");
 
       if (DistCostModel != DistHeuristics::BreakMemRec) {
         continue;
