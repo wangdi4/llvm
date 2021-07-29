@@ -524,8 +524,10 @@ private:
   template <typename KernelName, typename KernelType, int Dims,
             typename LambdaArgType>
   void StoreLambda(KernelType KernelFunc) {
-    if (detail::isKernelLambdaCallableWithKernelHandler<KernelType,
-                                                        LambdaArgType>() &&
+/* INTEL_CUSTOMIZATION */
+    if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
+                                                 LambdaArgType>::value &&
+/* end INTEL_CUSTOMIZATION */
         MIsHost) {
       throw cl::sycl::feature_not_supported(
           "kernel_handler is not yet supported by host device.",
@@ -1001,8 +1003,10 @@ private:
 
   // Wrappers for kernel_single_task(...)
 
+/* INTEL_CUSTOMIZATION */
   template <typename KernelName, typename KernelType>
-  void
+  detail::enable_if_t<
+      detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_single_task_wrapper(KernelType KernelFunc) {
 #else
@@ -1011,19 +1015,29 @@ private:
 #ifdef __SYCL_DEVICE_ONLY__
     detail::CheckDeviceCopyable<KernelType>();
 #endif // __SYCL_DEVICE_ONLY__
-    if constexpr (detail::isKernelLambdaCallableWithKernelHandler<
-                      KernelType>()) {
-      kernel_handler KH;
-      kernel_single_task<KernelName>(KernelFunc, KH);
-    } else {
-      kernel_single_task<KernelName>(KernelFunc);
-    }
+    kernel_handler KH;
+    kernel_single_task<KernelName>(KernelFunc, KH);
+  }
+
+  template <typename KernelName, typename KernelType>
+  detail::enable_if_t<
+      !detail::KernelLambdaHasKernelHandlerArgT<KernelType>::value>
+#ifdef __SYCL_NONCONST_FUNCTOR__
+  kernel_single_task_wrapper(KernelType KernelFunc) {
+#else
+  kernel_single_task_wrapper(const KernelType &KernelFunc) {
+#endif
+#ifdef __SYCL_DEVICE_ONLY__
+    detail::CheckDeviceCopyable<KernelType>();
+#endif // __SYCL_DEVICE_ONLY__
+    kernel_single_task<KernelName>(KernelFunc);
   }
 
   // Wrappers for kernel_parallel_for(...)
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  void
+  detail::enable_if_t<
+      detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_wrapper(KernelType KernelFunc) {
 #else
@@ -1032,19 +1046,29 @@ private:
 #ifdef __SYCL_DEVICE_ONLY__
     detail::CheckDeviceCopyable<KernelType>();
 #endif // __SYCL_DEVICE_ONLY__
-    if constexpr (detail::isKernelLambdaCallableWithKernelHandler<
-                      KernelType, ElementType>()) {
-      kernel_handler KH;
-      kernel_parallel_for<KernelName, ElementType>(KernelFunc, KH);
-    } else {
-      kernel_parallel_for<KernelName, ElementType>(KernelFunc);
-    }
+    kernel_handler KH;
+    kernel_parallel_for<KernelName, ElementType>(KernelFunc, KH);
+  }
+
+  template <typename KernelName, typename ElementType, typename KernelType>
+  detail::enable_if_t<
+      !detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
+#ifdef __SYCL_NONCONST_FUNCTOR__
+  kernel_parallel_for_wrapper(KernelType KernelFunc) {
+#else
+  kernel_parallel_for_wrapper(const KernelType &KernelFunc) {
+#endif
+#ifdef __SYCL_DEVICE_ONLY__
+    detail::CheckDeviceCopyable<KernelType>();
+#endif // __SYCL_DEVICE_ONLY__
+    kernel_parallel_for<KernelName, ElementType>(KernelFunc);
   }
 
   // Wrappers for kernel_parallel_for_work_group(...)
 
   template <typename KernelName, typename ElementType, typename KernelType>
-  void
+  detail::enable_if_t<
+      detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
 #ifdef __SYCL_NONCONST_FUNCTOR__
   kernel_parallel_for_work_group_wrapper(KernelType KernelFunc) {
 #else
@@ -1053,14 +1077,24 @@ private:
 #ifdef __SYCL_DEVICE_ONLY__
     detail::CheckDeviceCopyable<KernelType>();
 #endif // __SYCL_DEVICE_ONLY__
-    if constexpr (detail::isKernelLambdaCallableWithKernelHandler<
-                      KernelType, ElementType>()) {
-      kernel_handler KH;
-      kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc, KH);
-    } else {
-      kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc);
-    }
+    kernel_handler KH;
+    kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc, KH);
   }
+
+  template <typename KernelName, typename ElementType, typename KernelType>
+  detail::enable_if_t<
+      !detail::KernelLambdaHasKernelHandlerArgT<KernelType, ElementType>::value>
+#ifdef __SYCL_NONCONST_FUNCTOR__
+  kernel_parallel_for_work_group_wrapper(KernelType KernelFunc) {
+#else
+  kernel_parallel_for_work_group_wrapper(const KernelType &KernelFunc) {
+#endif
+#ifdef __SYCL_DEVICE_ONLY__
+    detail::CheckDeviceCopyable<KernelType>();
+#endif // __SYCL_DEVICE_ONLY__
+    kernel_parallel_for_work_group<KernelName, ElementType>(KernelFunc);
+  }
+/* end INTEL_CUSTOMIZATION */
 
   std::shared_ptr<detail::kernel_bundle_impl>
   getOrInsertHandlerKernelBundle(bool Insert) const;
@@ -2444,27 +2478,35 @@ private:
 
   friend class ::MockHandler;
 
+/* INTEL_CUSTOMIZATION */
   template <typename WrapperT, typename TransformedArgType, int Dims,
-            typename KernelType>
+            typename KernelType,
+            detail::enable_if_t<detail::KernelLambdaHasKernelHandlerArgT<
+                KernelType, TransformedArgType>::value> * = nullptr>
   auto getRangeRoundedKernelLambda(KernelType KernelFunc,
                                    range<Dims> NumWorkItems) {
-    if constexpr (detail::isKernelLambdaCallableWithKernelHandler<
-                      KernelType, TransformedArgType>()) {
-      return [=](TransformedArgType Arg, kernel_handler KH) {
-        if (Arg[0] >= NumWorkItems[0])
-          return;
-        Arg.set_allowed_range(NumWorkItems);
-        KernelFunc(Arg, KH);
-      };
-    } else {
-      return [=](TransformedArgType Arg) {
-        if (Arg[0] >= NumWorkItems[0])
-          return;
-        Arg.set_allowed_range(NumWorkItems);
-        KernelFunc(Arg);
-      };
-    }
+    return [=](TransformedArgType Arg, kernel_handler KH) {
+      if (Arg[0] >= NumWorkItems[0])
+        return;
+      Arg.set_allowed_range(NumWorkItems);
+      KernelFunc(Arg, KH);
+    };
   }
+
+  template <typename WrapperT, typename TransformedArgType, int Dims,
+            typename KernelType,
+            detail::enable_if_t<!detail::KernelLambdaHasKernelHandlerArgT<
+                KernelType, TransformedArgType>::value> * = nullptr>
+  auto getRangeRoundedKernelLambda(KernelType KernelFunc,
+                                   range<Dims> NumWorkItems) {
+    return [=](TransformedArgType Arg) {
+      if (Arg[0] >= NumWorkItems[0])
+        return;
+      Arg.set_allowed_range(NumWorkItems);
+      KernelFunc(Arg);
+    };
+  }
+/* end INTEL_CUSTOMIZATION */
 };
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)
