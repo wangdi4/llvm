@@ -22,6 +22,7 @@
 #include "CGOpenMPRuntimeAMDGCN.h"
 #include "CGOpenMPRuntimeNVPTX.h"
 #include "intel/CGSPIRMetadataAdder.h" // INTEL
+#include "CGRecordLayout.h" // INTEL
 #include "CGSYCLRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
@@ -925,6 +926,8 @@ void CodeGenModule::Release() {
   if (llvm::StringRef(TheModule.getTargetTriple()).startswith("spir"))
     addSPIRMetadata(TheModule, getLangOpts().OpenCLVersion,
                     getCodeGenOpts().SPIRCompileOptions);
+  if (getCodeGenOpts().EmitDTransInfo)
+    EmitIntelDTransMetadata();
 #endif // INTEL_CUSTOMIZATION
 
   if (getCodeGenOpts().EmitVersionIdentMetadata)
@@ -4175,6 +4178,13 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    if ((!ForVTable || IsForDefinition) && isa<llvm::Function>(Entry) &&
+        isa<llvm::FunctionType>(Ty) && Entry->getValueType() == Ty)
+      Entry = addDTransInfoToFunc(GD, MangledName, cast<llvm::FunctionType>(Ty),
+                                  cast<llvm::Function>(Entry));
+#endif // INTEL_CUSTOMIZATION
+
     if ((isa<llvm::Function>(Entry) || isa<llvm::GlobalAlias>(Entry)) &&
         (Entry->getValueType() == Ty)) {
       return Entry;
@@ -4237,6 +4247,10 @@ llvm::Constant *CodeGenModule::GetOrCreateLLVMFunction(
     F->addAttributes(llvm::AttributeList::FunctionIndex, B);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (!ForVTable || IsForDefinition)
+    F = addDTransInfoToFunc(GD, MangledName, FTy, F);
+#endif // INTEL_CUSTOMIZATION
   if (!DontDefer) {
     // All MSVC dtors other than the base dtor are linkonce_odr and delegate to
     // each other bottoming out with the base dtor.  Therefore we emit non-base
@@ -4613,6 +4627,7 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName, llvm::Type *Ty,
     }
 
     setGVProperties(GV, D);
+    addDTransInfoToGlobal(D, GV, Ty); // INTEL
 
     // If required by the ABI, treat declarations of static data members with
     // inline initializers as definitions.

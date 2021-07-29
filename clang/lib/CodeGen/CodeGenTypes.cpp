@@ -856,6 +856,7 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
   if (!Entry) {
     Entry = llvm::StructType::create(getLLVMContext());
     addRecordTypeName(RD, Entry, "");
+    CGM.addDTransType(RD, Entry); // INTEL
   }
   llvm::StructType *Ty = Entry;
 

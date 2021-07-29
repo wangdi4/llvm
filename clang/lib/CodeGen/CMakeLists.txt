@@ -92,6 +92,7 @@ add_clang_library(clangCodeGen
   VarBypassDetector.cpp
 # INTEL_CUSTOMIZATION
   intel/CGBuiltin_getBuiltinIntelLibFunction.cpp
+  intel/CGDTransInfo.cpp
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION

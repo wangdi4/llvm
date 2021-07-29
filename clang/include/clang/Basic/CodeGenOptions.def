@@ -63,6 +63,7 @@ CODEGENOPT(DiscardValueNames , 1, 0) ///< Discard Value Names from the IR (LLVMC
 //                emitted without exposing Intel IP.
 CODEGENOPT(DisableIntelProprietaryOpts, 1, 0)
 CODEGENOPT(IntelAdvancedOptim, 1, 0)
+CODEGENOPT(EmitDTransInfo, 1, 0)
 #endif // INTEL_CUSTOMIZATION
 
 CODEGENOPT(DisableLLVMPasses , 1, 0) ///< Don't run any LLVM IR passes to get

@@ -283,4 +283,8 @@ def err_csa_builtin_arg_mismatch : Error<
   "a scalar or a vector type|an integer|a pointer}0">;
 #endif // INTEL_FEATURE_CSA
 
+// DTrans Metadata.
+def err_dtrans_unsupported
+    : Error<"DTrans Metadata generation does not support this %0 yet; %1">;
+
 } // end of sema component.
