@@ -63,6 +63,9 @@ def "DIR.OMP.END.TASK" : Directive;
 def "DIR.OMP.MASTER" : Directive;
 def "DIR.OMP.END.MASTER" : Directive;
 
+def "DIR.OMP.MASKED" : Directive;
+def "DIR.OMP.END.MASKED" : Directive;
+
 def "DIR.OMP.CRITICAL" : Directive;
 def "DIR.OMP.END.CRITICAL" : Directive;
 
@@ -255,6 +258,7 @@ def "QUAL.OMP.ALIGNED" : Clause;
 def "QUAL.OMP.NONTEMPORAL" : Clause;
 def "QUAL.OMP.FLUSH" : Clause;
 def "QUAL.OMP.THREADPRIVATE" : Clause;
+def "QUAL.OMP.FILTER" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.SUBDEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;

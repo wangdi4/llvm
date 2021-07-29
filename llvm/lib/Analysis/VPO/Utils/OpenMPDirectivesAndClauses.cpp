@@ -284,6 +284,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_SINGLE:
   case DIR_OMP_TASK:
   case DIR_OMP_MASTER:
+  case DIR_OMP_MASKED:
   case DIR_OMP_CRITICAL:
   case DIR_OMP_ATOMIC:
   case DIR_OMP_ORDERED:
@@ -360,6 +361,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_SINGLE:
   case DIR_OMP_END_TASK:
   case DIR_OMP_END_MASTER:
+  case DIR_OMP_END_MASKED:
   case DIR_OMP_END_CRITICAL:
   case DIR_OMP_END_ATOMIC:
   case DIR_OMP_END_ORDERED:
@@ -556,6 +558,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_TASK;
   case DIR_OMP_MASTER:
     return DIR_OMP_END_MASTER;
+  case DIR_OMP_MASKED:
+    return DIR_OMP_END_MASKED;
   case DIR_OMP_CRITICAL:
     return DIR_OMP_END_CRITICAL;
   case DIR_OMP_ATOMIC:
@@ -837,6 +841,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_NUM_TEAMS:
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
+    case QUAL_OMP_FILTER:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
     case QUAL_OMP_USE:
     case QUAL_OMP_DESTROY:

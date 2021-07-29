@@ -811,6 +811,24 @@ WRNMasterNode::WRNMasterNode(BasicBlock *BB)
 }
 
 //
+// Methods for WRNMaskedNode
+//
+
+// constructor
+WRNMaskedNode::WRNMaskedNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNMasked, BB) {
+  setFilter(nullptr);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNMaskedNode <" << getNumber() << ">\n");
+}
+
+// printer
+void WRNMaskedNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                               unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("FILTER", getFilter(), OS, Indent, Verbosity);
+}
+
+//
 // Methods for WRNOrderedNode
 //
 

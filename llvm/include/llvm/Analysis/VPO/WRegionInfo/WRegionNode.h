@@ -442,6 +442,8 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
+  virtual void setFilter(EXPR E)                {WRNERROR(QUAL_OMP_FILTER);   }
+  virtual EXPR getFilter()                const {WRNERROR(QUAL_OMP_FILTER);   }
   virtual void setFinal(EXPR E)                 {WRNERROR(QUAL_OMP_FINAL);    }
   virtual EXPR getFinal()                 const {WRNERROR(QUAL_OMP_FINAL);    }
   virtual void setGrainsize(EXPR E)             {WRNERROR(QUAL_OMP_GRAINSIZE);}
@@ -876,6 +878,7 @@ public:
     WRNPrefetch,
     WRNOrdered,
     WRNMaster,
+    WRNMasked,
     WRNSingle,
     WRNTaskgroup,
     WRNTaskwait,

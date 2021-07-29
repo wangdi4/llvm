@@ -52,6 +52,7 @@
 ///   WRNPrefetchNode         | #pragma omp prefetch
 ///   WRNOrderedNode          | #pragma omp ordered
 ///   WRNMasterNode           | #pragma omp master
+///   WRNMaskedNode           | #pragma omp masked
 ///   WRNSingleNode           | #pragma omp single
 ///   WRNTaskgroupNode        | #pragma omp taskgroup
 ///   WRNTaskwaitNode         | #pragma omp taskwait
@@ -1729,6 +1730,32 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNMaster;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp masked
+/// \endcode
+class WRNMaskedNode : public WRegionNode {
+private:
+  EXPR Filter;
+
+public:
+  WRNMaskedNode(BasicBlock *BB);
+
+protected:
+  void setFilter(EXPR E) override { Filter = E; }
+
+public:
+  EXPR getFilter() const override { return Filter; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNMasked;
   }
 };
 

@@ -64,6 +64,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
+    {WRegionNode::WRNMasked, "masked"},
     {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
@@ -853,6 +854,9 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
     break;
   case QUAL_OMP_DEVICE:
     setDevice(V);
+    break;
+  case QUAL_OMP_FILTER:
+    setFilter(V);
     break;
   case QUAL_OMP_DESTROY: {
     InteropActionClause &InteropAction = getInteropAction();
