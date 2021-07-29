@@ -1451,10 +1451,12 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     // Our implementation  using canon will return false for 2*n
     // But GCD test should get Indep for 2*n vs 2*n+1
 
-    const CanonExpr *AbsDelta =
-        HLNodeUtils::isKnownNonNegative(Delta) ? Delta : getNegative(Delta);
-    const CanonExpr *AbsCoeff =
-        HLNodeUtils::isKnownNonNegative(Coeff) ? Coeff : getNegative(Coeff);
+    const CanonExpr *AbsDelta = HLNodeUtils::isKnownNonNegative(Delta, CurLoop)
+                                    ? Delta
+                                    : getNegative(Delta);
+    const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNonNegative(Coeff, CurLoop)
+                                    ? Coeff
+                                    : getNegative(Coeff);
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
 
     LLVM_DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -1540,13 +1542,17 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
       }
 
       // maybe we can get a useful direction
-      bool DeltaMaybeZero = !(HLNodeUtils::isKnownNonZero(Delta));
-      bool DeltaMaybePositive = !(HLNodeUtils::isKnownNonPositive(Delta));
-      bool DeltaMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Delta));
-      bool CoeffMaybePositive = !(HLNodeUtils::isKnownNonPositive(Coeff));
-      bool CoeffMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Coeff));
+      bool DeltaMaybeZero = !(HLNodeUtils::isKnownNonZero(Delta, CurLoop));
+      bool DeltaMaybePositive =
+          !(HLNodeUtils::isKnownNonPositive(Delta, CurLoop));
+      bool DeltaMaybeNegative =
+          !(HLNodeUtils::isKnownNonNegative(Delta, CurLoop));
+      bool CoeffMaybePositive =
+          !(HLNodeUtils::isKnownNonPositive(Coeff, CurLoop));
+      bool CoeffMaybeNegative =
+          !(HLNodeUtils::isKnownNonNegative(Coeff, CurLoop));
       // The double negatives above are confusing.
-      // It helps to read isKnownNonZero(Delta)
+      // It helps to read isKnownNonZero(Delta, CurLoop)
       // as "Delta might be Zero"
       DVKind NewDirection = DVKind::NONE;
       if ((DeltaMaybePositive && CoeffMaybePositive) ||
@@ -4349,11 +4355,14 @@ void DDTest::updateDirection(Dependences::DVEntry &Level,
     Level.Scalar = false;
     Level.Distance = CurConstraint.getD();
     auto NewDirection = DVKind::NONE;
-    if (!HLNodeUtils::isKnownNonZero(Level.Distance)) // if may be zero
+    // if may be zero
+    if (!HLNodeUtils::isKnownNonZero(Level.Distance, DeepestLoop))
       NewDirection = DVKind::EQ;
-    if (!HLNodeUtils::isKnownNonPositive(Level.Distance)) // if may be positive
+    // if may be positive
+    if (!HLNodeUtils::isKnownNonPositive(Level.Distance, DeepestLoop))
       NewDirection |= DVKind::LT;
-    if (!HLNodeUtils::isKnownNonNegative(Level.Distance)) // if may be negative
+    // if may be negative
+    if (!HLNodeUtils::isKnownNonNegative(Level.Distance, DeepestLoop))
       NewDirection |= DVKind::GT;
     Level.Direction &= NewDirection;
   } else if (CurConstraint.isLine()) {
