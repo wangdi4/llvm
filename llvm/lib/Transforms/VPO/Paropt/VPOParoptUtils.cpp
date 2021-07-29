@@ -5830,7 +5830,9 @@ Function *VPOParoptUtils::genOutlineFunction(
                       << ": Recalculating DT after region extraction\n");
     DT->recalculate(*F);
   }
-  DT->verify(DominatorTree::VerificationLevel::Full);
+
+  if (EnableOutlineVerification)
+    DT->verify(DominatorTree::VerificationLevel::Fast);
 
   // Set up the calling convention used by OpenMP runtime library.
   setFuncCallingConv(CallSite, CallSite->getModule());
