@@ -39,6 +39,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/IR/OptBisect.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -869,11 +870,27 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<GlobalsAAWrapperPass>();
 }
 
+static std::string getDescription(const Function &F) {
+  return "function (" + F.getName().str() + ")";
+}
+
+bool VPlanDriver::skipFunction(const Function &F) const {
+  OptPassGate &Gate = F.getContext().getOptPassGate();
+  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+    return true;
+
+  bool IsOmpSimdKernel = (F.getMetadata("omp_simd_kernel") != nullptr);
+  if (F.hasOptNone() && !IsOmpSimdKernel &&
+      VPOAnalysisUtils::skipFunctionForOpenmp(const_cast<Function &>(F))) {
+    LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName() << "' on function "
+                      << F.getName() << "\n");
+    return true;
+  }
+  return false;
+}
+
 bool VPlanDriver::runOnFunction(Function &Fn) {
-
-  bool isOmpSimdKernel = (Fn.getMetadata("omp_simd_kernel") != nullptr);
-
-  if (skipFunction(Fn) && !isOmpSimdKernel)
+  if (skipFunction(Fn))
     return false;
 
   auto SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();

@@ -25,6 +25,8 @@
 #include "IntelVPlanPredicator.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/OptBisect.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils.h"
@@ -171,6 +173,24 @@ void VPlanFunctionVectorizerLegacyPass::getAnalysisUsage(
     AnalysisUsage &AU) const {
   AU.addPreserved<AndersensAAWrapperPass>();
   AU.addPreserved<GlobalsAAWrapperPass>();
+}
+
+static std::string getDescription(const Function &F) {
+  return "function (" + F.getName().str() + ")";
+}
+
+bool VPlanFunctionVectorizerLegacyPass::skipFunction(const Function &F) const {
+  OptPassGate &Gate = F.getContext().getOptPassGate();
+  if (Gate.isEnabled() && !Gate.shouldRunPass(this, getDescription(F)))
+    return true;
+
+  if (F.hasOptNone() &&
+      VPOAnalysisUtils::skipFunctionForOpenmp(const_cast<Function &>(F))) {
+    LLVM_DEBUG(dbgs() << "Skipping pass '" << getPassName() << "' on function "
+                      << F.getName() << "\n");
+    return true;
+  }
+  return false;
 }
 
 bool VPlanFunctionVectorizerLegacyPass::runOnFunction(Function &Fn) {

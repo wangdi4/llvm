@@ -922,6 +922,18 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // -qoverride-limits
   if (Args.hasArg(options::OPT_qoverride_limits))
     addllvmOption("-hir-cost-model-throttling=0");
+
+  // Enable vectorization of omp simd constructs for -fiopenmp -O0.
+  Arg *AO = Args.getLastArg(options::OPT_O_Group);
+  if (AO && AO->getOption().matches(options::OPT_O0) &&
+      Args.hasFlag(options::OPT_fiopenmp_vec_at_O0,
+                   options::OPT_fno_iopenmp_vec_at_O0) &&
+      (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
+                    false) ||
+       Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false))) {
+    addllvmOption("-vecopt=true");
+    addllvmOption("-enable-vec-clone=true");
+  }
 }
 #endif // INTEL_CUSTOMIZATION
 

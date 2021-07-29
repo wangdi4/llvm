@@ -2178,14 +2178,16 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
   if (RunVPOParopt && (RunVec || EnableDeviceSimd)) {
-    if (EnableDeviceSimd) {
-      addFunctionSimplificationPasses(PM);
+    if (EnableDeviceSimd || (OptLevel == 0 && RunVPOVecopt)) {
+      if (OptLevel > 0) {
+        addFunctionSimplificationPasses(PM);
 
-      // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
-      // SIMD loops
-      addVPlanVectorizer(PM, false /* IsPostLoopOptPass */);
+        // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+        // SIMD loops
+        addVPlanVectorizer(PM, false /* IsPostLoopOptPass */);
 
-      addLoopOptPasses(PM, false /*IsLTO*/);
+        addLoopOptPasses(PM, false /*IsLTO*/);
+      }
 
       // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
       // vectorized after createVPlanDriverHIRPass
@@ -2227,39 +2229,45 @@ void PassManagerBuilder::addVPlanVectorizer(
   if (IsPostLoopOptPass && !RunPostLoopOptVPOPasses)
     return;
 
-  if (IsPostLoopOptPass)
+  if (IsPostLoopOptPass && OptLevel > 0)
     PM.add(createLoopSimplifyPass());
 
-  PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
-  // Add LCSSA pass before VPlan driver
-  PM.add(createLCSSAPass());
+  if (OptLevel > 0) {
+    PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
+    // Add LCSSA pass before VPlan driver
+    PM.add(createLCSSAPass());
+  }
   PM.add(createVPOCFGRestructuringPass());
   // VPO CFG restructuring pass makes sure that the directives of #pragma omp
   // simd ordered are in a separate block. For this reason,
   // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
   // Restructuring.
   PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
-  // Code extractor might add new instructions in the entry block. If the entry
-  // block has a directive, than we have to split the entry block. VPlan assumes
-  // that the directives are in single-entry single-exit basic blocks.
+  // Code extractor might add new instructions in the entry block. If the
+  // entry block has a directive, than we have to split the entry block. VPlan
+  // assumes that the directives are in single-entry single-exit basic blocks.
   PM.add(createVPOCFGRestructuringPass());
 
   // Create OCL sincos from sin/cos and sincos
-  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+  if (OptLevel > 0)
+    PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
 
   PM.add(createVPlanDriverPass());
 
   // Split/translate scalar OCL and vector sincos
-  PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+  if (OptLevel > 0)
+    PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
 
   // The region that is outlined by #pragma omp simd ordered was extracted by
   // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
   // order to put this region back at the code.
   PM.add(createAlwaysInlinerLegacyPass());
-  PM.add(createBarrierNoopPass());
+  if (OptLevel > 0) {
+    PM.add(createBarrierNoopPass());
 
-  // Clean up any SIMD directives left behind by VPlan vectorizer
-  PM.add(createVPODirectiveCleanupPass());
+    // Clean up any SIMD directives left behind by VPlan vectorizer
+    PM.add(createVPODirectiveCleanupPass());
+  }
 }
 
 bool PassManagerBuilder::isLoopOptEnabled() const {

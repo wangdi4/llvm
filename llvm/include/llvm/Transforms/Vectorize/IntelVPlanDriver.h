@@ -150,6 +150,7 @@ public:
   VPlanDriver(FatalErrorHandlerTy FatalErrorHandler = nullptr); // INTEL
 
   bool runOnFunction(Function &Fn) override;
+  bool skipFunction(const Function &F) const override;
 };
 
 #if INTEL_CUSTOMIZATION
