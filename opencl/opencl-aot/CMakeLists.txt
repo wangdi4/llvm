@@ -12,10 +12,12 @@ set(OPENCL_AOT_PROJECT_NAME opencl-aot)
 
 add_llvm_tool(${OPENCL_AOT_PROJECT_NAME} ${TARGET_SOURCES})
 
-if(MSVC AND LLVM_BUILD_32_BITS)
+# INTEL_CUSTOMIZATION
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   # MSVC can't expand variadic macros correctly. Add compile flag to around this.
   target_compile_options(${OPENCL_AOT_PROJECT_NAME} PRIVATE "/experimental:preprocessor")
 endif()
+# end INTEL_CUSTOMIZATION
 
 if(NOT MSVC)
   # FIXME: when built with clang it produces a warning.
