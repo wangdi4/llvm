@@ -86,7 +86,7 @@ set(OCL_OUTPUT_LIBRARY_DIR ${OCL_LIBRARY_DIR}/${OUTPUT_ARCH_SUFF})
 
 function(add_opencl_library name)
     cmake_parse_arguments(ARG
-        "SHARED;STATIC;EXCLUDE_FROM_ALL_BUILD"
+        "SHARED;STATIC"
         "RC_TEMPLATE"
         "INCLUDE_DIRS;COMPONENTS;LINK_LIBS;INSTALL_PATH"
         ${ARGN})
@@ -114,10 +114,6 @@ function(add_opencl_library name)
     else (ARG_SHARED)
         add_library(${name} STATIC ${sources})
     endif (ARG_SHARED)
-
-    if (ARG_EXCLUDE_FROM_ALL_BUILD)
-        set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL ON)
-    endif()
 
     if (WIN32)
         set_target_properties(${name} PROPERTIES
@@ -175,18 +171,12 @@ endfunction(add_opencl_library name)
 #
 
 function(add_opencl_executable name)
-    cmake_parse_arguments(ARG "EXCLUDE_FROM_ALL_BUILD" ""
-        "INCLUDE_DIRS;COMPONENTS;LINK_LIBS"
-        ${ARGN})
+    cmake_parse_arguments(ARG "" "" "INCLUDE_DIRS;COMPONENTS;LINK_LIBS" ${ARGN})
 
     # TODO: replace with target_include_directories
     include_directories(AFTER ${ARG_INCLUDE_DIRS})
 
     add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
-
-    if (ARG_EXCLUDE_FROM_ALL_BUILD)
-        set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL ON)
-    endif()
 
     if (WIN32)
         set_target_properties(${name} PROPERTIES

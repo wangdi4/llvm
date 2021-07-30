@@ -12,8 +12,6 @@ link_directories (
 )
 
 add_opencl_executable(${TARGET_NAME}
-  EXCLUDE_FROM_ALL_BUILD
-
   main.cpp
 )
 
