@@ -1453,7 +1453,38 @@ TEST_F(ScalarEvolutionsTest, ImpliedCond) {
                                   ICmpInst::ICMP_SLT, AddRec_0_N1, MinusOne));
   });
 }
+#if INTEL_CUSTOMIZATION
+TEST_F(ScalarEvolutionsTest, ImpliedCond1) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M = parseAssemblyString(
+      "define void @foo(i32 %len) { "
+      "entry: "
+      "  ret void "
+      "}",
+      Err, C);
 
+  ASSERT_TRUE(M && "Could not parse module?");
+  ASSERT_TRUE(!verifyModule(*M) && "Must have been well formed!");
+
+  runWithSE(*M, "foo", [](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    auto *Len =  SE.getSCEV(getArgByName(F, "len"));
+    Type *Ty = Len->getType();
+    const SCEV *Zero = SE.getZero(Ty);
+    const SCEV *One = SE.getOne(Ty);
+
+    // Len == 0  ->  Len != 1
+    EXPECT_TRUE(isImpliedCond(SE, ICmpInst::ICMP_NE, Len, One,
+                                  ICmpInst::ICMP_EQ, Len, Zero));
+    // Len != 0  does not ->  Len != 1
+    EXPECT_FALSE(isImpliedCond(SE, ICmpInst::ICMP_NE, Len, One,
+                                   ICmpInst::ICMP_NE, Len, Zero));
+    // Len >s 0  does not -> Len >s 1
+    EXPECT_FALSE(isImpliedCond(SE, ICmpInst::ICMP_SGT, Len, One,
+                               ICmpInst::ICMP_SGT, Len, Zero));
+  });
+}
+#endif  // INTEL_CUSTOMIZATION
 TEST_F(ScalarEvolutionsTest, MatchURem) {
   LLVMContext C;
   SMDiagnostic Err;
