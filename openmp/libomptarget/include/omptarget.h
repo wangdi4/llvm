@@ -706,6 +706,9 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_set_info_flag(uint32_t);
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int __tgt_print_device_info(int64_t device_id);
 #ifdef __cplusplus
 }
