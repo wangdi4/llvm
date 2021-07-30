@@ -98,11 +98,12 @@ static AttributeList getNoUnwindAttr(LLVMContext &C) {
   return AttributeList::get(C, AttributeList::FunctionIndex, AB);
 }
 
-// Returns attributes { nounwind, readnone }
+// Returns attributes { nounwind, readnone, willreturn }
 static AttributeList getPureAttr(LLVMContext &C) {
   AttrBuilder AB;
   AB.addAttribute(Attribute::NoUnwind);
   AB.addAttribute(Attribute::ReadNone);
+  AB.addAttribute(Attribute::WillReturn);
   AttributeList PureAttr =
       AttributeList::get(C, AttributeList::FunctionIndex, AB);
   return PureAttr;
@@ -297,7 +298,7 @@ bool MathLibraryFunctionsReplacement::transformDivRem(Module *M) {
     OperandTys.push_back(Divisor->getType());
 
     FunctionType *FnSignature = FunctionType::get(InstTy, OperandTys, false);
-    // Create function with { nounwind readnone } attributes.
+    // Create function with { nounwind readnone willreturn } attributes.
     Function *FnDecl = cast<Function>(
         M->getOrInsertFunction(DivRemInstFnMap[Inst->getOpcode()], FnSignature,
                                getPureAttr(M->getContext()))

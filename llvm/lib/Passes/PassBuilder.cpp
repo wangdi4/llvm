@@ -188,6 +188,7 @@
 #include "llvm/Transforms/Scalar/ConstraintElimination.h"
 #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
 #include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/DFAJumpThreading.h"
 #include "llvm/Transforms/Scalar/DeadStoreElimination.h"
 #include "llvm/Transforms/Scalar/DivRemPairs.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
@@ -565,6 +566,7 @@ extern cl::opt<bool> EnableCHR;
 extern cl::opt<bool> EnableLoopInterchange;
 extern cl::opt<bool> EnableUnrollAndJam;
 extern cl::opt<bool> EnableLoopFlatten;
+extern cl::opt<bool> EnableDFAJumpThreading;
 extern cl::opt<bool> RunNewGVN;
 extern cl::opt<bool> RunPartialInlining;
 extern cl::opt<bool> ExtraVectorizerPasses;
@@ -1231,6 +1233,9 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
 
   // Re-consider control flow based optimizations after redundancy elimination,
   // redo DCE, etc.
+  if (EnableDFAJumpThreading && Level.getSizeLevel() == 0)
+    FPM.addPass(DFAJumpThreadingPass());
+
   FPM.addPass(JumpThreadingPass());
   FPM.addPass(CorrelatedValuePropagationPass());
 
@@ -2650,6 +2655,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // Convert @llvm.global.annotations to !annotation metadata.
   MPM.addPass(Annotation2MetadataPass());
 
+  // Create a function that performs CFI checks for cross-DSO calls with targets
+  // in the current module.
+  MPM.addPass(CrossDSOCFIPass());
+
   if (Level == OptimizationLevel::O0) {
 #if INTEL_CUSTOMIZATION
     if (EnableWPA) {
@@ -3109,10 +3118,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass(/*InsertFreezeWhenUnfoldingSelect*/ true));
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
-
-  // Create a function that performs CFI checks for cross-DSO calls with
-  // targets in the current module.
-  MPM.addPass(CrossDSOCFIPass());
 
   // Lower type metadata and the type.test intrinsic. This pass supports
   // clang's control flow integrity mechanisms (-fsanitize=cfi*) and needs

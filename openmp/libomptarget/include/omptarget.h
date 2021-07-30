@@ -443,6 +443,12 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_register_lib(__tgt_bin_desc *desc);
 
+/// Initialize all RTLs at once
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __tgt_init_all_rtls();
+
 /// removes a target shared library from the target execution image
 #if INTEL_COLLAB
 EXTERN
@@ -703,6 +709,10 @@ EXTERN
 #endif  // INTEL_COLLAB
 void __tgt_set_info_flag(uint32_t);
 
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+int __tgt_print_device_info(int64_t device_id);
 #ifdef __cplusplus
 }
 #endif

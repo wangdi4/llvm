@@ -1,8 +1,10 @@
-/*===--------------------------------------------------------------------------
- *              ATMI (Asynchronous Task and Memory Interface)
- *
- * This file is distributed under the MIT License. See LICENSE.txt for details.
- *===------------------------------------------------------------------------*/
+//===--- amdgpu/impl/data.cpp ------------------------------------- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 #include "atmi_runtime.h"
 #include "hsa_api.h"
 #include "internal.h"
@@ -24,6 +26,11 @@ ATLProcessor &get_processor_by_mem_place(int DeviceId,
   switch (DeviceType) {
   case ATMI_DEVTYPE_CPU:
     return g_atl_machine.processors<ATLCPUProcessor>()[DeviceId];
+#if INTEL_CUSTOMIZATION
+  case ATMI_DEVTYPE_ALL:
+  case ATMI_DEVTYPE_dGPU:
+  case ATMI_DEVTYPE_iGPU:
+#endif // INTEL_CUSTOMIZATION
   case ATMI_DEVTYPE_GPU:
     return g_atl_machine.processors<ATLGPUProcessor>()[DeviceId];
   }

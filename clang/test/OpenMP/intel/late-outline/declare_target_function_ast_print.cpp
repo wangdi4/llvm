@@ -154,7 +154,7 @@ struct A {
   //PRINT: #pragma omp declare target
   //PRINT: int bar();
   //PRINT: #pragma omp end declare target
-  //DUMP: CXXMethodDecl{{.*}}bar 'int ()'
+  //DUMP: CXXMethodDecl{{.*}}bar 'int (){{.*}}'
   //DUMP-NEXT: OMPDeclareTargetDeclAttr{{.*}}Implicit MT_To DT_Any
   #pragma ompx declare target function
   int bar();

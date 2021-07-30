@@ -17,6 +17,7 @@
 #include <CL/sycl/detail/device_filter.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/detail/stl_type_traits.hpp>
+#include <CL/sycl/version.hpp>
 #include <detail/config.hpp>
 #include <detail/global_handler.hpp>
 #include <detail/plugin.hpp>
@@ -36,6 +37,10 @@
 #include "xpti_trace_framework.h"
 #endif
 
+#define STR(x) #x
+#define SYCL_VERSION_STR                                                       \
+  "sycl " STR(__LIBSYCL_MAJOR_VERSION) "." STR(__LIBSYCL_MINOR_VERSION)
+
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
@@ -46,11 +51,13 @@ namespace detail {
 xpti_td *GSYCLGraphEvent = nullptr;
 /// Event to be used by PI layer related activities
 xpti_td *GPICallEvent = nullptr;
+/// Event to be used by PI layer calls with arguments
+xpti_td *GPIArgCallEvent = nullptr;
 /// Constants being used as placeholder until one is able to reliably get the
 /// version of the SYCL runtime
-constexpr uint32_t GMajVer = 1;
-constexpr uint32_t GMinVer = 0;
-constexpr const char *GVerStr = "sycl 1.0";
+constexpr uint32_t GMajVer = __LIBSYCL_MAJOR_VERSION;
+constexpr uint32_t GMinVer = __LIBSYCL_MINOR_VERSION;
+constexpr const char *GVerStr = SYCL_VERSION_STR;
 #endif // XPTI_ENABLE_INSTRUMENTATION
 
 template <cl::sycl::backend BE>
@@ -133,6 +140,43 @@ void emitFunctionEndTrace(uint64_t CorrelationID, const char *FName) {
         GPICallEvent, nullptr, CorrelationID, static_cast<const void *>(FName));
   }
 #endif // XPTI_ENABLE_INSTRUMENTATION
+}
+
+uint64_t emitFunctionWithArgsBeginTrace(uint32_t FuncID, const char *FuncName,
+                                        unsigned char *ArgsData,
+                                        pi_plugin Plugin) {
+  uint64_t CorrelationID = 0;
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  if (xptiTraceEnabled()) {
+    uint8_t StreamID = xptiRegisterStream(SYCL_PIDEBUGCALL_STREAM_NAME);
+    CorrelationID = xptiGetUniqueId();
+
+    xpti::function_with_args_t Payload{FuncID, FuncName, ArgsData, nullptr,
+                                       &Plugin};
+
+    xptiNotifySubscribers(
+        StreamID, (uint16_t)xpti::trace_point_type_t::function_with_args_begin,
+        GPIArgCallEvent, nullptr, CorrelationID, &Payload);
+  }
+#endif
+  return CorrelationID;
+}
+
+void emitFunctionWithArgsEndTrace(uint64_t CorrelationID, uint32_t FuncID,
+                                  const char *FuncName, unsigned char *ArgsData,
+                                  pi_result Result, pi_plugin Plugin) {
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  if (xptiTraceEnabled()) {
+    uint8_t StreamID = xptiRegisterStream(SYCL_PIDEBUGCALL_STREAM_NAME);
+
+    xpti::function_with_args_t Payload{FuncID, FuncName, ArgsData, &Result,
+                                       &Plugin};
+
+    xptiNotifySubscribers(
+        StreamID, (uint16_t)xpti::trace_point_type_t::function_with_args_end,
+        GPIArgCallEvent, nullptr, CorrelationID, &Payload);
+  }
+#endif
 }
 
 void contextSetExtendedDeleter(const cl::sycl::context &context,
@@ -443,6 +487,14 @@ static void initializePlugins(std::vector<plugin> *Plugins) {
   GPICallEvent =
       xptiMakeEvent("PI Layer", &PIPayload, xpti::trace_algorithm_event,
                     xpti_at::active, &PiInstanceNo);
+
+  xptiInitialize(SYCL_PIDEBUGCALL_STREAM_NAME, GMajVer, GMinVer, GVerStr);
+  xpti::payload_t PIArgPayload(
+      "Plugin Interface Layer (with function arguments)");
+  uint64_t PiArgInstanceNo;
+  GPIArgCallEvent = xptiMakeEvent("PI Layer with arguments", &PIArgPayload,
+                                  xpti::trace_algorithm_event, xpti_at::active,
+                                  &PiArgInstanceNo);
 #endif
 #endif // INTEL_CUSTOMIZATION
 }

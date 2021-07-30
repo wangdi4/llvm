@@ -802,7 +802,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
 
       // These functions are OpenMP Offloading allocation / free routines
       "declare i8* @__kmpc_alloc_shared(i64)\n"
-      "declare void @__kmpc_free_shared(i8*)\n"
+      "declare void @__kmpc_free_shared(i8*, i64)\n"
 #if INTEL_CUSTOMIZATION
       "declare %struct* @__acrt_iob_func(i32)\n"
       "declare void @__assert_fail(i8*, i8*, i32, i8*)\n"

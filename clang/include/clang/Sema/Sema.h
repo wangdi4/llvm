@@ -1756,19 +1756,15 @@ public:
   /// statements.
   class FPFeaturesStateRAII {
   public:
-    FPFeaturesStateRAII(Sema &S) : S(S), OldFPFeaturesState(S.CurFPFeatures) {
-      OldOverrides = S.FpPragmaStack.CurrentValue;
-    }
-    ~FPFeaturesStateRAII() {
-      S.CurFPFeatures = OldFPFeaturesState;
-      S.FpPragmaStack.CurrentValue = OldOverrides;
-    }
+    FPFeaturesStateRAII(Sema &S);
+    ~FPFeaturesStateRAII();
     FPOptionsOverride getOverrides() { return OldOverrides; }
 
   private:
     Sema& S;
     FPOptions OldFPFeaturesState;
     FPOptionsOverride OldOverrides;
+    int OldEvalMethod;
   };
 
   void addImplicitTypedef(StringRef Name, QualType T);
@@ -2278,17 +2274,25 @@ public:
   SYCLIntelFPGAIVDepAttr *
   BuildSYCLIntelFPGAIVDepAttr(const AttributeCommonInfo &CI, Expr *Expr1,
                               Expr *Expr2);
-  template <typename FPGALoopAttrT>
-  FPGALoopAttrT *BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
-                                            Expr *E = nullptr);
-
   LoopUnrollHintAttr *BuildLoopUnrollHintAttr(const AttributeCommonInfo &A,
                                               Expr *E);
   OpenCLUnrollHintAttr *
   BuildOpenCLLoopUnrollHintAttr(const AttributeCommonInfo &A, Expr *E);
 
   SYCLIntelFPGALoopCountAttr *
-  BuildSYCLIntelFPGALoopCount(const AttributeCommonInfo &CI, Expr *E);
+  BuildSYCLIntelFPGALoopCountAttr(const AttributeCommonInfo &CI, Expr *E);
+  SYCLIntelFPGAInitiationIntervalAttr *
+  BuildSYCLIntelFPGAInitiationIntervalAttr(const AttributeCommonInfo &CI,
+                                           Expr *E);
+  SYCLIntelFPGAMaxConcurrencyAttr *
+  BuildSYCLIntelFPGAMaxConcurrencyAttr(const AttributeCommonInfo &CI, Expr *E);
+  SYCLIntelFPGAMaxInterleavingAttr *
+  BuildSYCLIntelFPGAMaxInterleavingAttr(const AttributeCommonInfo &CI, Expr *E);
+  SYCLIntelFPGASpeculatedIterationsAttr *
+  BuildSYCLIntelFPGASpeculatedIterationsAttr(const AttributeCommonInfo &CI,
+                                             Expr *E);
+  SYCLIntelFPGALoopCoalesceAttr *
+  BuildSYCLIntelFPGALoopCoalesceAttr(const AttributeCommonInfo &CI, Expr *E);
 
   bool CheckQualifiedFunctionForTypeId(QualType T, SourceLocation Loc);
 
@@ -2669,7 +2673,6 @@ public:
                              const CXXScopeSpec &SS, QualType T,
                              TagDecl *OwnedTagDecl = nullptr);
 
-  QualType getDecltypeForParenthesizedExpr(Expr *E);
   QualType BuildTypeofExprType(Expr *E, SourceLocation Loc);
   /// If AsUnevaluated is false, E is treated as though it were an evaluated
   /// context, such as when building a type for decltype(auto).
@@ -5171,20 +5174,24 @@ public:
     bool isMoveEligible() const { return S != None; };
     bool isCopyElidable() const { return S == MoveEligibleAndCopyElidable; }
   };
-  NamedReturnInfo getNamedReturnInfo(Expr *&E, bool ForceCXX2b = false);
+  enum class SimplerImplicitMoveMode { ForceOff, Normal, ForceOn };
+  NamedReturnInfo getNamedReturnInfo(
+      Expr *&E, SimplerImplicitMoveMode Mode = SimplerImplicitMoveMode::Normal);
   NamedReturnInfo getNamedReturnInfo(const VarDecl *VD);
   const VarDecl *getCopyElisionCandidate(NamedReturnInfo &Info,
                                          QualType ReturnType);
 
-  ExprResult PerformMoveOrCopyInitialization(const InitializedEntity &Entity,
-                                             const NamedReturnInfo &NRInfo,
-                                             Expr *Value);
+  ExprResult
+  PerformMoveOrCopyInitialization(const InitializedEntity &Entity,
+                                  const NamedReturnInfo &NRInfo, Expr *Value,
+                                  bool SupressSimplerImplicitMoves = false);
 
   StmtResult ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
                              Scope *CurScope);
   StmtResult BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp,
-                                     NamedReturnInfo &NRInfo);
+                                     NamedReturnInfo &NRInfo,
+                                     bool SupressSimplerImplicitMoves);
 
 #if INTEL_CUSTOMIZATION
   ExprResult ActOnCustomIdExpression(Scope *CurScope, CXXScopeSpec &ScopeSpec,
@@ -13856,51 +13863,6 @@ void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
   }
 
   D->addAttr(::new (Context) AttrType(Context, CI, E));
-}
-
-template <typename FPGALoopAttrT>
-FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
-                                                Expr *E) {
-  if (!E && !(A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce))
-    return nullptr;
-
-  if (E && !E->isInstantiationDependent()) {
-    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(getASTContext());
-
-    if (!ArgVal) {
-      Diag(E->getExprLoc(), diag::err_attribute_argument_type)
-          << A.getAttrName() << AANT_ArgumentIntegerConstant
-          << E->getSourceRange();
-      return nullptr;
-    }
-
-    int Val = ArgVal->getSExtValue();
-
-    if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval ||
-        A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce) {
-      if (Val <= 0) {
-        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << A.getAttrName() << /* positive */ 0;
-        return nullptr;
-      }
-    } else if (A.getParsedKind() ==
-                   ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency ||
-               A.getParsedKind() ==
-                   ParsedAttr::AT_SYCLIntelFPGAMaxInterleaving ||
-               A.getParsedKind() ==
-                   ParsedAttr::AT_SYCLIntelFPGASpeculatedIterations ||
-               A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCount) {
-      if (Val < 0) {
-        Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-            << A.getAttrName() << /* non-negative */ 1;
-        return nullptr;
-      }
-    } else {
-      llvm_unreachable("unknown sycl fpga loop attr");
-    }
-  }
-
-  return new (Context) FPGALoopAttrT(Context, A, E);
 }
 
 /// RAII object that enters a new expression evaluation context.

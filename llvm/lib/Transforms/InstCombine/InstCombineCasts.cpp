@@ -1537,9 +1537,13 @@ static bool hasOneLoadStoreUser(const GetElementPtrInst *CI) {
 }
 /// Check if the instruction CI has one GEP+Load/Store user.
 static bool hasOneGEPLoadStoreUser(const Instruction &CI) {
-  if (!CI.hasOneUse())
-    return false;
-  auto *GEP = dyn_cast<GetElementPtrInst>(CI.user_back());
+  const Instruction *I = &CI;
+  do {
+    if (!I->hasOneUse())
+      return false;
+    I = I->user_back();
+  } while (I->getOpcode() == Instruction::Add);
+  const auto *GEP = dyn_cast<GetElementPtrInst>(I);
   if (!GEP)
     return false;
   if (hasOneLoadStoreUser(GEP))
@@ -1580,10 +1584,11 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &CI) {
     if (isSPIRFunction(CI.getFunction()))
       return true;
     auto *Src = dyn_cast<Instruction>(Op);
-    return Src && (Src->getOpcode() == Instruction::Add &&
-                   (isPhiOrTrunc(Src->getOperand(0)) ||
-                    isPhiOrTrunc(Src->getOperand(1))) &&
-                   hasOneGEPLoadStoreUser(CI));
+    return Src &&
+           (Src->getOpcode() == Instruction::Add &&
+            (isPhiOrTrunc(Src->getOperand(0)) ||
+             isPhiOrTrunc(Src->getOperand(1)))) &&
+           hasOneGEPLoadStoreUser(CI);
   };
 #endif // INTEL_CUSTOMIZATION
 

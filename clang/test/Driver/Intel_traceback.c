@@ -24,7 +24,7 @@
 // due to -traceback.
 // RUN: %clang -### -S -traceback -g -target x86_64 %s 2>&1 | FileCheck %s --check-prefixes=TRACEBACKWITHG
 // TRACEBACKWITHG: -traceback
-// TRACEBACKWITHG: -debug-info-kind=limited
+// TRACEBACKWITHG: -debug-info-kind=constructor
 
 /// Unsupported on other targets.
 // RUN: %clang -### -S -traceback -target aarch64  %s 2>&1 | FileCheck --check-prefix=TARGET %s

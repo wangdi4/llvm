@@ -1722,7 +1722,7 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8u")
 TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_call)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
 #endif // INTEL_COLLAB
-/// void __kmpc_free_shared(void *ptr);
+/// void __kmpc_free_shared(void *ptr, size_t nbyte);
 TLI_DEFINE_ENUM_INTERNAL(__kmpc_free_shared)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_free_shared")
 #if INTEL_COLLAB

@@ -2467,7 +2467,7 @@ bool Expr::isReadIfDiscardedInCPlusPlus11() const {
   // In C++11, discarded-value expressions of a certain form are special,
   // according to [expr]p10:
   //   The lvalue-to-rvalue conversion (4.1) is applied only if the
-  //   expression is an lvalue of volatile-qualified type and it has
+  //   expression is a glvalue of volatile-qualified type and it has
   //   one of the following forms:
   if (!isGLValue() || !getType().isVolatileQualified())
     return false;
@@ -3944,8 +3944,7 @@ Expr::isNullPointerConstant(ASTContext &Ctx,
 const ObjCPropertyRefExpr *Expr::getObjCProperty() const {
   const Expr *E = this;
   while (true) {
-    assert((E->getValueKind() == VK_LValue &&
-            E->getObjectKind() == OK_ObjCProperty) &&
+    assert((E->isLValue() && E->getObjectKind() == OK_ObjCProperty) &&
            "expression is not a property reference");
     E = E->IgnoreParenCasts();
     if (const BinaryOperator *BO = dyn_cast<BinaryOperator>(E)) {
@@ -3984,7 +3983,7 @@ FieldDecl *Expr::getSourceBitField() {
 
   while (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E)) {
     if (ICE->getCastKind() == CK_LValueToRValue ||
-        (ICE->getValueKind() != VK_PRValue && ICE->getCastKind() == CK_NoOp))
+        (ICE->isGLValue() && ICE->getCastKind() == CK_NoOp))
       E = ICE->getSubExpr()->IgnoreParens();
     else
       break;
@@ -4031,7 +4030,7 @@ bool Expr::refersToVectorElement() const {
   const Expr *E = this->IgnoreParens();
 
   while (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E)) {
-    if (ICE->getValueKind() != VK_PRValue && ICE->getCastKind() == CK_NoOp)
+    if (ICE->isGLValue() && ICE->getCastKind() == CK_NoOp)
       E = ICE->getSubExpr()->IgnoreParens();
     else
       break;
