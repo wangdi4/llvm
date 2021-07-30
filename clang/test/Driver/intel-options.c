@@ -541,6 +541,8 @@
 // RUN: %clang_cl -### -Qopt-report2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
 // RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 -S -qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
+// RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64 -S -Qopt-report=3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-NAME %s
 // CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
 // CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
 // CHECK-OPT-REPORT: "-opt-record-format" "yaml"
@@ -548,6 +550,7 @@
 // CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
 // CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+// CHECK-OPT-REPORT-NAME: "-opt-record-file" "intel-options-openmp-spir64.opt.yaml"
 
 // RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
 // RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
