@@ -56,17 +56,14 @@ const char *CreatePipeFromPipeStorageReadName =
 
 static void
 findPipeStorageGlobals(Module *M,
-                       std::set<GlobalVariable *> &StorageVars) {
-  Function *CreatePipeFun = nullptr;
-  for (auto &Fun : *M) {
-    StringRef FunName = Fun.getName();
-    if (FunName.startswith(CreatePipeFromPipeStorageWriteName) ||
-        FunName.startswith(CreatePipeFromPipeStorageReadName))
-      CreatePipeFun = &Fun;
-    if (!CreatePipeFun)
+                       SmallVector<GlobalVariable *, 8> &StorageVars) {
+  for (auto &F : *M) {
+    StringRef FName = F.getName();
+    if (!FName.startswith(CreatePipeFromPipeStorageWriteName) &&
+        !FName.startswith(CreatePipeFromPipeStorageReadName))
       continue;
 
-    for (auto *User : CreatePipeFun->users()) {
+    for (auto *User : F.users()) {
       auto *Call = dyn_cast<CallInst>(User);
       if (!Call)
         continue;
@@ -81,7 +78,7 @@ findPipeStorageGlobals(Module *M,
       assert(PipeStorageGV && "PipeStorage should be a GV");
       LLVM_DEBUG(dbgs() << "Found SYCL pipe storage: " << *PipeStorageGV <<
                            "\n");
-      StorageVars.emplace(PipeStorageGV);
+      StorageVars.emplace_back(PipeStorageGV);
     }
   }
 }
@@ -135,7 +132,7 @@ bool SYCLPipesHack::runOnModule(Module &M) {
   // i32 values: size, align and capacity. We need to find these global structs
   // and replace with %opencl.pipe_rw_t objects to utilize the rest of pipe
   // related passes without any modifications.
-  std::set<GlobalVariable *> StorageVars;
+  SmallVector<GlobalVariable *, 8> StorageVars;
   findPipeStorageGlobals(&M, StorageVars);
   if (StorageVars.empty()) {
     return false;
@@ -149,7 +146,6 @@ bool SYCLPipesHack::runOnModule(Module &M) {
 
   Function *GlobalCtor = nullptr;
 
-  bool Changed = false;
   for (auto *GV : StorageVars) {
     // For each SYCL program scope pipe storage we create an opaque pointer that
     // is going to point to an implementation defined memory.
@@ -212,9 +208,8 @@ bool SYCLPipesHack::runOnModule(Module &M) {
     LLVM_DEBUG(dbgs() << "Replacing pipe storage pointer (" << *GV
                << ") with read-write pipe (" << *Bitcast << "\n");
     GV->replaceAllUsesWith(Bitcast);
-    Changed = true;
   }
-  return Changed;
+  return true;
 }
 
 void SYCLPipesHack::getAnalysisUsage(AnalysisUsage &AU) const {

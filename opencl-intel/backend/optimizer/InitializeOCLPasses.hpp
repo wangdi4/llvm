@@ -57,7 +57,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeReplaceScalarWithMaskPass(Registry);
     intel::initializePreventDivCrashesPass(Registry);
     intel::initializeInstToFuncCallPass(Registry);
-    intel::initializeInternalizeNonKernelFuncPass(Registry);
     intel::initializeExternalizeGlobalVariablesPass(Registry);
     intel::initializeInternalizeGlobalVariablesPass(Registry);
     intel::initializeOclFunctionAttrsPass(Registry);

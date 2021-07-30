@@ -80,9 +80,10 @@ protected:
    *  arguments were set successfully and kernel was enqueued successfully;
    *  false otherwise
    */
-  template<typename... Args>
+  template <typename... Args>
   bool enqueueNDRange(const std::string &kernel_name, size_t num_dims,
-      const size_t *global_size, const size_t *local_size, Args... args) {
+                      const size_t *global_size, const size_t *local_size,
+                      cl_event *event, Args... args) {
     assert(nullptr != m_program && "no valid program object created!");
     cl_kernel kernel = parent_t::createKernel(m_program, kernel_name);
     EXPECT_TRUE(kernel != nullptr) << "createKernel failed";
@@ -96,7 +97,7 @@ protected:
     }
 
     return enqueueNDRange(0, num_dims, global_size, local_size, queue, kernel,
-                          args...);
+                          event, args...);
   }
 
   /**
@@ -106,21 +107,8 @@ protected:
    */
   template<typename... Args>
   bool enqueueTask(const std::string &kernel_name, Args... args) {
-    assert(nullptr != m_program && "no valid program object created!");
-    cl_kernel kernel = parent_t::createKernel(m_program, kernel_name);
-    EXPECT_TRUE(kernel != nullptr) << "createKernel failed";
-    if (nullptr == kernel) {
-      return false;
-    }
-
-    cl_command_queue queue = getOrCreateQueue(kernel_name);
-    if (nullptr == queue) {
-      return false;
-    }
-
-    const size_t one = 1;
-
-    return enqueueNDRange(0, 1, &one, &one, queue, kernel, args...);
+    return enqueueTaskImpl(/*OOO*/ false, kernel_name, /*event*/ nullptr,
+                           args...);
   }
 
   /**
@@ -129,23 +117,10 @@ protected:
    *
    *  This function is a helper, \see enqueueNDRange for detailed description
    */
-  template<typename... Args>
-  bool enqueueOOOTask(const std::string &kernel_name, Args... args) {
-    assert(nullptr != m_program && "no valid program object created!");
-    cl_kernel kernel = parent_t::createKernel(m_program, kernel_name);
-    EXPECT_TRUE(kernel != nullptr) << "createKernel failed";
-    if (nullptr == kernel) {
-      return false;
-    }
-
-    cl_command_queue queue = getOrCreateOOOQueue();
-    if (nullptr == queue) {
-      return false;
-    }
-
-    const size_t one = 1;
-
-    return enqueueNDRange(0, 1, &one, &one, queue, kernel, args...);
+  template <typename... Args>
+  bool enqueueOOOTask(const std::string &kernel_name, cl_event *event,
+                      Args... args) {
+    return enqueueTaskImpl(/*OOO*/ true, kernel_name, event, args...);
   }
 
   /**
@@ -244,10 +219,36 @@ private:
 
   std::map<std::string, cl_command_queue> m_queues;
 
+  /**
+   *  \brief Enqueues single work-item (task) OpenCL kernel
+   *
+   *  This function is a helper, \see enqueueNDRange for detailed description
+   */
+  template <typename... Args>
+  bool enqueueTaskImpl(bool OOO, const std::string &kernel_name,
+                       cl_event *event, Args... args) {
+    assert(nullptr != m_program && "no valid program object created!");
+    cl_kernel kernel = parent_t::createKernel(m_program, kernel_name);
+    EXPECT_TRUE(kernel != nullptr) << "createKernel failed";
+    if (nullptr == kernel) {
+      return false;
+    }
+
+    cl_command_queue queue =
+        OOO ? getOrCreateOOOQueue() : getOrCreateQueue(kernel_name);
+    if (nullptr == queue) {
+      return false;
+    }
+
+    const size_t one = 1;
+
+    return enqueueNDRange(0, 1, &one, &one, queue, kernel, event, args...);
+  }
+
   template <typename T, typename... Args>
   bool enqueueNDRange(size_t index, size_t num_dims, const size_t *global_size,
-                   const size_t *local_size, cl_command_queue queue,
-                   cl_kernel kernel, T arg, Args... args) {
+                      const size_t *local_size, cl_command_queue queue,
+                      cl_kernel kernel, cl_event *event, T arg, Args... args) {
     cl_int error = clSetKernelArg(kernel, index, sizeof(T), &arg);
     EXPECT_EQ(CL_SUCCESS, error)
         << "clSetKernelArg failed with error " << ErrToStr(error)
@@ -258,15 +259,15 @@ private:
     }
 
     return enqueueNDRange(index + 1, num_dims, global_size, local_size, queue,
-                          kernel, args...);
+                          kernel, event, args...);
   }
 
   bool enqueueNDRange(size_t, size_t num_dims, const size_t *global_size,
                       const size_t *local_size, cl_command_queue queue,
-                      cl_kernel kernel) {
+                      cl_kernel kernel, cl_event *event) {
     cl_int error =
         clEnqueueNDRangeKernel(queue, kernel, num_dims, nullptr, global_size,
-                               local_size, 0, nullptr, nullptr);
+                               local_size, 0, nullptr, event);
     EXPECT_EQ(CL_SUCCESS, error)
         << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
     return CL_SUCCESS == error;

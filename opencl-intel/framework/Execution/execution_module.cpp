@@ -54,19 +54,41 @@ using namespace Intel::OpenCL::Utils;
 #define CheckIfAnyDimIsZero(X) (((X)[0] == 0) || ((X)[1] == 0) || ((X)[2] == 0))
 
 namespace {
-/**
- * Check mutex of map flags.
- * @return CL_SUCCESS if OK.
- */
-inline cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags);
-/**
- * Callback to update kernle-event map if event status is changed to CL_COMPLETE.
- */
-void callbackForKernelEventMap(cl_event pEvent, cl_int expectedStatus, void *data);
-/**
- * Sync for the access of ExecutionModule::m_OclKernelEventMap
- */
+
+/// Sync for the access of ExecutionModule::m_OclKernelEventMap
 Intel::OpenCL::Utils::OclMutex KernelEventMutex;
+
+/// Check mutex of map flags.
+/// \return CL_SUCCESS if OK.
+cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
+  if (0 == (clMapFlags &
+            (CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION)))
+    return CL_SUCCESS;
+
+  if ((clMapFlags & CL_MAP_WRITE_INVALIDATE_REGION) &
+      (CL_MAP_READ | CL_MAP_WRITE)) {
+    return CL_INVALID_VALUE;
+  }
+
+  return CL_SUCCESS;
+}
+
+/// Callback for pEvent status change. if it's changed to CL_COMPLETE, we need
+/// to remove it from kernel-event map.
+void callbackForKernelEventMap(cl_event Evt, cl_int /*ReturnStatus*/,
+                               void *Data) {
+  OclAutoMutex Mu(&KernelEventMutex);
+
+  ExecutionModule *EM = (ExecutionModule *)Data;
+  assert(EM && "expect valid ExecutionModule instance");
+  OclKernelEventMapTy &KernelEvents = EM->getKernelEventMap();
+  auto It = std::find_if(KernelEvents.begin(), KernelEvents.end(),
+                         [Evt](auto &I) { return Evt == I.second; });
+  if (It != KernelEvents.end())
+    KernelEvents.erase(It);
+
+  EM->ReleaseEvent(Evt);
+}
 
 } //anonymous namespace
 
@@ -2309,13 +2331,16 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             {
                 OclAutoMutex mu(&KernelEventMutex);
                 m_OclKernelEventMap[kernelName] = trackerEvent;
+                // Increment reference count. It will be decremented in
+                // callbackForKernelEventMap.
+                RetainEvent(trackerEvent);
             }
 
             // Set call back which will erase this tracker kernel-event pair
             // from this map when the event status is changed to CL_COMPLETE.
             SetEventCallback(trackerEvent, CL_COMPLETE,
                              (eventCallbackFn)callbackForKernelEventMap,
-                             &m_OclKernelEventMap);
+                             (void *)this);
             updatedEventList = true;
         }
     }
@@ -4367,42 +4392,3 @@ void ExecutionModule::DeleteAllActiveQueues(bool preserve_user_handles)
     }
     m_pOclCommandQueueMap->ReleaseAllObjects(false);
 }
-
-namespace {
-/**
- * internal util function.
- */
-cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags)
-{
-    if (0 == ( clMapFlags & (CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION) ) )
-        return CL_SUCCESS;
-
-    if ( (clMapFlags & CL_MAP_WRITE_INVALIDATE_REGION) & (CL_MAP_READ | CL_MAP_WRITE) )
-    {
-        return CL_INVALID_VALUE;
-    }
-
-    return CL_SUCCESS;
-}
-
-/**
- * Callback for pEvent status change. if it's changed to CL_COMPLETE, we need to remove
- * it from kernel-event map.
- */
-
-void callbackForKernelEventMap(cl_event pEvent, cl_int /*returnStatus*/,
-                               void *data) {
-  OclAutoMutex mu(&KernelEventMutex);
-  std::map<std::string, cl_event> *kernelevent_map =
-      (std::map<std::string, cl_event> *)data;
-  assert(kernelevent_map && "Kernel-event map should not be null.");
-  for (auto it = kernelevent_map->begin(); it != kernelevent_map->end(); it++) {
-    if (pEvent == it->second) {
-      kernelevent_map->erase(it->first);
-      break;
-    }
-  }
-  return;
-}
-
-} //anonymous namespace
