@@ -177,6 +177,21 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
     return;
   }
 
+  if (any_of(instructions(Group), [](const VPLoadStoreInst *Memref) {
+        return Memref->getValueType()->isAggregateType();
+      })) {
+    // While we could load the data via scalar type (like iN or <M x iN> after
+    // widening), we'd need to cast the data back to vector of structs which
+    // doesn't exist. As such, support for aggregate types in VLS would require
+    // a mix of widening and serialization which isn't implemented yet (and it's
+    // unclear how beneficial it would be).
+    //
+    // Also, in many cases aggregate accesses are split into individual scalar
+    // type loads/stores, so the issue might be not that common.
+    FailureReason = "Aggregate type in the group.";
+    return;
+  }
+
   // Initialize whole group specific properties.
   std::tie(GroupGranularityType, GroupSizeInGranularityElements) =
       getGroupGranularity();
@@ -257,6 +272,9 @@ std::pair<Type *, int> VLSTransform::getGroupGranularity() {
       continue;
     }
   }
+
+  assert(!Result->isAggregateType() &&
+         "Aggregate types should be filtered out in legality checks!");
 
   if (isa<VectorType>(Result))
     Result = IntegerType::getIntNTy(Result->getContext(),
