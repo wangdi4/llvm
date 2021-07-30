@@ -597,24 +597,25 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
   return true;
 }
 
-// Returns true if \p Ref is structually invalidated in the range [BeginNode,
-// EndNode) by a temp redefinition.
+// Returns true if \p Ref is structually invalidated by a temp redefinition
+// before we hit \p EndNode. Both of them lie inside \p ParentLp.
+//
 // For example, store's rval ref gets invalidated in the example below which
 // prevents its forwarding into load.
 //
 // A[0] = %t1
 // %t1 =
 //     = A[0]
-static bool isRefInvalidatedInRange(const RegDDRef *Ref, const HLLoop *ParentLp,
-                                    const HLNode *BeginNode,
-                                    const HLNode *EndNode) {
+static bool isRefInvalidatedBeforeNode(const RegDDRef *Ref,
+                                       const HLNode *EndNode,
+                                       const HLLoop *ParentLp) {
   assert(!Ref->isMemRef() && "Memref not expected!");
-  assert((BeginNode && EndNode) && "Invalid node range!");
+  assert(EndNode && "EndNode is null!");
 
   unsigned Symbase = Ref->getSymbase();
 
   bool IsRegionInvariant = ((Symbase == ConstantSymbase) ||
-                            BeginNode->getParentRegion()->isLiveIn(Symbase));
+                            EndNode->getParentRegion()->isLiveIn(Symbase));
 
   if (IsRegionInvariant) {
     return false;
@@ -624,12 +625,13 @@ static bool isRefInvalidatedInRange(const RegDDRef *Ref, const HLLoop *ParentLp,
     return false;
   }
 
-  auto &BU = BeginNode->getBlobUtils();
+  auto &BU = Ref->getBlobUtils();
 
-  // Check nodes in range [BeginNode, EndNode) for redefinitions of any temp
+  // Check nodes in range (RefNode, EndNode) for redefinitions of any temp
   // blobs used in Ref.
-  for (auto *Node = BeginNode; Node != EndNode; Node = Node->getNextNode()) {
-    auto *Inst = dyn_cast<HLInst>(Node);
+  for (auto *Node = Ref->getHLDDNode()->getNextNode(); Node != EndNode;
+       Node = Node->getNextNode()) {
+    auto *Inst = dyn_cast_or_null<HLInst>(Node);
 
     // Only handle straight line code when substituting non-linear Ref.
     if (!Inst) {
@@ -708,8 +710,8 @@ canSubstituteLoads(const RegDDRef *StoreRef,
 
   // Check if it is structurally legal to substitute StoreRHS into loads.
   // Only the lexically last load needs to be passed in.
-  if (isRefInvalidatedInRange(StoreRHS, ParLoop, SInst->getNextNode(),
-                              SubstitutibleLoads[0]->getHLDDNode())) {
+  if (isRefInvalidatedBeforeNode(StoreRHS, SubstitutibleLoads[0]->getHLDDNode(),
+                                 ParLoop)) {
     return false;
   }
 
