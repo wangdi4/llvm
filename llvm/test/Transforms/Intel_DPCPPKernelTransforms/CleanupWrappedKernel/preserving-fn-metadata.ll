@@ -15,7 +15,7 @@ define void @test_if() #1 {
   ret void
 }
 ;; TODO: replace "kernel_wrapper" with "kernel-wrapper"
-attributes #0 = { alwaysinline "kernel_wrapper"="test_if" "sycl-kernel"}
+attributes #0 = { alwaysinline "kernel_wrapper"="test_if" }
 attributes #1 = { noinline }
 
 !sycl.kernels = !{!0}

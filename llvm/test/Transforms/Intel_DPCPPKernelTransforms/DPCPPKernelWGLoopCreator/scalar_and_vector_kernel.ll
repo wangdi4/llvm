@@ -117,7 +117,7 @@ entry:
   ret void
 }
 
-attributes #0 = { noinline "no-barrier-path"="true" "scalar-kernel" "sycl-kernel" "vectorized-kernel"="_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-width"="1" }
+attributes #0 = { noinline "no-barrier-path"="true" "scalar-kernel" "vectorized-kernel"="_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-width"="1" }
 attributes #1 = { noinline "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-kernel" "vectorized-width"="16" }
 
 !sycl.kernels = !{!0}
