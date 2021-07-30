@@ -96,10 +96,6 @@ set(TARGET_INCLUDE_FILES
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
   VectorKernelDiscard/VectorKernelDiscard.h
-  VectorVariant/CreateSimdVariantPropagation.h
-  VectorVariant/SGSizeCollector.h
-  VectorVariant/SGSizeCollectorIndirect.h
-  VectorVariant/VectorVariantLowering.h
   VectorVariant/IndirectCallLowering.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
@@ -140,10 +136,6 @@ set(TARGET_SOURCE_FILES
   Utils/VectorizerCore.cpp
   Utils/VectorizerCommon.cpp
   VectorKernelDiscard/VectorKernelDiscard.cpp
-  VectorVariant/CreateSimdVariantPropagation.cpp
-  VectorVariant/SGSizeCollector.cpp
-  VectorVariant/SGSizeCollectorIndirect.cpp
-  VectorVariant/VectorVariantLowering.cpp
   VectorVariant/IndirectCallLowering.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp

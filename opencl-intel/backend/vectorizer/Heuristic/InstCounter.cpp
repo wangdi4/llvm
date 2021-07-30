@@ -36,8 +36,8 @@
 #include <iomanip>
 #include <sstream>
 
-extern bool EnableDirectFunctionCallVectorization;
-extern bool EnableSubgroupDirectCallVectorization;
+extern bool DPCPPEnableDirectFunctionCallVectorization;
+extern bool DPCPPEnableSubgroupDirectCallVectorization;
 
 using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -1367,11 +1367,11 @@ bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services
     return false;
   }
 
-  if (!EnableDirectFunctionCallVectorization) {
+  if (!DPCPPEnableDirectFunctionCallVectorization) {
     auto KIMD = KernelInternalMetadataAPI(&F);
     bool HasSG =
         KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get();
-    if (!(EnableSubgroupDirectCallVectorization && HasSG)) {
+    if (!(DPCPPEnableSubgroupDirectCallVectorization && HasSG)) {
       if (hasNonInlineUnsupportedFunctions(F)) {
         LLVM_DEBUG(
             dbgs() << "Call to unsupported functions, can not vectorize\n");

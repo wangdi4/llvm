@@ -24,7 +24,7 @@
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
-extern bool EnableVectorVariantPasses;
+extern bool DPCPPEnableVectorVariantPasses;
 
 namespace intel {
 
@@ -42,7 +42,7 @@ IndirectCallLowering::IndirectCallLowering() : ModulePass(ID) {
 }
 
 bool IndirectCallLowering::runOnModule(Module &M) {
-  if (!EnableVectorVariantPasses)
+  if (!DPCPPEnableVectorVariantPasses)
     return false;
 
   bool Modified = false;

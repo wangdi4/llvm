@@ -58,9 +58,9 @@ using namespace Intel::VectorizerCommon;
 
 extern bool EnableSubGroupEmulation;
 
-extern bool EnableSubgroupDirectCallVectorization;
-extern bool EnableDirectFunctionCallVectorization;
-extern bool EnableVectorizationOfByvalByrefFunctions;
+extern bool DPCPPEnableSubgroupDirectCallVectorization;
+extern bool DPCPPEnableDirectFunctionCallVectorization;
+extern bool DPCPPEnableVectorizationOfByvalByrefFunctions;
 
 #define DEBUG_TYPE "check-vf"
 
@@ -218,14 +218,15 @@ bool OCLVPOCheckVF::checkSGSemantics(
     }
 
     // Check whether there is subgroup call is in a subroutine.
-    if (!EnableSubgroupDirectCallVectorization &&
-        !EnableDirectFunctionCallVectorization && SGIndirectUsers.count(Kernel)) {
+    if (!DPCPPEnableSubgroupDirectCallVectorization &&
+        !DPCPPEnableDirectFunctionCallVectorization &&
+        SGIndirectUsers.count(Kernel)) {
       LLVM_DEBUG(dbgs() << "sub-group is broken<In a subroutine> \n");
       return false;
     }
 
-    if (!EnableVectorizationOfByvalByrefFunctions &&
-         hasByvalByrefFuncCallingSG(Kernel, CG)) {
+    if (!DPCPPEnableVectorizationOfByvalByrefFunctions &&
+        hasByvalByrefFuncCallingSG(Kernel, CG)) {
       LLVM_DEBUG(dbgs() << "sub-group is broken<byval/byref function> \n");
       return false;
     }

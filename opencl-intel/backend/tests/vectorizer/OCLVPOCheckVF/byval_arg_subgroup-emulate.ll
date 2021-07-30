@@ -1,5 +1,5 @@
 ; RUN: %oclopt %s -check-vf -S | FileCheck %s
-; RUN: %oclopt %s --ocl-vector-variant-isa-encoding-override=AVX512Core -enable-byval-byref-function-call-vectorization -sg-size-collector -S | FileCheck %s -check-prefix CHECK-FLAG
+; RUN: %oclopt %s -dpcpp-enable-byval-byref-function-call-vectorization -dpcpp-kernel-sg-size-collector -S | FileCheck %s -check-prefix CHECK-FLAG
 
 ;; Have a byval function with has-sub-groups attribute. Emulate.
 
