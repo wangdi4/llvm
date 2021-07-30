@@ -11,6 +11,10 @@
 #define __X86INTRIN_H
 
 /* INTEL_CUSTOMIZATION */
+/* Turn fp precise on for intrinsics, push state to restore at end. */
+#pragma float_control(push)
+#pragma float_control(precise, on)
+
 /* Moved to immintrin.h */
 /*#include <ia32intrin.h>*/
 /* end INTEL_CUSTOMIZATION */
@@ -79,5 +83,8 @@
 #include <clzerointrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+#pragma float_control(pop)
+/* end INTEL_CUSTOMIZATION */
 
 #endif /* __X86INTRIN_H */

@@ -10,6 +10,12 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
+/* INTEL_CUSTOMIZATION */
+/* Turn fp precise on for intrinsics, push state to restore at end. */
+#pragma float_control(push)
+#pragma float_control(precise, on)
+/* end INTEL_CUSTOMIZATION */
+
 #include <x86gprintrin.h>
 
 /* INTEL_CUSTOMIZATION */
@@ -1432,6 +1438,8 @@ __writemsr(unsigned int __register, unsigned long long __data) {
 #define _FEATURE_AMX_BF16            CPU_FEATURE_BIT_POS(73)
 #define _FEATURE_KL                  CPU_FEATURE_BIT_POS(74)
 #define _FEATURE_WIDE_KL             CPU_FEATURE_BIT_POS(75)
+
+#pragma float_control(pop)
 /* end INTEL_CUSTOMIZATION */
 
 #endif /* __IMMINTRIN_H */

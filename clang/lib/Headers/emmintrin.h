@@ -10,6 +10,12 @@
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
 
+/* INTEL_CUSTOMIZATION */
+/* Turn fp precise on for intrinsics, push state to restore at end. */
+#pragma float_control(push)
+#pragma float_control(precise, on)
+/* end INTEL_CUSTOMIZATION */
+
 #include <xmmintrin.h>
 
 typedef double __m128d __attribute__((__vector_size__(16), __aligned__(16)));
@@ -4978,4 +4984,7 @@ void _mm_pause(void);
 #define _MM_GET_DENORMALS_ZERO_MODE() (_mm_getcsr() & _MM_DENORMALS_ZERO_MASK)
 #define _MM_SET_DENORMALS_ZERO_MODE(x) (_mm_setcsr((_mm_getcsr() & ~_MM_DENORMALS_ZERO_MASK) | (x)))
 
+/* INTEL_CUSTOMIZATION */
+#pragma float_control(pop)
+/* end INTEL_CUSTOMIZATION */
 #endif /* __EMMINTRIN_H */
