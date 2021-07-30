@@ -22,7 +22,6 @@ set(OCL_BE_PASSES
     ImplicitArgsAnalysis
     InfiniteLoopCreator
     InstToFuncCall
-    InternalizeNonKernelFunc
     InternalizeGlobalVariables
     KernelInfo
     LLVMBarrier

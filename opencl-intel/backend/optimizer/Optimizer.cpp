@@ -137,7 +137,6 @@ llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
 llvm::ModulePass *createOclFunctionAttrsPass();
-llvm::ModulePass *createInternalizeNonKernelFuncPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
 llvm::Pass *
@@ -337,7 +336,7 @@ static void populatePassesPreFailCheck(
   // Here we are internalizing non-kernal functions to allow inliner to remove
   // functions' bodies without call sites
   if (OptLevel > 0)
-    PM.add(createInternalizeNonKernelFuncPass());
+    PM.add(llvm::createInternalizeNonKernelFuncLegacyPass());
 
   PM.add(createFMASplitterPass());
   PM.add(llvm::createAddFunctionAttrsLegacyPass());

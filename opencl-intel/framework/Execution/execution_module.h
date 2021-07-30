@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include <map>
-
 #include "cl_framework.h"
-#include <Logger.h>
-#include "iexecution.h"
-#include "ocl_itt.h"
-#include "ocl_config.h"
 #include "command_queue.h"
+#include "iexecution.h"
+#include "ocl_config.h"
+#include "ocl_itt.h"
+#include <Logger.h>
+#include <unordered_map>
 
 // forward declarations
 
@@ -34,6 +33,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class IOclCommandQueueBase;
     class Context;
     class MemoryObject;
+    using OclKernelEventMapTy = std::unordered_map<std::string, cl_event>;
 
     /**
      * ExecutionModule class the platform module responsible of all execution related
@@ -306,6 +306,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code RunAutorunKernels(const SharedPtr<Program>& program,
             ApiLogger* apiLogger);
 
+        OclKernelEventMapTy &getKernelEventMap() { return m_OclKernelEventMap; }
+
         EventsManager*      GetEventsManager() const { return m_pEventsManager; }
         void                ReleaseAllUserEvents( bool preserve_user_handles );
 
@@ -363,7 +365,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_command_queue_int, _cl_context_int>*      m_pOclCommandQueueMap;      // Holds the set of active queues.
         // Binding between a kernel to enqueue and an event assosiated with
         // the kernel. Need for kernel serialization on FPGA emulator.
-        std::map<std::string, cl_event> m_OclKernelEventMap;
+        OclKernelEventMapTy m_OclKernelEventMap;
         EventsManager*      m_pEventsManager;                                                   // Placeholder for all active events.
 
         ocl_entry_points *	m_pOclEntryPoints;

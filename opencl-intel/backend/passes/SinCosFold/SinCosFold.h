@@ -60,7 +60,6 @@ private:
       InstructionData();
   };
 
-  typedef std::map<llvm::Value *, InstructionData *> DataMap;
   void replaceSingleInst(CallInst *it, Value * val);
   bool replaceAllInst(InstructionData * iData,llvm::Module &M);
 

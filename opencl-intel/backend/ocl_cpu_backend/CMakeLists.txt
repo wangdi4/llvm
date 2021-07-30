@@ -236,7 +236,6 @@ set( BACKEND_PASSES
     DetectRecursion
     InfiniteLoopCreator
     InstToFuncCall
-    InternalizeNonKernelFunc
     ExternalizeGlobalVariables
     InternalizeGlobalVariables
     LocalBuffers
