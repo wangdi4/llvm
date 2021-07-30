@@ -1,12 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
-; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
-
-; Check "nested dope vector" candidates (i.e. candidates which are fields in
-; a structure, which is in an array of structures).
-; This is similar to transpose-candidates05.ll, but handles the case of
-; strides in SubscriptInsts that are not literal constants and an array
-; of structures where some, but not all, of the fields are dope vectors.
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that the array through which the indirect subscripting is occurring is
 ; a candidate for transposing but not profitable.
@@ -15,23 +9,13 @@
 ; CHECK: IsValid{{ *}}: true
 ; CHECK: IsProfitable{{ *}}: false
 
-; Check that the array represented by the 0th field of main_$PHYSPROP
-; can and should be transposed to ensure that the indirectly
-; subscripted index is not the fastest varying subscript.
+; Check that main_$PHYSPROP does not provide any candidates, because
+; -dtrans-outofboundsok=true, and our analysis is too weak at this point to
+; analyze non-dope-vector fields in this case.
 
-; CHECK: Transpose candidate: main_$PHYSPROP
-; CHECK: Nested Field Number : 0
-; CHECK: IsValid{{ *}}: true
-; CHECK: IsProfitable{{ *}}: true
-
-; Check that the array represented by the 2nd field of main_$PHYSPROP
-; can but should NOT be transposed because the indirectly
-; subscripted index is not the fastest varying subscript.
-
-; CHECK: Transpose candidate: main_$PHYSPROP
-; CHECK: Nested Field Number : 2
-; CHECK: IsValid{{ *}}: true
-; CHECK: IsProfitable{{ *}}: false
+; CHECK-NOT: Transpose candidate: main_$PHYSPROP
+; CHECK-NOT: Before
+; CHECK-NOT: After
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

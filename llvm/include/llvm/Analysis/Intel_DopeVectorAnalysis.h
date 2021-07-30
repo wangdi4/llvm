@@ -139,7 +139,9 @@ extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
 // can access the field.
 class DopeVectorFieldUse {
 public:
-  using LoadInstSet = SmallPtrSet<LoadInst *, 8>;
+  // Use a SetVector so that the NestedDopeVectors are placed in their
+  // SetVector in a consistent order.
+  using LoadInstSet = SetVector<LoadInst *>;
   using LoadInstSetIter = LoadInstSet::const_iterator;
 
   // Normally, we expect at most 1 store instruction

@@ -19,9 +19,19 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ErrorHandling.h"
 
+#if INTEL_FEATURE_SW_DTRANS
+#include "Intel_DTrans/Analysis/DTransUtils.h"
+#endif // INTEL_FEATURE_SW_DTRANS
+
 using namespace llvm;
 
 #define DEBUG_TYPE "dopevector-analysis"
+
+#if INTEL_FEATURE_SW_DTRANS
+static cl::opt<bool> CheckDTransOutOfBoundsOK("dva-check-dtrans-outofboundsok",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+#endif // INTEL_FEATURE_SW_DTRANS
 
 namespace llvm {
 
@@ -2707,43 +2717,203 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
-  // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
-  // set to exclude recursive descent on Arguments that have already been
-  // evaluated.
+  // Recursive forward declaration
+  std::function<bool(Value *, User *, SmallPtrSetImpl<Value *> &)>
+    PropagatesThroughUser;
+
   //
-  std::function<bool(Value *V, SmallPtrSetImpl<Argument *> &Visited)>
-      PropagatesToLoadOrStoreX = [&](Value *V,
-                                     SmallPtrSetImpl<Argument *> &Visited)
-                                     -> bool {
-    for (User *U: V->users()) {
-      if (auto SI = dyn_cast<StoreInst>(U)) {
-        if (SI->getPointerOperand() != V)
-          return false;
-      } else if (isa<LoadInst>(U)) {
+  // Return 'true' if 'GEPI' is propagated down the call chain and terminates
+  // with a LoadInst or StoreInst.
+  //
+  std::function<bool(GetElementPtrInst *, SmallPtrSetImpl<Value *> &)>
+      PropagatesThroughGEPI = [&](GetElementPtrInst *GEPI,
+                                  SmallPtrSetImpl<Value *> &Visited) -> bool {
+    if (GEPI->getNumIndices() != 1)
+      return false;
+    for (User *U : GEPI->users()) {
+      if (!Visited.count(U))
         continue;
-      } else if (auto CB = dyn_cast<CallBase>(U)) {
-        auto ArgPos = getArgumentPosition(*CB, V);
-        if (!ArgPos)
+      if (auto NewGEPI = dyn_cast<GetElementPtrInst>(U)) {
+        if (!PropagatesThroughGEPI(NewGEPI, Visited))
           return false;
-        Function *Callee = CB->getCalledFunction();
-        if (!Callee)
-          return false;
-        Argument *Arg = Callee->getArg(*ArgPos);
-        if (!Visited.count(Arg) && !PropagatesToLoadOrStoreX(Arg, Visited))
-          return false;
-      } else {
+      } else if (!PropagatesThroughUser(GEPI, U, Visited)) {
         return false;
       }
     }
     return true;
   };
 
+  //
+  // Return 'true' if 'PHIN', which is a User of 'V' is propagated down the
+  // call chain and terminates with a LoadInst or StoreInst.
+  //
+  auto PropagatesThroughPHINode = [&](Value *V, PHINode *PHIN,
+                                      SmallPtrSetImpl<Value *> &Visited)
+                                      -> bool {
+     static const unsigned BackTraversalLimit = 3;
+     if (Visited.count(PHIN))
+       return true;
+     Visited.insert(PHIN);
+     //
+     // Check the backedges of 'PHIN' and ensure that they reach back to
+     // 'PHIN' using only byte-flattened GEPs or other PHINodes. This
+     // is to ensure that any value derived from 'PHIN' is a byte offset
+     // from the original value coming into 'PHIN'. 'DTransOutOfBoundsOK'
+     // ensures that the offset does not index out of the original bounds.
+     //
+     for (Value *W : PHIN->incoming_values()) {
+       if (W == V)
+         continue;
+       Value *WW = W;
+       bool CompletedLoop = false;
+       for (unsigned J = 0; J < BackTraversalLimit; ++J) {
+         if (auto GEPI = dyn_cast<GetElementPtrInst>(WW)) {
+           if (GEPI->getNumIndices() != 1)
+             return false;
+           WW = GEPI->getPointerOperand();
+         } else if (auto NewPHIN = dyn_cast<PHINode>(WW)) {
+           // NOTE: This traverses back through only one level of PHINode.
+           // It could be generalized into a recursive search, but it is
+           // sufficient for what we need at this time.
+           bool FoundPHI = false;
+           for (Value *WWW : NewPHIN->incoming_values())
+             if (WWW == PHIN) {
+               WW = PHIN;
+               FoundPHI = true;
+               break;
+             }
+           if (!FoundPHI)
+             return false;
+         }
+         else {
+           return false;
+         }
+         if (WW == PHIN) {
+           CompletedLoop = true;
+           break;
+         }
+       }
+       if (!CompletedLoop)
+         return false;
+     }
+     //
+     // Walk forward through the uses of 'PHI' allowing the pointer
+     // value to be offset through a series of byte flattened GEPs.
+     //
+     for (User *U : PHIN->users()) {
+       if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+         if (!PropagatesThroughGEPI(GEPI, Visited))
+           return false;
+       } else if (!PropagatesThroughUser(PHIN, U, Visited)) {
+         return false;
+       }
+     }
+     return true;
+  };
+
+  //
+  // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
+  // set to exclude recursive descent on Values that have already been
+  // evaluated. Two types of Values are placed in the 'Visited' set:
+  // Arguments and PHINodes.
+  //
+  std::function<bool(Value *V, SmallPtrSetImpl<Value *> &Visited)>
+      PropagatesToLoadOrStoreX = [&](Value *V,
+                                     SmallPtrSetImpl<Value *> &Visited)
+                                     -> bool {
+    if (Visited.count(V))
+      return true;
+    Visited.insert(V);
+    for (User *U: V->users())
+      if (!PropagatesThroughUser(V, U, Visited))
+        return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'LI' is just stored as an integer or
+  // floating point type. This ensures that it is not cast as
+  // a pointer and used to dereference something else. If passed
+  // at a call site, we follow it through the call chain.
+  //
+  auto PropagatesThroughLoadInst = [&](LoadInst *LI,
+                                       SmallPtrSetImpl<Value *> &Visited)
+                                       -> bool {
+    for (User *U : LI->users()) {
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        Type *Ty = SI->getValueOperand()->getType();
+        if (!Ty->isIntegerTy() && !Ty->isFloatingPointTy())
+          return false;
+      } else if (auto Arg = dyn_cast<Argument>(U)) {
+        if (!PropagatesToLoadOrStoreX(Arg, Visited))
+          return false;
+      }
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if 'U', which is a User of 'V' is propagated down the
+  // call chain and terminates with a LoadInst or StoreInst.
+  //
+  PropagatesThroughUser = [&](Value *V, User *U,
+                              SmallPtrSetImpl<Value *> &Visited) -> bool {
+    if (auto SI = dyn_cast<StoreInst>(U)) {
+      if (SI->getValueOperand() == V)
+        return false;
+      return true;
+    }
+    if (auto PHIN = dyn_cast<PHINode>(U)) {
+      if (!PropagatesThroughPHINode(V, PHIN, Visited))
+        return false;
+    } else if (auto LI = dyn_cast<LoadInst>(U)) {
+      if (!PropagatesThroughLoadInst(LI, Visited))
+        return false;
+    } else if (auto BC = dyn_cast<BitCastInst>(U)) {
+      for (User *UU : BC->users()) {
+        if (!PropagatesThroughUser(BC, UU, Visited))
+          return false;
+      }
+    } else if (auto CB = dyn_cast<CallBase>(U)) {
+      auto ArgPos = getArgumentPosition(*CB, V);
+      if (!ArgPos)
+        return false;
+      auto F = dyn_cast<Function>(CB->getCalledOperand()->stripPointerCasts());
+      if (!F)
+        return false;
+      Argument *Arg = F->getArg(*ArgPos);
+      if (!PropagatesToLoadOrStoreX(Arg, Visited))
+        return false;
+    } else if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      // Allow for the special case of a zero-indexed GEP, which is
+      // effectively a null operation.
+      if (GEPI->getPointerOperand() != V || !GEPI->hasAllZeroIndices())
+        return false;
+      for (User *UU : GEPI->users()) {
+        if (!PropagatesThroughUser(GEPI, UU, Visited))
+          return false;
+      }
+    } else {
+      return false;
+    }
+    return true;
+  };
+
+  //
   // Return 'true' if 'V' is propagated down the call chain and terminates
   // with a LoadInst or StoreInst.
   //
-  auto PropagatesToLoadOrStore = [&PropagatesToLoadOrStoreX](Value *V) {
-    SmallPtrSet<Argument *, 10> Visited;
+  auto PropagatesToLoadOrStore = [&](Value *V) {
+#if INTEL_FEATURE_SW_DTRANS
+    SmallPtrSet<Value *, 10> Visited;
+    if (!CheckDTransOutOfBoundsOK)
+      return false;
+    if (dtrans::DTransOutOfBoundsOK)
+      return false;
     return PropagatesToLoadOrStoreX(V, Visited);
+#else // INTEL_FEATURE_SW_DTRANS
+    return false;
+#endif // INTEL_FEATURE_SW_DTRANS
   };
 
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
@@ -2799,22 +2969,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         if (CanPropThruPtrAssn(U, DL, NestedDVInfo))
           return true;
         return false;
-      } else if (PropagatesToLoadOrStore(U)) {
-         return true;
-      } else if (!IsSafeIntrinOrLibFuncUser(V, U)) {
-        // For now, if this is not a nested dope vector and does not involve
-        // easily recognized intrinsics operating on the field, give up if we
-        // see anything other than a user which is a LoadInst or StoreInst
-        // referencing U as a pointer operand. We can extend this analysis
-        // if it proves to be useful to do that.
-        for (User *V : U->users()) {
-          if (auto SI = dyn_cast<StoreInst>(V)) {
-            if (SI->getPointerOperand() != U)
-              return false;
-          } else if (!isa<LoadInst>(V)) {
-            return false;
-          }
-        }
+      } else {
+        if (PropagatesToLoadOrStore(U))
+          return true;
+        if (IsSafeIntrinOrLibFuncUser(V, U))
+          return true;
+        return false;
       }
     } else {
       // Subscript used for something else
