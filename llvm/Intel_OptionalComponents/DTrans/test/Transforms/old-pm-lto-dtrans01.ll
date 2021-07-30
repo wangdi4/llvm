@@ -22,8 +22,6 @@
 ; CHECK: Executing Pass 'DTrans Mem Init Trim Down' on Module
 ; CHECK: Executing Pass 'DTrans struct of arrays to array of structs'
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
-; CHECK: Executing Pass 'DTrans Memory Manage Trans'
-; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans weak align'
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans delete field'

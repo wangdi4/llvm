@@ -35,9 +35,9 @@ static cl::opt<bool> EnableMemInitTrimDown("enable-dtrans-meminittrimdown",
                                     cl::init(true), cl::Hidden,
                                     cl::desc("Enable DTrans MemInitTrimDown"));
 
-// Initial Memory management transformation.
+// Memory management transformation: Disable it by default.
 static cl::opt<bool> EnableMemManageTrans("enable-dtrans-memmanagetrans",
-                                  cl::init(true), cl::Hidden,
+                                  cl::init(false), cl::Hidden,
                                   cl::desc("Enable DTrans MemoryManageTrans"));
 
 // SOA-to-AOS Prepare transformation.
