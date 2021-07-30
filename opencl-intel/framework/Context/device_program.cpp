@@ -22,6 +22,9 @@
 #include "cl_autoptr_ex.h"
 #include "cl_shared_ptr.hpp"
 
+#include "llvm/ADT/Triple.h"
+#include "llvm/Bitcode/BitcodeReader.h"
+
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
@@ -122,6 +125,7 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
         clBinaryType = CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
         break;
     case CL_PROG_BIN_COMPILED_LLVM:
+    case CL_PROG_BIN_COMPILED_SPV_IR:
         clBinaryType = CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT;
         break;
     case CL_PROG_BIN_LINKED_LLVM:
@@ -767,13 +771,31 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl
         return false;
     }
 
-    //check if it is LLVM IR object
-    if ( !memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
-    {
-        if( pBinaryType )
-            *pBinaryType = CL_PROG_BIN_COMPILED_SPIR;
+    // check if it is LLVM IR object
+    if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary,
+                sizeof(_CL_LLVM_BITCODE_MASK_) - 1)) {
+      llvm::Expected<std::string> S = llvm::getBitcodeTargetTriple(
+          llvm::MemoryBuffer::getMemBuffer(
+              llvm::StringRef(static_cast<const char *>(pBinary), uiBinSize),
+              "", false)
+              ->getMemBufferRef());
+      if (!S || *S == "")
+        return false;
+      llvm::Triple TT(*S);
+      if (pBinaryType) {
+        // "spir64_x86_64" triple <--> non-spirv CPU AOT
+        // Input is SPV-IR (SPIRV-Friendly-IR) in this case.
+        if (TT.isSPIR() &&
+            TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64) {
+          *pBinaryType = CL_PROG_BIN_COMPILED_SPV_IR;
+        } else {
+          *pBinaryType = CL_PROG_BIN_COMPILED_SPIR;
+        }
+      }
 
-        return CL_DEV_SUCCEEDED(m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize, pBinary));
+      return CL_DEV_SUCCEEDED(
+          m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize,
+                                                               pBinary));
     }
 
     // check if it is SPIRV object

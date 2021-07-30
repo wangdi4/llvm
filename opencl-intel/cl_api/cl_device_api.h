@@ -54,6 +54,7 @@ enum cl_prog_binary_type
     CL_PROG_BIN_COMPILED_SPIR,      //!< Container holds compiled SPIR intermediate
     CL_PROG_BIN_COMPILED_SPIRV,     //!< Container holds compiled SPIRV intermediate
     CL_PROG_BIN_LINKED_SPIR,        //!< Container holds linked SPIR intermediate
+    CL_PROG_BIN_COMPILED_SPV_IR,    //!< Container holds compiled SPIRV-Friendly-IR (SPV-IR) bitcode
     CL_PROG_BIN_CUSTOM,             //!< Container holds custom device binary
     CL_PROG_BIN_BUILT_OBJECT        //!< Container holds already built ocl program (JIT and IR)
 };

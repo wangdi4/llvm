@@ -94,6 +94,7 @@ add_ocl_unittest_artifacts(
     data/reqd_num_sub_groups_32.bc
     data/reqd_num_sub_groups_64.bc
     data/spec_const.spv
+    data/spirv-friendly-llvm-ir.bc
 )
 
 add_dependencies(${TARGET}
