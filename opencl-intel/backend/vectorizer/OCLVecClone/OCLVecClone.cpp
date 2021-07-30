@@ -168,7 +168,7 @@ OCLVecCloneImpl::OCLVecCloneImpl() : VecCloneImpl() {}
 // "recommened_vector_length" metadata is used only by OCLVecClone. The rest
 // of the Volcano passes recognize the "vector_width" metadata. Thus, we add
 // "vector_width" metadata to the original kernel and the cloned kernel.
-static void updateMetadata(Function &F, Function *Clone,
+static void updateKernelMetadata(Function &F, Function *Clone,
                            unsigned VecDim, bool CanUniteWorkgroups) {
   auto FMD = KernelInternalMetadataAPI(&F);
   auto KMD = KernelMetadataAPI(&F);
@@ -613,7 +613,8 @@ static void initializeVectInfo() {
 
 void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                               Function *Clone,
-                                              BasicBlock *EntryBlock) {
+                                              BasicBlock *EntryBlock,
+                                              const VectorVariant &Variant) {
   // The FunctionsAndActions array has only the OpenCL function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
@@ -643,9 +644,11 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   auto Kernels = KernelList(F.getParent()).getList();
   std::set<Function *> KernelsSet(Kernels.begin(), Kernels.end());
 
+  bool IsKernel = KernelsSet.count(&F);
+
   unsigned VecDim;
   bool CanUniteWorkgroups;
-  if (DimChooser && KernelsSet.count(&F)) {
+  if (DimChooser && IsKernel) {
     VecDim = DimChooser->getVectorizationDim(&F);
     CanUniteWorkgroups = DimChooser->getCanUniteWorkgroups(&F);
   } else {
@@ -727,7 +730,8 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
-  updateMetadata(F, Clone, VecDim, CanUniteWorkgroups);
+  if (IsKernel)
+    updateKernelMetadata(F, Clone, VecDim, CanUniteWorkgroups);
 
   // Load all vector info into g_VecInfo, at most once.
   llvm::call_once(initVecInfoOnce, initializeVectInfo);
@@ -742,7 +746,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       continue;
 
     auto FnName = CalledFunc->getName();
-    unsigned VF = KernelInternalMetadataAPI(Clone).VectorizedWidth.get();
+    unsigned VF = Variant.getVlen();
 
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).
