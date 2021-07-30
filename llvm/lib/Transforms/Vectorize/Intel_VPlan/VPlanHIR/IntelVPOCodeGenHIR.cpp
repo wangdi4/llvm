@@ -92,12 +92,6 @@ static cl::opt<bool> EnablePeelMEVec(
     "enable-peel-me-vec", cl::init(true), cl::Hidden,
     cl::desc("Enable peel loop for vectorized multi-exit loops."));
 
-// Force full VPValue based code generation.
-static cl::opt<bool, true> EnableVPValueCodegenHIROpt(
-    "enable-vp-value-codegen-hir", cl::Hidden,
-    cl::location(EnableVPValueCodegenHIR),
-    cl::desc("Enable VPValue based codegen for HIR vectorizer"));
-
 static cl::opt<bool> DisableCondLastPrivCG(
     "disable-hir-cond-last-priv-cg", cl::init(true), cl::Hidden,
     cl::desc(
@@ -122,12 +116,6 @@ static cl::opt<bool> PrintHIRAfterVPlan(
     "print-hir-after-vplan", cl::init(false),
     cl::desc("Print vectorized HIR after VPlanDriverHIR, on per-HLLoop basis"));
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-namespace llvm {
-namespace vpo {
-bool EnableVPValueCodegenHIR = true;
-} // namespace vpo
-} // namespace llvm
 
 namespace llvm {
 
@@ -619,8 +607,7 @@ void HandledCheck::visit(HLDDNode *Node) {
     }
 
     if (const CallInst *Call = Inst->getCallInst()) {
-      if (!CG->isIgnoredCall(Call) &&
-          (CG->getForceMixedCG() || !EnableVPValueCodegenHIR)) {
+      if (!CG->isIgnoredCall(Call) && (CG->getForceMixedCG())) {
         // TODO: Is this case possible? We use mixed CG only for search loops
         // now.
         LLVM_DEBUG(Inst->dump());
@@ -5003,9 +4990,8 @@ bool VPOCodeGenHIR::targetHasIntelAVX512() const {
 
 void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
 
-  // Use VPValue based code generation if it is enabled and mixed CG has not
-  // been forced
-  if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
+  // Use VPValue based code generation if mixed CG has not been forced
+  if (!getForceMixedCG()) {
     widenNodeImpl(VPInst, Mask);
     return;
   }

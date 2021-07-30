@@ -5,8 +5,8 @@
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM2
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,hir-vplan-vec" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -print-after=hir-vplan-vec -disable-output 2>&1 | FileCheck %s --check-prefixes=CGCHECK,PM2
 
 
 ; int foo(int *a, int n) {

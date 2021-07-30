@@ -4,8 +4,8 @@
 ; when we do not explicitly throw the flag to enable VPValue based code
 ; generation (check prefix to be used is VPVAL for this case).
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output -enable-vp-value-codegen-hir=1 < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1  | FileCheck %s --check-prefixes=VPVAL,PM1
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,PM2
