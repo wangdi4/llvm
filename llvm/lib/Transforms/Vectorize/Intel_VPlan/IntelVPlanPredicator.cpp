@@ -706,44 +706,55 @@ public:
     }
   }
 
-  /// \p BlendOps is filled recursively with the operands in reverse order.
+  /// \p BlendOps is filled with the operands in reverse order.
   ///
   /// It is similar to llvm::SSAUpdaterBulk::computeValueAt but we don't stop at
   /// the point of a found value and go up till the immediate dominators to get
-  /// all the values that need to be blended. The recursive iteration stop only
+  /// all the values that need to be blended. The iteration stops only
   /// when we arrive at the unpredicated block.
   void getBlendArgs(int Idx, VPBasicBlock *AtBB,
                     SmallVectorImpl<VPValue *> &BlendOps) {
-    auto IsUndef = [](const VPValue *V) {
-      return isa<VPConstant>(V) &&
-             isa<UndefValue>(cast<VPConstant>(V)->getConstant());
+    auto ExitCond = [](VPBasicBlock *AtBB){
+      return !AtBB->getPredicate() &&
+        // FIXME: This is ugly, hopefully we will redesign the whole way
+        // uniform instructions with divergent operands are processed...
+        none_of(*AtBB, [](const VPInstruction &Inst) {
+                return isa<VPActiveLane>(Inst);
+        });
     };
-    if (OrigValsMaps[Idx].count(AtBB)) {
-      VPValue *Val = OrigValsMaps[Idx][AtBB];
-      if (!IsUndef(Val)) {
-        VPValue *Pred = AtBB->getPredicate();
-        BlendOps.push_back(Pred);
-        BlendOps.push_back(Val);
+
+    // Manual tail call elimination.
+    while (true) {
+      assert(ExitCond(&*(AtBB->getParent()->begin())) &&
+             "Plan.begin() does not satisfy exit condition.");
+
+      auto IsUndef = [](const VPValue *V) {
+        return isa<VPConstant>(V) &&
+               isa<UndefValue>(cast<VPConstant>(V)->getConstant());
+      };
+      if (OrigValsMaps[Idx].count(AtBB)) {
+        VPValue *Val = OrigValsMaps[Idx][AtBB];
+        if (!IsUndef(Val)) {
+          VPValue *Pred = AtBB->getPredicate();
+          BlendOps.push_back(Pred);
+          BlendOps.push_back(Val);
+        }
       }
-    }
-    // The phi corresponds to the values blended earlier in CFG than the def
-    // from the block itself.
-    if (MergePhiMaps[Idx].count(AtBB)) {
-      VPValue *Val = MergePhiMaps[Idx][AtBB];
-      BlendOps.push_back(nullptr /* no predicate/true */);
-      BlendOps.push_back(Val);
-      return;
-    }
+      // The phi corresponds to the values blended earlier in CFG than the def
+      // from the block itself.
+      if (MergePhiMaps[Idx].count(AtBB)) {
+        VPValue *Val = MergePhiMaps[Idx][AtBB];
+        BlendOps.push_back(nullptr /* no predicate/true */);
+        BlendOps.push_back(Val);
+        return;
+      }
 
-    if (!AtBB->getPredicate() &&
-        // FIXME: This is ugly, hopefully we will redesign the whole way uniform
-        // instructions with divergent operands are processed...
-        none_of(*AtBB,
-                [](const VPInstruction &Inst) { return isa<VPActiveLane>(Inst); }))
-      return;
+      if (ExitCond(AtBB))
+        return;
 
-    VPBasicBlock *IDom = VPDomTree.getNode(AtBB)->getIDom()->getBlock();
-    getBlendArgs(Idx, IDom, BlendOps);
+      VPBasicBlock *IDom = VPDomTree.getNode(AtBB)->getIDom()->getBlock();
+      AtBB = IDom; // Repeat the same with updated AtBB.
+    }
   }
 
   /// For the original phi number \p Idx, create the required blends (if at all)
