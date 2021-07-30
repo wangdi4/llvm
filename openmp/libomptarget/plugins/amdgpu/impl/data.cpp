@@ -26,6 +26,11 @@ ATLProcessor &get_processor_by_mem_place(int DeviceId,
   switch (DeviceType) {
   case ATMI_DEVTYPE_CPU:
     return g_atl_machine.processors<ATLCPUProcessor>()[DeviceId];
+#if INTEL_CUSTOMIZATION
+  case ATMI_DEVTYPE_ALL:
+  case ATMI_DEVTYPE_dGPU:
+  case ATMI_DEVTYPE_iGPU:
+#endif // INTEL_CUSTOMIZATION
   case ATMI_DEVTYPE_GPU:
     return g_atl_machine.processors<ATLGPUProcessor>()[DeviceId];
   }
