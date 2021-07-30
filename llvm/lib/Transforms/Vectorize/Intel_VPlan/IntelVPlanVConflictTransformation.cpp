@@ -82,7 +82,6 @@ namespace vpo {
 // store i32 %res i32* %A.subscript
 //
 static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
-  assert(VPConflict->getNumOperands() == 4 && "Histogram has 4 operands.");
   VPBuilder VPBldr;
   VPBldr.setInsertPoint(VPConflict);
   VPInstruction *ConflictIndex =
@@ -105,7 +104,32 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   EmittedInsns.push_back(PopCountCall);
 
   // Get the value that we need to multiply.
-  auto *MulVal = VPConflict->getOperand(3);
+  // Historgram has only one instruction in its region.
+  VPRegion *ConflictRegion = VPConflict->getRegion();
+  auto ConflictRegionBBs = ConflictRegion->getBBs();
+  assert(ConflictRegion->getSize() == 1 &&
+         "Histogram region should have only 1 basic block.");
+  assert((*ConflictRegionBBs.begin())->size() == 1 &&
+         "Histogram region should have only 1 instruction.");
+  VPInstruction *InsnInVConflictRegion =
+      &*(*ConflictRegionBBs.begin())->begin();
+
+  VPValue *MulVal = nullptr;
+  if (VPConflict->getNumOperands() > 3)
+    // Histogram has minimum three operands(conflict index, conflict region,
+    // conflict load) and it might have one live-in value which is the value
+    // that we want to multiply with pop count intrinsic.
+    MulVal = VPConflict->getOperand(3);
+  else {
+    // If there is not any live-in value, then we have a constant or external
+    // def.
+    VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
+    VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
+    MulVal = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
+    assert(isa<VPConstant>(MulVal) ||
+           isa<VPExternalDef>(MulVal) &&
+               "Constant or external definition is expected.");
+  }
 
   auto CalcTy = MulVal->getType();
   VPValue *PopCountCallCast = nullptr;
@@ -132,13 +156,9 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
         Plan->getVPConstant(ConstantInt::get(MulVal->getType(), 1)));
   EmittedInsns.push_back(Add);
 
-  // Historgram has only one instruction in its region.
-  VPInstruction *InsnInVConflictRegion =
-      &*(*VPConflict->getRegion()->getBBs().begin())->begin();
-  unsigned Opcode = InsnInVConflictRegion->getOpcode();
-
   // Multiply the Add with the uniform value(MulVal).
   VPValue *Mul = nullptr;
+  unsigned Opcode = InsnInVConflictRegion->getOpcode();
   if (Opcode == Instruction::FAdd)
     Mul = VPBldr.createFMul(Add, MulVal);
   else
@@ -207,7 +227,7 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   VPlan *Plan = VPConflict->getParent()->getParent();
   auto *DA = Plan->getVPlanDA();
   bool HasUniformValue =
-      llvm::all_of(VPConflict->getliveins(),
+      llvm::all_of(VPConflict->getLiveIns(),
                    [DA](VPValue *Val) { return DA->isUniform(*Val); });
 
   // The VConflict idiom is histogram when its region has only live-in which is
