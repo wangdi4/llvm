@@ -7,8 +7,6 @@ include_directories(${LLVM_INCLUDE_DIRS}
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
 add_opencl_library(OpenCLKernelArgumentsParser STATIC
-  EXCLUDE_FROM_ALL_BUILD
-
   IOpenCLKernelArgumentsParser.h
   OpenCLKernelArgumentsParser.h
   OpenCLKernelArgumentsParser.cpp

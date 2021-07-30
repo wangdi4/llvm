@@ -13,13 +13,11 @@ include_directories(
 )
 
 add_opencl_library(${TARGET_NAME} STATIC
-  EXCLUDE_FROM_ALL_BUILD
-
-  IProgramConfiguration.h
-  OpenCLProgramConfiguration.h
-  OpenCLProgramConfiguration.cpp
-  DXProgramConfiguration.h
-  DXProgramConfiguration.cpp
+    IProgramConfiguration.h
+    OpenCLProgramConfiguration.h
+    OpenCLProgramConfiguration.cpp
+    DXProgramConfiguration.h
+    DXProgramConfiguration.cpp
 )
 
 target_link_libraries(${TARGET_NAME}

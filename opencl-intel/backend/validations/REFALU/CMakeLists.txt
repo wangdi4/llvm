@@ -1,6 +1,6 @@
 use_eh(TRUE)
 
-set (TARGET_NAME REFALU)
+set (TARGET_NAME "REFALU")
 
 # to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and 
@@ -33,8 +33,6 @@ set(REFALU_HEADERS
 )
 
 add_opencl_library(${TARGET_NAME} STATIC
-  EXCLUDE_FROM_ALL_BUILD
-
   ${REFALU_HEADERS}
   RefALU.cpp
   ImagesALU.cpp

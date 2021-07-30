@@ -1,4 +1,4 @@
-set (TARGET_NAME ref_cl_builtins)
+set (TARGET_NAME "ref_cl_builtins")
 
 # remember OCL builtins source dir
 set (REF_CL_BUILTIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -61,7 +61,7 @@ foreach (FILE ${TD_FILES})
   list (APPEND OCL_SOURCE_FILES ${OCL_TABLEGEN_SOURCE})
 endforeach (FILE)
 
-add_custom_target (${TARGET_NAME}
+add_custom_target (${TARGET_NAME} ALL
   DEPENDS ${OCL_SOURCE_FILES} ref-ocl-tblgen
   COMMENT "Target ${TARGET_NAME} build completed"
   VERBATIM
@@ -69,8 +69,6 @@ add_custom_target (${TARGET_NAME}
 )
 
 add_opencl_library(OCLBuiltinsRef SHARED
-  EXCLUDE_FROM_ALL_BUILD
-
   ${OCL_SOURCE_FILES}
   ${OCL_INCLUDE_FILES}
   Helpers.h
