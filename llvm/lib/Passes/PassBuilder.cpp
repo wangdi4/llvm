@@ -1961,26 +1961,23 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
         // FIXME: Check if FullLTOPreLink is the correct enum for the call.
         FPM.addPass(buildFunctionSimplificationPipeline(
             Level, ThinOrFullLTOPhase::FullLTOPreLink));
-        // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
-        // SIMD loops
-        bool FPMConsumed =
-            addVPlanVectorizer(MPM, FPM, Level, /*IsPostLoopOptPass=*/false);
-
-        if (FPMConsumed) {
-          // TODO: Check whether this re-creation is needed, or it's ok to
-          // reuse a consumed FPM.
-          FPM = FunctionPassManager();
-        }
+        if (RunVPOOpt && EnableVPlanDriver && RunPreLoopOptVPOPasses)
+          // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all
+          // explicit SIMD loops
+          addVPlanVectorizer(MPM, FPM, Level);
 
         addLoopOptPasses(MPM, FPM, Level, /*IsLTO=*/false);
       }
 
-      // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
-      // vectorized after createVPlanDriverHIRPass
-      bool FPMConsumed =
-          addVPlanVectorizer(MPM, FPM, Level, /*IsPostLoopOptPass=*/true);
+      if (RunVPOOpt && EnableVPlanDriver && RunPostLoopOptVPOPasses) {
+        // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+        // vectorized after createVPlanDriverHIRPass
+        if (OptLevel > 0)
+          FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));
+        addVPlanVectorizer(MPM, FPM, Level);
+      }
 
-      if (!FPMConsumed && !FPM.isEmpty())
+      if (!FPM.isEmpty())
         MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     }
 
@@ -2011,26 +2008,17 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 
-bool PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
+void PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
                                      FunctionPassManager &FPM,
-                                     OptimizationLevel Level,
-                                     bool IsPostLoopOptPass) {
-  if (!RunVPOOpt || !EnableVPlanDriver)
-    return false;
-  if (!IsPostLoopOptPass && !RunPreLoopOptVPOPasses)
-    return false;
-  if (IsPostLoopOptPass && !RunPostLoopOptVPOPasses)
-    return false;
-
+                                     OptimizationLevel Level) {
   unsigned OptLevel = Level.getSpeedupLevel();
-  if (IsPostLoopOptPass && OptLevel > 0)
-    FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));
 
   if (OptLevel > 0) {
     FPM.addPass(LowerSwitchPass(true /*Only for SIMD loops*/));
     // Add LCSSA pass before VPlan driver
     FPM.addPass(LCSSAPass());
   }
+
   FPM.addPass(VPOCFGRestructuringPass());
   // VPO CFG restructuring pass makes sure that the directives of #pragma omp
   // simd ordered are in a separate block. For this reason,
@@ -2040,6 +2028,9 @@ bool PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
   // Before proceeding, consume the existing FPM pipeline before resetting
   // the pass manager, since next pass is a module pass.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  // TODO: Check whether this re-creation is needed, or it's ok to
+  // reuse a consumed FPM - we need that in the caller.
+  FPM = FunctionPassManager();
 
   // FIXME: We should try to avoid breaking the FPM pipeline by making
   // VPlanPragmaOmpOrderedSimdExtractPass a Function pass.
@@ -2075,8 +2066,6 @@ bool PassBuilder::addVPlanVectorizer(ModulePassManager &MPM,
   // Clean up any SIMD directives left behind by VPlan vectorizer
   if (OptLevel > 0)
     MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
-
-  return true;
 }
 
 void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
