@@ -403,34 +403,23 @@ bool HIRLoopReversal::run() {
 
   LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
 
-  // Iterate Over Each Candidate Loop
   for (auto &Lp : CandidateLoops) {
 
-    // Check the loop's suitability for reversal
-    bool SuitableLoop =
-        isReversible(Lp,
-                     true, // always do profit test when running as a pass
-                     true, // always do legal test when running as a pass
-                     false // don't skip loop bound checks
-        );
+    bool SuitableLoop = isReversible(Lp,
+                                     /* profit test */ true,
+                                     /* legal test */ true,
+                                     /* not skip loop bound checks */ false);
 
-    // *** Do HIR Loop Reversal Transformation if suitable ***
-    // Skip the loop if it is not suitable
     if (!SuitableLoop) {
       continue;
     }
 
-    // Reverse the loop
-    bool LoopIsReversed = doHIRReversalTransform(Lp);
-    // Loop was reversed
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
+    doHIRReversalTransform(Lp);
+    ++HIRLoopReversalTriggered;
 
-    // Update Loops-Reversal-Triggered Counter
-    if (LoopIsReversed) {
-      HIRLoopReversalTriggered++;
-    }
+    // ID: 25579u, remark string: Loop was reversed
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
   }
-  // end: for loop on I
 
   CandidateLoops.clear();
   return false;
@@ -699,7 +688,7 @@ bool HIRLoopReversal::isReversible(HLLoop *Lp, bool DoProfitTest,
 // 4. Call to RegDD.makeConsistent();
 // 5. Mark the loop has changed, request HIR CodeGen support
 //
-bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
+void HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // Get Loop's UpperBound (UB)
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
   // LLVM_DEBUG(::dump(UBCE, "Loop's UpperBound (UB) CE:"););
@@ -743,12 +732,10 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
   // Mark the loop has been changed, request CodeGen support
   assert(Lp->getParentRegion() && " Loop does not have a parent region\n");
   Lp->getParentRegion()->setGenCode();
-  // Invalidate the loop's body
-  // (with HIRLoopStatistics and HIRSafeReduction analysis passes preserved)
+
+  // Preserved analysis: HIRLoopStatistics and HIRSafeReduction.
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics,
                                        HIRSafeReductionAnalysis>(Lp);
-
-  return true;
 }
 
 void HIRLoopReversal::clearWorkingSetMemory(void) { MCEAV.clear(); }

@@ -1765,6 +1765,7 @@ public:
   llvm::SmallVector<const Expr *> &getMapVarExprs() { return MapVarExprs; }
   void VisitDeclRefExpr(const DeclRefExpr *E) {
     const auto *VD = dyn_cast<VarDecl>(E->getDecl());
+    MapVarExprs.push_back(E);
     if (VD && VD->getType()->isScalarType() &&
         !VD->getType()->isPointerType()) {
       PresumedLoc PLoc = CGF.getContext().getSourceManager().getPresumedLoc(
@@ -1779,8 +1780,7 @@ public:
       ReasonStr += "referenced within the construct at line:[" +
                    std::to_string(Line) + ":" + std::to_string(Column) + "]";
       FPInfos->insert(std::make_pair(VD, ReasonStr));
-    } else
-      MapVarExprs.push_back(E);
+    }
   }
   void VisitMemberExpr(const MemberExpr *ME) {
     MapVarExprs.push_back(ME);

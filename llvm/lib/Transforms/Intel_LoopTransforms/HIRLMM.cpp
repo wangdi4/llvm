@@ -1018,9 +1018,9 @@ static void setLinear(DDRef *TmpRef, unsigned LoopLevel) {
   }
 }
 
-bool HIRLMM::hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
-                                           SmallSet<unsigned, 32> &TempRefSet,
-                                           LoopOptReportBuilder &LORBuilder) {
+bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
+                                         SmallSet<unsigned, 32> &TempRefSet,
+                                         LoopOptReportBuilder &LORBuilder) {
 
   HLInst *SingleLoadInst = nullptr;
 
@@ -1066,16 +1066,16 @@ bool HIRLMM::hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
 
   LoadRef->updateDefLevel(LoopLevel - 1);
 
-  // Load hoisted out of the loop
+  // ID: 25563u, remark string: Load hoisted out of the loop
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
 
   return true;
 }
 
-bool HIRLMM::sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
-                                           MemRefGroup &Group,
-                                           SmallSet<unsigned, 32> &TempRefSet,
-                                           LoopOptReportBuilder &LORBuilder) {
+bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
+                                         MemRefGroup &Group,
+                                         SmallSet<unsigned, 32> &TempRefSet,
+                                         LoopOptReportBuilder &LORBuilder) {
   if (!canSinkSingleStore(Lp, StoreRef, Group, TempRefSet)) {
     return false;
   }
@@ -1091,7 +1091,7 @@ bool HIRLMM::sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   StoreRef->updateDefLevel(LoopLevel - 1);
   TempRef->updateDefLevel(LoopLevel - 1);
 
-  // Store sinked out of the loop
+  // ID: 25564u, remark string: Store sinked out of the loop
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   return true;
 }
@@ -1137,9 +1137,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  if (hoistedLoadsUsingExistingTemp(Lp, Group, TempRefSet, LORBuilder) ||
-      sinkedStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
-                                    LORBuilder)) {
+  if (hoistLoadsUsingExistingTemp(Lp, Group, TempRefSet, LORBuilder) ||
+      sinkStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
+                                  LORBuilder)) {
     return;
   }
 
@@ -1149,14 +1149,15 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
-    // Load hoisted out of the loop
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
     // Passing FirstRef's lexical parent loop as it can be different than Lp in
     // loopnest hoisting mode.
     LoadInPrehdr = createLoadInPreheader(FirstRef->getLexicalParentLoop(),
                                          FirstRef, OuterLp);
 
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
+
+    // ID: 25563u, remark string: Load hoisted out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
   }
 
   // Create a TempDDRef if needed
@@ -1168,10 +1169,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
-    // Store sinked out of the loop
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
     RegDDRef *FirstStore = FirstRef;
-
     // In the multi-exit loop, we need to find the exact store ref to compare
     // the top sort number with gotos.
     if (Lp->getNumExits() > 1) {
@@ -1184,6 +1182,9 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     }
 
     createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
+
+    // ID: 25564u, remark string: Store sinked out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   }
 
   // LMM process each Ref in Group

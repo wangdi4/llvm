@@ -822,15 +822,22 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
     // until we reach the definition of the data of VConflictStore.
     // TODO: Remove redundant instructions from VConflict pattern.
 
-    if (VConflictLoad->getParent() != VConflictStore->getParent())
+    auto *ParentVPBB = VConflictLoad->getParent();
+    if (ParentVPBB != VConflictStore->getParent())
       return reportMatchFail(
           "VConflict load and store are in different basic blocks.");
 
     // First, we collect all the instructions between VConflictLoad and
     // VConflcitStore.
-    SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore;
-    for (auto *I = VConflictLoad; I != VConflictStore; I = I->getNextNode())
-      InsnsBetweenLoadStore.insert(I);
+    assert(
+        std::distance(VConflictLoad->getIterator(), ParentVPBB->end()) >
+            std::distance(VConflictStore->getIterator(), ParentVPBB->end()) &&
+        "VConflict idiom load is expected to appear before the store.");
+    auto InstRange = map_range(
+        make_range(VConflictLoad->getIterator(), VConflictStore->getIterator()),
+        [](VPInstruction &I) { return &I; });
+    SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore(InstRange.begin(),
+                                                          InstRange.end());
 
     // Next, we start from VConflictLoad uses and we collect all the uses until
     // we reach VConflictStore.
