@@ -3565,12 +3565,14 @@ void BoUpSLP::reorderTopToBottom(bool FreeReorder) {
       if (TE->Scalars.size() != VF) {
         if (TE->ReuseShuffleIndices.size() == VF) {
           // Need to reorder the reuses masks of the operands with smaller VF to
-          // be able to find the math between the graph nodes and scalar
+          // be able to find the match between the graph nodes and scalar
           // operands of the given node during vectorization/cost estimation.
           // Build a list of such operands for future reordering.
           assert(all_of(TE->UserTreeIndices,
-                        [VF](const EdgeInfo &EI) {
-                          return EI.UserTE->Scalars.size() == VF;
+                        [VF, &TE](const EdgeInfo &EI) {
+                          return EI.UserTE->Scalars.size() == VF ||
+                                 EI.UserTE->Scalars.size() ==
+                                     TE->Scalars.size();
                         }) &&
                  "All users must be of VF size.");
           SmallOperandsToReorder.insert(TE.get());
@@ -3849,6 +3851,9 @@ void BoUpSLP::buildExternalUses(
 
         Instruction *UserInst = dyn_cast<Instruction>(U);
         if (!UserInst)
+          continue;
+
+        if (isDeleted(UserInst))
           continue;
 
         // Skip in-tree scalars that become vectors
@@ -8729,7 +8734,9 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
           LLVM_DEBUG(dbgs() << "SLP: \tvalidating user:" << *U << ".\n");
 
           // It is legal to delete users in the ignorelist.
-          assert((getTreeEntry(U) || is_contained(UserIgnoreList, U)) &&
+          assert((getTreeEntry(U) || is_contained(UserIgnoreList, U) ||
+                  (isa_and_nonnull<Instruction>(U) &&
+                   isDeleted(cast<Instruction>(U)))) &&
                  "Deleting out-of-tree value");
         }
       }
