@@ -31,7 +31,7 @@ entry:
   ret i32 %add
 }
 
-define void @_ZTS1K(i32 %_arg_, i32 addrspace(1)* %_arg_1, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset, i32 addrspace(1)* %_arg_3, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange5, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange6, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset7, i32 addrspace(1)* %_arg_8, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange10, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange11, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset12) #0 {
+define void @_ZTS1K(i32 %_arg_, i32 addrspace(1)* %_arg_1, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset, i32 addrspace(1)* %_arg_3, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange5, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange6, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset7, i32 addrspace(1)* %_arg_8, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_AccessRange10, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_MemRange11, %"class.cl::sycl::range"* byval(%"class.cl::sycl::range") nocapture readonly align 8 %_arg_Offset12) {
 entry:
   %alloca = alloca i32, align 8
   %0 = getelementptr inbounds %"class.cl::sycl::range", %"class.cl::sycl::range"* %_arg_Offset, i64 0, i32 0, i32 0, i64 0
@@ -66,7 +66,6 @@ entry:
   ret void
 }
 
-attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast

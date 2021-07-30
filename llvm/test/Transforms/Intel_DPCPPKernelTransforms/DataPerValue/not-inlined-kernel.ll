@@ -19,7 +19,7 @@ entry:
 declare dso_local void @_Z18work_group_barrierj(i32)
 declare void @barrier_dummy()
 
-define dso_local void @kernel() #1 {
+define dso_local void @kernel() {
 DIR.OMP.PARALLEL.LOOP.3:
   br i1 undef, label %loop.region.exit, label %omp.inner.for.body.preheader
 
@@ -36,7 +36,6 @@ loop.region.exit:                                 ; preds = %DIR.OMP.PARALLEL.LO
 }
 
 attributes #0 = { convergent nounwind }
-attributes #1 = { "sycl-kernel" }
 
 ; CHECK-LABEL: Group-A Values
 ; CHECK-LABEL: Group-B.1 Values

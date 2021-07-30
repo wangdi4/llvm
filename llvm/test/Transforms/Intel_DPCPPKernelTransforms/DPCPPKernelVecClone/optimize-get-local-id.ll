@@ -1,4 +1,4 @@
-; The pass operates only on DPCPP kernels - functions having "sycl-kernel" attribute
+; The pass operates only on DPCPP kernels.
 ; Test to check that function calls to _Z12get_local_idj() are moved and uses replaced in an optimized
 ; manner if it is known that max work group size is less than 2GB.
 

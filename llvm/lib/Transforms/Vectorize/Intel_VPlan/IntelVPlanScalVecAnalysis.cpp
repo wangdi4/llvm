@@ -561,11 +561,11 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 
   case VPInstruction::GeneralMemOptConflict: {
-    // Wide value is shared across all lanes.
-    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
     // Each lanes has its own value.
     setSVAKindForInst(Inst, SVAKind::Vector);
-    // Wide value is shared across all lanes.
+    // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
     return true;
   }
@@ -573,9 +573,9 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::ConflictInsn: {
     // Wide value is shared across all lanes.
     setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
-    // Each lanes has its own value.
+    // Instruction itself produces scalar value, but it is vector in nature.
     setSVAKindForInst(Inst, SVAKind::Vector);
-    // Wide value is shared across all lanes.
+    // Each lanes has its own value.
     setSVAKindForAllOperands(Inst, SVAKind::Vector);
     return true;
   }

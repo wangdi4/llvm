@@ -8,7 +8,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct1 = type <{ <4 x i32> , i8}>
 %struct.struct2 = type <{ i32 ,i32 ,i32 }>
 
-define void @t1(i8 %arg1, %struct.struct1* noalias %arg2, %struct.struct2* %arg3) #0 {
+define void @t1(i8 %arg1, %struct.struct1* noalias %arg2, %struct.struct2* %arg3) {
 entry:
   ret void
 }
@@ -24,8 +24,6 @@ entry:
 ; CHECK-NEXT: [[ARG2_BUFF_IDX:%[a-zA-Z0-9]+]] = getelementptr i8, i8* %UniformArgs, i32 18
 ; CHECK-NEXT: %explicit_2 = bitcast i8* [[ARG2_BUFF_IDX]] to %struct.struct2*
 ; CHECK: ret void
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i8, %struct.struct1*, %struct.struct2*)* @t1}

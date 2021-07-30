@@ -1582,7 +1582,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == VPInstruction::VLSInsert)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::GeneralMemOptConflict)
-    NewShape = getUniformVectorShape();
+    NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ConflictInsn)
     NewShape = getUniformVectorShape();
   else {

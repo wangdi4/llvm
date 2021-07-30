@@ -9,7 +9,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct2 = type <{ i32 ,i32 ,i32 }>
 
 ; CHECK: @t1
-define void @t1(%struct.struct1* %arg1, %struct.struct2* %arg2, <4 x i32>* byval(<4 x i32>) %arg3) #0 {
+define void @t1(%struct.struct1* %arg1, %struct.struct2* %arg2, <4 x i32>* byval(<4 x i32>) %arg3) {
 entry:
   ret void
 }
@@ -25,8 +25,6 @@ entry:
 ; CHECK-NEXT: %explicit_2 = bitcast i8* [[ARG2_BUFF_INDEX]] to <4 x i32>*
 ;;implicit args
 ; CHECK: ret void
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (%struct.struct1*, %struct.struct2*, <4 x i32>*)* @t1}

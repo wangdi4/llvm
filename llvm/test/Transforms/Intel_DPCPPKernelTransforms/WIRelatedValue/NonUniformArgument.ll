@@ -19,7 +19,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-pc-win32"
 
 ; CHECK-LABEL: @main
-define void @main(i64 %x) #0 {
+define void @main(i64 %x) {
 L1:
   call void @barrier_dummy()
   %lid = call i64 @_Z12get_local_idj(i64 0)
@@ -57,8 +57,6 @@ L2:
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i64)
 declare void @barrier_dummy()
-
-attributes #0 = { "sycl-kernel" }
 
 !sycl.kernels = !{!0}
 !0 = !{void (i64)* @main}

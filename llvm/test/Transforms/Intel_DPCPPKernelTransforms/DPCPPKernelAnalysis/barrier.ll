@@ -21,40 +21,38 @@ define void @func_call_func_call_barrier() nounwind {
   ret void
 }
 
-define void @kernel_contains_barrier() #0 {
+define void @kernel_contains_barrier() {
 entry:
   tail call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
-define void @kernel_not_contains_barrier() #0 {
+define void @kernel_not_contains_barrier() {
 entry:
   ret void
 }
 
-define void @kernel_call_func_call_barrier() #0 {
+define void @kernel_call_func_call_barrier() {
 entry:
   tail call void @func_call_barrier()
   ret void
 }
 
-define void @kernel_call_func_call_func_call_barrier() #0 {
+define void @kernel_call_func_call_func_call_barrier() {
 entry:
   tail call void @func_call_func_call_barrier()
   ret void
 }
 
-define void @kernel_call_func_no_call_barrier() #0 {
+define void @kernel_call_func_no_call_barrier() {
 entry:
   tail call void @func_no_call_barrier()
   ret void
 }
 
-declare void @_Z18work_group_barrierj(i32 %0) #1
+declare void @_Z18work_group_barrierj(i32 %0) #0
 
-attributes #0 = { "sycl-kernel" }
-attributes #1 = { convergent }
-
+attributes #0 = { convergent }
 
 !sycl.kernels = !{!0}
 !0 = !{void ()* @kernel_contains_barrier, void ()* @kernel_not_contains_barrier, void ()* @kernel_call_func_call_barrier, void ()* @kernel_call_func_call_func_call_barrier, void ()* @kernel_call_func_no_call_barrier}

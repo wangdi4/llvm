@@ -691,14 +691,10 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     }
     case VPInstruction::GeneralMemOptConflict: {
       auto *Conflict = cast<VPGeneralMemOptConflict>(this);
-      O << " -> VConflictRegion (";
-      auto *ConflictRegion = Conflict->getRegion();
-      for (VPValue *LIn : ConflictRegion->getLiveIns())
-        O << *LIn << " ";
-      O << ") {\n";
+      O << " -> VConflictRegion {\n";
       O << "    value : none \n";
       O << "    mask : none \n";
-      ConflictRegion->dump(O);
+      Conflict->getRegion()->dump(O);
       O << "   }";
       break;
     }

@@ -178,16 +178,11 @@ PreservedAnalyses DPCPPKernelVecClonePass::run(Module &M,
 
 bool DPCPPKernelVecClonePass::runImpl(Module &M) { return Impl.runImpl(M); }
 
-// Update references of functions
-// Remove the "recommended-vector-length" attribute from the
-// original kernel. "recommended-vector-length" attribute is used
-// only by Kernel VecClone.
-static void updateReferences(Function &F, Function *Clone) {
-  // Remove "sycl-kernel" property from the Clone kernel.
-  // This preserves the property that only original kernel is indicated
-  // with this attribute. It can't be kept as vectorized kernel would get
-  // its own treatment by WGLoopCreator pass (which breaks design).
-
+// Remove the "recommended_vector_length" metadata from the original kernel.
+// "recommened_vector_length" metadata is used only by DPCPPKernelVecClone.
+// The rest DPCPP kernel transform passes recognize the "vector_width" metadata.
+// Thus, we add "vector_width" metadata to original kernel and cloned kernel.
+static void updateMetadata(Function &F, Function *Clone) {
   KernelInternalMetadataAPI KIMD(&F);
   // Get VL from the attribute from the original kernel.
   unsigned VectorLength =
@@ -747,7 +742,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
-  updateReferences(F, Clone);
+  updateMetadata(F, Clone);
 
   // Load all vector info into VecInfo, at most once.
   static llvm::once_flag InitializeVectInfoFlag;
