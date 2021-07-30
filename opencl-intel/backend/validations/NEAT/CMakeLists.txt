@@ -1,6 +1,6 @@
 use_eh(TRUE)
 
-set (TARGET_NAME "NEAT")
+set (TARGET_NAME NEAT)
 
 # To be sure that ICC compiler uses the correct presentation of 80-bit long doubles
 # we have to set proper compiler options, for win32 only, for linux gcc(g++) is used and
@@ -19,6 +19,8 @@ include_directories(
 )
 
 add_opencl_library(${TARGET_NAME} STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   IntervalError.cpp
   NEATALU.cpp
   NEATValue.cpp

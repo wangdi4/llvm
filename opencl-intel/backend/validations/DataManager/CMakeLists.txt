@@ -38,6 +38,8 @@ set (DM_INCLUDE_FILES
 
 # Data Manager Library
 add_opencl_library(DataManager STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   ${DM_INCLUDE_FILES}
   VectorWidth.cpp
   DataType.cpp

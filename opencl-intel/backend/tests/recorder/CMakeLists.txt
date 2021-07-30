@@ -1,5 +1,5 @@
 #exectuable name
-set(TARGET_NAME "OclRecorderTest")
+set(TARGET_NAME OclRecorderTest)
 
 #recorder_test has to use deprecated OpenCL API functions.
 if(WIN32)
@@ -30,6 +30,8 @@ include_directories(
 #adding the executable
 add_opencl_executable(
   ${TARGET_NAME}
+  EXCLUDE_FROM_ALL_BUILD
+
   recorder_test.cpp
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
   ${OCL_SOURCE_DIR}/tests/test_utils/test_utils.cpp

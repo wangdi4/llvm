@@ -8,6 +8,8 @@ include_directories(
 )
 
 add_opencl_library(${TARGET_NAME} STATIC
+  EXCLUDE_FROM_ALL_BUILD
+
   OpenCLCompilationFlags.h
   OpenCLCompilationFlags.cpp
   InterpreterPluggable.h
