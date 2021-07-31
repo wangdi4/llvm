@@ -49,15 +49,3 @@ for.end:                                          ; preds = %for.body, %entry
   %t.0.lcssa = phi i32 [ 0, %entry ], [ %add1, %for.body ]
   ret i32 %t.0.lcssa
 }
-
-; Verify that signed gt doesn't become unsigned lt by optimizing away add in pre loopopt phase.
-; The optimization may hinder loop trip count recognition.
-
-define i1 @sgt_offset(i8 %a) "pre_loopopt" {
-; CHECK-LABEL: @sgt_offset(
-; CHECK: %ov = icmp sgt i8 %t, -7
-
-  %t = add i8 %a, -6
-  %ov = icmp sgt i8 %t, -7
-  ret i1 %ov
-}
