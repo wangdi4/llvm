@@ -4080,7 +4080,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         Tok.getIdentifierInfo()->revertTokenIDToIdentifier();
         Tok.setKind(tok::identifier);
         goto DoneWithDeclSpec;
-      } else if (!getLangOpts().OpenCLPipes) {
+#if INTEL_CUSTOMIZATION
+      } else if (!getLangOpts().OpenCLPipes &&
+                 !getTargetInfo().getTriple().isINTELFPGAEnvironment()) {
+#endif // INTEL_CUSTOMIZATION
         DiagID = diag::err_opencl_unknown_type_specifier;
         PrevSpec = Tok.getIdentifierInfo()->getNameStart();
         isInvalid = true;
