@@ -6,16 +6,16 @@ define void @foo() {
 ; CHECK-NEXT:       [[TGU0:%.*]] = ([[SPEC_SELECT3090:%.*]])/u4
 ; CHECK-NEXT:       if (0 <u 4 * [[TGU0]])
 ; CHECK-NEXT:       {
-; CHECK-NEXT:             [[RED_VAR0:%.*]] = [[TMP1:%.*]];
-; CHECK-NEXT:             [[RED_VAR10:%.*]] = [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0:%.*]];
-; CHECK-NEXT:          + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:          [[RED_VAR0:%.*]] = [[TMP1:%.*]];
+; CHECK-NEXT:          [[RED_VAR10:%.*]] = [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0:%.*]];
+; CHECK:               + DO i1 = 0, 4 * [[TGU0]] + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:          |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[TMP0:%.*]])[i1]
 ; CHECK-NEXT:          |   [[RED_VAR10]] = ([[RED_VAR0]] > [[DOTVEC0]]) ? i1 + <i64 0, i64 1, i64 2, i64 3> : [[RED_VAR10]]
 ; CHECK-NEXT:          |   [[RED_VAR0]] = ([[RED_VAR0]] > [[DOTVEC0]]) ? [[DOTVEC0]] : [[RED_VAR0]]
 ; CHECK-NEXT:          + END LOOP
-; CHECK-NEXT:             [[TMP1]] = @llvm.vector.reduce.smin.v4i32([[RED_VAR0]])
-; CHECK-NEXT:             [[IDX_BLEND0:%.*]] = ([[TMP1]] == [[RED_VAR0]]) ? [[RED_VAR10]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
-; CHECK-NEXT:             [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND0]])
+; CHECK:               [[TMP1]] = @llvm.vector.reduce.smin.v4i32([[RED_VAR0]])
+; CHECK-NEXT:          [[IDX_BLEND0:%.*]] = ([[TMP1]] == [[RED_VAR0]]) ? [[RED_VAR10]] : <i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807, i64 9223372036854775807>
+; CHECK-NEXT:          [[RETVAL_SROA_2_0_COPYLOAD_SROA_SPECULATE_LOAD_FALSE0]] = @llvm.vector.reduce.smin.v4i64([[IDX_BLEND0]])
 ; CHECK-NEXT:       }
 ;
 ; CHECK:            + DO i1 = 4 * [[TGU0]], [[SPEC_SELECT3090]] + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>

@@ -38,9 +38,9 @@ define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, 
 ; CHECK-LABEL:  Function: quant_4x4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:           BEGIN REGION { modified }
-; CHECK-NEXT:                   %red.var = 0;
-; CHECK-NEXT:                   %red.var = insertelement %red.var,  %nz.039,  0;
-; CHECK-NEXT:                + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:                %red.var = 0;
+; CHECK-NEXT:                %red.var = insertelement %red.var,  %nz.039,  0;
+; CHECK:                     + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:                |   %.vec = (<4 x i16>*)(%dct)[i1];
 ; CHECK-NEXT:                |   %.vec2 = (<4 x i16>*)(%mf)[i1];
 ; CHECK-NEXT:                |   %.vec3 = (<4 x i16>*)(%bias)[i1];
@@ -60,7 +60,7 @@ define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, 
 ; CHECK-NEXT:                |   (<4 x i16>*)(%dct)[i1] = %select;
 ; CHECK-NEXT:                |   %red.var = %red.var  |  %select;
 ; CHECK-NEXT:                + END LOOP
-; CHECK-NEXT:                   %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
+; CHECK:                     %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
 ; CHECK-NEXT:           END REGION
 ;
 entry:

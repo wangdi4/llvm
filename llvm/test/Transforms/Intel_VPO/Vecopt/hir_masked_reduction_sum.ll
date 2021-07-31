@@ -30,8 +30,7 @@
 ; VPCHECK-NEXT: if (0 <u 4 * %tgu)
 ; VPCHECK-NEXT: {
 ; VPCHECK-NEXT:  %red.var = 0.000000e+00;
-
-; VPCHECK-NEXT:  + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
+; VPCHECK:       + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
 ; VPCHECK-NEXT:  |   %.vec2 = undef;
 ; VPCHECK-NEXT:  |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; VPCHECK-NEXT:  |   %.vec1 = %.vec > 0.000000e+00;
@@ -41,8 +40,7 @@
 ; VPCHECK-NEXT:  |   %select = (%.vec1 == <i1 true, i1 true, i1 true, i1 true>) ? %.vec4 : %red.var;
 ; VPCHECK-NEXT:  |   %red.var = %select;
 ; VPCHECK-NEXT:  + END LOOP
-
-; VPCHECK-NEXT:  %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
+; VPCHECK:       %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
 ; VPCHECK-NEXT: }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

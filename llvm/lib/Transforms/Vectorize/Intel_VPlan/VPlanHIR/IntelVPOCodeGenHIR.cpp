@@ -1024,9 +1024,6 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   if (RednHoistLp != MainLoop)
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(RednHoistLp);
 
-  RedInitInsertPoint = RednHoistLp;
-  RedFinalInsertPoint = RednHoistLp;
-
   MainLoop->extractZtt();
   setNeedRemainderLoop(NeedRemainderLoop);
   setMainLoop(MainLoop);
@@ -1508,8 +1505,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
             // Replicate invariant vector blob VF times.
             HLInst *ReplBlobInst = replicateVector(WideRef, VF);
             // Insert the replicating instruction into preheader of vector loop.
-            // TODO: Need insertion point tracking mechanism here.
-            HLNodeUtils::insertAsLastPreheaderNode(MainLoop, ReplBlobInst);
+            HLNodeUtils::insertBefore(MainLoop, ReplBlobInst);
             auto NewRef = ReplBlobInst->getLvalDDRef();
             // Add the new replicated Ref as a live-in for vector loop.
             MainLoop->addLiveInTemp(NewRef->getSymbase());
@@ -3125,7 +3121,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // Need to create a copy inst to capture base-address since HIR does not allow
   // GEP Refs to be embedded into each other.
   HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
-  HLNodeUtils::insertAsFirstPreheaderNode(MainLoop, BaseRefCopy);
+  addInstUnmasked(BaseRefCopy);
   MainLoop->addLiveInTemp(BaseRefCopy->getLvalDDRef()->getSymbase());
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] createVectorPrivatePtrs: BaseRef: ";
              BaseRef->dump(1); dbgs() << "\n");
@@ -3153,6 +3149,48 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   VecPvtPtrs->addDimension(IndexCE);
   VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
+}
+
+void VPOCodeGenHIR::insertReductionInit(HLContainerTy *List) {
+  HLNode *Save = &List->back();
+
+  // If the reductions are not being hoisted simply use the addInst interface.
+  if (RednHoistLp == MainLoop) {
+    addInst(List);
+    return;
+  }
+
+  // The list of nodes are effectively added as the last pre-header nodes
+  // either using the non-null insertion point or the pre-header of the
+  // reduction hoist loop. Insertion point is updated appropriately for
+  // subsequent reduction initializer instructions.
+  if (!RednInitInsertPoint)
+    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RednHoistLp), List);
+  else
+    HLNodeUtils::insertAfter(RednInitInsertPoint, List);
+
+  RednInitInsertPoint = Save;
+}
+
+void VPOCodeGenHIR::insertReductionFinal(HLContainerTy *List) {
+  HLNode *Save = &List->back();
+
+  // If the reductions are not being hoisted simply use the addInst interface.
+  if (RednHoistLp == MainLoop) {
+    addInst(List);
+    return;
+  }
+
+  // The list of nodes are added after the non-null insertion point or
+  // at the start of the post-exit of the reduction hoist loop if the
+  // insertion point is null. Insertion point is updated appropriately for
+  // subsequent reduction finalizer instructions.
+  if (!RednFinalInsertPoint)
+    HLNodeUtils::insertAsFirstPostexitNodes(RednHoistLp, List);
+  else
+    HLNodeUtils::insertAfter(RednFinalInsertPoint, List);
+
+  RednFinalInsertPoint = Save;
 }
 
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
@@ -3184,8 +3222,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       WInst = InsertElementInst;
       RedInitHLInsts.push_back(*InsertElementInst);
     }
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
     insertReductionInit(&RedInitHLInsts);
 
     // Add the reduction init ref as a live-in for each loop up to and including
@@ -3264,8 +3300,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       }
     }
 
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
     insertReductionFinal(&RedTail);
     addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
     return;
@@ -3368,9 +3402,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     MainLoop->addLiveOutTemp(VecRef->getSymbase());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
-    HLNodeUtils::insertAfter(MainLoop, PrivExtract);
+    addInstUnmasked(PrivExtract);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
 
     return;
@@ -3427,9 +3459,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // definition to the temp in loop post-exit.
     PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
 
-    // TODO: This should be changed to addInst interface once it is aware of
-    // Loop PH or Exit.
-    HLNodeUtils::insertAfter(MainLoop, &CondPrivFinalInsts);
+    addInst(&CondPrivFinalInsts);
     addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
@@ -4623,7 +4653,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
           ParentLoop = ParentLoop->getParentLoop();
         }
       }
-      HLNodeUtils::insertBefore(MainLoop, NewInst);
+      addInstUnmasked(NewInst);
       addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
       MainLoop->addLiveInTemp(NewInst->getLvalDDRef()->getSymbase());
       return;
@@ -4961,20 +4991,39 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask) {
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
-  // Nothing to do if no uniform control flow is seen
-  if (!getUniformControlFlowSeen())
+  // TODO - search loop representation is currently not explicit.
+  if (isSearchLoop())
     return;
 
-  if (VLoop->contains(VPBB)) {
-    HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
-    addInst(Label, nullptr /* Mask */);
-    VPBBLabelMap[VPBB] = Label;
-  }
+  HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
+
+  // NOTE - the implementation here still assumes few things
+  // --  We are dealing with inner-most loop vectorization and that the blocks
+  // are traversed in RPO order. We start the insertion point before the
+  // MainLoop and set the same appropriately once we hit the loop header
+  // and exit blocks.
+  // -- Reduction related instructions are placed either at current insertion
+  // point or reduction related insertion points depending on whether
+  // they are hoisted.
+  // -- We still rely on MainLoop/Remainder loops being created implicitly.
+  // This will be changed once we have CFG merger working for HIR path
+  // and the remainder loop is made explicit.
+  if (!InsertPoint)
+    HLNodeUtilities.insertBefore(MainLoop, Label);
+  else if (VLoop->getHeader() == VPBB)
+    HLNodeUtilities.insertAsFirstChild(MainLoop, Label);
+  else if (VLoop->getExitBlock() == VPBB)
+    HLNodeUtilities.insertAfter(MainLoop, Label);
+  else
+    HLNodeUtilities.insertAfter(InsertPoint, Label);
+
+  InsertPoint = Label;
+  VPBBLabelMap[VPBB] = Label;
 }
 
 void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
-  // Nothing to do if no uniform control flow is seen
-  if (!getUniformControlFlowSeen())
+  // TODO - search loop representation is currently not explicit.
+  if (isSearchLoop())
     return;
 
   // Create a HLGoto that is expected to jump to the start of the specified
@@ -4986,9 +5035,11 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   };
 
   // The loop backedge/exit is implicit in the vector loop. Do not emit
-  // gotos in the latch block.
-  if (VLoop->contains(SourceBB) && !VLoop->isLoopLatch(SourceBB)) {
-    assert(SourceBB->getNumSuccessors() && "Expected at least one successor");
+  // gotos in the latch block. TODO - look into why we need to suppress
+  // goto in PreHeader.
+  bool Latch = VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
+  bool IsPH = VLoop->getLoopPreheader() == SourceBB;
+  if (SourceBB->getNumSuccessors() && !Latch && !IsPH) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
     // If the block has two successors, we emit the following sequence
@@ -5047,6 +5098,9 @@ void VPOCodeGenHIR::finalizeGotos(void) {
     Gotos.push_back(Goto);
   }
 
+  LLVM_DEBUG(dbgs() << "Loop before redundant gotos/labels removal: \n");
+  LLVM_DEBUG(MainLoop->getParent()->dump());
+
   // Eliminate redundant Gotos.
   HLNodeUtils::RequiredLabelsTy RequiredLabels;
   HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
@@ -5057,5 +5111,8 @@ void VPOCodeGenHIR::finalizeGotos(void) {
     if (!RequiredLabels.count(Label))
       HLNodeUtils::remove(Label);
   }
+
+  LLVM_DEBUG(dbgs() << "Loop after redundant gotos/labels removal: \n");
+  LLVM_DEBUG(MainLoop->getParent()->dump());
 }
 } // end namespace llvm
