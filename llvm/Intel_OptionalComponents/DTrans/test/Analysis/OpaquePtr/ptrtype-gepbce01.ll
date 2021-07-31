@@ -2,6 +2,8 @@
 
 ; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; Test access to first element of the structure, which happens to also serve
 ; as the address of the structure. This is for the BitCastEquivalent clause
@@ -48,6 +50,7 @@ define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) 
 }
 ; CHECK-LABEL: void @test02
 ; CHECK-NONOPAQUE: %ptr = getelementptr %struct.test02, %struct.test02* %in, i64 0, i32 0
+; CHECK-OPAQUE: %ptr = getelementptr %struct.test02, ptr %in, i64 0, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test02*{{ *$}}
@@ -67,6 +70,7 @@ define internal void @test03(%struct.test03b* "intel_dtrans_func_index"="1" %in)
 }
 ; CHECK-LABEL: void @test03
 ; CHECK-NONOPAQUE: %ptr = getelementptr %struct.test03b, %struct.test03b* %in, i64 0, i32 0, i32 0, i32 0
+; CHECK-OPAQUE: %ptr = getelementptr %struct.test03b, ptr %in, i64 0, i32 0, i32 0, i32 0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test03b*{{ *$}}
