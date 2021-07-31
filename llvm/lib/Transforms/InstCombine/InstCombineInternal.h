@@ -770,6 +770,7 @@ public:
                                              const APInt &C);
   Instruction *foldICmpEqIntrinsicWithConstant(ICmpInst &ICI, IntrinsicInst *II,
                                                const APInt &C);
+  Instruction *foldICmpBitCast(ICmpInst &Cmp);
 #if INTEL_CUSTOMIZATION
   Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
 #endif // INTEL_CUSTOMIZATION
