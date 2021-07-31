@@ -7,7 +7,7 @@
 
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
-define i32 @test01(%struct.test01a* %pStructA, %struct.test01b* %pStructB) !dtrans_type !2 {
+define i32 @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %struct.test01b* "intel_dtrans_func_index"="2" %pStructB) !intel.dtrans.func.type !4 {
   %addr1 = getelementptr %struct.test01a, %struct.test01a* %pStructA, i64 0, i32 0
   %addr2 = getelementptr %struct.test01b, %struct.test01b* %pStructB, i64 0, i32 0
   %val1 = load i32, i32* %addr1
@@ -16,7 +16,7 @@ define i32 @test01(%struct.test01a* %pStructA, %struct.test01b* %pStructB) !dtra
   ret i32 %add
 }
 
-define void @test01i(%struct.test01a* %s1, %struct.test01b* %s2) personality i32 (...)* @__gxx_personality_v0 !dtrans_type !7 {
+define void @test01i(%struct.test01a* "intel_dtrans_func_index"="1" %s1, %struct.test01b* "intel_dtrans_func_index"="2" %s2) personality i32 (...)* @__gxx_personality_v0 !intel.dtrans.func.type !5 {
   %sum = invoke i32 @test01(%struct.test01a* %s1, %struct.test01b* %s2) to label %good unwind label %bad
 good:
   ret void
@@ -36,17 +36,16 @@ bad:
 
 
 declare i32 @__gxx_personality_v0(...)
-declare i8* @_Znwm(i64)
+declare !intel.dtrans.func.type !7 "intel_dtrans_func_index"="1" i8* @_Znwm(i64)
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 2, !1, !3, !5}  ; i32 (%struct.test01a*, %struct.test01b*)
-!3 = !{!4, i32 1}  ; %struct.test01a*
-!4 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!5 = !{!6, i32 1}  ; %struct.test01b*
-!6 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
-!7 = !{!"F", i1 false, i32 2, !8, !3, !5}  ; void (%struct.test01a*, %struct.test01b*)
-!8 = !{!"void", i32 0}  ; void
-!9 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!10 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01a zeroinitializer, i32 1}  ; %struct.test01a*
+!3 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!4 = distinct !{!2, !3}
+!5 = distinct !{!2, !3}
+!6 = !{i8 0, i32 1}  ; i8*
+!7 = distinct !{!6}
+!8 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!9 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!9, !10}
+!intel.dtrans.types = !{!8, !9}

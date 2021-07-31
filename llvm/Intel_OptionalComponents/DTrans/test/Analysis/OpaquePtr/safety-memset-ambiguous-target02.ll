@@ -29,11 +29,13 @@ define void @test01() {
 ; CHECK: Safety data: Ambiguous GEP | Ambiguous pointer target{{ *$}}
 
 
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare !intel.dtrans.func.type !4 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32
-!3 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i64 }
-!4 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i64 }
+!6 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
 
-!dtrans_types = !{!3, !4}
+!intel.dtrans.types = !{!5, !6}

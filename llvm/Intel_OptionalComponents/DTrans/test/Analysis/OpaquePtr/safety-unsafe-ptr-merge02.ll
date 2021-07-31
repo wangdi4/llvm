@@ -10,7 +10,7 @@
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i32, i32 }
 %struct.test01c = type { i32, i32 }
-define void @test01(%struct.test01a* %a_in, %struct.test01b* %b_in, %struct.test01c* %c_in) !dtrans_type !2 {
+define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %a_in, %struct.test01b* "intel_dtrans_func_index"="2" %b_in, %struct.test01c* "intel_dtrans_func_index"="3" %c_in) !intel.dtrans.func.type !5 {
 entry:
   %tmpA = ptrtoint %struct.test01a* %a_in to i64
   %tmpB = ptrtoint %struct.test01b* %b_in to i64
@@ -76,7 +76,7 @@ exit:
 %struct.test02b = type { %struct.test02b*, %struct.test02d* }
 %struct.test02c = type { %struct.test02c*, %struct.test02d* }
 %struct.test02d = type { i32, i32 }
-define internal void @test02(%struct.test02a* %pStructA, %struct.test02b* %pStructB, %struct.test02c* %pStructC) !dtrans_type !18 {
+define internal void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStructA, %struct.test02b* "intel_dtrans_func_index"="2" %pStructB, %struct.test02c* "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !10 {
 
   %field.a.0 = getelementptr %struct.test02a, %struct.test02a* %pStructA, i64 0, i32 0
   %field.a.0.as.p64 = bitcast %struct.test02a** %field.a.0 to i64*
@@ -133,7 +133,7 @@ merge:
 %struct.test03a = type { i32, i32 }
 %struct.test03b = type { i32, i32 }
 %struct.test03c = type { i32, i32 }
-define internal void @test03(%struct.test03a* %pStructA, %struct.test03b* %pStructB, %struct.test03c* %pStructC) !dtrans_type !19 {
+define internal void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStructA, %struct.test03b* "intel_dtrans_func_index"="2" %pStructB, %struct.test03c* "intel_dtrans_func_index"="3" %pStructC) !intel.dtrans.func.type !14 {
 
   %pField.a.0 = getelementptr %struct.test03a, %struct.test03a* %pStructA, i64 0, i32 0
   %pField.b.1 = getelementptr %struct.test03b, %struct.test03b* %pStructB, i64 0, i32 1
@@ -172,39 +172,28 @@ merge:
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 3, !3, !4, !6, !8}  ; void (%struct.test01a*, %struct.test01b*, %struct.test01c*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{!5, i32 1}  ; %struct.test01a*
-!5 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!6 = !{!7, i32 1}  ; %struct.test01b*
-!7 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
-!8 = !{!9, i32 1}  ; %struct.test01c*
-!9 = !{!"R", %struct.test01c zeroinitializer, i32 0}  ; %struct.test01c
-!10 = !{!11, i32 1}  ; %struct.test02a*
-!11 = !{!"R", %struct.test02a zeroinitializer, i32 0}  ; %struct.test02a
-!12 = !{!13, i32 1}  ; %struct.test02d*
-!13 = !{!"R", %struct.test02d zeroinitializer, i32 0}  ; %struct.test02d
-!14 = !{!15, i32 1}  ; %struct.test02b*
-!15 = !{!"R", %struct.test02b zeroinitializer, i32 0}  ; %struct.test02b
-!16 = !{!17, i32 1}  ; %struct.test02c*
-!17 = !{!"R", %struct.test02c zeroinitializer, i32 0}  ; %struct.test02c
-!18 = !{!"F", i1 false, i32 3, !3, !10, !14, !16}  ; void (%struct.test02a*, %struct.test02b*, %struct.test02c*)
-!19 = !{!"F", i1 false, i32 3, !3, !20, !22, !24}  ; void (%struct.test03a*, %struct.test03b*, %struct.test03c*)
-!20 = !{!21, i32 1}  ; %struct.test03a*
-!21 = !{!"R", %struct.test03a zeroinitializer, i32 0}  ; %struct.test03a
-!22 = !{!23, i32 1}  ; %struct.test03b*
-!23 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!24 = !{!25, i32 1}  ; %struct.test03c*
-!25 = !{!"R", %struct.test03c zeroinitializer, i32 0}  ; %struct.test03c
-!26 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!27 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!28 = !{!"S", %struct.test01c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!29 = !{!"S", %struct.test02a zeroinitializer, i32 2, !10, !12} ; { %struct.test02a*, %struct.test02d* }
-!30 = !{!"S", %struct.test02b zeroinitializer, i32 2, !14, !12} ; { %struct.test02b*, %struct.test02d* }
-!31 = !{!"S", %struct.test02c zeroinitializer, i32 2, !16, !12} ; { %struct.test02c*, %struct.test02d* }
-!32 = !{!"S", %struct.test02d zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!33 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!34 = !{!"S", %struct.test03b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!35 = !{!"S", %struct.test03c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01a zeroinitializer, i32 1}  ; %struct.test01a*
+!3 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!4 = !{%struct.test01c zeroinitializer, i32 1}  ; %struct.test01c*
+!5 = distinct !{!2, !3, !4}
+!6 = !{%struct.test02a zeroinitializer, i32 1}  ; %struct.test02a*
+!7 = !{%struct.test02d zeroinitializer, i32 1}  ; %struct.test02d*
+!8 = !{%struct.test02b zeroinitializer, i32 1}  ; %struct.test02b*
+!9 = !{%struct.test02c zeroinitializer, i32 1}  ; %struct.test02c*
+!10 = distinct !{!6, !8, !9}
+!11 = !{%struct.test03a zeroinitializer, i32 1}  ; %struct.test03a*
+!12 = !{%struct.test03b zeroinitializer, i32 1}  ; %struct.test03b*
+!13 = !{%struct.test03c zeroinitializer, i32 1}  ; %struct.test03c*
+!14 = distinct !{!11, !12, !13}
+!15 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!16 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!17 = !{!"S", %struct.test01c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!18 = !{!"S", %struct.test02a zeroinitializer, i32 2, !6, !7} ; { %struct.test02a*, %struct.test02d* }
+!19 = !{!"S", %struct.test02b zeroinitializer, i32 2, !8, !7} ; { %struct.test02b*, %struct.test02d* }
+!20 = !{!"S", %struct.test02c zeroinitializer, i32 2, !9, !7} ; { %struct.test02c*, %struct.test02d* }
+!21 = !{!"S", %struct.test02d zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!22 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!23 = !{!"S", %struct.test03b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!24 = !{!"S", %struct.test03c zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!26, !27, !28, !29, !30, !31, !32, !33, !34, !35}
+!intel.dtrans.types = !{!15, !16, !17, !18, !19, !20, !21, !22, !23, !24}

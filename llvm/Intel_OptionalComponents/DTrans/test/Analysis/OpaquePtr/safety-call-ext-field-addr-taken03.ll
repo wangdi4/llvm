@@ -24,15 +24,12 @@ define void @test01() {
 ; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
 
 
-declare double @strtod(i8*, i8**)
+declare !intel.dtrans.func.type !4 double @strtod(i8* "intel_dtrans_func_index"="1", i8** "intel_dtrans_func_index"="2")
 
 !1 = !{i8 0, i32 1}  ; i8*
 !2 = !{i64 0, i32 0}  ; i64
-!3 = !{!"F", i1 false, i32 2, !4, !1, !5}  ; double (i8*, i8**)
-!4 = !{double 0.0e+00, i32 0}  ; double
-!5 = !{i8 0, i32 2}  ; i8**
-!6 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !2} ; { i8*, i64, i64 }
-!7 = !{!"strtod", !3}
+!3 = !{i8 0, i32 2}  ; i8**
+!4 = distinct !{!1, !3}
+!5 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !2} ; { i8*, i64, i64 }
 
-!dtrans_types = !{!6}
-!dtrans_decl_types = !{!7}
+!intel.dtrans.types = !{!5}

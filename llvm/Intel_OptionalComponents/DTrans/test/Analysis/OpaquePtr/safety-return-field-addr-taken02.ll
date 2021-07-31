@@ -10,7 +10,7 @@
 %struct.test01a = type { i32, i8 }
 %struct.test01b = type { i32, i32 }
 @p.test2 = internal unnamed_addr global %struct.test01a zeroinitializer
-define %struct.test01b* @test2() !dtrans_type !3 {
+define "intel_dtrans_func_index"="1" %struct.test01b* @test2() !intel.dtrans.func.type !4 {
   %s = bitcast i8* getelementptr( %struct.test01a, %struct.test01a* @p.test2,
                                   i64 0, i32 1) to %struct.test01b*
   ret %struct.test01b* %s
@@ -32,10 +32,9 @@ define %struct.test01b* @test2() !dtrans_type !3 {
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 0}  ; i8
-!3 = !{!"F", i1 false, i32 0, !4}  ; %struct.test01b* ()
-!4 = !{!5, i32 1}  ; %struct.test01b*
-!5 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
-!6 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !2} ; { i32, i8 }
-!7 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!3 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !2} ; { i32, i8 }
+!6 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!6, !7}
+!intel.dtrans.types = !{!5, !6}

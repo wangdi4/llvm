@@ -18,7 +18,7 @@
 %struct.test01a = type { i64, float, %struct.test01b }
 %struct.test01b = type { i64, [10 x i8] }
 @var01a = internal global %struct.test01a zeroinitializer
-@var01charptr = internal global i8* zeroinitializer, !dtrans_type !6
+@var01charptr = internal global i8* zeroinitializer, !intel_dtrans_type !6
 define void @test01(i64 %arg)  {
   %array_elem_addr = getelementptr %struct.test01a, %struct.test01a* @var01a, i64 0, i32 2, i32 1, i64 %arg
   store i8* %array_elem_addr, i8** @var01charptr
@@ -37,11 +37,11 @@ define void @test01(i64 %arg)  {
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{float 0.0e+00, i32 0}  ; float
-!3 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
+!3 = !{%struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
 !4 = !{!"A", i32 10, !5}  ; [10 x i8]
 !5 = !{i8 0, i32 0}  ; i8
 !6 = !{i8 0, i32 1}  ; i8*
 !7 = !{!"S", %struct.test01a zeroinitializer, i32 3, !1, !2, !3} ; { i64, float, %struct.test01b }
 !8 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !4} ; { i64, [10 x i8] }
 
-!dtrans_types = !{!7, !8}
+!intel.dtrans.types = !{!7, !8}

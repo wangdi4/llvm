@@ -9,7 +9,7 @@
 ; Allocating a vector of pointers to structures is currently unhandled.
 %struct.test01 = type { i32, i32 }
 define void @test01() {
-  %local = alloca <2 x %struct.test01*>, !dtrans_type !2
+  %local = alloca <2 x %struct.test01*>, !intel_dtrans_type !2
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -20,7 +20,7 @@ define void @test01() {
 ; unhandled.
 %struct.test02 = type { i32, i32 }
 define void @test02() {
-  %local = alloca [4 x <2 x %struct.test02*>], !dtrans_type !5
+  %local = alloca [4 x <2 x %struct.test02*>], !intel_dtrans_type !4
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -30,13 +30,11 @@ define void @test02() {
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"V", i32 2, !3}  ; <2 x %struct.test01*>
-!3 = !{!4, i32 1}  ; %struct.test01*
-!4 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!5 = !{!"A", i32 4, !6}  ; [4 x <2 x %struct.test02*>]
-!6 = !{!"V", i32 2, !7}  ; <2 x %struct.test02*>
-!7 = !{!8, i32 1}  ; %struct.test02*
-!8 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!10 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!3 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!4 = !{!"A", i32 4, !5}  ; [4 x <2 x %struct.test02*>]
+!5 = !{!"V", i32 2, !6}  ; <2 x %struct.test02*>
+!6 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!9, !10}
+!intel.dtrans.types = !{!7, !8}

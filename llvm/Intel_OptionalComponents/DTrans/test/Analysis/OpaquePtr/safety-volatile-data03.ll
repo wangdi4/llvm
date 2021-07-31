@@ -23,7 +23,7 @@ define void @test01(i32 %value) {
 %struct.test02a = type { %struct.test02b* }
 %struct.test02b = type { i32 }
 @pStruct02 = internal global %struct.test02a zeroinitializer
-define void @test02(%struct.test02b* %value) !dtrans_type !4 {
+define void @test02(%struct.test02b* "intel_dtrans_func_index"="1" %value) !intel.dtrans.func.type !3 {
   %pField = getelementptr %struct.test02a, %struct.test02a* @pStruct02, i64 0, i32 0
   store volatile %struct.test02b* %value, %struct.test02b** %pField
   ret void
@@ -57,15 +57,13 @@ define void @test03(i32 %value) {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test02b*
-!3 = !{!"R", %struct.test02b zeroinitializer, i32 0}  ; %struct.test02b
-!4 = !{!"F", i1 false, i32 1, !5, !2}  ; void (%struct.test02b*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!7 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
-!8 = !{!"S", %struct.test02a zeroinitializer, i32 1, !2} ; { %struct.test02b* }
-!9 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
-!10 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !6} ; { i32, %struct.test03b }
-!11 = !{!"S", %struct.test03b zeroinitializer, i32 1, !1} ; { i32 }
+!2 = !{%struct.test02b zeroinitializer, i32 1}  ; %struct.test02b*
+!3 = distinct !{!2}
+!4 = !{%struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
+!5 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !1, !1} ; { i32, i32, i32 }
+!6 = !{!"S", %struct.test02a zeroinitializer, i32 1, !2} ; { %struct.test02b* }
+!7 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
+!8 = !{!"S", %struct.test03a zeroinitializer, i32 2, !1, !4} ; { i32, %struct.test03b }
+!9 = !{!"S", %struct.test03b zeroinitializer, i32 1, !1} ; { i32 }
 
-!dtrans_types = !{!7, !8, !9, !10, !11}
+!intel.dtrans.types = !{!5, !6, !7, !8, !9}

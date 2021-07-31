@@ -10,7 +10,7 @@
 
 %struct.test01a = type { i32 }
 %struct.test01b = type { i16, i16 }
-define void @test01(%struct.test01a** %pStruct) !dtrans_type !3 {
+define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !4 {
   %bc = bitcast %struct.test01a** %pStruct to %struct.test01b**
   %pB = load %struct.test01b*, %struct.test01b** %bc
   %pField = getelementptr %struct.test01b, %struct.test01b* %pB, i64 0, i32 1
@@ -27,11 +27,9 @@ define void @test01(%struct.test01a** %pStruct) !dtrans_type !3 {
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16
-!3 = !{!"F", i1 false, i32 1, !4, !5}  ; void (%struct.test01a**)
-!4 = !{!"void", i32 0}  ; void
-!5 = !{!6, i32 2}  ; %struct.test01a**
-!6 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!7 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i32 }
-!8 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i16, i16 }
+!3 = !{%struct.test01a zeroinitializer, i32 2}  ; %struct.test01a**
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.test01a zeroinitializer, i32 1, !1} ; { i32 }
+!6 = !{!"S", %struct.test01b zeroinitializer, i32 2, !2, !2} ; { i16, i16 }
 
-!dtrans_types = !{!7, !8}
+!intel.dtrans.types = !{!5, !6}

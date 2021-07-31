@@ -8,7 +8,7 @@
 
 ; Vector types are not supported
 %struct.test01 = type { i32, i32 }
-@global_array_of_vector_ptrs = internal global [16 x <2 x %struct.test01*>] zeroinitializer, !dtrans_type !2
+@global_array_of_vector_ptrs = internal global [16 x <2 x %struct.test01*>] zeroinitializer, !intel_dtrans_type !2
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
 ; CHECK: Safety data:{{.*}}Unhandled use{{.*}}
@@ -30,10 +30,9 @@
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"A", i32 16, !3}  ; [16 x <2 x %struct.test01*>]
 !3 = !{!"V", i32 2, !4}  ; <2 x %struct.test01*>
-!4 = !{!5, i32 1}  ; %struct.test01*
-!5 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!7 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!8 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!4 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!5 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!6 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!7 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!6, !7, !8}
+!intel.dtrans.types = !{!5, !6, !7}
