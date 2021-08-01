@@ -2908,8 +2908,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     SmallPtrSet<Value *, 10> Visited;
     if (!CheckDTransOutOfBoundsOK)
       return false;
+#if 0 // TEMPORARY WORKAROUND
     if (dtrans::DTransOutOfBoundsOK)
       return false;
+#endif // TEMPORARY WORKAROUND
     return PropagatesToLoadOrStoreX(V, Visited);
 #else // INTEL_FEATURE_SW_DTRANS
     return false;
