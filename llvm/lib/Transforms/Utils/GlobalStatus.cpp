@@ -106,16 +106,10 @@ static bool analyzeGlobalAux(const Value *V, GlobalStatus &GS,
         // value, not an aggregate), keep more specific information about
         // stores.
         if (GS.StoredType != GlobalStatus::Stored) {
-#if INTEL_CUSTOMIZATION
-          // If StorePtr is bitcast, look through it to determine if
-          // the StorePtr is basically GlobalVariable.
-          Value *StorePtr = SI->getOperand(1);
-          auto *BC = dyn_cast<BitCastOperator>(StorePtr);
-          if (BC)
-            StorePtr = BC->getOperand(0);
-#endif //INTEL_CUSTOMIZATION
-          if (const GlobalVariable *GV =
-                  dyn_cast<GlobalVariable>(StorePtr)) {     // INTEL
+          const Value *Ptr = SI->getPointerOperand();
+          if (isa<ConstantExpr>(Ptr))
+            Ptr = Ptr->stripPointerCasts();
+          if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(Ptr)) {
             Value *StoredVal = SI->getOperand(0);
 
             if (Constant *C = dyn_cast<Constant>(StoredVal)) {
