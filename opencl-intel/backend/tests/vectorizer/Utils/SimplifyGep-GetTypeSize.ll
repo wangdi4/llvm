@@ -28,7 +28,7 @@ entry:
 ; CHECK-NEXT:   %i2 = call i32 @_Z13get_global_idj(i32 0)
 ; CHECK-NEXT:   [[mulIndex:%[a-zA-Z0-9]+]] = mul nuw i32 %i1, 7
 ; CHECK-NEXT:   [[addIndex:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex]], %i2
-; CHECK-NEXT:   [[mulIndex1:%[a-zA-Z0-9]+]] = mul nuw i32 [[addIndex]], 2
+; CHECK-NEXT:   [[mulIndex1:%[a-zA-Z0-9]+]] = mul nuw i32 [[addIndex]], 1
 ; CHECK-NEXT:   [[addIndex2:%[a-zA-Z0-9]+]] = add nuw i32 [[mulIndex1]], %i3
 ; CHECK-NEXT:   [[ptrTypeCast:%[a-zA-Z0-9]+]] = bitcast [7 x <2 x i1>]* %memA to i1*
 ; CHECK-NEXT:   [[simplifiedGEP:%[a-zA-Z0-9]+]] = getelementptr i1, i1* [[ptrTypeCast]], i32 [[addIndex2]]
