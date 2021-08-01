@@ -154,9 +154,13 @@ public:
                             const llvm::opt::ArgList &Args,
                             llvm::opt::ArgStringList &CmdArgs) const;
   void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
-      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
+                                  const llvm::Triple &Triple,
+                                  const llvm::opt::ArgList &Args,
+                                  llvm::opt::ArgStringList &CmdArgs) const;
   void TranslateLinkerTargetArgs(Action::OffloadKind DeviceOffloadKind,
-      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
+                                 const llvm::Triple &Triple,
+                                 const llvm::opt::ArgList &Args,
+                                 llvm::opt::ArgStringList &CmdArgs) const;
 #endif // INTEL_CUSTOMIZATION
 
   bool useIntegratedAs() const override { return true; }

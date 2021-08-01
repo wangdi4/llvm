@@ -9119,6 +9119,8 @@ void OffloadBundler::ConstructJobMultipleOutputs(
       if (getToolChain().getTriple().getSubArch() ==
               llvm::Triple::SPIRSubArch_fpga &&
           Dep.DependentOffloadKind == Action::OFK_SYCL) {
+        if (J++)
+          Triples += ',';
         llvm::Triple TT;
         TT.setArchName(types::getTypeName(InputType));
         TT.setVendorName("intel");
@@ -9129,6 +9131,8 @@ void OffloadBundler::ConstructJobMultipleOutputs(
       } else if (getToolChain().getTriple().getSubArch() !=
                      llvm::Triple::SPIRSubArch_fpga &&
                  Dep.DependentOffloadKind == Action::OFK_Host) {
+        if (J++)
+          Triples += ',';
         Triples += Action::GetOffloadKindName(Dep.DependentOffloadKind);
         Triples += '-';
         Triples += Dep.DependentToolChain->getTriple().normalize();
@@ -9231,21 +9235,22 @@ static void addRunTimeWrapperOpts(Compilation &C,
   };
   const toolchains::SYCLToolChain &SYCLTC =
             static_cast<const toolchains::SYCLToolChain &>(TC);
+  llvm::Triple TT = SYCLTC.getTriple();
   // TODO: Consider separating the mechanisms for:
   // - passing standard-defined options to AOT/JIT compilation steps;
   // - passing AOT-compiler specific options.
   // This would allow retaining standard language options in the
   // image descriptor, while excluding tool-specific options that
   // have been known to confuse RT implementations.
-  if (SYCLTC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
+  if (TT.getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
     const ArgList &Args = C.getArgsForToolChain(nullptr, StringRef(), DeviceOffloadKind);
-    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, SYCLTC.getTriple(), Args, BuildArgs);
-    SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, BuildArgs);
+    SYCLTC.AddImpliedTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
+    SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
-    SYCLTC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, BuildArgs);
+    SYCLTC.TranslateLinkerTargetArgs(DeviceOffloadKind, TT, Args, BuildArgs);
     createArgString("-link-opts=");
   }
 }

@@ -1085,6 +1085,23 @@ static bool isValidSYCLTriple(llvm::Triple T) {
   return true;
 }
 
+static void addSYCLDefaultTriple(Compilation &C,
+                                 SmallVectorImpl<llvm::Triple> &SYCLTriples) {
+  if (!C.getDriver().isSYCLDefaultTripleImplied())
+    return;
+  for (const auto &SYCLTriple : SYCLTriples) {
+    if (SYCLTriple.getSubArch() == llvm::Triple::NoSubArch &&
+        SYCLTriple.isSPIR())
+      return;
+    // If we encounter a known non-spir* target, do not add the default triple.
+    if (SYCLTriple.isNVPTX() || SYCLTriple.isAMDGCN())
+      return;
+  }
+  // Add the default triple as it was not found.
+  llvm::Triple DefaultTriple = C.getDriver().MakeSYCLDeviceTriple("spir64");
+  SYCLTriples.insert(SYCLTriples.begin(), DefaultTriple);
+}
+
 void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
                                               InputList &Inputs) {
 
@@ -1306,6 +1323,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
           FoundNormalizedTriples[NormalizedName] = Val;
           UniqueSYCLTriplesVec.push_back(TT);
         }
+        addSYCLDefaultTriple(C, UniqueSYCLTriplesVec);
       } else
         Diag(clang::diag::warn_drv_empty_joined_argument)
             << SYCLTargetsValues->getAsString(C.getInputArgs());
@@ -1364,8 +1382,10 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     else if (HasValidSYCLRuntime)
       // Triple for -fintelfpga is spir64_fpga-unknown-unknown-sycldevice.
       SYCLTargetArch = SYCLfpga ? "spir64_fpga" : "spir64";
-    if (!SYCLTargetArch.empty())
+    if (!SYCLTargetArch.empty()) {
       UniqueSYCLTriplesVec.push_back(MakeSYCLDeviceTriple(SYCLTargetArch));
+      addSYCLDefaultTriple(C, UniqueSYCLTriplesVec);
+    }
   }
   // We'll need to use the SYCL and host triples as the key into
   // getOffloadingDeviceToolChain, because the device toolchains we're
@@ -1807,6 +1827,11 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   if (checkForOffloadStaticLib(*C, *TranslatedArgs))
     setOffloadStaticLibSeen();
 
+  // Check for any objects/archives that need to be compiled with the default
+  // triple.
+  if (checkForSYCLDefaultDevice(*C, *TranslatedArgs))
+    setSYCLDefaultTriple(true);
+
   // Populate the tool chains for the offloading devices, if any.
   CreateOffloadingDeviceToolChains(*C, Inputs);
 
@@ -1817,8 +1842,10 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     const ToolChain *TC = SYCLTCRange.first->second;
     const toolchains::SYCLToolChain *SYCLTC =
         static_cast<const toolchains::SYCLToolChain *>(TC);
-    SYCLTC->TranslateBackendTargetArgs(Action::OFK_SYCL, *TranslatedArgs,
-                                       TargetArgs);
+#if INTEL_CUSTOMIZATION
+    SYCLTC->TranslateBackendTargetArgs(
+        Action::OFK_SYCL, SYCLTC->getTriple(), *TranslatedArgs, TargetArgs);
+#endif // INTEL_CUSTOMIZATION
     for (StringRef ArgString : TargetArgs) {
       if (ArgString.equals("-hardware") || ArgString.equals("-simulation")) {
         setFPGAEmulationMode(false);
@@ -3203,6 +3230,30 @@ bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   return runBundler(BundlerArgs, C);
 }
 
+static bool hasSYCLDefaultSection(Compilation &C, const StringRef &File) {
+  // Do not do the check if the file doesn't exist
+  if (!llvm::sys::fs::exists(File))
+    return false;
+
+  bool IsArchive = isStaticArchiveFile(File);
+  if (!(IsArchive || isObjectFile(File.str())))
+    return false;
+
+  llvm::Triple TT(C.getDriver().MakeSYCLDeviceTriple("spir64"));
+  // Checking uses -check-section option with the input file, no output
+  // file and the target triple being looked for.
+  const char *Targets =
+      C.getArgs().MakeArgString(Twine("-targets=sycl-") + TT.str());
+  const char *Inputs =
+      C.getArgs().MakeArgString(Twine("-inputs=") + File.str());
+  // Always use -type=ao for bundle checking.  The 'bundles' are
+  // actually archives.
+  SmallVector<StringRef, 6> BundlerArgs = {"clang-offload-bundler",
+                                           IsArchive ? "-type=ao" : "-type=o",
+                                           Targets, Inputs, "-check-section"};
+  return runBundler(BundlerArgs, C);
+}
+
 static bool hasOffloadSections(Compilation &C, const StringRef &Archive,
                                DerivedArgList &Args) {
   // Do not do the check if the file doesn't exist
@@ -3233,14 +3284,15 @@ static bool optionMatches(const std::string &Option,
 // Process linker inputs for use with offload static libraries.  We are only
 // handling options and explicitly named static archives as these need to be
 // partially linked.
-static SmallVector<const char *, 16> getLinkerArgs(Compilation &C,
-                                                   DerivedArgList &Args) {
+static SmallVector<const char *, 16>
+getLinkerArgs(Compilation &C, DerivedArgList &Args, bool IncludeObj = false) {
   SmallVector<const char *, 16> LibArgs;
   for (const auto *A : Args) {
     std::string FileName = A->getAsString(Args);
     if (A->getOption().getKind() == Option::InputClass) {
       StringRef Value(A->getValue());
-      if (isStaticArchiveFile(Value)) {
+      if (isStaticArchiveFile(Value) ||
+          (IncludeObj && isObjectFile(Value.str()))) {
         LibArgs.push_back(Args.MakeArgString(FileName));
         continue;
       }
@@ -3259,7 +3311,7 @@ static SmallVector<const char *, 16> getLinkerArgs(Compilation &C,
           // Only add named static libs objects and --whole-archive options.
           if (optionMatches("-whole-archive", V.str()) ||
               optionMatches("-no-whole-archive", V.str()) ||
-              isStaticArchiveFile(V)) {
+              isStaticArchiveFile(V) || (IncludeObj && isObjectFile(V.str()))) {
             LibArgs.push_back(Args.MakeArgString(V));
             return;
           }
@@ -3355,6 +3407,26 @@ const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
   return Args.MakeArgString(RetLib);
 }
 #endif // INTEL_CUSTOMIZATION
+
+// Goes through all of the arguments, including inputs expected for the
+// linker directly, to determine if we need to potentially add the SYCL
+// default triple.
+bool Driver::checkForSYCLDefaultDevice(Compilation &C,
+                                       DerivedArgList &Args) const {
+  // Check only if enabled with -fsycl
+  if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
+    return false;
+
+  if (Args.hasArg(options::OPT_fno_sycl_link_spirv))
+    return false;
+
+  SmallVector<const char *, 16> AllArgs(getLinkerArgs(C, Args, true));
+  for (StringRef Arg : AllArgs) {
+    if (hasSYCLDefaultSection(C, Arg))
+      return true;
+  }
+  return false;
+}
 
 // Goes through all of the arguments, including inputs expected for the
 // linker directly, to determine if we need to perform additional work for
@@ -5241,6 +5313,7 @@ class OffloadingActionBuilder final {
               NonSpirvCPU = true;
 #endif // INTEL_CUSTOMIZATION
           }
+          addSYCLDefaultTriple(C, SYCLTripleList);
         }
         if (SYCLAddTargets) {
           for (StringRef Val : SYCLAddTargets->getValues()) {
@@ -5263,6 +5336,7 @@ class OffloadingActionBuilder final {
         const char *SYCLTargetArch = SYCLfpga ? "spir64_fpga" : "spir64";
         SYCLTripleList.push_back(
             C.getDriver().MakeSYCLDeviceTriple(SYCLTargetArch));
+        addSYCLDefaultTriple(C, SYCLTripleList);
         if (SYCLfpga)
           SYCLfpgaTriple = true;
       }

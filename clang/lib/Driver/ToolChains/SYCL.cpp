@@ -455,8 +455,10 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   llvm::Triple CPUTriple("spir64_x86_64");
   TC.AddImpliedTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs); // INTEL
   // Add the target args passed in
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+#if INTEL_CUSTOMIZATION
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs);
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, CPUTriple, Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
 
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
@@ -483,7 +485,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   ArgStringList TargetArgs;
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, TargetArgs);
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, TC.getTriple(), // INTEL
+                                Args, TargetArgs);                 // INTEL
 
   // When performing emulation compilations for FPGA AOT, we want to use
   // opencl-aot instead of aoc.
@@ -604,8 +607,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
 
   // Add -Xsycl-target* options.
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+#if INTEL_CUSTOMIZATION
+  TC.TranslateBackendTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateLinkerTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
 
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
@@ -651,10 +658,14 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+#if INTEL_CUSTOMIZATION
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateLinkerTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -686,10 +697,14 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
+#if INTEL_CUSTOMIZATION
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateLinkerTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -879,8 +894,8 @@ void SYCLToolChain::AddImpliedTargetArgs(
 
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::TranslateBackendTargetArgs(
-    Action::OffloadKind DeviceOffloadKind, const llvm::opt::ArgList &Args,
-    llvm::opt::ArgStringList &CmdArgs) const {
+    Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
 #endif // INTEL_CUSTOMIZATION
   // Handle -Xs flags.
   for (auto *A : Args) {
@@ -891,6 +906,15 @@ void SYCLToolChain::TranslateBackendTargetArgs(
     //   -Xs "-DFOO -DBAR"
     //   -XsDFOO -XsDBAR
     // All of the above examples will pass -DFOO -DBAR to the backend compiler.
+
+    // Do not add the -Xs to the default SYCL triple (spir64) when we know we
+    // have implied the setting.
+    if ((A->getOption().matches(options::OPT_Xs) ||
+         A->getOption().matches(options::OPT_Xs_separate)) &&
+        Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
+        getDriver().isSYCLDefaultTripleImplied())
+      continue;
+
     if (A->getOption().matches(options::OPT_Xs)) {
       // Take the arg and create an option out of it.
       CmdArgs.push_back(Args.MakeArgString(Twine("-") + A->getValue()));
@@ -904,6 +928,10 @@ void SYCLToolChain::TranslateBackendTargetArgs(
       continue;
     }
   }
+  // Do not process -Xsycl-target-backend for implied spir64
+  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
+      getDriver().isSYCLDefaultTripleImplied())
+    return;
 #if INTEL_CUSTOMIZATION
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-backend.
@@ -918,8 +946,12 @@ void SYCLToolChain::TranslateBackendTargetArgs(
 
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::TranslateLinkerTargetArgs(
-    Action::OffloadKind DeviceOffloadKind, const llvm::opt::ArgList &Args,
-    llvm::opt::ArgStringList &CmdArgs) const {
+    Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+  // Do not process -Xsycl-target-linker for implied spir64
+  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
+      getDriver().isSYCLDefaultTripleImplied())
+    return;
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
