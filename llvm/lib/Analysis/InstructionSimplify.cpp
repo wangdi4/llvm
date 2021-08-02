@@ -6035,6 +6035,12 @@ static Value *tryConstantFoldCall(CallBase *Call, const SimplifyQuery &Q) {
         continue;
       return nullptr;
     }
+#if INTEL_CUSTOMIZATION
+    // Try to remove ConstantExprs if possible. Foldable expressions may still
+    // exist when we get here.
+    if (isa<ConstantExpr>(C))
+      C = ConstantFoldConstant(C, Q.DL, Q.TLI);
+#endif // INTEL_CUSTOMIZATION
     ConstantArgs.push_back(C);
   }
 
