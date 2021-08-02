@@ -20,6 +20,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -801,9 +802,9 @@ public:
       }
 
       // A runtime dependent index of an array cannot be guaranteed to be within
-      // the bounds. When DTransOutOfBoundsOK is not set, we are explicitly
+      // the bounds. When LangRuleOutOfBoundsOK is not set, we are explicitly
       // asserting that the access cannot go out of bounds.
-      if (dtrans::DTransOutOfBoundsOK)
+      if (getLangRuleOutOfBoundsOK())
         for (auto &PointeePair : Pointees) {
           if (PointeePair.second.getKind() ==
               ValueTypeInfo::PointeeLoc::PLK_UnknownOffset) {
@@ -1721,14 +1722,14 @@ public:
                                        Instruction &I) {
     auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
 
-    if (dtrans::DTransOutOfBoundsOK) {
+    if (getLangRuleOutOfBoundsOK()) {
       // Assuming out of bound access, set safety issue for the entire
       // ParentTy.
       setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
                                 "Incompatible type for field load/store", &I);
     } else {
       // Set safety issue to AccessTy only, because out of bounds accesses are
-      // known to not occur based on the DTransOutOfBoundsOK definition.
+      // known to not occur based on the LangRuleOutOfBoundsOK definition.
       TI->setSafetyData(dtrans::MismatchedElementAccess);
       if (AccessTy)
         setBaseTypeInfoSafetyData(AccessTy, dtrans::MismatchedElementAccess,
@@ -1738,7 +1739,7 @@ public:
     if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
       TypeSize FieldSize = DL.getTypeSizeInBits(
           ParentStInfo->getField(ElementNum).getLLVMType());
-      if (dtrans::DTransOutOfBoundsOK || AccessSize > FieldSize) {
+      if (getLangRuleOutOfBoundsOK() || AccessSize > FieldSize) {
         for (auto &FI : ParentStInfo->getFields())
           FI.setMismatchedElementAccess();
       } else {
@@ -1780,8 +1781,8 @@ public:
   // ArrayType, this also needs to consider the case that element zero of the
   // structure may also be the address of a field within a structure when the
   // array is a member of a structure.
-  // Note, when DTransOutOfBoundsOK is off, all runtime dependent indices of an
-  // array are considered to be element zero, rather than BadPtrManipulation.
+  // Note, when LangRuleOutOfBoundsOK is off, all runtime dependent indices of
+  // an array are considered to be element zero, rather than BadPtrManipulation.
   // The argument FieldAddressTakenType is used to identify which form of
   // FieldAddrssTaken we want set.
   void markFieldAddressTaken(ValueTypeInfo *Info, StringRef Reason, Value *V,
@@ -1822,7 +1823,7 @@ public:
       auto &ElementOfTypes = PointeePair.second.getElementOf();
       if ((PointeePair.second.isField() &&
            PointeePair.second.getElementNum() == 0) ||
-          (!dtrans::DTransOutOfBoundsOK &&
+          (!getLangRuleOutOfBoundsOK() &&
            PointeePair.second.isUnknownOffset()))
         for (auto &ElementOfPair : ElementOfTypes) {
           dtrans::TypeInfo *ElementOfTI =
@@ -3123,8 +3124,8 @@ public:
       // Helper function for handling propagation when ValueTypeInfo has an
       // element pointee type. If the PointeePair is an array element, this
       // supports propagating the safety data to a structure which the array is
-      // an element of, when DTransOutOfBoundsOK is enabled. If
-      // DTransOutOfBouundsOK is not enabled, then it is assumed that any
+      // an element of, when LangRuleOutOfBoundsOK is enabled. If
+      // LangRuleOutOfBoundsOK is not enabled, then it is assumed that any
       // safety conditions on the array only affect the array, and not any
       // structures it may be part of.
       auto SetSafetyDataOnElementPointees = [this](ValueTypeInfo *PtrInfo,
@@ -3135,7 +3136,7 @@ public:
             PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
         for (auto PointeePair : ElementPointees) {
           setBaseTypeInfoSafetyData(PointeePair.first, Data, Reason, I);
-          if (dtrans::DTransOutOfBoundsOK &&
+          if (getLangRuleOutOfBoundsOK() &&
               isa<DTransArrayType>(PointeePair.first)) {
             auto &ElementOfTypes = PointeePair.second.getElementOf();
             for (auto &ElementOfPair : ElementOfTypes)
@@ -3917,7 +3918,7 @@ private:
       // permitted, then it would be possible to access elements of
       // pointed-to objects, as well, in ways that DTrans would not be
       // able to analyze.
-      return dtrans::DTransOutOfBoundsOK;
+      return getLangRuleOutOfBoundsOK();
     case dtrans::AmbiguousGEP:
     case dtrans::BadAllocSizeArg:
     case dtrans::BadCastingConditional:
@@ -3967,7 +3968,7 @@ private:
       // as needs dictate. These cases should not cascade to nested elements,
       // unless we are allowing that the address of one field can be used to
       // access a disjoint field.
-      if (dtrans::DTransOutOfBoundsOK)
+      if (getLangRuleOutOfBoundsOK())
         return true;
       return false;
 
@@ -4537,7 +4538,7 @@ bool DTransSafetyInfo::useDTransSafetyAnalysis() const {
 }
 
 bool DTransSafetyInfo::getDTransOutOfBoundsOK() const {
-  return dtrans::DTransOutOfBoundsOK;
+  return getLangRuleOutOfBoundsOK();
 }
 
 bool DTransSafetyInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
@@ -4706,8 +4707,8 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
     // as holding a complete set of possible values.
     // - The safety flags indicate the structure is used in a non-supported way.
     //   Note: The safety flags allowed are dependent on the value that
-    //   DTransOutOfBoundsOK is set to.
-    // - The field is address taken, and the value of DTransOutOfBoundsOK
+    //   LangRuleOutOfBoundsOK is set to.
+    // - The field is address taken, and the value of LangRuleOutOfBoundsOK
     //   indicates the address could be used to access other field members.
     // - The type is an aggregate type. We keep values for individual fields,
     //   but not for an array or structure element as a whole.

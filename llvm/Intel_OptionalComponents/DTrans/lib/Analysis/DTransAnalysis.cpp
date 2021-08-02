@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
+#include "llvm/Analysis/Intel_LangRules.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
@@ -10811,7 +10812,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return SawFortran || dtrans::DTransOutOfBoundsOK;
+  return SawFortran || getLangRuleOutOfBoundsOK();
 }
 
 bool DTransAnalysisInfo::getDTransUseCRuleCompat() {
