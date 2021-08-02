@@ -753,6 +753,24 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;
       break;
 
+#if INTEL_CUSTOMIZATION
+    // Tigerlake:
+    case 0x8c:
+    case 0x8d:
+      CPU = "tigerlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_TIGERLAKE;
+      break;
+
+    // Alderlake:
+    case 0x97:
+    case 0x9a:
+      CPU = "alderlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ALDERLAKE;
+      break;
+#endif // INTEL_CUSTOMIZATION
+
     // Icelake Xeon:
     case 0x6a:
     case 0x6c:
@@ -801,14 +819,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       CPU = "tremont";
       *Type = X86::INTEL_TREMONT;
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-    case 0x97:
-    case 0x9a:
-      CPU = "alderlake";
-      break;
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
 
     // Xeon Phi (Knights Landing + Knights Mill):
     case 0x57:
