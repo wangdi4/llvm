@@ -22,6 +22,7 @@
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 
+#include "VectorizerCommon.h"
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
 
@@ -110,10 +111,6 @@ llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createImplicitGIDPass(bool HandleBarrier);
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
-llvm::ModulePass* createCreateSimdVariantPropagationPass();
-llvm::ModulePass *createSGSizeCollectorPass(const CPUDetect *CPUId);
-llvm::ModulePass *createSGSizeCollectorIndirectPass(const CPUDetect *CPUId);
-llvm::ModulePass *createVectorVariantLoweringPass(const CPUDetect *CPUId);
 llvm::ModulePass* createIndirectCallLoweringPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
@@ -589,10 +586,12 @@ static void populatePassesPostFailCheck(
         // Do all vectorization factor checks here.
         PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
 
-        PM.add(createVectorVariantLoweringPass(pConfig->GetCpuId()));
-        PM.add(createCreateSimdVariantPropagationPass());
-        PM.add(createSGSizeCollectorPass(pConfig->GetCpuId()));
-        PM.add(createSGSizeCollectorIndirectPass(pConfig->GetCpuId()));
+        VectorVariant::ISAClass ISA =
+            VectorizerCommon::getCPUIdISA(pConfig->GetCpuId());
+        PM.add(createVectorVariantLoweringLegacyPass(ISA));
+        PM.add(createCreateSimdVariantPropagationLegacyPass());
+        PM.add(createSGSizeCollectorLegacyPass(ISA));
+        PM.add(createSGSizeCollectorIndirectLegacyPass(ISA));
 
         // Prepare Function for VecClone and call VecClone
         // We won't automatically switch vectorization dimension for SYCL.
