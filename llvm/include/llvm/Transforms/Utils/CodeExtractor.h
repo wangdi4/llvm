@@ -123,12 +123,15 @@ public:
     struct RewrittenValueInfo {
       Value *Storage;
       unsigned ArgNo;
+      SmallVector<uint64_t, 1> Expression;
     };
     typedef DenseMap<Value *, struct RewrittenValueInfo> RewrittenValuesMap;
     RewrittenValuesMap RewrittenValues;
 
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
+
+    bool WriteArgumentsToHomeLocations;
 #endif // INTEL_COLLAB
 
     // Suffix to use when creating extracted function (appended to the original
@@ -181,6 +184,9 @@ public:
 #if INTEL_COLLAB
     /// Routines for updating debug information during code extraction.
     void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
+    void setWriteArgumentsToHomeLocations(bool Value) {
+      WriteArgumentsToHomeLocations = Value;
+    }
     void updateDebugInfo(Function *OldF, Function *NewF,
                          const ValueSet &inputs, const ValueSet &outputs);
 #endif // INTEL_COLLAB
