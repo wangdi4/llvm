@@ -10,6 +10,9 @@
 
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_LangRules.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -19,19 +22,15 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ErrorHandling.h"
 
-#if INTEL_FEATURE_SW_DTRANS
-#include "Intel_DTrans/Analysis/DTransUtils.h"
-#endif // INTEL_FEATURE_SW_DTRANS
-
 using namespace llvm;
 
 #define DEBUG_TYPE "dopevector-analysis"
 
-#if INTEL_FEATURE_SW_DTRANS
-static cl::opt<bool> CheckDTransOutOfBoundsOK("dva-check-dtrans-outofboundsok",
-                                              cl::init(false),
-                                              cl::ReallyHidden);
-#endif // INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
+static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
+                                        cl::init(false),
+                                        cl::ReallyHidden);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 namespace llvm {
 
@@ -2758,7 +2757,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
      // Check the backedges of 'PHIN' and ensure that they reach back to
      // 'PHIN' using only byte-flattened GEPs or other PHINodes. This
      // is to ensure that any value derived from 'PHIN' is a byte offset
-     // from the original value coming into 'PHIN'. 'DTransOutOfBoundsOK'
+     // from the original value coming into 'PHIN'. 'LangRuleOutOfBoundsOK'
      // ensures that the offset does not index out of the original bounds.
      //
      for (Value *W : PHIN->incoming_values()) {
@@ -2904,18 +2903,16 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // with a LoadInst or StoreInst.
   //
   auto PropagatesToLoadOrStore = [&](Value *V) {
-#if INTEL_FEATURE_SW_DTRANS
+#if INTEL_FEATURE_SW_ADVANCED
     SmallPtrSet<Value *, 10> Visited;
-    if (!CheckDTransOutOfBoundsOK)
+    if (!CheckOutOfBoundsOK)
       return false;
-#if 0 // TEMPORARY WORKAROUND
-    if (dtrans::DTransOutOfBoundsOK)
+    if (getLangRuleOutOfBoundsOK())
       return false;
-#endif // TEMPORARY WORKAROUND
     return PropagatesToLoadOrStoreX(V, Visited);
-#else // INTEL_FEATURE_SW_DTRANS
+#else // INTEL_FEATURE_SW_ADVANCED
     return false;
-#endif // INTEL_FEATURE_SW_DTRANS
+#endif // INTEL_FEATURE_SW_ADVANCED
   };
 
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
