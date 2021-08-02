@@ -935,6 +935,10 @@ void SYCLToolChain::TranslateBackendTargetArgs(
       continue;
     }
   }
+  // Do not process -Xsycl-target-backend for implied spir64
+  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
+      getDriver().isSYCLDefaultTripleImplied())
+    return;
 #if INTEL_CUSTOMIZATION
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-backend.
@@ -945,20 +949,16 @@ void SYCLToolChain::TranslateBackendTargetArgs(
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
         options::OPT_Xsycl_backend, options::OPT_Xsycl_backend_EQ);
 #endif // INTEL_CUSTOMIZATION
-  // Do not process -Xsycl-target-backend for implied spir64
-  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
-      getDriver().isSYCLDefaultTripleImplied())
-    return;
-  // Handle -Xsycl-target-backend.
-  TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs, // INTEL
-                     options::OPT_Xsycl_backend,       // INTEL
-                     options::OPT_Xsycl_backend_EQ);
 }
 
 #if INTEL_CUSTOMIZATION
 void SYCLToolChain::TranslateLinkerTargetArgs(
     Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+  // Do not process -Xsycl-target-linker for implied spir64
+  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
+      getDriver().isSYCLDefaultTripleImplied())
+    return;
   if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
@@ -967,14 +967,6 @@ void SYCLToolChain::TranslateLinkerTargetArgs(
     // Handle -Xsycl-target-linker.
     TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
         options::OPT_Xsycl_linker, options::OPT_Xsycl_linker_EQ);
-  // Do not process -Xsycl-target-linker for implied spir64
-  if (Triple.getSubArch() == llvm::Triple::NoSubArch && Triple.isSPIR() &&
-      getDriver().isSYCLDefaultTripleImplied())
-    return;
-  // Handle -Xsycl-target-linker.
-  TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs, // INTEL
-                     options::OPT_Xsycl_linker,        // INTEL
-                     options::OPT_Xsycl_linker_EQ);
 }
 #endif // INTEL_CUSTOMIZATION
 
