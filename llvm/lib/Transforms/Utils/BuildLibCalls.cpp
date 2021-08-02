@@ -246,6 +246,17 @@ bool llvm::inferLibFuncAttributes(Module *M, StringRef Name,
   return inferLibFuncAttributes(*F, TLI);
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isAllUsersFast(Function &F) {
+  for (auto I = F.use_begin(), E = F.use_end(); I != E; ++I) {
+    Instruction *Inst = dyn_cast_or_null<Instruction>(I->getUser());
+    if (!Inst || !isa<FPMathOperator>(Inst) || !Inst->isFast())
+      return false;
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   LibFunc TheLibFunc;
   if (!(TLI.getLibFunc(F, TheLibFunc) && TLI.has(TheLibFunc)))
@@ -2722,6 +2733,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ldexpl:
     Changed |= setSignExtendedArg(F, 1);
     Changed |= setWillReturn(F);
+    if (!F.onlyReadsMemory() && isAllUsersFast(F)) // INTEL
+      Changed |= setOnlyReadsMemory(F);            // INTEL
     return Changed;
   case LibFunc_abs:
   case LibFunc_acos:
@@ -2853,6 +2866,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotFreeMemory(F);
     Changed |= setWillReturn(F);
+    if (!F.onlyReadsMemory() && isAllUsersFast(F)) // INTEL
+      Changed |= setOnlyReadsMemory(F);            // INTEL
     return Changed;
   default:
     // FIXME: It'd be really nice to cover all the library functions we're
