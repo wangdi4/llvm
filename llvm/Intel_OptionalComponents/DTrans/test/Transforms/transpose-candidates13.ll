@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=false -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check that physpropmod_mp_physprop_ fields 0 and 1 are both valid transpose
 ; candidates in spite of field 2, which is not a nested dope vector, being
