@@ -26,25 +26,9 @@ namespace dtransOP {
 // fields were.
 const char *MDStructTypesTag = "intel.dtrans.types";
 
-// Deprecated:
-// TODO: Remove this when the test cases are updated.
-// This tag was used for a named metadata node to get to the list of structure
-// types in the LIT tests.
-const char *MDStructTypesTagLegacy = "dtrans_types";
-
 // The tag name used for variables and instructions marked with DTrans type
 // information for pointer type recovery.
 const char *MDDTransTypeTag = "intel_dtrans_type";
-
-// Deprecated:
-// TODO: Remove this when the test cases are updated.
-const char *MDDTransTypeTagLegacy = "dtrans_type";
-
-// Deprecated:
-// TODO: Remove when LIT tests are updated.
-// Tag associated with the metadata node that represents declaration types for
-// declared functions and global variables.
-const char *MDDeclTypesTag = "dtrans_decl_types";
 
 // Tag used for metadata on a Function declaration/definition to map a set
 // of metadata nodes of encoded types to attributes used on the return type
@@ -53,49 +37,26 @@ const char *DTransFuncTypeMDTag = "intel.dtrans.func.type";
 
 // String attribute name that is set on return type and parameters to provide
 // indexing into the DTransFuncTypeMD metadata.
-// TODO: This will be removed when the front-end implements an entry in the
-// enumerated attribute list to store this information.
 const char *DTransFuncIndexTag = "intel_dtrans_func_index";
 
 NamedMDNode *TypeMetadataReader::getDTransTypesMetadata(Module &M) {
   NamedMDNode *DTMDTypes = M.getNamedMetadata(MDStructTypesTag);
-  if (DTMDTypes)
-    return DTMDTypes;
-
-  // Temporary fallback to the legacy tag name for existing LIT tests.
-  // TODO: Remove when LIT tests are updated.
-  DTMDTypes = M.getNamedMetadata(MDStructTypesTagLegacy);
   return DTMDTypes;
 }
 
 MDNode *TypeMetadataReader::getDTransMDNode(const Value &V) {
   if (auto *F = dyn_cast<Function>(&V)) {
     MDNode *MD = F->getMetadata(DTransFuncTypeMDTag);
-    if (MD)
-      return MD;
-
-    // Temporary fallback to the legacy tag name for existing LIT tests.
-    // TODO: Remove when LIT tests are updated.
-    return F->getMetadata(MDDTransTypeTagLegacy);
+    return MD;
   }
 
   if (auto *I = dyn_cast<Instruction>(&V)) {
     MDNode *MD = I->getMetadata(MDDTransTypeTag);
-    // Temporary fallback to the legacy tag name for existing LIT tests.
-    // TODO: Remove when LIT tests are updated.
-    if (!MD)
-      MD = I->getMetadata(MDDTransTypeTagLegacy);
-
     return MD;
   }
 
   if (auto *G = dyn_cast<GlobalObject>(&V)) {
     MDNode *MD = G->getMetadata(MDDTransTypeTag);
-
-    // Temporary fallback to the legacy tag name for existing LIT tests.
-    // TODO: Remove when LIT tests are updated.
-    if (!MD)
-      MD = G->getMetadata(MDDTransTypeTagLegacy);
     return MD;
   }
 
@@ -116,16 +77,6 @@ void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
 bool TypeMetadataReader::removeDTransFuncIndexAttribute(LLVMContext &Ctx,
                                                         unsigned Index,
                                                         AttributeList &Attrs) {
-#if defined(DTRANS_FUNC_INDEX_ATTR_AVAILABLE)
-  if (Attrs.hasAttribute(Index, Attribute::DTransFuncIndex)) {
-    Attrs = Attrs.removeAttribute(Ctx, Index, Attribute::DTransFuncIndex);
-    return true;
-  }
-#endif // DTRANS_FUNC_INDEX_ATTR_AVAILABLE
-
-  // Temporary fallback to the use a string attribute for testing.
-  // TODO: Remove this when the front-end changes are in to use a non-string
-  // attribute type.
   if (Attrs.hasAttribute(Index, DTransFuncIndexTag)) {
     Attrs = Attrs.removeAttribute(Ctx, Index, DTransFuncIndexTag);
     return true;
@@ -222,69 +173,6 @@ bool TypeMetadataReader::initialize(Module &M) {
       RecoveryErrors = true;
     }
   }
-
-  // Deprecated:
-  // TODO: Remove this when the test cases are updated.
-  //
-  // Build a table to map symbol names for functions and variables to metadata
-  // nodes about the symbol's type. This is to handle function and global
-  // variable declarations since these cannot have metadata directly attached
-  // to them in the IR.
-  NamedMDNode *DTDeclTypes = M.getNamedMetadata(MDDeclTypesTag);
-  if (DTDeclTypes) {
-    for (auto *MD : DTDeclTypes->operands()) {
-      // Each operand should be a pair of the form: { "symbol name", MDid }
-      // where MDid is the MDNode that describes the symbol's type.
-      if (MD->getNumOperands() != 2) {
-        LLVM_DEBUG(
-            dbgs() << "Incorrect MD encoding for declaration description:\n"
-                   << *MD << "\n");
-        continue;
-      }
-
-      auto *MDS = dyn_cast<MDString>(MD->getOperand(0));
-      if (!MDS) {
-        LLVM_DEBUG(
-            dbgs() << "Incorrect MD encoding for declaration description:\n"
-                   << *MD << "\n");
-        continue;
-      }
-
-      auto *TypeID = dyn_cast<MDNode>(MD->getOperand(1));
-      if (!TypeID) {
-        LLVM_DEBUG(
-            dbgs() << "Incorrect MD encoding for declaration description:\n"
-                   << *MD << "\n");
-        continue;
-      }
-
-      // If the symbol is locally defined, ignore the node and instead rely on
-      // the type attached to the Function or GlobalVariable. This is necessary
-      // because the type for the declaration may have different types in this
-      // metadata due to the IRMover creating multiple types when it fails to
-      // merge common types. However, the type where a definition for the symbol
-      // exists would match the type used in the IR for the symbol.
-      StringRef SymName = MDS->getString();
-      Function *F = M.getFunction(SymName);
-      GlobalVariable *GV = M.getGlobalVariable(SymName, /*AllowInternal=*/true);
-      if ((F && !F->isDeclaration()) || (GV && !GV->isDeclaration()))
-        continue;
-
-      // The symbol may have declarations in multiple files. Due to type
-      // renaming in the IRMover, there could be conflicting descriptions.
-      auto It = SymbolNameToMDNodeMap.find(SymName);
-      if (It != SymbolNameToMDNodeMap.end() && It->second != TypeID) {
-        LLVM_DEBUG(dbgs() << "  WARNING: Multiple types for symbol " << SymName
-                          << ":" << *MD << "\n");
-        // Reset the type information because it is ambiguous.
-        SymbolNameToMDNodeMap[SymName] = nullptr;
-        continue;
-      }
-
-      SymbolNameToMDNodeMap[SymName] = TypeID;
-    }
-  }
-  // End of deprecated region
 
   // Build a cache of function signature types for the functions with DTrans
   // metadata.
@@ -494,17 +382,6 @@ DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
   }
 
   MDNode *MD = getDTransMDNode(*V);
-
-  // Deprecated:
-  // TODO: Remove when LIT tests are updated.
-  // Try to find a type from the table of declaration types.
-  if (!MD)
-    if (auto *G = dyn_cast<GlobalObject>(V)) {
-      auto It = SymbolNameToMDNodeMap.find(G->getName());
-      if (It != SymbolNameToMDNodeMap.end())
-        MD = It->second;
-    }
-
   if (MD)
     return decodeMDNode(MD);
 
@@ -540,9 +417,6 @@ DTransType *TypeMetadataReader::decodeMDNode(MDNode *MD) {
       return decodeMDVectorNode(MD);
     else if (Tag.equals("L"))
       return decodeMDLiteralStructNode(MD);
-    // Deprecated: TODO: Remove when LIT tests are updated.
-    else if (Tag.equals("R"))
-      return decodeMDStructRefNode(MD);
     else if (Tag.equals("metadata"))
       return TM.getOrCreateAtomicType(Type::getMetadataTy(MD->getContext()));
   }
@@ -758,10 +632,6 @@ DTransType *TypeMetadataReader::decodeMDVectorNode(MDNode *MD) {
 // Metadata is of the form:
 //     !{<type> zeroinitializer, i32 <pointer level> }
 //
-// Deprecated format:
-// TODO: Remove when LIT tests are updated.
-//     !{!"R", <type> zeroinitializer, i32 <pointer level> }
-//
 DTransType *TypeMetadataReader::decodeMDStructRefNode(MDNode *MD) {
   if (MD->getNumOperands() < 2) {
     LLVM_DEBUG(dbgs() << "Incorrect operand count for reference type encoding:"
@@ -771,14 +641,6 @@ DTransType *TypeMetadataReader::decodeMDStructRefNode(MDNode *MD) {
 
   int TypeIndex = 0;
   int PtrLevelIndex = 1;
-
-  // Fallback to deprecated "R" format.
-  // TODO: Remove when LIT tests are updated.
-  if (MD->getNumOperands() == 3) {
-    TypeIndex = 1;
-    PtrLevelIndex = 2;
-  }
-
   llvm::StructType *StTy = nullptr;
   auto *TyMD = dyn_cast<ConstantAsMetadata>(MD->getOperand(TypeIndex));
   assert(TyMD && "Expected type");
@@ -856,21 +718,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
   // Extract the index value from the intel_dtrans_func_index attribute. Return
   // 0, if the value attribute is not present.
   auto GetMetadataIndex = [](AttributeSet &Attrs) -> uint64_t {
-    // TODO: Remove the macro test when the attribute is availabile. Until then,
-    // we can simulate the behavior by using a string attribute.
     Attribute Attr;
-#if defined(DTRANS_FUNC_INDEX_ATTR_AVAILABLE)
-    Attr = Attrs.getAttribute(Attribute::DTransFuncIndex);
-    if (Attr.isValid()) {
-      uint64_t Index = Attr.getValueAsInt();
-      assert(Index >= 1 && "Expected 1 based indexing");
-      return Index;
-    }
-#endif // DTRANS_FUNC_INDEX_ATTR_AVAILABLE
-
-    // Temporary fallback to the use a string attribute for testing.
-    // TODO: Remove this when LIT tests are updated, and the real attribute is
-    // added to the IR.
     Attr = Attrs.getAttribute(DTransFuncIndexTag);
     if (Attr.isValid()) {
       StringRef TagName = Attr.getValueAsString();
@@ -1101,28 +949,6 @@ public:
     llvm::Type *FnType = F.getValueType();
     if (dtrans::hasPointerType(FnType)) {
       DTransType *DType = Reader.getDTransType(&F);
-      if (!DType) {
-        // TODO: Remove check for metadata attachment when LIT tests are updated
-        // to use new form of tagging.
-        MDNode *MD = Reader.getDTransMDNode(F);
-        if (!MD) {
-          ErrorsFound = true;
-          LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                            << ":   ERROR: Missing fn type metadata for: "
-                            << F.getName() << "\n");
-        } else {
-          assert(F.getMetadata(DTransFuncTypeMDTag) == nullptr &&
-                 "Expected a legacy DTrans encoding format to be in use");
-          DType = Reader.decodeMDNode(MD);
-          if (!DType) {
-            ErrorsFound = true;
-            LLVM_DEBUG(dbgs() << DEBUG_TYPE
-                              << ":  ERROR: Failed to decode fn type metadata: "
-                              << " - " << *MD << "\n");
-          }
-        }
-      }
-
       if (DType) {
         LLVM_DEBUG(dbgs() << DEBUG_TYPE << ":   Decoded fn type metadata: "
                           << *DType << "\n");
@@ -1135,6 +961,11 @@ public:
               << F.getName() << "\n  IR: " << *FnType << "\n  MD: " << *DType
               << "\n");
         }
+      } else {
+        ErrorsFound = true;
+        LLVM_DEBUG(dbgs() << DEBUG_TYPE
+                          << ":   ERROR: Missing fn type metadata for: "
+                          << F.getName() << "\n");
       }
     }
 
