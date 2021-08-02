@@ -9,10 +9,10 @@ define void @basic(i32 addrspace(1)* %scan_add, i32 addrspace(1)* %wg_reduce_add
 ; CHECK: %u.CallWGForItem = alloca i32, align 4
 ; CHECK-LABEL: sg.loop.exclude:
 entry:
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   %AllocaWGResult = alloca i32, align 4
   store i32 0, i32* %AllocaWGResult, align 4
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.
 
 sg.dummy.bb.:                                     ; preds = %entry
@@ -39,7 +39,7 @@ sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.
 sg.dummy.bb.4:                                    ; preds = %sg.barrier.bb.
   call void @dummy_sg_barrier()
   store i32 0, i32* %AllocaWGResult, align 4
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.3
 
 sg.dummy.bb.3:                                    ; preds = %sg.dummy.bb.4
@@ -85,7 +85,7 @@ declare i32 @_Z21work_group_reduce_addi(i32) #2
 ; Function Attrs: convergent
 declare i32 @_Z28sub_group_scan_inclusive_addi(i32) #3
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 
 ; Function Attrs: nofree norecurse nounwind
 declare i32 @_Z21work_group_reduce_addiPi(i32, i32* nocapture) #4

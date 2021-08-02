@@ -1,6 +1,6 @@
 //=------------------------- SGValueWiden.cpp -*- C++ -*---------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -25,6 +25,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -43,7 +44,7 @@ namespace intel {
 OCL_INITIALIZE_PASS_BEGIN(SGValueWiden, DEBUG_TYPE, "Widen values", false,
                           false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SGSizeAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValue)
+OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper)
 OCL_INITIALIZE_PASS_END(SGValueWiden, DEBUG_TYPE, "Widen values", false, false)
 
 char SGValueWiden::ID = 0;
@@ -58,7 +59,7 @@ bool SGValueWiden::runOnModule(Module &M) {
   EnableDebug |= OptEnableDebug;
 
   SizeAnalysis = &getAnalysis<SGSizeAnalysis>();
-  WIRelatedAnalysis = &getAnalysis<WIRelatedValue>();
+  WIRelatedAnalysis = &getAnalysis<WIRelatedValueWrapper>().getWRV();
 
   ConstZero = Helper.getZero();
 

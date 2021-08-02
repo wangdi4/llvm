@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2020 Intel Corporation.
+// Copyright 2020-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +12,12 @@
 
 #include "ResolveVariableTIDCall.h"
 
-#include "BarrierUtils.h"
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #define DEBUG_TYPE "resolve-variable-tid-call"
 

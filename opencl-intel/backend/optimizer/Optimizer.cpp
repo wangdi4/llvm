@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -143,7 +141,6 @@ llvm::ModulePass *createUndifinedExternalFunctionsPass(
     std::vector<std::string> &undefinedExternalFunctions);
 llvm::ModulePass *createKernelInfoWrapperPass();
 llvm::ModulePass *createKernelSubGroupInfoPass();
-llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
@@ -495,7 +492,7 @@ static void populatePassesPostFailCheck(
   // Should be called before vectorizer!
   PM.add((llvm::Pass *)createInstToFuncCallPass(pConfig->GetCpuId()));
 
-  PM.add(createDuplicateCalledKernelsPass());
+  PM.add(createDuplicateCalledKernelsLegacyPass());
 
   // Dirty hack:
   // On Windows, Intel(R) Advisor doesn't work with LLDJIT (based on MCJIT), so

@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +13,7 @@
 #ifndef __REMOVE_DUPLICATION_BARRIER_PASS_H__
 #define __REMOVE_DUPLICATION_BARRIER_PASS_H__
 
-#include "BarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"

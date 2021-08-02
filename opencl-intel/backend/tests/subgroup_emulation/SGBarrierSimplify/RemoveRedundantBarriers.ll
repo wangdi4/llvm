@@ -9,11 +9,11 @@ define void @test1(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 entry:
 ; CHECK: entry:
 ; CHECK-NOT: call void @dummy_sg_barrier()
-; CHECK-NEXT: call void @dummybarrier.()
+; CHECK-NEXT: call void @dummy_barrier.()
   call void @dummy_sg_barrier()
   call void @dummy_sg_barrier()
   call void @dummy_sg_barrier()
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
 
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
 ; CHECK-NOT: call void @_Z17sub_group_barrierj(i32 1)
@@ -55,7 +55,7 @@ entry:
   ret void
 }
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 declare void @anything()
 
 declare void @dummy_sg_barrier()

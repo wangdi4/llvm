@@ -1,6 +1,6 @@
 //=------------------------ SGBarrierSimplify.h -*- C++ -*-------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,11 +11,11 @@
 #ifndef BACKEND_SUBGROUP_EMULATION_BARRIER_SIMPLIFY_H
 #define BACKEND_SUBGROUP_EMULATION_BARRIER_SIMPLIFY_H
 
-#include "BarrierUtils.h"
 #include "SGHelper.h"
 #include "SGSizeAnalysis.h"
 
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 using namespace llvm;
 

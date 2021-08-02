@@ -6,8 +6,8 @@ target triple = "x86_64-pc-linux"
 
 define void @test(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 entry:
-  call void @dummybarrier.()
-; CHECK: call void @dummybarrier.()
+  call void @dummy_barrier.()
+; CHECK: call void @dummy_barrier.()
 ; CHECK-NEXT: call void @dummy_sg_barrier()
 
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
@@ -17,7 +17,7 @@ entry:
   ret void
 }
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 declare void @_Z7barrierj(i32)
 
 !sycl.kernels = !{!0}

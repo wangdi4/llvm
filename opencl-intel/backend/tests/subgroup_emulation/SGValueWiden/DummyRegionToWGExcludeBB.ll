@@ -7,18 +7,18 @@ target triple = "x86_64-pc-linux"
 define void @test(i32 %x) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 entry:
 ; CHECK-LABEL: wg.loop.exclude:
-; CHECK-NEXT: call void @dummybarrier.()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK-NEXT: call void @foo()
 ; CHECK-NEXT: call i32 @bar()
 ; CHECK-NEXT: br label %sg.loop.exclude
 ; instructions in the dummy region are moved to the WGExcludeBB
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   call void @foo()
   %b = call i32 @bar()
 
 ; CHECK-LABEL: sg.loop.exclude:
-; CHECK-NEXT: call void @dummybarrier.()
-  call void @dummybarrier.()
+; CHECK-NEXT: call void @dummy_barrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.1
 
 sg.dummy.bb.1:                                    ; preds = %entry
@@ -26,7 +26,7 @@ sg.dummy.bb.1:                                    ; preds = %entry
   %x.addr = alloca i32, align 4
   store i32 %x, i32* %x.addr, align 4
   %0 = load i32, i32* %x.addr, align 4
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.barrier.bb.
 
 sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.1
@@ -46,7 +46,7 @@ sg.dummy.bb.2:                                    ; preds = %sg.dummy.bb.
 declare void @foo()
 declare i32 @bar()
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 declare void @_Z7barrierj(i32)
 
 declare void @_Z17sub_group_barrierj(i32)

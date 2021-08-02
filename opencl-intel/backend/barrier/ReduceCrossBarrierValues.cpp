@@ -113,11 +113,11 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "ReduceCrossBarrierValues.h"
-#include "BarrierUtils.h"
 #include "CompilationUtils.h"
-#include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "OCLPassSupport.h"
 #include "OpenclRuntime.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/GraphTraits.h"
@@ -306,9 +306,9 @@ OCL_INITIALIZE_PASS_BEGIN(
     ReduceCrossBarrierValues, "B-ReduceCrossBarrierValues",
     "Barrier Pass - Reduce Cross Barrier Values", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(BuiltinLibInfo);
-OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerBarrier);
-OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerValue);
-OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(WIRelatedValue);
+OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper);
+OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper);
+OCL_INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper);
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontierWrapperPass);
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
 OCL_INITIALIZE_PASS_END(
@@ -319,7 +319,7 @@ ReduceCrossBarrierValues::ReduceCrossBarrierValues() : FunctionPass(ID) {
   initializeReduceCrossBarrierValuesPass(*PassRegistry::getPassRegistry());
 }
 
-using UseSet = DataPerValue::TUseSet;
+using UseSet = DataPerValue::UseSet;
 using InstMap = DenseMap<Instruction *, Instruction *>;
 
 static bool isSafeToCopy(Instruction *Inst, OpenclRuntime *RuntimeServices) {
@@ -511,13 +511,13 @@ static void copyAndReplaceUses(
 bool ReduceCrossBarrierValues::runOnFunction(Function &F) {
   if (F.hasOptNone())
     return false;
-  auto *DPV = &getAnalysis<DataPerValue>();
+  auto *DPV = &getAnalysis<DataPerValueWrapper>().getDPV();
   const auto *CrossBarrierUseMap = DPV->getCrossBarrierUses(&F);
   if (!CrossBarrierUseMap || CrossBarrierUseMap->empty())
     return false;
 
-  auto *WIRV = &getAnalysis<WIRelatedValue>();
-  auto *DPB = &getAnalysis<DataPerBarrier>();
+  auto *WIRV = &getAnalysis<WIRelatedValueWrapper>().getWRV();
+  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
   auto *DF = &getAnalysis<DominanceFrontierWrapperPass>().getDominanceFrontier();
   auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto *RuntimeServices = static_cast<OpenclRuntime *>(

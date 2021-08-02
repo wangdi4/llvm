@@ -1,5 +1,3 @@
-// INTEL CONFIDENTIAL
-//
 // Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -12,9 +10,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "BarrierUtils.h"
-#include "DataPerBarrierPass.h"
 #include "SGHelper.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
@@ -57,8 +55,8 @@ namespace intel {
 
     /// @brief Inform about usage/modification/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<DataPerBarrier>();
-      AU.addPreserved<DataPerBarrier>();
+      AU.addRequired<DataPerBarrierWrapper>();
+      AU.addPreserved<DataPerBarrierWrapper>();
     }
 
   private:

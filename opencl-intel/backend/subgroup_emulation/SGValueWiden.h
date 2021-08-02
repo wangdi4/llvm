@@ -1,6 +1,6 @@
 //=-------------------------- SGValueWiden.h -*- C++ -*----------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,10 +11,8 @@
 #ifndef BACKEND_SUBGROUP_EMULATION_VALUE_WIDEN_H
 #define BACKEND_SUBGROUP_EMULATION_VALUE_WIDEN_H
 
-#include "BarrierUtils.h"
 #include "SGHelper.h"
 #include "SGSizeAnalysis.h"
-#include "WIRelatedValuePass.h"
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
@@ -23,6 +21,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 using namespace llvm;
@@ -42,7 +42,7 @@ public:
   StringRef getPassName() const override { return "SGValueWiden Pass"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<SGSizeAnalysis>();
-    AU.addRequired<WIRelatedValue>();
+    AU.addRequired<WIRelatedValueWrapper>();
   }
 
 private:

@@ -1,6 +1,6 @@
 //=-------------------------- SGBuiltin.cpp -*- C++ -*-----------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,6 @@
 
 #include "SGBuiltin.h"
 
-#include "BarrierUtils.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
@@ -21,6 +20,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <tuple>
@@ -135,7 +135,7 @@ bool SGBuiltin::insertSGBarrierForSGCalls(Module &M) {
 }
 
 bool SGBuiltin::insertSGBarrierForWGBarriers(Module &M) {
-  BarrierUtils Utils;
+  llvm::BarrierUtils Utils;
   Utils.init(&M);
   bool Changed = false;
   auto &WGBarrierCalls = Utils.getAllSynchronizeInstructions();
@@ -144,7 +144,7 @@ bool SGBuiltin::insertSGBarrierForWGBarriers(Module &M) {
     // This call is in a vectorized function, skip it.
     if (!SizeAnalysis->hasEmuSize(PF))
       continue;
-    if (Utils.getSynchronizeType(WGBarrierCall) == SYNC_TYPE_BARRIER)
+    if (Utils.getSyncType(WGBarrierCall) == SyncType::Barrier)
       Helper.insertBarrierBefore(WGBarrierCall);
     Helper.insertDummyBarrierAfter(WGBarrierCall);
     Changed = true;
