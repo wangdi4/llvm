@@ -19,7 +19,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK: @main
 define void @main(%opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.pipe_ro_t.7 addrspace(1)* %in_pipe) #0 {
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %out_pipe.addr = alloca %opencl.pipe_wo_t.6 addrspace(1)*, align 8
   %in_pipe.addr = alloca %opencl.pipe_ro_t.7 addrspace(1)*, align 8
   store %opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.pipe_wo_t.6 addrspace(1)** %out_pipe.addr, align 8
@@ -40,7 +40,7 @@ declare %opencl.reserve_id_t.5* @__work_group_reserve_write_pipe(%opencl.pipe_wo
 declare %opencl.reserve_id_t.5* @__work_group_reserve_read_pipe(%opencl.pipe_ro_t.7 addrspace(1)*, i32, i32, i32) #0
 
 declare void @_Z7barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { nounwind }
 

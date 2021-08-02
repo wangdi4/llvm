@@ -8,9 +8,9 @@
 ;; The case: kernel "main" with no barrier instruction,
 ;;    which is calling function "foo" with no barrier instruction as well
 ;; The expected result:
-;;      1. A call to @barrier_dummy() at the begining of the kernel "main"
+;;      1. A call to @dummy_barrier.() at the begining of the kernel "main"
 ;;      2. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) at the end of the kernel "main"
-;;      3. No calls to @barrier_dummy or @_Z18work_group_barrierj in the function "foo"
+;;      3. No calls to @dummy_barrier. or @_Z18work_group_barrierj in the function "foo"
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -22,7 +22,7 @@ define void @main(i32 %x) nounwind {
   %y = xor i32 %x, %x
   call void @foo(i32 %x)
   ret void
-; CHECK: @barrier_dummy()
+; CHECK: @dummy_barrier.()
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: call void @foo(i32 %x)
 ; CHECK: @_Z18work_group_barrierj(i32 1)
@@ -33,7 +33,7 @@ define void @main(i32 %x) nounwind {
 define void @foo(i32 %x) nounwind {
   %y = xor i32 %x, %x
   ret void
-; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @dummy_barrier.
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
@@ -44,5 +44,5 @@ define void @foo(i32 %x) nounwind {
 
 !0 = !{void (i32)* @main}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @barrier_dummy()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

@@ -11,23 +11,23 @@ entry:
 
 define dso_local void @bar() {
 entry:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   tail call void @_Z18work_group_barrierj(i32 1) #0
   unreachable
 }
 
 declare dso_local void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 define dso_local void @kernel() {
 DIR.OMP.PARALLEL.LOOP.3:
   br i1 undef, label %loop.region.exit, label %omp.inner.for.body.preheader
 
 omp.inner.for.body.preheader:                     ; preds = %DIR.OMP.PARALLEL.LOOP.3
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   tail call void @_Z18work_group_barrierj(i32 1) #0
   tail call void @bar()
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   unreachable
 
 loop.region.exit:                                 ; preds = %DIR.OMP.PARALLEL.LOOP.3

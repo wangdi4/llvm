@@ -34,7 +34,7 @@ class StringRef;
 class Twine;
 
 // Pseudo functions for barrier passes
-#define DUMMY_BARRIER_FUNC_NAME "barrier_dummy"
+#define DUMMY_BARRIER_FUNC_NAME "dummy_barrier."
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 #define GET_BASE_GID "get_base_global_id."
 

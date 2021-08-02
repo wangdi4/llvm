@@ -43,7 +43,7 @@ L1:
   %k.i32.vec = zext <10 x i1> %k.i1.vec to <10 x i32>
   br label %L2
 L2:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L0:
 ; CHECK:   %lid = call i32 @_Z12get_local_idj(i32 0)
@@ -61,7 +61,7 @@ L2:
 ; CHECK:   %t = trunc i67 %q to i32
 ; CHECK:   br label %L2
 ; CHECK: L2:
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }
 
@@ -96,7 +96,7 @@ L2:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}
