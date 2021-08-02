@@ -79,6 +79,8 @@ endif()
 
 # Create DLL
 add_opencl_library (${TARGET_NAME} SHARED
+    EXCLUDE_FROM_ALL_BUILD
+
     ${OCL_RECORDER_INCLUDE_FILES}
     ${OCL_RECORDER_SOURCE_FILES}
     ${ASM_ADD_TO_SOURCES_LIST}
@@ -101,6 +103,8 @@ endif()
 
 # Create static library for unit tests
 add_opencl_library (OCLRecorderStat STATIC
+    EXCLUDE_FROM_ALL_BUILD
+
     ${OCL_RECORDER_SOURCE_FILES}
 
     INCLUDE_DIRS ${INCLUDE_DIRS}

@@ -12,16 +12,18 @@ include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser )
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
 add_opencl_library(${TARGET_NAME} STATIC
-OCLKernelDataGenerator.h
-OCLKernelDataGenerator.cpp
-RandomUniformProvider.h
-RandomUniformProvider.cpp
-Generators.cpp
-Generators.h
-GeneratorConfig.cpp
-GeneratorConfig.h
-OCLKernelBufferContainerListAllocator.h
-OCLKernelBufferContainerListAllocator.cpp
+  EXCLUDE_FROM_ALL_BUILD
+
+  OCLKernelDataGenerator.h
+  OCLKernelDataGenerator.cpp
+  RandomUniformProvider.h
+  RandomUniformProvider.cpp
+  Generators.cpp
+  Generators.h
+  GeneratorConfig.cpp
+  GeneratorConfig.h
+  OCLKernelBufferContainerListAllocator.h
+  OCLKernelBufferContainerListAllocator.cpp
 )
 
 if (OPENCL_INTREE_BUILD)

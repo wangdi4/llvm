@@ -66,6 +66,8 @@ else()
 endif()
 
 add_opencl_executable(${TARGET_NAME}
+    EXCLUDE_FROM_ALL_BUILD
+
     mem_utils.cpp
     dbg_utils.cpp
     main.cpp
