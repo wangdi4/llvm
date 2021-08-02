@@ -23503,6 +23503,15 @@ SDValue X86TargetLowering::getRecipEstimate(SDValue Op, SelectionDAG &DAG,
 
     // There is no FSQRT for 512-bits, but there is RCP14.
     unsigned Opcode = VT == MVT::v16f32 ? X86ISD::RCP14 : X86ISD::FRCP;
+#if INTEL_CUSTOMIZATION
+    // Prefer VRCP14PS over VRCPPS for following reasons:
+    //   1. Higher accuracy: 2^-14 v.s 2^-12
+    //   2. More register candidates: ymm[0-31] v.s ymm[0-15]
+    //   3. The same latency and throughput
+    if ((X86ISD::FRCP == Opcode) && ((VT == MVT::v8f32 || VT == MVT::v4f32) &&
+        Subtarget.hasAVX512() && Subtarget.hasVLX()))
+      Opcode = X86ISD::RCP14;
+#endif // INTEL_CUSTOMIZATION
     return DAG.getNode(Opcode, SDLoc(Op), VT, Op);
   }
   return SDValue();
