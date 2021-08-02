@@ -21,6 +21,7 @@
 #include <iostream>
 #include "CL/cl_platform.h"
 #include "CL/cl.h"
+#include "common_utils.h"
 #include "test_utils.h"
 #include "TestsHelpClasses.h"
 
@@ -1081,4 +1082,14 @@ bool clCreateImageWithPropertiesTest() {
     clReleaseCommandQueue(queue);
   }
   return bResult;
+}
+
+// Check if OpenCL RT load right library when CL_CONFIG_CPU_TARGET_ARCH env
+// is set
+bool clCreateImageTestWithCPUArchSet() {
+  if (!SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7")) {
+    printf("ERROR: Can't set environment variable. Test FAILED\n");
+    return false;
+  }
+  return clCreateImageWithPropertiesTest() && clCreateImageTest();
 }

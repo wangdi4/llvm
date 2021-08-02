@@ -113,6 +113,7 @@ bool api_test();
 bool immediateExecutionTest();
 bool clCreateImageTest();
 bool clCreateImageWithPropertiesTest();
+bool clCreateImageTestWithCPUArchSet();
 bool MultithreadedBuildTest();
 bool EventDependenciesTest();
 bool ClkEventAsKernelArg();

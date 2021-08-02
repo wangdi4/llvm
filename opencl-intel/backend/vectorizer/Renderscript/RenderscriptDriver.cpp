@@ -242,8 +242,8 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
 
   llvm::SmallVector<std::string, 8> forcedCpuFeatures;
   forcedCpuFeatures.push_back("+sse4.2");
-  Intel::OpenCL::Utils::CPUDetect *cpuId = new Intel::OpenCL::Utils::CPUDetect(
-      Intel::OpenCL::Utils::CPU_COREI7, forcedCpuFeatures, false);
+  Intel::OpenCL::Utils::CPUDetect *cpuId = Intel::OpenCL::Utils::CPUDetect::GetInstance();
+  cpuId->ResetCPU(Intel::OpenCL::Utils::CPU_COREI7, forcedCpuFeatures);
 
   return new intel::OptimizerConfig(cpuId,
             ETransposeSize(width),

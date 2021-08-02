@@ -709,14 +709,16 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index,
 
 cl_uint GetNativeVectorWidth(CPUDeviceDataTypes dataType)
 {
-    const bool     avx1Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
-    const bool     avx2Support   = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
-    const bool     avx512Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX512F);
-    const cl_uint* pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42;
+  const bool avx1Support =
+      CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX10);
+  const bool avx2Support =
+      CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX20);
+  const bool avx512Support =
+      CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX512F);
+  const cl_uint *pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_SSE42;
 
-    if (avx1Support)
-    {
-        pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX;
+  if (avx1Support) {
+    pVectorWidths = CPU_DEVICE_NATIVE_VECTOR_WIDTH_AVX;
     }
     if (avx2Support)
     {
@@ -1543,7 +1545,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
               return CL_DEV_INVALID_VALUE;
             switch (deviceMode) {
             case CPU_DEVICE:
-              name = CPUDetect::GetInstance()->GetCPUBrandString();
+              name = CPUDetect::GetInstance()->GetHostCPUBrandString();
               if (!strcmp("", name)) {
                 name = "Unknown CPU";
               }

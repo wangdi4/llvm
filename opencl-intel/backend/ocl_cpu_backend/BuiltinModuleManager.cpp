@@ -64,7 +64,12 @@ BuiltinModuleManager* BuiltinModuleManager::GetInstance()
 template <typename DeviceBuiltinLibrary>
 BuiltinLibrary *
 BuiltinModuleManager::GetOrLoadDeviceLibrary(const CPUDetect *cpuId) {
-  TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId);
+  // Load device libary according to CPU arch.
+  // If we make pair using CPUDetect pointer, we may load wrong device library,
+  // since we are always getting same address of CPUDetect instance. When
+  // CL_CONFIG_CPU_TARGET_ARCH env is set, CPUDetect instance is updated but its
+  // address remains unchanged, so we will get a iterator with previous CPU arch
+  TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId->GetCPU());
   BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
   if (it != m_BuiltinLibs.end()) {
     return it->second;

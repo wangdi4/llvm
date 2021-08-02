@@ -30,7 +30,7 @@ namespace OpenCL {
 namespace Utils {
 
 // IsCPUSupported - Check that the current CPU is alligned with the required HW
-// platform returncs CL_SUCCESS if the cpu supported returns
+// platform returncs CL_SUCCESS if the CPU supported returns
 // CL_ERR_CPU_NOT_SUPPORTED otherwise
 cl_err_code IsCPUSupported();
 
@@ -123,29 +123,31 @@ private:
 // CPU detection class (singleton)
 class CPUDetect {
 public:
-  const std::vector<std::string> CPUArchStr = {"CPU_UNKNOWN",
-#define CREATE_STRINGS(name) #name,
-                                               CPU_ARCHS(CREATE_STRINGS)
-#undef CREATE_STRINGS
-  };
-#undef CPU_ARCHS
-
+  static  const std::vector<std::string> CPUArchStr;
   static CPUDetect *GetInstance();
-  CPUDetect(ECPU CPU, const llvm::SmallVectorImpl<std::string> &forcedFeatures,
-            bool is64BitOS);
+  // This is to reset CPU according to ICompilerConfig when
+  // CL_CONFIG_CPU_TARGET_ARCH env is set
+  void ResetCPU(ECPU CPU,
+                const llvm::SmallVectorImpl<std::string> &forcedFeatures);
+  // Check host CPU is westmere or not
+  bool isWestmereForHost() const {
+    return m_HostCPUString == "westmere";
+  }
 
-  bool isWestmere() const { return m_CPUString == "westmere"; }
-
+  // Check if given feature is supported for the CPU which can be host CPU or a
+  // customization CPU by config
   bool IsFeatureSupported(ECPUFeatureSupport featureType) const;
+  // Check if given feature is supported for host CPU
+  bool IsFeatureSupportedOnHost(ECPUFeatureSupport featureType) const;
   TransposeSizeSupport isTransposeSizeSupported(
       Intel::OpenCL::DeviceBackend::ETransposeSize transposeSize) const;
 
   const char *GetCPUPrefix() const {
-    if (CPU_SNB == m_cpuArch && !HasAVX1()) {
+    if (CPU_SNB == m_CPUArch && !HasAVX1()) {
       // Use SSE4 if AVX1 is not supported
       return GetCPUPrefixSSE(m_is64BitOS != 0);
     } else {
-      switch (m_cpuArch) {
+      switch (m_CPUArch) {
       default:
         llvm_unreachable("Unknown CPU!");
       case CPU_COREI7:
@@ -206,10 +208,10 @@ public:
   }
 
   const std::string &GetCPUName() const { return m_CPUString; }
-  const char *GetCPUBrandString() const { return m_CPUBrandString; }
-  std::string GetCPUArchShortName() const { return CPUArchStr.at(m_cpuArch); }
-  ECPUBrandFamily GetCPUBrandFamily() { return m_CPUBrand; }
-  ECPU GetCPU() const { return m_cpuArch; }
+  const char *GetHostCPUBrandString() const { return m_HostCPUBrandString; }
+  std::string GetCPUArchShortName() const { return CPUArchStr.at(m_CPUArch); }
+  ECPUBrandFamily GetHostCPUBrandFamily() { return m_HostCPUBrand; }
+  ECPU GetCPU() const { return m_CPUArch; }
 
   static const char *GetCPUPrefixSSE(bool is64BitOS) {
     return is64BitOS ? "h8" : "n8";
@@ -227,7 +229,7 @@ public:
     return is64BitOS ? "z1" : "x1";
   }
 
-  bool HasGatherScatter() const { return HasGatherScatter(m_cpuArch); }
+  bool HasGatherScatter() const { return HasGatherScatter(m_CPUArch); }
 
   static bool HasGatherScatter(ECPU CPU) {
     return (CPU == CPU_KNL || CPU == CPU_SKX || CPU == CPU_ICL ||
@@ -235,7 +237,7 @@ public:
   }
   static bool HasGatherScatterPrefetch(ECPU CPU) { return (CPU == CPU_KNL); }
   bool HasGatherScatterPrefetch() const {
-    return HasGatherScatterPrefetch(m_cpuArch);
+    return HasGatherScatterPrefetch(m_CPUArch);
   }
 
   bool HasAVX1() const { return IsFeatureSupported(CFS_AVX10); }
@@ -260,7 +262,6 @@ public:
   }
 
   bool Is64BitOS() const { return m_is64BitOS; }
-  llvm::StringMap<bool> GetCPUFeatures() const { return m_cpuFeatures; }
 
   // This is to push disabled CPU features in list which is passed to code
   // generator.
@@ -274,15 +275,16 @@ private:
   CPUDetect(const CPUDetect &);
   CPUDetect();
   ~CPUDetect(){};
-  void GetCPUBrandInfo();
+  void GetHostCPUBrandInfo();
 
   bool m_is64BitOS;
-  bool m_bBypassCPUDetect;
-  ECPU m_cpuArch;
-  ECPUBrandFamily m_CPUBrand;
+  ECPU m_CPUArch;
   std::string m_CPUString;
-  const char *m_CPUBrandString;
-  llvm::StringMap<bool> m_cpuFeatures;
+  llvm::StringMap<bool> m_CPUFeatures;
+  ECPUBrandFamily m_HostCPUBrand; // host CPU brand
+  std::string m_HostCPUString;
+  const char *m_HostCPUBrandString;
+  llvm::StringMap<bool> m_HostCPUFeatures;
 
   bool ShouldBypassCPUCheck() const;
 };
