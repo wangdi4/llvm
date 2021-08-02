@@ -773,7 +773,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;
       break;
 
-#if INTEL_CUSTOMIZATION
     // Tigerlake:
     case 0x8c:
     case 0x8d:
@@ -789,7 +788,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Type = X86::INTEL_COREI7;
       *Subtype = X86::INTEL_COREI7_ALDERLAKE;
       break;
-#endif // INTEL_CUSTOMIZATION
 
     // Icelake Xeon:
     case 0x6a:
