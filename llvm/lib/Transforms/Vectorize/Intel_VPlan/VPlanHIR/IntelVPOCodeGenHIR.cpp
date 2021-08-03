@@ -1008,8 +1008,9 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   }
 
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-      OrigLoop, VF * UF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, SearchLoopPeelArrayRef, &RTChecks);
+      OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
+      OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
+      &RTChecks);
 
   if (!MainLoop) {
     assert(false && "Main loop could not be setup.");

@@ -1,6 +1,6 @@
 //===--- HIRLoopBlocking.cpp - Implements Loop Blocking transformation ---===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1969,11 +1969,11 @@ HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   }
 #endif
 
-  LoopOptReportBuilder &LORBuilder =
-      InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      InnermostLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Blocking using Pragma directives
-  LORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
+  ORBuilder(*OutermostPragmaLoop).addRemark(OptReportVerbosity::Low, 25565u);
 
   LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
                                                       : LoopToPragma) {
@@ -2183,15 +2183,15 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
   });
 
   // Add OptReport after permutation to get the correct information.
-  LoopOptReportBuilder &LORBuilder =
-      CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      CurLoopNests.front()->getHLNodeUtils().getHIRFramework().getORBuilder();
   for (auto Lp : CurLoopNests) {
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
     if (isBlockedLoop(OrigLoop, LoopToBS)) {
       // blocked by %d
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
-                                LoopToBS[OrigLoop]);
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25566u,
+                               LoopToBS[OrigLoop]);
     }
   }
 

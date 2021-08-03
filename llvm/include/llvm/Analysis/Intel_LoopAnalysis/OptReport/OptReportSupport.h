@@ -1,4 +1,4 @@
-//===- LoopOptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
+//===----- OptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
 //
 // Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
@@ -10,19 +10,19 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements a set of routines to support various emitters
-// of loopopt and vectorizer related Loop Optimization Reports.
+// of loopopt, vectorizer and OpenMP regions related Optimization Reports.
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #include <string>
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
 
 namespace llvm {
-namespace LoopOptReportSupport {
+namespace OptReportSupport {
 
 /// Returns a string of bytes representing the given \p OptReport
 /// in binary form, which may be emitted directly into the binary.
-std::string formatBinaryStream(LoopOptReport OptReport);
+std::string formatBinaryStream(OptReport OptReport);
 
 /// Returns true if Protobuf-based binary opt-report encoding feature is
 /// enabled.
@@ -31,7 +31,7 @@ bool isProtobufBinOptReportEnabled();
 /// Type to represent a map of LoopOptReports that should be encoded in
 /// Protobuf-based binary opt-report. Every loop is identified by a unique
 /// anchor ID which is used as key for the map.
-using OptRptAnchorMapTy = StringMap<LoopOptReport>;
+using OptRptAnchorMapTy = StringMap<OptReport>;
 
 /// Returns a string of bytes representing Protobuf-based binary encoding of
 /// given map of opt-reports in \p OptRptAnchorMapTy. Binary opt-report is
@@ -40,5 +40,5 @@ using OptRptAnchorMapTy = StringMap<LoopOptReport>;
 std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
                                          unsigned MajorVer, unsigned MinorVer);
 
-} // namespace LoopOptReportSupport
+} // namespace OptReportSupport
 } // namespace llvm

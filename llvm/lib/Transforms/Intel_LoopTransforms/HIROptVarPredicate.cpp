@@ -1,6 +1,6 @@
 //===- HIROptVarPredicate.cpp - Optimization of predicates containing IVs -===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -198,7 +198,7 @@ private:
                             BlobTy SplitPointBlob, bool IsSigned);
 
   void addVarPredicateReport(HLIf *If, HLLoop *Loop,
-                             LoopOptReportBuilder &LORBuilder);
+                             OptReportBuilder &ORBuilder);
 };
 } // namespace
 
@@ -547,9 +547,9 @@ static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
   return IsNegativeOrZeroTC;
 }
 
-void HIROptVarPredicate::addVarPredicateReport(
-    HLIf *If, HLLoop *Loop, LoopOptReportBuilder &LORBuilder) {
-  bool IsReportOn = LORBuilder.isLoopOptReportOn();
+void HIROptVarPredicate::addVarPredicateReport(HLIf *If, HLLoop *Loop,
+                                               OptReportBuilder &ORBuilder) {
+  bool IsReportOn = ORBuilder.isOptReportOn();
 
   if (!IsReportOn || !Loop) {
     return;
@@ -565,7 +565,7 @@ void HIROptVarPredicate::addVarPredicateReport(
   }
 
   // Condition%s was optimized
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25580u, LoopNum);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25580u, LoopNum);
 }
 
 // The loop could be split into two loops:
@@ -757,8 +757,8 @@ void HIROptVarPredicate::splitLoop(
     HLNodeUtils::addCloningInducedLiveouts(SecondLoop);
   }
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   HLLoop *OptReportLoop = nullptr;
   unsigned VNum = 1;
@@ -769,7 +769,7 @@ void HIROptVarPredicate::splitLoop(
     }
 
     OptReportLoop = Loop;
-    LORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
+    ORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
   if (SecondLoopNeeded && SecondLoop) {
@@ -780,7 +780,7 @@ void HIROptVarPredicate::splitLoop(
     if (!OptReportLoop) {
       OptReportLoop = SecondLoop;
     }
-    LORBuilder(*SecondLoop).addOrigin("Predicate Optimized v%d", VNum++);
+    ORBuilder(*SecondLoop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
   if (ThirdLoopNeeded) {
@@ -791,11 +791,11 @@ void HIROptVarPredicate::splitLoop(
     if (!OptReportLoop) {
       OptReportLoop = ThirdLoop;
     }
-    LORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
+    ORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
   for (HLIf *If : Candidates) {
-    addVarPredicateReport(If, OptReportLoop, LORBuilder);
+    addVarPredicateReport(If, OptReportLoop, ORBuilder);
   }
 }
 

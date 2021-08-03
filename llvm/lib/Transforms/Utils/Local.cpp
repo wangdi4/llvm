@@ -180,7 +180,7 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
 
 #if INTEL_CUSTOMIZATION
       // Remove Loop metadata from the loop branch instruction
-      // to avoid failing the check of LoopOptReport metadata
+      // to avoid failing the check of OptReport metadata
       // being dropped accidentally.
       //
       // TODO (vzakhari 5/22/2018): there is no good solution for reattaching

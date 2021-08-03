@@ -1241,7 +1241,7 @@ void TargetPassConfig::addMachinePasses() {
 
 #if INTEL_CUSTOMIZATION
   if (IntelOptReportEmitter == OptReportOptions::MIR)
-    addPass(&MachineLoopOptReportEmitterID, false);
+    addPass(&MachineOptReportEmitterID, false);
 #endif  // INTEL_CUSTOMIZATION
 
   if (TM->Options.EnableMachineOutliner && getOptLevel() != CodeGenOpt::None &&

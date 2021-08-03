@@ -51,15 +51,15 @@
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
+#include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
 #include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
-#include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -418,7 +418,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VF == 1) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
-    VPlanOptReportBuilder(LORBuilder, LI)
+    VPlanOptReportBuilder(ORBuilder, LI)
         .addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
     return false;
   }
@@ -448,7 +448,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     VPOUtils::stripDirectives(WRLp);
 
   CandLoopsVectorized++;
-  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
+  VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
 
   // Mark source and vector and scalar loops with isvectorized directive so that
@@ -797,7 +797,7 @@ template <typename... Args>
 void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
                                       OptReportVerbosity::Level Verbosity,
                                       unsigned MsgID, Args &&...args) {
-  LORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
+  ORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
@@ -806,7 +806,7 @@ void VPlanOptReportBuilder::addRemark(Loop *Lp,
                                       unsigned MsgID, Args &&...args) {
   // For LLVM-IR Loop, LORB needs a valid LoopInfo object
   assert(LI && "LoopInfo for opt-report builder is null.");
-  LORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
+  ORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
@@ -981,7 +981,7 @@ bool VPlanDriverImpl::runImpl(
   this->WR = WR;
   this->FatalErrorHandler = FatalErrorHandler;
 
-  LORBuilder.setup(Fn.getContext(), Verbosity);
+  ORBuilder.setup(Fn.getContext(), Verbosity);
   bool ModifiedFunc = processFunction(Fn);
 
   return ModifiedFunc;
@@ -1124,7 +1124,7 @@ bool VPlanDriverHIRImpl::runImpl(
   this->setAC(AC);
   this->setDT(DT);
 
-  LORBuilder.setup(Fn.getContext(), Verbosity);
+  ORBuilder.setup(Fn.getContext(), Verbosity);
   return VPlanDriverImpl::processFunction<loopopt::HLLoop>(Fn);
 }
 
@@ -1164,7 +1164,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
-  VPlanOptReportBuilder VPORBuilder(LORBuilder);
+  VPlanOptReportBuilder VPORBuilder(ORBuilder);
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI);
 
@@ -1265,7 +1265,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
-                           LORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
+                           ORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
                            PeelArrayRef, isOmpSIMDLoop);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 

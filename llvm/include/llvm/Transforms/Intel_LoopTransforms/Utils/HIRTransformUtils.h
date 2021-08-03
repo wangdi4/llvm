@@ -31,7 +31,7 @@
 
 namespace llvm {
 
-class LoopOptReportBuilder;
+class OptReportBuilder;
 #if INTEL_FEATURE_SW_DTRANS
 class FieldModRefResult;
 class DTransImmutableInfo;
@@ -89,9 +89,8 @@ private:
   static HLLoop *
   createUnrollOrVecLoop(HLLoop *OrigLoop, unsigned UnrollOrVecFactor,
                         uint64_t NewTripCount, const RegDDRef *NewTCRef,
-                        bool NeedRemainderLoop,
-                        LoopOptReportBuilder &LORBuilder, OptimizationType,
-                        HLIf *RTIf, ProfInfo *Prof);
+                        bool NeedRemainderLoop, OptReportBuilder &ORBuilder,
+                        OptimizationType, HLIf *RTIf, ProfInfo *Prof);
 
   /// \brief Processes the remainder loop for general unrolling and
   /// vectorization. The loop passed in \p OrigLoop is set up to be
@@ -231,7 +230,7 @@ public:
   /// default client is assumed to be the unroller.
   static HLLoop *setupPeelMainAndRemainderLoops(
       HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
-      LoopOptReportBuilder &LORBuilder, OptimizationType,
+      OptReportBuilder &ORBuilder, OptimizationType,
       HLLoop **PeelLoop = nullptr, const RegDDRef *PeelArrayRef = nullptr,
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           *RTChecks = nullptr);

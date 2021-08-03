@@ -1,6 +1,6 @@
 //===----------------- Intel_VPOParoptOptimizeDataSharing -----------------===//
 //
-//   Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -42,7 +42,7 @@
 #include "llvm/Transforms/VPO/VPOPasses.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #endif  // INTEL_CUSTOMIZATION
 
 using namespace llvm;

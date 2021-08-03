@@ -563,7 +563,7 @@ void initializeXmainOptLevelWrapperPassPass(PassRegistry&);
 void initializeOptReportOptionsPassPass(PassRegistry &);
 // Pass for removing region directives.
 void initializeRemoveRegionDirectivesLegacyPassPass(PassRegistry &);
-void initializeLoopOptReportEmitterLegacyPassPass(PassRegistry&);
+void initializeOptReportEmitterLegacyPassPass(PassRegistry&);
 // Pass for loop carried CSE
 void initializeLoopCarriedCSELegacyPass(PassRegistry&);
 // Pass for transforming __fpga_reg builtin representation
@@ -683,7 +683,7 @@ void initializeVPlanFunctionVectorizerLegacyPassPass(PassRegistry&);
 void initializeFMASplitterLegacyPassPass(PassRegistry&);
 // Pass for dynamic_cast calls optimization
 void initializeOptimizeDynamicCastsWrapperPass(PassRegistry&);
-void initializeMachineLoopOptReportEmitterPass(PassRegistry&);
+void initializeMachineOptReportEmitterPass(PassRegistry&);
 // DPCPP Kernel Transformation passes
 void initializeAddFunctionAttrsLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);

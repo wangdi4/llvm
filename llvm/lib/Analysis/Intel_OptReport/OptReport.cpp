@@ -1,6 +1,6 @@
-//===--- LoopOptReport.cpp ---------------------------------------*- C++ -*-==//
+//===--- OptReport.cpp ------------------------------------------*- C++ -*-==//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -9,11 +9,11 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements LoopOptReport class.
+// This file implements OptReport class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 
 #include "llvm/IR/DebugInfoMetadata.h"
 
@@ -38,7 +38,7 @@ static int findNamedTupleField(MDTuple *Dict, StringRef Key) {
 
 /// Erase field tagged with \p Key from \p OptReport.
 static void removeOptReportField(MDTuple *OptReport, StringRef Key) {
-  assert(LoopOptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
+  assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
   MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
   SmallVector<Metadata *, 4> Ops;
@@ -71,7 +71,7 @@ static void removeOptReportField(MDTuple *OptReport, StringRef Key) {
 /// that is already present in the OptReport.
 static void addOptReportSingleValue(MDTuple *OptReport, StringRef Key,
                                     Metadata *Value) {
-  assert(LoopOptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
+  assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
   LLVMContext &Context = OptReport->getContext();
   MDString *MDKey = MDString::get(Context, Key);
@@ -96,7 +96,7 @@ static void addOptReportSingleValue(MDTuple *OptReport, StringRef Key,
 /// MDTuple, where first entry is the key, and the rest are values.
 static void addOptReportMultiValue(MDTuple *OptReport, StringRef Key,
                                    Metadata *Value) {
-  assert(LoopOptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
+  assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
   MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
   int Idx = findNamedTupleField(OptReportImpl, Key);
@@ -121,7 +121,7 @@ static void addOptReportMultiValue(MDTuple *OptReport, StringRef Key,
 /// function.
 static Metadata *findOptReportSingleValue(const MDTuple *OptReport,
                                           StringRef Key) {
-  assert(LoopOptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
+  assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
   MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
   int Idx = findNamedTupleField(OptReportImpl, Key);
@@ -135,12 +135,12 @@ static Metadata *findOptReportSingleValue(const MDTuple *OptReport,
 /// Look for values associated with \p Key in \p OptReport. It is expected that
 /// the values were previously pushed into OptReport with addOptReportMultiValue
 /// function. Range (possibly empty) of found values is returned.
-static LoopOptReport::op_range findOptReportMultiValue(const MDTuple *OptReport,
-                                                       StringRef Key) {
-  assert(LoopOptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
+static OptReport::op_range findOptReportMultiValue(const MDTuple *OptReport,
+                                                   StringRef Key) {
+  assert(OptReport::isOptReportMetadata(OptReport) && "Bad OptReport");
 
-  using op_iterator = LoopOptReport::op_iterator;
-  using op_range = LoopOptReport::op_range;
+  using op_iterator = OptReport::op_iterator;
+  using op_range = OptReport::op_range;
   op_range Empty{op_iterator(), op_iterator()};
 
   MDTuple *OptReportImpl = cast<MDTuple>(OptReport->getOperand(1));
@@ -153,7 +153,7 @@ static LoopOptReport::op_range findOptReportMultiValue(const MDTuple *OptReport,
   return op_range(std::next(OriginTuple->op_begin()), OriginTuple->op_end());
 }
 
-LoopOptReport LoopOptReport::findOptReportInLoopID(MDNode *LoopID) {
+OptReport OptReport::findOptReportInLoopID(MDNode *LoopID) {
   if (!LoopID)
     return nullptr;
 
@@ -168,8 +168,7 @@ LoopOptReport LoopOptReport::findOptReportInLoopID(MDNode *LoopID) {
   return nullptr;
 }
 
-MDNode *LoopOptReport::eraseOptReportFromLoopID(MDNode *LoopID,
-                                                LLVMContext &C) {
+MDNode *OptReport::eraseOptReportFromLoopID(MDNode *LoopID, LLVMContext &C) {
   if (!LoopID)
     return nullptr;
 
@@ -187,8 +186,8 @@ MDNode *LoopOptReport::eraseOptReportFromLoopID(MDNode *LoopID,
   return NewLoopID;
 }
 
-MDNode *LoopOptReport::addOptReportToLoopID(MDNode *LoopID, LoopOptReport OR,
-                                            LLVMContext &C) {
+MDNode *OptReport::addOptReportToLoopID(MDNode *LoopID, OptReport OR,
+                                        LLVMContext &C) {
   assert(!findOptReportInLoopID(LoopID) && "The loop already has OptReport");
   assert(OR && "Null OptReport");
 
@@ -204,9 +203,9 @@ MDNode *LoopOptReport::addOptReportToLoopID(MDNode *LoopID, LoopOptReport OR,
   return NewLoopID;
 }
 
-LoopOptReport LoopOptReport::createEmptyOptReport(LLVMContext &Context) {
-  MDString *ProxyTitle = MDString::get(Context, LoopOptReportTag::Proxy);
-  MDString *RootTitle = MDString::get(Context, LoopOptReportTag::Root);
+OptReport OptReport::createEmptyOptReport(LLVMContext &Context) {
+  MDString *ProxyTitle = MDString::get(Context, OptReportTag::Proxy);
+  MDString *RootTitle = MDString::get(Context, OptReportTag::Root);
 
   // No need for distinct !{!"intel.loop.optreport"}, as no replaceOperandWith
   // will be ever called on it.
@@ -216,82 +215,81 @@ LoopOptReport LoopOptReport::createEmptyOptReport(LLVMContext &Context) {
   return Root;
 }
 
-void LoopOptReport::addOrigin(LoopOptRemark Origin) const {
+void OptReport::addOrigin(OptRemark Origin) const {
   assert(Origin && "Null Origin");
-  addOptReportMultiValue(OptReport, LoopOptReportTag::Origin, Origin.get());
+  addOptReportMultiValue(OptReportMD, OptReportTag::Origin, Origin.get());
 }
 
-void LoopOptReport::setDebugLoc(DILocation *Location) const {
+void OptReport::setDebugLoc(DILocation *Location) const {
   assert(Location && "Null Location");
-  addOptReportSingleValue(OptReport, LoopOptReportTag::DebugLoc, Location);
+  addOptReportSingleValue(OptReportMD, OptReportTag::DebugLoc, Location);
 }
 
-void LoopOptReport::addRemark(LoopOptRemark Remark) const {
+void OptReport::addRemark(OptRemark Remark) const {
   assert(Remark && "Null Remark");
-  addOptReportMultiValue(OptReport, LoopOptReportTag::Remarks, Remark.get());
+  addOptReportMultiValue(OptReportMD, OptReportTag::Remarks, Remark.get());
 }
 
-void LoopOptReport::addChild(LoopOptReport Child) const {
+void OptReport::addChild(OptReport Child) const {
   assert(Child && "Null Child");
-  assert((Child.OptReport != this->OptReport) && "Parent/child cycle");
-  if (LoopOptReport Next = firstChild()) {
+  assert((Child.OptReportMD != this->OptReportMD) && "Parent/child cycle");
+  if (OptReport Next = firstChild()) {
     Next.addSibling(Child);
     return;
   }
-  addOptReportSingleValue(OptReport, LoopOptReportTag::FirstChild, Child.get());
+  addOptReportSingleValue(OptReportMD, OptReportTag::FirstChild, Child.get());
 }
 
-void LoopOptReport::addSibling(LoopOptReport Sibling) const {
+void OptReport::addSibling(OptReport Sibling) const {
   assert(Sibling && "Null Sibling");
-  LoopOptReport Current = *this;
-  if (Current.OptReport == Sibling.OptReport) {
+  OptReport Current = *this;
+  if (Current.OptReportMD == Sibling.OptReportMD) {
     llvm_unreachable("Duplicate nodes in optreport list");
     // out of spec, but still possible to continue compilation
     return;
   }
   while (Current.nextSibling()) {
     Current = Current.nextSibling();
-    if (Current.OptReport == Sibling.OptReport) {
+    if (Current.OptReportMD == Sibling.OptReportMD) {
       llvm_unreachable("Duplicate nodes in optreport list");
       return;
     }
   }
-  addOptReportSingleValue(Current.OptReport,
-                          LoopOptReportTag::NextSibling,
+  addOptReportSingleValue(Current.OptReportMD, OptReportTag::NextSibling,
                           Sibling.get());
 }
 
-void LoopOptReport::eraseSiblings() const {
-  removeOptReportField(OptReport, LoopOptReportTag::NextSibling);
+void OptReport::eraseSiblings() const {
+  removeOptReportField(OptReportMD, OptReportTag::NextSibling);
 }
 
-LoopOptReport::op_range LoopOptReport::origin() const {
-  return findOptReportMultiValue(OptReport, LoopOptReportTag::Origin);
+OptReport::op_range OptReport::origin() const {
+  return findOptReportMultiValue(OptReportMD, OptReportTag::Origin);
 }
 
-const DILocation *LoopOptReport::debugLoc() const {
+const DILocation *OptReport::debugLoc() const {
   const Metadata *MDVal =
-      findOptReportSingleValue(OptReport, LoopOptReportTag::DebugLoc);
+      findOptReportSingleValue(OptReportMD, OptReportTag::DebugLoc);
   return cast_or_null<DILocation>(MDVal);
 }
 
-LoopOptReport::op_range LoopOptReport::remarks() const {
-  return findOptReportMultiValue(OptReport, LoopOptReportTag::Remarks);
+OptReport::op_range OptReport::remarks() const {
+  return findOptReportMultiValue(OptReportMD, OptReportTag::Remarks);
 }
 
-const LoopOptReport LoopOptReport::nextSibling() const {
+const OptReport OptReport::nextSibling() const {
   Metadata *MDVal =
-      findOptReportSingleValue(OptReport, LoopOptReportTag::NextSibling);
+      findOptReportSingleValue(OptReportMD, OptReportTag::NextSibling);
   return cast_or_null<MDTuple>(MDVal);
 }
 
-const LoopOptReport LoopOptReport::firstChild() const {
+const OptReport OptReport::firstChild() const {
   Metadata *MDVal =
-      findOptReportSingleValue(OptReport, LoopOptReportTag::FirstChild);
+      findOptReportSingleValue(OptReportMD, OptReportTag::FirstChild);
   return cast_or_null<MDTuple>(MDVal);
 }
 
-bool LoopOptRemark::isOptRemarkMetadata(const Metadata *R) {
+bool OptRemark::isOptRemarkMetadata(const Metadata *R) {
   const MDTuple *T = dyn_cast<MDTuple>(R);
   if (!T)
     return false;
@@ -303,15 +301,15 @@ bool LoopOptRemark::isOptRemarkMetadata(const Metadata *R) {
   if (!S)
     return false;
 
-  return S->getString() == LoopOptReportTag::Remark;
+  return S->getString() == OptReportTag::Remark;
 }
 
-const Metadata *LoopOptRemark::getOperand(unsigned Idx) const {
+const Metadata *OptRemark::getOperand(unsigned Idx) const {
   // The remark tag (argument #0) is skipped.
   unsigned NewIdx = Idx + 1;
   return Remark->getOperand(NewIdx);
 }
 
-unsigned LoopOptRemark::getNumOperands() const {
+unsigned OptRemark::getNumOperands() const {
   return Remark->getNumOperands() - 1;
 }

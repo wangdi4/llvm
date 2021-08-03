@@ -372,12 +372,12 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool CreateRemainderLoop,
       }
 #if INTEL_CUSTOMIZATION
       // Remove Loop metadata from the loop branch instruction
-      // to avoid failing the check of LoopOptReport metadata
+      // to avoid failing the check of OptReport metadata
       // being dropped accidentally.
       //
       // If the caller of this method is going to reinstantiate
       // the back branch for the cloned loop (e.g. in case of
-      // CreateRemainderLoop), then it has to set the LoopOptReport
+      // CreateRemainderLoop), then it has to set the OptReport
       // metadata properly.
       LatchBR->setMetadata(LLVMContext::MD_loop, nullptr);
 #endif  // INTEL_CUSTOMIZATION
@@ -594,7 +594,7 @@ bool llvm::UnrollRuntimeLoopRemainder(
     Loop *L, unsigned Count, bool AllowExpensiveTripCount,
     bool UseEpilogRemainder, bool UnrollRemainder, bool ForgetAllSCEV,
     LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT, AssumptionCache *AC,
-    const LoopOptReportBuilder &LORB, // INTEL
+    const OptReportBuilder &LORB, // INTEL
     const TargetTransformInfo *TTI, bool PreserveLCSSA, Loop **ResultLoop) {
   LLVM_DEBUG(dbgs() << "Trying runtime unrolling on Loop: \n");
   LLVM_DEBUG(L->dump());

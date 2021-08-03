@@ -13,7 +13,7 @@ if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
 
   # TODO: There is potentially a way to share Protobuf generated sources across multiple components instead of rebuilding here.
 
-  # Create protobuf .h and .cc files, and put them in a library for use by LoopOptReportSupport component.
+  # Create protobuf .h and .cc files, and put them in a library for use by OptReportSupport component.
   find_package(Protobuf REQUIRED)
   add_definitions(-DGOOGLE_PROTOBUF_NO_RTTI)
   include_directories(${PROTOBUF_INCLUDE_DIRS})

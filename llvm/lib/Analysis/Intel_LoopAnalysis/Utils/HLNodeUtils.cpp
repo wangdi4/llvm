@@ -4748,10 +4748,10 @@ public:
 
       Loop->extractPreheaderAndPostexit();
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
       Changed = true;
@@ -4940,10 +4940,10 @@ public:
 
       SkipNode = Loop;
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       HLNodeUtils::remove(Loop);
       Changed = true;
@@ -5139,10 +5139,10 @@ public:
 
       notifyWillRemoveNode(Loop);
 
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-      LORBuilder(*Loop).preserveLostLoopOptReport();
+      ORBuilder(*Loop).preserveLostOptReport();
 
       // Do not extract postexit as they will become dead nodes because of goto.
       Loop->replaceByFirstIteration(false);

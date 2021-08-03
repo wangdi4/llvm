@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.h ----------------------------------------------===//
 //
-//   Copyright (C) 2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -40,7 +40,7 @@ private:
   ProfileSummaryInfo *PSI;
   std::function<const LoopAccessInfo &(Loop &)> *GetLAA;
   OptimizationRemarkEmitter *ORE;
-  LoopOptReportBuilder LORBuilder;
+  OptReportBuilder ORBuilder;
   FatalErrorHandlerTy FatalErrorHandler;
 
 #if INTEL_CUSTOMIZATION
@@ -162,7 +162,7 @@ private:
   loopopt::HIRLoopStatistics *HIRLoopStats;
   loopopt::HIRDDAnalysis *DDA;
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
-  LoopOptReportBuilder LORBuilder;
+  OptReportBuilder ORBuilder;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
   bool isSupported(loopopt::HLLoop *Lp);

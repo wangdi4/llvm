@@ -1,6 +1,6 @@
-//===- LoopOptReportEmitter.cpp - Prints Loop Optimization reports -------===//
+//===------- OptReportEmitter.cpp - Prints Optimization reports -----------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -9,11 +9,11 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements Loop Optimization Report emitter.
+// This file implements Optimization Report emitter.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar/Intel_LoopOptReportEmitter.h"
+#include "llvm/Transforms/Scalar/Intel_OptReportEmitter.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/InitializePasses.h"
@@ -21,9 +21,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 
 #if INTEL_FEATURE_CSA
 #include "llvm/ADT/Triple.h"
@@ -39,12 +39,12 @@ static cl::opt<bool> DisableIROptReportEmitter(
     cl::desc("Disable IR optimization report emitter"));
 
 namespace {
-struct LoopOptReportEmitter {
+struct OptReportEmitter {
 
-  LoopOptReportEmitter() {}
+  OptReportEmitter() {}
 
-  void printLoopOptReportRecursive(const Loop *L, unsigned Depth,
-                                   formatted_raw_ostream &FOS);
+  void printOptReportRecursive(const Loop *L, unsigned Depth,
+                               formatted_raw_ostream &FOS);
 
 #if INTEL_FEATURE_CSA
   bool isCSALibMathFunction(const Function &F);
@@ -55,28 +55,27 @@ struct LoopOptReportEmitter {
   bool run(Function &F, LoopInfo &LI);
 };
 
-void LoopOptReportEmitter::printLoopOptReportRecursive(
-    const Loop *L, unsigned Depth, formatted_raw_ostream &FOS) {
-  LoopOptReport OptReport =
-      LoopOptReport::findOptReportInLoopID(L->getLoopID());
+void OptReportEmitter::printOptReportRecursive(const Loop *L, unsigned Depth,
+                                               formatted_raw_ostream &FOS) {
+  OptReport OR = OptReport::findOptReportInLoopID(L->getLoopID());
 
-  printLoopHeaderAndOrigin(FOS, Depth, OptReport, L->getStartLoc());
+  printLoopHeaderAndOrigin(FOS, Depth, OR, L->getStartLoc());
 
-  if (OptReport) {
-    printOptReport(FOS, Depth + 1, OptReport);
+  if (OR) {
+    printOptReport(FOS, Depth + 1, OR);
   }
 
   for (const Loop *CL : L->getSubLoops())
-    printLoopOptReportRecursive(CL, Depth + 1, FOS);
+    printOptReportRecursive(CL, Depth + 1, FOS);
 
   printLoopFooter(FOS, Depth);
 
-  if (OptReport && OptReport.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OptReport.nextSibling());
+  if (OR && OR.nextSibling())
+    printEnclosedOptReport(FOS, Depth, OR.nextSibling());
 }
 
 #if INTEL_FEATURE_CSA
-bool LoopOptReportEmitter::isCSALibMathFunction(const Function &F) {
+bool OptReportEmitter::isCSALibMathFunction(const Function &F) {
   // The functions listed below are defined in the CSA SDK file:
   // base/<DATE>/libcsa/libcsamath.bc
   //
@@ -116,7 +115,7 @@ bool LoopOptReportEmitter::isCSALibMathFunction(const Function &F) {
   return false;
 }
 
-bool LoopOptReportEmitter::isCSALibCFunction(const Function &F) {
+bool OptReportEmitter::isCSALibCFunction(const Function &F) {
   // The functions listed below are defined in the CSA SDK file:
   // base/<DATE>/libcsa/libcsac.bc
   //
@@ -132,7 +131,7 @@ bool LoopOptReportEmitter::isCSALibCFunction(const Function &F) {
 }
 #endif // INTEL_FEATURE_CSA
 
-bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
+bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
   if (DisableIROptReportEmitter)
     return false;
 
@@ -149,7 +148,7 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
   OS << "Global loop optimization report for : " << F.getName() << "\n";
 
   // First check that there are attached reports to the function itself.
-  LoopOptReport FunOR = LoopOptReportTraits<Function>::getOptReport(F);
+  OptReport FunOR = OptReportTraits<Function>::getOptReport(F);
   if (FunOR)
     printEnclosedOptReport(OS, 0, FunOR.firstChild());
 
@@ -157,7 +156,7 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
   // Due to the specifics of loop build algorithm, it is achieved via reverse
   // iteration.
   for (LoopInfo::reverse_iterator I = LI.rbegin(), E = LI.rend(); I != E; ++I)
-    printLoopOptReportRecursive(*I, 0, OS);
+    printOptReportRecursive(*I, 0, OS);
 
   OS << "================================================================="
         "\n\n";
@@ -165,12 +164,11 @@ bool LoopOptReportEmitter::run(Function &F, LoopInfo &LI) {
   return false;
 }
 
-struct LoopOptReportEmitterLegacyPass : public FunctionPass {
+struct OptReportEmitterLegacyPass : public FunctionPass {
   static char ID;
 
-  LoopOptReportEmitterLegacyPass() : FunctionPass(ID) {
-    initializeLoopOptReportEmitterLegacyPassPass(
-        *PassRegistry::getPassRegistry());
+  OptReportEmitterLegacyPass() : FunctionPass(ID) {
+    initializeOptReportEmitterLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
   bool runOnFunction(Function &F) override;
@@ -179,35 +177,35 @@ struct LoopOptReportEmitterLegacyPass : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
-void LoopOptReportEmitterLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
+void OptReportEmitterLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
 }
 
-bool LoopOptReportEmitterLegacyPass::runOnFunction(Function &F) {
+bool OptReportEmitterLegacyPass::runOnFunction(Function &F) {
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  return LoopOptReportEmitter().run(F, LI);
+  return OptReportEmitter().run(F, LI);
 }
 
 } // namespace
 
-PreservedAnalyses LoopOptReportEmitterPass::run(Function &F,
-                                                FunctionAnalysisManager &AM) {
-  LoopOptReportEmitter Emitter;
+PreservedAnalyses OptReportEmitterPass::run(Function &F,
+                                            FunctionAnalysisManager &AM) {
+  OptReportEmitter Emitter;
   Emitter.run(F, AM.getResult<LoopAnalysis>(F));
   return PreservedAnalyses::all();
 }
 
-char LoopOptReportEmitterLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(LoopOptReportEmitterLegacyPass, DEBUG_TYPE,
+char OptReportEmitterLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(OptReportEmitterLegacyPass, DEBUG_TYPE,
                       "The pass emits optimization reports", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(LoopOptReportEmitterLegacyPass, DEBUG_TYPE,
+INITIALIZE_PASS_END(OptReportEmitterLegacyPass, DEBUG_TYPE,
                     "The pass emits optimization reports", false, false)
 
 namespace llvm {
 
-FunctionPass *createLoopOptReportEmitterLegacyPass() {
-  return new LoopOptReportEmitterLegacyPass();
+FunctionPass *createOptReportEmitterLegacyPass() {
+  return new OptReportEmitterLegacyPass();
 }
 } // namespace llvm

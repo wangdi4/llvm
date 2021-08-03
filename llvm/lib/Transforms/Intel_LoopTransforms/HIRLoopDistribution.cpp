@@ -101,7 +101,7 @@ bool HIRLoopDistribution::run() {
   }
 
   bool Modified = false;
-  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   for (auto I = Loops.begin(), E = Loops.end(); I != E; ++I) {
     HLLoop *Lp = *I;
@@ -117,7 +117,7 @@ bool HIRLoopDistribution::run() {
     if (Lp->hasDistributePoint()) {
       unsigned RC = distributeLoopForDirective(Lp);
       if (RC != NotProcessed) {
-        LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
+        ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, OptReportMsg[RC]);
       }
       continue;
     }
@@ -238,7 +238,7 @@ bool HIRLoopDistribution::run() {
         }
       }
 
-      distributeLoop(Lp, DistributedLoops, SCEX, LORBuilder, false);
+      distributeLoop(Lp, DistributedLoops, SCEX, ORBuilder, false);
 
       Modified = true;
     } else {
@@ -867,7 +867,7 @@ getPreheaderLoopIndex(HLLoop *Loop,
 
 void HIRLoopDistribution::distributeLoop(
     HLLoop *Loop, SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-    const ScalarExpansion &SCEX, LoopOptReportBuilder &LORBuilder,
+    const ScalarExpansion &SCEX, OptReportBuilder &ORBuilder,
     bool ForDirective) {
   assert(DistributedLoops.size() < MaxDistributedLoop &&
          "Number of distributed chunks exceed threshold. Expected the caller "
@@ -907,12 +907,12 @@ void HIRLoopDistribution::distributeLoop(
 
     if (CurLoopIndex == 0) {
       if (ForDirective) {
-        LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
-                                        OptReportMsg[Success]);
+        ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
+                                       OptReportMsg[Success]);
       }
       // Loop distributed (%d way)
-      LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25574u,
-                                      LoopCount);
+      ORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25574u,
+                                     LoopCount);
     }
 
     if (CurLoopIndex == PreheaderLoopIndex) {
@@ -933,8 +933,8 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
 
-    LORBuilder(*LoopNode).addOrigin("Distributed chunk %d",
-                                    (int)CurLoopIndex + 1);
+    ORBuilder(*LoopNode).addOrigin("Distributed chunk %d",
+                                   (int)CurLoopIndex + 1);
   }
 
   // The loop is now empty, all its children are moved to new loops
@@ -1491,7 +1491,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
   ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
-  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getLORBuilder(), true);
+  distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getORBuilder(), true);
   return Success;
 }
 

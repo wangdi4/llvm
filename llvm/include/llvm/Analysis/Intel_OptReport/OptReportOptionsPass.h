@@ -1,6 +1,6 @@
 //===-------------------- OptReportOptionsPass.h --------------------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -9,7 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// An immutable pass, which stores the options for Loop Optimization Report
+// An immutable pass, which stores the options for Optimization Report
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,7 +19,7 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 
 namespace llvm {
 
@@ -29,9 +29,9 @@ class OptReportOptions {
 public:
   OptReportOptions();
 
-  enum LoopOptReportEmitterKind { None, IR, HIR, MIR /*, vtune */ };
+  enum OptReportEmitterKind { None, IR, HIR, MIR /*, vtune */ };
 
-  bool isLoopOptReportOn() const { return Verbosity > 0; }
+  bool isOptReportOn() const { return Verbosity > 0; }
   OptReportVerbosity::Level getVerbosity() const { return Verbosity; }
 
   /// Handle invalidation from the pass manager.
@@ -47,7 +47,7 @@ public:
   }
 };
 
-extern OptReportOptions::LoopOptReportEmitterKind IntelOptReportEmitter;
+extern OptReportOptions::OptReportEmitterKind IntelOptReportEmitter;
 
 class OptReportOptionsAnalysis
     : public AnalysisInfoMixin<OptReportOptionsAnalysis> {
@@ -84,7 +84,7 @@ public:
 
   bool doInitialization(Module &M) override { return false; }
 
-  bool isLoopOptReportOn() const { return Impl.isLoopOptReportOn(); }
+  bool isOptReportOn() const { return Impl.isOptReportOn(); }
   OptReportVerbosity::Level getVerbosity() const {
     return Impl.getVerbosity();
   }

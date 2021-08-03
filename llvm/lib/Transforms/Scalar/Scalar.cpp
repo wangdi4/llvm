@@ -137,7 +137,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeCleanupFakeLoadsLegacyPassPass(Registry);
   initializeMultiVersioningWrapperPass(Registry);
   initializeLoopOptMarkerLegacyPassPass(Registry);
-  initializeLoopOptReportEmitterLegacyPassPass(Registry);
+  initializeOptReportEmitterLegacyPassPass(Registry);
   initializeRemoveRegionDirectivesLegacyPassPass(Registry);
   initializeTransformFPGARegPass(Registry);
   initializeAddSubReassociateLegacyPassPass(Registry);

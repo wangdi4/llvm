@@ -1,6 +1,6 @@
 //===----- HIRUnrollAndJam.cpp - Implements UnrollAndJam class ------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1433,10 +1433,10 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
     }
 
     // Opt reports for inner loops in unroll & jam mode are moved here.
-    LoopOptReportBuilder &LORBuilder =
-        OrigLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+    OptReportBuilder &ORBuilder =
+        OrigLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-    LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+    ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   }
 
   HLNode *CurFirstNode = OrigLoop->getFirstChild();
@@ -1597,8 +1597,8 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   bool IsUnknownLoop = Loop->isUnknown();
   HLLoop *MainLoop = nullptr;
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   uint64_t LoopBackedgeWeightBeforeUnroll = 0;
   uint64_t FalseWeight = 0;
@@ -1610,13 +1610,13 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
     // While loop unrolled by %d
-    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
-                                    UnrollFactor);
+    ORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25478u,
+                                   UnrollFactor);
 
   } else {
     // Create the unrolled main loop and setup remainder loop.
     MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-        Loop, UnrollFactor, NeedRemainderLoop, LORBuilder,
+        Loop, UnrollFactor, NeedRemainderLoop, ORBuilder,
         LoopMap ? OptimizationType::UnrollAndJam : OptimizationType::Unroll);
   }
 

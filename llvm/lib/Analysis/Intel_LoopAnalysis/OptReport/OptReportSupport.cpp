@@ -1,4 +1,4 @@
-//===- LoopOptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
+//===----- OptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
 //
 // Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
@@ -10,11 +10,11 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements a set of routines to support various emitters
-// of loopopt and vectorizer related Loop Optimization Reports.
+// of loopopt and vectorizer related Optimization Reports.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/OptReport/OptReportSupport.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
@@ -40,7 +40,7 @@ static llvm::cl::opt<bool> EnableProtobufBinOptReport(
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
 namespace llvm {
-namespace LoopOptReportSupport {
+namespace OptReportSupport {
 static int getMDNodeAsInt(const ConstantAsMetadata *CM) {
   return cast<ConstantInt>(CM->getValue())->getValue().getSExtValue();
 }
@@ -102,7 +102,7 @@ static void printProtoBinOptReport(opt_report_proto::BinOptReport &BOR) {
 //       I guess this implementation should actually belong to LoopOpt
 //       and Vectorizer opt-report support libraries, so that here we just
 //       query this libraries for the releavant parts of the stream.
-std::string formatBinaryStream(LoopOptReport OptReport) {
+std::string formatBinaryStream(OptReport OR) {
   BitVector LoopBits(64);
   BitVector VecBits(64);
 
@@ -110,10 +110,10 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
   uint32_t UnrollFactor = 1;
 
   // Return 0 stream, if there is no opt-report attached.
-  if (!OptReport)
+  if (!OR)
     return "";
 
-  for (const LoopOptRemark Remark : OptReport.origin()) {
+  for (const OptRemark Remark : OR.origin()) {
     const MDString *R = cast<MDString>(Remark.getOperand(1));
     std::string OriginString = std::string(R->getString());
 
@@ -134,7 +134,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
     }
   }
 
-  for (const LoopOptRemark Remark : OptReport.remarks()) {
+  for (const OptRemark Remark : OR.remarks()) {
     const auto *R = cast<MDString>(Remark.getOperand(1));
     std::string FormatString = std::string(R->getString());
 
@@ -302,9 +302,9 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
 
   // Translate text opt-reports to binary opt-report format.
   for (StringRef AnchorID : OptRptAnchorMap.keys()) {
-    LoopOptReport OptReport = OptRptAnchorMap[AnchorID];
+    OptReport OR = OptRptAnchorMap[AnchorID];
 
-    if (!OptReport)
+    if (!OR)
       continue;
 
     opt_report_proto::BinOptReport::LoopOptReport *LOR = BOR.add_opt_reports();
@@ -312,8 +312,8 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
     // Set anchoring info for the loop that this optreport corresponds to.
     LOR->set_anchor_id(AnchorID.str());
     // Translate diagnostic remarks to properties.
-    for (const LoopOptRemark Remark : OptReport.remarks()) {
-      // TODO: Promote interface to LoopOptRemark::getRemarkID.
+    for (const OptRemark Remark : OR.remarks()) {
+      // TODO: Promote interface to OptRemark::getRemarkID.
       const auto *RID = cast<ConstantAsMetadata>(Remark.getOperand(0));
       unsigned RemarkID = getMDNodeAsUnsigned(RID);
 
@@ -391,5 +391,5 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 }
 
-} // namespace LoopOptReportSupport
+} // namespace OptReportSupport
 } // namespace llvm

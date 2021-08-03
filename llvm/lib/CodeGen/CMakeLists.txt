@@ -8,7 +8,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_FMACommon.cpp
   Intel_Float128ExpandPass.cpp
   Intel_MIRMatcher.cpp
-  Intel_MachineLoopOptReportEmitter.cpp
+  Intel_MachineOptReportEmitter.cpp
   Intel_RAReportEmitter.cpp
   )
 # end INTEL_CUSTOMIZATION
