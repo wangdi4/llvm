@@ -185,7 +185,8 @@ bool VecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
 // implementation is empty.
 void VecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                        Function *Clone,
-                                       BasicBlock *EntryBlock) {}
+                                       BasicBlock *EntryBlock,
+                                       const VectorVariant &Variant) {}
 
 void VecCloneImpl::languageSpecificInitializations(Module &M) {}
 #endif // INTEL_CUSTOMIZATION
@@ -1893,7 +1894,7 @@ bool VecCloneImpl::runImpl(Module &M) {
 
 #if INTEL_CUSTOMIZATION
       // Language specific hook.
-      handleLanguageSpecifics(F, Phi, Clone, &*EntryBlock);
+      handleLanguageSpecifics(F, Phi, Clone, &*EntryBlock, Variant);
 #endif // INTEL_CUSTOMIZATION
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.

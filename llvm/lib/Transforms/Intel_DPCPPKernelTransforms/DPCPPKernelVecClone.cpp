@@ -654,7 +654,8 @@ DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl(ArrayRef<VecItem> VectInfos,
 
 void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
                                                       Function *Clone,
-                                                      BasicBlock *EntryBlock) {
+                                                      BasicBlock *EntryBlock,
+                                                      const VectorVariant &Variant) {
   // The FunctionsAndActions array has only the Kernel function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
@@ -749,7 +750,7 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   llvm::call_once(InitializeVectInfoFlag,
                   [&]() { InitializeVectInfoOnce(VectInfos); });
 
-  unsigned VF = KernelInternalMetadataAPI(Clone).VectorizedWidth.get();
+  unsigned VF = Variant.getVlen();
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
