@@ -600,17 +600,12 @@ static Optional<bool> compareMemRefImpl(const RegDDRef *Ref1,
     }
   }
 
-  auto DestTy1 = Ref1->getBitCastDestType();
-  auto DestTy2 = Ref2->getBitCastDestType();
+  // This will order (i32*)A[0] before A[0] if A is i64* type
+  auto DestTy1 = Ref1->getDestType();
+  auto DestTy2 = Ref2->getDestType();
 
   if (DestTy1 != DestTy2) {
-    if (!DestTy1) {
-      return true;
-    } else if (!DestTy2) {
-      return false;
-    } else {
-      return (Ref1->getCanonExprUtils().compare(DestTy1, DestTy2) < 0);
-    }
+    return (Ref1->getCanonExprUtils().compare(DestTy1, DestTy2) < 0);
   }
 
   return {};
@@ -750,8 +745,8 @@ bool DDRefUtils::hasConstantEntriesFromArray(const RegDDRef *Ref,
        I != E; ++I) {
     ConstantInt *ConstValue1 = dyn_cast<ConstantInt>(I->first);
     if (ConstValue1 && ConstValue1->getValue().getSExtValue() ==
-            ConstIndex->getValue().getSExtValue()) {
-      *ConstVal = const_cast<Constant*>(I->second);
+                           ConstIndex->getValue().getSExtValue()) {
+      *ConstVal = const_cast<Constant *>(I->second);
       break;
     }
   }
@@ -767,7 +762,7 @@ bool DDRefUtils::hasConstantEntriesFromArray(const RegDDRef *Ref,
 #if INTEL_FEATURE_SW_DTRANS
 RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
                                          DTransImmutableInfo *DTII) {
-#else // INTEL_FEATURE_SW_DTRANS
+#else  // INTEL_FEATURE_SW_DTRANS
 RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
 #endif // INTEL_FEATURE_SW_DTRANS
   if (!Ref->isMemRef() || Ref->isFake() || Ref->getBitCastDestType()) {

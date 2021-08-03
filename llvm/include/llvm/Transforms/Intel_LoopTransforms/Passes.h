@@ -69,7 +69,7 @@ FunctionPass *createHIRGenerateMKLCallPass();
 
 /// createHIRLoopBlockingPass - This creates a pass that performs Loop
 /// Blocking.
-FunctionPass *createHIRLoopBlockingPass();
+FunctionPass *createHIRLoopBlockingPass(bool SinkForMultiCopy = true);
 
 /// createHIRPragmaLoopBlockingPass - This creates a pass that performs Loop
 /// Blocking for pragma directives.

@@ -2161,7 +2161,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
         FPM.addPass(HIRInterLoopBlockingPass());
 #endif // INTEL_FEATURE_SW_ADVANCED
 
-      FPM.addPass(HIRLoopBlockingPass());
+      FPM.addPass(
+          HIRLoopBlockingPass(ThroughputModeOpt != ThroughputMode::SingleJob));
       FPM.addPass(HIRUndoSinkingForPerfectLoopnestPass());
       FPM.addPass(HIRDeadStoreEliminationPass());
       FPM.addPass(HIRLoopReversalPass());

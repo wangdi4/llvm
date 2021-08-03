@@ -69,12 +69,16 @@
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;
 using namespace dtransOP;
+using dtrans::AllocCallInfo;
 using dtrans::DTransAnnotator;
+using dtrans::FreeCallInfo;
+using dtrans::MemfuncCallInfo;
 using dtrans::StructInfo;
 
 #define DEBUG_TYPE "dtrans-aostosoaop"
@@ -196,6 +200,13 @@ struct PerFunctionInfo {
   SmallVector<GetElementPtrInst *, 16> GEPsToConvert;
   SmallVector<ByteGEPInfo, 16> ByteGEPsToConvert;
 
+  SmallVector<std::pair<BitCastInst *, DTransStructType *>, 4> BCsToConvert;
+
+  // Memory allocation and free calls for the type being transformed that need
+  // to be transformed.
+  SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 1> AllocsToConvert;
+  SmallVector<std::pair<FreeCallInfo *, StructInfo *>, 1> FreesToConvert;
+
   // GetElementPtr instructions that access fields that are of the type being
   // transformed from a dependent type.
   SmallVector<GetElementPtrInst *, 16> DepGEPsToConvert;
@@ -203,6 +214,11 @@ struct PerFunctionInfo {
   // GetElementPtr instructions using the byte flattened form to access a
   // dependent type.
   SmallVector<ByteGEPInfo, 16> DepByteGEPsToConvert;
+
+  // Calls for dependent types that need to be resized.
+  SmallVector<std::pair<AllocCallInfo *, StructInfo *>, 1> DepAllocsToResize;
+  SmallVector<std::pair<MemfuncCallInfo *, StructInfo *>, 1>
+      DepMemfuncsToResize;
 
   // A list of pointer conversion instructions inserted as part of the
   // processFunction routine (pointer to int, int to pointer, or pointer of
@@ -217,7 +233,7 @@ struct PerFunctionInfo {
 
   // Instructions from the input IR that need to be removed at the end of
   // processFunction().
-  SmallVector<Instruction *, 16> InstructionsToDelete;
+  SetVector<Instruction *> InstructionsToDelete;
 
   // Instructions that need to have their type changed prior to the type
   // remapping of the IR. In order to recognize the pointers that are going to
@@ -257,10 +273,13 @@ public:
   void visitPHINode(PHINode &I);
   void visitSelectInst(SelectInst &I);
   void visitICmpInst(ICmpInst &I);
+  void visitBitCastInst(BitCastInst &I);
   // TODO: visit other instruction types
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
   DTransStructType *getDTransStructTypeforValue(Value *V);
+
+  void evaluateCallInfo(dtrans::CallInfo *CInfo);
 
 private:
   AOSToSOAOPTransformImpl &Transform;
@@ -324,6 +343,13 @@ private: // methods
   void convertDepGEP(GetElementPtrInst *GEP);
   void convertDepByteGEP(GetElementPtrInst *GEP, DTransStructType *OrigStructTy,
                          size_t FieldNum);
+  void convertBC(BitCastInst *BC, DTransStructType *StructTy);
+  bool hasLiveUser(Instruction *I);
+
+  void convertAllocCall(AllocCallInfo *AInfo, StructInfo *StInfo);
+  void convertFreeCall(FreeCallInfo *CInfo, StructInfo *StInfo);
+  void convertDepAllocCall(AllocCallInfo *AInfo, StructInfo *StInfo);
+  void convertDepMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo);
 
   void updateCallAttributes(CallBase *Call);
   void updateFunctionAttributes(Function &OrigFn, Function &CloneFn);
@@ -610,7 +636,13 @@ void AOSCollector::visitStoreInst(StoreInst &I) {
 }
 
 void AOSCollector::visitCallBase(CallBase &I) {
-  // TODO: Check if the call needs to be transformed based on the CallInfo data.
+  // Check if the call needs to be transformed based on the CallInfo.
+  if (auto *CInfo = DTInfo.getCallInfo(&I)) {
+    evaluateCallInfo(CInfo);
+    // The remaining checks of this function are not relevant for calls to
+    // function that been identified as CallInfo objects.
+    return;
+  }
 
   // The type qualification checks rejected any types passed to address taken
   // functions, so there is nothing to check for indirect calls.
@@ -682,6 +714,86 @@ void AOSCollector::visitCallBase(CallBase &I) {
   unsigned NumOps = I.getNumArgOperands();
   for (unsigned ArgNum = 0; ArgNum < NumOps; ++ArgNum)
     checkForConstantToConvert(&I, ArgNum);
+}
+
+void AOSCollector::evaluateCallInfo(dtrans::CallInfo *CInfo) {
+  // This enumeration is used to indicate the type of conversion an
+  // call instruction needs when checking the CallInfo object for the type the
+  // call operates on.
+  //   AOS_NoConv  - Instruction does not need to be converted.
+  //   AOS_SOAConv - Instruction requires conversion of the pointer to index.
+  //   AOS_DepConv - Instruction requires changes due to data structure size
+  //                 change made to a dependent type.
+  typedef enum { AOS_NoConv, AOS_SOAConv, AOS_DepConv } AOSConvType;
+
+  // Get the Type for CallInfo cases that can be transformed. If the CallInfo is
+  // for a case that is not being transformed, return nullptr as the first
+  // element of the pair.
+  auto &TheTransform = Transform;
+  auto GetCallInfoTypeToTransform = [&TheTransform](dtrans::CallInfo *CInfo)
+      -> std::pair<DTransStructType *, AOSConvType> {
+    auto &TypeList = CInfo->getElementTypesRef();
+
+    // Only cases with a single type will be allowed during the transformation.
+    // If there's more than one, we don't need the type, because we won't be
+    // transforming it.
+    if (TypeList.getNumTypes() != 1)
+      return std::make_pair(nullptr, AOS_NoConv);
+
+    llvm::Type *ElemTy = TypeList.getElemLLVMType(0);
+    if (TheTransform.isTypeToTransform(ElemTy))
+      return std::make_pair(
+          cast<DTransStructType>(TypeList.getElemDTransType(0)), AOS_SOAConv);
+
+    if (TheTransform.isDependentTypeSizeChanged(ElemTy))
+      return std::make_pair(
+          cast<DTransStructType>(TypeList.getElemDTransType(0)), AOS_DepConv);
+
+    return std::make_pair(nullptr, AOS_NoConv);
+  };
+
+  DTransStructType *CInfoElemTy;
+  AOSConvType ConvType = AOS_NoConv;
+  std::tie(CInfoElemTy, ConvType) = GetCallInfoTypeToTransform(CInfo);
+  if (ConvType == AOS_NoConv)
+    return;
+
+  auto *TI = DTInfo.getTypeInfo(CInfoElemTy);
+  assert(TI && "Expected TypeInfo for structure type");
+  auto *StructTI = cast<StructInfo>(TI);
+  switch (CInfo->getCallInfoKind()) {
+  case dtrans::CallInfo::CIK_Alloc: {
+    auto *AInfo = cast<AllocCallInfo>(CInfo);
+    // The candidate qualification should have only allowed calloc or
+    // malloc for the types being directly transformed. Dependent types
+    // are only resized, so other allocation types are allowed.
+    if (ConvType == AOS_SOAConv)
+      assert((AInfo->getAllocKind() == dtrans::AK_Calloc ||
+              AInfo->getAllocKind() == dtrans::AK_Malloc) &&
+             "Only calloc or malloc expected for AOS-to-SOA types");
+
+    if (ConvType == AOS_SOAConv)
+      FuncInfo.AllocsToConvert.push_back({AInfo, StructTI});
+    else
+      FuncInfo.DepAllocsToResize.push_back({AInfo, StructTI});
+    break;
+  }
+  case dtrans::CallInfo::CIK_Free:
+    // We only need to update the 'free' if it's the AOS-to-SOA type
+    // being converted. There is no impact on calls to free for
+    // dependent types.
+    if (ConvType == AOS_SOAConv)
+      FuncInfo.FreesToConvert.push_back({cast<FreeCallInfo>(CInfo), StructTI});
+    break;
+  case dtrans::CallInfo::CIK_Memfunc:
+    if (ConvType == AOS_SOAConv)
+      llvm_unreachable(
+          "Memfuncs currently not permitted on the type being transformed");
+    else
+      FuncInfo.DepMemfuncsToResize.push_back(
+          {cast<MemfuncCallInfo>(CInfo), StructTI});
+    break;
+  }
 }
 
 // Check for a return instruction that returns an opaque 'null' pointer value of
@@ -804,6 +916,21 @@ void AOSCollector::visitICmpInst(ICmpInst &I) {
 
   uint32_t NullOpIdx = IsNull0 ? 0 : 1;
   FuncInfo.ConstantsToReplace.push_back({&I, NullOpIdx, TypeInAddrSpace});
+}
+
+void AOSCollector::visitBitCastInst(BitCastInst &I) {
+  if (!I.getType()->isPointerTy())
+    return;
+
+  auto *Info = PTA.getValueTypeInfo(&I);
+  assert(Info && "Expected PointerTypeAnalyzer to collect type");
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (Ty && Ty->isPointerTy() &&
+      Ty->getPointerElementType()->isStructTy()) {
+    auto *StructTy = cast<DTransStructType>(Ty->getPointerElementType());
+    if (Transform.isTypeToTransform(StructTy->getLLVMType()))
+      FuncInfo.BCsToConvert.push_back(std::make_pair(&I, StructTy));
+  }
 }
 
 // Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
@@ -1032,8 +1159,13 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   auto FuncInfoProcessFunctionComplete = [this]() {
     FuncInfo->GEPsToConvert.clear();
     FuncInfo->ByteGEPsToConvert.clear();
+    FuncInfo->BCsToConvert.clear();
+    FuncInfo->AllocsToConvert.clear();
+    FuncInfo->FreesToConvert.clear();
     FuncInfo->DepGEPsToConvert.clear();
     FuncInfo->DepByteGEPsToConvert.clear();
+    FuncInfo->DepAllocsToResize.clear();
+    FuncInfo->DepMemfuncsToResize.clear();
     FuncInfo->CallsToConvert.clear();
     FuncInfo->InstructionsToDelete.clear();
     FuncInfo->InstructionsToMutate.clear();
@@ -1048,12 +1180,23 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
   AOSCollector Collector(*this, *DTInfo, *FuncInfo);
   Collector.visit(F);
 
+  // Convert the allocation calls first because the result of the allocation can
+  // be used in a GetElementPtr instruction, and the conversion of the
+  // allocation will update those GEP instructions.
+  for (auto &Alloc : FuncInfo->AllocsToConvert)
+    convertAllocCall(Alloc.first, Alloc.second);
+  for (auto &Free : FuncInfo->FreesToConvert)
+    convertFreeCall(Free.first, Free.second);
+
   for (auto *GEP : FuncInfo->GEPsToConvert)
     convertGEP(GEP);
   for (auto &GEPInfo : FuncInfo->ByteGEPsToConvert)
     convertByteGEP(std::get<PerFunctionInfo::ByteGEPInfoGEPMember>(GEPInfo),
                    std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
                    std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
+
+  for (auto &KV : FuncInfo->BCsToConvert)
+    convertBC(KV.first, KV.second);
 
   // Process the instructions using dependent structure types.
   for (auto *GEP : FuncInfo->DepGEPsToConvert)
@@ -1064,6 +1207,12 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
         std::get<PerFunctionInfo::ByteGEPInfoGEPMember>(GEPInfo),
         std::get<PerFunctionInfo::ByteGEPInfoTypeMember>(GEPInfo),
         std::get<PerFunctionInfo::ByteGEPInfoFieldMember>(GEPInfo));
+
+  for (auto &Alloc : FuncInfo->DepAllocsToResize)
+    convertDepAllocCall(Alloc.first, Alloc.second);
+
+  for (auto &MemCall : FuncInfo->DepMemfuncsToResize)
+    convertDepMemfuncCall(MemCall.first, MemCall.second);
 
   for (auto *Call : FuncInfo->CallsToConvert)
     updateCallAttributes(Call);
@@ -1076,6 +1225,9 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     else
       KV.first->mutateType(KV.second);
 
+  // Note, this needs to be done before instruction deletion, because there
+  // could be an 'icmp' marked for deletion by the allocation conversion that is
+  // on the list of instructions to be deleted.
   for (auto &IOT : FuncInfo->ConstantsToReplace) {
     Instruction *I = std::get<0>(IOT);
     uint32_t OpNum = std::get<1>(IOT);
@@ -1531,7 +1683,7 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
     llvm::Type *TypeInAddrSpace = getAddrSpacePtrForType(OrigStructTy);
     if (TypeInAddrSpace)
       FuncInfo->InstructionsToMutate.push_back({ArrayIdx, TypeInAddrSpace});
-    FuncInfo->InstructionsToDelete.push_back(GEP);
+    FuncInfo->InstructionsToDelete.insert(GEP);
     return;
   }
 
@@ -1597,7 +1749,7 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
   }
 
   GEP->replaceAllUsesWith(ReplVal);
-  FuncInfo->InstructionsToDelete.push_back(GEP);
+  FuncInfo->InstructionsToDelete.insert(GEP);
 }
 
 void AOSToSOAOPTransformImpl::convertByteGEP(GetElementPtrInst *GEP,
@@ -1631,6 +1783,437 @@ void AOSToSOAOPTransformImpl::convertDepByteGEP(GetElementPtrInst *GEP,
                                                 size_t FieldNum) {
   // TODO: Handle byte-flattened GEPs on a dependent type.
   llvm_unreachable("Dependent type ByteGEP conversion not implemented yet");
+}
+
+void AOSToSOAOPTransformImpl::convertBC(BitCastInst *BC,
+                                           DTransStructType *StructTy) {
+  // The bitcast should no longer be needed after processing other instructions.
+  if (!hasLiveUser(BC)) {
+    LLVM_DEBUG(dbgs() << "Deleting bitcast: " << *BC << "\n");
+    FuncInfo->InstructionsToDelete.insert(BC);
+    return;
+  }
+
+  llvm_unreachable("Unexpected live Bitcast");
+}
+
+// Return 'true' if any instruction that uses the result of 'I' is not in the
+// list of instructions to be deleted as part of processing the current
+// function.
+bool AOSToSOAOPTransformImpl::hasLiveUser(Instruction *I) {
+  for (auto *U : I->users())
+    if (auto *Inst = dyn_cast<Instruction>(U))
+      if (!FuncInfo->InstructionsToDelete.contains(Inst))
+        return true;
+
+  return false;
+}
+
+// The allocation call for a type being transformed into a structure of arrays
+// needs to be converted to initialize the SOA variable that stores the
+// addresses of the start of each array.
+//
+// For example: struct t1 { int a, b, c};
+// will have the new global structure: struct __AOS_t1 { int *a, *b, *c };
+// This routine initializes the pointers of the global variable for a, b, c to
+// point to the appropriate location of the allocated block of memory.
+//
+// The size of the allocation, and uses of the result of the allocation call
+// will also be updated within the function.
+//
+void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
+                                               StructInfo *StInfo) {
+  auto *AllocCallInst = cast<CallInst>(AInfo->getInstruction());
+  LLVM_DEBUG(dbgs() << "Updating allocation call: " << *AllocCallInst << "\n");
+
+  StructType *OrigStructTy = cast<StructType>(StInfo->getLLVMType());
+  uint64_t StructSize = DL.getTypeAllocSize(OrigStructTy);
+  struct SOATypeInfoTy &SOAInfo = getSOATypeInfo(OrigStructTy);
+  StructType *SOAStructType = SOAInfo.SOAStructType;
+  GlobalVariable *SOAVar = SOAInfo.SOAVar;
+
+  // Set up an IR builder to insert instructions starting before the
+  // allocation statement. The IR builder will perform constant
+  // folding when the allocation count is a constant when computing new
+  // allocation sizes or offsets into the allocated memory block.
+  IRBuilder<> IRB(AllocCallInst);
+
+  // This will store the adjusted number of elements allocated by the call.
+  Value *NewAllocCountVal = nullptr;
+
+  dtrans::AllocKind Kind = AInfo->getAllocKind();
+  unsigned OrigAllocSizeInd = 0;
+  unsigned OrigAllocCountInd = 0;
+  const TargetLibraryInfo &TLI = GetTLI(*AllocCallInst->getFunction());
+  getAllocSizeArgs(Kind, AllocCallInst, OrigAllocSizeInd, OrigAllocCountInd,
+                   TLI);
+
+  auto *OrigAllocSizeVal = AllocCallInst->getArgOperand(OrigAllocSizeInd);
+  if (Kind == dtrans::AK_Malloc) {
+    assert(OrigAllocSizeVal && "getAllocSizeArgs should return size value");
+
+    // Compute the number of elements being allocated.
+    llvm::Type *SizeType = OrigAllocSizeVal->getType();
+    Value *StructSizeVal = ConstantInt::get(SizeType, StructSize);
+    NewAllocCountVal = IRB.CreateSDiv(OrigAllocSizeVal, StructSizeVal);
+
+    // Update the size allocated to hold one additional structure element.
+    // This is necessary because an index value of 0 will represent
+    // the nullptr, and the array accesses will be in the range of 1..N.
+    NewAllocCountVal =
+        IRB.CreateAdd(NewAllocCountVal, ConstantInt::get(SizeType, 1));
+    Value *NewAllocationSize = IRB.CreateMul(NewAllocCountVal, StructSizeVal);
+    AllocCallInst->setOperand(OrigAllocSizeInd, NewAllocationSize);
+    LLVM_DEBUG(dbgs() << "Modified allocation:\n"
+                      << "\nSize: " << *NewAllocationSize << "\n  "
+                      << *AllocCallInst << "\n");
+
+  } else {
+    assert(Kind == dtrans::AK_Calloc && "Expected calloc");
+    auto *OrigAllocCountVal = AllocCallInst->getArgOperand(OrigAllocCountInd);
+    assert(OrigAllocSizeVal && OrigAllocCountVal &&
+           "getAllocSizeArgs should return size and count value");
+
+    // Determine the values to use for the number of allocated objects, and
+    // size being allocated.
+    Value *AllocCountVal = nullptr;
+    Value *AllocSizeVal = nullptr;
+    if (dtrans::isValueEqualToSize(OrigAllocSizeVal, StructSize)) {
+      AllocCountVal = OrigAllocCountVal;
+      AllocSizeVal = OrigAllocSizeVal;
+    } else if (dtrans::isValueEqualToSize(OrigAllocCountVal, StructSize)) {
+      // Reverse the size and count parameters.
+      AllocCountVal = OrigAllocSizeVal;
+      AllocSizeVal = OrigAllocCountVal;
+    } else {
+      // At this point, we know that either the number allocated or the
+      // allocation size is a multiple of the structure size, but not
+      // how many elements are being allocated.
+      Value *TotalSize = IRB.CreateMul(OrigAllocCountVal, OrigAllocSizeVal);
+      AllocSizeVal = ConstantInt::get(TotalSize->getType(), StructSize);
+      AllocCountVal = IRB.CreateSDiv(TotalSize, AllocSizeVal);
+    }
+
+    // Compute new values for the allocation count and size parameters.
+    // We want the count to be 1 larger than the original number that
+    // were being allocated, and the size parameter to equal the structure
+    // size for the calloc parameters.
+    NewAllocCountVal = IRB.CreateAdd(
+        AllocCountVal, ConstantInt::get(AllocCountVal->getType(), 1));
+    AllocCallInst->setOperand(OrigAllocCountInd, NewAllocCountVal);
+    AllocCallInst->setOperand(OrigAllocSizeInd, AllocSizeVal);
+    LLVM_DEBUG(dbgs() << "Modified allocation:\n"
+                      << "Count:" << *NewAllocCountVal << "\nSize: "
+                      << *AllocSizeVal << "\n  " << *AllocCallInst << "\n");
+  }
+
+  assert(NewAllocCountVal &&
+         "Expected alloc call processing to set NewAllocCountVal");
+
+  // Pointers in the structure that corresponded to the base allocation
+  // address will be accessed via index 1 in the new structure. Update the
+  // users of the allocation to refer to index 1. This loop collects the
+  // values to be updated to avoid changing the users while walking them.
+  SmallVector<ICmpInst *, 2> ICmpsToFix;
+  SmallVector<StoreInst *, 2> StoresToFix;
+  SmallVector<BitCastInst *, 2> BitCastsToFix;
+  SmallVector<GetElementPtrInst *, 16> GepsToFix;
+  for (auto *User : AllocCallInst->users()) {
+    if (auto *U = dyn_cast<Instruction>(&*User)) {
+      if (auto *ICmp = dyn_cast<ICmpInst>(U)) {
+        ICmpsToFix.push_back(ICmp);
+      } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // We expect the value operand to have been the use, because writing
+        // to the allocated memory pointer should have set the safety flags
+        // that inhibit the transformation.
+        assert(SI->getValueOperand() == AllocCallInst &&
+               "Expected allocation result to be stored value");
+        StoresToFix.push_back(SI);
+      } else if (auto *BC = dyn_cast<BitCastInst>(U)) {
+        BitCastsToFix.push_back(BC);
+      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(U)) {
+        GepsToFix.push_back(GEP);
+      } else {
+        llvm_unreachable("Unexpected instruction using allocation result");
+      }
+    } else {
+      llvm_unreachable("Unexpected use of allocation result");
+    }
+  }
+
+  // To support the typed-pointer form, also check for a use of a bitcast of the
+  // allocation against a nullptr, to keep that as a null-pointer check.
+  //   %mem = call i8* @calloc(i64 10, i64 24)
+  //   %st = bitcast i8* %mem to %struct.test01*
+  //   %success2 = icmp eq %struct.test01* %st, null
+  for (auto *BC : BitCastsToFix)
+    for (auto *U : BC->users())
+      if (auto *ICmp = dyn_cast<ICmpInst>(U))
+        if (isa<ConstantPointerNull>(ICmp->getOperand(0)) ||
+            isa<ConstantPointerNull>(ICmp->getOperand(1)))
+          ICmpsToFix.push_back(ICmp);
+
+  for (auto *ICmp : ICmpsToFix) {
+    // For the ICmp, this was originally a direct use of the allocation function
+    // call result, but the Value object is inferred as being a pointer to the
+    // transformed type. We want to keep this as a pointer comparison to null,
+    // and not rewrite it as an integer comparison.
+    //   %56 = call ptr @calloc(i64 %num, i64 %size)
+    //   %cmp = icmp eq ptr %56, null
+    auto *NewICmp = ICmpInst::Create(
+        Instruction::ICmp, ICmpInst::ICMP_EQ, AllocCallInst,
+        ConstantPointerNull::get(cast<PointerType>(AllocCallInst->getType())),
+        "", ICmp);
+    NewICmp->takeName(ICmp);
+    ICmp->replaceAllUsesWith(NewICmp);
+    FuncInfo->InstructionsToDelete.insert(ICmp);
+  }
+
+  // Update the stored value to be an index value of 1.
+  // We will use a special address space on the pointer when opaque pointers are
+  // in use, so that the type remapping will recognize it and change it back
+  // into the index type, so that the casts become no-ops.
+  uint32_t AddrSpace = getAddrSpaceForType(OrigStructTy);
+  llvm::Type *TypeInAddrSpace = PointerType::get(OrigStructTy, AddrSpace);
+  for (auto *SI : StoresToFix) {
+    CastInst *IndexAsPtr = CastInst::CreateBitOrPointerCast(
+        ConstantInt::get(IndexInfo.LLVMType, 1), TypeInAddrSpace);
+    IndexAsPtr->insertBefore(SI);
+    SI->setOperand(0, IndexAsPtr);
+    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+  }
+
+  // Replace the BitCast instructions with an IntToPtr instruction that casts
+  // index 1 to the original pointer type. After the type remapping
+  // completes, the destination type of the cast will be the index
+  // type, and post processing will remove the instruction.
+  for (auto *BC : BitCastsToFix) {
+    CastInst *IndexAsPtr = CastInst::CreateBitOrPointerCast(
+        ConstantInt::get(IndexInfo.LLVMType, 1), BC->getType());
+    IndexAsPtr->insertBefore(BC);
+    BC->replaceAllUsesWith(IndexAsPtr);
+    FuncInfo->InstructionsToDelete.insert(BC);
+    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+
+    // Change the type IntToPtr instruction so that it will be recognized as
+    // needing to be updated during type remapping.
+    IndexAsPtr->mutateType(TypeInAddrSpace);
+  }
+
+  // When opaque pointers are in use, the result of the allocation will be used
+  // directly in the GEP instructions without being bitcast. Because the
+  // allocated elements will be accessed by index following the transformation,
+  // change the GEP to use an index value. When the GEPs are converted, these
+  // will be updated to access the element from the SOA variable.
+  for (auto *GEP : GepsToFix) {
+    CastInst *IndexAsPtr = CastInst::CreateBitOrPointerCast(
+        ConstantInt::get(IndexInfo.LLVMType, 1),
+        PointerType::get(GEP->getSourceElementType(), AddrSpace));
+    IndexAsPtr->insertBefore(GEP);
+    GEP->setOperand(0, IndexAsPtr);
+    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+  }
+
+  // Initialize the pointer fields of the SOA structure to store an
+  // address of the allocated memory block. Padding may be needed
+  // to align the start of the array for some elements. When padding
+  // is required, we can start the array at the next available aligned
+  // address, or we can leave a gap to simulate peeling of the original array
+  // padding to get to the aligned address of the field. As an example
+  // consider the structure {i32, i64, i32 }, padding may be required between
+  // the 1st and 2nd arrays depending on the number of elements being
+  // allocated. If we are allocating arrays of length 5 (after the adjustment
+  // for the null element), then the array of i64 elements can begin at offset
+  // 24 (minimal padding) or at offset 40 (original padding of i32 element is
+  // effectively peeled)
+  //
+  // This version minimizes the padding, but we may revisit this.
+  //
+  // The memory writes generated below are on the global variable, so will be
+  // safe even if the allocation call returns NULL.
+
+  // Use the same type as the allocation parameter for the offset
+  // calculations.
+  Type *ArithType = NewAllocCountVal->getType();
+  Value *AddrOffset = ConstantInt::get(ArithType, 0);
+  Type *PrevArrayElemType = nullptr;
+
+  // Insert the initialization of the field members to be right after the
+  // allocation call.
+  LLVMContext &Ctx = AllocCallInst->getContext();
+  DTransStructType *DTransStructTy = SOAInfo.DTransSOAStructType;
+  IRB.SetInsertPoint(AllocCallInst->getNextNode());
+  unsigned int NumElements = SOAStructType->getNumElements();
+  for (unsigned FieldNum = 0; FieldNum < NumElements; ++FieldNum) {
+    Type *ArrayElemType = SOAInfo.LLVMStructRemappedFieldsTypes[FieldNum];
+    if (FieldNum != 0) {
+      // Compute the offset for the next array based on the size
+      // of the previous element's array.
+      unsigned PrevElemSize = DL.getTypeAllocSize(PrevArrayElemType);
+      Value *Mul = IRB.CreateMul(NewAllocCountVal,
+                                 ConstantInt::get(ArithType, PrevElemSize));
+      if (AddrOffset == ConstantInt::get(ArithType, 0))
+        AddrOffset = Mul;
+      else
+        AddrOffset = IRB.CreateAdd(AddrOffset, Mul);
+
+      // Update the offset value to account for any padding that may be
+      // needed, if this element has a stricter alignment requirement than the
+      // previous element.
+      uint64_t PrevFieldAlign = DL.getABITypeAlignment(PrevArrayElemType);
+      uint64_t FieldAlign = DL.getABITypeAlignment(ArrayElemType);
+      if (FieldAlign > PrevFieldAlign) {
+        Value *Numerator = IRB.CreateAdd(
+            AddrOffset, ConstantInt::get(ArithType, FieldAlign - 1));
+        Value *Div =
+            IRB.CreateSDiv(Numerator, ConstantInt::get(ArithType, FieldAlign));
+        AddrOffset =
+            IRB.CreateMul(Div, ConstantInt::get(ArithType, FieldAlign));
+      }
+    }
+
+    // Compute the address in the memory block where the array for this field
+    // will begin:
+    //   %BlockAddr = getelementptr i8, ptr %AllocCallInst, i64 %Offset
+    Value *BlockAddr =
+        IRB.CreateGEP(Type::getInt8Ty(Ctx), AllocCallInst, AddrOffset);
+
+    // Annotate the GEP into the allocated block to allow subsequent runs
+    // of DTrans passes to resolve the type as a pointer to an array of
+    // elements. This is necessary because the allocated memory block is
+    // being partitioned into multiple arrays.
+    unsigned PtrLevel = 0;
+    DTransType *DTransFieldType = DTransStructTy->getFieldType(FieldNum);
+    assert(DTransFieldType && "Invalid DTrans structure type");
+    DTransType *BaseDTransType = DTransFieldType;
+    while (BaseDTransType->isPointerTy()) {
+      ++PtrLevel;
+      BaseDTransType = BaseDTransType->getPointerElementType();
+    }
+    DTransAnnotator::createDTransTypeAnnotation(
+        *cast<Instruction>(BlockAddr), BaseDTransType->getLLVMType(), PtrLevel);
+
+    // Cast to the pointer type that will be stored to support non-opaque
+    // pointers:
+    //   %CastToMemberTy = bitcast i8* %BlockAddr to %SOAFieldType
+    Type *SOAFieldType = SOAStructType->getElementType(FieldNum);
+    Value *CastToMemberTy = IRB.CreateBitCast(BlockAddr, SOAFieldType);
+
+    // Get the address in the global structure for the field to be stored:
+    //   %FieldAddr = getelementptr
+    //                   %SOAVarType, ptr %SOAVar, i64 0, i32 %FieldNum
+    LLVMContext &Ctx = SOAStructType->getContext();
+    Value *Idx[2];
+    Idx[0] = Constant::getNullValue(Type::getInt64Ty(Ctx));
+    Idx[1] = ConstantInt::get(Type::getInt32Ty(Ctx), FieldNum);
+    Value *FieldAddr = IRB.CreateGEP(SOAStructType, SOAVar, Idx);
+
+    // Save the pointer to the global structure field.
+    //   store %CastToMemberTy, %FieldAddr
+    IRB.CreateStore(CastToMemberTy, FieldAddr);
+
+    PrevArrayElemType = ArrayElemType;
+  }
+
+  // Annotate the allocation call for other the DTrans dynamic cloning
+  // optimization.
+  Module *M = AllocCallInst->getParent()->getParent()->getParent();
+  auto *Annot = DTransAnnotator::createPtrAnnotation(
+      *M, *AllocCallInst, *SOAInfo.AllocAnnotationGEP, *AnnotationFilenameGEP,
+      0, "annot_alloc", nullptr);
+  Annot->insertAfter(AllocCallInst);
+
+  LLVM_DEBUG(dbgs() << "Adding annotation for allocation: " << *AllocCallInst
+                    << "\n  : " << *Annot << "\n");
+}
+
+// The transformation of the call to free needs to change the parameter
+// passed to 'free' to be the address stored within our SOA global variable.
+void AOSToSOAOPTransformImpl::convertFreeCall(FreeCallInfo *CInfo,
+                                              StructInfo *StInfo) {
+  auto CollectNullChecks = [](Value *V,
+                              SmallVectorImpl<ICmpInst *> &CheckInsts) {
+    for (auto *User : V->users())
+      if (auto *U = dyn_cast<Instruction>(&*User))
+        if (auto *ICmp = dyn_cast<ICmpInst>(U))
+          if (isa<ConstantPointerNull>(ICmp->getOperand(0)) ||
+              isa<ConstantPointerNull>(ICmp->getOperand(1)))
+            CheckInsts.push_back(ICmp);
+  };
+
+  Instruction *FreeCall = CInfo->getInstruction();
+  assert(FreeCall && isa<CallInst>(FreeCall) &&
+         !cast<CallInst>(FreeCall)->isIndirectCall() &&
+         "Instruction should be direct function call");
+
+  unsigned PtrArgInd = -1U;
+  const TargetLibraryInfo &TLI = GetTLI(*FreeCall->getFunction());
+  getFreePtrArg(CInfo->getFreeKind(), cast<CallInst>(FreeCall), PtrArgInd, TLI);
+  Value *FreeArg = FreeCall->getOperand(PtrArgInd);
+  auto *FreeArgInst = dyn_cast<Instruction>(FreeArg);
+  // The type being transformed cannot have a global instance, so the argument
+  // to free it must be defined by an Instruction, and not a global constant.
+  assert(FreeArgInst && "FreeArg must be instruction");
+
+  // If there is a null pointer test of the free call argument, we want to find
+  // it, and substitute the address of the memory stored in the SOA variable
+  // created by the allocation conversion.
+  Instruction *InsertionPoint = FreeArgInst;
+  SmallVector<ICmpInst *, 2> ICmpsToFix;
+  CollectNullChecks(FreeArgInst, ICmpsToFix);
+  if (auto *BC = dyn_cast<BitCastInst>(FreeArgInst)) {
+    auto *BCOpInst = dyn_cast<Instruction>(BC->getOperand(0));
+    assert(BCOpInst && "FreeArg bitcast must be instruction");
+    CollectNullChecks(BCOpInst, ICmpsToFix);
+    InsertionPoint = BCOpInst;
+  }
+
+  // To free the transformed data structure, we need to get the address
+  // stored in the first field of the global variable, and pass that
+  // to free.
+  StructType *OrigStructTy = cast<StructType>(StInfo->getLLVMType());
+  struct SOATypeInfoTy &SOAInfo = getSOATypeInfo(OrigStructTy);
+
+  GlobalVariable *SOAVar = SOAInfo.SOAVar;
+  Instruction *SOAAddr = createSOAFieldLoad(
+      SOAInfo, ConstantInt::get(Type::getInt32Ty(SOAVar->getContext()), 0),
+      InsertionPoint);
+  Value *NewFreeArg = SOAAddr;
+  if (!FreeArg->getType()->isOpaquePointerTy()) {
+    CastInst *SOAAddrAsI8Ptr =
+        CastInst::CreateBitOrPointerCast(SOAAddr, FreeArg->getType());
+    SOAAddrAsI8Ptr->insertAfter(SOAAddr);
+    NewFreeArg = SOAAddrAsI8Ptr;
+  }
+
+  for (auto *ICmp : ICmpsToFix) {
+    // The original 'icmp' instruction may have been collected by the visitICmp
+    // instruction to convert to an integer index test, so insert a new ICmp,
+    // instead of changing the operands.
+    auto *NewICmp = ICmpInst::Create(
+        Instruction::ICmp, ICmpInst::ICMP_EQ, NewFreeArg,
+        ConstantPointerNull::get(cast<PointerType>(NewFreeArg->getType())), "",
+        ICmp);
+    NewICmp->takeName(ICmp);
+    ICmp->replaceAllUsesWith(NewICmp);
+    FuncInfo->InstructionsToDelete.insert(ICmp);
+  }
+
+  LLVM_DEBUG(dbgs() << "AOS-to-SOA updating free call: " << *FreeCall << "\n");
+  FreeCall->setOperand(PtrArgInd, NewFreeArg);
+  LLVM_DEBUG(dbgs() << "                           to: " << *FreeCall << "\n");
+}
+
+void AOSToSOAOPTransformImpl::convertDepAllocCall(AllocCallInfo *AInfo,
+                                                  StructInfo *StInfo) {
+  // TODO: Handle resizing allocations on a dependent type.
+  llvm_unreachable("Dependent type alloc conversion not implemented yet");
+}
+
+void AOSToSOAOPTransformImpl::convertDepMemfuncCall(MemfuncCallInfo *CInfo,
+                                                    StructInfo *StInfo) {
+  // TODO: Handle resizing memfuncs on a dependent type.
+  llvm_unreachable("Dependent type memfunc conversion not implemented yet");
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
