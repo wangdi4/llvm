@@ -1570,6 +1570,11 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
       }
     }
 
+  // TODO: This is a temporary bailout. Remove when conditional
+  // lastprivate finalization is supported in LLVM-IR vector CG.
+  if (LE->hasConditionalLastPrivate())
+    return false;
+
   return true;
 }
 
