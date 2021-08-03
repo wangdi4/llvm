@@ -1,7 +1,8 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
 ; CHECK:        ModulePass Manager
-; CHECK:          Translate SPIR-V builtins to OCL 2.0 builtins
+; CHECK-NEXT:     Regularize LLVM for SPIR-V
+; CHECK-NEXT:     Translate SPIR-V builtins to OCL 2.0 builtins
 
 ; CHECK:        FunctionPass Manager
 ; CHECK-NEXT:     Unify function exit nodes
