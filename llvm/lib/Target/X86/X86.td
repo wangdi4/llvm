@@ -853,6 +853,11 @@ def FeatureCMULFalseDeps : SubtargetFeature<"false-deps-cmul",
                                  "HasCMULFalseDeps", "true",
                                  "CMUL have a false dependency on dest register">;
 #endif // INTEL_CUSTOMIZATION
+//===----------------------------------------------------------------------===//
+// X86 CPU Families
+// TODO: Remove these - use general tuning features to determine codegen.
+//===----------------------------------------------------------------------===//
+
 // Bonnell
 def ProcIntelAtom : SubtargetFeature<"", "X86ProcFamily", "IntelAtom", "">;
 // Silvermont
