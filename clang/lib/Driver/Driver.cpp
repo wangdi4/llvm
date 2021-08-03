@@ -4263,7 +4263,8 @@ class OffloadingActionBuilder final {
           A = C.MakeAction<BackendJobAction>(A, OutputTy);
           continue;
         }
-        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A);
+        A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A,
+                                               AssociatedOffloadKind);
         ++I;
       }
 #endif // INTEL_CUSTOMIZATION
