@@ -33,7 +33,7 @@
 ; CHECK:      --- Start Intel Binary Optimization Report ---
 ; CHECK-NEXT: Version: 1.5
 ; CHECK-NEXT: Property Message Map:
-; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; CHECK-DAG:    C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
 ; CHECK-DAG:    C_LOOP_VEC_VL --> vectorization support: vector length %s
 ; CHECK-NEXT: Number of reports: 3
@@ -46,7 +46,7 @@
 ; CHECK-DAG:  === Loop Begin ===
 ; CHECK-DAG:  Anchor ID: b68fb1a5d7b9ecadc2fd3ff1c82add13
 ; CHECK-DAG:  Number of remarks: 1
-; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
@@ -64,7 +64,7 @@
 ; CHECK-NEXT: Property Message Map:
 ; CHECK-DAG:    C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
 ; CHECK-DAG:    C_LOOP_VEC_VL --> vectorization support: vector length %s
-; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; CHECK-NEXT: Number of reports: 3
 
 ; CHECK-DAG:  === Loop Begin ===
@@ -82,7 +82,7 @@
 ; CHECK-DAG:  === Loop Begin ===
 ; CHECK-DAG:  Anchor ID: 1e104d1c773c7812387af0552b56e6aa
 ; CHECK-DAG:  Number of remarks: 1
-; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK:      --- End Intel Binary Optimization Report ---
@@ -372,7 +372,7 @@ attributes #4 = { nounwind }
 !14 = !{!"intel.optreport.debug_location", !15}
 !15 = !DILocation(line: 7, column: 3, scope: !7)
 !16 = !{!"intel.optreport.remarks", !17}
-!17 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!17 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
 !18 = !{!"intel.optreport.next_sibling", !19}
 !19 = distinct !{!"intel.optreport.rootnode", !20}
 !20 = distinct !{!"intel.optreport", !21, !23, !27}

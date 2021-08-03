@@ -26,7 +26,7 @@
 
 namespace llvm {
 
-LLVM_ATTRIBUTE_NORETURN static void error(Twine Msg, StringRef InputFileName) {
+static void error(Twine Msg, StringRef InputFileName) {
   // Flush the standard output to print the error at a proper place.
   fouts().flush();
   WithColor::error(errs(), "intel-bin-opt-report")
@@ -34,7 +34,7 @@ LLVM_ATTRIBUTE_NORETURN static void error(Twine Msg, StringRef InputFileName) {
   exit(1);
 }
 
-LLVM_ATTRIBUTE_NORETURN static void error(Error E, StringRef InputFileName) {
+static void error(Error E, StringRef InputFileName) {
   // Flush the standard output to print the error at a proper place.
   fouts().flush();
   std::string Buf;

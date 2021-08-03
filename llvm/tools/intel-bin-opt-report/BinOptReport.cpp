@@ -294,8 +294,13 @@ static void writeReport(const opt_report_proto::BinOptReport &BOR) {
              << opt_report_proto::BinOptReport::Property_Name(R.prop_id());
           OS << ", Remark ID: " << R.remark_id();
           OS << ", Remark Args: ";
-          for (int J = 0; J < R.args_size(); ++J)
-            OS << R.args(J) << " ";
+          for (auto J = 0; J < R.args_size(); ++J) {
+            const opt_report_proto::BinOptReport::Arg &Arg = R.args(J);
+            if (Arg.has_str_arg())
+              OS << Arg.str_arg().value() << " ";
+            else if (Arg.has_int32_arg())
+              OS << Arg.int32_arg().value() << " ";
+          }
           OS << "\n";
         }
         OS << "==== Loop End ====\n";
