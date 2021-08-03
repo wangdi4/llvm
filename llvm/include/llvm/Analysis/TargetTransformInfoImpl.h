@@ -187,7 +187,8 @@ public:
   }
 
   void getUnrollingPreferences(Loop *, ScalarEvolution &,
-                               TTI::UnrollingPreferences &) const {}
+                               TTI::UnrollingPreferences &,
+                               OptimizationRemarkEmitter *) const {}
 
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
   void getPeelingPreferences(Loop *, ScalarEvolution &,
