@@ -75,6 +75,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
 @anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
 
+define internal i32 @arr_alloc_dv() {
+  %1 = tail call i32 @for_allocate_handle(i64 400, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), i32 262144, i8* null)
+  ret i32 %1
+}
+
 ; Function Attrs: nofree noinline nounwind uwtable
 define internal void @arr_mod_mp_allocate_arr_(i32 %temp) #0 {
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 5), align 8
@@ -102,7 +107,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32 %temp) #0 {
   br i1 %7, label %if.then, label %if.end
 
 if.then:
-  %8 = tail call i32 @for_allocate_handle(i64 400, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), i32 262144, i8* null) #3
+  %8 = tail call i32 @arr_alloc_dv()
   br label %if.end
 
 if.end:
