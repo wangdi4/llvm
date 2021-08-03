@@ -817,6 +817,7 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
 #define CALL_ZE_RET_FAIL(Fn, ...) CALL_ZE_RET(OFFLOAD_FAIL, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_NULL(Fn, ...) CALL_ZE_RET(NULL, Fn, __VA_ARGS__)
 #define CALL_ZE_RET_ZERO(Fn, ...) CALL_ZE_RET(0, Fn, __VA_ARGS__)
+#define CALL_ZE_RET_VOID(Fn, ...) CALL_ZE_RET(, Fn, __VA_ARGS__)
 
 #define CALL_ZE_EXIT_FAIL(Fn, ...)                                             \
   do {                                                                         \

@@ -333,6 +333,10 @@ struct DeviceTy {
   int32_t isAccessibleAddrRange(const void *Ptr, size_t Size);
   int32_t notifyIndirectAccess(const void *Ptr, size_t Offset);
   int32_t isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx);
+  // BatchLevel 1 enables data batching within a target region
+  // BatchLevel 2 enables full batching within a target region
+  int32_t commandBatchBegin(int32_t BatchLevel = 1);
+  int32_t commandBatchEnd(int32_t BatchLevel = 1);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return

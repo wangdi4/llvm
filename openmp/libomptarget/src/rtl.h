@@ -102,6 +102,8 @@ struct RTLInfoTy {
   typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
   typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
   typedef int32_t(is_private_arg_on_host_ty)(int32_t, const void *, uint32_t);
+  typedef int32_t(command_batch_begin_ty)(int32_t, int32_t);
+  typedef int32_t(command_batch_end_ty)(int32_t, int32_t);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -181,6 +183,8 @@ struct RTLInfoTy {
   is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
   notify_indirect_access_ty *notify_indirect_access = nullptr;
   is_private_arg_on_host_ty *is_private_arg_on_host = nullptr;
+  command_batch_begin_ty *command_batch_begin = nullptr;
+  command_batch_end_ty *command_batch_end = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;

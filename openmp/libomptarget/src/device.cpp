@@ -1051,6 +1051,20 @@ int32_t DeviceTy::isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx) {
   else
     return 0;
 }
+
+int32_t DeviceTy::commandBatchBegin(int32_t BatchLevel) {
+  if (RTL->command_batch_begin)
+    return RTL->command_batch_begin(RTLDeviceID, BatchLevel);
+  else
+    return OFFLOAD_SUCCESS;
+}
+
+int32_t DeviceTy::commandBatchEnd(int32_t BatchLevel) {
+  if (RTL->command_batch_end)
+    return RTL->command_batch_end(RTLDeviceID, BatchLevel);
+  else
+    return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

@@ -338,6 +338,12 @@ EXTERN int32_t __tgt_rtl_notify_indirect_access(
 // in the host memory.
 EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
     int32_t ID, const void *TgtEntryPtr, uint32_t Idx);
+
+// Begin data batch commands
+EXTERN int32_t __tgt_rtl_command_batch_begin(int32_t ID, int32_t BatchLevel);
+
+// End data batch commands
+EXTERN int32_t __tgt_rtl_command_batch_end(int32_t ID, int32_t BatchLevel);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);

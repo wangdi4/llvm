@@ -319,6 +319,28 @@ discrete devices.
 
 **Default**: 4
 
+``LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Value> := <Type>[,<Count>]
+  <Type>  := none | NONE | copy | COPY | compute | COMPUTE
+  <Count> := maximum number of commands to batch
+
+Enables command batching for a target region.
+
+``<Type>=none|NONE``: Disables command batching.
+``<Type>=copy|COPY``: Enables command batching for a target region for data
+transfer.
+``<Type>=compute|COMPUTE``: Enables command batching for a target region for
+data transfer and compute, disabling use of copy engine.
+
+If ``<Type>`` is either ``copy`` or ``compute`` (enabled) and ``<Count>`` is not
+specified, batching is performed for all eligible commands for the target
+region.
+
+**Default**: ``<Type>=none`` (Disabled)
+
 
 Plugin OpenCL
 -------------

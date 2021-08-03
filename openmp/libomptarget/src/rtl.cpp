@@ -361,6 +361,8 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(is_accessible_addr_range);
     SET_OPTIONAL_INTERFACE_FN(notify_indirect_access);
     SET_OPTIONAL_INTERFACE_FN(is_private_arg_on_host);
+    SET_OPTIONAL_INTERFACE_FN(command_batch_begin);
+    SET_OPTIONAL_INTERFACE_FN(command_batch_end);
     SET_OPTIONAL_INTERFACE(run_team_nd_region, run_target_team_nd_region);
     SET_OPTIONAL_INTERFACE(run_region_nowait, run_target_region_nowait);
     SET_OPTIONAL_INTERFACE(run_team_region_nowait,
