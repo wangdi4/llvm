@@ -2271,7 +2271,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         }
         case CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED:
         {
-            const char* cts_version = "v2021-03-25-00";
+            const char* cts_version = "v2021-06-16-00";
             *pinternalRetunedValueSize = strlen(cts_version) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
