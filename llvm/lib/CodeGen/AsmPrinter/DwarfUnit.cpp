@@ -407,6 +407,9 @@ void DwarfUnit::addBlock(DIE &Die, dwarf::Attribute Attribute, dwarf::Form Form,
 
 void DwarfUnit::addBlock(DIE &Die, dwarf::Attribute Attribute,
                          DIEBlock *Block) {
+#if INTEL_CUSTOMIZATION
+  Block->ComputeSize(Asm);
+#endif // INTEL_CUSTOMIZATION
   addBlock(Die, Attribute, Block->BestForm(), Block);
 }
 
