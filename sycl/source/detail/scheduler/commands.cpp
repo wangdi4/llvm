@@ -2067,6 +2067,8 @@ cl_int ExecCGCommand::enqueueImp() {
       } else
         KnownProgram = false;
     } else {
+      // FIXME should validate if any use-case leads here as in such a case
+      // Kernel handle remains nullptr
       std::tie(Kernel, KernelMutex) =
           detail::ProgramManager::getInstance().getOrCreateKernel(
               ExecKernel->MOSModuleHandle, Context, MQueue->get_device(),
@@ -2092,6 +2094,8 @@ cl_int ExecCGCommand::enqueueImp() {
           SetKernelParamsAndLaunch(ExecKernel, DeviceImageImpl, Kernel, NDRDesc,
                                    RawEvents, Event, EliminatedArgMask);
     } else {
+      auto ContextImpl = MQueue->getContextImplPtr();
+      Locked<RT::PiKernel> Lock = ContextImpl->getNonCachedKernelLock(Kernel);
       Error =
           SetKernelParamsAndLaunch(ExecKernel, DeviceImageImpl, Kernel, NDRDesc,
                                    RawEvents, Event, EliminatedArgMask);
