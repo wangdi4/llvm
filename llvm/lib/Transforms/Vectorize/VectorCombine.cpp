@@ -1261,8 +1261,12 @@ bool VectorCombine::run() {
       MadeChange |= scalarizeBinopOrCmp(I);
       MadeChange |= foldExtractedCmps(I);
       MadeChange |= scalarizeLoadExtract(I);
+#if INTEL_CUSTOMIZATION
+      // Need put all the customized functions in front of
+      // foldSingleElementStore since it may erase 'I'.
+      MadeChange |= foldVLSInsert(I);
+#endif // INTEL_CUSTOMIZATION
       MadeChange |= foldSingleElementStore(I);
-      MadeChange |= foldVLSInsert(I); // INTEL
     }
   }
 
