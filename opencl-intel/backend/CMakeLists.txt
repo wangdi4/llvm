@@ -76,10 +76,6 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(vectorizer             "${CMAKE_CURRENT_BINARY_DIR}/vectorizer")
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
-if (OPENCL_BE_INCLUDE_TESTS)
-    add_subdirectory(tests)
-endif (OPENCL_BE_INCLUDE_TESTS)
-
 if (BACKEND_BUILD_VERIFICATION_LIB)
     add_subdirectory(external/tinyxml  "${CMAKE_CURRENT_BINARY_DIR}/tinyxml")
     add_subdirectory(validations       "${CMAKE_CURRENT_BINARY_DIR}/validations")
@@ -101,3 +97,7 @@ if (BACKEND_BUILD_VERIFICATION_LIB)
     set_target_properties( FMAtest PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/validation/tests )
     set_target_properties( tinyxml_STL PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/externals )
 endif (BACKEND_BUILD_VERIFICATION_LIB)
+
+if (OPENCL_BE_INCLUDE_TESTS)
+    add_subdirectory(tests)
+endif (OPENCL_BE_INCLUDE_TESTS)

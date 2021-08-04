@@ -26,8 +26,31 @@ list(APPEND BE_TEST_DEPS
 )
 
 if (BACKEND_BUILD_VERIFICATION_LIB)
-  list(APPEND BE_TEST_DEPS SATest ValidationTests)
   add_subdirectory(recorder)
+  list(APPEND BE_TEST_DEPS
+    Comparator
+    DataGenerator
+    DataManager
+    DataVersion
+    FMAtest
+    ImathLibd
+    LLVMInterpreterPluggable
+    NEAT
+    NEATChecker
+    OCLBuilder
+    OCLBuiltinsRef
+    OCLKernelDataGenerator
+    OclRecorder
+    OclRecorderTest
+    OpenCLKernelArgumentsParser
+    PlugInNEAT
+    ProgramConfiguration
+    REFALU
+    ReflectionModuleTest
+    SATest
+    TestTypeConversion
+    ValidationTests
+    ref-ocl-tblgen)
 endif (BACKEND_BUILD_VERIFICATION_LIB)
 
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
