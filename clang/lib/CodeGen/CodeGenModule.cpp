@@ -4899,16 +4899,12 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
     if (OpenMPRuntime->hasAllocateAttributeForGlobalVar(D, AS))
       return AS;
 #if INTEL_COLLAB
-    if (getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP &&
-        // FIXME: we should probably add TargetCodeGenInfo for SPIR
-        //        and do this in getGlobalVarAddressSpace().
-        getTarget().getTriple().isSPIR()) {
+    if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsDevice) {
       if (D && D->getType().getAddressSpace() != LangAS::Default)
         // Allow overriding the address space, e.g.
         // with __attribute__((opencl_constant)).
         return D->getType().getAddressSpace();
-
-      return LangAS::opencl_global;
+      return LangAS::sycl_global;
     }
 #endif // INTEL_COLLAB
   }
@@ -4922,9 +4918,8 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
   if (LangOpts.SYCLIsDevice)
     return LangAS::sycl_global;
 #if INTEL_COLLAB
-  // Matches logic above in GetGlobalVarAddressSpace().
-  if (getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP && getTarget().getTriple().isSPIR())
-    return LangAS::opencl_global;
+  if (LangOpts.OpenMPLateOutline && LangOpts.OpenMPIsDevice)
+    return LangAS::sycl_global;
 #endif // INTEL_COLLAB
   if (auto AS = getTarget().getConstantAddressSpace())
     return AS.getValue();

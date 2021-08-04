@@ -76,9 +76,6 @@ static const unsigned SPIRDefIsGenMap[] = {
 };
 
 class LLVM_LIBRARY_VISIBILITY SPIRTargetInfo : public TargetInfo {
-#if INTEL_COLLAB
-  bool UseAutoOpenCLAddrSpaceForOpenMP = false;
-#endif  // INTEL_COLLAB
 public:
   SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
@@ -156,13 +153,6 @@ public:
   void adjust(DiagnosticsEngine &Diags, LangOptions &Opts) override {
     TargetInfo::adjust(Diags, Opts);
 #if INTEL_COLLAB
-    bool OpenMPDefIsGen = false;
-    if (Opts.OpenMPLateOutline && Opts.UseAutoOpenCLAddrSpaceForOpenMP) {
-      // Use generic address space for all pointers except
-      // globals and stack locals.
-      UseAutoOpenCLAddrSpaceForOpenMP = true;
-      OpenMPDefIsGen = true;
-    }
     if (Opts.OpenMPLateOutline && Opts.OpenMPUseLLVMAtomic) {
       if (getTriple().getArch() == llvm::Triple::spir)
         MaxAtomicInlineWidth = 32;
@@ -178,6 +168,7 @@ public:
     // address space in the same address space map. Hence the map needs to be
     // reset to allow mapping to the desired value of 'Default' entry for SYCL.
 #if INTEL_COLLAB
+    bool OpenMPDefIsGen = Opts.OpenMPLateOutline;
     setAddressSpaceMap(
         /*DefaultIsGeneric=*/Opts.SYCLIsDevice || OpenMPDefIsGen);
 #else // INTEL_COLLAB
