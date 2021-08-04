@@ -92,7 +92,7 @@ bool SGSizeCollectorPass::runImpl(Module &M) {
     for (auto It = df_begin(Node); It != df_end(Node);) {
 
       Function *Fn = It->getFunction();
-      if (Fn->isIntrinsic() || Fn->isDeclaration() ||
+      if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
           Fn->getName().startswith("WG.boundaries.") ||
           // Workaround for Vectorizer not supporting byval/byref
           // parameters. We can ignore the children as they won't be called
