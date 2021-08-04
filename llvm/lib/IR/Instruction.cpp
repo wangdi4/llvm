@@ -12,7 +12,7 @@
 
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReport.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -109,7 +109,7 @@ iplist<Instruction>::iterator Instruction::eraseFromParent() {
   if (DetectLostOptReports && isTerminator())
     if (auto *MD = getMetadata(LLVMContext::MD_loop))
       for (unsigned I = 1, IE = MD->getNumOperands(); I < IE; ++I)
-        if (LoopOptReport::isOptReportMetadata(MD->getOperand(I)))
+        if (OptReport::isOptReportMetadata(MD->getOperand(I)))
           llvm_unreachable("The deleted OptReport will be missing.");
 #endif  // NDEBUG
 #endif  // INTEL_CUSTOMIZATION
@@ -864,12 +864,12 @@ void Instruction::swapProfMetadata() {
 }
 
 #if INTEL_CUSTOMIZATION
-static MDNode *eraseLoopOptReport(MDNode *LoopID, LLVMContext &Context) {
+static MDNode *eraseOptReport(MDNode *LoopID, LLVMContext &Context) {
   SmallVector<Metadata *, 4> Ops;
   Ops.push_back(nullptr);
-  std::copy_if(
-      std::next(LoopID->op_begin()), LoopID->op_end(), std::back_inserter(Ops),
-      [](Metadata *M) { return !LoopOptReport::isOptReportMetadata(M); });
+  std::copy_if(std::next(LoopID->op_begin()), LoopID->op_end(),
+               std::back_inserter(Ops),
+               [](Metadata *M) { return !OptReport::isOptReportMetadata(M); });
   if (Ops.size() == 1) {
     return nullptr;
   }
@@ -916,7 +916,7 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
     if (WL.empty() || WLS.count(MD.first)) {
       // Erase loop opt report before copying loop metadata.
       if (MD.first == LLVMContext::MD_loop) {
-        auto *NewMD = eraseLoopOptReport(MD.second, getContext());
+        auto *NewMD = eraseOptReport(MD.second, getContext());
         setMetadata(MD.first, NewMD);
         continue;
       }

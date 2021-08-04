@@ -14,10 +14,10 @@
 if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
   # Needed by LLVM's CMake checks since target is linked with an optionally built library.
   set(LLVM_OPTIONAL_SOURCES
-    LoopOptReportSupport.cpp
+    OptReportSupport.cpp
     )
 
-  # Create protobuf .h and .cc files, and put them in a library for use by LoopOptReportSupport component.
+  # Create protobuf .h and .cc files, and put them in a library for use by OptReportSupport component.
   find_package(Protobuf REQUIRED)
   add_definitions(-DGOOGLE_PROTOBUF_NO_RTTI)
   add_definitions(-DINTEL_ENABLE_PROTO_BIN_OPTRPT)
@@ -37,8 +37,8 @@ if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
 
 endif()
 
-add_llvm_component_library(LLVMIntel_LoopOptReportSupport
-  LoopOptReportSupport.cpp
+add_llvm_component_library(LLVMIntel_OptReportSupport
+  OptReportSupport.cpp
 
   DEPENDS
   intrinsics_gen
@@ -50,7 +50,7 @@ add_llvm_component_library(LLVMIntel_LoopOptReportSupport
   )
 
 if(INTEL_ENABLE_PROTO_BIN_OPTRPT)
-  target_link_libraries(LLVMIntel_LoopOptReportSupport
+  target_link_libraries(LLVMIntel_OptReportSupport
     PRIVATE
     ${PROTOBUF_LIBRARIES}
     LLVMIntel_OptReportProtoWriter

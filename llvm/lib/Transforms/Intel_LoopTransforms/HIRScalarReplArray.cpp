@@ -1,7 +1,7 @@
 //===--- HIRScalarReplArray.cpp -Loop Scalar Replacement Impl -*- C++ -*---===//
 // Implement HIR Loop Scalar Replacement of Array Access Transformation
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1258,11 +1258,11 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp) {
     }
   }
 
-  LoopOptReportBuilder &LORBuilder =
-      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Number of Array Refs Scalar Replaced In Loop: %d
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumGPRsPromoted);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25583u, NumGPRsPromoted);
 
   // Mark the loop has been changed, request CodeGen support
   // Note: ScalarReplArray won't change current HIRLoopStatistics

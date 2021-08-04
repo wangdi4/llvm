@@ -33,11 +33,11 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LegacyDivergenceAnalysis.h"
-#include "llvm/Analysis/Intel_Andersens.h"                      // INTEL
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
-#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -46,6 +46,7 @@
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
@@ -77,7 +78,6 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <map>
@@ -215,7 +215,7 @@ namespace {
 
 #if INTEL_CUSTOMIZATION
     // Helper for generating optimization reports.
-    LoopOptReportBuilder LORBuilder;
+    OptReportBuilder ORBuilder;
     TargetLibraryInfo *TLI;
 #endif // INTEL CUSTOMIZATION
 
@@ -584,8 +584,8 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPMRef) {
   Function *F = CurrentLoop->getHeader()->getParent();
 
 #if INTEL_CUSTOMIZATION
-  LORBuilder.setup(F->getContext(),
-                   getAnalysis<OptReportOptionsPass>().getVerbosity());
+  ORBuilder.setup(F->getContext(),
+                  getAnalysis<OptReportOptionsPass>().getVerbosity());
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(*F);
 #endif
 
@@ -1322,9 +1322,9 @@ void LoopUnswitch::unswitchTrivialCondition(Loop *L, Value *Cond, Constant *Val,
                     << " blocks] in Function "
                     << L->getHeader()->getParent()->getName()
                     << " on cond: " << *Val << " == " << *Cond << "\n");
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
-                                25422u,                          // INTEL
-                                AtLine(getOptReportLine(Cond))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,         // INTEL
+                               25422u,                          // INTEL
+                               AtLine(getOptReportLine(Cond))); // INTEL
 
   // We are going to make essential changes to CFG. This may invalidate cached
   // information for L or one of its parent loops in SCEV.
@@ -1626,9 +1626,9 @@ void LoopUnswitch::unswitchNontrivialCondition(
     ParentLoop->addBasicBlockToLoop(NewBlocks[0], *LI);
   }
 
-  LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
-                                25422u,                         // INTEL
-                                AtLine(getOptReportLine(LIC))); // INTEL
+  ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,        // INTEL
+                               25422u,                         // INTEL
+                               AtLine(getOptReportLine(LIC))); // INTEL
 
   for (unsigned EBI = 0, EBE = ExitBlocks.size(); EBI != EBE; ++EBI) {
     BasicBlock *NewExit = cast<BasicBlock>(VMap[ExitBlocks[EBI]]);

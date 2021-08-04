@@ -2530,7 +2530,7 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     addVPOPasses(PM, true);
 
   if (IntelOptReportEmitter == OptReportOptions::IR)
-    PM.add(createLoopOptReportEmitterLegacyPass());
+    PM.add(createOptReportEmitterLegacyPass());
 }
 
 #endif // INTEL_CUSTOMIZATION

@@ -103,7 +103,7 @@ private:
   AAResults &AA;
   HIRRegionIdentification &RI;
   HIRSCCFormation &SCCF;
-  LoopOptReportBuilder LORBuilder;
+  OptReportBuilder ORBuilder;
 
   /// HLNodeUtils object for the framework.
   std::unique_ptr<HLNodeUtils, HLNodeUtils::HLNodeUtilsDeleter> HNU;
@@ -204,8 +204,8 @@ public:
     return getModule().getDataLayout();
   }
 
-  /// Returns LORBuilder
-  LoopOptReportBuilder &getLORBuilder() { return LORBuilder; }
+  /// Returns ORBuilder
+  OptReportBuilder &getORBuilder() { return ORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
 

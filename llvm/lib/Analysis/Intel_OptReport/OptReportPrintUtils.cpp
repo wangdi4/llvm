@@ -1,4 +1,4 @@
-//===- LoopOptReportPrintUtils.cpp - Utils to print Loop Reports -*- C++ -*-==//
+//===----- OptReportPrintUtils.cpp - Utils to print Loop Reports -*- C++ -*-==//
 //
 // Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportPrintUtils.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportPrintUtils.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugLoc.h"
@@ -32,14 +32,14 @@ static unsigned getMDNodeAsUnsigned(const ConstantAsMetadata *CM) {
 static const unsigned IntentationStep = 4;
 
 // The purpose of this function is to create a printable remark message.
-// \p LoopOptReportRemark looks like this :
+// \p OptReportRemark looks like this :
 // !{!"Partially unrolled with %d factor", i32 8}
 // ..and it should return "Partially unrolled with 8 factor".
 // The function assumes only %s and %d format specifiers.
 // TODO Alexander: Replace the format string parameter with msg ID.
 //                 Add the support for %u, %f.
 //                 Add unit tests for this function.
-std::string formatRemarkMessage(LoopOptRemark Remark, unsigned RemarkID) {
+std::string formatRemarkMessage(OptRemark Remark, unsigned RemarkID) {
   std::string FormatString;
   if (RemarkID == OptReportDiag::InvalidRemarkID) {
     // Valid remark ID was not provided, format string is obtained from metadata
@@ -140,8 +140,7 @@ std::string formatRemarkMessage(LoopOptRemark Remark, unsigned RemarkID) {
   return Msg;
 }
 
-void printRemark(formatted_raw_ostream &FOS, unsigned Depth,
-                 LoopOptRemark Remark) {
+void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Remark) {
   assert(Remark && "Client code is responsible for providing non-null Remark");
   FOS.indent(IntentationStep * Depth);
   std::string RemarkPrefixStr;
@@ -155,8 +154,7 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth,
   FOS << RemarkPrefixStr << formatRemarkMessage(Remark, RemarkID) << "\n";
 }
 
-void printOrigin(formatted_raw_ostream &FOS, unsigned Depth,
-                 LoopOptRemark Origin) {
+void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin) {
   assert(Origin && "Client code is responsible for providing non-null Origin");
 
   FOS.indent(IntentationStep * Depth);
@@ -188,51 +186,48 @@ void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth) {
 }
 
 void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
-                              LoopOptReport OptReport, const DebugLoc &DL) {
+                              OptReport OR, const DebugLoc &DL) {
   printLoopHeader(FOS, Depth);
 
   if (DL.get())
     printDebugLocation(FOS, Depth, DL.get());
-  else if (OptReport && OptReport.debugLoc())
-    printDebugLocation(FOS, Depth, OptReport.debugLoc());
+  else if (OR && OR.debugLoc())
+    printDebugLocation(FOS, Depth, OR.debugLoc());
   else
     FOS << "\n";
 
-  if (OptReport) {
-    for (const LoopOptRemark R : OptReport.origin()) {
+  if (OR) {
+    for (const OptRemark R : OR.origin()) {
       printOrigin(FOS, Depth, R);
     }
   }
 }
 
 void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                            LoopOptReport OptReport) {
-  assert(OptReport &&
-         "Client code is responsible for providing non-null OptReport");
+                            OptReport OR) {
+  assert(OR && "Client code is responsible for providing non-null OptReport");
 
-  printLoopHeaderAndOrigin(FOS, Depth, OptReport, DebugLoc());
+  printLoopHeaderAndOrigin(FOS, Depth, OR, DebugLoc());
 
-  printOptReport(FOS, Depth + 1, OptReport);
+  printOptReport(FOS, Depth + 1, OR);
   printLoopFooter(FOS, Depth);
 
   // After printing Optimization Report for the first child, we check whether it
   // has attached lost next sibling loops.
-  if (OptReport.nextSibling())
-    printEnclosedOptReport(FOS, Depth, OptReport.nextSibling());
+  if (OR.nextSibling())
+    printEnclosedOptReport(FOS, Depth, OR.nextSibling());
 }
 
-void printOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                    LoopOptReport OptReport) {
-  assert(OptReport &&
-         "Client code is responsible for providing non-null OptReport");
+void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
+  assert(OR && "Client code is responsible for providing non-null OptReport");
 
-  for (const LoopOptRemark R : OptReport.remarks())
+  for (const OptRemark R : OR.remarks())
     printRemark(FOS, Depth, R);
 
   // After printing Optimization Report for the loop, we check whether it has
   // attached lost child loops opt reports.
-  if (OptReport.firstChild())
-    printEnclosedOptReport(FOS, Depth, OptReport.firstChild());
+  if (OR.firstChild())
+    printEnclosedOptReport(FOS, Depth, OR.firstChild());
 }
 } // namespace OptReportUtils
 } // namespace llvm

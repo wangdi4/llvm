@@ -1054,7 +1054,7 @@ static LoopUnrollResult tryToUnrollLoop(
     OptimizationRemarkEmitter &ORE,
     BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
     bool PreserveLCSSA, int OptLevel,
-    const LoopOptReportBuilder &LORBuilder, // INTEL
+    const OptReportBuilder &ORBuilder, // INTEL
     bool OnlyWhenForced, bool ForgetAllSCEV, Optional<unsigned> ProvidedCount,
     Optional<unsigned> ProvidedThreshold, Optional<bool> ProvidedAllowPartial,
     Optional<bool> ProvidedRuntime, Optional<bool> ProvidedUpperBound,
@@ -1187,10 +1187,10 @@ static LoopUnrollResult tryToUnrollLoop(
              << " iterations";
     });
 #if INTEL_CUSTOMIZATION
-    LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
-                                  "LLorg: Loop has been peeled by %d "
-                                  "iterations",
-                                  PP.PeelCount);
+    ORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
+                                 "LLorg: Loop has been peeled by %d "
+                                 "iterations",
+                                 PP.PeelCount);
 #endif  // INTEL_CUSTOMIZATION
 
     if (peelLoop(L, PP.PeelCount, LI, &SE, &DT, &AC, PreserveLCSSA)) {
@@ -1220,8 +1220,8 @@ static LoopUnrollResult tryToUnrollLoop(
       L,
       {UP.Count, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
        UP.UnrollRemainder, ForgetAllSCEV},
-       LI, &SE, &DT, &AC,                                      // INTEL
-       LORBuilder, &TTI, &ORE, PreserveLCSSA, &RemainderLoop); // INTEL
+       LI, &SE, &DT, &AC,                                     // INTEL
+       ORBuilder, &TTI, &ORE, PreserveLCSSA, &RemainderLoop); // INTEL
   if (UnrollResult == LoopUnrollResult::Unmodified)
     return LoopUnrollResult::Unmodified;
 
@@ -1307,8 +1307,8 @@ public:
 
 #if INTEL_CUSTOMIZATION
     auto &ORO = getAnalysis<OptReportOptionsPass>().Impl;
-    LoopOptReportBuilder LORBuilder;
-    LORBuilder.setup(F.getContext(), ORO.getVerbosity());
+    OptReportBuilder ORBuilder;
+    ORBuilder.setup(F.getContext(), ORO.getVerbosity());
 #endif  // INTEL_CUSTOMIZATION
     auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -1324,7 +1324,7 @@ public:
 
     LoopUnrollResult Result = tryToUnrollLoop(
         L, DT, LI, SE, TTI, AC, ORE, nullptr, nullptr,
-        PreserveLCSSA, OptLevel, LORBuilder, OnlyWhenForced, // INTEL
+        PreserveLCSSA, OptLevel, ORBuilder, OnlyWhenForced, // INTEL
         ForgetAllSCEV, ProvidedCount, ProvidedThreshold, ProvidedAllowPartial,
         ProvidedRuntime, ProvidedUpperBound, ProvidedAllowPeeling,
         ProvidedAllowProfileBasedPeeling, ProvidedFullUnrollMaxCount);
@@ -1394,9 +1394,9 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   Function *F = L.getHeader()->getParent();
 
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
-  LoopOptReportBuilder LORBuilder;
-  LORBuilder.setup(F->getContext(),
-                   ORO ? ORO->getVerbosity() : OptReportVerbosity::None);
+  OptReportBuilder ORBuilder;
+  ORBuilder.setup(F->getContext(),
+                  ORO ? ORO->getVerbosity() : OptReportVerbosity::None);
 #endif  // INTEL_CUSTOMIZATION
 
   // Keep track of the previous loop structure so we can identify new loops
@@ -1413,7 +1413,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   bool Changed = tryToUnrollLoop(&L, AR.DT, &AR.LI, AR.SE, AR.TTI, AR.AC, ORE,
                                  /*BFI*/ nullptr, /*PSI*/ nullptr,
                                  /*PreserveLCSSA*/ true, OptLevel,
-                                 LORBuilder,                          // INTEL
+                                 ORBuilder,                          // INTEL
                                  OnlyWhenForced, ForgetSCEV, /*Count*/ None,
                                  /*Threshold*/ None, /*AllowPartial*/ false,
                                  /*Runtime*/ false, /*UpperBound*/ false,
@@ -1487,8 +1487,8 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
 #if INTEL_CUSTOMIZATION
   auto &ORO = AM.getResult<OptReportOptionsAnalysis>(F); // INTEL
-  LoopOptReportBuilder LORBuilder;
-  LORBuilder.setup(F.getContext(), ORO.getVerbosity());
+  OptReportBuilder ORBuilder;
+  ORBuilder.setup(F.getContext(), ORO.getVerbosity());
 #endif  // INTEL_CUSTOMIZATION
 
   LoopAnalysisManager *LAM = nullptr;
@@ -1541,7 +1541,7 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
     LoopUnrollResult Result = tryToUnrollLoop(
         &L, DT, &LI, SE, TTI, AC, ORE, BFI, PSI,
         /*PreserveLCSSA*/ true, UnrollOpts.OptLevel, // INTEL
-        LORBuilder, UnrollOpts.OnlyWhenForced,       // INTEL
+        ORBuilder, UnrollOpts.OnlyWhenForced,        // INTEL
         UnrollOpts.ForgetSCEV, /*Count*/ None,
         /*Threshold*/ None, UnrollOpts.AllowPartial, UnrollOpts.AllowRuntime,
         UnrollOpts.AllowUpperBound, LocalAllowPeeling,

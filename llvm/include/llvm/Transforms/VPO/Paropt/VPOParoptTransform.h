@@ -61,7 +61,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
 
@@ -130,9 +130,9 @@ public:
         KmpTaskDependInfoTy(nullptr) {
 
 #if INTEL_CUSTOMIZATION
-        // Set up Builder for generating remarks using Loop Opt Report
+        // Set up Builder for generating remarks using Opt Report
         // framework (under -qopt-report).
-        LORBuilder.setup(F->getContext(), ORVerbosity);
+        ORBuilder.setup(F->getContext(), ORVerbosity);
 #endif  // INTEL_CUSTOMIZATION
       }
 
@@ -221,11 +221,13 @@ private:
   Triple TargetTriple;
 
 #if INTEL_CUSTOMIZATION
-  /// Verbosity level for generating remarks using Loop Opt Report framework (under -qopt-report).
+  /// Verbosity level for generating remarks using Opt Report framework (under
+  /// -qopt-report).
   OptReportVerbosity::Level ORVerbosity;
 
-  /// Builder for generating remarks using Loop Opt Report framework (under -qopt-report).
-  LoopOptReportBuilder LORBuilder;
+  /// Builder for generating remarks using Opt Report framework (under
+  /// -qopt-report).
+  OptReportBuilder ORBuilder;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Optimization remark emitter.

@@ -33,7 +33,7 @@
 
 #include "llvm/Analysis/ScalarEvolution.h"
 
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 
 #include "llvm/Analysis/Utils/Local.h"
@@ -129,10 +129,10 @@ public:
     llvm_unreachable("Unknown HIR type in CG");
   }
 
-  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
+  CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, OptReportBuilder &ORB)
       : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
         CurLoopHasSignedIV(false), Builder(HIRF.getContext()),
-        Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
+        Expander(SE, HIRF.getDataLayout(), "i", *this), ORBuilder(ORB) {}
 
 private:
   // Performs preprocessing for \p Reg before we start generating code for it.
@@ -337,7 +337,7 @@ private:
   bool CurLoopHasSignedIV;
   IRBuilder<> Builder;
   HIRSCEVExpander Expander;
-  const LoopOptReportBuilder &LORBuilder;
+  const OptReportBuilder &ORBuilder;
 
   // keep track of our mem allocs. Only IV and temps atm
   std::map<std::string, AllocaInst *> NamedValues;
@@ -367,7 +367,7 @@ class HIRCodeGen {
 private:
   HIRFramework &HIRF;
   ScalarEvolution &SE;
-  LoopOptReportBuilder &LORBuilder;
+  OptReportBuilder &ORBuilder;
 
   // Clears HIR related metadata from instructions. Returns true if any
   // instruction was cleared.
@@ -378,7 +378,7 @@ private:
 
 public:
   HIRCodeGen(HIRFramework &HIRF)
-      : HIRF(HIRF), SE(HIRF.getScopedSE()), LORBuilder(HIRF.getLORBuilder()) {}
+      : HIRF(HIRF), SE(HIRF.getScopedSE()), ORBuilder(HIRF.getORBuilder()) {}
 
   bool run();
 
@@ -440,7 +440,7 @@ bool HIRCodeGen::run() {
   LLVM_DEBUG(HIRF.getFunction().dump());
 
   // generate code
-  CGVisitor CG(HIRF, SE, LORBuilder);
+  CGVisitor CG(HIRF, SE, ORBuilder);
   bool Transformed = false;
   unsigned RegionIdx = 1;
 
@@ -1206,7 +1206,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
 
   initializeLiveins();
 
-  LoopOptReport RegOptReport = Reg->getOptReport();
+  OptReport RegOptReport = Reg->getOptReport();
   if (RegOptReport) {
     // Optreports for outermost lost loop are stored as first child of the
     // region. So it looks like:
@@ -1240,7 +1240,7 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     // this is not always correct: the proper way would be to find
     // a previous sibling of the loop first, even if this sibling
     // is located in another region.
-    LORBuilder(F).addChild(RegOptReport.firstChild());
+    ORBuilder(F).addChild(RegOptReport.firstChild());
   }
 
   // Onto children cg
@@ -1514,12 +1514,11 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
 
   // Attach metadata to the resulting loop; Exclude opt report field
   // if there was any.
-  MDNode *LoopID = LoopOptReport::eraseOptReportFromLoopID(
-      Lp->getLoopMetadata(), F.getContext());
+  MDNode *LoopID = OptReport::eraseOptReportFromLoopID(Lp->getLoopMetadata(),
+                                                       F.getContext());
 
-  if (LoopOptReport OptReport = Lp->getOptReport()) {
-    LoopID =
-        LoopOptReport::addOptReportToLoopID(LoopID, OptReport, F.getContext());
+  if (OptReport OR = Lp->getOptReport()) {
+    LoopID = OptReport::addOptReportToLoopID(LoopID, OR, F.getContext());
   }
 
   if (IsUnknownLoop) {

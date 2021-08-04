@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,15 +18,15 @@
 
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
-#include "../IntelVPlanValue.h"
 #include "../IntelVPlanOptrpt.h"
+#include "../IntelVPlanValue.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 using namespace llvm::loopopt;
@@ -54,24 +54,21 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
-                LoopOptReportBuilder &LORB,
-                const VPLoopEntityList *VPLoopEntities,
+                OptReportBuilder &ORB, const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
-                const RegDDRef *SearchLoopPeelArrayRef,
-                bool IsOmpSIMD)
+                const RegDDRef *SearchLoopPeelArrayRef, bool IsOmpSIMD)
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), LORBuilder(LORB),
+        TripCount(0), VF(0), UF(1), ORBuilder(ORB),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
         BlobUtilities(Loop->getBlobUtils()),
         CanonExprUtilities(Loop->getCanonExprUtils()),
         DDRefUtilities(Loop->getDDRefUtils()),
-        HLNodeUtilities(Loop->getHLNodeUtils()),
-        IsOmpSIMD(IsOmpSIMD) {
+        HLNodeUtilities(Loop->getHLNodeUtils()), IsOmpSIMD(IsOmpSIMD) {
     assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
     VLoop = *(Plan->getVPLoopInfo()->begin());
   }
@@ -569,7 +566,7 @@ private:
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
 
-  LoopOptReportBuilder &LORBuilder;
+  OptReportBuilder &ORBuilder;
   OptReportStatsTracker OptRptStats;
 
   // Map of DDRef symbase and widened ref

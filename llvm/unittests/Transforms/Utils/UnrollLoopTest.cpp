@@ -72,14 +72,14 @@ while.end:                                        ; preds = %while.cond
 
 #if INTEL_CUSTOMIZATION
   // Create a phony builder with OptReportVerbosity::None.
-  LoopOptReportBuilder LORBuilder;
-  LORBuilder.setup(F->getContext(), OptReportVerbosity::None);
+  OptReportBuilder ORBuilder;
+  ORBuilder.setup(F->getContext(), OptReportVerbosity::None);
 #endif  // INTEL_CUSTOMIZATION
 
   bool ret = UnrollRuntimeLoopRemainder(L, 4, true, false, false, false, &LI,
-                                        &SE, &DT, &AC, // INTEL
-                                        LORBuilder, // INTEL
+                                        &SE, &DT, &AC,   // INTEL
+                                        ORBuilder,       // INTEL
                                         /*TTI=*/nullptr, // INTEL
-                                        PreserveLCSSA); // INTEL
+                                        PreserveLCSSA);  // INTEL
   EXPECT_FALSE(ret);
 }

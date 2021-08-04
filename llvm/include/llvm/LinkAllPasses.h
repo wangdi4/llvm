@@ -134,7 +134,7 @@ namespace {
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();
-      (void) llvm::createLoopOptReportEmitterLegacyPass();
+      (void) llvm::createOptReportEmitterLegacyPass();
       (void) llvm::createLowerSubscriptIntrinsicLegacyPass();
       (void) llvm::createConvertGEPToSubscriptIntrinsicLegacyPass();
       (void) llvm::createCallTreeCloningPass();

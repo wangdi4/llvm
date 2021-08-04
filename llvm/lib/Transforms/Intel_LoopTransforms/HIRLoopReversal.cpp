@@ -1,6 +1,6 @@
 // ===- HIRLoopReversal.cpp - Implement HIR Loop Reversal Transformation -===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -401,7 +401,7 @@ bool HIRLoopReversal::run() {
   // TODO:
   // Re-Build DDA on demand if needed
 
-  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   for (auto &Lp : CandidateLoops) {
 
@@ -418,7 +418,7 @@ bool HIRLoopReversal::run() {
     ++HIRLoopReversalTriggered;
 
     // ID: 25579u, remark string: Loop was reversed
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25579u);
   }
 
   CandidateLoops.clear();

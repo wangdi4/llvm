@@ -1,6 +1,6 @@
 //===- HIRIdiomRecognition.cpp - Implements Loop idiom recognition pass ---===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -521,11 +521,11 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
 
   if (genMemset(Loop, Candidate, StoreSize, Candidate.IsStoreNegStride,
                 ExtractPreheader)) {
-    LoopOptReportBuilder &LORBuilder =
-        Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+    OptReportBuilder &ORBuilder =
+        Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
     // The memset idiom has been recognized
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
+    ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
     return true;
   }
 
@@ -582,11 +582,11 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
 
   NumMemCpy++;
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // The memcpy idiom has been recognized
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
   return true;
 }
 
@@ -714,8 +714,8 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     // TODO: maybe do not multiversion the loop if it has other instructions
     // apart from memset/memcpy calls.
     if (SmallTripCountCheck) {
-      LoopOptReportBuilder &LORBuilder =
-          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+      OptReportBuilder &ORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
       Loop->extractZtt();
       HLNodeUtils::replace(Loop, SmallTripCountCheck);
@@ -723,11 +723,11 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
 
       // The loop has been multiversioned for the small trip count
-      LORBuilder(*Loop)
+      ORBuilder(*Loop)
           .addOrigin("Small trip count multiversioned v1")
           .addRemark(OptReportVerbosity::Low, 25562u);
 
-      LORBuilder(*OrigLoopClone)
+      ORBuilder(*OrigLoopClone)
           .addOrigin("Small trip count multiversioned v2 (small)");
     }
 

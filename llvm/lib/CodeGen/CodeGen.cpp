@@ -122,7 +122,7 @@ void llvm::initializeCodeGen(PassRegistry &Registry) {
   initializeWinEHPreparePass(Registry);
   initializeXRayInstrumentationPass(Registry);
 #if INTEL_CUSTOMIZATION
-  initializeMachineLoopOptReportEmitterPass(Registry);
+  initializeMachineOptReportEmitterPass(Registry);
   initializeFloat128ExpandPass(Registry);
   initializeRAReportEmitterPass(Registry);
 #endif  // INTEL_CUSTOMIZATION

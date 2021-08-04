@@ -1,6 +1,6 @@
 //===----------------------- HIRSumWindowReuse.cpp ------------------------===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1129,7 +1129,7 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   }
 
 #if INTEL_INTERNAL_BUILD
-  LoopOptReportBuilder &LORBuilder = HNU.getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
 #endif // INTEL_INTERNAL_BUILD
 
   // Also remove the original loop if it is now empty:
@@ -1165,7 +1165,7 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   if (!LoopSums.InnerLoop->hasChildren()) {
 
 #if INTEL_INTERNAL_BUILD
-    LORBuilder(*LoopSums.InnerLoop).moveOptReportTo(*FirstIterLoop);
+    ORBuilder(*LoopSums.InnerLoop).moveOptReportTo(*FirstIterLoop);
 #endif // INTEL_INTERNAL_BUILD
 
     HLNodeUtils::remove(LoopSums.InnerLoop);
@@ -1181,11 +1181,9 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
   LoopSums.OuterLoop->getParentRegion()->setGenCode();
 
 #if INTEL_INTERNAL_BUILD
-  LORBuilder(*FirstIterLoop)
-    .addOrigin("Window sum initialization loop for sum window reuse");
-  LORBuilder(*LoopSums.OuterLoop)
-    .addRemark(OptReportVerbosity::Low,
-               25584u);
+  ORBuilder(*FirstIterLoop)
+      .addOrigin("Window sum initialization loop for sum window reuse");
+  ORBuilder(*LoopSums.OuterLoop).addRemark(OptReportVerbosity::Low, 25584u);
 #endif // INTEL_INTERNAL_BUILD
 }
 

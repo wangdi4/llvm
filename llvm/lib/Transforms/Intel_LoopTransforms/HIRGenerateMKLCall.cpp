@@ -1,6 +1,6 @@
 //===----- HIRGenerateMKLCall.cpp - Implements MKL Call transformation ----===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -319,7 +319,7 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
   // nested
   CollectCandidateLoops CCL(*this, CandidateLoops);
   HIRF.getHLNodeUtils().visitAll(CCL);
-  LoopOptReportBuilder &LORBuilder = HIRF.getLORBuilder();
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   for (auto *Loop : CandidateLoops) {
 
@@ -370,7 +370,7 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
     }
     // MKL call generated.
     if (MKLCallGenerated) {
-      LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25559u);
+      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25559u);
     }
 
     Modified |= MKLCallGenerated;

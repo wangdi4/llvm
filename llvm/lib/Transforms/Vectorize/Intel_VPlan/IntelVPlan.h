@@ -42,7 +42,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLGoto.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/Diag.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
@@ -4510,14 +4510,14 @@ public:
 /// VPLoopRegion MainLoop --> {"LOOP WAS VECTORIZED", "vector length: 4"}
 /// VPLoopRegion RemainderLoop --> {"remainder loop was not vectorized"}
 class VPlanOptReportBuilder {
-  LoopOptReportBuilder &LORBuilder;
-  // LORB needs the LoopInfo while adding remarks for llvm::Loop. This will be
-  // nullptr for HLLoop.
+  OptReportBuilder &ORBuilder;
+  // ORBuilder needs the LoopInfo while adding remarks for llvm::Loop. This
+  // will be nullptr for HLLoop.
   LoopInfo *LI;
 
 public:
-  VPlanOptReportBuilder(LoopOptReportBuilder &LORB, LoopInfo *LI = nullptr)
-      : LORBuilder(LORB), LI(LI) {}
+  VPlanOptReportBuilder(OptReportBuilder &ORB, LoopInfo *LI = nullptr)
+      : ORBuilder(ORB), LI(LI) {}
 
   /// Add a vectorization related remark for the HIR loop \p Lp. The remark
   /// message is identified by \p MsgID.

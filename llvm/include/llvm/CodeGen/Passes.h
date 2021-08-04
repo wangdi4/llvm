@@ -205,8 +205,8 @@ namespace llvm {
   extern char &ExpandPostRAPseudosID;
 
 #if INTEL_CUSTOMIZATION
-  /// MachineLoopOptReportEmitter - This pass prints loop optimization reports.
-  extern char &MachineLoopOptReportEmitterID;
+  /// MachineOptReportEmitter - This pass prints loop optimization reports.
+  extern char &MachineOptReportEmitterID;
 
   /// Float128Expand - This pass expands fp128 operations to libcalls.
   extern char &Float128ExpandID;

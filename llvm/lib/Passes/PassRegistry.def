@@ -577,7 +577,7 @@ FUNCTION_PASS("hir-vec-dir-insert", loopopt::HIRVecDirInsertPass())
 FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
 FUNCTION_PASS("hir-pragma-loop-blocking", loopopt::HIRPragmaLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
-FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
+FUNCTION_PASS("intel-ir-optreport-emitter", OptReportEmitterPass())
 FUNCTION_PASS("vplan-vec", vpo::VPlanDriverPass());
 FUNCTION_PASS("hir-vplan-vec", vpo::VPlanDriverHIRPass());
 FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());

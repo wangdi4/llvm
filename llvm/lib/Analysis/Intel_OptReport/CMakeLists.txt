@@ -1,7 +1,7 @@
 add_llvm_component_library(LLVMIntel_OptReport
   Diag.cpp
-  LoopOptReport.cpp
-  LoopOptReportPrintUtils.cpp
+  OptReport.cpp
+  OptReportPrintUtils.cpp
   OptReportOptionsPass.cpp
 
   ADDITIONAL_HEADER_DIRS

@@ -16,7 +16,7 @@
 #define LLVM_TRANSFORMS_UTILS_UNROLLLOOP_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #include "llvm/Analysis/TargetTransformInfo.h"
 
 namespace llvm {
@@ -77,7 +77,7 @@ struct UnrollLoopOptions {
 LoopUnrollResult UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                             ScalarEvolution *SE, DominatorTree *DT,
                             AssumptionCache *AC,
-                            const LoopOptReportBuilder &LORBuilder, // INTEL
+                            const OptReportBuilder &ORBuilder, // INTEL
                             const llvm::TargetTransformInfo *TTI,
                             OptimizationRemarkEmitter *ORE, bool PreserveLCSSA,
                             Loop **RemainderLoop = nullptr);
@@ -86,7 +86,7 @@ bool UnrollRuntimeLoopRemainder(
     Loop *L, unsigned Count, bool AllowExpensiveTripCount,
     bool UseEpilogRemainder, bool UnrollRemainder, bool ForgetAllSCEV,
     LoopInfo *LI, ScalarEvolution *SE, DominatorTree *DT, AssumptionCache *AC,
-    const LoopOptReportBuilder &LORBuilder, // INTEL
+    const OptReportBuilder &ORBuilder, // INTEL
     const TargetTransformInfo *TTI, bool PreserveLCSSA,
     Loop **ResultLoop = nullptr);
 

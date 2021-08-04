@@ -1,6 +1,6 @@
 //===- HIRRuntimeDD.cpp - Implements Multiversioning for Runtime DD -=========//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1483,12 +1483,12 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   HLLoop *NoAliasLoop = Context.Loop;
   HLLoop *ClonedLoop = Context.Loop->clone(&LoopMapper);
 
-  LoopOptReportBuilder &LORBuilder =
-      NoAliasLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      NoAliasLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  LORBuilder(*NoAliasLoop).addOrigin("Multiversioned loop");
+  ORBuilder(*NoAliasLoop).addOrigin("Multiversioned loop");
   // The loop has been multiversioned
-  LORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low, 25582u);
+  ORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low, 25582u);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;

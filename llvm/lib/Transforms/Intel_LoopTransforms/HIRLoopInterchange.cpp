@@ -1,6 +1,6 @@
 //===----- HIRLoopInterchange.cpp - Permutations of HIR loops -------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -270,7 +270,7 @@ protected:
                      unsigned SrcIndex);
   bool transformLoop(HLLoop *Loop);
 
-  void reportTransformation(LoopOptReportBuilder &LORBuilder);
+  void reportTransformation(OptReportBuilder &ORBuilder);
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 
@@ -1460,12 +1460,11 @@ bool HIRLoopInterchange::isLegalForAnyPermutation(const HLLoop *OutermostLoop) {
   return true;
 }
 
-void HIRLoopInterchange::reportTransformation(
-    LoopOptReportBuilder &LORBuilder) {
+void HIRLoopInterchange::reportTransformation(OptReportBuilder &ORBuilder) {
   // Do not do any string processing if OptReports are not needed.
   // "&& DebugFlag" should be deleted when lit-tests are rewritten to use opt
   // report info.
-  if (!LORBuilder.getVerbosity() && !DebugFlag)
+  if (!ORBuilder.getVerbosity() && !DebugFlag)
     return;
 
   HLLoop *OutermostLp = nullptr;
@@ -1484,7 +1483,7 @@ void HIRLoopInterchange::reportTransformation(
     }
   }
   OS << ")";
-  LORBuilder(*OutermostLp)
+  ORBuilder(*OutermostLp)
       .addRemark(OptReportVerbosity::Low, 25444u, OS.str().c_str());
 
   // This is needed for lit-tests for now.
@@ -1503,10 +1502,10 @@ bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation,
                                       InnermostNestingLevel);
 
-  LoopOptReportBuilder &LORBuilder =
-      Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  reportTransformation(LORBuilder);
+  reportTransformation(ORBuilder);
 
   Loop->getParentRegion()->setGenCode();
 

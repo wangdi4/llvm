@@ -74,7 +74,7 @@
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
 
@@ -1780,8 +1780,9 @@ bool VPOParoptTransform::paroptTransforms() {
               ORLinfo = W->getWRNLoopInfo().getLoopInfo();
               ORLoop = W->getWRNLoopInfo().getLoop();
               if (ORLoop != nullptr)
-                LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
-                           "CSA: OpenMP parallel loop will be pipelined");
+                ORBuilder(*ORLoop, *ORLinfo)
+                    .addRemark(OptReportVerbosity::Low,
+                               "CSA: OpenMP parallel loop will be pipelined");
             }
 
             if (W->getIsParSections()) {
@@ -1842,14 +1843,16 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr) {
-                   LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
-                              "OpenMP: Outlined parallel loop");
+                 ORBuilder(*ORLoop, *ORLinfo)
+                     .addRemark(OptReportVerbosity::Low,
+                                "OpenMP: Outlined parallel loop");
 
-                   // Add remark to enclosing loop (if any).
-                   if (ORLoop->getParentLoop() != nullptr)
-                      // An enclosing loop is present.
-                      LORBuilder(*(ORLoop->getParentLoop()), *ORLinfo).addRemark(OptReportVerbosity::Low,
-                                 "OpenMP: Parallel loop was outlined");
+                 // Add remark to enclosing loop (if any).
+                 if (ORLoop->getParentLoop() != nullptr)
+                   // An enclosing loop is present.
+                   ORBuilder(*(ORLoop->getParentLoop()), *ORLinfo)
+                       .addRemark(OptReportVerbosity::Low,
+                                  "OpenMP: Parallel loop was outlined");
                }
             }
 #endif  // INTEL_CUSTOMIZATION
@@ -2203,8 +2206,10 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                  LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
-                             "CSA: OpenMP worksharing loop will be pipelined");
+                 ORBuilder(*ORLoop, *ORLinfo)
+                     .addRemark(
+                         OptReportVerbosity::Low,
+                         "CSA: OpenMP worksharing loop will be pipelined");
             }
 
             if (W->getIsSections()) {
@@ -2270,8 +2275,9 @@ bool VPOParoptTransform::paroptTransforms() {
                ORLinfo = W->getWRNLoopInfo().getLoopInfo();
                ORLoop = W->getWRNLoopInfo().getLoop();
                if (ORLoop != nullptr)
-                  LORBuilder(*ORLoop, *ORLinfo).addRemark(OptReportVerbosity::Low,
-                             "OpenMP: Worksharing loop");
+                 ORBuilder(*ORLoop, *ORLinfo)
+                     .addRemark(OptReportVerbosity::Low,
+                                "OpenMP: Worksharing loop");
             }
 #endif  // INTEL_CUSTOMIZATION
 

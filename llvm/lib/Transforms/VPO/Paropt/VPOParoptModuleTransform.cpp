@@ -33,7 +33,7 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #endif // INTEL_CUSTOMIZATION

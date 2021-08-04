@@ -62,7 +62,7 @@
 #if INTEL_CUSTOMIZATION
 // It is not a good idea to include analyses headers in IR directory.
 // FIXME: Refactor the code to resolve this.
-#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#include "llvm/Analysis/Intel_OptReport/OptReport.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Argument.h"
@@ -878,7 +878,7 @@ void Verifier::visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs) {
 
     MDString *Str = dyn_cast<MDString>(Tuple->getOperand(0));
 
-    return Str && (Str->getString() == LoopOptReportTag::DebugLoc);
+    return Str && (Str->getString() == OptReportTag::DebugLoc);
   };
 
   if ((AllowLocs != AreDebugLocsAllowed::Yes) && IsOptReportDebugLoc(MD))

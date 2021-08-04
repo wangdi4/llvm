@@ -1,6 +1,6 @@
 //===--- HIRLMM.cpp -Implements Loop Memory Motion Pass -*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1020,7 +1020,7 @@ static void setLinear(DDRef *TmpRef, unsigned LoopLevel) {
 
 bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
                                          SmallSet<unsigned, 32> &TempRefSet,
-                                         LoopOptReportBuilder &LORBuilder) {
+                                         OptReportBuilder &ORBuilder) {
 
   HLInst *SingleLoadInst = nullptr;
 
@@ -1067,7 +1067,7 @@ bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
   LoadRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25563u, remark string: Load hoisted out of the loop
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
 
   return true;
 }
@@ -1075,7 +1075,7 @@ bool HIRLMM::hoistLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
 bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
                                          MemRefGroup &Group,
                                          SmallSet<unsigned, 32> &TempRefSet,
-                                         LoopOptReportBuilder &LORBuilder) {
+                                         OptReportBuilder &ORBuilder) {
   if (!canSinkSingleStore(Lp, StoreRef, Group, TempRefSet)) {
     return false;
   }
@@ -1092,7 +1092,7 @@ bool HIRLMM::sinkStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   TempRef->updateDefLevel(LoopLevel - 1);
 
   // ID: 25564u, remark string: Store sinked out of the loop
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   return true;
 }
 
@@ -1134,12 +1134,11 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
   // Need a Load in prehdr: check algorithm for details
   NeedLoadInPrehdr = IsLoadOnly || isLoadNeededInPrehder(Lp, Group);
 
-  LoopOptReportBuilder &LORBuilder =
-      Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  if (hoistLoadsUsingExistingTemp(Lp, Group, TempRefSet, LORBuilder) ||
-      sinkStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet,
-                                  LORBuilder)) {
+  if (hoistLoadsUsingExistingTemp(Lp, Group, TempRefSet, ORBuilder) ||
+      sinkStoresUsingExistingTemp(Lp, FirstRef, Group, TempRefSet, ORBuilder)) {
     return;
   }
 
@@ -1157,7 +1156,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     TmpDDRef = LoadInPrehdr->getLvalDDRef();
 
     // ID: 25563u, remark string: Load hoisted out of the loop
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
   }
 
   // Create a TempDDRef if needed
@@ -1184,7 +1183,7 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
     createStoreInPostexit(Lp, FirstStore, TmpDDRef, NeedLoadInPrehdr);
 
     // ID: 25564u, remark string: Store sinked out of the loop
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   }
 
   // LMM process each Ref in Group

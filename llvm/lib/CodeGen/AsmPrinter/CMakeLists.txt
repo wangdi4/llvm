@@ -60,6 +60,6 @@ add_llvm_component_library(LLVMAsmPrinter
 
 if(INTEL_CUSTOMIZATION)
   target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReport)
-  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_LoopOptReportSupport)
+  target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_OptReportSupport)
 endif(INTEL_CUSTOMIZATION)
 
