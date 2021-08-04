@@ -290,7 +290,7 @@ public:
 };
 
 /// Global list for clean-up
-std::list<TLSTy *> TLSList;
+std::list<TLSTy *> *TLSList = nullptr;
 
 /// Returns thread-local storage while adding a new instance to the global list.
 static TLSTy *getTLS(ze_context_handle_t Context) {
@@ -300,7 +300,7 @@ static TLSTy *getTLS(ze_context_handle_t Context) {
     return TLS;
   TLS = new TLSTy(Context);
   std::lock_guard<std::mutex> Lock(Mtx);
-  TLSList.push_back(TLS);
+  TLSList->push_back(TLS);
   return TLS;
 }
 
@@ -1867,13 +1867,21 @@ static ze_module_handle_t createModule(
 #define ATTRIBUTE(X) __attribute__((X))
 #endif // _WIN32
 
+static void closeRTL();
+
 ATTRIBUTE(constructor(101)) void init() {
   DP("Init Level0 plugin!\n");
   DeviceInfo = new RTLDeviceInfoTy();
+  TLSList = new std::list<TLSTy *>();
 }
 
 ATTRIBUTE(destructor(101)) void deinit() {
   DP("Deinit Level0 plugin!\n");
+#ifndef _WIN32
+  closeRTL();
+#endif
+  delete TLSList;
+  TLSList = nullptr;
   delete DeviceInfo;
   DeviceInfo = nullptr;
 }
@@ -2028,8 +2036,12 @@ static void addDataTransferLatency() {
     ;
 }
 
-/// Clean-up routine to be registered by std::atexit().
+/// Clean-up routine to be invoked by the destructor or __tgt_rtl_deinit.
 static void closeRTL() {
+  // Nothing to clean up
+  if (DeviceInfo->NumDevices == 0)
+    return;
+
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
@@ -2062,8 +2074,9 @@ static void closeRTL() {
       DeviceInfo->unloadOffloadTable(i);
   }
 
-  for (auto TLSPtr : TLSList)
-    delete TLSPtr;
+  if (TLSList)
+    for (auto TLSPtr : *TLSList)
+      delete TLSPtr;
 
   if (DeviceInfo->Flags.UseMemoryPool) {
     DeviceInfo->MemPoolHost.deinit();
@@ -2854,6 +2867,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
     break;
   }
 
+  // Return early if no devices are available
+  if (DeviceInfo->NumDevices == 0)
+    return 0;
+
   CALL_ZE_RET_ZERO(zeDriverGetApiVersion, DeviceInfo->Driver,
                    &DeviceInfo->DriverAPIVersion);
   DP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
@@ -2888,12 +2905,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
 
   if (DebugLevel > 0)
     DeviceInfo->initMemoryStat();
-
-#ifndef _WIN32
-  if (std::atexit(closeRTL)) {
-    FATAL_ERROR("Registration of clean-up function");
-  }
-#endif // _WIN32
 
   if (deviceMode == DEVICE_MODE_TOP) {
     DP("Returning %" PRIu32 " top-level devices\n", DeviceInfo->NumRootDevices);
