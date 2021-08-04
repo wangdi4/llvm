@@ -540,6 +540,66 @@ define <16 x i64> @__ocl_sext_v16i32_v16i64(<16 x i32> %x) {
   ret <16 x i64> %1
 }
 
+define float @__ocl_fpext_v1f16_v1f32(half %x) {
+  %1 = fpext half %x to float
+  ret float %1
+}
+
+define <2 x float> @__ocl_fpext_v2f16_v2f32(<2 x half> %x) {
+  %1 = fpext <2 x half> %x to <2 x float>
+  ret <2 x float> %1
+}
+
+define <3 x float> @__ocl_fpext_v3f16_v3f32(<3 x half> %x) {
+  %1 = fpext <3 x half> %x to <3 x float>
+  ret <3 x float> %1
+}
+
+define <4 x float> @__ocl_fpext_v4f16_v4f32(<4 x half> %x) {
+  %1 = fpext <4 x half> %x to <4 x float>
+  ret <4 x float> %1
+}
+
+define <8 x float> @__ocl_fpext_v8f16_v8f32(<8 x half> %x) {
+  %1 = fpext <8 x half> %x to <8 x float>
+  ret <8 x float> %1
+}
+
+define <16 x float> @__ocl_fpext_v16f16_v16f32(<16 x half> %x) {
+  %1 = fpext <16 x half> %x to <16 x float>
+  ret <16 x float> %1
+}
+
+define double @__ocl_fpext_v1f16_v1f64(half %x) {
+  %1 = fpext half %x to double
+  ret double %1
+}
+
+define <2 x double> @__ocl_fpext_v2f16_v2f64(<2 x half> %x) {
+  %1 = fpext <2 x half> %x to <2 x double>
+  ret <2 x double> %1
+}
+
+define <3 x double> @__ocl_fpext_v3f16_v3f64(<3 x half> %x) {
+  %1 = fpext <3 x half> %x to <3 x double>
+  ret <3 x double> %1
+}
+
+define <4 x double> @__ocl_fpext_v4f16_v4f64(<4 x half> %x) {
+  %1 = fpext <4 x half> %x to <4 x double>
+  ret <4 x double> %1
+}
+
+define <8 x double> @__ocl_fpext_v8f16_v8f64(<8 x half> %x) {
+  %1 = fpext <8 x half> %x to <8 x double>
+  ret <8 x double> %1
+}
+
+define <16 x double> @__ocl_fpext_v16f16_v16f64(<16 x half> %x) {
+  %1 = fpext <16 x half> %x to <16 x double>
+  ret <16 x double> %1
+}
+
 define <16 x i32> @__ocl_trunc_v16i64_v16i32(<16 x i64> %x) {
   %1 = trunc <16 x i64> %x to <16 x i32>
   ret <16 x i32> %1
@@ -573,6 +633,66 @@ define <8 x float> @__ocl_trunc_double8_float8(<8 x double> %x) {
 define <16 x float> @__ocl_trunc_double16_float16(<16 x double> %x) {
   %1 = fptrunc <16 x double> %x to <16 x float>
   ret <16 x float> %1
+}
+
+define half @__ocl_fptrunc_v1f64_v1f16(double %x) {
+  %1 = fptrunc double %x to half
+  ret half %1
+}
+
+define <2 x half> @__ocl_fptrunc_v2f64_v2f16(<2 x double> %x) {
+  %1 = fptrunc <2 x double> %x to <2 x half>
+  ret <2 x half> %1
+}
+
+define <3 x half> @__ocl_fptrunc_v3f64_v3f16(<3 x double> %x) {
+  %1 = fptrunc <3 x double> %x to <3 x half>
+  ret <3 x half> %1
+}
+
+define <4 x half> @__ocl_fptrunc_v4f64_v4f16(<4 x double> %x) {
+  %1 = fptrunc <4 x double> %x to <4 x half>
+  ret <4 x half> %1
+}
+
+define <8 x half> @__ocl_fptrunc_v8f64_v8f16(<8 x double> %x) {
+  %1 = fptrunc <8 x double> %x to <8 x half>
+  ret <8 x half> %1
+}
+
+define <16 x half> @__ocl_fptrunc_v16f64_v16f16(<16 x double> %x) {
+  %1 = fptrunc <16 x double> %x to <16 x half>
+  ret <16 x half> %1
+}
+
+define half @__ocl_fptrunc_v1f32_v1f16(float %x) {
+  %1 = fptrunc float %x to half
+  ret half %1
+}
+
+define <2 x half> @__ocl_fptrunc_v2f32_v2f16(<2 x float> %x) {
+  %1 = fptrunc <2 x float> %x to <2 x half>
+  ret <2 x half> %1
+}
+
+define <3 x half> @__ocl_fptrunc_v3f32_v3f16(<3 x float> %x) {
+  %1 = fptrunc <3 x float> %x to <3 x half>
+  ret <3 x half> %1
+}
+
+define <4 x half> @__ocl_fptrunc_v4f32_v4f16(<4 x float> %x) {
+  %1 = fptrunc <4 x float> %x to <4 x half>
+  ret <4 x half> %1
+}
+
+define <8 x half> @__ocl_fptrunc_v8f32_v8f16(<8 x float> %x) {
+  %1 = fptrunc <8 x float> %x to <8 x half>
+  ret <8 x half> %1
+}
+
+define <16 x half> @__ocl_fptrunc_v16f32_v16f16(<16 x float> %x) {
+  %1 = fptrunc <16 x float> %x to <16 x half>
+  ret <16 x half> %1
 }
 
 define <8 x i64> @__ocl_select_v8i64(<8 x i64> %x, <8 x i64> %y, <8 x i64> %c) {

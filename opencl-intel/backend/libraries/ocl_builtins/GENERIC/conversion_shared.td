@@ -20,6 +20,10 @@
 // convert_shared and convert_not_shared MUST not overlap. i.e. contain 
 // the same functions
 
+code NoCvt = [{
+    return $Arg0VarName;
+}];
+
 code BitCast = [{
     return as_$ReturnType($Arg0VarName);
   }];
@@ -49,8 +53,20 @@ code PromoteU32 = [{
                 convert_$Arg0u32gentype$Round($Arg0VarName))));
   }];
 
+// TODO replace PromoteF16F32 and PromoteF16F64 with SVML functions when SVML
+// has fp16 support.
+code PromoteF16F32 = [{
+    return convert_$ReturnType$Round(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+
+code PromoteF16F64 = [{
+    return convert_$ReturnType$Round(__ocl_fpext_$Arg0Symgentype_$Arg0Symf64gentype($Arg0VarName));
+  }];
+
 list<OclType> float_types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
                              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64];
+
+list<OclType> f16_types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16];
 
 // 8-bit integer output
 OclBuiltinImpl bitcast_i8 = OclBuiltinImpl<convert_i8,
@@ -64,6 +80,21 @@ OclBuiltinImpl trunc_i8   = OclBuiltinImpl<convert_i8,
                                             v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
                                             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
+
+OclBuiltinImpl fp2int_i8_f16 = OclBuiltinImpl<convert_i8, f16_types, 0,
+                                              PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_i8_f16_rte  = OclBuiltinImpl<convert_i8_rte, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_i8_f16_rtz  = OclBuiltinImpl<convert_i8_rtz, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_i8_f16_rtp  = OclBuiltinImpl<convert_i8_rtp, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_i8_f16_rtn  = OclBuiltinImpl<convert_i8_rtn, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl fp2int_i8_f  = OclBuiltinImpl<convert_i8, float_types, 0,
                                                 PromoteI32, [["$Round",""]]>;
@@ -92,6 +123,20 @@ OclBuiltinImpl trunc_u8   = OclBuiltinImpl<convert_u8,
                                             v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                             v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
+OclBuiltinImpl fp2int_u8_f16 = OclBuiltinImpl<convert_u8, f16_types, 0,
+                                              PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_u8_f16_rte  = OclBuiltinImpl<convert_u8_rte, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_u8_f16_rtz  = OclBuiltinImpl<convert_u8_rtz, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_u8_f16_rtp  = OclBuiltinImpl<convert_u8_rtp, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_u8_f16_rtn  = OclBuiltinImpl<convert_u8_rtn, f16_types, 0,
+                                                   PromoteF16F32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl fp2int_u8_f  = OclBuiltinImpl<convert_u8, float_types, 0,
                                                 PromoteU32, [["$Round",""]]>;
@@ -125,22 +170,35 @@ OclBuiltinImpl trunc_i16   = OclBuiltinImpl<convert_i16,
                                              v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
-OclBuiltinImpl fp2int_i16_f  = OclBuiltinImpl<convert_i16, float_types, 0,
-                                                PromoteI32, [["$Round",""]]>;
+OclBuiltinImpl fp2int_i16_f16 = OclBuiltinImpl<convert_i16, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
 
+OclBuiltinImpl fp2int_i16_f16_rte  = OclBuiltinImpl<convert_i16_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_i16_f16_rtz  = OclBuiltinImpl<convert_i16_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_i16_f16_rtp  = OclBuiltinImpl<convert_i16_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_i16_f16_rtn  = OclBuiltinImpl<convert_i16_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
+
+OclBuiltinImpl fp2int_i16_f  = OclBuiltinImpl<convert_i16, float_types, 0,
+                                              PromoteI32, [["$Round",""]]>;
 
 OclBuiltinImpl fp2int_i16_f_rte  = OclBuiltinImpl<convert_i16_rte, float_types, 0,
-                                                    PromoteI32, [["$Round","_rte"]]>;
+                                                  PromoteI32, [["$Round","_rte"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtz  = OclBuiltinImpl<convert_i16_rtz, float_types, 0,
-                                                    PromoteI32, [["$Round","_rtz"]]>;
+                                                  PromoteI32, [["$Round","_rtz"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtp  = OclBuiltinImpl<convert_i16_rtp, float_types, 0,
-                                                    PromoteI32, [["$Round","_rtp"]]>;
+                                                  PromoteI32, [["$Round","_rtp"]]>;
 
 OclBuiltinImpl fp2int_i16_f_rtn  = OclBuiltinImpl<convert_i16_rtn, float_types, 0,
-                                                    PromoteI32, [["$Round","_rtn"]]>;
-
+                                                  PromoteI32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl sext_u16    = OclBuiltinImpl<convert_u16,
                                             [v1i8, v2i8, v3i8, v4i8, v8i8, v16i8], 0, BitSExt>;
@@ -158,8 +216,20 @@ OclBuiltinImpl trunc_u16   = OclBuiltinImpl<convert_u16,
                                              v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
+OclBuiltinImpl fp2int_u16_f16 = OclBuiltinImpl<convert_u16, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
 
+OclBuiltinImpl fp2int_u16_f16_rte  = OclBuiltinImpl<convert_u16_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
 
+OclBuiltinImpl fp2int_u16_f16_rtz  = OclBuiltinImpl<convert_u16_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_u16_f16_rtp  = OclBuiltinImpl<convert_u16_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_u16_f16_rtn  = OclBuiltinImpl<convert_u16_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl fp2int_u16_f  = OclBuiltinImpl<convert_u16, float_types, 0,
                                               PromoteU32, [["$Round",""]]>;
@@ -192,6 +262,21 @@ OclBuiltinImpl bitcast_i32 = OclBuiltinImpl<convert_i32,
 OclBuiltinImpl trunc_i32   = OclBuiltinImpl<convert_i32,
                                             [v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
+
+OclBuiltinImpl fp2int_i32_f16 = OclBuiltinImpl<convert_i32, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_i32_f16_rte  = OclBuiltinImpl<convert_i32_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_i32_f16_rtz  = OclBuiltinImpl<convert_i32_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_i32_f16_rtp  = OclBuiltinImpl<convert_i32_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_i32_f16_rtn  = OclBuiltinImpl<convert_i32_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
 
 OclBuiltinImpl fp2int_i32_f32 = OclBuiltinImpl<convert_i32,
                                                [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
@@ -239,6 +324,21 @@ OclBuiltinImpl trunc_u32   = OclBuiltinImpl<convert_u32,
                                             [v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitTrunc>;
 
+OclBuiltinImpl fp2int_u32_f16 = OclBuiltinImpl<convert_u32, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_u32_f16_rte  = OclBuiltinImpl<convert_u32_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_u32_f16_rtz  = OclBuiltinImpl<convert_u32_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_u32_f16_rtp  = OclBuiltinImpl<convert_u32_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_u32_f16_rtn  = OclBuiltinImpl<convert_u32_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
+
 OclBuiltinImpl fp2int_u32_f32 = OclBuiltinImpl<convert_u32,
                                                    [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
                                                     v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
@@ -284,6 +384,21 @@ OclBuiltinImpl bitcast_i64 = OclBuiltinImpl<convert_i64,
                                             [v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitCast>;
 
+OclBuiltinImpl fp2int_i64_f16 = OclBuiltinImpl<convert_i64, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_i64_f16_rte  = OclBuiltinImpl<convert_i64_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_i64_f16_rtz  = OclBuiltinImpl<convert_i64_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_i64_f16_rtp  = OclBuiltinImpl<convert_i64_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_i64_f16_rtn  = OclBuiltinImpl<convert_i64_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
+
 OclBuiltinImpl fp2int_i64_f32 = OclBuiltinImpl<convert_i64,
                                                    [v1f32, v2f32, v3f32, v4f32, v8f32,
                                                     v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
@@ -328,6 +443,21 @@ OclBuiltinImpl bitcast_u64 = OclBuiltinImpl<convert_u64,
                                             [v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
                                              v1u64, v2u64, v3u64, v4u64, v8u64, v16u64], 0, BitCast>;
 
+OclBuiltinImpl fp2int_u64_f16 = OclBuiltinImpl<convert_u64, f16_types, 0,
+                                               PromoteF16F32, [["$Round",""]]>;
+
+OclBuiltinImpl fp2int_u64_f16_rte  = OclBuiltinImpl<convert_u64_rte, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rte"]]>;
+
+OclBuiltinImpl fp2int_u64_f16_rtz  = OclBuiltinImpl<convert_u64_rtz, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtz"]]>;
+
+OclBuiltinImpl fp2int_u64_f16_rtp  = OclBuiltinImpl<convert_u64_rtp, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtp"]]>;
+
+OclBuiltinImpl fp2int_u64_f16_rtn  = OclBuiltinImpl<convert_u64_rtn, f16_types, 0,
+                                                    PromoteF16F32, [["$Round","_rtn"]]>;
+
 OclBuiltinImpl fp2int_u64_f32 = OclBuiltinImpl<convert_u64,
                                                [v1f32, v2f32, v3f32, v4f32, v8f32,
                                                 v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
@@ -358,13 +488,61 @@ OclBuiltinImpl fp2int_u64_f32_rtn = OclBuiltinImpl<convert_u64_rtn,
     return  __ocl_svml_$Target_cvtfptou64$downnosat$SVMLSuffix($Arg0VarName);
   }]>;
 
+// 16-bit floating output
+
+list<OclType> iu_types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
+                           v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
+                          v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
+                          v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
+                          v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,
+                          v1u32, v2u32, v3u32, v4u32, v8u32, v16u32,
+                          v1i64, v2i64, v3i64, v4i64, v8i64, v16i64,
+                          v1u64, v2u64, v3u64, v4u64, v8u64, v16u64];
+
+code TruncF16 = [{
+  return __ocl_fptrunc_$Arg0Symgentype_$ReturnSymgentype($Arg0VarName);
+}];
+
+// TODO honor rounding mode for converting to fp16.
+// Replace CvtF32TruncF16Single and CvtF32TruncF16 with SVML functions when SVML
+// has fp16 support.
+code CvtF32TruncF16 = [{
+  return __ocl_fptrunc_$Arg0Symf32gentype_$ReturnSymgentype(convert_$Arg0f32gentype($Arg0VarName));
+}];
+
+// default rounding mode
+OclBuiltinImpl nocvt_f16 = OclBuiltinImpl<convert_f16, f16_types, 0, NoCvt>;
+OclBuiltinImpl cvt_f16 = OclBuiltinImpl<convert_f16, float_types, 0, TruncF16>;
+OclBuiltinImpl cvt_f16_iu = OclBuiltinImpl<convert_f16, iu_types, 0, CvtF32TruncF16>;
+
+// rte rounding mode
+OclBuiltinImpl rte_nocvt_f16 = OclBuiltinImpl<convert_f16_rte, f16_types, 0, NoCvt>;
+OclBuiltinImpl rte_cvt_f16 = OclBuiltinImpl<convert_f16_rte, float_types, 0, TruncF16>;
+OclBuiltinImpl rte_cvt_f16_iu = OclBuiltinImpl<convert_f16_rte, iu_types, 0, CvtF32TruncF16>;
+
+// rtp rounding mode
+OclBuiltinImpl rtp_nocvt_f16 = OclBuiltinImpl<convert_f16_rtp, f16_types, 0, NoCvt>;
+OclBuiltinImpl rtp_cvt_f16 = OclBuiltinImpl<convert_f16_rtp, float_types, 0, TruncF16>;
+OclBuiltinImpl rtp_cvt_f16_iu = OclBuiltinImpl<convert_f16_rtp, iu_types, 0, CvtF32TruncF16>;
+
+// rtn rounding mode
+OclBuiltinImpl rtn_nocvt_f16 = OclBuiltinImpl<convert_f16_rtn, f16_types, 0, NoCvt>;
+OclBuiltinImpl rtn_cvt_f16 = OclBuiltinImpl<convert_f16_rtn, float_types, 0, TruncF16>;
+OclBuiltinImpl rtn_cvt_f16_iu = OclBuiltinImpl<convert_f16_rtn, iu_types, 0, CvtF32TruncF16>;
+
+// rtz rounding mode
+OclBuiltinImpl rtz_nocvt_f16 = OclBuiltinImpl<convert_f16_rtz, f16_types, 0, NoCvt>;
+OclBuiltinImpl rtz_cvt_f16 = OclBuiltinImpl<convert_f16_rtz, float_types, 0, TruncF16>;
+OclBuiltinImpl rtz_cvt_f16_iu = OclBuiltinImpl<convert_f16_rtz, iu_types, 0, CvtF32TruncF16>;
+
 // 32-bit floating output
 
 // default rounding mode
 OclBuiltinImpl nocvt_f32 = OclBuiltinImpl<convert_f32,
-                                          [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                          [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, NoCvt>;
+
+OclBuiltinImpl cvt_f32_f16 = OclBuiltinImpl<convert_f32, f16_types, 0,
+                                            PromoteF16F32, [["Round", ""]]>;
 
 OclBuiltinImpl cvt_f32_f64 = OclBuiltinImpl<convert_f32,
                                           [v1f64, v2f64, v3f64], 0, [{
@@ -411,9 +589,10 @@ OclBuiltinImpl cvt_f32_u64 = OclBuiltinImpl<convert_f32,
 
 // rte rounding mode
 OclBuiltinImpl rte_nocvt_f32 = OclBuiltinImpl<convert_f32_rte,
-                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, NoCvt>;
+
+OclBuiltinImpl rte_cvt_f32_f16 = OclBuiltinImpl<convert_f32_rte, f16_types, 0,
+                                                PromoteF16F32, [["Round", "_rte"]]>;
 
 OclBuiltinImpl rte_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rte,
                                                 [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
@@ -460,9 +639,10 @@ OclBuiltinImpl rte_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rte,
 
 // rtz rounding mode
 OclBuiltinImpl rtz_nocvt_f32 = OclBuiltinImpl<convert_f32_rtz,
-                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, NoCvt>;
+
+OclBuiltinImpl rtz_cvt_f32_f16 = OclBuiltinImpl<convert_f32_rtz, f16_types, 0,
+                                                PromoteF16F32, [["Round", "_rtz"]]>;
 
 OclBuiltinImpl rtz_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtz,
                                                 [v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
@@ -509,9 +689,10 @@ OclBuiltinImpl rtz_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rtz,
 
 // rtp rounding mode
 OclBuiltinImpl rtp_nocvt_f32 = OclBuiltinImpl<convert_f32_rtp,
-                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, NoCvt>;
+
+OclBuiltinImpl rtp_cvt_f32_f16 = OclBuiltinImpl<convert_f32_rtp, f16_types, 0,
+                                                PromoteF16F32, [["Round", "_rtp"]]>;
 
 OclBuiltinImpl rtp_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtp,
                                                 [v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
@@ -558,9 +739,10 @@ OclBuiltinImpl rtp_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rtp,
 
 // rtn rounding mode
 OclBuiltinImpl rtn_nocvt_f32 = OclBuiltinImpl<convert_f32_rtn,
-                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32], 0, NoCvt>;
+
+OclBuiltinImpl rtn_cvt_f32_f16 = OclBuiltinImpl<convert_f32_rtn, f16_types, 0,
+                                                PromoteF16F32, [["Round", "_rtn"]]>;
 
 OclBuiltinImpl rtn_cvt_f32_f64 = OclBuiltinImpl<convert_f32_rtn,
                                                 [v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
@@ -619,9 +801,10 @@ OclBuiltinImpl rtn_cvt_f32_u64 = OclBuiltinImpl<convert_f32_rtn,
 
 // default rounding mode
 OclBuiltinImpl nocvt_f64 = OclBuiltinImpl<convert_f64,
-                                          [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                          [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, NoCvt>;
+
+OclBuiltinImpl cvt_f64_f16 = OclBuiltinImpl<convert_f64, f16_types, 0,
+                                            PromoteF16F64, [["Round", ""]]>;
 
 OclBuiltinImpl cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64,
                                                  [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -633,7 +816,7 @@ OclBuiltinImpl cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64,
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
-OclBuiltinImpl cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64,
+OclBuiltinImpl cvt_f64_u8u16u32 = OclBuiltinImpl<convert_f64,
                                                  [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                   v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
                                                   v1u32, v2u32, v3u32, v4u32, v16u32], 0, [{
@@ -655,9 +838,10 @@ OclBuiltinImpl cvt_f64_u64 = OclBuiltinImpl<convert_f64,
 
 // rte rounding mode
 OclBuiltinImpl rte_nocvt_f64 = OclBuiltinImpl<convert_f64_rte,
-                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, NoCvt>;
+
+OclBuiltinImpl rte_cvt_f64_f16 = OclBuiltinImpl<convert_f64_rte, f16_types, 0,
+                                                PromoteF16F64, [["Round", "_rte"]]>;
 
 OclBuiltinImpl rte_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rte,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -669,7 +853,7 @@ OclBuiltinImpl rte_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rte,
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
-OclBuiltinImpl rte_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rte,
+OclBuiltinImpl rte_cvt_f64_u8u16u32 = OclBuiltinImpl<convert_f64_rte,
                                                      [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
                                                       v1u32, v2u32, v3u32, v4u32, v16u32], 0, [{
@@ -691,9 +875,10 @@ OclBuiltinImpl rte_cvt_f64_u64 = OclBuiltinImpl<convert_f64_rte,
 
 // rtz rounding mode
 OclBuiltinImpl rtz_nocvt_f64 = OclBuiltinImpl<convert_f64_rtz,
-                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, NoCvt>;
+
+OclBuiltinImpl rtz_cvt_f64_f16 = OclBuiltinImpl<convert_f64_rtz, f16_types, 0,
+                                                PromoteF16F64, [["Round", "_rtz"]]>;
 
 OclBuiltinImpl rtz_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtz,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -705,7 +890,7 @@ OclBuiltinImpl rtz_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtz,
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
-OclBuiltinImpl rtz_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtz,
+OclBuiltinImpl rtz_cvt_f64_u8u16u32 = OclBuiltinImpl<convert_f64_rtz,
                                                      [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
                                                       v1u32, v2u32, v3u32, v4u32, v16u32], 0, [{
@@ -727,9 +912,10 @@ OclBuiltinImpl rtz_cvt_f64_u64 = OclBuiltinImpl<convert_f64_rtz,
 
 // rtp rounding mode
 OclBuiltinImpl rtp_nocvt_f64 = OclBuiltinImpl<convert_f64_rtp,
-                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, NoCvt>;
+
+OclBuiltinImpl rtp_cvt_f64_f16 = OclBuiltinImpl<convert_f64_rtp, f16_types, 0,
+                                                PromoteF16F64, [["Round", "_rtp"]]>;
 
 OclBuiltinImpl rtp_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtp,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -741,7 +927,7 @@ OclBuiltinImpl rtp_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtp,
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
-OclBuiltinImpl rtp_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtp,
+OclBuiltinImpl rtp_cvt_f64_u8u16u32 = OclBuiltinImpl<convert_f64_rtp,
                                                      [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
                                                       v1u32, v2u32, v3u32, v4u32, v16u32], 0, [{
@@ -763,9 +949,10 @@ OclBuiltinImpl rtp_cvt_f64_u64 = OclBuiltinImpl<convert_f64_rtp,
 
 // rtn rounding mode
 OclBuiltinImpl rtn_nocvt_f64 = OclBuiltinImpl<convert_f64_rtn,
-                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, [{
-    return $Arg0VarName;
-  }]>;
+                                              [v1f64, v2f64, v3f64, v4f64, v8f64, v16f64], 0, NoCvt>;
+
+OclBuiltinImpl rtn_cvt_f64_f16 = OclBuiltinImpl<convert_f64_rtn, f16_types, 0,
+                                                PromoteF16F64, [["Round", "_rtn"]]>;
 
 OclBuiltinImpl rtn_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtn,
                                                      [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
@@ -777,7 +964,7 @@ OclBuiltinImpl rtn_cvt_f64_i8i16i32 = OclBuiltinImpl<convert_f64_rtn,
                 as_$Arg0igentype($Arg0VarName))));
   }]>;
 
-OclBuiltinImpl rtn_cvt_f32_u8u16u32 = OclBuiltinImpl<convert_f64_rtn,
+OclBuiltinImpl rtn_cvt_f64_u8u16u32 = OclBuiltinImpl<convert_f64_rtn,
                                                      [ v1u8,  v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
                                                       v1u16, v2u16, v3u16, v4u16, v8u16, v16u16,
                                                       v1u32, v2u32, v3u32, v4u32, v16u32], 0, [{

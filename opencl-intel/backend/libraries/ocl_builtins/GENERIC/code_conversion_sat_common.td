@@ -43,6 +43,23 @@ code u2s_u2u_down_sat = [{
                             min($Arg0VarName, ($Arg0Type)generic_max_$ReturnBaseType))));
   }];
 
+// f16-to-X conversion
+code fp16_sat = [{
+    return convert_$ReturnType_sat(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+code fp16_sat_rte = [{
+    return convert_$ReturnType_sat_rte(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+code fp16_sat_rtz = [{
+    return convert_$ReturnType_sat_rtz(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+code fp16_sat_rtp = [{
+    return convert_$ReturnType_sat_rtp(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+code fp16_sat_rtn = [{
+    return convert_$ReturnType_sat_rtn(__ocl_fpext_$Arg0Symgentype_$Arg0Symf32gentype($Arg0VarName));
+  }];
+
 // f32-to-X conversion
 code fp2signed_flat_sat = [{
     const $Arg0igentype mask = isnan($Arg0VarName);
