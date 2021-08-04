@@ -143,6 +143,9 @@ def "DIR.OMP.END.INTEROP" : Directive;
 def "DIR.OMP.PREFETCH"     : Directive;
 def "DIR.OMP.END.PREFETCH" : Directive;
 
+def "DIR.OMP.SCOPE" : Directive;
+def "DIR.OMP.END.SCOPE" : Directive;
+
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.

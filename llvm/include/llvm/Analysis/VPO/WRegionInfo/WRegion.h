@@ -58,6 +58,7 @@
 ///   WRNTaskwaitNode         | #pragma omp taskwait
 ///   WRNTaskyieldNode        | #pragma omp taskyield
 ///   WRNInteropNode          | #pragma omp interop
+///   WRNScopeNode            | #pragma omp scope
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -1669,6 +1670,35 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNPrefetch;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp scope
+/// \endcode
+class WRNScopeNode : public WRegionNode {
+private:
+  PrivateClause Priv;
+  ReductionClause Reduction;
+  bool Nowait;
+
+public:
+  WRNScopeNode(BasicBlock *BB);
+
+protected:
+  void setNowait(bool Flag) override { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  bool getNowait() const override { return Nowait; }
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity=1) const override;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNScope;
   }
 };
 

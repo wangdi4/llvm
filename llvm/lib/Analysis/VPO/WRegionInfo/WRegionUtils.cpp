@@ -270,6 +270,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       // #pragma omp threadprivate can be a module-level directive so we
       // handle it outside of the WRN framework
       break;
+    case DIR_OMP_SCOPE:
+      W = new WRNScopeNode(EntryBB);
+      break;
   }
   if (W) {
     W->setLevel(NestingLevel);

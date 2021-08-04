@@ -68,7 +68,8 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNSingle, "single"},
     {WRegionNode::WRNTaskgroup, "taskgroup"},
     {WRegionNode::WRNTaskwait, "taskwait"},
-    {WRegionNode::WRNTaskyield, "taskyield"}};
+    {WRegionNode::WRNTaskyield, "taskyield"},
+    {WRegionNode::WRNScope, "scope"}};
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -1950,6 +1951,7 @@ bool WRegionNode::canHavePrivate() const {
   case WRNDistribute:
   case WRNSingle:
   case WRNGenericLoop:
+  case WRNScope:
     return true;
   }
   return false;
@@ -1960,7 +1962,8 @@ bool WRegionNode::canHaveFirstprivate() const {
 
   // similar to canHavePrivate except for SIMD,
   // which has Private but not Firstprivate
-  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop)
+  if (SubClassID == WRNVecLoop || SubClassID == WRNGenericLoop ||
+      SubClassID == WRNScope)
     return false;
   return canHavePrivate();
 }
@@ -2007,6 +2010,7 @@ bool WRegionNode::canHaveReduction() const {
   case WRNWksLoop:
   case WRNSections:
   case WRNGenericLoop:
+  case WRNScope:
     return true;
   }
   return false;
@@ -2025,6 +2029,7 @@ bool WRegionNode::canHaveNowait() const {
   case WRNSections:
   case WRNWorkshare:
   case WRNSingle:
+  case WRNScope:
     return true;
   }
   return false;
