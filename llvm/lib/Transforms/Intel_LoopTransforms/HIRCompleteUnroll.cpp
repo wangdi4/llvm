@@ -2013,8 +2013,8 @@ static bool isMemIdiomStore(const RegDDRef *StoreRef, const HLLoop *OuterLoop) {
   }
 
   // Common memset idiom:
-  // A[i1] = 0;
-  return Rval->isZero();
+  // A[i1] = const;
+  return Rval->isConstant();
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
@@ -3146,7 +3146,7 @@ void HIRCompleteUnroll::transformLoops() {
     if ((IsPreVec && HasParentLoop) || ForceConstantPropagation) {
 #if INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(ParentNode, DTII);
-#else // INTEL_FEATURE_SW_DTRANS
+#else  // INTEL_FEATURE_SW_DTRANS
       HIRTransformUtils::doConstantPropagation(ParentNode);
 #endif // INTEL_FEATURE_SW_DTRANS
     }
