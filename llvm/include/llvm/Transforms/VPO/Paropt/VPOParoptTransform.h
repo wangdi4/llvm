@@ -1187,9 +1187,9 @@ private:
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
 
-  /// Generate code for master/end master construct and update LLVM
+  /// Generate code for masked/end masked construct and update LLVM
   /// control-flow and dominator tree accordingly
-  bool genMasterThreadCode(WRegionNode *W, bool IsTargetSPIRV);
+  bool genMaskedThreadCode(WRegionNode *W, bool IsTargetSPIRV);
 
   /// Generate code for single/end single construct and update LLVM
   /// control-flow and dominator tree accordingly
