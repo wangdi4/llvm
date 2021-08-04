@@ -22,7 +22,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   RedundantPhiNodePass.cpp
   GroupBuiltinPass.cpp
   SplitBBonBarrierPass.cpp
-  DPCPPKernelBarrierUtils.cpp
   KernelBarrierUtils.cpp
   WIRelatedValuePass.cpp
   DataPerBarrierPass.cpp

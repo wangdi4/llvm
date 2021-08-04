@@ -8,7 +8,7 @@
 ; Should identify as "Local pointer" when allocating pointer to structure.
 %struct.test01 = type { i32, i32 }
 define void @test01() {
-  %local = alloca %struct.test01*, !dtrans_type !2
+  %local = alloca %struct.test01*, !intel_dtrans_type !2
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -20,7 +20,7 @@ define void @test01() {
 ; of structures because this is not directly instantiating the structure.
 %struct.test02 = type { i32, i32 }
 define void @test02() {
-  %local = alloca [4 x %struct.test02]*, !dtrans_type !4
+  %local = alloca [4 x %struct.test02]*, !intel_dtrans_type !3
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -32,7 +32,7 @@ define void @test02() {
 ; pointers to structure.
 %struct.test03 = type { i32, i32 }
 define void @test03() {
-  %local = alloca [4 x %struct.test03*], !dtrans_type !7
+  %local = alloca [4 x %struct.test03*], !intel_dtrans_type !6
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -44,7 +44,7 @@ define void @test03() {
 ; to structure.
 %struct.test04 = type { i32, i32 }
 define void @test04() {
-  %local = alloca %struct.test04**, !dtrans_type !10
+  %local = alloca %struct.test04**, !intel_dtrans_type !8
   ret void
 }
 ; CHECK: DTRANS_StructInfo:
@@ -53,19 +53,16 @@ define void @test04() {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test01*
-!3 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!4 = !{!5, i32 1}  ; [4 x %struct.test02]*
-!5 = !{!"A", i32 4, !6}  ; [4 x %struct.test02]
-!6 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!7 = !{!"A", i32 4, !8}  ; [4 x %struct.test03*]
-!8 = !{!9, i32 1}  ; %struct.test03*
-!9 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!10 = !{!11, i32 2}  ; %struct.test04**
-!11 = !{!"R", %struct.test04 zeroinitializer, i32 0}  ; %struct.test04
-!12 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!13 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!14 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!15 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = !{!4, i32 1}  ; [4 x %struct.test02]*
+!4 = !{!"A", i32 4, !5}  ; [4 x %struct.test02]
+!5 = !{%struct.test02 zeroinitializer, i32 0}  ; %struct.test02
+!6 = !{!"A", i32 4, !7}  ; [4 x %struct.test03*]
+!7 = !{%struct.test03 zeroinitializer, i32 1}  ; %struct.test03*
+!8 = !{%struct.test04 zeroinitializer, i32 2}  ; %struct.test04**
+!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!10 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!11 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!12 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!12, !13, !14, !15}
+!intel.dtrans.types = !{!9, !10, !11, !12}

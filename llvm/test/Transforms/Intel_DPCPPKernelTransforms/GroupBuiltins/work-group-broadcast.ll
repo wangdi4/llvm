@@ -20,7 +20,7 @@ target triple = "i686-pc-win32"
 ; CHECK: entry
 ; CHECK-NEXT: %AllocaWGResult = alloca i32
 ; CHECK-NEXT: store i32 0, i32* %AllocaWGResult
-; CHECK-NEXT: call void @barrier_dummy()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: %call1 = tail call i32 @_Z20work_group_broadcastij(i32 %0, i32 2)
 ; CHECK-NEXT: %CallWGForItem = call i32 @_Z20work_group_broadcastijjPi(i32 %0, i32 2, i32 %WIcall, i32* %AllocaWGResult)
@@ -46,7 +46,7 @@ declare i32 @_Z20work_group_broadcastij(i32, i32)
 ; CHECK: entry
 ; CHECK-NEXT: %AllocaWGResult = alloca <4 x i32>
 ; CHECK-NEXT: store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult
-; CHECK-NEXT: call void @barrier_dummy()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK: WIcall = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK-NOT: call <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32> %1, i32 2)
 ; CHECK-NEXT: CallWGForItem = call <4 x i32> @_Z20work_group_broadcastDv4_ijjPS_(<4 x i32> %1, i32 2, i32 %WIcall, <4 x i32>* %AllocaWGResult)
@@ -129,15 +129,15 @@ declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readn
 ;; These are inserted by GroupBuiltin pass, should not have debug info
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- %AllocaWGResult = alloca i32, align 4
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, i32* %AllocaWGResult, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- %WIcall = call i32 @_Z12get_local_idj(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- store i32 0, i32* %AllocaWGResult, align 4
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- %AllocaWGResult = alloca <4 x i32>, align 16
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @dummy_barrier.()
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- %WIcall = call i32 @_Z12get_local_idj(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- store <4 x i32> zeroinitializer, <4 x i32>* %AllocaWGResult, align 16
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_broadcast -- call void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

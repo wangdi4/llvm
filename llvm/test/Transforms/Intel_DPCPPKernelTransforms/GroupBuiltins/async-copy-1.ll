@@ -9,9 +9,9 @@
 ;;    which is calling function "foo" that contains async copy strided instruction
 ;; The expected result:
 ;;      1. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) just before calling the function "async_copy" in main
-;;      2. A call to @barrier_dummy() just after calling the function  "async_copy" in main
+;;      2. A call to @dummy_barrier.() just after calling the function  "async_copy" in main
 ;;      3. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) just before calling the function "async_copy_strided" in foo
-;;      4. A call to @barrier_dummy() just after calling the function  "async_copy_strided" in foo
+;;      4. A call to @dummy_barrier.() just after calling the function  "async_copy_strided" in foo
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -33,7 +33,7 @@ define void @main(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globa
 ; CHECK: %pEvent = alloca %opencl.event_t*, align 8
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null)
-; CHECK: call void @barrier_dummy
+; CHECK: call void @dummy_barrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: call void @foo(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count)
@@ -53,7 +53,7 @@ define void @foo(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %global
 ; CHECK: %pEvent = alloca %opencl.event_t*, align 8
 ; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: %event = call %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPU3AS3Kcmm9ocl_event(i8 addrspace(1)* %globalBuffer, i8 addrspace(3)* %localBuffer, i64 %count, i64 18, %opencl.event_t* null)
-; CHECK: call void @barrier_dummy
+; CHECK: call void @dummy_barrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** %pEvent)
@@ -65,7 +65,7 @@ declare %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPU3AS3Kcmm9ocl
 declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 
 ; CHECK: declare void @_Z18work_group_barrierj(i32)
-; CHECK: declare void @barrier_dummy()
+; CHECK: declare void @dummy_barrier.()
 
 !sycl.kernels = !{!0}
 !opencl.build.options = !{}
@@ -90,6 +90,6 @@ declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 !15 = !{!"kernel_wrapper", null}
 !16 = !{!"scalar_kernel", null}
 
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @barrier_dummy()
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @barrier_dummy()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummy_barrier.()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummy_barrier.()
 ; DEBUGIFY-NOT: WARNING

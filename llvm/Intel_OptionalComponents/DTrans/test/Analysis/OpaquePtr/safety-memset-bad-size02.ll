@@ -14,7 +14,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; structure.
 %struct.test01a = type { i32, i32, i32, i32, i32 }
 %struct.test01b = type { i32, [10 x %struct.test01a] }
-define void @test14(%struct.test01b* %b) !dtrans_type !4 {
+define void @test14(%struct.test01b* "intel_dtrans_func_index"="1" %b) !intel.dtrans.func.type !5 {
   %a = getelementptr inbounds %struct.test01b, %struct.test01b* %b, i64 0, i32 1
   %t0 = bitcast [10 x %struct.test01a]* %a to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %t0, i8 0, i64 100, i1 false)
@@ -29,16 +29,16 @@ define void @test14(%struct.test01b* %b) !dtrans_type !4 {
 ; CHECK: Safety data: Bad memfunc size | Contains nested structure{{ *$}}
 
 
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"A", i32 10, !3}  ; [10 x %struct.test01a]
-!3 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!4 = !{!"F", i1 false, i32 1, !5, !6}  ; void (%struct.test01b*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{!7, i32 1}  ; %struct.test01b*
-!7 = !{!"R", %struct.test01b zeroinitializer, i32 0}  ; %struct.test01b
+!3 = !{%struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
+!4 = !{%struct.test01b zeroinitializer, i32 1}  ; %struct.test01b*
+!5 = distinct !{!4}
+!6 = !{i8 0, i32 1}  ; i8*
+!7 = distinct !{!6}
 !8 = !{!"S", %struct.test01a zeroinitializer, i32 5, !1, !1, !1, !1, !1} ; { i32, i32, i32, i32, i32 }
 !9 = !{!"S", %struct.test01b zeroinitializer, i32 2, !1, !2} ; { i32, [10 x %struct.test01a] }
 
-!dtrans_types = !{!8, !9}
+!intel.dtrans.types = !{!8, !9}

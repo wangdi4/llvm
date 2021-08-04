@@ -8,7 +8,7 @@
 ; Test the simple case where the void pointer argument gets used as the expected
 ; type.
 %struct.test01 = type { i32, i32 }
-define void @use_test01(i8* %p) !dtrans_type !2 {
+define void @use_test01(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !3 {
   %p2 = bitcast i8* %p to %struct.test01*
   ; This is needed to establish %struct.test01* as an aliased type.
   %field = getelementptr %struct.test01, %struct.test01* %p2, i64 0, i32 0
@@ -31,13 +31,14 @@ define void @test01() {
 ; CHECK: Name: struct.test01
 ; CHECK: Safety data: No issues found
 
-declare i8* @malloc(i64)
-declare void @free(i8*)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
+declare !intel.dtrans.func.type !5 void @free(i8* "intel_dtrans_func_index"="1")
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (i8*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{i8 0, i32 1}  ; i8*
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = distinct !{!2}
+!4 = distinct !{!2}
+!5 = distinct !{!2}
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!5}
+!intel.dtrans.types = !{!6}

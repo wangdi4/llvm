@@ -28,7 +28,7 @@ entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %i.addr = alloca i32*
 ; CHECK-NOT: %i = alloca i32
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   %i = alloca i32, align 4
   store i32 170, i32* %i, align 4
   br label %for.cond
@@ -70,7 +70,7 @@ for.end:                                          ; preds = %for.cond
 ; Function Attrs: convergent
 declare void @_Z18work_group_barrierj(i32) #1
 
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 
 attributes #0 = { convergent noinline norecurse nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { convergent "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "kernel-call-once" "kernel-convergent-call" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "unsafe-fp-math"="false" "use-soft-float"="false" }

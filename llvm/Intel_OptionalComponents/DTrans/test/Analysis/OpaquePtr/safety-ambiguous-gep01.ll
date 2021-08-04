@@ -9,7 +9,7 @@
 ; operand.
 %struct.test01a = type { i32, i32 }
 %struct.test01b = type { i16, i16, i16, i16 }
-define void @test01(%struct.test01a** %ppStruct.a) !dtrans_type !3 {
+define void @test01(%struct.test01a** "intel_dtrans_func_index"="1" %ppStruct.a) !intel.dtrans.func.type !4 {
   %pStruct.a.as.ppb = bitcast %struct.test01a** %ppStruct.a to %struct.test01b**
   %pStruct.b = load %struct.test01b*, %struct.test01b** %pStruct.a.as.ppb
   %pField = getelementptr %struct.test01b, %struct.test01b* %pStruct.b, i64 0, i32 3
@@ -29,7 +29,7 @@ define void @test01(%struct.test01a** %ppStruct.a) !dtrans_type !3 {
 ; being accessed.
 %struct.test02a = type { i32 }
 %struct.test02b = type { i32 }
-define void @test02(%struct.test02a* %pStruct1a, %struct.test02b* %pStruct1b) !dtrans_type !7 {
+define void @test02(%struct.test02a* "intel_dtrans_func_index"="1" %pStruct1a, %struct.test02b* "intel_dtrans_func_index"="2" %pStruct1b) !intel.dtrans.func.type !7 {
   %pStruct1a.as.p8 = bitcast %struct.test02a* %pStruct1a to i8*
   %pStruct1b.as.p8 = bitcast %struct.test02b* %pStruct1b to i8*
   %ambig_ptr = select i1 undef, i8* %pStruct1a.as.p8, i8* %pStruct1b.as.p8
@@ -49,7 +49,7 @@ define void @test02(%struct.test02a* %pStruct1a, %struct.test02b* %pStruct1b) !d
 ; first field is not supported, and should be marked as "Ambiguous GEP"
 %struct.test03a = type { %struct.test03b, i32 }
 %struct.test03b = type { [8 x i64] }
-define void @test03(%struct.test03a* %pStruct.a) !dtrans_type !15 {
+define void @test03(%struct.test03a* "intel_dtrans_func_index"="1" %pStruct.a) !intel.dtrans.func.type !12 {
   %pStruct.a.as.ar = bitcast %struct.test03a* %pStruct.a to [64 x i8]*
   %first = getelementptr inbounds [64 x i8], [64 x i8]* %pStruct.a.as.ar, i64 0, i64 0
   %value = load i8, i8* %first
@@ -66,26 +66,21 @@ define void @test03(%struct.test03a* %pStruct.a) !dtrans_type !15 {
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16
-!3 = !{!"F", i1 false, i32 1, !4, !5}  ; void (%struct.test01a**)
-!4 = !{!"void", i32 0}  ; void
-!5 = !{!6, i32 2}  ; %struct.test01a**
-!6 = !{!"R", %struct.test01a zeroinitializer, i32 0}  ; %struct.test01a
-!7 = !{!"F", i1 false, i32 2, !4, !8, !10}  ; void (%struct.test02a*, %struct.test02b*)
-!8 = !{!9, i32 1}  ; %struct.test02a*
-!9 = !{!"R", %struct.test02a zeroinitializer, i32 0}  ; %struct.test02a
-!10 = !{!11, i32 1}  ; %struct.test02b*
-!11 = !{!"R", %struct.test02b zeroinitializer, i32 0}  ; %struct.test02b
-!12 = !{!"R", %struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
-!13 = !{!"A", i32 8, !14}  ; [8 x i64]
-!14 = !{i64 0, i32 0}  ; i64
-!15 = !{!"F", i1 false, i32 1, !4, !16}  ; void (%struct.test03a*)
-!16 = !{!17, i32 1}  ; %struct.test03a*
-!17 = !{!"R", %struct.test03a zeroinitializer, i32 0}  ; %struct.test03a
-!18 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!19 = !{!"S", %struct.test01b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i16, i16, i16, i16 }
-!20 = !{!"S", %struct.test02a zeroinitializer, i32 1, !1} ; { i32 }
-!21 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
-!22 = !{!"S", %struct.test03a zeroinitializer, i32 2, !12, !1} ; { %struct.test03b, i32 }
-!23 = !{!"S", %struct.test03b zeroinitializer, i32 1, !13} ; { [8 x i64] }
+!3 = !{%struct.test01a zeroinitializer, i32 2}  ; %struct.test01a**
+!4 = distinct !{!3}
+!5 = !{%struct.test02a zeroinitializer, i32 1}  ; %struct.test02a*
+!6 = !{%struct.test02b zeroinitializer, i32 1}  ; %struct.test02b*
+!7 = distinct !{!5, !6}
+!8 = !{%struct.test03b zeroinitializer, i32 0}  ; %struct.test03b
+!9 = !{!"A", i32 8, !10}  ; [8 x i64]
+!10 = !{i64 0, i32 0}  ; i64
+!11 = !{%struct.test03a zeroinitializer, i32 1}  ; %struct.test03a*
+!12 = distinct !{!11}
+!13 = !{!"S", %struct.test01a zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!14 = !{!"S", %struct.test01b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i16, i16, i16, i16 }
+!15 = !{!"S", %struct.test02a zeroinitializer, i32 1, !1} ; { i32 }
+!16 = !{!"S", %struct.test02b zeroinitializer, i32 1, !1} ; { i32 }
+!17 = !{!"S", %struct.test03a zeroinitializer, i32 2, !8, !1} ; { %struct.test03b, i32 }
+!18 = !{!"S", %struct.test03b zeroinitializer, i32 1, !9} ; { [8 x i64] }
 
-!dtrans_types = !{!18, !19, !20, !21, !22, !23}
+!intel.dtrans.types = !{!13, !14, !15, !16, !17, !18}

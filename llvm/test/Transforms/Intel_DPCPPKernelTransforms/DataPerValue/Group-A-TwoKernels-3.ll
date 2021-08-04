@@ -39,7 +39,7 @@ L1:
   call void @bar(i32 0)
   br label %L2
 L2:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L0:
 ; CHECK: %p1 = alloca i64, align 16
@@ -50,7 +50,7 @@ L2:
 ; CHECK: call void @bar(i32 0)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: ret void
 }
 
@@ -64,7 +64,7 @@ L1:
   call void @bar(i32 0)
   br label %L2
 L2:
-  call void @barrier_dummy()
+  call void @dummy_barrier.()
   ret void
 ; CHECK: L0:
 ; CHECK: %p1 = alloca i64, align 16
@@ -74,7 +74,7 @@ L2:
 ; CHECK: call void @bar(i32 0)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @barrier_dummy()
+; CHECK: call void @dummy_barrier.()
 ; CHECK: ret void
 }
 
@@ -114,7 +114,7 @@ L0:
 ; CHECK: DONE
 
 declare void @_Z18work_group_barrierj(i32)
-declare void @barrier_dummy()
+declare void @dummy_barrier.()
 declare i32 @_Z12get_local_idj(i32)
 
 !sycl.kernels = !{!0}

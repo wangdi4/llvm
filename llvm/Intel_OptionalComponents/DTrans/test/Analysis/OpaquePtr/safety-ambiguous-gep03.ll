@@ -26,9 +26,9 @@ define i32 @test01() {
 ; CHECK: Safety data: Ambiguous GEP | Global instance{{ *$}}
 
 
-!1 = !{double 0.0e+00, i32 0}  ; double
-!2 = !{i32 0, i32 0}  ; i32
-!3 = !{!"S", %test01.union.u zeroinitializer, i32 1, !1} ; { double }
-!4 = !{!"S", %test01.struct.anon zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{double 0.0e+00, i32 0}  ; double
+!3 = !{!"S", %test01.struct.anon zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!4 = !{!"S", %test01.union.u zeroinitializer, i32 1, !2} ; { double }
 
-!dtrans_types = !{!3, !4}
+!intel.dtrans.types = !{!3, !4}

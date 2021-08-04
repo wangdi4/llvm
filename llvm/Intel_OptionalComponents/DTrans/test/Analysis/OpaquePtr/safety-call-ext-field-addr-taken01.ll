@@ -19,10 +19,12 @@ define void @test01() {
 ; CHECK: Safety data: Local instance | Field address taken call{{ *$}}
 
 
-declare i8* @strcpy(i8*, i8*)
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @strcpy(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i8 0, i32 0}  ; i8
-!3 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !2, !2, !2} ; { i32, i8, i8, i8, i8 }
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3, !3, !3}
+!5 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !2, !2, !2} ; { i32, i8, i8, i8, i8 }
 
-!dtrans_types = !{!3}
+!intel.dtrans.types = !{!5}

@@ -50,16 +50,7 @@ public:
 
   bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
 
-  /// Return special buffer stride size map.
-  /// BufferStrideMap - the map to output all data into.
-  void getStrideMap(std::map<std::string, unsigned int> &BufferStrideMap) {
-    BufferStrideMap.clear();
-    BufferStrideMap.insert(this->BufferStrideMap.begin(),
-                           this->BufferStrideMap.end());
-  }
-
 private:
-  using MapFunctionNameToBufferStrideTy = std::map<std::string, unsigned int>;
   using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
   using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BasicBlockSet>;
   using BasicBlockToBasicBlockVectorTy =
@@ -384,9 +375,6 @@ private:
   /// This holds a map between sync basic block and previous pre sync loop
   /// header basic block.
   MapBasicBlockToBasicBlockTy PreSyncLoopHeader;
-
-  /// This holds a map between kernel function name and buffer stride size.
-  MapFunctionNameToBufferStrideTy BufferStrideMap;
 
   /// true if and only if we are running in native (gdb) dbg mode.
   bool IsNativeDBG;

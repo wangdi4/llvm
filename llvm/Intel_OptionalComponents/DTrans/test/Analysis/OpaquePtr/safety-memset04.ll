@@ -10,7 +10,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 ; This test checks that all the structure fields are marked as "Written" by the
 ; memset call.
 %struct.test01 = type { i32, i16, i8 }
-define void @test01(%struct.test01* %a) !dtrans_type !4 {
+define void @test01(%struct.test01* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !5 {
   %p = bitcast %struct.test01* %a to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 8, i1 false)
   ret void
@@ -29,7 +29,7 @@ define void @test01(%struct.test01* %a) !dtrans_type !4 {
 ; This test checks when a multiple of the structure size is used, such as
 ; for an array of structures.
 %struct.test02 = type { i32, i16, i8 }
-define void @test02(%struct.test02* %a) !dtrans_type !8 {
+define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %a) !intel.dtrans.func.type !7 {
   %p = bitcast %struct.test02* %a to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %p, i8 0, i64 32, i1 false)
   ret void
@@ -48,7 +48,7 @@ define void @test02(%struct.test02* %a) !dtrans_type !8 {
 ; This test checks when a multiple of the structure size is used, such as for an
 ; array of structures, but the size is not a compile time constant.
 %struct.test03 = type { i32, i16, i8 }
-define void @test03(%struct.test03* %a, i32 %n) !dtrans_type !11 {
+define void @test03(%struct.test03* "intel_dtrans_func_index"="1" %a, i32 %n) !intel.dtrans.func.type !9 {
   %p = bitcast %struct.test03* %a to i8*
   %conv = sext i32 %n to i64
   %mul = mul i64 %conv, 8
@@ -71,7 +71,7 @@ define void @test03(%struct.test03* %a, i32 %n) !dtrans_type !11 {
 %struct.test04a = type { i16, i32, [2 x i32] }
 %struct.test04b = type { i32, i16, i8 }
 %struct.test04c = type { %struct.test04a, %struct.test04b }
-define void @test04(%struct.test04c* %c) !dtrans_type !17 {
+define void @test04(%struct.test04c* "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !14 {
   %c0 = bitcast %struct.test04c* %c to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 24, i1 false)
   ret void
@@ -107,7 +107,7 @@ define void @test04(%struct.test04c* %c) !dtrans_type !17 {
 %struct.test05a = type { i16, i32, [2 x i32] }
 %struct.test05b = type { i32, i16, i8 }
 %struct.test05c = type { %struct.test05a*, %struct.test05b* }
-define void @test05(%struct.test05c* %c) !dtrans_type !24 {
+define void @test05(%struct.test05c* "intel_dtrans_func_index"="1" %c) !intel.dtrans.func.type !18 {
   %c0 = bitcast %struct.test05c* %c to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %c0, i8 0, i64 16, i1 false)
   ret void
@@ -143,42 +143,36 @@ define void @test05(%struct.test05c* %c) !dtrans_type !24 {
 ; CHECK: Safety data: No issues found
 
 
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare !intel.dtrans.func.type !20 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i16 0, i32 0}  ; i16
 !3 = !{i8 0, i32 0}  ; i8
-!4 = !{!"F", i1 false, i32 1, !5, !6}  ; void (%struct.test01*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{!7, i32 1}  ; %struct.test01*
-!7 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!8 = !{!"F", i1 false, i32 1, !5, !9}  ; void (%struct.test02*)
-!9 = !{!10, i32 1}  ; %struct.test02*
-!10 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!11 = !{!"F", i1 false, i32 2, !5, !12, !1}  ; void (%struct.test03*, i32)
-!12 = !{!13, i32 1}  ; %struct.test03*
-!13 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!14 = !{!"A", i32 2, !1}  ; [2 x i32]
-!15 = !{!"R", %struct.test04a zeroinitializer, i32 0}  ; %struct.test04a
-!16 = !{!"R", %struct.test04b zeroinitializer, i32 0}  ; %struct.test04b
-!17 = !{!"F", i1 false, i32 1, !5, !18}  ; void (%struct.test04c*)
-!18 = !{!19, i32 1}  ; %struct.test04c*
-!19 = !{!"R", %struct.test04c zeroinitializer, i32 0}  ; %struct.test04c
-!20 = !{!21, i32 1}  ; %struct.test05a*
-!21 = !{!"R", %struct.test05a zeroinitializer, i32 0}  ; %struct.test05a
-!22 = !{!23, i32 1}  ; %struct.test05b*
-!23 = !{!"R", %struct.test05b zeroinitializer, i32 0}  ; %struct.test05b
-!24 = !{!"F", i1 false, i32 1, !5, !25}  ; void (%struct.test05c*)
-!25 = !{!26, i32 1}  ; %struct.test05c*
-!26 = !{!"R", %struct.test05c zeroinitializer, i32 0}  ; %struct.test05c
-!27 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
-!28 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
-!29 = !{!"S", %struct.test03 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
-!30 = !{!"S", %struct.test04a zeroinitializer, i32 3, !2, !1, !14} ; { i16, i32, [2 x i32] }
-!31 = !{!"S", %struct.test04b zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
-!32 = !{!"S", %struct.test04c zeroinitializer, i32 2, !15, !16} ; { %struct.test04a, %struct.test04b }
-!33 = !{!"S", %struct.test05a zeroinitializer, i32 3, !2, !1, !14} ; { i16, i32, [2 x i32] }
-!34 = !{!"S", %struct.test05b zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
-!35 = !{!"S", %struct.test05c zeroinitializer, i32 2, !20, !22} ; { %struct.test05a*, %struct.test05b* }
+!4 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!5 = distinct !{!4}
+!6 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!7 = distinct !{!6}
+!8 = !{%struct.test03 zeroinitializer, i32 1}  ; %struct.test03*
+!9 = distinct !{!8}
+!10 = !{!"A", i32 2, !1}  ; [2 x i32]
+!11 = !{%struct.test04a zeroinitializer, i32 0}  ; %struct.test04a
+!12 = !{%struct.test04b zeroinitializer, i32 0}  ; %struct.test04b
+!13 = !{%struct.test04c zeroinitializer, i32 1}  ; %struct.test04c*
+!14 = distinct !{!13}
+!15 = !{%struct.test05a zeroinitializer, i32 1}  ; %struct.test05a*
+!16 = !{%struct.test05b zeroinitializer, i32 1}  ; %struct.test05b*
+!17 = !{%struct.test05c zeroinitializer, i32 1}  ; %struct.test05c*
+!18 = distinct !{!17}
+!19 = !{i8 0, i32 1}  ; i8*
+!20 = distinct !{!19}
+!21 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
+!22 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
+!23 = !{!"S", %struct.test03 zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
+!24 = !{!"S", %struct.test04a zeroinitializer, i32 3, !2, !1, !10} ; { i16, i32, [2 x i32] }
+!25 = !{!"S", %struct.test04b zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
+!26 = !{!"S", %struct.test04c zeroinitializer, i32 2, !11, !12} ; { %struct.test04a, %struct.test04b }
+!27 = !{!"S", %struct.test05a zeroinitializer, i32 3, !2, !1, !10} ; { i16, i32, [2 x i32] }
+!28 = !{!"S", %struct.test05b zeroinitializer, i32 3, !1, !2, !3} ; { i32, i16, i8 }
+!29 = !{!"S", %struct.test05c zeroinitializer, i32 2, !15, !16} ; { %struct.test05a*, %struct.test05b* }
 
-!dtrans_types = !{!27, !28, !29, !30, !31, !32, !33, !34, !35}
+!intel.dtrans.types = !{!21, !22, !23, !24, !25, !26, !27, !28, !29}

@@ -7,7 +7,7 @@
 
 ; Swap pointers in 32-bit chunks.
 %struct.test01 = type { i32, i32 }
-define void @test01(i8* %p) !dtrans_type !2 {
+define void @test01(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !3 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test01**
@@ -37,7 +37,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test01identify(%struct.test01** %in) !dtrans_type !5 {
+define i1 @test01identify(%struct.test01** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
   %p = load %struct.test01*, %struct.test01** %in
   %a1 = getelementptr %struct.test01, %struct.test01* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test01, %struct.test01* %p, i64 0, i32 0
@@ -53,7 +53,7 @@ define i1 @test01identify(%struct.test01** %in) !dtrans_type !5 {
 
 ; Swap pointers in 8-bit chunks.
 %struct.test02 = type { i32, i32 }
-define void @test02(i8* %p) !dtrans_type !2 {
+define void @test02(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !6 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test02**
@@ -78,7 +78,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test02identify(%struct.test02** %in) !dtrans_type !9 {
+define i1 @test02identify(%struct.test02** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !8 {
   %p = load %struct.test02*, %struct.test02** %in
   %a1 = getelementptr %struct.test02, %struct.test02* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test02, %struct.test02* %p, i64 0, i32 0
@@ -94,7 +94,7 @@ define i1 @test02identify(%struct.test02** %in) !dtrans_type !9 {
 
 ; Swap a variable number of pointers in 32-bit chunks.
 %struct.test03 = type { i32, i32 }
-define void @test03(i8* %p, i64 %n) !dtrans_type !12 {
+define void @test03(i8* "intel_dtrans_func_index"="1" %p, i64 %n) !intel.dtrans.func.type !9 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test03**
@@ -126,7 +126,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test03identify(%struct.test03** %in) !dtrans_type !14 {
+define i1 @test03identify(%struct.test03** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !11 {
   %p = load %struct.test03*, %struct.test03** %in
   %a1 = getelementptr %struct.test03, %struct.test03* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test03, %struct.test03* %p, i64 0, i32 0
@@ -143,7 +143,7 @@ define i1 @test03identify(%struct.test03** %in) !dtrans_type !14 {
 ; Swap incomplete chunks of pointers. This case does not match the partial
 ; pointer access idiom.
 %struct.test04 = type { i32, i32 }
-define void @test04(i8* %p) !dtrans_type !2 {
+define void @test04(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !12 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test04**
@@ -168,7 +168,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test04identify(%struct.test04** %in) !dtrans_type !17 {
+define i1 @test04identify(%struct.test04** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !14 {
   %p = load %struct.test04*, %struct.test04** %in
   %a1 = getelementptr %struct.test04, %struct.test04* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test04, %struct.test04* %p, i64 0, i32 0
@@ -185,7 +185,7 @@ define i1 @test04identify(%struct.test04** %in) !dtrans_type !17 {
 ; Swap 32-bit chunks without looping. This case does not match the partial
 ; pointer access idiom.
 %struct.test05 = type { i32, i32 }
-define void @test05(i8* %p) !dtrans_type !2 {
+define void @test05(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !15 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test05**
@@ -219,7 +219,7 @@ other_bb:
 exit:
   ret void
 }
-define i1 @test05identify(%struct.test05** %in) !dtrans_type !20 {
+define i1 @test05identify(%struct.test05** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !17 {
   %p = load %struct.test05*, %struct.test05** %in
   %a1 = getelementptr %struct.test05, %struct.test05* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test05, %struct.test05* %p, i64 0, i32 0
@@ -236,7 +236,7 @@ define i1 @test05identify(%struct.test05** %in) !dtrans_type !20 {
 ; Swap pointers in 32-bit chunks with a bad pointer increment. This case does
 ; not match the partial pointer access idiom.
 %struct.test06 = type { i32, i32 }
-define void @test06(i8* %p) !dtrans_type !2 {
+define void @test06(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !18 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test06**
@@ -266,7 +266,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test06identify(%struct.test06** %in) !dtrans_type !23 {
+define i1 @test06identify(%struct.test06** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !20 {
   %p = load %struct.test06*, %struct.test06** %in
   %a1 = getelementptr %struct.test06, %struct.test06* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test06, %struct.test06* %p, i64 0, i32 0
@@ -284,7 +284,7 @@ define i1 @test06identify(%struct.test06** %in) !dtrans_type !23 {
 ; of test3 WRT the loop control test to match the pattern seen following some
 ; upstream transformation changes.
 %struct.test07 = type { i32, i32 }
-define void @test07(i8* %p, i64 %n) !dtrans_type !12 {
+define void @test07(i8* "intel_dtrans_func_index"="1" %p, i64 %n) !intel.dtrans.func.type !21 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test07**
@@ -316,7 +316,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test07identify(%struct.test07** %in) !dtrans_type !26 {
+define i1 @test07identify(%struct.test07** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !23 {
   %p = load %struct.test07*, %struct.test07** %in
   %a1 = getelementptr %struct.test07, %struct.test07* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test07, %struct.test07* %p, i64 0, i32 0
@@ -333,7 +333,7 @@ define i1 @test07identify(%struct.test07** %in) !dtrans_type !26 {
 ; Swap pointers in 32-bit chunks. This is same as test1 except the type of
 ; %Count is i32.
 %struct.test08 = type { i32, i32 }
-define void @test08(i8* %p) !dtrans_type !2 {
+define void @test08(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !24 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test08**
@@ -363,7 +363,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test08identify(%struct.test08** %in) !dtrans_type !29 {
+define i1 @test08identify(%struct.test08** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !26 {
   %p = load %struct.test08*, %struct.test08** %in
   %a1 = getelementptr %struct.test08, %struct.test08* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test08, %struct.test08* %p, i64 0, i32 0
@@ -380,7 +380,7 @@ define i1 @test08identify(%struct.test08** %in) !dtrans_type !29 {
 ; Swap pointers in 32-bit chunks. This is same as test8 except operands
 ; of "add" are swapped.
 %struct.test09 = type { i32, i32 }
-define void @test09(i8* %p) !dtrans_type !2 {
+define void @test09(i8* "intel_dtrans_func_index"="1" %p) !intel.dtrans.func.type !27 {
 entry:
   ; This is here to establish what %p actually points to.
   %identify = bitcast i8* %p to %struct.test09**
@@ -410,7 +410,7 @@ swap:
 exit:
   ret void
 }
-define i1 @test09identify(%struct.test09** %in) !dtrans_type !32 {
+define i1 @test09identify(%struct.test09** "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !29 {
   %p = load %struct.test09*, %struct.test09** %in
   %a1 = getelementptr %struct.test09, %struct.test09* %p, i64 0, i32 0
   %a2 = getelementptr %struct.test09, %struct.test09* %p, i64 0, i32 0
@@ -425,47 +425,42 @@ define i1 @test09identify(%struct.test09** %in) !dtrans_type !32 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (i8*)
-!3 = !{!"void", i32 0}  ; void
-!4 = !{i8 0, i32 1}  ; i8*
-!5 = !{!"F", i1 false, i32 1, !6, !7}  ; i1 (%struct.test01**)
-!6 = !{i1 0, i32 0}  ; i1
-!7 = !{!8, i32 2}  ; %struct.test01**
-!8 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!9 = !{!"F", i1 false, i32 1, !6, !10}  ; i1 (%struct.test02**)
-!10 = !{!11, i32 2}  ; %struct.test02**
-!11 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!12 = !{!"F", i1 false, i32 2, !3, !4, !13}  ; void (i8*, i64)
-!13 = !{i64 0, i32 0}  ; i64
-!14 = !{!"F", i1 false, i32 1, !6, !15}  ; i1 (%struct.test03**)
-!15 = !{!16, i32 2}  ; %struct.test03**
-!16 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!17 = !{!"F", i1 false, i32 1, !6, !18}  ; i1 (%struct.test04**)
-!18 = !{!19, i32 2}  ; %struct.test04**
-!19 = !{!"R", %struct.test04 zeroinitializer, i32 0}  ; %struct.test04
-!20 = !{!"F", i1 false, i32 1, !6, !21}  ; i1 (%struct.test05**)
-!21 = !{!22, i32 2}  ; %struct.test05**
-!22 = !{!"R", %struct.test05 zeroinitializer, i32 0}  ; %struct.test05
-!23 = !{!"F", i1 false, i32 1, !6, !24}  ; i1 (%struct.test06**)
-!24 = !{!25, i32 2}  ; %struct.test06**
-!25 = !{!"R", %struct.test06 zeroinitializer, i32 0}  ; %struct.test06
-!26 = !{!"F", i1 false, i32 1, !6, !27}  ; i1 (%struct.test07**)
-!27 = !{!28, i32 2}  ; %struct.test07**
-!28 = !{!"R", %struct.test07 zeroinitializer, i32 0}  ; %struct.test07
-!29 = !{!"F", i1 false, i32 1, !6, !30}  ; i1 (%struct.test08**)
-!30 = !{!31, i32 2}  ; %struct.test08**
-!31 = !{!"R", %struct.test08 zeroinitializer, i32 0}  ; %struct.test08
-!32 = !{!"F", i1 false, i32 1, !6, !33}  ; i1 (%struct.test09**)
-!33 = !{!34, i32 2}  ; %struct.test09**
-!34 = !{!"R", %struct.test09 zeroinitializer, i32 0}  ; %struct.test09
-!35 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!36 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!37 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!38 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!39 = !{!"S", %struct.test05 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!40 = !{!"S", %struct.test06 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!41 = !{!"S", %struct.test07 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!42 = !{!"S", %struct.test08 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!43 = !{!"S", %struct.test09 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = distinct !{!2}
+!4 = !{%struct.test01 zeroinitializer, i32 2}  ; %struct.test01**
+!5 = distinct !{!4}
+!6 = distinct !{!2}
+!7 = !{%struct.test02 zeroinitializer, i32 2}  ; %struct.test02**
+!8 = distinct !{!7}
+!9 = distinct !{!2}
+!10 = !{%struct.test03 zeroinitializer, i32 2}  ; %struct.test03**
+!11 = distinct !{!10}
+!12 = distinct !{!2}
+!13 = !{%struct.test04 zeroinitializer, i32 2}  ; %struct.test04**
+!14 = distinct !{!13}
+!15 = distinct !{!2}
+!16 = !{%struct.test05 zeroinitializer, i32 2}  ; %struct.test05**
+!17 = distinct !{!16}
+!18 = distinct !{!2}
+!19 = !{%struct.test06 zeroinitializer, i32 2}  ; %struct.test06**
+!20 = distinct !{!19}
+!21 = distinct !{!2}
+!22 = !{%struct.test07 zeroinitializer, i32 2}  ; %struct.test07**
+!23 = distinct !{!22}
+!24 = distinct !{!2}
+!25 = !{%struct.test08 zeroinitializer, i32 2}  ; %struct.test08**
+!26 = distinct !{!25}
+!27 = distinct !{!2}
+!28 = !{%struct.test09 zeroinitializer, i32 2}  ; %struct.test09**
+!29 = distinct !{!28}
+!30 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!31 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!32 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!33 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!34 = !{!"S", %struct.test05 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!35 = !{!"S", %struct.test06 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!36 = !{!"S", %struct.test07 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!37 = !{!"S", %struct.test08 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!38 = !{!"S", %struct.test09 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!35, !36, !37, !38, !39, !40, !41, !42, !43}
+!intel.dtrans.types = !{!30, !31, !32, !33, !34, !35, !36, !37, !38}

@@ -1,5 +1,5 @@
-; RUN: opt -S -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -S -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -S -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s

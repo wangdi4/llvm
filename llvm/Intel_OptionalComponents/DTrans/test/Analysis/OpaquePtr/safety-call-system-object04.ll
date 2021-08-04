@@ -6,15 +6,15 @@
 ; them being marked with "System object".
 
 %struct.test01 = type { i32, i32 }
-@var01 = internal global %struct.test01* zeroinitializer, !dtrans_type !2
-@func01 = internal global %struct.test01* (i32)* @test01i, !dtrans_type !5
+@var01 = internal global %struct.test01* zeroinitializer, !intel_dtrans_type !2
+@func01 = internal global %struct.test01* (i32)* @test01i, !intel_dtrans_type !4
 define void @test01() {
   %funcaddr = load %struct.test01* (i32)*, %struct.test01* (i32)** @func01
-  %pStruct = call %struct.test01* (i32) %funcaddr(i32 1), !dtrans_type !4
+  %pStruct = call %struct.test01* (i32) %funcaddr(i32 1), !intel_dtrans_type !3
   ret void
 }
 
-define %struct.test01* @test01i(i32 %x) !dtrans_type !4 {
+define "intel_dtrans_func_index"="1" %struct.test01* @test01i(i32 %x) !intel.dtrans.func.type !5 {
   %val = load %struct.test01*, %struct.test01** @var01
   ret %struct.test01* %val
 }
@@ -30,10 +30,10 @@ define %struct.test01* @test01i(i32 %x) !dtrans_type !4 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test01*
-!3 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!4 = !{!"F", i1 false, i32 1, !2, !1}  ; %struct.test01* (i32)
-!5 = !{!4, i32 1}  ; %struct.test01* (i32)*
+!2 = !{%struct.test01 zeroinitializer, i32 1}  ; %struct.test01*
+!3 = !{!"F", i1 false, i32 1, !2, !1}  ; %struct.test01* (i32)
+!4 = !{!3, i32 1}  ; %struct.test01* (i32)*
+!5 = distinct !{!2}
 !6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!6}
+!intel.dtrans.types = !{!6}

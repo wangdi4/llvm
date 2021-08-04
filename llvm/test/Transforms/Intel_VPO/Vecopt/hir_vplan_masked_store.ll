@@ -1,6 +1,6 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg --S -enable-vp-value-codegen-hir < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" --S -enable-vp-value-codegen-hir < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg --S < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" --S < %s | FileCheck %s
 
 
 ; CMPLRLLVM-7224: WRN support in HIR for SIMD with OperandBundle representation

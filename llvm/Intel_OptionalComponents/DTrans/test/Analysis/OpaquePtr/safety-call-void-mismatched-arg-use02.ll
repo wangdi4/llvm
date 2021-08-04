@@ -9,7 +9,7 @@
 ; with the use in the caller.
 %struct.test01.a = type { i64, i32, i32 }
 %struct.test01.b = type { i32, i32, i32, i32 }
-define i1 @test01less(i8* %p0, i8* %p1) !dtrans_type !3 {
+define i1 @test01less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_func_index"="2" %p1) !intel.dtrans.func.type !4 {
   %ps0 = bitcast i8* %p0 to %struct.test01.b*
   %ps1 = bitcast i8* %p1 to %struct.test01.b*
   %fs0 = getelementptr %struct.test01.b, %struct.test01.b* %ps0, i64 0, i32 0
@@ -20,7 +20,7 @@ define i1 @test01less(i8* %p0, i8* %p1) !dtrans_type !3 {
   ret i1 %cmp
 }
 
-define void @test01(%struct.test01.a** %pStruct) !dtrans_type !6 {
+define void @test01(%struct.test01.a** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !6 {
   %ps_addr0 = getelementptr %struct.test01.a*, %struct.test01.a** %pStruct, i64 0
   %ps_addr1 = getelementptr %struct.test01.a*, %struct.test01.a** %pStruct, i64 1
   %ps0 = load %struct.test01.a*, %struct.test01.a** %ps_addr0
@@ -40,7 +40,7 @@ define void @test01(%struct.test01.a** %pStruct) !dtrans_type !6 {
 ; Test with using the i8* parameter as a non-aggregate type that is incompatible
 ; with the use in the caller.
 %struct.test02 = type { i32, i32 }
-define void @test02(%struct.test02** %pStruct) !dtrans_type !10 {
+define void @test02(%struct.test02** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !8 {
   %ps_addr0 = getelementptr %struct.test02*, %struct.test02** %pStruct, i64 0
   %ps_addr1 = getelementptr %struct.test02*, %struct.test02** %pStruct, i64 1
   %ps0 = load %struct.test02*, %struct.test02** %ps_addr0
@@ -50,7 +50,7 @@ define void @test02(%struct.test02** %pStruct) !dtrans_type !10 {
   ret void
 }
 
-define i1 @test02less(i8* %p0, i8* %p1) !dtrans_type !3 {
+define i1 @test02less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_func_index"="2" %p1) !intel.dtrans.func.type !9 {
   %ps0 = bitcast i8* %p0 to i32*
   %ps1 = bitcast i8* %p1 to i32*
   %v0 = load i32, i32* %ps0
@@ -67,7 +67,7 @@ define i1 @test02less(i8* %p0, i8* %p1) !dtrans_type !3 {
 %struct.test03.a = type { i64, i32, i32 }
 %struct.test03.b = type { i32, i32, i32, i32 }
 %struct.test03.c = type { i32, i32, i64 }
-define i1 @test03less(i8* %p0, i8* %p1) !dtrans_type !3 {
+define i1 @test03less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_func_index"="2" %p1) !intel.dtrans.func.type !10 {
   %ps0 = bitcast i8* %p0 to %struct.test03.b*
   %ps1 = bitcast i8* %p1 to %struct.test03.b*
   %fs0 = getelementptr %struct.test03.b, %struct.test03.b* %ps0, i64 0, i32 0
@@ -88,7 +88,7 @@ define i1 @test03less(i8* %p0, i8* %p1) !dtrans_type !3 {
   ret i1 %cmp
 }
 
-define void @test03(%struct.test03.a** %pStruct) !dtrans_type !13 {
+define void @test03(%struct.test03.a** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !12 {
   %ps_addr0 = getelementptr %struct.test03.a*, %struct.test03.a** %pStruct, i64 0
   %ps_addr1 = getelementptr %struct.test03.a*, %struct.test03.a** %pStruct, i64 1
   %ps0 = load %struct.test03.a*, %struct.test03.a** %ps_addr0
@@ -112,24 +112,21 @@ define void @test03(%struct.test03.a** %pStruct) !dtrans_type !13 {
 
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{i32 0, i32 0}  ; i32
-!3 = !{!"F", i1 false, i32 2, !4, !5, !5}  ; i1 (i8*, i8*)
-!4 = !{i1 0, i32 0}  ; i1
-!5 = !{i8 0, i32 1}  ; i8*
-!6 = !{!"F", i1 false, i32 1, !7, !8}  ; void (%struct.test01.a**)
-!7 = !{!"void", i32 0}  ; void
-!8 = !{!9, i32 2}  ; %struct.test01.a**
-!9 = !{!"R", %struct.test01.a zeroinitializer, i32 0}  ; %struct.test01.a
-!10 = !{!"F", i1 false, i32 1, !7, !11}  ; void (%struct.test02**)
-!11 = !{!12, i32 2}  ; %struct.test02**
-!12 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!13 = !{!"F", i1 false, i32 1, !7, !14}  ; void (%struct.test03.a**)
-!14 = !{!15, i32 2}  ; %struct.test03.a**
-!15 = !{!"R", %struct.test03.a zeroinitializer, i32 0}  ; %struct.test03.a
-!16 = !{!"S", %struct.test01.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
-!17 = !{!"S", %struct.test01.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
-!18 = !{!"S", %struct.test02 zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
-!19 = !{!"S", %struct.test03.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
-!20 = !{!"S", %struct.test03.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
-!21 = !{!"S", %struct.test03.c zeroinitializer, i32 3, !2, !2, !1} ; { i32, i32, i64 }
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3, !3}
+!5 = !{%struct.test01.a zeroinitializer, i32 2}  ; %struct.test01.a**
+!6 = distinct !{!5}
+!7 = !{%struct.test02 zeroinitializer, i32 2}  ; %struct.test02**
+!8 = distinct !{!7}
+!9 = distinct !{!3, !3}
+!10 = distinct !{!3, !3}
+!11 = !{%struct.test03.a zeroinitializer, i32 2}  ; %struct.test03.a**
+!12 = distinct !{!11}
+!13 = !{!"S", %struct.test01.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
+!14 = !{!"S", %struct.test01.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
+!15 = !{!"S", %struct.test02 zeroinitializer, i32 2, !2, !2} ; { i32, i32 }
+!16 = !{!"S", %struct.test03.a zeroinitializer, i32 3, !1, !2, !2} ; { i64, i32, i32 }
+!17 = !{!"S", %struct.test03.b zeroinitializer, i32 4, !2, !2, !2, !2} ; { i32, i32, i32, i32 }
+!18 = !{!"S", %struct.test03.c zeroinitializer, i32 3, !2, !2, !1} ; { i32, i32, i64 }
 
-!dtrans_types = !{!16, !17, !18, !19, !20, !21}
+!intel.dtrans.types = !{!13, !14, !15, !16, !17, !18}

@@ -190,14 +190,22 @@ EXTERN void __kmpc_end_critical_simd(kmp_critical_name *name) {
 ///
 
 EXTERN int __kmpc_master() {
-#if KMP_ASSUME_SIMPLE_SPMD_MODE
-  return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
-#else
-  return (__kmp_get_omp_thread_id(__kmp_is_spmd_mode()) == 0);
-#endif
+  return __kmpc_masked(NULL, 0, 0);
 }
 
 EXTERN void __kmpc_end_master() {
+  // nothing to be done
+}
+
+EXTERN int __kmpc_masked(ident_t *loc, int gtid, int filter) {
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return ((int)__kmp_get_local_id() == filter) ? KMP_TRUE : KMP_FALSE;
+#else
+  return (__kmp_get_omp_thread_id(__kmp_is_spmd_mode()) == filter);
+#endif
+}
+
+EXTERN void __kmpc_end_masked(ident_t *loc, int gtid) {
   // nothing to be done
 }
 

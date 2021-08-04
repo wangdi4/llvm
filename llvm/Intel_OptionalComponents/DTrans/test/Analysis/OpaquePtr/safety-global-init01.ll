@@ -20,7 +20,7 @@ define void @test01() {
 
 ; This case is for a pointer, and does not have an initializer list.
 %struct.test02 = type { i32, i32 }
-@g_ptr.test02 = internal global %struct.test02* null, !dtrans_type !2
+@g_ptr.test02 = internal global %struct.test02* null, !intel_dtrans_type !2
 define void @test02() {
   %pStruct = load %struct.test02*, %struct.test02** @g_ptr.test02
   ret void
@@ -34,7 +34,7 @@ define void @test02() {
 ; Neither should trigger "Has initializer list".
 %struct.test03 = type { i32, i32 }
 @g_instance.test03 = internal global %struct.test03 zeroinitializer
-@g_ptr.test03 = internal global %struct.test03* @g_instance.test03, !dtrans_type !4
+@g_ptr.test03 = internal global %struct.test03* @g_instance.test03, !intel_dtrans_type !3
 define void @test03() {
   store %struct.test03* @g_instance.test03, %struct.test03** @g_ptr.test03
   ret void
@@ -71,7 +71,7 @@ define void @test05() {
 ; An array of pointers should not trigger "Has initializer list"
 %struct.test06 = type { i32, i32 }
 @g_instance.test06 = internal global %struct.test06 zeroinitializer
-@g_array.test06 = internal global [2 x %struct.test06*] [ %struct.test06* @g_instance.test06, %struct.test06* @g_instance.test06], !dtrans_type !6
+@g_array.test06 = internal global [2 x %struct.test06*] [ %struct.test06* @g_instance.test06, %struct.test06* @g_instance.test06], !intel_dtrans_type !4
 define void @test06() {
   ret void
 }
@@ -94,19 +94,16 @@ define void @test07() {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!3, i32 1}  ; %struct.test02*
-!3 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!4 = !{!5, i32 1}  ; %struct.test03*
-!5 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!6 = !{!"A", i32 2, !7}  ; [2 x %struct.test06*]
-!7 = !{!8, i32 1}  ; %struct.test06*
-!8 = !{!"R", %struct.test06 zeroinitializer, i32 0}  ; %struct.test06
-!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!10 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!11 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!12 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!13 = !{!"S", %struct.test05 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!14 = !{!"S", %struct.test06 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
-!15 = !{!"S", %struct.test07 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!2 = !{%struct.test02 zeroinitializer, i32 1}  ; %struct.test02*
+!3 = !{%struct.test03 zeroinitializer, i32 1}  ; %struct.test03*
+!4 = !{!"A", i32 2, !5}  ; [2 x %struct.test06*]
+!5 = !{%struct.test06 zeroinitializer, i32 1}  ; %struct.test06*
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!7 = !{!"S", %struct.test02 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!8 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!9 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!10 = !{!"S", %struct.test05 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!11 = !{!"S", %struct.test06 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!12 = !{!"S", %struct.test07 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!9, !10, !11, !12, !13, !14, !15}
+!intel.dtrans.types = !{!6, !7, !8, !9, !10, !11, !12}

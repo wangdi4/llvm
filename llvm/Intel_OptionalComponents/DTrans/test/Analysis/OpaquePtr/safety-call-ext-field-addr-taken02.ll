@@ -56,20 +56,16 @@ define void @test02() {
 ; CHECK: Safety data:  Global instance | Field address taken call{{ *$}}
 
 
-declare i8* @strcpy(i8*, i8*)
-declare i32 @printf(i8*, ...)
+declare !intel.dtrans.func.type !5 "intel_dtrans_func_index"="1" i8* @strcpy(i8* "intel_dtrans_func_index"="2", i8* "intel_dtrans_func_index"="3")
+declare !intel.dtrans.func.type !6 i32 @printf(i8* "intel_dtrans_func_index"="1", ...)
 
 !1 = !{!"A", i32 200, !2}  ; [200 x i8]
 !2 = !{i8 0, i32 0}  ; i8
 !3 = !{i64 0, i32 0}  ; i64
-!4 = !{!"F", i1 false, i32 2, !5, !5, !5}  ; i8* (i8*, i8*)
-!5 = !{i8 0, i32 1}  ; i8*
-!6 = !{!"F", i1 true, i32 1, !7, !5}  ; i32 (i8*, ...)
-!7 = !{i32 0, i32 0}  ; i32
-!8 = !{!"S", %struct.test01 zeroinitializer, i32 4, !1, !1, !3, !3} ; { [200 x i8], [200 x i8], i64, i64 }
-!9 = !{!"S", %struct.test02 zeroinitializer, i32 4, !1, !1, !3, !3} ; { [200 x i8], [200 x i8], i64, i64 }
-!10 = !{!"printf", !6}
-!11 = !{!"strcpy", !4}
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4, !4, !4}
+!6 = distinct !{!4}
+!7 = !{!"S", %struct.test01 zeroinitializer, i32 4, !1, !1, !3, !3} ; { [200 x i8], [200 x i8], i64, i64 }
+!8 = !{!"S", %struct.test02 zeroinitializer, i32 4, !1, !1, !3, !3} ; { [200 x i8], [200 x i8], i64, i64 }
 
-!dtrans_types = !{!8, !9}
-!dtrans_decl_types = !{!10, !11}
+!intel.dtrans.types = !{!7, !8}

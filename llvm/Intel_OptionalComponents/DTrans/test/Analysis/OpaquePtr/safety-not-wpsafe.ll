@@ -16,15 +16,15 @@ define void @test01() {
   ret void
 }
 
-declare i8* @malloc(i64)
-
-!1 = !{i64 0, i32 0}  ; i64
-!2 = !{!3, i32 1}  ; %struct.testmember01*
-!3 = !{!"R", %struct.testmember01 zeroinitializer, i32 0}  ; %struct.testmember01
-!4 = !{!"S", %struct.testmember01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
-!5 = !{!"S", %struct.test01 zeroinitializer, i32 1, !2} ; { %struct.testmember01* }
-
-!dtrans_types = !{!4, !5}
+declare !intel.dtrans.func.type !4 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 
 ; CHECK: DTransSafetyInfo::analyzeModule running
 ; CHECK: DTransSafetyInfo: Not Whole Program Safe
+!1 = !{i64 0, i32 0}  ; i64
+!2 = !{%struct.testmember01 zeroinitializer, i32 1}  ; %struct.testmember01*
+!3 = !{i8 0, i32 1}  ; i8*
+!4 = distinct !{!3}
+!5 = !{!"S", %struct.testmember01 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 1, !2} ; { %struct.testmember01* }
+
+!intel.dtrans.types = !{!5, !6}

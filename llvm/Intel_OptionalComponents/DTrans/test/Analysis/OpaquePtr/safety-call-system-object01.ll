@@ -16,7 +16,7 @@ define void @test01() {
 }
 ; This function is defined with the 'dllexport' attribute to make it appear as
 ; an external function whose type cannot be changed.
-define dllexport i8* @extern_func01() !dtrans_type !2 {
+define dllexport "intel_dtrans_func_index"="1" i8* @extern_func01() !intel.dtrans.func.type !3 {
   ret i8* @var01
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -25,8 +25,8 @@ define dllexport i8* @extern_func01() !dtrans_type !2 {
 
 
 !1 = !{i32 0, i32 0}  ; i32
-!2 = !{!"F", i1 false, i32 0, !3}  ; i8* ()
-!3 = !{i8 0, i32 1}  ; i8*
+!2 = !{i8 0, i32 1}  ; i8*
+!3 = distinct !{!2}
 !4 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!4}
+!intel.dtrans.types = !{!4}

@@ -7,7 +7,7 @@
 
 ; Test with using the i8* parameter as a type that is compatible with the use in
 ; the caller.
-define void @test01(%struct.test01** %pStruct) !dtrans_type !1 {
+define void @test01(%struct.test01** "intel_dtrans_func_index"="1" %pStruct) !intel.dtrans.func.type !2 {
   %ps_addr0 = getelementptr %struct.test01*, %struct.test01** %pStruct, i64 0
   %ps_addr1 = getelementptr %struct.test01*, %struct.test01** %pStruct, i64 1
   %ps0 = load %struct.test01*, %struct.test01** %ps_addr0
@@ -18,7 +18,7 @@ define void @test01(%struct.test01** %pStruct) !dtrans_type !1 {
 }
 
 %struct.test01 = type { i32, i32 }
-define i1 @test01less(i8* %p0, i8* %p1) !dtrans_type !6 {
+define i1 @test01less(i8* "intel_dtrans_func_index"="1" %p0, i8* "intel_dtrans_func_index"="2" %p1) !intel.dtrans.func.type !5 {
   %ps0 = bitcast i8* %p0 to %struct.test01*
   %ps1 = bitcast i8* %p1 to %struct.test01*
   %fs0 = getelementptr %struct.test01, %struct.test01* %ps0, i64 0, i32 0
@@ -33,14 +33,11 @@ define i1 @test01less(i8* %p0, i8* %p1) !dtrans_type !6 {
 ; CHECK: Safety data: No issues found
 
 
-!1 = !{!"F", i1 false, i32 1, !2, !3}  ; void (%struct.test01**)
-!2 = !{!"void", i32 0}  ; void
-!3 = !{!4, i32 2}  ; %struct.test01**
-!4 = !{!"R", %struct.test01 zeroinitializer, i32 0}  ; %struct.test01
-!5 = !{i32 0, i32 0}  ; i32
-!6 = !{!"F", i1 false, i32 2, !7, !8, !8}  ; i1 (i8*, i8*)
-!7 = !{i1 0, i32 0}  ; i1
-!8 = !{i8 0, i32 1}  ; i8*
-!9 = !{!"S", %struct.test01 zeroinitializer, i32 2, !5, !5} ; { i32, i32 }
+!1 = !{%struct.test01 zeroinitializer, i32 2}  ; %struct.test01**
+!2 = distinct !{!1}
+!3 = !{i32 0, i32 0}  ; i32
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4, !4}
+!6 = !{!"S", %struct.test01 zeroinitializer, i32 2, !3, !3} ; { i32, i32 }
 
-!dtrans_types = !{!9}
+!intel.dtrans.types = !{!6}

@@ -12,7 +12,7 @@
 ;;    work_group_commit_read_pipe
 ;; The expected results:
 ;;      1. A call to @_Z18work_group_barrierj(LOCAL_MEM_FENCE) just before calling any of the work-group level pipe built-ins
-;;      2. A call to @barrier_dummy() just after calling any of the built-ins
+;;      2. A call to @dummy_barrier.() just after calling any of the built-ins
 ;;*****************************************************************************
 
 ; ModuleID = 'Program'
@@ -33,7 +33,7 @@ define %opencl.reserve_id_t* @wg_reserve_write(%opencl.pipe_t addrspace(1)* %p, 
   ret %opencl.reserve_id_t* %rid
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
 ; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_write_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret %opencl.reserve_id_t* %rid
 }
 
@@ -43,7 +43,7 @@ define void @wg_commit_write(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id
   ret void
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
 ; CHECK:   tail call void @__work_group_commit_write_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }
 
@@ -53,7 +53,7 @@ define %opencl.reserve_id_t* @wg_reserve_read(%opencl.pipe_t addrspace(1)* %p, i
   ret %opencl.reserve_id_t* %rid
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
 ; CHECK:   %rid = tail call %opencl.reserve_id_t* @__work_group_reserve_read_pipe(%opencl.pipe_t addrspace(1)* %p, i32 %num_packets, i32 undef)
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret %opencl.reserve_id_t* %rid
 }
 
@@ -63,7 +63,7 @@ define void @wg_commit_read(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_
   ret void
 ; CHECK:   call void @_Z18work_group_barrierj(i32 1)
 ; CHECK:   tail call void @__work_group_commit_read_pipe(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_t* %rid, i32 undef)
-; CHECK:   call void @barrier_dummy()
+; CHECK:   call void @dummy_barrier.()
 ; CHECK:   ret void
 }
 
@@ -73,9 +73,9 @@ define void @wg_commit_read(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_
 !0 = !{i32 2, i32 0}
 !1 = !{!"-cl-std=CL2.0"}
 
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_write -- call void @barrier_dummy()
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_write -- call void @barrier_dummy()
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_read -- call void @barrier_dummy()
-;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_read -- call void @barrier_dummy()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_write -- call void @dummy_barrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_write -- call void @dummy_barrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_read -- call void @dummy_barrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_read -- call void @dummy_barrier.()
 
 ; DEBUGIFY-NOT: WARNING

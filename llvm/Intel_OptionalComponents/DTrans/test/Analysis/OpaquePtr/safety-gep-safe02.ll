@@ -23,7 +23,7 @@ define internal void @test01() {
   call void @test01helper(i8* %addr0, i8* %addr1, i8* %addr2, i8* %addr3, i8* %addr4)
   ret void
 }
-define internal void @test01helper(i8* %arg0, i8* %arg1, i8* %arg2, i8* %arg3, i8* %arg4) !dtrans_type !4 {
+define internal void @test01helper(i8* "intel_dtrans_func_index"="1" %arg0, i8* "intel_dtrans_func_index"="2" %arg1, i8* "intel_dtrans_func_index"="3" %arg2, i8* "intel_dtrans_func_index"="4" %arg3, i8* "intel_dtrans_func_index"="5" %arg4) !intel.dtrans.func.type !5 {
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
@@ -70,19 +70,19 @@ define internal void @test03(i32 %x) {
 ; CHECK: Local instance{{ *$}}
 
 
-declare void @llvm.memset.p0i8.i64(i8*, i8, i64, i1)
+declare !intel.dtrans.func.type !7 void @llvm.memset.p0i8.i64(i8* "intel_dtrans_func_index"="1", i8, i64, i1)
 
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{i64 0, i32 1}  ; i64*
 !3 = !{i16 0, i32 0}  ; i16
-!4 = !{!"F", i1 false, i32 5, !5, !6, !6, !6, !6, !6}  ; void (i8*, i8*, i8*, i8*, i8*)
-!5 = !{!"void", i32 0}  ; void
-!6 = !{i8 0, i32 1}  ; i8*
-!7 = !{!"R", %struct.test02a zeroinitializer, i32 0}  ; %struct.test02a
+!4 = !{i8 0, i32 1}  ; i8*
+!5 = distinct !{!4, !4, !4, !4, !4}
+!6 = !{%struct.test02a zeroinitializer, i32 0}  ; %struct.test02a
+!7 = distinct !{!4}
 !8 = !{!"S", %struct.test01 zeroinitializer, i32 5, !1, !2, !1, !3, !3} ; { i32, i64*, i32, i16, i16 }
 !9 = !{!"S", %struct.test02a zeroinitializer, i32 2, !3, !1} ; { i16, i32 }
-!10 = !{!"S", %struct.test02b zeroinitializer, i32 2, !3, !7} ; { i16, %struct.test02a }
+!10 = !{!"S", %struct.test02b zeroinitializer, i32 2, !3, !6} ; { i16, %struct.test02a }
 !11 = !{!"S", %struct.test03 zeroinitializer, i32 3, !1, !3, !1} ; { i32, i16, i32 }
 
-!dtrans_types = !{!8, !9, !10, !11}
+!intel.dtrans.types = !{!8, !9, !10, !11}
