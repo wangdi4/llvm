@@ -23,26 +23,28 @@
 ;   return A[1][1];
 ; }
 
-; CHECK: Function
+;*** IR Dump Before HIR Loop Collapse (hir-loop-collapse) ***
+;Function: foo
 
-; CHECK: BEGIN REGION { }
-; CHECK:      + DO i1 = 0, 2 * %X + -1, 1   <DO_LOOP>
-; CHECK:      |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; CHECK:      |   |   %0 = (@A)[0][i1][i2];
-; CHECK:      |   |   (@A)[0][i1][i2] = %0 + 1;
-; CHECK:      |   + END LOOP
-; CHECK:      + END LOOP
-; CHECK: END REGION
+; CHECK:     BEGIN REGION { }
+; CHECK:           + DO i1 = 0, 2 * %X + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10>
+; CHECK:           |   + DO i2 = 0, 9, 1   <DO_LOOP>
+; CHECK:           |   |   %0 = (@A)[0][i1][i2];
+; CHECK:           |   |   (@A)[0][i1][i2] = %0 + 1;
+; CHECK:           |   + END LOOP
+; CHECK:           + END LOOP
+; CHECK:     END REGION
 
 
-; CHECK: Function
-;
-; CHECK: BEGIN REGION { modified }
-; CHECK:      + DO i1 = 0, 20 * %X + -1, 1   <DO_LOOP>
-; CHECK:      |   %0 = (@A)[0][0][i1];
-; CHECK:      |   (@A)[0][0][i1] = %0 + 1;
-; CHECK:      + END LOOP
-; CHECK: END REGION
+;*** IR Dump After HIR Loop Collapse (hir-loop-collapse) ***
+;Function: foo
+
+; CHECK:     BEGIN REGION { modified }
+; CHECK:           + DO i1 = 0, 10 * (2 * %X) + -1, 1   <DO_LOOP>
+; CHECK:           |   %0 = (@A)[0][0][i1];
+; CHECK:           |   (@A)[0][0][i1] = %0 + 1;
+; CHECK:           + END LOOP
+; CHECK:     END REGION
 
 
 ;Module Before HIR
@@ -103,3 +105,4 @@ attributes #0 = { nofree norecurse nounwind uwtable "correctly-rounded-divide-sq
 !5 = !{!"int", !6, i64 0}
 !6 = !{!"omnipotent char", !7, i64 0}
 !7 = !{!"Simple C/C++ TBAA"}
+

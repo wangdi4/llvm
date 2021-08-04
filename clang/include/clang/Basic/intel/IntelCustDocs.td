@@ -3596,6 +3596,37 @@ using ``__builtin_FILE``.
   }];
 }
 
+def UnderbarPragmaEnabledDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let Owner = "ekeane1";
+  let RegressionTest = "Lexer/intel/underbar-pragma.cpp";
+  let Default = 1;
+  let Content = [{
+Microsoft accepts `__pragma` as a keyword alternative for `#pragma`. ICC accepts
+this in Linux mode as well, so this feature enables it in Intel compatibility
+mode.
+
+.. code-block:: c++
+
+  __pragma(warning(push)); // MS/ICC Compat spelling
+  _Pragma(warning(push)); // C99/C++11 spelling.
+  #pragma(warning(push)); // Normal directive.
+
+}];
+let UserContent = [{
+This change allows the use of the `__pragma` keyword as an alternative to
+#pragma` or `_Pragma`.
+
+.. code-block:: c++
+
+  __pragma(warning(push)); // MS/ICC Compat spelling
+  _Pragma(warning(push)); // C99/C++11 spelling.
+  #pragma(warning(push)); // Normal directive.
+
+}];
+}
+
 def GlobalDocumentation {
   code Intro =[{..
   -------------------------------------------------------------------

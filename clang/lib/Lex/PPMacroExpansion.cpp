@@ -367,6 +367,11 @@ void Preprocessor::RegisterBuiltinMacros() {
   if (getLangOpts().MicrosoftExt) {
     Ident__identifier = RegisterBuiltinMacro(*this, "__identifier");
     Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().isIntelCompat(LangOptions::UnderbarPragmaEnabled)) {
+    Ident__identifier = nullptr;
+    Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
+#endif // INTEL_CUSTOMIZATION
   } else {
     Ident__identifier = nullptr;
     Ident__pragma = nullptr;
@@ -400,9 +405,6 @@ void Preprocessor::RegisterBuiltinMacros() {
     Ident__MODULE__ = RegisterBuiltinMacro(*this, "__MODULE__");
   else
     Ident__MODULE__ = nullptr;
-#if INTEL_CUSTOMIZATION
-  Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
-#endif  // INTEL_CUSTOMIZATION
 }
 
 /// isTrivialSingleTokenExpansion - Return true if MI, which has a single token

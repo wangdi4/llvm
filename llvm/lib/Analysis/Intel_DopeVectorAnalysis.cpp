@@ -104,19 +104,36 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL) {
 }
 
 extern bool isUplevelVarType(Type *Ty) {
+  //
+  // CMPLRLLVM-30087: Extend this to handle an optional function name
+  // and the embedded string "uplevel_nested_type".
+  //
   // For now, just check the type of the variable as being named
-  // "%uplevel_type[.#]" In the future, the front-end should provide some
-  // metadata indicator that a variable is an uplevel.
+  //     "%[FUNCTION_NAME.]uplevel_[nested_]type[.SUFFIX]"
+  // In the future, the front-end should provide some metadata indicator that
+  // a variable is an uplevel.
+  //
   auto *StTy = dyn_cast<StructType>(Ty);
   if (!StTy || !StTy->hasName())
     return false;
-
+  StringRef MatchString = "";
   StringRef TypeName = StTy->getName();
+  if (TypeName.contains("uplevel_type"))
+    MatchString = "uplevel_type";
+  else if (TypeName.contains("uplevel_nested_type"))
+    MatchString = "uplevel_nested_type";
+  else
+    return false;
+  if (!TypeName.startswith(MatchString)) {
+    size_t DropCount = TypeName.find('.');
+    if (DropCount == StringLiteral::npos)
+      return false;
+    TypeName = TypeName.drop_front(DropCount + 1);
+  }
   // Strip a '.' and any characters that follow it from the name.
   TypeName = TypeName.take_until([](char C) { return C == '.'; });
-  if (TypeName != "uplevel_type")
+  if (TypeName != MatchString)
     return false;
-
   return true;
 }
 

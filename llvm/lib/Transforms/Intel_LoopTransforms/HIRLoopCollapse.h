@@ -25,29 +25,29 @@ namespace collapse {
 
 typedef std::pair<HLLoop *, HLLoop *> InnerOuterLoopPairTy;
 
-// This class contains a UBCE if a loop's TripCount is a single Blob, or an
-// unsigned if the loop's TripCount is an integer constant.
-class UBTCTuple {
-  CanonExpr *UBCE; // can be either an UBCE or a TripCount, not both
-  unsigned TripCount;
+// This class contains a CanonExpr * if a loop's TripCount is symbolic,
+// or an uint64_t if the loop's TripCount is an integer constant.
+class TripCountTuple {
+  CanonExpr *CE; // TripCount expression
+  uint64_t TripCount;
   bool IsConst;
 
 public:
-  UBTCTuple(void) : UBCE(nullptr), TripCount(0), IsConst(true) {}
+  TripCountTuple(void) : CE(nullptr), TripCount(0), IsConst(true) {}
 
   // getters + setters:
   bool isConstant(void) const { return IsConst; }
-  CanonExpr *getUBCE(void) const { return UBCE; }
-  unsigned getTripCount(void) const { return TripCount; }
+  CanonExpr *getTripCount(void) const { return CE; }
+  uint64_t getConstTripCount(void) const { return TripCount; }
 
-  void set(unsigned TC) {
+  void set(uint64_t TC) {
     TripCount = TC;
-    UBCE = nullptr;
+    CE = nullptr;
     IsConst = true;
   }
 
-  void set(CanonExpr *UB) {
-    UBCE = UB;
+  void set(CanonExpr *TCCE) {
+    CE = TCCE;
     TripCount = 0;
     IsConst = false;
   }
@@ -61,14 +61,14 @@ public:
 #endif
 
     if (PrintHeader) {
-      FOS << "UBTCTuple: ";
+      FOS << "TripCountTuple: ";
     }
 
     if (IsConst) {
       FOS << "TripCount: " << TripCount << " ";
     } else {
-      FOS << "UBCE: ";
-      UBCE->dump();
+      FOS << "TripCount CE: ";
+      CE->dump();
       FOS << " ";
     }
 
@@ -109,7 +109,7 @@ class HIRLoopCollapse {
 
   // an array storing relevant constant TripCounts or UpperBound CanonExpr*
   // for each relevant loop in the loop nest.
-  std::array<UBTCTuple, MaxLoopNestLevel> UBTCArry;
+  std::array<TripCountTuple, MaxLoopNestLevel> TCArry;
 
   // an array storing the entire loop nest: [InnermostLp .. OutermostLp].
   // This helps mapping a particular level to its matching loop.
@@ -158,7 +158,7 @@ private:
   //   is a loop with Blob-Only Trip Count.
   //   (Bail out on any failure)
   //
-  //   and Populate UBTCArry for each loop in the loop nest;
+  //   and Populate TCArry for each loop in the loop nest;
   //
   bool doPreliminaryChecks(void);
 
@@ -399,10 +399,10 @@ private:
   // Check: if a CE has any loopnest-level [OutermostLevel .. InnermostLevel] IV
   bool hasLoopNestIV(const CanonExpr *CE) const;
 
-  // Initialize the UBTC array, since it has UBTCTuple objects
-  void initializeUBTCArry(void) {
+  // Initialize the TripCount array
+  void initializeTCArry(void) {
     for (unsigned I = 0; I < MaxLoopNestLevel; ++I) {
-      UBTCArry[I] = UBTCTuple();
+      TCArry[I] = TripCountTuple();
     }
   }
 
@@ -461,8 +461,8 @@ private:
   LLVM_DUMP_METHOD void printCandidateLoops(
       SmallVector<InnerOuterLoopPairTy, 12> &CandidateLoops) const;
 
-  // Print UBTCArry;
-  LLVM_DUMP_METHOD void printUBTCArry(void) const;
+  // Print TCArry;
+  LLVM_DUMP_METHOD void printTCArry(void) const;
 #endif
 };
 
