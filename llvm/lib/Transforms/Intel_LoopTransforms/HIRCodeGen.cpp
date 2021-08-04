@@ -1210,11 +1210,11 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   if (RegOptReport) {
     // Optreports for outermost lost loop are stored as first child of the
     // region. So it looks like:
-    // !1 = distinct !{!"llvm.loop.optreport", !2}
-    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !1 = distinct !{!"intel.optreport.rootnode", !2}
+    // !2 = distinct !{!"intel.optreport", !3}
     // !3 = !{!"intel.optreport.first_child", !4}
-    // !4 = distinct !{!"llvm.loop.optreport", !5}
-    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !4 = distinct !{!"intel.optreport.rootnode", !5}
+    // !5 = distinct !{!"intel.optreport", !6, !8}
     // !6 = !{!"intel.optreport.remarks", !7}
     // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
     //
@@ -1222,19 +1222,19 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
     // for the region. Except for the function may have multiple outermost
     // loops. In this case all the following loops as stored as next siblings of
     // the first child. E.g.
-    // !1 = distinct !{!"llvm.loop.optreport", !2}
-    // !2 = distinct !{!"intel.loop.optreport", !3}
+    // !1 = distinct !{!"intel.optreport.rootnode", !2}
+    // !2 = distinct !{!"intel.optreport", !3}
     // !3 = !{!"intel.optreport.first_child", !4}
-    // !4 = distinct !{!"llvm.loop.optreport", !5}
-    // !5 = distinct !{!"intel.loop.optreport", !6, !8}
+    // !4 = distinct !{!"intel.optreport.rootnode", !5}
+    // !5 = distinct !{!"intel.optreport", !6, !8}
     // !6 = !{!"intel.optreport.remarks", !7}
     // !7 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
     // !8 = !{!"intel.optreport.next_sibling", !9}
-    // !9 = distinct !{!"llvm.loop.optreport", !10}
-    // !10 = distinct !{!"intel.loop.optreport", !6, !11}
+    // !9 = distinct !{!"intel.optreport.rootnode", !10}
+    // !10 = distinct !{!"intel.optreport", !6, !11}
     // !11 = !{!"intel.optreport.next_sibling", !12}
-    // !12 = distinct !{!"llvm.loop.optreport", !13}
-    // !13 = distinct !{!"intel.loop.optreport", !6}
+    // !12 = distinct !{!"intel.optreport.rootnode", !13}
+    // !13 = distinct !{!"intel.optreport", !6}
 
     // TODO: We reattach all region-attached loops to a function and
     // this is not always correct: the proper way would be to find

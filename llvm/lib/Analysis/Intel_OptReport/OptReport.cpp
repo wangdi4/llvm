@@ -207,7 +207,7 @@ OptReport OptReport::createEmptyOptReport(LLVMContext &Context) {
   MDString *ProxyTitle = MDString::get(Context, OptReportTag::Proxy);
   MDString *RootTitle = MDString::get(Context, OptReportTag::Root);
 
-  // No need for distinct !{!"intel.loop.optreport"}, as no replaceOperandWith
+  // No need for distinct !{!"intel.optreport"}, as no replaceOperandWith
   // will be ever called on it.
   MDTuple *Empty = MDTuple::get(Context, {ProxyTitle});
   // Root node must be distinct, as we are going to replace its second operand.

@@ -1,4 +1,4 @@
-//===--- LoopOptReport.h ----------------------------------------*- C++ -*-===//
+//===------- OptReport.h ----------------------------------------*- C++ -*-===//
 //
 // Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
@@ -9,13 +9,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares LoopOptReport class.
+// This file declares OptReport class.
 //
 // Detailed description is located at: docs/Intel/OptReport.rst
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ANALYSIS_LOOPOPTREPORT_H
-#define LLVM_ANALYSIS_LOOPOPTREPORT_H
+#ifndef LLVM_ANALYSIS_OPTREPORT_H
+#define LLVM_ANALYSIS_OPTREPORT_H
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/iterator_range.h"
@@ -28,8 +28,8 @@ class DILocation;
 class OptReportRemark;
 
 struct OptReportTag {
-  static constexpr const char *Root = "llvm.loop.optreport";
-  static constexpr const char *Proxy = "intel.loop.optreport";
+  static constexpr const char *Root = "intel.optreport.rootnode";
+  static constexpr const char *Proxy = "intel.optreport";
   static constexpr const char *DebugLoc = "intel.optreport.debug_location";
   static constexpr const char *Origin = "intel.optreport.origin";
   static constexpr const char *Remarks = "intel.optreport.remarks";
@@ -144,7 +144,7 @@ private:
 /// operations like adding a remark invalidate old tuple of remarks and create a
 /// new one. That's why OptReport keeps a pointer to the root node of
 /// optimization report which points to an additional proxy node and looks like
-///     !{!"llvm.loop.optreport", !0}
+///     !{!"intel.optreport.rootnode", !0}
 /// The root node is never extended (pointer is never invalidated), but its
 /// operand is replaced after some operations. That is, pointers to various
 /// internal fields of OptReports may be invalidated by any instance of
@@ -226,4 +226,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_ANALYSIS_LOOPOPTREPORT_H
+#endif // LLVM_ANALYSIS_OPTREPORT_H

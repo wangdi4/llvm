@@ -23,11 +23,11 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
 
 ; CHECK: [[M1:!.*]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
+; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.first_child", [[M5:!.*]]}
-; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
-; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
+; CHECK: [[M5]] = distinct !{!"intel.optreport.rootnode", [[M6:!.*]]}
+; CHECK: [[M6]] = distinct !{!"intel.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
 ; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 10}
 
