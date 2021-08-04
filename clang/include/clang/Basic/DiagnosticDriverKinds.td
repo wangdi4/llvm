@@ -79,8 +79,9 @@ def warn_drv_unknown_cuda_version: Warning<
   InGroup<CudaUnknownVersion>;
 def err_drv_cuda_host_arch : Error<"unsupported architecture '%0' for host compilation.">;
 def err_drv_no_sycl_libspirv : Error<
-  "cannot find `libspirv-nvptx64--nvidiacl.bc`. Provide path to libspirv library via "
-  "-fsycl-libspirv-path, or pass -fno-sycl-libspirv to build without linking with libspirv.">;
+  "cannot find 'libspirv-nvptx64--nvidiacl.bc'; provide path to libspirv "
+  "library via '-fsycl-libspirv-path', or pass '-fno-sycl-libspirv' to build "
+  "without linking with libspirv">;
 def err_drv_mix_cuda_hip : Error<"Mixed Cuda and HIP compilation is not supported.">;
 def err_drv_bad_target_id : Error<"Invalid target ID: %0 (A target ID is a processor name "
   "followed by an optional list of predefined features post-fixed by a plus or minus sign deliminated "
@@ -292,12 +293,12 @@ def err_drv_opt_requires_opt : Error<"The use of '%0' requires '%1'.">;
 def err_drv_openmp_targets_spir64_unsupported_opt : Error<"The use of '%0' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.">;
 #endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
-  "The option %0 must be used in conjunction with -fsycl to enable offloading.">;
+  "'%0' must be used in conjunction with '-fsycl' to enable offloading">;
 def err_drv_fsycl_with_c_type : Error<
-  "The option '%0' must not be used in conjunction with '-fsycl', which expects C++ source.">;
+  "'%0' must not be used in conjunction with '-fsycl', which expects C++ source">;
 def warn_drv_sycl_offload_target_duplicate : Warning<
-  "The SYCL offloading target '%0' is similar to target '%1' already specified - will be ignored.">,
-  InGroup<SyclTarget>;
+  "SYCL offloading target '%0' is similar to target '%1' already specified; "
+  "will be ignored">, InGroup<SyclTarget>;
 def err_drv_omp_offload_target_missingbcruntime : Error<
   "No library '%0' found in the default clang lib directory or in LIBRARY_PATH. Please use --libomptarget-%1-bc-path to specify %1 bitcode library.">;
 def err_drv_omp_offload_target_bcruntime_not_found : Error<"Bitcode library '%0' does not exist.">;
