@@ -1375,18 +1375,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     if (isReductionRef(Ref, RedOpCode)) {
       llvm_unreachable(
           "HIR vectorizer is trying to handle reductions without entities.");
-
-      // TODO: Pass correct FastMathFlags. We have them in VPReduction.
-      auto Identity =
-          HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy, FastMathFlags());
-      auto RedOpVecInst = insertReductionInitializer(Identity, Ref->clone());
-
-      // Add to WidenMap and handle generating code for building reduction tail
-      addToMapAndHandleLiveOut(Ref, RedOpVecInst, RednHoistLp);
-
-      // LVAL ref of the initialization instruction is the widened reduction
-      // ref.
-      return RedOpVecInst->getLvalDDRef()->clone();
+      return nullptr;
     }
 
     // Lval terminal refs get the widened ref duing the widened HLInst creation
@@ -1581,84 +1570,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   // the utility to update the widened Ref consistent.
   WideRef->makeConsistent(AuxRefs, NestingLevel);
   return WideRef;
-}
-
-/// Return result of combining horizontal vector binary operation with initial
-/// value. Instead of splitting VecRef recursively into 2 parts of half VF until
-/// the VF becomes 2, VecRef is shuffled in such a way that the resulting vector
-/// stays VF-wide and the upper elements are shuffled down into the lower
-/// positions to form a new vector. Then, the horizontal operation is performed
-/// on VF-wide vectors, but the upper elements of the operation are simply
-/// ignored. The final result of the horizontal operation is then extracted from
-/// position 0, the leftmost position of the vector. The rightmost position
-/// is 7. E.g., if VF=8, we will have 3 horizontal operation stages. So, if we
-/// start with elements <0,2,1,4,5,1,3,0> and the horizontal operation is add,
-/// we end up with the following sequence of operations, where u is undefined.
-///
-/// <0,2,1,4,5,1,3,0> + <5,1,3,0,u,u,u,u> = <5,3,4,4,u,u,u,u>
-/// Now, only the first 4 elements are considered for the next stage.
-/// <5,3,4,4,u,u,u,u> + <4,4,u,u,u,u,u,u> = <9,7,u,u,u,u,u,u>
-/// And, now just two.
-/// <9,7,u,u,u,u,u,u> + <7,u,u,u,u,u,u,u> = <16,u,u,u,u,u,u,u>
-/// extract<0> = 16 and add this value to the initial value.
-///
-/// This transformation is necessary so that X86/Target SAD idiom for
-/// reductions is enabled.
-static HLInst *buildReductionTail(HLContainerTy &InstContainer,
-                                  unsigned BOpcode, const RegDDRef *VecRef,
-                                  RegDDRef *InitValRefClone, HLLoop *HLLp,
-                                  RegDDRef *ResultRefClone) {
-
-  // Take Vector Length from the WideRedInst type
-  Type *VecTy = VecRef->getDestType();
-
-  // For Sub/FSub operation, we need to use Add/FAdd for the horizontal
-  // vector and combine operations.
-  if (BOpcode == Instruction::Sub)
-    BOpcode = Instruction::Add;
-  else if (BOpcode == Instruction::FSub)
-    BOpcode = Instruction::FAdd;
-
-  unsigned VF = cast<VectorType>(VecTy)->getNumElements();
-  unsigned Stages = Log2_32(VF);
-  unsigned MaskElems = VF / 2;
-  const RegDDRef *LastVal = VecRef;
-  HLNodeUtils &HNU = HLLp->getHLNodeUtils();
-  DDRefUtils &DDRU = HLLp->getDDRefUtils();
-  LLVMContext &Context = HNU.getContext();
-  for (unsigned i = 0; i < Stages; i++) {
-    SmallVector<Constant *, 16> ShuffleMask;
-    unsigned MaskElemVal = MaskElems;
-    for (unsigned j = 0; j < VF; j++) {
-      if (j > MaskElems - 1) {
-        // Use undef for the mask when we don't care what the result of the
-        // horizontal operation is for that element.
-        Constant *UndefVal = UndefValue::get(Type::getInt32Ty(Context));
-        ShuffleMask.push_back(UndefVal);
-      } else {
-        Constant *Mask =
-            ConstantInt::get(Type::getInt32Ty(Context), MaskElemVal);
-        ShuffleMask.push_back(Mask);
-        MaskElemVal++;
-      }
-    }
-    MaskElems /= 2;
-    Constant *MaskVec = ConstantVector::get(ShuffleMask);
-    RegDDRef *MaskVecDDRef = DDRU.createConstDDRef(MaskVec);
-    HLInst *Shuffle = HNU.createShuffleVectorInst(
-        LastVal->clone(), LastVal->clone(), MaskVecDDRef, "rdx.shuf");
-    HLInst *BinOp = HNU.createBinaryHLInst(
-        BOpcode, LastVal->clone(), Shuffle->getLvalDDRef()->clone(), "bin.rdx");
-    InstContainer.push_back(*Shuffle);
-    InstContainer.push_back(*BinOp);
-    LastVal = BinOp->getLvalDDRef();
-  }
-
-  HLInst *Extract = HNU.createExtractElementInst(LastVal->clone(), unsigned(0),
-                                                 "bin.final", ResultRefClone);
-  InstContainer.push_back(*Extract);
-
-  return Extract;
 }
 
 /// Create a call to llvm.experimental.vector.reduce intrinsic in order to
@@ -2625,30 +2536,6 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
   addInst(WideInst, Mask);
 }
 
-HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden,
-                                                  RegDDRef *ScalarRednRef) {
-
-  // ScalarRednRef is the initial value that is assigned to result of the
-  // reduction operation. We are blending in the initial value into the
-  // identity vector in lane 0.
-
-  auto IdentityVec = getConstantSplatDDRef(DDRefUtilities, Iden, VF);
-
-  HLInst *InsertElementInst = HLNodeUtilities.createInsertElementInst(
-      IdentityVec, ScalarRednRef, 0, "result.vector");
-  insertReductionInit(InsertElementInst);
-
-  auto LvalSymbase = InsertElementInst->getLvalDDRef()->getSymbase();
-  // Add the reduction ref as a live-in for each loop up to and including
-  // the hoist loop.
-  HLLoop *ThisLoop = MainLoop;
-  while (ThisLoop != RednHoistLp->getParentLoop()) {
-    ThisLoop->addLiveInTemp(LvalSymbase);
-    ThisLoop = ThisLoop->getParentLoop();
-  }
-  return InsertElementInst;
-}
-
 void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
                                              HLInst *WideInst,
                                              HLLoop *HoistLp) {
@@ -2679,11 +2566,7 @@ void VPOCodeGenHIR::addToMapAndHandleLiveOut(const RegDDRef *ScalRef,
   if (isReductionRef(ScalRef, OpCode)) {
     llvm_unreachable(
         "HIR vectorizer is trying to handle reductions without entities.");
-    HLContainerTy Tail;
-
-    buildReductionTail(Tail, OpCode, VecRef, ScalRef->clone(), MainLoop,
-                       FinalLvalRef);
-    insertReductionFinal(&Tail);
+    return;
   } else {
     auto Extr = HLNodeUtilities.createExtractElementInst(
         VecRef->clone(), VF - 1, "Last", FinalLvalRef);

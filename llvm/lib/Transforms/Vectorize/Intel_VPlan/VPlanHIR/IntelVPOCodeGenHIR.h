@@ -706,12 +706,6 @@ private:
     }
   }
 
-  // Given reduction operator identity value, insert vector reduction operand
-  // initialization to a vector of length VF identity values. Return the
-  // initialization instruction. The initialization is added before RednHoistLp
-  // and the LVAL of this instruction is used as the widened reduction ref.
-  HLInst *insertReductionInitializer(Constant *Iden, RegDDRef *ScalarRednRef);
-
   // Add entry to WidenMap and handle generating code for liveout/reduction at
   // the end of loop specified by /p HoistLp.
   void addToMapAndHandleLiveOut(const RegDDRef *ScalRef, HLInst *WideInst,

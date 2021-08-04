@@ -10,6 +10,12 @@
 #ifndef __XMMINTRIN_H
 #define __XMMINTRIN_H
 
+/* INTEL_CUSTOMIZATION */
+/* Turn fp precise on for intrinsics, push state to restore at end. */
+#pragma float_control(push)
+#pragma float_control(precise, on)
+/* end INTEL_CUSTOMIZATION */
+
 #include <mmintrin.h>
 
 typedef int __v4si __attribute__((__vector_size__(16)));
@@ -3005,4 +3011,7 @@ do { \
 #include <emmintrin.h>
 #endif
 
+/* INTEL_CUSTOMIZATION */
+#pragma float_control(pop)
+/* end INTEL_CUSTOMIZATION */
 #endif /* __XMMINTRIN_H */
