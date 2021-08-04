@@ -44,6 +44,7 @@ public:
 
   OCLBuilder& withFP64Support(bool );
   OCLBuilder& withImageSupport(bool );
+  OCLBuilder &withFpgaEmulator(bool);
   //cleanup function
   void close();
 

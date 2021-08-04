@@ -95,6 +95,15 @@ OCLBuilder& OCLBuilder::withImageSupport(bool IS) {
 	}
 }
 
+OCLBuilder &OCLBuilder::withFpgaEmulator(bool IsFPGA) {
+  try {
+    m_CommonBuilder.withFpgaEmulator(IsFPGA);
+    return *this;
+  } catch (ocl_string_exception &Error) {
+    throw Validation::Exception::OperationFailed(Error.what());
+  }
+}
+
 //cleanup function
 void OCLBuilder::close() {
 	try {
