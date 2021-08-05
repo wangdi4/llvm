@@ -537,6 +537,9 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
   if (!TC.getDriver().IsIntelMode())
     return;
 
+  if (!TC.CheckAddIntelLib(IntelLibName, Args))
+    return;
+
   // FIXME - Right now this is rather simplistic - just check to see if
   // -static is passed on the command, if it is, we just pull in the Intel
   // Library.  If not, we wrap the library with -Bstatic <lib> -Bdynamic
@@ -546,13 +549,21 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
   bool isCurrentStateStatic = 0;
   bool isSharedIntel = 0;
 
-  // FIXME: add support to -dy, -dn, -dynamiclib as required
+  for (std::string A : CmdArgs) {
+    SmallVector<StringRef, 4> StaticOpts = {"-Bstatic", "-dn", "-non_shared",
+                                            "-static"};
+    SmallVector<StringRef, 4> DynamicOpts = {"-Bdynamic", "-dy",
+                                             "-call_shared"};
+    if (std::find(StaticOpts.begin(), StaticOpts.end(), A) != StaticOpts.end())
+      isCurrentStateStatic = true;
+    if (std::find(DynamicOpts.begin(), DynamicOpts.end(), A) !=
+        DynamicOpts.end())
+      isCurrentStateStatic = false;
+  }
   if (const Arg *A = Args.getLastArg(options::OPT_static, options::OPT_shared,
-                                     options::OPT_dynamic)) {
-    isCurrentStateStatic = A->getOption().matches(options::OPT_static);
+                                     options::OPT_dynamic))
     // Link in Intel libs dynamically with -shared
     isSharedIntel = A->getOption().matches(options::OPT_shared);
-  }
 
   // -debug parallel implies -shared-intel, but allow it to be overridden by
   // -static-intel below.
@@ -979,8 +990,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm.
-    if (D.IsIntelMode())
-      addIntelLib("-limf", ToolChain, CmdArgs, Args);
+    addIntelLib("-limf", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
@@ -988,8 +998,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
-    if (D.IsIntelMode())
-      addIntelLib("-limf", ToolChain, CmdArgs, Args);
+    addIntelLib("-limf", ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -1109,7 +1118,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("--no-as-needed");
       }
 #if INTEL_CUSTOMIZATION
-      if (D.IsIntelMode() && !Args.hasArg(options::OPT_i_no_use_libirc))
+      if (!Args.hasArg(options::OPT_i_no_use_libirc))
         addIntelLib("-lirc_s", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     }

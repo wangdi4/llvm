@@ -1041,6 +1041,35 @@ void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
   CmdArgs.push_back("-limf");
 }
 
+// takes any known library specification string and returns the associated
+// option argument which can be used with the -no-intel-lib option.
+static StringRef getIntelLibArgVal(StringRef LibName) {
+  StringRef LibArg;
+  LibArg =
+      llvm::StringSwitch<StringRef>(LibName)
+          .Cases("libirc", "-lirc", "-lirc_s", "-lintlc", "-lirc_pic", "libirc")
+          .Cases("libimf", "-limf", "libimf")
+          .Cases("libsvml", "-lsvml", "libsvml")
+          .Cases("libirng", "-lirng", "libirng")
+          .Default("");
+  return LibArg;
+}
+
+// Based on input string, determine if the library should be added.
+bool ToolChain::CheckAddIntelLib(StringRef LibName, const ArgList &Args) const {
+  const Arg *A =
+      Args.getLastArg(options::OPT_no_intel_lib, options::OPT_no_intel_lib_EQ);
+  if (A) {
+    if (A->getOption().matches(options::OPT_no_intel_lib))
+      return false;
+    for (StringRef Val : A->getValues()) {
+      if (Val == getIntelLibArgVal(LibName))
+        return false;
+    }
+  }
+  return true;
+}
+
 static const std::string getIntelBasePath(const std::string DriverDir) {
   // Perf libs are located in different locations depending on the package
   // being used.  This is PSXE vs oneAPI installations.

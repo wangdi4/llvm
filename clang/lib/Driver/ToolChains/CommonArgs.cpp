@@ -271,10 +271,12 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
     else if (A.getOption().matches(options::OPT_Z_reserved_lib_cckext))
       TC.AddCCKextLibArgs(Args, CmdArgs);
 #if INTEL_CUSTOMIZATION
-    else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf))
+    else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf)) {
+      if (!TC.CheckAddIntelLib("libimf", Args))
+        continue;
       TC.AddIntelLibimfLibArgs(Args, CmdArgs);
+    } else if (A.getOption().matches(options::OPT_z)) {
 #endif // INTEL_CUSTOMIZATION
-    else if (A.getOption().matches(options::OPT_z)) {
       // Pass -z prefix for gcc linker compatibility.
       A.claim();
       A.render(Args, CmdArgs);
@@ -876,7 +878,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() &&
       !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {
-    if (!Args.hasArg(options::OPT_ffreestanding, options::OPT_i_no_use_libirc))
+    if (!Args.hasArg(options::OPT_ffreestanding,
+                     options::OPT_i_no_use_libirc) &&
+        TC.CheckAddIntelLib("libirc", Args))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;
     for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))

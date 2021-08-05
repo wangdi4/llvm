@@ -8453,9 +8453,11 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
     if (getToolChain().getDriver().IsIntelMode()) {
-      if (!Args.hasArg(options::OPT_i_no_use_libirc))
+      if (!Args.hasArg(options::OPT_i_no_use_libirc) &&
+          getToolChain().CheckAddIntelLib("libirc", Args))
         CmdArgs.push_back("--dependent-lib=libircmt");
-      CmdArgs.push_back(FlagForIntelSVMLLib.data());
+      if (getToolChain().CheckAddIntelLib("libsvml", Args))
+        CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");
       if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                        false))

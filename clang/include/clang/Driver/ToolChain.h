@@ -668,6 +668,10 @@ public:
   virtual void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs) const;
 
+  /// CheckAddIntelLib - Check if the given Intel library should be added.
+  bool CheckAddIntelLib(StringRef LibName,
+                        const llvm::opt::ArgList &Args) const;
+
   /// GetIPPIncludePath - return the IPP header search path.
   std::string GetIPPIncludePath(const llvm::opt::ArgList &Args) const;
 
