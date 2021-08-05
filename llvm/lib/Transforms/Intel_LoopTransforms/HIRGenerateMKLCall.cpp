@@ -319,7 +319,6 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
   // nested
   CollectCandidateLoops CCL(*this, CandidateLoops);
   HIRF.getHLNodeUtils().visitAll(CCL);
-  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
 
   for (auto *Loop : CandidateLoops) {
 
@@ -367,10 +366,6 @@ bool HIRGenerateMKLCall::generateMKLCall(LLVMContext &Context) {
                                             TripCountDDRefs, IsZeroSet, false);
         MKLCallGenerated = true;
       }
-    }
-    // MKL call generated.
-    if (MKLCallGenerated) {
-      ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25559u);
     }
 
     Modified |= MKLCallGenerated;
@@ -772,6 +767,13 @@ void HIRGenerateMKLCall::computeDopeVectorFieldsAndTransform(
   auto CallInst = HNU.createCall(MKLFunc, CallArgs, MKLFunc->getName());
   HLNodeUtils::insertBefore(Loop, CallInst);
   LLVM_DEBUG(CallInst->dump(); dbgs() << "\n");
+
+  OptReportBuilder &ORBuilder = HIRF.getORBuilder();
+
+  // Loopnest replaced by matmul intrinsic
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25459u);
+
+  ORBuilder(*Loop).preserveLostOptReport();
 
   // Update the loop body and parent
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
