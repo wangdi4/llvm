@@ -90,11 +90,15 @@ if(INTEL_CUSTOMIZATION)
   else()
     target_compile_options(OpenCL PRIVATE "-Wno-error")
   endif()
-  # Deploy OpenCL loader into package, this is required for xmain tc tests
-  install(TARGETS OpenCL
-          ARCHIVE DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
-          LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
-          RUNTIME DESTINATION "bin" COMPONENT OpenCL-ICD)
+  # Deploy OpenCL loader into package, this is required for xmain tc tests.
+  # The deploy destination is different for OpenCL stand-alone product. See
+  # opencl-intel/framework/CMakeLists.txt.
+  if (NOT INTEL_OPENCL_STANDALONE_PRODUCT)
+    install(TARGETS OpenCL
+            ARCHIVE DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
+            LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
+            RUNTIME DESTINATION "bin" COMPONENT OpenCL-ICD)
+  endif()
 endif(INTEL_CUSTOMIZATION)
 
 add_subdirectory(opencl-aot)
