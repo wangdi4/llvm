@@ -576,8 +576,22 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     // The Intel compiler defaults to -O2
     if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O,
                      options::OPT_g_Group, options::OPT_intel_debug_Group,
-                     options::OPT__SLASH_Z7))
+                     options::OPT__SLASH_Z7)) {
       addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
+      // "-vectorize-loops" and "-vectorize-slp" are enabled when optimization
+      // level is -O2 or higher. The implied -O2 is appended to the options
+      // list, which will make -fno-vectorize and -fno-slp-vectorize cannot
+      // control "-vectorize-loops" and "-vectorize-slp".
+      // We need to append -fno-vectorize and -fno-slp-vectorize after -O2.
+      if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
+                                   options::OPT_fno_vectorize))
+        if (A->getOption().matches(options::OPT_fno_vectorize))
+          addClaim(options::OPT_fno_vectorize);
+      if (Arg *A = Args.getLastArg(options::OPT_fslp_vectorize,
+                                   options::OPT_fno_slp_vectorize))
+        if (A->getOption().matches(options::OPT_fno_slp_vectorize))
+          addClaim(options::OPT_fno_slp_vectorize);
+    }
     // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
     if (Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
                      options::OPT_fno_lto, false)) {

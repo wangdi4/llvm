@@ -57,9 +57,20 @@
 
 // -vec and -no-vec behavior
 // RUN: %clang -### -c -vec %s 2>&1 | FileCheck -check-prefix CHECK-VEC %s
-// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefix CHECK-NO-VEC %s
+// RUN: %clang -### -c -vec -no-vec %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -c -no-vec %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel -c /Qvec- %s 2>&1 | FileCheck -check-prefixes=CHECK-NO-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -c -no-vec -O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel -c /Qvec- /O2 %s 2>&1 | FileCheck -check-prefixes=CHECK-VEC,CHECK-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux-gnu -flto -no-vec %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT %s
+// RUN: %clang_cl -### --intel /Qipo /Qvec- %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT %s
+// #RUN: %clang -### --intel -target x86_64-unknown-linux-gnu -flto -no-vec -O2 %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT %s
+// #RUN: %clang_cl -### --intel /Qipo /Qvec- /O2 %s 2>&1 | FileCheck -check-prefix=CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT %s
 // CHECK-VEC: "-vectorize-loops"
 // CHECK-NO-VEC-NOT: "-vectorize-loops"
+// CHECK-DISABLE-HIR-VEC-DIR-INSERT: "-mllvm" "-disable-hir-vec-dir-insert"
+// CHECK-LTO-DISABLE-HIR-VEC-DIR-INSERT: "-plugin-opt=-disable-hir-vec-dir-insert"
+// CHECK-LTO-WIN-DISABLE-HIR-VEC-DIR-INSERT: "-mllvm:-disable-hir-vec-dir-insert"
 
 // Behavior with -no-ansi-alias option
 // RUN: %clang -### -c -no-ansi-alias %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s

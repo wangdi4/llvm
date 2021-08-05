@@ -160,6 +160,9 @@
 // RUN: %clang -### -S -O0 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-VECTORIZE %s
 // RUN: %clang -### -S -O1 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-VECTORIZE %s
 // RUN: %clang -### -S -Oz %s 2>&1 | FileCheck -check-prefix=CHECK-NO-VECTORIZE %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -### -S --intel -fno-vectorize %s 2>&1 | FileCheck -check-prefix=CHECK-NO-VECTORIZE %s
+// end INTEL_CUSTOMIZATION
 // CHECK-VECTORIZE: "-vectorize-loops"
 // CHECK-NO-VECTORIZE-NOT: "-vectorize-loops"
 
@@ -182,6 +185,9 @@
 // RUN: %clang -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-NO-SLP-VECTORIZE %s
 // RUN: %clang -### -S -O0 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-SLP-VECTORIZE %s
 // RUN: %clang -### -S -O1 %s 2>&1 | FileCheck -check-prefix=CHECK-NO-SLP-VECTORIZE %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -### -S --intel -fno-slp-vectorize %s 2>&1 | FileCheck -check-prefix=CHECK-NO-SLP-VECTORIZE %s
+// end INTEL_CUSTOMIZATION
 // CHECK-SLP-VECTORIZE: "-vectorize-slp"
 // CHECK-NO-SLP-VECTORIZE-NOT: "-vectorize-slp"
 
