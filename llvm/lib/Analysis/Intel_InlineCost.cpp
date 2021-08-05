@@ -620,13 +620,15 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
   // Returns true if "I", which allocates either integer or pointer type,
   // is used by only StoreInst/CallBase/LoadInst/BitCastInst instructions.
   // BitCastInst: Allow only when bitcast is used by lifetime intrinsics.
-  // LoadInst: Allow only when DTransInlineHeuristics is true.
+  // LoadInst: Allow only when DTransInlineHeuristics is true. Also handle
+  // the case where the use of the AllocInst could directly feed a lifetime
+  // intrinsic, as will be the case when opaque pointers are enabled.
   //
   // Ex:
   //  %31 = alloca i32, align 4
   //  store i32 %30, i32* %31, align 4
   //  %32 = alloca double*, align 8
-  //  %33 = bitcast double** %33 to i8*
+  //  %33 = bitcast double** %32 to i8*
   //  call void @llvm.lifetime.start.p0i8(i64 8, i8* %33)
   //  store double* %29, double** %32, align 8, !tbaa !6
   //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
@@ -656,13 +658,13 @@ extern bool isDynamicAllocaException(AllocaInst &I, CallBase &CandidateCall,
         // lifetime_end.
         for (auto UU : BC->users()) {
           auto ICB = dyn_cast<CallBase>(UU);
-          if (!ICB)
-            return false;
-          if (!ICB->isLifetimeStartOrEnd())
+          if (!ICB || !ICB->isLifetimeStartOrEnd())
             return false;
         }
-      } else if (isa<CallBase>(U) ||
-                 (DTransInlineHeuristics && isa<LoadInst>(U))) {
+      } else if (auto CB = dyn_cast<CallBase>(U)) {
+        if (!CB->isLifetimeStartOrEnd())
+          CallOrLoadSeen = true;
+      } else if (DTransInlineHeuristics && isa<LoadInst>(U)) {
         CallOrLoadSeen = true;
       } else {
         return false;
@@ -2138,7 +2140,8 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
   // Return 'true' if 'TV' is an AllocaInst whose use in a CallBase matches
   // the 'ArgNo' argument of 'CB', and which is stored a floating point 0 in
   // a StoreInst, and whose only other uses are bitcasts that feed lifetime
-  // intrinsics or LoadInsts.
+  // intrinsics or LoadInsts. Also handle the case when we have opaque
+  // pointers and the AllocaInst feeds the lifetime intrinsics directly.
   //
   auto MatchesSZP = [](CallBase *CB, Value *TV, unsigned ArgNo) -> bool {
     unsigned CallBaseCount = 0;
@@ -2148,6 +2151,8 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
       return false;
     for (User *U : AI->users()) {
       if (auto CBI = dyn_cast<CallBase>(U)) {
+        if (CBI->isLifetimeStartOrEnd())
+          continue;
         if (CBI != CB || TV != CB->getArgOperand(ArgNo) || CallBaseCount > 0)
           return false;
         ++CallBaseCount;
@@ -2156,9 +2161,7 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
       if (auto BCI = dyn_cast<BitCastInst>(U)) {
         for (auto UU : BCI->users()) {
           auto ICB = dyn_cast<CallBase>(UU);
-          if (!ICB)
-            return false;
-          if (!ICB->isLifetimeStartOrEnd())
+          if (!ICB || !ICB->isLifetimeStartOrEnd())
             return false;
         }
         continue;
@@ -3250,6 +3253,41 @@ static bool preferPartialInlineInlinedClone(Function *Callee) {
 }
 
 //
+// If 'Arg' is a pointer type, return the pointer element type that
+// can be inferred by checking the types of its uses through
+// GetElementPtrInsts and StoreInsts. Return 'nullptr' if no type
+// can be inferred or the types inferred are inconsistent.
+//
+// NOTE: The use of this replaces the use of getPointerElementType()
+// which will be removed when the community moves to opaque pointers.
+//
+static Type *inferPtrElementType(Argument &Arg) {
+  llvm::Type *Ty = Arg.getType();
+  if (!Ty->isPointerTy())
+    return nullptr;
+  Type *STy = nullptr;
+  for (User *U : Arg.users())
+    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
+      Type *LSTy = GEPI->getSourceElementType();
+      if (!STy)
+        STy = LSTy;
+      else if (LSTy != STy)
+        return nullptr;
+    } else if (auto SI = dyn_cast<StoreInst>(U)) {
+      if (SI->getPointerOperand() == &Arg) {
+        Type *LSTy = SI->getValueOperand()->getType();
+        if (!STy)
+          STy = LSTy;
+        else if (LSTy != STy)
+          return nullptr;
+      } else {
+        return nullptr;
+      }
+    }
+  return STy;
+}
+
+//
 // Return 'true' if 'F' should be inlined because it is qualified by
 // the "dummy args" inlining heuristic, This heuristic qualifies
 // functions:
@@ -3295,8 +3333,8 @@ static bool worthInliningFunctionPassedDummyArgs(Function &F,
   unsigned PtrToIntSeriesArgCount = 0;
   unsigned PtrToIntFirstArgNo = 0;
   for (auto &Arg : F.args()) {
-    Type *Ty = Arg.getType();
-    if (Ty->isPointerTy() && Ty->getPointerElementType()->isIntegerTy()) {
+    Type *PETy = inferPtrElementType(Arg);
+    if (PETy && PETy->isIntegerTy()) {
       if (PtrToIntSeriesArgCount == 0)
         PtrToIntFirstArgNo = Arg.getArgNo();
       if (++PtrToIntSeriesArgCount >= DummyArgsMinSeriesLength)
@@ -3364,11 +3402,10 @@ static bool worthInliningCallSitePassedDummyArgs(CallBase &CB,
 // are all the same.
 //
 static bool isSpecialArrayStructArg(Argument &Arg) {
-  llvm::Type *Ty = Arg.getType();
-  if (!Ty->isPointerTy())
+  Type *PETy = inferPtrElementType(Arg);
+  if (!PETy)
     return false;
-  llvm::Type *TyE = Ty->getPointerElementType();
-  auto TyS = dyn_cast<StructType>(TyE);
+  auto TyS = dyn_cast<StructType>(PETy);
   if (!TyS)
     return false;
   uint64_t ECount = 0;

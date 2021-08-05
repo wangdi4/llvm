@@ -12,7 +12,7 @@
 ; eliminated through dead code elimination should not appear in the
 ; inlining report. For example, when myopen() is inlined into main(),
 ; only a single callsite for myopen2() and myopenva() should be exposed,
-; becuase the others are removed by dead code elimination.
+; because the others are removed by dead code elimination.
 
 ; Function Attrs: nounwind
 declare i32 @llvm.va_arg_pack() #3
