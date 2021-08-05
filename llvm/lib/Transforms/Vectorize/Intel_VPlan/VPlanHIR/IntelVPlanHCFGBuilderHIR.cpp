@@ -833,10 +833,11 @@ bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
         std::distance(VConflictLoad->getIterator(), ParentVPBB->end()) >
             std::distance(VConflictStore->getIterator(), ParentVPBB->end()) &&
         "VConflict idiom load is expected to appear before the store.");
-    SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore;
-    for (auto *I = VConflictLoad; I != VConflictStore; I = I->getNextNode())
-      InsnsBetweenLoadStore.insert(I);
-
+    auto InstRange = map_range(
+      make_range(VConflictLoad->getIterator(), VConflictStore->getIterator()),
+      [](VPInstruction &I) { return &I; });
+    SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore(InstRange.begin(),
+                                                          InstRange.end());
     if (any_of(VConflictLoad->users(),
                [InsnsBetweenLoadStore](const VPUser *U) {
                  return !InsnsBetweenLoadStore.count(cast<VPInstruction>(U));
