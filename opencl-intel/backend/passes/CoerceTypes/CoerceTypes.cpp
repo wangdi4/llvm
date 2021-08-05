@@ -112,9 +112,7 @@ bool CoerceTypes::runOnFunction(Function *F) {
     if (Arg.getType() == TP.first && Arg.hasByValAttr()) {
       Changed = true;
       Type *ArgMemTy = Arg.getParamByValType();
-      auto OldStructT = cast<StructType>(ArgMemTy);
-      uint64_t MemSize =
-          m_pDataLayout->getStructLayout(OldStructT)->getSizeInBytes();
+      uint64_t MemSize = m_pDataLayout->getTypeAllocSize(ArgMemTy);
       ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
       TP = {Arg.getType(), nullptr};
     }

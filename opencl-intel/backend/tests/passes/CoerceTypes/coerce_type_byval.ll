@@ -23,6 +23,11 @@ define dso_local void @foo2(%struct.F* byval(%struct.F) align 8 %f, %struct.B* b
   ret void
 }
 
+; Function Attrs: convergent noinline norecurse nounwind
+define dso_local void @foo3(<4 x i64>* byval(<4 x i64>) align 32 %0) #0 {
+  ret void
+}
+
 ; Function Attrs: convergent norecurse nounwind
 define dso_local void @test() #1 !kernel_arg_addr_space !1 !kernel_arg_access_qual !1 !kernel_arg_type !1 !kernel_arg_base_type !1 !kernel_arg_type_qual !1 !kernel_arg_name !1 !kernel_arg_host_accessible !1 !kernel_arg_pipe_depth !1 !kernel_arg_pipe_io !1 !kernel_arg_buffer_location !1 {
 entry:
@@ -52,6 +57,7 @@ if.end:                                           ; preds = %if.then, %entry
 
 ; CHECK: define void @foo1(%struct.B* %b)
 ; CHECK: define void @foo2(i64 %f.coerce.high, i64 %f.coerce.low, %struct.B* %b)
+; CHECK: define void @foo3(<4 x i64>* %0)
 
 ; Function Attrs: convergent nounwind readnone willreturn
 declare i64 @_Z13get_global_idj(i32) #2
