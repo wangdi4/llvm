@@ -6294,6 +6294,9 @@ DbgGatherSalvagableDVI(Loop *L, ScalarEvolution &SE,
       if (!DVI)
         continue;
 
+      if (DVI->isUndef())
+        continue;
+
       if (DVI->hasArgList())
         continue;
 
