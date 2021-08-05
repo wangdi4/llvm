@@ -45,6 +45,15 @@
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
 
+; Check the opt report remarks of loop reroll.
+
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-reroll -hir-cg -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-reroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:    remark #25264: Loop rerolled by 4
+; OPTREPORT: LOOP END
+
 ;Module Before HIR; ModuleID = 'daxpy.c'
 source_filename = "daxpy.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
