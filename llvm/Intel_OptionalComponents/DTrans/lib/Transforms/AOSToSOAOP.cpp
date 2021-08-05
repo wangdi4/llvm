@@ -1289,7 +1289,7 @@ void AOSToSOAOPTransformImpl::convertDepGEP(GetElementPtrInst *GEP) {
   DTransStructType *DTransStructTy = getDependentDTransType(LLVMStructTy);
   assert(DTransStructTy && "DTransStructType missing for dependent type");
   DTransType *FieldTy = DTransStructTy->getFieldType(FieldIdx);
-  assert(FieldTy->isPointerTy() &&
+  assert(FieldTy && FieldTy->isPointerTy() &&
          FieldTy->getPointerElementType()->isStructTy() &&
          "Expect field to be pointer to structure");
   auto *FieldPointeeType =
