@@ -45,6 +45,7 @@ entry:
 ; Check for array section reduction local copy preparation
 ; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL:[a-zA-Z._0-9]+]], i64 -211
 ; CHECK-DAG: store i32* %[[LOCAL_MINUS_OFFSET]], i32** %[[LOCAL_MINUS_OFFSET_ADDR:[a-zA-Z._0-9]+]]
+; CHECK-DAG: %[[LOCAL_MINUS_OFFSET_ADDR_CAST:[^ ]+]] = bitcast i32** %[[LOCAL_MINUS_OFFSET_ADDR]] to [3 x [4 x [5 x i32]]]**
 ; Zero-trip test for reduction array initialization
 ; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL]], i64 6
 ; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL]], %[[LOCAL_END]]
@@ -83,7 +84,7 @@ for.cond2:                                        ; preds = %for.inc, %for.body
 for.body4:                                        ; preds = %for.cond2
   %7 = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** @_Z9yarrayptr, align 8
 ; Check for the replacement of original @_Z9yarrayptr with "&(y_local - offset)"
-; CHECK-DAG: %{{[0-9]+}} = load [3 x [4 x [5 x i32]]]*, i32** %[[LOCAL_MINUS_OFFSET_ADDR]]
+; CHECK-DAG: %{{[0-9]+}} = load [3 x [4 x [5 x i32]]]*, [3 x [4 x [5 x i32]]]** %[[LOCAL_MINUS_OFFSET_ADDR_CAST]]
   %arrayidx = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %7, i64 3
   %arrayidx5 = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %arrayidx, i64 0, i64 1
   %8 = load i32, i32* %j, align 4

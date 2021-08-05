@@ -5177,7 +5177,29 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
       NewMinusOffset->getType(), nullptr, NewMinusOffset->getName() + ".addr");
   Builder.CreateStore(NewMinusOffset, NewMinusOffsetAddr); //             (3)
 
-  return NewMinusOffsetAddr;
+  // For array section on a pointer to an array, like:
+  // int (*z)[10];
+  // #pragma omp for reduction (+: z[0][1:5])
+  //
+  // The type of `z` in IR is `[10 x i32]**`. The type of `z.new` is i32*, and
+  // that of `z.new.minus.offset.addr` is `i32**`. We need to cast it to
+  // `[10 x i32]**` so that we can replace `z` with it.
+  //
+  //   %z.new = alloca i32, 5
+  //   %z.new.minus.offset = getelementpointer %z.new, -1               ; (1)
+  //   %z.new.minus.offset.addr = alloca i32*                           ; (2)
+  //   store i32* %z.new.minus.offset, i32** %z.new.minus.offset.addr   ; (3)
+  //   %z.new.minus.offset.addr.cast = bitcast i32** %z.new.minus.offset.addr to
+  //                                           [10 x i32]**             ; (4)
+  Value *Orig = RedI.getOrig();
+  PointerType *OrigPtrTy = cast<PointerType>(Orig->getType());
+  if (RedI.getIsByRef())
+    OrigPtrTy = cast<PointerType>(OrigPtrTy->getPointerElementType());
+
+  PointerType *ReplacementType = PointerType::getWithSamePointeeType(
+      OrigPtrTy, NewMinusOffsetAddr->getType()->getAddressSpace());
+  return Builder.CreateBitCast(NewMinusOffsetAddr, ReplacementType, //    (4)
+                               NewMinusOffsetAddr->getName() + ".cast");
 }
 
 // Extract the type and size of local Alloca to be created to privatize
