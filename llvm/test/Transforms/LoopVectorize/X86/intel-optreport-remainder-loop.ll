@@ -9,7 +9,7 @@
 ; CHECK: [[vect]] = distinct !{[[vect]], [[dummy1:![0-9]+]], [[dummy2:![0-9]+]], [[optreport:![0-9]+]], [[width:![0-9]+]]}
 ; CHECK: [[dummy1]] = !{!"DummyMetadata1"}
 ; CHECK: [[dummy2]] = !{!"DummyMetadata2"}
-; CHECK  [[optreport]] = distinct !{!"llvm.loop.optreport", {{.*}}}
+; CHECK  [[optreport]] = distinct !{!"intel.optreport.rootnode", {{.*}}}
 ; CHECK: [[width]] = !{!"llvm.loop.isvectorized", i32 1}
 ; CHECK: [[scalar]] = distinct !{[[scalar]], [[dummy1]], [[dummy2]], [[runtime_unroll:![0-9]+]], [[width]]}
 ; CHECK: [[runtime_unroll]] = !{!"llvm.loop.unroll.runtime.disable"}
@@ -41,8 +41,8 @@ for.end:                                          ; preds = %for.body
 !1 = distinct !{!1, !2, !3, !4}
 !2 = !{!"DummyMetadata1"}
 !3 = !{!"DummyMetadata2"}
-!4 = distinct !{!"llvm.loop.optreport", !5}
-!5 = distinct !{!"intel.loop.optreport", !6}
+!4 = distinct !{!"intel.optreport.rootnode", !5}
+!5 = distinct !{!"intel.optreport", !6}
 !6 = !{!"intel.optreport.remarks", !7}
 !7 = !{!"intel.optreport.remark", !"LLorg: Loop has been completely unrolled"}
 

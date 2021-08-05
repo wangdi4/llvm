@@ -20,8 +20,8 @@
 ; CHECK: llvm.loop [[M1:!.*]]
 ; CHECK-NOT: llvm.loop [[M1]]
 ; CHECK: [[M1]] = distinct !{[[M1]], [[M2:!.*]]}
-; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
-; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
+; CHECK: [[M2]] = distinct !{!"intel.optreport.rootnode", [[M3:!.*]]}
+; CHECK: [[M3]] = distinct !{!"intel.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
 ; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25422, !"Invariant Condition%s hoisted out of this loop", {{.*}}}
 
