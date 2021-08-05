@@ -5466,9 +5466,19 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
         case Intrinsic::lifetime_end:
           if (TheLoop->hasLoopInvariantOperands(&I))
             addToWorklistIfAllowed(&I);
+          LLVM_FALLTHROUGH;
         default:
           break;
         }
+      }
+
+      // ExtractValue instructions must be uniform, because the operands are
+      // known to be loop-invariant.
+      if (auto *EVI = dyn_cast<ExtractValueInst>(&I)) {
+        assert(isOutOfScope(EVI->getAggregateOperand()) &&
+               "Expected aggregate value to be loop invariant");
+        addToWorklistIfAllowed(EVI);
+        continue;
       }
 
       // If there's no pointer operand, there's nothing to do.
@@ -9055,6 +9065,7 @@ VPBasicBlock *VPRecipeBuilder::handleReplication(
       //      the effect is to poison the object, which still allows us to
       //      remove the call.
       IsUniform = true;
+      break;
     default:
       break;
     }
