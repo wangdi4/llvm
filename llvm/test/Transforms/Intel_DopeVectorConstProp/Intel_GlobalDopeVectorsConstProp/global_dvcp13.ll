@@ -98,20 +98,19 @@
 
 ; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
 ; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-NEXT:   Global dope vector result: At least one nested dope vector didn't pass analysis
+; CHECK-GLOBDV-NEXT:   Global dope vector result: Failed to collect nested dope vectors' data
 ; CHECK-GLOBDV:        Constant propagation status: NOT performed
-; CHECK-GLOBDV:   Nested dope vectors: 3
 
 ; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-NEXT:      Dope vector analysis result: Store won't execute with alloc site
+; CHECK-FIELD0-NEXT:      Dope vector analysis result: Incomplete data collection
 ; CHECK-FIELD0-NEXT:   Constant propagation status: NOT performed
 
 ; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD1-NEXT:      Dope vector analysis result: Incomplete data collection
 ; CHECK-FIELD1-NEXT:   Constant propagation status: NOT performed
 
 ; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD2-NEXT:      Dope vector analysis result: Incomplete data collection
 ; CHECK-FIELD2-NEXT:   Constant propagation status: NOT performed
 
 
@@ -129,6 +128,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr_mod_mp_a_ = internal global %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" { %"ARR_MOD$.btT_TESTTYPE"* null, i64 0, i64 0, i64 1342177408, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
 @anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
 @anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
+
+define internal i32 @arr_alloc_dv(i8** %0) {
+  %2 = tail call i32 @for_allocate_handle(i64 400, i8** %0, i32 327680, i8* null) #3
+  ret i32 %2
+}
 
 ; Function Attrs: nofree nounwind uwtable
 define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32 %temp) #0 {
@@ -222,7 +226,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:
-  %58 = tail call i32 @for_allocate_handle(i64 400, i8** %57, i32 327680, i8* null) #3
+  %58 = tail call i32 @arr_alloc_dv(i8** %57)
   br label %if.end
 
 if.end:
