@@ -12,9 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local float @foo(float %f, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    vpxorq %xmm16, %xmm16, %xmm16
-; CHECK-NEXT:    vmovdqu64 %ymm16, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 ; CHECK-NEXT:    pushq %rbp
+; CHECK:    vpxorq %xmm16, %xmm16, %xmm16
+; CHECK-NEXT:    vmovdqu64 %ymm16, {{[-0-9]+}}(%r{{[sb]}}p) # 4-byte Spill
 entry:
   %conv = fpext float %f to double
   %sub = sub nsw i32 1, %n
