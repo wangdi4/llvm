@@ -4202,6 +4202,7 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     // Then make the calculations by the formula above.
     VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
     VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    assert(L && "Expect the loop to be found");
     bool ExactUB = L->exactUB();
     VPCmpInst *Cond = L->getLatchComparison();
     Value *TripCnt = VectorTripCount;
