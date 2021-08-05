@@ -2041,6 +2041,10 @@ static void addDataTransferLatency() {
 
 /// Clean-up routine to be invoked by the destructor or __tgt_rtl_deinit.
 static void closeRTL() {
+  // Nothing to clean up
+  if (DeviceInfo->NumDevices == 0)
+    return;
+
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
@@ -2865,6 +2869,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
       DP("-- %s\n", str.c_str());
     break;
   }
+
+  // Return early if no devices are available
+  if (DeviceInfo->NumDevices == 0)
+    return 0;
 
   CALL_ZE_RET_ZERO(zeDriverGetApiVersion, DeviceInfo->Driver,
                    &DeviceInfo->DriverAPIVersion);
