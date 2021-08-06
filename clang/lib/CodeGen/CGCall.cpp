@@ -5745,7 +5745,9 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     if (getContext().getLangOpts().SYCLIsDevice &&
         getContext().getLangOpts().EnableVariantFunctionPointers)
       if (IRFuncTy && Callee.isOrdinary() && Callee.getFunctionPointer() &&
-          isa<llvm::LoadInst>(Callee.getFunctionPointer()))
+          (isa<llvm::CallInst>(Callee.getFunctionPointer()) ||
+           CGM.isSIMDTable(Callee.getFunctionPointer()) ||
+           isa<llvm::LoadInst>(Callee.getFunctionPointer())))
         return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs,
                                        Callee.getFunctionPointer());
 #endif  // INTEL_CUSTOMIZATION

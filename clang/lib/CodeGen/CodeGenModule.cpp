@@ -5239,7 +5239,7 @@ CodeGenModule::CreateSIMDFnTableVar(llvm::Constant *FnPtr) {
   SmallString<256> Name;
   llvm::raw_svector_ostream Out(Name);
   Out << FnPtr->getName();
-  Out << "$SIMDTable";
+  Out << SIMDTableNameSuffix;
   //Adding function variants
   GV = getModule().getGlobalVariable(Name);
   if (!GV) {

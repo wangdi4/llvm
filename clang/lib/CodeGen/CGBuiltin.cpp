@@ -20416,6 +20416,16 @@ RValue CodeGenFunction::EmitBuiltinIndirectCall(
     Types.push_back(CV->getPointerOperand()->getType());
     Args.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
         FnPtr, CV->getPointerOperand()->getType()));
+  } else if (isa<llvm::CallInst>(FnPtr) || CGM.isSIMDTable(FnPtr)) {
+    if (getASTAllocaAddressSpace() != LangAS::Default) {
+      auto DestAddrSpace = getContext().getTargetAddressSpace(LangAS::Default);
+      FnPtr = getTargetHooks().performAddrSpaceCast(
+          *this, FnPtr, getASTAllocaAddressSpace(), LangAS::Default,
+          FnPtr->getType()->getPointerTo(DestAddrSpace), /*non-null*/ true);
+    }
+    Types.push_back(FnPtr->getType());
+    Args.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
+        FnPtr, FnPtr->getType()));
   } else {
     assert(false && "not an indirect call");
   }
