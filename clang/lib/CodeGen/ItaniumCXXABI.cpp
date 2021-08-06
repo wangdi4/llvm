@@ -1367,7 +1367,11 @@ static llvm::FunctionCallee getItaniumDynamicCastFn(CodeGenFunction &CGF) {
   //                      const abi::__class_type_info *dst,
   //                      std::ptrdiff_t src2dst_offset);
 
+#if INTEL_COLLAB
+  llvm::Type *Int8PtrTy = CGF.TargetInt8PtrTy;
+#else // INTEL_COLLAB
   llvm::Type *Int8PtrTy = CGF.Int8PtrTy;
+#endif  // INTEL_COLLAB
   llvm::Type *PtrDiffTy =
     CGF.ConvertType(CGF.getContext().getPointerDiffType());
 
@@ -2124,7 +2128,12 @@ static llvm::Value *performTypeAdjustment(CodeGenFunction &CGF,
   // Perform the virtual adjustment if we have one.
   llvm::Value *ResultPtr;
   if (VirtualAdjustment) {
+#if INTEL_COLLAB
+    Address VTablePtrPtr =
+        CGF.Builder.CreateElementBitCast(V, CGF.TargetInt8PtrTy);
+#else // INTEL_COLLAB
     Address VTablePtrPtr = CGF.Builder.CreateElementBitCast(V, CGF.Int8PtrTy);
+#endif  // INTEL_COLLAB
     llvm::Value *VTablePtr = CGF.Builder.CreateLoad(VTablePtrPtr);
 
     llvm::Value *Offset;

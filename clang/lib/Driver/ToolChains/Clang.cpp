@@ -1674,8 +1674,12 @@ static void renderRemarksOptions(const ArgList &Args, ArgStringList &CmdArgs,
         llvm::sys::path::replace_extension(F, "");
         F += Action::GetOffloadingFileNamePrefix(JA.getOffloadingDeviceKind(),
                                                  Triple.normalize());
-        F += "-";
-        F += JA.getOffloadingArch();
+#if INTEL_CUSTOMIZATION
+        if (JA.getOffloadingArch() != nullptr) {
+          F += "-";
+          F += JA.getOffloadingArch();
+        }
+#endif // INTEL_CUSTOMIZATION
       }
     }
 

@@ -2573,6 +2573,25 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
+  //
+  // Return 'true' if 'CB' is a call to the Fortran runtime library libFunc
+  // 'for_concat' with 'InPtr' pointing to its argument without invalidating
+  // the dope vector analysis. We are checking the source argument (argument
+  // #0) in this implementation, which will not write any bytes to that
+  // argument.
+  //
+  auto IsSafeLibFuncForConcat = [](CallBase *CB, Value *InPtr) -> bool {
+    if (CB->getNumArgOperands() != 4)
+      return false;
+    if (CB->getArgOperand(0) != InPtr)
+      return false;
+    for (unsigned I = 1; I < CB->getNumArgOperands(); ++I)
+      if (CB->getArgOperand(I) == InPtr)
+        return false;
+    return true;
+  };
+
+  //
   // Return 'true' if 'CB' is a call to a libFunc with 'InPtr' pointing to
   // an argument of the libFunc that may write up to 'NE' bytes at that
   // argument without invalidating the dope vector analysis.
@@ -2589,6 +2608,8 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     switch (TheLibFunc) {
     case LibFunc_for_trim:
       return IsSafeLibFuncForTrim(CB, InPtr, NE);
+    case LibFunc_for_concat:
+      return IsSafeLibFuncForConcat(CB, InPtr);
     default:
       break;
     }
@@ -2961,13 +2982,101 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   };
 
   //
+  // Return an AllocaInst that is used as a Fortran concatenation table for
+  // for_concat(), if 'V' is an address stored into one of the entries in
+  // that concatenation table. A concatenation table is an array of structures
+  // each of which has two fields. The first field is a pointer to a string
+  // and the second is the integer length of the string. The libFunc
+  // for_concat takes a concatenation table as its first argument and
+  // returns a pointer to the concatenated string in the second argument.
+  //
+  // For example, here is a series of instructions that allocates a 4 entry
+  // concatenation table in %9, and assigns %89 to the string address of
+  // the 4th entry in the table.
+  //   %9 = alloca [4 x { i8*, i64 }], align 8
+  //   %76 = getelementptr inbounds [4 x { i8*, i64 }], [4 x { i8*, i64 }]* %9,
+  //       i64 0, i64 0
+  //   %87 = call { i8*, i64 }* @llvm.intel.subscript.[...](i8 0, i64 1,
+  //       i32 16, { i8*, i64 }* nonnull %76, i32 4)
+  //   %88 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %87, i64 0,
+  //       i32 0
+  //   store i8* %89, i8** %88, align 1
+  //
+  auto IsAddressInLocalConcatTable = [](Value *V) -> AllocaInst * {
+    auto GEPI0 = dyn_cast<GetElementPtrInst>(V);
+    if (!GEPI0 || GEPI0->getNumIndices() != 2 || !GEPI0->hasAllZeroIndices())
+      return nullptr;
+    auto SI = dyn_cast<SubscriptInst>(GEPI0->getPointerOperand());
+    if (!SI || SI->getRank() != 0)
+      return nullptr;
+    auto CI1 = dyn_cast<ConstantInt>(SI->getLowerBound());
+    if (!CI1 || CI1->getZExtValue() != 1)
+      return nullptr;
+    auto CI2 = dyn_cast<ConstantInt>(SI->getStride());
+    if (!CI2 || CI2->getZExtValue() != 16)
+      return nullptr;
+    auto GEPI1 = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
+    if (!GEPI1 || GEPI1->getNumIndices() != 2 || !GEPI1->hasAllZeroIndices())
+      return nullptr;
+    auto CI4 = dyn_cast<ConstantInt>(SI->getIndex());
+    if (!CI4)
+      return nullptr;
+    auto AI = dyn_cast<AllocaInst>(GEPI1->getPointerOperand());
+    if (!AI)
+      return nullptr;
+    auto ATy = dyn_cast<ArrayType>(AI->getAllocatedType());
+    if (!ATy)
+      return nullptr;
+    if (CI4->getZExtValue() > ATy->getNumElements())
+      return nullptr;
+    auto STy = dyn_cast<StructType>(ATy->getElementType());
+    if (!STy || STy->getNumElements() != 2)
+      return nullptr;
+    if (!STy->getElementType(0)->isPointerTy())
+      return nullptr;
+    if (!STy->getElementType(1)->isIntegerTy())
+      return nullptr;
+    return AI;
+  };
+
+  //
+  // Return 'true' if 'SI' is a safe store. This means it is assigned only
+  // to a local variable and then passed to a libFunc which will use the
+  // value it points to. Therefore, the stored value does not escape.
+  //
+  auto IsSafeLocalStoreAssignment = [&](StoreInst *SI) -> bool {
+     AllocaInst *AI = IsAddressInLocalConcatTable(SI->getPointerOperand());
+     if (!AI || AI->getNumUses() > 2)
+       return false;
+     for (User *U : AI->users()) {
+       // The path from the StoreInst to the AllocaInst in
+       // IsAddressInLocalConcatTable() can be ignored, as it has already
+       // been analyzed in that function. It terminates in a GetElementPtrInst.
+       if (isa<GetElementPtrInst>(U))
+         continue;
+       Value *W = AI;
+       Value *V = U;
+       if (auto BC = dyn_cast<BitCastInst>(V)) {
+         if (!BC->hasOneUser())
+           return false;
+         W = BC;
+         V = BC->user_back();
+       }
+       auto CB = dyn_cast<CallBase>(V);
+       if (!CB || !IsSafeLibFuncForConcat(CB, W))
+         return false;
+     }
+     return true;
+  };
+
+  //
   // Return 'true' if 'U', which is a User of 'V' is propagated down the
   // call chain and terminates with a LoadInst or StoreInst.
   //
   PropagatesThroughUser = [&](Value *V, User *U,
                               SmallPtrSetImpl<Value *> &Visited) -> bool {
     if (auto SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getValueOperand() == V)
+      if (SI->getValueOperand() == V && !IsSafeLocalStoreAssignment(SI))
         return false;
       return true;
     }
@@ -3018,7 +3127,9 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       return false;
     if (getLangRuleOutOfBoundsOK())
       return false;
-    return PropagatesToLoadOrStoreX(V, Visited);
+    if (!PropagatesToLoadOrStoreX(V, Visited))
+      return false;
+    return true;
 #else // INTEL_FEATURE_SW_ADVANCED
     return false;
 #endif // INTEL_FEATURE_SW_ADVANCED

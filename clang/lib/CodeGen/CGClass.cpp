@@ -2512,14 +2512,31 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   // support optimization.
   unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
   unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
+#if INTEL_COLLAB
+  unsigned TAS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
+  llvm::Type *VTablePtrTy =
+      llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
+          ->getPointerTo(ProgAS)
+          ->getPointerTo(GlobalsAS ? GlobalsAS : TAS);
+#else  // INTEL_COLLAB
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
+#endif // INTEL_COLLAB
   // vtable field is is derived from `this` pointer, therefore it should be in
   // default address space.
+#if INTEL_COLLAB
+  if (GlobalsAS)
+    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
+        VTableField, VTablePtrTy->getPointerTo());
+  else
+    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
+        VTableField, VTablePtrTy->getPointerTo(TAS));
+#else  // INTEL_COLLAB
   VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
       VTableField, VTablePtrTy->getPointerTo());
+#endif // INTEL_COLLAB
   VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
       VTableAddressPoint, VTablePtrTy);
 
@@ -2617,6 +2634,10 @@ void CodeGenFunction::InitializeVTablePointers(const CXXRecordDecl *RD) {
 llvm::Value *CodeGenFunction::GetVTablePtr(Address This,
                                            llvm::Type *VTableTy,
                                            const CXXRecordDecl *RD) {
+#if INTEL_COLLAB
+  unsigned  AS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
+  VTableTy = VTableTy->getPointerElementType()->getPointerTo(AS);
+#endif  // INTEL_COLLAB
   Address VTablePtrSrc = Builder.CreateElementBitCast(This, VTableTy);
   llvm::Instruction *VTable = Builder.CreateLoad(VTablePtrSrc, "vtable");
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTableTy);

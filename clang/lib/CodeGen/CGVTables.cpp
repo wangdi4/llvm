@@ -453,6 +453,13 @@ void CodeGenFunction::generateThunk(llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo, GlobalDecl GD,
                                     const ThunkInfo &Thunk,
                                     bool IsUnprototyped) {
+
+#if INTEL_COLLAB
+  // If encountered in OpenMP device codegen mark it for the target.
+  if (CGM.getLangOpts().OpenMPLateOutline && CGM.getLangOpts().OpenMPIsDevice)
+    Fn->addFnAttr("openmp-target-declare", "true");
+#endif  // INTEL_COLLAB
+
   StartThunk(Fn, GD, FnInfo, IsUnprototyped);
   // Create a scope with an artificial location for the body of this function.
   auto AL = ApplyDebugLocation::CreateArtificial(*this);
@@ -847,7 +854,11 @@ void CodeGenVTables::addVTableComponent(ConstantArrayBuilder &builder,
     if (useRelativeLayout())
       return builder.add(llvm::ConstantExpr::getNullValue(CGM.Int32Ty));
     else
+#if INTEL_COLLAB
+      return builder.addNullPointer(CGM.TargetInt8PtrTy);
+#else // INTEL_COLLAB
       return builder.addNullPointer(CGM.Int8PtrTy);
+#endif  // INTEL_COLLAB
   }
 
   llvm_unreachable("Unexpected vtable component kind");

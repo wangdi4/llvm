@@ -68,15 +68,18 @@
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;
 using namespace dtransOP;
 using dtrans::AllocCallInfo;
+using dtrans::CallInfo;
 using dtrans::DTransAnnotator;
 using dtrans::FreeCallInfo;
 using dtrans::MemfuncCallInfo;
@@ -293,7 +296,7 @@ public:
   void visitBitCastInst(BitCastInst &I);
   void visitPtrToIntInst(PtrToIntInst &I);
   void visitBinaryOperator(BinaryOperator &I);
-  // TODO: visit other instruction types
+  void visitInstruction(Instruction &I);
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
   DTransStructType *getDTransStructTypeforValue(Value *V);
@@ -978,6 +981,28 @@ void AOSCollector::visitBinaryOperator(BinaryOperator &I) {
     FuncInfo.BinOpsToConvert.push_back(std::make_pair(&I, StTy));
   else if (Transform.isDependentTypeSizeChanged(StTy->getLLVMType()))
     FuncInfo.DepBinOpsToConvert.push_back({ &I, StTy });
+}
+
+// Catch any other instruction. If the instruction produces the type being
+// transformed, throw an assertion that it is not handled.
+void AOSCollector::visitInstruction(Instruction &I) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+  if (!Info)
+    return;
+
+  DTransType *Ty = PTA.getDominantAggregateUsageType(*Info);
+  if (!Ty || !Ty->isPointerTy())
+    return;
+
+  auto *StructTy = dyn_cast<DTransStructType>(Ty->getPointerElementType());
+  if (!StructTy)
+    return;
+
+  auto *LLVMStructType = cast<llvm::StructType>(StructTy->getLLVMType());
+  assert(!Transform.isTypeToTransform(LLVMStructType) &&
+         "Instruction not handled by AOS-to-SOA transformation");
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 // Check whether the PointerTypeAnalyzer identified operand number 'OpNum' of
@@ -2231,7 +2256,7 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
 
   // Annotate the allocation call for other the DTrans dynamic cloning
   // optimization.
-  Module *M = AllocCallInst->getParent()->getParent()->getParent();
+  Module *M = AllocCallInst->getModule();
   auto *Annot = DTransAnnotator::createPtrAnnotation(
       *M, *AllocCallInst, *SOAInfo.AllocAnnotationGEP, *AnnotationFilenameGEP,
       0, "annot_alloc", nullptr);
@@ -2629,13 +2654,15 @@ bool AOSToSOAOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
 
   // Check whether there are any candidate structures that can be transformed.
   StructInfoVec CandidateTypes;
-  gatherCandidateTypes(DTInfo, CandidateTypes);
+  gatherCandidateTypes(*DTInfo, CandidateTypes);
   if (CandidateTypes.empty())
     return false;
 
-  qualifyCandidates(CandidateTypes, M, DTInfo, GetDT);
-  if (CandidateTypes.empty())
+  qualifyCandidates(CandidateTypes, M, *DTInfo, WPInfo, GetDT);
+  if (CandidateTypes.empty()) {
+    LLVM_DEBUG(dbgs() << "AOS-to-SOA: No types to transform\n");
     return false;
+  }
 
   AOSToSOAOPTransformImpl Transformer(
       M.getContext(), DTInfo, DTInfo->getPtrTypeAnalyzer().sawOpaquePointer(),
@@ -2647,12 +2674,12 @@ bool AOSToSOAOPPass::runImpl(Module &M, DTransSafetyInfo *DTInfo,
 // that should be considered for transformation. These are structure
 // that passed the DTrans safety bit flags, but need to be checked for
 // additional criteria with the qualifyCandidates function.
-void AOSToSOAOPPass::gatherCandidateTypes(DTransSafetyInfo *DTInfo,
+void AOSToSOAOPPass::gatherCandidateTypes(DTransSafetyInfo &DTInfo,
                                           StructInfoVecImpl &CandidateTypes) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Build the list of structures to convert based on a command line option
   // containing a list of structure names separated by commas.
-  DTransTypeManager &TM = DTInfo->getTypeManager();
+  DTransTypeManager &TM = DTInfo.getTypeManager();
   if (!AOSToSOAOPTypelist.empty()) {
     SmallVector<StringRef, 16> SubStrings;
     SplitString(AOSToSOAOPTypelist, SubStrings, ",");
@@ -2662,7 +2689,7 @@ void AOSToSOAOPPass::gatherCandidateTypes(DTransSafetyInfo *DTInfo,
         LLVM_DEBUG(dbgs() << "No structure found for: " << TypeName << "\n");
         continue;
       }
-      dtrans::TypeInfo *TI = DTInfo->getTypeInfo(DTransTy);
+      dtrans::TypeInfo *TI = DTInfo.getTypeInfo(DTransTy);
       if (!TI) {
         LLVM_DEBUG(dbgs() << "No type info found for: " << TypeName << "\n");
         continue;
@@ -2674,14 +2701,32 @@ void AOSToSOAOPPass::gatherCandidateTypes(DTransSafetyInfo *DTInfo,
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // TODO: Do candidate selection based on safety checks.
+  for (dtrans::TypeInfo *TI : DTInfo.type_info_entries()) {
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    if (cast<StructType>(TI->getLLVMType())->isLiteral())
+      continue;
+
+    if (DTInfo.testSafetyData(TI, dtrans::DT_AOSToSOA)) {
+      LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Unsupported safety data: "
+                        << *TI->getDTransType() << "\n");
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "AOS-to-SOA -- Passes safety data: "
+                      << *TI->getDTransType() << "\n");
+    CandidateTypes.push_back(StInfo);
+  }
 }
 
 // This function filters the 'CandidateTypes' list to remove types that are
 // not supported for transformation based on the contents of the structure or
 // the use of the structure.
 void AOSToSOAOPPass::qualifyCandidates(StructInfoVecImpl &CandidateTypes,
-                                       Module &M, DTransSafetyInfo *DTInfo,
+                                       Module &M, DTransSafetyInfo &DTInfo,
+                                       WholeProgramInfo &WPInfo,
                                        DominatorTreeFuncType &GetDT) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Bypass the checks, and to allow testing on IR that does not satisfy all the
@@ -2690,7 +2735,446 @@ void AOSToSOAOPPass::qualifyCandidates(StructInfoVecImpl &CandidateTypes,
     return;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // TODO: Verify the allocation of the candidate structures is supported.
+  if (!qualifyCandidatesTypes(CandidateTypes, DTInfo))
+    return;
+
+  if (!qualifyCalls(M, WPInfo, CandidateTypes, DTInfo, GetDT))
+    return;
+
+  qualifyInstructions(M, CandidateTypes, DTInfo);
+}
+
+// Check for types in 'CandidateTypes' that are not supported by the
+// transformation.
+// 1. Types that are used as arrays are not supported, for example
+//     [4 x struct.test]. Because we would need to handle all the allocation
+//     checks and transformation code for these arrays, as well.
+// 2. Types that contain arrays are not supported. This restriction could be
+//     relaxed in a future version.
+// 3. Types that contain vectors are not supported.
+//
+// Return 'true' if candidates remain after this filtering.
+bool AOSToSOAOPPass::qualifyCandidatesTypes(StructInfoVecImpl &CandidateTypes,
+                                            DTransSafetyInfo &DTInfo) {
+  // Collect a set of structure types that are contained within an array type.
+  SmallPtrSet<dtrans::StructInfo *, 4> ArrayElemTypes;
+  for (auto *TI : DTInfo.type_info_entries()) {
+    if (!isa<dtrans::ArrayInfo>(TI))
+      continue;
+
+    DTransType *ElemTy = TI->getDTransType()->getArrayElementType();
+    while (isa<DTransArrayType>(ElemTy))
+      ElemTy = ElemTy->getArrayElementType();
+
+    if (!isa<DTransStructType>(ElemTy))
+      continue;
+
+    auto *ElemTI = DTInfo.getTypeInfo(ElemTy);
+    assert(ElemTI && "Expecting TypeInfo objeect for structure type");
+    ArrayElemTypes.insert(cast<dtrans::StructInfo>(ElemTI));
+  }
+
+  // Find which of the candidates qualify for the transformation
+  StructInfoVec Qualified;
+  for (auto *Candidate : CandidateTypes) {
+    if (ArrayElemTypes.contains(Candidate)) {
+      LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Array of type seen: "
+                        << *Candidate->getDTransType() << "\n");
+      continue;
+    }
+
+    // No arrays of the structure type were found. Check the structure
+    // field types to verify all members are supported for the transformation.
+    // Reject any structure that contains an array or vector type.
+    //
+    // Also, reject the structure if an element-zero access was seen
+    // (hasNonGEPAccess) to simplify the transformation. Otherwise, we would
+    // need to identify and transform load/store instructions such as the
+    // following that use a pointer to structure to access a field within it,
+    // without using a getelementptr instruction. This could be supported in the
+    // future if necessary but would require additional tracking data from the
+    // safety analyzer.
+    //   %struct_ptr = load ptr, ptr %p0
+    //   %field0_value = load i32, ptr %struct_ptr
+    bool Supported = true;
+    for (auto &FI : Candidate->getFields()) {
+      Type *Ty = FI.getLLVMType();
+      if (Ty->isArrayTy() || Ty->isVectorTy() || FI.hasNonGEPAccess()) {
+        Supported = false;
+        break;
+      }
+    }
+
+    if (!Supported) {
+      LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Unsupported structure "
+                           "element type: "
+                        << *Candidate->getDTransType() << "\n");
+      continue;
+    }
+
+    Qualified.push_back(Candidate);
+  }
+
+  CandidateTypes = std::move(Qualified);
+  return !CandidateTypes.empty();
+}
+
+// Check that the type is only allocated once by malloc or calloc.
+// Return 'true' if candidates remain after this filtering.
+bool AOSToSOAOPPass::qualifyCalls(Module &M, WholeProgramInfo &WPInfo,
+                                  StructInfoVecImpl &CandidateTypes,
+                                  DTransSafetyInfo &DTInfo,
+                                  DominatorTreeFuncType &GetDT) {
+
+  auto &TheDTInfo = DTInfo;
+  auto AddCallInfoStructTypes = [&TheDTInfo](
+                                    CallInfo *CI,
+                                    SmallPtrSetImpl<StructInfo *> &Elements) {
+    assert(CI->getAliasesToAggregateType() && "Should have aggregate type");
+
+    for (auto *ElemTy : CI->getElementTypesRef().element_dtrans_types()) {
+      auto *TI = TheDTInfo.getTypeInfo(ElemTy);
+      if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
+        if (Elements.insert(StInfo).second)
+          LLVM_DEBUG(dbgs()
+                     << "AOS-to-SOA rejecting -- Unsupported call info use: "
+                     << *ElemTy << "\n"
+                     << *CI->getInstruction() << "\n");
+    }
+  };
+
+  SmallPtrSet<StructInfo *, 8> Disqualified;
+  DenseMap<dtrans::StructInfo *, Instruction *> AllocTypeInfoToInstr;
+  DenseMap<dtrans::StructInfo *, Instruction *> FreeTypeInfoToInstr;
+  for (auto *CInfo : DTInfo.call_info_entries()) {
+    if (!CInfo->getAliasesToAggregateType())
+      continue;
+
+    if (CInfo->getElementTypesRef().getNumTypes() != 1) {
+      AddCallInfoStructTypes(CInfo, Disqualified);
+      continue;
+    }
+
+    // Do not support any memfuncs on the candidate type. These can be
+    // supported, but are not currently needed.
+    if (isa<MemfuncCallInfo>(CInfo)) {
+      AddCallInfoStructTypes(CInfo, Disqualified);
+      continue;
+    }
+
+    if (auto *ACI = dyn_cast<dtrans::AllocCallInfo>(CInfo)) {
+      if (ACI->getAllocKind() != dtrans::AK_Calloc &&
+          ACI->getAllocKind() != dtrans::AK_Malloc) {
+        AddCallInfoStructTypes(ACI, Disqualified);
+      } else {
+        auto &TypeList = CInfo->getElementTypesRef();
+        DTransType *AllocatedTy = TypeList.getElemDTransType(0);
+        if (AllocatedTy->isStructTy()) {
+          // Save the first allocation seen, otherwise disqualify the type.
+          auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(AllocatedTy));
+          Instruction *Inst = CInfo->getInstruction();
+          if (!AllocTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
+            Disqualified.insert(TI);
+            LLVM_DEBUG(dbgs()
+                       << "AOS-to-SOA rejecting -- Too many allocations: "
+                       << *AllocatedTy << "\n");
+          }
+        }
+      }
+    } else if (auto *FCI = dyn_cast<dtrans::FreeCallInfo>(CInfo)) {
+      auto &TypeList = CInfo->getElementTypesRef();
+      DTransType *FreeTy = TypeList.getElemDTransType(0);
+      if (FreeTy->isStructTy()) {
+        auto *TI = dyn_cast<StructInfo>(DTInfo.getTypeInfo(FreeTy));
+        if (FCI->getFreeKind() != dtrans::FK_Free) {
+          Disqualified.insert(TI);
+          LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Deallocation not using "
+                               "call to 'free': "
+                            << *FreeTy << "\n");
+        }
+
+        // Save the first free seen, otherwise disqualify the type. The limit
+        // that 'free' is only called in one location is not strictly necessary
+        // for the transformation. It is simply checked here as a simplification
+        // for the checks for 'BitCast' instructions.
+        Instruction *Inst = CInfo->getInstruction();
+        if (!FreeTypeInfoToInstr.insert(std::make_pair(TI, Inst)).second) {
+          if (Disqualified.insert(TI).second)
+            LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Too many free-sites: "
+                              << *FreeTy << "\n");
+        }
+      }
+    }
+  }
+
+  StructInfoVec Qualified;
+  for (auto *Candidate : CandidateTypes)
+    if (!Disqualified.contains(Candidate))
+      Qualified.push_back(Candidate);
+
+  CandidateTypes = std::move(Qualified);
+  if (CandidateTypes.empty())
+    return false;
+
+  // Select the types that have a single allocation call. Also, populate a set
+  // of instructions by function that need to be checked to verify the
+  // allocation is not within a loop. We group these by function so that the
+  // LoopInfo for a function only needs to be calculated one time. This will
+  // reject any type that does not have a dynamic allocation because currently
+  // the only way for the pointers in the peeled structure to be initialized is
+  // by rewriting the code at the allocation call.
+  DenseMap<Function *, DenseSet<std::pair<Instruction *, dtrans::StructInfo *>>>
+      AllocPathMap;
+  SmallVector<std::pair<Function *, Instruction *>, 4> CallChain;
+  Qualified.clear();
+  for (auto *TyInfo : CandidateTypes) {
+    if (AllocTypeInfoToInstr[TyInfo] == nullptr) {
+      LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- No allocation found: "
+                        << *TyInfo->getDTransType() << "\n");
+      continue;
+    }
+
+    Instruction *I = AllocTypeInfoToInstr[TyInfo];
+    Value *Unsupported;
+    if (!checkAllocationUsers(I, TyInfo->getLLVMType(), &Unsupported)) {
+      LLVM_DEBUG(
+          dbgs() << "AOS-to-SOA rejecting -- Unsupported allocation user: "
+                 << *TyInfo->getDTransType() << "\n"
+                 << "  " << *Unsupported << "\n");
+      continue;
+    }
+
+    Instruction *Free = FreeTypeInfoToInstr[TyInfo];
+    if (Free) {
+      CallInst *FreeCall = cast<CallInst>(Free);
+      Value *FreeArg = FreeCall->getOperand(0);
+      if (auto *BC = dyn_cast<BitCastInst>(FreeArg))
+        SafeBitCasts.insert(BC);
+    }
+
+    // Verify the call chain to the instruction consists of a single path from
+    // 'main'
+    CallChain.clear();
+    if (!collectCallChain(WPInfo, I, CallChain)) {
+      LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Multiple call paths: "
+                        << *TyInfo->getDTransType() << "\n");
+      continue;
+    }
+
+    // Save the instruction and all its callers to the list of locations that
+    // will need to be checked for being within loops.
+    AllocPathMap[I->getFunction()].insert(std::make_pair(I, TyInfo));
+    for (auto &FuncInstrPair : CallChain)
+      AllocPathMap[FuncInstrPair.first].insert(
+          std::make_pair(FuncInstrPair.second, TyInfo));
+
+    Qualified.push_back(TyInfo);
+  }
+
+  CandidateTypes = std::move(Qualified);
+  if (CandidateTypes.empty())
+    return false;
+
+  // Check the function's loops to see if the allocation (or call to the
+  // allocation) instruction is within a loop
+  for (auto &FuncToAllocPath : AllocPathMap) {
+    Function *F = FuncToAllocPath.first;
+    DominatorTree &DT = (GetDT)(*F);
+    LoopInfo LI(DT);
+
+    if (LI.size())
+      for (auto &InstTypePair : FuncToAllocPath.second)
+        if (LI.getLoopFor(InstTypePair.first->getParent())) {
+          StructInfo *StInfo = InstTypePair.second;
+          LLVM_DEBUG(dbgs() << "AOS-to-SOA rejecting -- Allocation in loop: "
+                            << *StInfo->getDTransType()
+                            << "\n  Function: " << F->getName() << "\n");
+          auto *It =
+              std::find(CandidateTypes.begin(), CandidateTypes.end(), StInfo);
+          if (It != CandidateTypes.end())
+            CandidateTypes.erase(It);
+        }
+  }
+
+  return !CandidateTypes.empty();
+}
+
+bool AOSToSOAOPPass::qualifyInstructions(Module &M,
+                                         StructInfoVecImpl &CandidateTypes,
+                                         DTransSafetyInfo &DTInfo) {
+  SmallPtrSet<DTransType *, 4> DTransCandidates;
+  SmallPtrSet<DTransType *, 4> DisqualifiedTypes;
+  for (auto *StInfo : CandidateTypes)
+    DTransCandidates.insert(StInfo->getDTransType());
+
+  PtrTypeAnalyzer &PTA = DTInfo.getPtrTypeAnalyzer();
+  for (auto &F : M)
+    for (auto &I : instructions(&F)) {
+      // BitCast instructions are not expected when opaque pointers are in use.
+      // When typed-pointers are in use, the PointerTypeAnalyzer results will
+      // store types the original operand was used as, and the types the BitCast
+      // result is used as, which prevents easy determination of the source
+      // and destination types without looking at the pointer element type. For
+      // this reason, we will disqualify any bitcasts seen other than for the
+      // allocation, free calls or byte-flattened GEPs.
+      if (auto *BC = dyn_cast<BitCastInst>(&I)) {
+        if (!BC->getType()->isPointerTy())
+          continue;
+
+        if (SafeBitCasts.count(BC))
+          continue;
+
+        ValueTypeInfo *Info = PTA.getValueTypeInfo(BC);
+        assert(Info && "Expected PTA to get info for all pointers");
+        if (!Info->canAliasToAggregatePointer(ValueTypeInfo::VAT_Use))
+          continue;
+
+        for (auto *Ty : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+          if (Ty->isPointerTy() &&
+              DTransCandidates.contains(Ty->getPointerElementType())) {
+
+            bool NonByteGEP = false;
+            for (auto *U : BC->users()) {
+              if (auto *GEP = dyn_cast<GetElementPtrInst>(U)) {
+                auto InfoPair = DTInfo.getByteFlattenedGEPElement(GEP);
+                if (InfoPair.first)
+                  continue;
+              }
+              NonByteGEP = true;
+              break;
+            }
+
+            if (NonByteGEP) {
+              LLVM_DEBUG(dbgs()
+                         << "AOS-to-SOA rejecting -- Unsupported bitcasts: "
+                         << *Ty->getPointerElementType() << "\n"
+                         << *BC << " in: " << BC->getFunction()->getName()
+                         << "\n");
+              DisqualifiedTypes.insert(Ty->getPointerElementType());
+            }
+          }
+      }
+    }
+
+  StructInfoVec Qualified;
+  for (auto *StInfo : CandidateTypes)
+    if (!DisqualifiedTypes.count(StInfo->getDTransType()))
+      Qualified.push_back(StInfo);
+
+  CandidateTypes = std::move(Qualified);
+  return !CandidateTypes.empty();
+}
+
+// The result of the allocation call is a ptr type. Because we are going to be
+// replacing the ultimate pointer assignment during the transformation with an
+// integer type, and storing the result of the allocation into a compiler
+// generated structure, we need to perform some additional checks to make sure
+// the allocation can be replaced. Specifically, the following uses will be
+// allowed, and all others rejected:
+//   icmp eq ptr %call, null   [also allow inequality, and reversed operands]
+//   bitcast i8* %call to %struct.type* [ to support typed-pointers]
+//   store ptr %call, ptr %field
+//   getelementptr %struct.type, ptr %call, i64 0, i32 22
+//
+// There could be other instructions that would be safe, but they are not supported
+// by the transformation currently, so will be rejected.
+bool AOSToSOAOPPass::checkAllocationUsers(Instruction *AllocCall,
+                                          llvm::Type *StructTy,
+                                          Value **Unsupported) {
+
+  assert(isa<CallInst>(AllocCall) &&
+         "Instruction expected to be allocation call");
+
+  *Unsupported = nullptr;
+  uint32_t BitCastCount = 0;
+  for (auto *User : AllocCall->users()) {
+    auto *I = dyn_cast<Instruction>(&*User);
+    if (!I) {
+      *Unsupported = User;
+      return false;
+    }
+
+    switch (I->getOpcode()) {
+    default:
+      *Unsupported = I;
+      return false;
+
+    case Instruction::ICmp:
+      if ((cast<ICmpInst>(I))->isRelational()) {
+        *Unsupported = I;
+        return false;
+      }
+
+      if (!(I->getOperand(0) == AllocCall &&
+            isa<ConstantPointerNull>(I->getOperand(1))) &&
+          !(I->getOperand(1) == AllocCall &&
+            isa<ConstantPointerNull>(I->getOperand(0)))) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+
+    case Instruction::Store:
+      if ((cast<StoreInst>(I))->getPointerOperand() == AllocCall) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+
+    case Instruction::BitCast:
+      // Permit at most 1 BitCast, which should be the bitcast to be
+      // a pointer to the strucure type in the case that typed pointers
+      // are in use.
+      BitCastCount++;
+      if (BitCastCount > 1) {
+        *Unsupported = I;
+        return false;
+      }
+      SafeBitCasts.insert(cast<BitCastInst>(I));
+      break;
+
+    case Instruction::GetElementPtr:
+      // For the opaque pointer version, the allocated pointer can be
+      // directly used as a pointer to a structure in the GetElementPtr
+      // instructions.
+      if (cast<GetElementPtrInst>(I)->getNumIndices() != 2) {
+        *Unsupported = I;
+        return false;
+      }
+      break;
+    }
+  }
+
+  return true;
+}
+
+// If there is a single call chain that reaches the instruction 'I',
+// add the function to the 'CallChain' vector, and return 'true'. Otherwise,
+// return 'false'.
+bool AOSToSOAOPPass::collectCallChain(
+    WholeProgramInfo &WPInfo, Instruction *I,
+    SmallVectorImpl<std::pair<Function *, Instruction *>> &CallChain) {
+  Function *F = I->getFunction();
+  Instruction *Callsite = nullptr;
+
+  for (auto *U : F->users()) {
+    if (auto *Call = dyn_cast<CallInst>(*&U)) {
+      // Check that we only have a single call path to the routine.
+      if (Callsite != nullptr)
+        return false;
+
+      Callsite = Call;
+    } else {
+      return false;
+    }
+  }
+
+  // Verify the top of the callchain is the 'main' routine
+  if (!Callsite)
+    return WPInfo.getMainFunction() == F;
+
+  CallChain.push_back(std::make_pair(Callsite->getFunction(), Callsite));
+  return collectCallChain(WPInfo, Callsite, CallChain);
 }
 
 PreservedAnalyses AOSToSOAOPPass::run(Module &M, ModuleAnalysisManager &AM) {
