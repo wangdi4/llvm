@@ -3850,7 +3850,7 @@ Parser::tryParseExceptionSpecification(bool Delayed,
     NoexceptExpr = ParseConstantExpression();
     T.consumeClose();
     if (!NoexceptExpr.isInvalid()) {
-      NoexceptExpr = Actions.ActOnNoexceptSpec(KeywordLoc, NoexceptExpr.get(),
+      NoexceptExpr = Actions.ActOnNoexceptSpec(NoexceptExpr.get(),
                                                NoexceptType);
       NoexceptRange = SourceRange(KeywordLoc, T.getCloseLocation());
     } else {
