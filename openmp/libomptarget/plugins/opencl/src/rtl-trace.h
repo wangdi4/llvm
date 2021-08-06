@@ -71,6 +71,10 @@ typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
     const size_t *,
     const size_t *,
     size_t *);
+typedef void (CL_API_CALL *clGitsIndirectAllocationOffsets_fn)(
+    void *pAlloc,
+    uint32_t numOffsets,
+    size_t *pOffsets);
 #endif // INTEL_CUSTOMIZATION
 
 typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
@@ -85,9 +89,10 @@ typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
   M(clMemFreeINTEL)                                                            \
   M(clSetKernelArgMemPointerINTEL)                                             \
   M(clEnqueueMemcpyINTEL)                                                      \
+  M(clSetProgramSpecializationConstant)                                        \
   M(clGetDeviceGlobalVariablePointerINTEL)                                     \
   M(clGetKernelSuggestedLocalWorkSizeINTEL)                                    \
-  M(clSetProgramSpecializationConstant)
+  M(clGitsIndirectAllocationOffsets)
 #else // INTEL_CUSTOMIZATION
 #define FOR_EACH_EXTENSION_FN(M)                                               \
   M(clGetMemAllocInfoINTEL)                                                    \

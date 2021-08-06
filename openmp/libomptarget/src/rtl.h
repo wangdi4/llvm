@@ -100,6 +100,7 @@ struct RTLInfoTy {
   typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
   typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
   typedef int32_t(is_accessible_addr_range_ty)(int32_t, const void *, size_t);
+  typedef int32_t(notify_indirect_access_ty)(int32_t, const void *, size_t);
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
@@ -177,6 +178,7 @@ struct RTLInfoTy {
   get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
   get_num_sub_devices_ty *get_num_sub_devices = nullptr;
   is_accessible_addr_range_ty *is_accessible_addr_range = nullptr;
+  notify_indirect_access_ty *notify_indirect_access = nullptr;
 #endif // INTEL_COLLAB
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;

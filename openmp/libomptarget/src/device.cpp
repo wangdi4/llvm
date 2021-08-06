@@ -1037,6 +1037,13 @@ int32_t DeviceTy::isAccessibleAddrRange(const void *Ptr, size_t Size) {
   else
     return 0;
 }
+
+int32_t DeviceTy::notifyIndirectAccess(const void *Ptr, size_t Offset) {
+  if (RTL->notify_indirect_access)
+    return RTL->notify_indirect_access(RTLDeviceID, Ptr, Offset);
+  else
+    return OFFLOAD_SUCCESS;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly
