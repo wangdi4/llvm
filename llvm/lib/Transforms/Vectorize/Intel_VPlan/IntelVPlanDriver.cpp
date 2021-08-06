@@ -449,7 +449,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   CandLoopsVectorized++;
   VPlanOptReportBuilder VPORBuilder(ORBuilder, LI);
-  addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
+  addOptReportRemarks<VPOCodeGen>(WRLp, VPORBuilder, &VCodeGen);
 
   // Mark source and vector and scalar loops with isvectorized directive so that
   // WarnMissedTransforms pass will not complain that vector and scalar loops
@@ -768,11 +768,20 @@ template <class VPOCodeGenType, typename Loop>
 #else
 template <class VPOCodeGenType>
 #endif //INTEL_CUSTOMIZATION
-void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
+void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
+                                          VPlanOptReportBuilder &VPORBuilder,
                                           VPOCodeGenType *VCodeGen) {
+  if ((!WRLp || (WRLp->isOmpSIMDLoop() && WRLp->getSafelen() == 0 &&
+      WRLp->getSimdlen() == 0)) && (TTI->getRegisterBitWidth
+      (TargetTransformInfo::RGK_FixedWidthVector) <= 256) &&
+      TTI->isAdvancedOptEnabled(
+      TTI::AdvancedOptLevel::AO_TargetHasIntelAVX512))
+    // 15569 remark is "Compiler has chosen to target XMM/YMM vector."
+    // "Try using -mprefer-vector-width=512 to override."
+    VPORBuilder.addRemark(VCodeGen->getMainLoop(),
+                          OptReportVerbosity::High, 15569);
   // The new vectorized loop is stored in MainLoop
   Loop *MainLoop = VCodeGen->getMainLoop();
-
   // Adds remark LOOP WAS VECTORIZED
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15300);
   // Add remark about VF
@@ -1281,7 +1290,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
-            VPORBuilder, &VCodeGen);
+            WRLp, VPORBuilder, &VCodeGen);
         // Mark source and vectorized loops with isvectorized directive so that
         // WarnMissedTransforms pass will not complain that this loop is not
         // vectorized. We also tag the main vector loop based on

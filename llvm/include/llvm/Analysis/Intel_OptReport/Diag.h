@@ -41,7 +41,7 @@ class OptReportDiag {
   /// optimization reports high level design for xmain is approved.
   ///
   /// 15552 and below from ICC, the rest is xmain-specific.
-  static const unsigned VecEnd = 15568;
+  static const unsigned VecEnd = 15569;
   /// Loop-report ID used in ASM/OBJ starts at 25045.
   static const unsigned LoopBegin = 25045;
   /// Loop-report ID used in ASM/OBJ ends at 25584.
