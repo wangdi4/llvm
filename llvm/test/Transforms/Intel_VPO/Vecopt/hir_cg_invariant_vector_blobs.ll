@@ -17,8 +17,8 @@
 
 ; CHECK-LABEL: Function: main
 ; CHECK:        BEGIN REGION { modified }
-; CHECK-NEXT:            %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
-; CHECK-NEXT:         + DO i1 = 0, 99, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:         %.replicated = shufflevector %inv.temp,  undef,  <i32 0, i32 1, i32 0, i32 1>;
+; CHECK:              + DO i1 = 0, 99, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:         |   %.vec = <float 4.000000e+00, float 6.000000e+00, float 4.000000e+00, float 6.000000e+00>  +  %.replicated;
 ; CHECK-NEXT:         |   (<4 x float>*)(%dst)[0][i1] = %.vec;
 ; CHECK-NEXT:         + END LOOP

@@ -64,18 +64,17 @@
 ; CHECK:            |   |   %tgu = (%min + 1)/u4;
 ; CHECK-NEXT:       |   |   if (0 <u 4 * %tgu)
 ; CHECK-NEXT:       |   |   {
+; CHECK-NEXT:       |   |      %red.var = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var18 = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var19 = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var20 = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var21 = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var22 = 0.000000e+00;
+; CHECK-NEXT:       |   |      %red.var23 = 0;
+; CHECK-NEXT:       |   |      %red.var23 = insertelement %red.var23,  %tmp34,  0;
 ; CHECK-NEXT:       |   |      %phi.temp = %tmp37;
 ; CHECK-NEXT:       |   |      %phi.temp30 = -1;
-; CHECK-NEXT:       |   |
-; CHECK-NEXT:       |   |         %red.var = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var18 = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var19 = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var20 = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var21 = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var22 = 0.000000e+00;
-; CHECK-NEXT:       |   |         %red.var23 = 0;
-; CHECK-NEXT:       |   |         %red.var23 = insertelement %red.var23,  %tmp34,  0;
-; CHECK-NEXT:       |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:            |   |      + DO i3 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 16> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   |      |   %.vec = 64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>  *  64 * i2 + i3 + %arg5 + <i64 0, i64 1, i64 2, i64 3>;
 ; CHECK-NEXT:       |   |      |   %.vec32 = (<4 x i16>*)(%.TempArray)[0][i3];
 ; CHECK-NEXT:       |   |      |   %.vec33 = (<4 x i16>*)(%.TempArray10)[0][i3];
@@ -139,14 +138,13 @@
 ; CHECK-NEXT:       |   |      |   %phi.temp = %select68;
 ; CHECK-NEXT:       |   |      |   %phi.temp30 = %select66;
 ; CHECK-NEXT:       |   |      + END LOOP
-; CHECK-NEXT:       |   |         %tmp35 = @llvm.vector.reduce.fadd.v4f64(%tmp35,  %red.var);
-; CHECK-NEXT:       |   |         %tmp36 = @llvm.vector.reduce.fadd.v4f64(%tmp36,  %red.var18);
-; CHECK-NEXT:       |   |         %tmp32 = @llvm.vector.reduce.fadd.v4f32(%tmp32,  %red.var19);
-; CHECK-NEXT:       |   |         %tmp31 = @llvm.vector.reduce.fadd.v4f32(%tmp31,  %red.var20);
-; CHECK-NEXT:       |   |         %tmp30 = @llvm.vector.reduce.fadd.v4f32(%tmp30,  %red.var21);
-; CHECK-NEXT:       |   |         %tmp = @llvm.vector.reduce.fadd.v4f32(%tmp,  %red.var22);
-; CHECK-NEXT:       |   |         %tmp34 = @llvm.vector.reduce.add.v4i64(%red.var23);
-; CHECK-NEXT:       |   |
+; CHECK:            |   |      %tmp35 = @llvm.vector.reduce.fadd.v4f64(%tmp35,  %red.var);
+; CHECK-NEXT:       |   |      %tmp36 = @llvm.vector.reduce.fadd.v4f64(%tmp36,  %red.var18);
+; CHECK-NEXT:       |   |      %tmp32 = @llvm.vector.reduce.fadd.v4f32(%tmp32,  %red.var19);
+; CHECK-NEXT:       |   |      %tmp31 = @llvm.vector.reduce.fadd.v4f32(%tmp31,  %red.var20);
+; CHECK-NEXT:       |   |      %tmp30 = @llvm.vector.reduce.fadd.v4f32(%tmp30,  %red.var21);
+; CHECK-NEXT:       |   |      %tmp = @llvm.vector.reduce.fadd.v4f32(%tmp,  %red.var22);
+; CHECK-NEXT:       |   |      %tmp34 = @llvm.vector.reduce.add.v4i64(%red.var23);
 ; CHECK-NEXT:       |   |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select66);
 ; CHECK-NEXT:       |   |      %priv.idx.cmp = %select66 == %priv.idx.max;
 ; CHECK-NEXT:       |   |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);

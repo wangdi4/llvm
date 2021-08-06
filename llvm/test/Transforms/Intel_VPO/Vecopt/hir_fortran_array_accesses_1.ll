@@ -60,18 +60,18 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVALUE-CG-NEXT:  Function: interp1
 ; VPVALUE-CG-EMPTY:
-; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVALUE-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
-; VPVALUE-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; VPVALUE-CG-NEXT:  <58>               |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
-; VPVALUE-CG-NEXT:  <59>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
-; VPVALUE-CG-NEXT:  <55>               |   |   + END LOOP
-; VPVALUE-CG-NEXT:  <51>               |   + END LOOP
-; VPVALUE-CG-NEXT:  <50>               + END LOOP
-; VPVALUE-CG-NEXT:  <0>          END REGION
+; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:                 + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
+; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 2] = [[DOTVEC40]]
+; VPVALUE-CG-NEXT:                 |   |   + END LOOP
+; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG-NEXT:                 + END LOOP
+; VPVALUE-CG-NEXT:            END REGION
 ;
 alloca:
   %"interp_$M5" = load i32, i32* %"interp_$M", align 4
@@ -198,21 +198,21 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; PM2:              IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVALUE-CG-NEXT:  Function: interp2
 ; VPVALUE-CG-EMPTY:
-; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; VPVALUE-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVALUE-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
-; VPVALUE-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
-; VPVALUE-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; VPVALUE-CG-NEXT:  <72>               |   |   |   [[DOTVEC50:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
-; VPVALUE-CG-NEXT:  <73>               |   |   |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  5.000000e-01
-; VPVALUE-CG-NEXT:  <74>               |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
-; VPVALUE-CG-NEXT:  <75>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
-; VPVALUE-CG-NEXT:  <68>               |   |   + END LOOP
-; VPVALUE-CG-NEXT:  <64>               |   + END LOOP
-; VPVALUE-CG-NEXT:  <63>               + END LOOP
-; VPVALUE-CG-NEXT:  <0>          END REGION
+; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:                 + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
+; VPVALUE-CG-NEXT:                 |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC50:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  *  5.000000e-01
+; VPVALUE-CG-NEXT:                 |   |   |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  [[DOTVEC60]]
+; VPVALUE-CG-NEXT:                 |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + 2 * <i64 0, i64 1> + 1] = [[DOTVEC70]]
+; VPVALUE-CG-NEXT:                 |   |   + END LOOP
+; VPVALUE-CG-NEXT:                 |   + END LOOP
+; VPVALUE-CG-NEXT:                 + END LOOP
+; VPVALUE-CG-NEXT:            END REGION
 ;
 alloca:
   %"interp_$M5" = load i32, i32* %"interp_$M", align 4

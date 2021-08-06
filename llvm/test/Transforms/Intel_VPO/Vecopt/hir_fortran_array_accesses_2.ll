@@ -48,11 +48,11 @@ define dso_local void @foo(i32 %n, %struct.A* noalias nocapture readonly %arr) {
 ; PM2:         IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
 ; VPVALUE-CG-NEXT:  Function: foo
 ; VPVALUE-CG-EMPTY:
-; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALUE-CG-NEXT:  <17>               + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; VPVALUE-CG-NEXT:  <18>               |   (<2 x i32>*)([[ARR0:%.*]])[0][i1 + <i64 0, i64 1>].1 = 10 * i1 + 10 * <i32 0, i32 1>
-; VPVALUE-CG-NEXT:  <17>               + END LOOP
-; VPVALUE-CG-NEXT:  <0>          END REGION
+; VPVALUE-CG-NEXT:            BEGIN REGION { modified }
+; VPVALUE-CG-NEXT:                 + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
+; VPVALUE-CG-NEXT:                 |   (<2 x i32>*)([[ARR0:%.*]])[0][i1 + <i64 0, i64 1>].1 = 10 * i1 + 10 * <i32 0, i32 1>
+; VPVALUE-CG-NEXT:                 + END LOOP
+; VPVALUE-CG-NEXT:            END REGION
 ;
 entry:
   br label %for.body

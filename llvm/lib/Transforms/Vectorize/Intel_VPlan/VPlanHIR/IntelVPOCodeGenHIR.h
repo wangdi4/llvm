@@ -352,10 +352,17 @@ public:
       }
     }
 
-    if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
-      HLNodeUtils::insertAsLastChild(InsertRegion, Node);
-    else if (isa<HLIf>(getInsertRegion()))
-      addInst(Node, Mask, true);
+    // TODO - not needed once search loop representation is made explicit
+    if (!InsertPoint) {
+      if (auto InsertRegion = dyn_cast<HLLoop>(getInsertRegion()))
+        HLNodeUtils::insertAsLastChild(InsertRegion, Node);
+      else if (isa<HLIf>(getInsertRegion()))
+        addInst(Node, Mask, true);
+      return;
+    }
+
+    HLNodeUtils::insertAfter(InsertPoint, Node);
+    InsertPoint = Node;
   }
 
   // Insert instruction into HLIf region.
@@ -372,6 +379,14 @@ public:
     assert(InsertRegion && "HLIf is expected as insert region.");
     IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Node)
                 : HLNodeUtils::insertAsLastElseChild(InsertRegion, Node);
+  }
+
+  // Add the HLNodes in the list at the current insertion point. HLNodes are
+  // expected to be masked appropriately coming in if necessary.
+  void addInst(HLContainerTy *List) {
+    HLNode *Save = &List->back();
+    HLNodeUtils::insertAfter(InsertPoint, List);
+    InsertPoint = Save;
   }
 
   void setCurMaskValue(RegDDRef *V) { CurMaskValue = V; }
@@ -532,6 +547,9 @@ private:
   // LLVMContext associated with current function.
   LLVMContext &Context;
 
+  // Current insertion point
+  HLNode *InsertPoint = nullptr;
+
   // Original HIR loop corresponding to this VPlan region, if a remainder loop
   // is needed after vectorization, the original loop is used as the remainder
   // loop after updating loop bounds.
@@ -582,8 +600,8 @@ private:
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.
   HLLoop *RednHoistLp = nullptr;
-  HLNode *RedInitInsertPoint = nullptr;
-  HLNode *RedFinalInsertPoint = nullptr;
+  HLNode *RednInitInsertPoint = nullptr;
+  HLNode *RednFinalInsertPoint = nullptr;
 
   // VPEntities present in current loop being vectorized. These include
   // reductions, inductions and privates.
@@ -656,36 +674,8 @@ private:
   void setVF(unsigned V) { VF = V; }
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
-  void insertReductionInit(HLInst *Inst) {
-    // RedInitInsertPoint is never updated after initial assignment, so it
-    // should always be the reduction hoist loop.
-    assert(isa<HLLoop>(RedInitInsertPoint) &&
-           "Reduction init insert point is not a loop.");
-    HLNodeUtils::insertAsLastPreheaderNode(cast<HLLoop>(RedInitInsertPoint),
-                                           Inst);
-  }
-  void insertReductionInit(HLContainerTy *List) {
-    assert(isa<HLLoop>(RedInitInsertPoint) &&
-           "Reduction init insert point is not a loop.");
-    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RedInitInsertPoint),
-                                            List);
-  }
-  void insertReductionFinal(HLInst *Inst) {
-    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
-      HLNodeUtils::insertAsFirstPostexitNode(RedFinalInsertLp, Inst);
-    else
-      HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
-
-    RedFinalInsertPoint = Inst;
-  }
-  void insertReductionFinal(HLContainerTy *List) {
-    HLNode *Save = &List->back();
-    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
-      HLNodeUtils::insertAsFirstPostexitNodes(RedFinalInsertLp, List);
-    else
-      HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
-    RedFinalInsertPoint = Save;
-  }
+  void insertReductionInit(HLContainerTy *List);
+  void insertReductionFinal(HLContainerTy *List);
 
   /// Return true if the opcode is one for which we want to generate a scalar
   /// HLInst. Temporary solution until such decision is driven by the results
