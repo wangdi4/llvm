@@ -416,55 +416,56 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
     SmallVector<OperandBundleDef, 16> NewOpBundles;
     bool ModifierAdded = false;
 
-    for (unsigned OI = 0; OI < OpBundles.size(); ++OI) {
-      StringRef ClauseString = OpBundles[OI].getTag();
-      const char *Modifier = "";
-      // Some clauses, e.g. PRIVATE, may contain more than one item.
-      // In order to keep IR untouched as much as possible, we want
-      // to keep the original order of items. To do this for
-      // clauses with multiple items we need to break them
-      // into multiple clauses with single items. We do not support
-      // this by the initial implementation.
-      if (OpBundles[OI].input_size() == 1) {
-        Value *ClauseItem = OpBundles[OI].inputs()[0];
+    for (const auto &Bundle : OpBundles) {
+      StringRef ClauseString = Bundle.getTag();
 
-        if (VPOAnalysisUtils::getClauseID(ClauseString) == QUAL_OMP_PRIVATE &&
-            PrivOptimizableItems.count(ClauseItem) != 0) {
-          // This is a PRIVATE clause with an optimizable item.
-          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
-          // If the clause already has some modifiers, then we need
-          // to use '.' separator, otherwise, add a new modifier
-          // using ':' separator.
-          if (ClauseString.find(':') != StringRef::npos)
-            Modifier = ".WILOCAL";
-          else
-            Modifier = ":WILOCAL";
-        } else if (VPOAnalysisUtils::getClauseID(ClauseString) ==
-                       QUAL_OMP_FIRSTPRIVATE &&
-                   FprivOptimizableItems.count(ClauseItem) != 0) {
-          // This is a FIRSTPRIVATE clause with an optimizable item.
-          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
-          if (ClauseString.find(':') != StringRef::npos)
-            Modifier = ".WILOCAL";
-          else
-            Modifier = ":WILOCAL";
-        }
-
-        if (Modifier[0] != '\0') {
-          if (DataSharingOptNumCase >= 0 &&
-              NumOptimizedItems >= DataSharingOptNumCase) {
-            Modifier = "";
-          } else {
-            ++NumOptimizedItems;
-            ModifierAdded = true;
-            Changed = true;
-          }
-        }
+      SmallPtrSet<Value *, 8> *OptimizableItems = nullptr;
+      switch (VPOAnalysisUtils::getClauseID(ClauseString)) {
+      case QUAL_OMP_PRIVATE:
+        OptimizableItems = &PrivOptimizableItems;
+        break;
+      case QUAL_OMP_FIRSTPRIVATE:
+        OptimizableItems = &FprivOptimizableItems;
+        break;
       }
 
-      OperandBundleDef B(ClauseString.str() + Modifier,
-                         OpBundles[OI].inputs());
-      NewOpBundles.push_back(B);
+      // If this clause is not optimizable just add it as is.
+      if (!OptimizableItems) {
+        NewOpBundles.emplace_back(Bundle);
+        continue;
+      }
+
+      // If the clause already has some modifiers, then we need to use '.'
+      // separator, otherwise, add a new modifier using ':' separator.
+      const char *WILocal =
+          ClauseString.find(':') != StringRef::npos ? ".WILOCAL" : ":WILOCAL";
+
+      // Create new bundles for this clause preserving the original items order.
+      SmallVector<Value *, 8> NewItems;
+      const char *NewModifier = nullptr;
+      auto AddBundle = [&]() {
+        std::string NewTag = ClauseString.str();
+        if (NewModifier) {
+          NewTag += NewModifier;
+          ModifierAdded = true;
+        }
+        NewOpBundles.emplace_back(NewTag, NewItems);
+        NewItems.clear();
+        NewModifier = nullptr;
+      };
+      for (Value *ClauseItem : Bundle.inputs()) {
+        const char *ItemModifier = nullptr;
+        if (OptimizableItems->contains(ClauseItem)) {
+          LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");
+          ItemModifier = WILocal;
+        }
+        if (!NewItems.empty() && NewModifier != ItemModifier)
+          AddBundle();
+        NewItems.push_back(ClauseItem);
+        NewModifier = ItemModifier;
+      }
+      if (!NewItems.empty())
+        AddBundle();
     }
 
     if (!ModifierAdded)
