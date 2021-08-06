@@ -253,11 +253,15 @@ private:
   void transformLoopToPopcount(BasicBlock *PreCondBB, Instruction *CntInst,
                                PHINode *CntPhi, Value *Var);
   bool recognizeAndInsertFFS();  /// Find First Set: ctlz or cttz
+#if INTEL_CUSTOMIZATION
   void transformLoopToCountable(Intrinsic::ID IntrinID, BasicBlock *PreCondBB,
                                 Instruction *CntInst, PHINode *CntPhi,
                                 Value *Var, Instruction *DefX,
-                                const DebugLoc &DL, bool ZeroCheck,
-                                bool IsCntPhiUsedOutsideLoop);
+                                const DebugLoc &DL, unsigned InputShift,
+                                bool ZeroCheck, bool SkipCntAdd,
+                                bool IsCntPhiUsedOutsideLoop,
+                                bool IsCntInstUsedOutsideLoop);
+#endif // INTEL_CUSTOMIZATION
 
   bool recognizeShiftUntilBitTest();
   bool recognizeShiftUntilZero();
@@ -1501,58 +1505,79 @@ static Value *matchCondition(BranchInst *BI, BasicBlock *LoopEntry,
 
 #if INTEL_CUSTOMIZATION
 /// Check if the given conditional branch \p BI targets \p LoopEntry in cases
-/// where a variable has a value that would be zero after a 1-bit shift right.
-/// If so, this variable is returned.
-static Value *matchPreRightShiftCondition(BranchInst *BI,
-                                          BasicBlock *LoopEntry) {
+/// where a variable has a value that would be not be zero after an N-bit shift
+/// right. If so, this variable and the value of N are returned.
+static std::pair<Value *, unsigned>
+matchNotZeroAfterShiftRightNCondition(BranchInst *BI, BasicBlock *LoopEntry) {
   if (!BI || !BI->isConditional())
-    return nullptr;
+    return {nullptr, 0};
 
   const auto *const Cond = dyn_cast<ICmpInst>(BI->getCondition());
   if (!Cond)
-    return nullptr;
+    return {nullptr, 0};
 
   const auto *const CmpVal = dyn_cast<ConstantInt>(Cond->getOperand(1));
   if (!CmpVal)
-    return nullptr;
+    return {nullptr, 0};
 
-  // The variable values that would be zero after a 1-bit right shift are 0 and
-  // 1, which can be tested for with the following set of predicates and
-  // constants:
+  // The variable values that would be zero after an N-bit right shift are any
+  // less than 1<<N, or any other equivalent comparison. For N=0, the only
+  // possible value is zero and so eq and ne can be used too.
   //
   // Pred  Constant Inverted?
-  // ult   2        No
-  // ule   1        No
-  // ugt   1        Yes
-  // uge   2        Yes
-  uint64_t ExpectedCmpVal;
+  // eq    0 if N=0 No
+  // ne    0 if N=0 Yes
+  // ult   1<<N     No
+  // ule   (1<<N)-1 No
+  // ugt   (1<<N)-1 Yes
+  // uge   1<<N     Yes
+  APInt OneLShiftN = CmpVal->getValue();
   bool Inverted;
+  unsigned N;
   switch (Cond->getPredicate()) {
+  case ICmpInst::ICMP_EQ:
+    if (!OneLShiftN.isNullValue())
+      return {nullptr, 0};
+    N = 0, Inverted = false;
+    break;
+  case ICmpInst::ICMP_NE:
+    if (!OneLShiftN.isNullValue())
+      return {nullptr, 0};
+    N = 0, Inverted = true;
+    break;
   case ICmpInst::ICMP_ULT:
-    ExpectedCmpVal = 2, Inverted = false;
+    if (!OneLShiftN.isPowerOf2())
+      return {nullptr, 0};
+    N = OneLShiftN.logBase2(), Inverted = false;
     break;
   case ICmpInst::ICMP_ULE:
-    ExpectedCmpVal = 1, Inverted = false;
+    ++OneLShiftN;
+    if (!OneLShiftN.isPowerOf2())
+      return {nullptr, 0};
+    N = OneLShiftN.logBase2(), Inverted = false;
     break;
   case ICmpInst::ICMP_UGT:
-    ExpectedCmpVal = 1, Inverted = true;
+    ++OneLShiftN;
+    if (!OneLShiftN.isPowerOf2())
+      return {nullptr, 0};
+    N = OneLShiftN.logBase2(), Inverted = true;
     break;
   case ICmpInst::ICMP_UGE:
-    ExpectedCmpVal = 2, Inverted = true;
+    if (!OneLShiftN.isPowerOf2())
+      return {nullptr, 0};
+    N = OneLShiftN.logBase2(), Inverted = true;
     break;
   default:
-    return nullptr;
+    return {nullptr, 0};
   }
-  if (!CmpVal->equalsInt(ExpectedCmpVal))
-    return nullptr;
 
   const BasicBlock *const TrueSucc = BI->getSuccessor(0);
   const BasicBlock *const FalseSucc = BI->getSuccessor(1);
   if ((!Inverted && FalseSucc == LoopEntry) ||
       (Inverted && TrueSucc == LoopEntry))
-    return Cond->getOperand(0);
+    return {Cond->getOperand(0), N};
 
-  return nullptr;
+  return {nullptr, 0};
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1699,6 +1724,7 @@ static bool detectPopcountIdiom(Loop *CurLoop, BasicBlock *PreCondBB,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Return true if the idiom is detected in the loop.
 ///
 /// Additionally:
@@ -1708,6 +1734,8 @@ static bool detectPopcountIdiom(Loop *CurLoop, BasicBlock *PreCondBB,
 ///       or nullptr if there is no such.
 /// 3) \p Var is set to the value whose CTLZ could be used.
 /// 4) \p DefX is set to the instruction calculating Loop exit condition.
+/// 5) \p InputShift is set to the amount the input needs to be shifted for a
+///       CTLZ (/CTTZ) call on it to match the final value of \p CntPhi
 ///
 /// The core idiom we are trying to detect is:
 /// \code
@@ -1729,7 +1757,9 @@ static bool detectPopcountIdiom(Loop *CurLoop, BasicBlock *PreCondBB,
 static bool detectShiftUntilZeroIdiom(Loop *CurLoop, const DataLayout &DL,
                                       Intrinsic::ID &IntrinID, Value *&InitX,
                                       Instruction *&CntInst, PHINode *&CntPhi,
-                                      Instruction *&DefX) {
+                                      Instruction *&DefX,
+                                      unsigned &InputShift) {
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *LoopEntry;
   Value *VarX = nullptr;
 
@@ -1741,30 +1771,13 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, const DataLayout &DL,
 #if INTEL_CUSTOMIZATION
   // step 1: Check if the loop-back branch is in either desirable form.
   PHINode *PhiX = nullptr;
-  if (Value *T = matchCondition(
-          dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry)) {
-    DefX = dyn_cast<Instruction>(T);
+  Value *CondInput;
+  unsigned CondShift;
+  std::tie(CondInput, CondShift) = matchNotZeroAfterShiftRightNCondition(
+      dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry);
 
-    // step 2: detect instructions corresponding to "x.next = x >> 1 or x << 1"
-    if (!DefX || !DefX->isShift())
-      return false;
-    IntrinID = DefX->getOpcode() == Instruction::Shl ? Intrinsic::cttz
-                                                     : Intrinsic::ctlz;
-    ConstantInt *Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
-    if (!Shft || !Shft->isOne())
-      return false;
-    VarX = DefX->getOperand(0);
-
-    // step 3: Check the recurrence of variable X
-    PhiX = getRecurrenceVar(VarX, DefX, LoopEntry);
-    if (!PhiX)
-      return false;
-
-  } else if (Value *T = matchPreRightShiftCondition(
-                 dyn_cast<BranchInst>(LoopEntry->getTerminator()), LoopEntry)) {
-    PhiX = dyn_cast<PHINode>(T);
-    if (!PhiX)
-      return false;
+  // If the loop condition is ahead of the shift (based on the phi)...
+  if ((PhiX = dyn_cast_or_null<PHINode>(CondInput))) {
 
     // step 2: Check the recurrence of variable X
     for (Value *const Incoming : PhiX->incoming_values()) {
@@ -1779,16 +1792,48 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, const DataLayout &DL,
       break;
     }
 
-    // step 3: Confirm that DefX is of the form "x.next = x >> 1"
+    // step 3: Confirm that DefX is of the form "x.next = x >> 1 or x << 1".
+    // Only accept x << 1 for CondShift=0.
     if (!DefX)
       return false;
     assert(DefX->isShift());
-    if (DefX->getOpcode() == Instruction::Shl)
+    const bool IsLShift = (DefX->getOpcode() == Instruction::Shl);
+    if (IsLShift && CondShift != 0)
       return false;
-    IntrinID = Intrinsic::ctlz;
+    IntrinID = IsLShift ? Intrinsic::cttz : Intrinsic::ctlz;
     const auto *const Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
     if (!Shft || !Shft->isOne())
       return false;
+
+    // In this case with the pre-shift condition, InputShift should be the same
+    // as CondShift.
+    InputShift = CondShift;
+  }
+
+  // If the loop condition is after the shift (based on the shift)...
+  else if ((DefX = dyn_cast_or_null<Instruction>(CondInput))) {
+
+    // step 2: detect instructions corresponding to "x.next = x >> 1 or x << 1".
+    // Only accept x << 1 for CondShift=0.
+    if (!DefX->isShift())
+      return false;
+    const bool IsLShift = (DefX->getOpcode() == Instruction::Shl);
+    if (IsLShift && CondShift != 0)
+      return false;
+    IntrinID = IsLShift ? Intrinsic::cttz : Intrinsic::ctlz;
+    const auto *const Shft = dyn_cast<ConstantInt>(DefX->getOperand(1));
+    if (!Shft || !Shft->isOne())
+      return false;
+    VarX = DefX->getOperand(0);
+
+    // step 3: Check the recurrence of variable X
+    PhiX = getRecurrenceVar(VarX, DefX, LoopEntry);
+    if (!PhiX)
+      return false;
+
+    // In this case with the post-shift condition, InputShift should be one more
+    // than CondShift to account for the shift in the original loop.
+    InputShift = CondShift + 1;
   } else {
     return false;
   }
@@ -1846,13 +1891,16 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
   Instruction *DefX = nullptr;
   PHINode *CntPhi = nullptr;
   Instruction *CntInst = nullptr;
+  unsigned InputShift; // INTEL
   // Help decide if transformation is profitable. For ShiftUntilZero idiom,
   // this is always 6.
   size_t IdiomCanonicalSize = 6;
 
-  if (!detectShiftUntilZeroIdiom(CurLoop, *DL, IntrinID, InitX,
-                                 CntInst, CntPhi, DefX))
+#if INTEL_CUSTOMIZATION
+  if (!detectShiftUntilZeroIdiom(CurLoop, *DL, IntrinID, InitX, CntInst, CntPhi,
+                                 DefX, InputShift))
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   bool IsCntPhiUsedOutsideLoop = false;
   for (User *U : CntPhi->users())
@@ -1866,10 +1914,16 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
       IsCntInstUsedOutsideLoop = true;
       break;
     }
+#if !INTEL_CUSTOMIZATION
+  // INTEL: We have cases where both of these are used outside of the loop due
+  // to instcombine which have less questionable profitability, so I'm
+  // disabling this check.
+
   // If both CntInst and CntPhi are used outside the loop the profitability
   // is questionable.
   if (IsCntInstUsedOutsideLoop && IsCntPhiUsedOutsideLoop)
     return false;
+#endif // !INTEL_CUSTOMIZATION
 
   // For some CPUs result of CTLZ(X) intrinsic is undefined
   // when X is 0. If we can not guarantee X != 0, we need to check this
@@ -1879,21 +1933,35 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
   // parent function RunOnLoop.
   BasicBlock *PH = CurLoop->getLoopPreheader();
 
-  // If we are using the count instruction outside the loop, make sure we
-  // have a zero check as a precondition. Without the check the loop would run
-  // one iteration for before any check of the input value. This means 0 and 1
-  // would have identical behavior in the original loop and thus
-  if (!IsCntPhiUsedOutsideLoop) {
-    auto *PreCondBB = PH->getSinglePredecessor();
-    if (!PreCondBB)
-      return false;
-    auto *PreCondBI = dyn_cast<BranchInst>(PreCondBB->getTerminator());
-    if (!PreCondBI)
-      return false;
-    if (matchCondition(PreCondBI, PH) != InitX)
-      return false;
-    ZeroCheck = true;
+#if INTEL_CUSTOMIZATION
+  // Check if the loop is guarded by a condition that ensures the generated CTLZ
+  // (/CTTZ) call will never be called with a value of zero. If there are no
+  // uses of CntPhi outside the loop, we can eliminate the extra add by shifting
+  // one bit less ahead of the CTLZ (/CTTZ) in cases where ZeroCheck will be
+  // true.
+  bool SkipCntAdd = false;
+  if (BasicBlock *const PreCondBB = PH->getSinglePredecessor()) {
+    if (auto *const PreCondBI =
+            dyn_cast<BranchInst>(PreCondBB->getTerminator())) {
+      Value *OuterCondInst;
+      unsigned OuterCondShift;
+      std::tie(OuterCondInst, OuterCondShift) =
+          matchNotZeroAfterShiftRightNCondition(PreCondBI, PH);
+      if (IntrinID == Intrinsic::cttz && OuterCondShift != 0)
+        OuterCondInst = nullptr;
+      if (OuterCondInst == InitX) {
+        if (!IsCntPhiUsedOutsideLoop && InputShift > 0 &&
+            OuterCondShift >= InputShift - 1) {
+          SkipCntAdd = true;
+          --InputShift;
+          ZeroCheck = true;
+        } else {
+          ZeroCheck = (OuterCondShift >= InputShift);
+        }
+      }
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Check if CTLZ / CTTZ intrinsic is profitable. Assume it is always
   // profitable if we delete the loop.
@@ -1921,9 +1989,12 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
       Cost > TargetTransformInfo::TCC_Basic)
     return false;
 
+#if INTEL_CUSTOMIZATION
   transformLoopToCountable(IntrinID, PH, CntInst, CntPhi, InitX, DefX,
-                           DefX->getDebugLoc(), ZeroCheck,
-                           IsCntPhiUsedOutsideLoop);
+                           DefX->getDebugLoc(), InputShift, ZeroCheck,
+                           SkipCntAdd, IsCntPhiUsedOutsideLoop,
+                           IsCntInstUsedOutsideLoop);
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
@@ -2004,6 +2075,7 @@ static CallInst *createFFSIntrinsic(IRBuilder<> &IRBuilder, Value *Val,
   return CI;
 }
 
+#if INTEL_CUSTOMIZATION
 /// Transform the following loop (Using CTLZ, CTTZ is similar):
 /// loop:
 ///   CntPhi = PHI [Cnt0, CntInst]
@@ -2011,15 +2083,16 @@ static CallInst *createFFSIntrinsic(IRBuilder<> &IRBuilder, Value *Val,
 ///   CntInst = CntPhi + 1
 ///   DefX = PhiX >> 1
 ///   LOOP_BODY
-///   Br: loop if (DefX != 0)
-/// Use(CntPhi) or Use(CntInst)
+///   Br: loop if (PhiX >= 1<<InputShift) ; or (DefX >= 1<<(InputShift-1))
+///   ; (PhiX >= 1<<(InputShift+1)) or (DefX >= 1<<InputShift) for SkipCntAdd
+/// Use(CntPhi) and/or Use(CntInst)
 ///
 /// Into:
-/// If CntPhi used outside the loop:
-///   CountPrev = BitWidth(InitX) - CTLZ(InitX >> 1)
-///   Count = CountPrev + 1
+/// If SkipCntAdd:
+///   Count = BitWidth(InitX) - CTLZ(InitX >> InputShift)
 /// else
-///   Count = BitWidth(InitX) - CTLZ(InitX)
+///   CountPrev = BitWidth(InitX) - CTLZ(InitX >> InputShift)
+///   Count = CountPrev + 1
 /// loop:
 ///   CntPhi = PHI [Cnt0, CntInst]
 ///   PhiX = PHI [InitX, DefX]
@@ -2030,7 +2103,7 @@ static CallInst *createFFSIntrinsic(IRBuilder<> &IRBuilder, Value *Val,
 ///   LOOP_BODY
 ///   Br: loop if (Dec != 0)
 /// Use(CountPrev + Cnt0) // Use(CntPhi)
-/// or
+/// and/or
 /// Use(Count + Cnt0) // Use(CntInst)
 ///
 /// If LOOP_BODY is empty the loop will be deleted.
@@ -2038,54 +2111,78 @@ static CallInst *createFFSIntrinsic(IRBuilder<> &IRBuilder, Value *Val,
 void LoopIdiomRecognize::transformLoopToCountable(
     Intrinsic::ID IntrinID, BasicBlock *Preheader, Instruction *CntInst,
     PHINode *CntPhi, Value *InitX, Instruction *DefX, const DebugLoc &DL,
-    bool ZeroCheck, bool IsCntPhiUsedOutsideLoop) {
+    unsigned InputShift, bool ZeroCheck, bool SkipCntAdd,
+    bool IsCntPhiUsedOutsideLoop, bool IsCntInstUsedOutsideLoop) {
+#endif // INTEL_CUSTOMIZATION
   BranchInst *PreheaderBr = cast<BranchInst>(Preheader->getTerminator());
 
   // Step 1: Insert the CTLZ/CTTZ instruction at the end of the preheader block
   IRBuilder<> Builder(PreheaderBr);
   Builder.SetCurrentDebugLocation(DL);
 
-  // If there are no uses of CntPhi crate:
-  //   Count = BitWidth - CTLZ(InitX);
-  //   NewCount = Count;
-  // If there are uses of CntPhi create:
-  //   NewCount = BitWidth - CTLZ(InitX >> 1);
-  //   Count = NewCount + 1;
+#if INTEL_CUSTOMIZATION
+  // Create:
+  //   Count0 = BitWidth - CTLZ(InitX >> InputShift);
+  //   Count = Count0 + 1;
+  // Omit the shift if InputShift == 0
+  // Omit the add for SkipCntAdd
   Value *InitXNext;
-  if (IsCntPhiUsedOutsideLoop) {
+  if (InputShift > 0) {
     if (DefX->getOpcode() == Instruction::AShr)
-      InitXNext = Builder.CreateAShr(InitX, 1);
+      InitXNext = Builder.CreateAShr(InitX, InputShift);
     else if (DefX->getOpcode() == Instruction::LShr)
-      InitXNext = Builder.CreateLShr(InitX, 1);
+      InitXNext = Builder.CreateLShr(InitX, InputShift);
     else if (DefX->getOpcode() == Instruction::Shl) // cttz
-      InitXNext = Builder.CreateShl(InitX, 1);
+      InitXNext = Builder.CreateShl(InitX, InputShift);
     else
       llvm_unreachable("Unexpected opcode!");
   } else
     InitXNext = InitX;
+#endif // INTEL_CUSTOMIZATION
   Value *Count =
       createFFSIntrinsic(Builder, InitXNext, DL, ZeroCheck, IntrinID);
   Type *CountTy = Count->getType();
   Count = Builder.CreateSub(
       ConstantInt::get(CountTy, CountTy->getIntegerBitWidth()), Count);
-  Value *NewCount = Count;
+#if INTEL_CUSTOMIZATION
+  Value *CntPhiOut = nullptr;
   if (IsCntPhiUsedOutsideLoop)
+    CntPhiOut = Count;
+  if (!SkipCntAdd) {
     Count = Builder.CreateAdd(Count, ConstantInt::get(CountTy, 1));
+  }
+  Value *CntInstOut = nullptr;
+  if (IsCntInstUsedOutsideLoop)
+    CntInstOut = Count;
 
-  NewCount = Builder.CreateZExtOrTrunc(NewCount, CntInst->getType());
+  if (IsCntPhiUsedOutsideLoop)
+    CntPhiOut = Builder.CreateZExtOrTrunc(CntPhiOut, CntInst->getType());
+  if (IsCntInstUsedOutsideLoop)
+    CntInstOut = Builder.CreateZExtOrTrunc(CntInstOut, CntInst->getType());
+#endif // INTEL_CUSTOMIZATION
 
   Value *CntInitVal = CntPhi->getIncomingValueForBlock(Preheader);
+#if INTEL_CUSTOMIZATION
   if (cast<ConstantInt>(CntInst->getOperand(1))->isOne()) {
-    // If the counter was being incremented in the loop, add NewCount to the
-    // counter's initial value, but only if the initial value is not zero.
+    // If the counter was being incremented in the loop, add
+    // CntPhiOut/CntInstOut to the counter's initial value, but only if the
+    // initial value is not zero.
     ConstantInt *InitConst = dyn_cast<ConstantInt>(CntInitVal);
-    if (!InitConst || !InitConst->isZero())
-      NewCount = Builder.CreateAdd(NewCount, CntInitVal);
+    if (!InitConst || !InitConst->isZero()) {
+      if (IsCntPhiUsedOutsideLoop)
+        CntPhiOut = Builder.CreateAdd(CntPhiOut, CntInitVal);
+      if (IsCntInstUsedOutsideLoop)
+        CntInstOut = Builder.CreateAdd(CntInstOut, CntInitVal);
+    }
   } else {
-    // If the count was being decremented in the loop, subtract NewCount from
-    // the counter's initial value.
-    NewCount = Builder.CreateSub(CntInitVal, NewCount);
+    // If the count was being decremented in the loop, subtract
+    // CntPhiOut/CntInstOut from the counter's initial value.
+    if (IsCntPhiUsedOutsideLoop)
+      CntPhiOut = Builder.CreateSub(CntInitVal, CntPhiOut);
+    if (IsCntInstUsedOutsideLoop)
+      CntInstOut = Builder.CreateSub(CntInitVal, CntInstOut);
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Step 2: Insert new IV and loop condition:
   // loop:
@@ -2114,12 +2211,14 @@ void LoopIdiomRecognize::transformLoopToCountable(
   LbCond->setOperand(0, TcDec);
   LbCond->setOperand(1, ConstantInt::get(CountTy, 0));
 
+#if INTEL_CUSTOMIZATION
   // Step 3: All the references to the original counter outside
-  //  the loop are replaced with the NewCount
+  //  the loop are replaced with CntPhiOut and CntInstOut
   if (IsCntPhiUsedOutsideLoop)
-    CntPhi->replaceUsesOutsideBlock(NewCount, Body);
-  else
-    CntInst->replaceUsesOutsideBlock(NewCount, Body);
+    CntPhi->replaceUsesOutsideBlock(CntPhiOut, Body);
+  if (IsCntInstUsedOutsideLoop)
+    CntInst->replaceUsesOutsideBlock(CntInstOut, Body);
+#endif // INTEL_CUSTOMIZATION
 
   // step 4: Forget the "non-computable" trip-count SCEV associated with the
   //   loop. The loop would otherwise not be deleted even if it becomes empty.
