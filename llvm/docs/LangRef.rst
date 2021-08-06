@@ -17753,6 +17753,167 @@ Arguments:
 None.
 
 
+.. INTEL_CUSTOMIZATION
+
+Complex Intrinsics
+------------------
+
+Complex numbers are currently represented, for intrinsic purposes, as vectors of
+floating-point numbers. A scalar complex type is represented using the type
+``<2 x floatty>``, with index ``0`` corresponding to the real part of the number
+and index ``1`` corresponding the imaginary part of the number. A vector complex
+type can be represented by an even-length vector of floating-point numbers,
+with even indices (``0``, ``2``, etc.) corresponding to real parts of numbers
+and the indices one larger (``1``, ``3``, etc.) the corresponding imaginary
+parts.
+
+In general, these intrinsics have the same semantics as their definitions in
+Annex G of the C specification. In particular, this means that multiplication,
+division, and absolute value cannot be represented with their regular algebraic
+formulas, as this would produce a NaN value instead of an infinity, or an
+intermediate value may overflow. However, adding the ``complex-limited-range``
+attribute to the call-site will specifically request the regular algebraic
+formula.
+
+In addition to the ``complex-limited-range`` attribute, these intrinsics also
+respect the fast math flags. These flags will be applied to all of the
+floating-point expressions implied by the intrinsic if it were expanded. In
+particular, the ``nnan`` or ``ninf`` flags are sufficient to cancel out all of
+the recalculations when an input is NaN.
+
+Another attribute, ``complex-no-scale``, applies to the division intrinsic. This
+attribute allows the operation to be calculated according to the regular
+algebraic formula without regard for needing to scale the bounds first to
+prevent a potentially spurious overflow. It will still retain the checks for
+infinity as converted to NaN (that can be removed by ``complex-limited-range``).
+
+Intrinsics for complex addition and subtraction are not provided, as these are
+equivalent to ``fadd`` and ``fsub`` instructions, respectively.
+
+'``llvm.intel.complex.fmul.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <2 x float> @llvm.intel.complex.fmul.v2f32(<2 x float> <op1>, <2 x float> <op2>)
+      declare <2 x double> @llvm.intel.complex.fmul.v2f64(<2 x double> <op1>, <2 x double> <op2>)
+      declare <4 x float> @llvm.intel.complex.fmul.v4f32(<4 x float> <op1>, <4 x float> <op2>)
+
+Overview:
+"""""""""
+
+The '``llvm.intel.complex.fmul``' intrinsic returns the product of its two operands.
+
+Arguments:
+""""""""""
+
+The arguments to the '``llvm.intel.complex.fmul``' intrinsic must be a
+:ref:`vector <t_vector>` of :ref:`floating-point <t_floating>` types of length
+divisible by 2.
+
+Semantics:
+""""""""""
+
+The value produced is the complex product of the two inputs.
+
+If the ``complex-limited-range`` attribute is provided, or the ``noinf`` or
+``nonan`` fast math flags are provided, the output may be equivalent to the
+following code:
+
+::
+      declare <2 x float> limited_complex_mul(<2 x float> %op1, <2 x float> %op2) {
+        %x = extractelement <2 x float> %op1, i32 0 ; real of %op1
+        %y = extractelement <2 x float> %op1, i32 1 ; imag of %op1
+        %u = extractelement <2 x float> %op2, i32 0 ; real of %op2
+        %v = extractelement <2 x float> %op2, i32 1 ; imag of %op2
+        %xu = fmul float %x, %u
+        %yv = fmul float %y, %v
+        %yu = fmul float %y, %u
+        %xv = fmul float %x, %v
+        %out_real = fsub float %xu, %yv
+        %out_imag = fadd float %yu, %xv
+        %ret.0 = insertelement <2 x float> undef, i32 0, %out_real
+        %ret.1 = insertelement <2 x float> %ret.0, i32 1, %out_imag
+        return <2 x float> %ret.1
+      }
+
+Without the ``complex-limited-range`` flag and other fast-math flags, the above
+code is insufficient to handle the result. Instead, code must be added to
+check for infinities if either the real or imaginary component of the result is
+a NaN value.
+
+
+'``llvm.intel.complex.fdiv.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+This is an overloaded intrinsic.
+
+::
+
+      declare <2 x float> @llvm.intel.complex.fdiv.v2f32(<2 x float> <op1>, <2 x float> <op2>)
+      declare <2 x double> @llvm.intel.complex.fdiv.v2f64(<2 x double> <op1>, <2 x double> <op2>)
+      declare <4 x float> @llvm.intel.complex.fdiv.v4f32(<4 x float> <op1>, <4 x float> <op2>)
+
+Overview:
+"""""""""
+
+The '``llvm.intel.complex.fdiv``' intrinsic returns the quotient of its two operands.
+
+Arguments:
+""""""""""
+
+The arguments to the '``llvm.intel.complex.fdiv``' intrinsic must be a
+:ref:`vector <t_vector>` of :ref:`floating-point <t_floating>` types of length
+divisible by 2.
+
+Semantics:
+""""""""""
+
+The value produced is the complex quotient of the two inputs.
+
+If the ``complex-limited-range`` attribute is provided, the output will be
+equivalent to the following code:
+
+::
+      declare <2 x float> limited_complex_div(<2 x float> %op1, <2 x float> %op2) {
+        %x = extractelement <2 x float> %op1, i32 0 ; real of %op1
+        %y = extractelement <2 x float> %op1, i32 1 ; imag of %op1
+        %u = extractelement <2 x float> %op2, i32 0 ; real of %op2
+        %v = extractelement <2 x float> %op2, i32 1 ; imag of %op2
+        %xu = fmul float %x, %u
+        %yv = fmul float %y, %v
+        %yu = fmul float %y, %u
+        %xv = fmul float %x, %v
+        %uu = fmul float %u, %u
+        %vv = fmul float %v, %v
+        %unscaled_real = fadd float %xu, %yv
+        %unscaled_imag = fsub float %yu, %xv
+        %scale = fadd float %uu, %vv
+        %out_real = fdiv float %unscaled_real, %scale
+        %out_imag = fdiv float %unscaled_imag, %scale
+        %ret.0 = insertelement <2 x float> undef, i32 0, %out_real
+        %ret.1 = insertelement <2 x float> %ret.0, i32 1, %out_imag
+        return <2 x float> %ret.1
+      }
+
+Without the ``complex-limited-range`` attribute, the above code would be an
+insufficient implementation. Instead, code is needed to scale the input values
+to prevent potential overflow; this is true even if the ``nnan`` and ``ninf``
+flags are specified. The ``arcp`` fast math flag may also be useful, as it will
+permit the divisions to be replaced with multiplications with a reciprocal
+instead.
+
+The ``complex-no-scale`` attribute (implied by ``complex-limited-range``) can be
+used to eliminate the necessary scaling requirements.
+
+.. END INTEL_CUSTOMIZATION
+
 Matrix Intrinsics
 -----------------
 

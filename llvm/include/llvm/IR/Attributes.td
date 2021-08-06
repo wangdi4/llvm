@@ -333,6 +333,20 @@ def MayHaveHugeLocalMalloc : StrBoolAttr<"may_have_huge_local_malloc">;
 def PtrNoAlias : StrBoolAttr<"ptrnoalias">;
 // endif INTEL_CUSTOMIZATION
 
+// if INTEL_CUSTOMIZATION
+/// This range indicates that complex multiply, division, and absolute value
+/// expressions can be simplified to their trivial mathematical expressions. It
+/// has an equivalent effect to specifying the STDC CX_LIMITED_RANGE pragma in
+/// C complex arithmetic code.
+def ComplexLimitedRange : StrBoolAttr<"complex-limited-range">;
+
+/// This range indicates that complex division expressions do not need to have
+/// any pre-scaling of their values before doing arithmetic and can instead use
+/// the trivial mathematical expression to be computed. Unlike
+/// complex-limited-range, however, the NaN processing is still required.
+def ComplexNoScale : StrBoolAttr<"complex-no-scale">;
+// endif INTEL_CUSTOMIZATION
+
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
   // callee and decide whether inlining should be allowed. The function's
