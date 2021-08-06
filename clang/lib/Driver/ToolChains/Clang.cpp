@@ -9650,7 +9650,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_long_constant_composite"
         ",+SPV_INTEL_fpga_invocation_pipelining_attributes"
         ",+SPV_INTEL_fpga_dsp_control"
-        ",+SPV_INTEL_arithmetic_fence";
+        ",+SPV_INTEL_arithmetic_fence"
+        ",+SPV_INTEL_runtime_aligned";
 #if INTEL_CUSTOMIZATION
     // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
     if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd))

@@ -50,6 +50,7 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type"
 // CHECK-FPGA-HW: llvm-spirv{{.*}}"-spirv-ext=-all
@@ -77,6 +78,7 @@
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_fpga_dsp_control
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_arithmetic_fence
+// CHECK-FPGA-HW-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_optnone ;INTEL
 // CHECK-FPGA-HW-SAME:,+SPV_INTEL_usm_storage_classes ;INTEL
 // CHECK-FPGA-HW-SAME:,-SPV_INTEL_optnone" ;INTEL
