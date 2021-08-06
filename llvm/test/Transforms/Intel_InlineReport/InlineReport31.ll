@@ -67,7 +67,7 @@ declare i1 @llvm.intel.wholeprogramsafe()
 
 declare i1 @llvm.type.test(i8*, metadata)
 
-; This version will fail the basic block count test, becuase it has more than 5 basic blocks.
+; This version will fail the basic block count test, because it has more than 5 basic blocks.
 
 define dso_local %class.cMessage* @_ZN12cMessageHeap12removeFirst1Ev(%class.cMessageHeap* %this) local_unnamed_addr #0 align 2 {
 entry:
@@ -173,7 +173,7 @@ return:                                           ; preds = %entry, %whpr.contin
   ret %class.cMessage* %retval.0
 }
 
-; This version will fail the return test, becuase the return does not have
+; This version will fail the return test, because the return does not have
 ; a non-void value.
 
 define dso_local void @_ZN12cMessageHeap12removeFirst3Ev(%class.cMessageHeap* %this) local_unnamed_addr #0 align 2 {
