@@ -140,6 +140,15 @@ static bool isOnlyUsedInLifetimeIntrinsics(const VPValue *Val) {
   });
 }
 
+static bool requiresUnsupportedSVAFeatures(const VPInstruction *VInst,
+                                           const VPlanVector *Plan) {
+  auto DA = Plan->getVPlanDA();
+  auto SVA = Plan->getVPlanSVA();
+  return !DA->isUniform(*VInst) && !SVA->instNeedsVectorCode(VInst) &&
+         SVA->instNeedsFirstScalarCode(VInst) &&
+         SVA->instNeedsLastScalarCode(VInst);
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
@@ -926,28 +935,42 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
   OrigLoopUsed = true;
 }
 
-void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
-  setBuilderDebugLoc(VPInst->getDebugLocation());
-  generateScalarCode(VPInst);
-  generateVectorCode(VPInst);
-}
-
-void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
   // TODO: Temporary switch to track list of opcodes that have been uplifted to
   // do SVA-driven scalarization. This will be used as staging area until all
   // scalarization related code duplication is removed in every opcode's vector
   // CG.
   switch (VPInst->getOpcode()) {
   default: {
-    LLVM_DEBUG(
-        dbgs()
-        << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
-    return;
+    return false;
   }
   case Instruction::GetElementPtr:
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
-    break;
+    return true;
+  }
+}
+
+void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
+  setBuilderDebugLoc(VPInst->getDebugLocation());
+  generateScalarCode(VPInst);
+  if (isOpcodeCGSVADriven(VPInst)) {
+    // TODO: Drop this check when needVectorCode is updated to use SVA.
+    if (Plan->getVPlanSVA()->instNeedsVectorCode(VPInst) ||
+        requiresUnsupportedSVAFeatures(VPInst, Plan))
+      generateVectorCode(VPInst);
+  } else {
+    // Opcode not uplifted - perform ad-hoc checks before code generation.
+    generateVectorCode(VPInst);
+  }
+}
+
+void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+  if (!isOpcodeCGSVADriven(VPInst)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
+    return;
   }
 
   // Helper lambda to scalarize the VPInstruction for a specific lane.
@@ -1015,11 +1038,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case Instruction::GetElementPtr: {
     VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
 
-    // Nothing more to do for fully scalarized GEPs.
-    // TODO: Drop this check when needVectorCode is updated to use SVA.
-    if (!SVA->instNeedsVectorCode(GEP))
-      return;
-
     auto GetOrigVL = [](Type *Type) -> unsigned {
       auto *VecType = dyn_cast<VectorType>(Type);
       if (!VecType)
@@ -1053,11 +1071,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
 
     // Widen the indices.
-    assert(all_of(GEP->indices(),
-                  [GEP, SVA](VPValue *Idx) {
-                    return SVA->operandNeedsVectorCode(
-                        GEP, GEP->getOperandIndex(Idx));
-                  }) &&
+    assert((requiresUnsupportedSVAFeatures(GEP, Plan) ||
+            all_of(GEP->indices(),
+                   [GEP, SVA](VPValue *Idx) {
+                     return SVA->operandNeedsVectorCode(
+                         GEP, GEP->getOperandIndex(Idx));
+                   })) &&
            "Trying to vectorize a strictly scalar index.");
     SmallVector<Value *, 4> OpsV;
     llvm::transform(GEP->indices(), std::back_inserter(OpsV),
@@ -2151,12 +2170,6 @@ void VPOCodeGen::vectorizeCast(
         std::is_same<CastInstTy, BitCastInst>::value ||
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
-
-  // Nothing more to do for fully scalarized casts.
-  // TODO: Drop this check when needVectorCode is updated to use SVA.
-  if (!Plan->getVPlanSVA()->instNeedsVectorCode(VPInst))
-    return;
-
   auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
   bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
   bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
@@ -3259,9 +3272,9 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       Builder.SetInsertPoint(ScalarInst->getParent(), It);
     };
 
-    // TODO: Temporarily allow bcast of strictly first scalar non-uniform
-    // instruction as it can be used in other instructions whose opcodes haven't
-    // been uplifted to be scalarized via SVA. For example -
+    // TODO: Temporarily allow bcast of strictly scalar non-uniform instruction
+    // as it can be used in other instructions whose opcodes haven't been
+    // uplifted to be scalarized via SVA. For example -
     // [DA: Div, SVA: (F  )] %gep1 = getelementptr %src i64 0 i64 %iv
     // [DA: Div, SVA: (F  )] %gep2 = getelementptr %src i64 1 i64 %iv
     // [DA: Div, SVA: (F  )] %ptr = select %cond i32* %gep1 i32* %gep2
@@ -3274,12 +3287,21 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     // get{Vector|Scalar}Value interfaces.
     auto *VInst = dyn_cast<VPInstruction>(V);
     auto *SVA = Plan->getVPlanSVA();
-    bool NeedsBcastForNonSVADrivenCG = VInst &&
-                                       SVA->instNeedsFirstScalarCode(VInst) &&
-                                       !SVA->instNeedsLastScalarCode(VInst) &&
-                                       !SVA->instNeedsVectorCode(VInst);
-    if (IsUniform || NeedsBcastForNonSVADrivenCG) {
-      Value *ScalarValue = VPScalarMap[V][0];
+    bool InstCGIsSVADriven = VInst && isOpcodeCGSVADriven(VInst);
+    bool NeedsFirstLaneBcastForNonSVADrivenCG =
+        InstCGIsSVADriven && SVA->instNeedsFirstScalarCode(VInst) &&
+        !SVA->instNeedsLastScalarCode(VInst) &&
+        !SVA->instNeedsVectorCode(VInst);
+    bool NeedsLastLaneBcastForNonSVADrivenCG =
+        InstCGIsSVADriven && SVA->instNeedsLastScalarCode(VInst) &&
+        !SVA->instNeedsFirstScalarCode(VInst) &&
+        !SVA->instNeedsVectorCode(VInst);
+    assert(!requiresUnsupportedSVAFeatures(VInst, Plan) &&
+           "Bcast of (F L) sequence of SVA bits is not supported.");
+    if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
+        NeedsLastLaneBcastForNonSVADrivenCG) {
+      unsigned Lane = NeedsLastLaneBcastForNonSVADrivenCG ? VF - 1 : 0;
+      Value *ScalarValue = VPScalarMap[V][Lane];
       UpdateInsertPoint(ScalarValue);
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =
