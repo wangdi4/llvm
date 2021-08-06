@@ -102,7 +102,7 @@ entry:
   store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4, !dbg !33
   call void @llvm.dbg.declare(metadata i32 addrspace(4)* %.omp.ub.ascast, metadata !34, metadata !DIExpression()), !dbg !32
   store i32 99, i32 addrspace(4)* %.omp.ub.ascast, align 4, !dbg !33
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v1.ascast), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v2.ascast), "QUAL.OMP.MAP.FROM"([100 x float] addrspace(4)* %v3.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ], !dbg !35
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v1.ascast, [100 x float] addrspace(4)* %v1.ascast, i64 400, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TO"([100 x float] addrspace(4)* %v2.ascast, [100 x float] addrspace(4)* %v2.ascast, i64 400, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.FROM"([100 x float] addrspace(4)* %v3.ascast, [100 x float] addrspace(4)* %v3.ascast, i64 400, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ], !dbg !35
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.SHARED"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v2.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v1.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v3.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ], !dbg !36
   call void @llvm.dbg.declare(metadata i32 addrspace(4)* %.omp.iv.ascast, metadata !37, metadata !DIExpression()), !dbg !40
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE.PARLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v2.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v1.ascast), "QUAL.OMP.SHARED"([100 x float] addrspace(4)* %v3.ascast) ], !dbg !41
@@ -166,9 +166,6 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   uselistorder i32 addrspace(4)* %.omp.ub.ascast, { 3, 2, 1, 0, 4 }
   uselistorder i32 addrspace(4)* %.omp.lb.ascast, { 3, 2, 1, 0, 4 }
   uselistorder i32 addrspace(4)* %i.ascast, { 3, 4, 5, 6, 7, 2, 1, 0 }
-  uselistorder [100 x float] addrspace(4)* %v2.ascast, { 3, 4, 2, 1, 0, 5 }
-  uselistorder [100 x float] addrspace(4)* %v1.ascast, { 3, 2, 1, 0, 4 }
-  uselistorder [100 x float] addrspace(4)* %v3.ascast, { 3, 2, 1, 0 }
   uselistorder token ()* @llvm.directive.region.entry, { 2, 1, 0 }
 }
 

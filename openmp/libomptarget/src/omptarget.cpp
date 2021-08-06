@@ -17,6 +17,9 @@
 #include "rtl.h"
 
 #include <cassert>
+#if INTEL_COLLAB
+#include <cstring>
+#endif // INTEL_COLLAB
 #include <vector>
 
 int AsyncInfoTy::synchronize() {
@@ -1169,6 +1172,11 @@ class PrivateArgumentManagerTy {
 
   /// A vector of target pointers for all private arguments
   std::vector<void *> TgtPtrs;
+#if INTEL_COLLAB
+  /// A vector of host pointers allocated for privatee arguments
+  /// that are passed to the plugins in the host memory.
+  std::vector<void *> HstPtrs;
+#endif // INTEL_COLLAB
 
   /// A vector of information of all first-private arguments to be packed
   std::vector<FirstPrivateArgInfoTy> FirstPrivateArgInfo;
@@ -1203,7 +1211,40 @@ public:
   int addArg(void *HstPtr, int64_t ArgSize, int64_t ArgOffset,
              bool IsFirstPrivate, void *&TgtPtr, int TgtArgsIndex,
              const map_var_info_t HstPtrName = nullptr,
+#if INTEL_COLLAB
+             const bool AllocImmediately = false,
+             bool PassInHostMem = false) {
+#else // INTEL_COLLAB
              const bool AllocImmediately = false) {
+#endif // INTEL_COLLAB
+#if INTEL_COLLAB
+    // There is no significant point in combining the allocations,
+    // if we pass the argument to the plugin in host memory.
+    if (PassInHostMem) {
+      TgtPtr = std::malloc(ArgSize);
+      if (!TgtPtr) {
+        DP("Data allocation on the host for %sprivate array " DPxMOD
+           " failed.\n", (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtr));
+        return OFFLOAD_FAIL;
+      }
+#ifdef OMPTARGET_DEBUG
+      void *TgtPtrBase = (void *)((intptr_t)TgtPtr + ArgOffset);
+      DP("Allocated %" PRId64 " bytes of host memory at " DPxMOD
+         " for %sprivate array " DPxMOD " - pushing target argument " DPxMOD
+         "\n",
+         ArgSize, DPxPTR(TgtPtr), (IsFirstPrivate ? "first-" : ""),
+         DPxPTR(HstPtr), DPxPTR(TgtPtrBase));
+#endif // OMPTARGET_DEBUG
+      if (IsFirstPrivate) {
+        DP("Submitting firstprivate data to the host: %" PRId64
+           " bytes from " DPxMOD" to " DPxMOD "\n",
+           ArgSize, DPxPTR(HstPtr), DPxPTR(TgtPtr));
+        std::memcpy(TgtPtr, HstPtr, ArgSize);
+      }
+      HstPtrs.push_back(TgtPtr);
+      return OFFLOAD_SUCCESS;
+    }
+#endif // INTEL_COLLAB
     // If the argument is not first-private, or its size is greater than a
     // predefined threshold, we will allocate memory and issue the transfer
     // immediately.
@@ -1320,6 +1361,11 @@ public:
     }
 
     TgtPtrs.clear();
+#if INTEL_COLLAB
+    for (void *P : HstPtrs)
+      std::free(P);
+    HstPtrs.clear();
+#endif // INTEL_COLLAB
 
     return OFFLOAD_SUCCESS;
   }
@@ -1328,7 +1374,11 @@ public:
 /// Process data before launching the kernel, including calling targetDataBegin
 /// to map and transfer data to target device, transferring (first-)private
 /// variables.
+#if INTEL_COLLAB
+static int processDataBefore(ident_t *loc, int64_t DeviceId, void *TgtEntryPtr,
+#else // INTEL_COLLAB
 static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
+#endif // INTEL_COLLAB
                              int32_t ArgNum, void **ArgBases, void **Args,
                              int64_t *ArgSizes, int64_t *ArgTypes,
                              map_var_info_t *ArgNames, void **ArgMappers,
@@ -1448,9 +1498,31 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
       // other privates.
       const bool AllocImmediately =
           (I < ArgNum - 1 && (ArgTypes[I + 1] & OMP_TGT_MAPTYPE_MEMBER_OF));
+#if INTEL_COLLAB
+      const bool PassInHostMem =
+          Device.isPrivateArgOnHost(TgtEntryPtr, TgtArgs.size());
+      if (PassInHostMem) {
+        if (TgtBaseOffset != 0) {
+          REPORT("Cannot pass %sprivate argument " DPxMOD
+                 " in host memory due to non-zero offset\n",
+                 (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
+          return OFFLOAD_FAIL;
+        }
+        if (AllocImmediately) {
+          REPORT("Cannot pass %sprivate argument " DPxMOD
+                 " in host memory due to pointer attachment\n",
+                 (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
+          return OFFLOAD_FAIL;
+        }
+      }
+#endif // INTEL_COLLAB
       Ret = PrivateArgumentManager.addArg(
           HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
+#if INTEL_COLLAB
+          TgtArgs.size(), HstPtrName, AllocImmediately, PassInHostMem);
+#else // INTEL_COLLAB
           TgtArgs.size(), HstPtrName, AllocImmediately);
+#endif // INTEL_COLLAB
       if (Ret != OFFLOAD_SUCCESS) {
         REPORT("Failed to process %sprivate argument " DPxMOD "\n",
                (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
@@ -1570,16 +1642,21 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
 
 #if INTEL_COLLAB
   void *TgtNDLoopDesc = nullptr;
+  void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
 #endif // INTEL_COLLAB
 
   int Ret;
   if (ArgNum) {
     // Process data, such as data mapping, before launching the kernel
+#if INTEL_COLLAB
+    Ret = processDataBefore(loc, DeviceId, TgtEntryPtr, ArgNum, ArgBases, Args,
+#else // INTEL_COLLAB
     Ret = processDataBefore(loc, DeviceId, HostPtr, ArgNum, ArgBases, Args,
+#endif // INTEL_COLLAB
                             ArgSizes, ArgTypes, ArgNames, ArgMappers, TgtArgs,
 #if INTEL_COLLAB
-                              TgtOffsets, PrivateArgumentManager, AsyncInfo,
-                              &TgtNDLoopDesc);
+                            TgtOffsets, PrivateArgumentManager, AsyncInfo,
+                            &TgtNDLoopDesc);
 #else  // INTEL_COLLAB
                             TgtOffsets, PrivateArgumentManager, AsyncInfo);
 #endif // INTEL_COLLAB
@@ -1593,7 +1670,10 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
   uint64_t LoopTripCount = getLoopTripCount(DeviceId);
 
   // Launch device execution.
+#if INTEL_COLLAB
+#else // INTEL_COLLAB
   void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
+#endif // INTEL_COLLAB
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
      TargetTable->EntriesBegin[TM->Index].name, DPxPTR(TgtEntryPtr), TM->Index);
 

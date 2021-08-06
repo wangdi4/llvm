@@ -39,6 +39,8 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
+#include "llvm/Support/Endian.h"
+
 /// Host runtime routines being used
 extern "C" {
 #ifdef _WIN32
@@ -563,12 +565,50 @@ public:
   }
 }; /// MemoryPoolTy
 
+class KernelInfoTy {
+  uint32_t Version = 0;
+
+  struct KernelArgInfoTy {
+    bool IsLiteral = false;
+    uint32_t Size = 0;
+    KernelArgInfoTy(bool IsLiteral, uint32_t Size)
+      : IsLiteral(IsLiteral), Size(Size) {}
+  };
+  std::vector<KernelArgInfoTy> ArgsInfo;
+
+  void checkVersion(uint32_t MinVer) const {
+    assert(Version >= MinVer &&
+           "API is not supported for this version of KernelInfoTy.");
+    (void)Version;
+  }
+
+public:
+  KernelInfoTy(uint32_t Version) : Version(Version) {}
+  void addArgInfo(bool IsLiteral, uint32_t Size) {
+    checkVersion(1);
+    ArgsInfo.emplace_back(IsLiteral, Size);
+  }
+  size_t getArgsNum() const {
+    checkVersion(1);
+    return ArgsInfo.size();
+  }
+  bool isArgLiteral(uint32_t Idx) const {
+    checkVersion(1);
+    return ArgsInfo[Idx].IsLiteral;
+  }
+  uint32_t getArgSize(uint32_t Idx) const {
+    checkVersion(1);
+    return ArgsInfo[Idx].Size;
+  }
+};
+
 /// Per-device global entry table
 struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::vector<__tgt_offload_entry> Entries;
   std::vector<ze_kernel_handle_t> Kernels;
   std::vector<ze_module_handle_t> Modules;
+  std::unordered_map<ze_kernel_handle_t, KernelInfoTy> KernelInfo;
 };
 
 /// Module data to be initialized by plugin
@@ -1138,6 +1178,13 @@ class RTLDeviceInfoTy {
   /// and \p Size in the device environment for device \p DeviceId.
   void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
 
+  /// Looks up an external global variable with the given \p Name
+  /// in the device environment for device \p DeviceId.
+  /// \p Size must not be null. If (*Size) is not zero, then
+  /// the lookup verifies that the found variable's size matches
+  /// (*Size), otherwise, the found variable's size is returned
+  /// via \p Size.
+  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t *Size);
 public:
   uint32_t NumDevices = 0;
   uint32_t SubDeviceLevels = 1; // L0 API does not support recursive queries
@@ -1751,6 +1798,16 @@ public:
 
   /// Remove host-accessible memory range
   void removeHostAccessible(int32_t DeviceId, void *Ptr);
+
+  /// Read KernelInfo auxiliary information for the specified kernel.
+  /// The information is stored in FuncGblEntries array.
+  /// The function is called during the binary loading.
+  bool readKernelInfo(int32_t DeviceId, const __tgt_offload_entry &KernelEntry);
+
+  /// For the given kernel return its KernelInfo auxiliary information
+  /// that was previously read by readKernelInfo().
+  const KernelInfoTy *
+      getKernelInfo(int32_t DeviceId, const ze_kernel_handle_t &Kernel) const;
 };
 
 /// Libomptarget-defined handler and argument.
@@ -2509,6 +2566,76 @@ void RTLDeviceInfoTy::removeHostAccessible(int32_t DeviceId, void *Ptr) {
     MemHostAccessible.at(nullptr)->remove(Ptr);
   else if (MemType == ZE_MEMORY_TYPE_SHARED)
     MemHostAccessible.at(Devices[DeviceId])->remove(Ptr);
+}
+
+bool RTLDeviceInfoTy::readKernelInfo(
+    int32_t DeviceId, const __tgt_offload_entry &KernelEntry) {
+  const ze_kernel_handle_t *KernelPtr =
+      reinterpret_cast<const ze_kernel_handle_t *>(KernelEntry.addr);
+  const char *Name = KernelEntry.name;
+  std::string InfoVarName(Name);
+  InfoVarName += "_kernel_info";
+  size_t InfoVarSize = 0;
+  void *InfoVarAddr =
+      getVarDeviceAddr(DeviceId, InfoVarName.c_str(), &InfoVarSize);
+  // If there is no kernel info variable, then the kernel might have been
+  // produced by older toolchain - this is acceptable, so return success.
+  if (!InfoVarAddr)
+    return true;
+  if (InfoVarSize == 0) {
+    DP("Error: kernel info variable cannot have 0 size.\n");
+    return false;
+  }
+  std::vector<char> InfoBuffer;
+  InfoBuffer.resize(InfoVarSize);
+  auto RC = enqueueMemCopy(DeviceId, InfoBuffer.data(), InfoVarAddr,
+                           InfoVarSize);
+  if (RC != OFFLOAD_SUCCESS)
+    return false;
+  // TODO: add support for big-endian devices, if needed.
+  //       Currently supported devices are little-endian.
+  char *ReadPtr = InfoBuffer.data();
+  uint32_t Version = llvm::support::endian::read32le(ReadPtr);
+  if (Version == 0) {
+    DP("Error: version 0 of kernel info structure is illegal.\n");
+    return false;
+  }
+  if (Version > 1) {
+    DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
+       Version);
+    DP("Error: please use newer OpenMP offload runtime.\n");
+    return false;
+  }
+  ReadPtr += 4;
+  uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
+  size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
+  if (InfoVarSize != ExpectedInfoVarSize) {
+    DP("Error: expected kernel info variable size %zu - got %zu\n",
+       ExpectedInfoVarSize, InfoVarSize);
+    return false;
+  }
+  KernelInfoTy Info(Version);
+  for (uint64_t I = 0; I < KernelArgsNum; ++I) {
+    ReadPtr += 4;
+    bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
+    ReadPtr += 4;
+    uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
+    Info.addArgInfo(ArgIsLiteral, ArgSize);
+  }
+
+  FuncGblEntries[DeviceId].KernelInfo.emplace(
+      std::make_pair(*KernelPtr, std::move(Info)));
+  return true;
+}
+
+const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
+    int32_t DeviceId, const ze_kernel_handle_t &Kernel) const {
+  auto &KernelInfo = FuncGblEntries[DeviceId].KernelInfo;
+  auto It = KernelInfo.find(Kernel);
+  if (It == KernelInfo.end())
+    return nullptr;
+
+  return &(It->second);
 }
 
 static void dumpImageToFile(
@@ -3322,6 +3449,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     if (!kernels[i])
       continue;
 
+    if (!DeviceInfo->readKernelInfo(DeviceId, entries[i])) {
+      DP("Error: failed to read kernel info for kernel %s\n", name);
+      return nullptr;
+    }
+
     // Store kernel name in the property.
     auto &RTLKernelProperties =
         DeviceInfo->KernelProperties[DeviceId][kernels[i]];
@@ -4114,17 +4246,31 @@ static int32_t runTargetTeamRegionSub(
     auto kernel = DeviceInfo->FuncGblEntries[subId].Kernels[kernelId];
 #endif // !SUBDEVICE_USE_ROOT_KERNELS
 
+    auto *KernelInfo = DeviceInfo->getKernelInfo(subId, kernel);
     for (int32_t argId = 0; argId < NumArgs; argId++) {
-      void *arg;
-      if (TgtOffsets[argId] == (std::numeric_limits<ptrdiff_t>::max)())
-        arg = TgtArgs[argId];
-      else
-        arg = (void *)((intptr_t)TgtArgs[argId] + TgtOffsets[argId]);
-      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, sizeof(void *),
-                       arg == nullptr ? nullptr : &arg);
-      DP("Kernel argument %" PRId32 " (value: " DPxMOD
-         ") was set successfully for device %s.\n",
-         argId, DPxPTR(arg), DeviceInfo->DeviceIdStr[subId].c_str());
+      if (KernelInfo && KernelInfo->isArgLiteral(argId)) {
+        uint32_t Size = KernelInfo->getArgSize(argId);
+        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, Size,
+                         TgtArgs[argId]);
+
+        DP("Kernel ByVal argument %" PRId32
+           " was set successfully for device %s.\n",
+           argId, DeviceInfo->DeviceIdStr[subId].c_str());
+      } else if (TgtOffsets[argId] == (std::numeric_limits<ptrdiff_t>::max)()) {
+        intptr_t arg = reinterpret_cast<intptr_t>(TgtArgs[argId]);
+        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, sizeof(arg),
+                         &arg);
+        DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
+           ") was set successfully for device %s.\n",
+           argId, DPxPTR(arg), DeviceInfo->DeviceIdStr[subId].c_str());
+      } else {
+        void *arg = (void *)((intptr_t)TgtArgs[argId] + TgtOffsets[argId]);
+        CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, argId, sizeof(arg),
+                         arg == nullptr ? nullptr : &arg);
+        DP("Kernel Pointer argument %" PRId32 " (value: " DPxMOD
+           ") was set successfully for device %s.\n",
+           argId, DPxPTR(arg), DeviceInfo->DeviceIdStr[subId].c_str());
+      }
     }
 
     auto flags = DeviceInfo->getKernelIndirectAccessFlags(rootKernel, rootId);
@@ -4224,19 +4370,28 @@ static int32_t runTargetTeamRegion(
                          DeviceInfo->KernelProperties[DeviceId][kernel].Name);
 
   // Set arguments
-  std::vector<void *> args(NumArgs);
+  auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, kernel);
   for (int32_t i = 0; i < NumArgs; i++) {
     ptrdiff_t offset = TgtOffsets[i];
-    // Offset equal to MAX(ptrdiff_t) means that the argument
-    // must be passed as literal, and the offset should be ignored.
-    if (offset == (std::numeric_limits<ptrdiff_t>::max)())
-      args[i] = TgtArgs[i];
-    else
-      args[i] = (void *)((intptr_t)TgtArgs[i] + offset);
-    CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(void *),
-                     args[i] == nullptr ? nullptr : &args[i]);
-    DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",
-       i, DPxPTR(args[i]));
+    if (KernelInfo && KernelInfo->isArgLiteral(i)) {
+      uint32_t Size = KernelInfo->getArgSize(i);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, Size, TgtArgs[i]);
+
+      DP("Kernel ByVal argument %" PRId32 " was set successfully.\n", i);
+    } else if (offset == (std::numeric_limits<ptrdiff_t>::max)()) {
+      // Offset equal to MAX(ptrdiff_t) means that the argument
+      // must be passed as literal, and the offset should be ignored.
+      intptr_t arg = reinterpret_cast<intptr_t>(TgtArgs[i]);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(arg), &arg);
+      DP("Kernel Scalar argument %" PRId32 " (value: " DPxMOD
+         ") was set successfully.\n", i, DPxPTR(arg));
+    } else {
+      void *arg = (void *)((intptr_t)TgtArgs[i] + offset);
+      CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(arg),
+                       arg == nullptr ? nullptr : &arg);
+      DP("Kernel Pointer argument %" PRId32 " (value: " DPxMOD
+         ") was set successfully.\n", i, DPxPTR(arg));
+    }
   }
 
   auto flags = DeviceInfo->getKernelIndirectAccessFlags(kernel, DeviceId);
@@ -4715,6 +4870,24 @@ EXTERN int32_t __tgt_rtl_notify_indirect_access(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
+    int32_t DeviceId, const void *TgtEntryPtr, uint32_t Idx) {
+  const ze_kernel_handle_t *Kernel =
+      reinterpret_cast<const ze_kernel_handle_t *>(TgtEntryPtr);
+  if (!*Kernel) {
+    REPORT("Querying information about a deleted kernel.\n");
+    return 0;
+  }
+  auto *KernelInfo = DeviceInfo->getKernelInfo(DeviceId, *Kernel);
+  if (!KernelInfo)
+    return 0;
+
+  if (KernelInfo->isArgLiteral(Idx))
+    return 1;
+
+  return 0;
+}
+
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
     int32_t DeviceId, const char *Name, size_t Size) {
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
@@ -4746,23 +4919,39 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
 }
 
 void *RTLDeviceInfoTy::getVarDeviceAddr(
-    int32_t DeviceId, const char *Name, size_t Size) {
+    int32_t DeviceId, const char *Name, size_t *SizePtr) {
   void *TgtAddr = nullptr;
   size_t TgtSize = 0;
-  DP("Looking up device global variable '%s' of size %zu bytes on device %d.\n",
-     Name, Size, DeviceId);
+  size_t Size = *SizePtr;
+  bool SizeIsKnown = (Size != 0);
+  if (SizeIsKnown)
+    DP("Looking up device global variable '%s' of size %zu bytes "
+       "on device %d.\n", Name, Size, DeviceId);
+  else
+    DP("Looking up device global variable '%s' of unknown size "
+       "on device %d.\n", Name, DeviceId);
   CALL_ZE_RET_NULL(zeModuleGetGlobalPointer,
                    FuncGblEntries[DeviceId].Modules[0], Name, &TgtSize,
                    &TgtAddr);
-  if (Size != TgtSize) {
+
+  if (Size != TgtSize && SizeIsKnown) {
     DP("Warning: requested size %zu does not match %zu\n", Size, TgtSize);
-#if 0
-    // FIXME: when L0 reports correct size.
     return nullptr;
-#endif
   }
-  DP("Global variable lookup succeeded.\n");
+
+  if (TgtSize == 0) {
+    DP("Warning: global variable lookup failed.\n");
+    return nullptr;
+  }
+
+  DP("Global variable lookup succeeded (size: %zu bytes).\n", TgtSize);
+  *SizePtr = TgtSize;
   return TgtAddr;
+}
+
+void *RTLDeviceInfoTy::getVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  return getVarDeviceAddr(DeviceId, Name, &Size);
 }
 
 bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {

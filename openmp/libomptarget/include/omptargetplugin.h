@@ -332,6 +332,12 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
 // Notify indirectly accessed target pointer
 EXTERN int32_t __tgt_rtl_notify_indirect_access(
     int32_t ID, const void *Ptr, size_t Offset);
+
+// Check if the RTL expects that the outlined function's argument
+// specified by Idx will be passed from libomptarget to the RTL
+// in the host memory.
+EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
+    int32_t ID, const void *TgtEntryPtr, uint32_t Idx);
 #endif // INTEL_COLLAB
 // Set plugin's internal information flag externally.
 void __tgt_rtl_set_info_flag(uint32_t);
