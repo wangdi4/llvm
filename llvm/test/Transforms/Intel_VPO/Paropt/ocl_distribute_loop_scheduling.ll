@@ -31,17 +31,12 @@
 ; CHECK: [[TEAMDISPHDR]]:
 ; CHECK: [[TMP3:%.+]] = load i32, i32* [[TEAMUBP]]
 ; CHECK: [[PRED1:%.+]] = icmp sle i32 [[TMP3]], [[NUBV:%[A-Za-z0-9._]+]]
-; CHECK: br i1 [[PRED1]], label %[[TEAMDISPBODY:[A-Za-z0-9._]+]], label %[[MINBB:[A-Za-z0-9._]+]]
-
-; CHECK: [[TEAMDISPBODY]]:
+; CHECK: [[UBMIN:%.+]] = select i1 [[PRED1]], i32 [[TMP3]], i32 [[NUBV]]
+; CHECK: store i32 [[UBMIN]], i32* [[TEAMUBP]]
 ; CHECK: [[TMP4:%.+]] = load i32, i32* [[TEAMLBP]]
 ; CHECK: [[TMP5:%.+]] = load i32, i32* [[TEAMUBP]]
 ; CHECK: [[PRED2:%.+]] = icmp sle i32 [[TMP4]], [[TMP5]]
 ; CHECK: br i1 [[PRED2]], label %[[TEAMDISPINNERBODY:[A-Za-z0-9._]+]], label %[[TEAMDISPLATCH:[A-Za-z0-9._]+]]
-
-; CHECK: [[MINBB]]:
-; CHECK: store i32 [[NUBV]], i32* [[TEAMUBP]]
-; CHECK: br label %[[TEAMDISPBODY]]
 
 ; CHECK: [[TEAMDISPINNERBODY]]:
 ; CHECK: [[TMP6:%.+]] = load i32, i32* [[TEAMLBP]]
