@@ -226,6 +226,35 @@ static CallBase *bitCastUsedForAllocation(Value *Val,
   return Call;
 }
 
+// Return true if the input store instruction copies the dope vector
+// field from SrcPtr to the same field in another dope vector.
+static bool IsCopyFromDVField(StoreInst *SI, Value *SrcPtr) {
+  if (!SrcPtr)
+    return false;
+
+  auto *GEPPtr = dyn_cast<GEPOperator>(SI->getPointerOperand());
+  if (!GEPPtr)
+    return false;
+
+  LoadInst *LoadPtr = dyn_cast<LoadInst>(SI->getValueOperand());
+  if (!LoadPtr)
+    return false;
+
+  auto *GEPLoaded = dyn_cast<GEPOperator>(LoadPtr);
+  if (!GEPLoaded)
+    return false;
+
+  if (GEPLoaded->getOperand(0) != SrcPtr)
+    return false;
+
+  auto SrcDVFieldType =
+      DopeVectorAnalyzer::identifyDopeVectorField(*GEPLoaded);
+  auto DestDVFieldType =
+      DopeVectorAnalyzer::identifyDopeVectorField(*GEPPtr);
+
+  return SrcDVFieldType == DestDVFieldType;
+}
+
 // Return true if the input value is:
 //   * A store instruction that writes into the input Pointer
 //   * A load instruction
@@ -500,6 +529,42 @@ void DopeVectorFieldUse::merge(const DopeVectorFieldUse& Other) {
     IsWritten = true;
     identifyConstantValue();
   }
+}
+
+// Copy the load instructions from the input field that is in another dope vector
+// to the current field. The difference between the merge is that the copy will
+// only happens if the constant are the same, or if the constant is given by
+// loading the dope vector field that is being copied.
+void DopeVectorFieldUse::collectFromCopy(const DopeVectorFieldUse& CopyDVField) {
+  if (CopyDVField.getIsBottom() || getIsBottom())
+    return;
+
+  if (!CopyDVField.getIsSingleValue())
+    return;
+
+  if (!getConstantValue())
+    return;
+
+  bool MergeAllowed = false;
+  if (CopyDVField.getConstantValue()) {
+    MergeAllowed =
+      getConstantValue()->getZExtValue() ==
+      CopyDVField.getConstantValue()->getZExtValue();
+  } else {
+    LoadInst *LI = dyn_cast<LoadInst>(CopyDVField.getSingleValue());
+    if (!LI)
+      return;
+
+    for (auto *LoadI : Loads) {
+      if (LoadI == LI) {
+        MergeAllowed = true;
+        break;
+      }
+    }
+  }
+
+  if (MergeAllowed)
+    Loads.insert(CopyDVField.Loads.begin(), CopyDVField.Loads.end());
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1395,8 +1460,9 @@ DopeVectorAnalyzer::checkSubscriptStrideValues(const SubscriptInstSet
 // Given an Value and LLVM Type that was already identified as dope vector then
 // construct a DopeVectorInfo.
 DopeVectorInfo::DopeVectorInfo(Value *DVObject, Type *DVType,
-                               bool AllowMultipleFieldAddresses) :
-    DVObject(DVObject) {
+                               bool AllowMultipleFieldAddresses,
+                               bool IsCopyDopeVector) :
+    DVObject(DVObject), IsCopyDopeVector(IsCopyDopeVector) {
 
   assert(DVType->isStructTy() && DVType->getStructNumElements() == 7 &&
          DVType->getContainedType(DopeVectorFieldType::DV_PerDimensionArray)
@@ -1478,8 +1544,21 @@ DopeVectorFieldUse* DopeVectorInfo::getDopeVectorField(
 }
 
 // This function checks if the information for all the fields in the dope
-// vector was collected correctly.
-void DopeVectorInfo::validateDopeVector() {
+// vector was collected correctly. If CopyFromPtr is provided then we are
+// going to check if a write to a field that should not be written is
+// a copy. For example, assume that %DV1 and %DV2 are two dope vectors,
+// then a field copy will look as follow:
+//
+//   %1 = getelementptr inbounds %"__DTRT_QNCA_a0$double*$rank3$",
+//           %"__DTRT_QNCA_a0$double*$rank3$"* %DV1, i64 0, i32 0
+//   %2 = load double*, double** %1
+//   %3 = getelementptr inbounds %"__DTRT_QNCA_a0$double*$rank3$",
+//           %"__DTRT_QNCA_a0$double*$rank3$"* %DV2, i64 0, i32 0
+//   store double* %2, double** %3
+//
+// If we are validating %DV2 then CopyFromPtr will be %DV1, since %DV2 is
+// copying information from it.
+void DopeVectorInfo::validateDopeVector(Value *CopyFromPtr) {
 
   // We are going to follow the same principle as global constant propagation.
   // If there is only one store instruction and the global variable is loaded
@@ -1508,13 +1587,15 @@ void DopeVectorInfo::validateDopeVector() {
       return false;
 
     StoreInst *SI = *Field.stores().begin();
+    Instruction *AllocSiteInst = cast<Instruction>(AllocSites[0]);
 
-    // If the store instruction is in the same basic block as the alloc-site,
-    // then it means that the store will execute since the allocation will
-    // execute.
+    // If the store instruction is in the same function as the alloc-site,
+    // then it means that both instructions might execute. A store before
+    // an allocation is an undefined behavior, therefore all we need to
+    // prove is that there is only one store and one alloc-site.
     //
-    // NOTE: This is conservative. We may need to extend this in the future
-    // to address the following cases:
+    // NOTE-1: This is conservative. We may need to extend this in the future
+    // to address the following case:
     //
     //   1) Function "foo" can store to information to the dope vector fields,
     //      then it calls "bar" which allocates the array. If there is no
@@ -1523,19 +1604,10 @@ void DopeVectorInfo::validateDopeVector() {
     //      function, then the store instruction and the alloc site will
     //      always execute (foo -> bar -> alloc).
     //
-    //   2) If there are unconditional branches between the store
-    //      instructions and the call to allocate function.
-    //
-    //   3) If there are conditional branches but we can prove that
-    //      it won't matter which path is taken, the store and the call
-    //      to alloc will execute.
-    //
-    //   4) If there are conditional branches but we can prove at compile
-    //      time which path will always be taken.
-    // NOTE: At this point, we are expecting only one alloc site per
+    // NOTE-2: At this point, we are expecting only one alloc site per
     // nested dope vector.  After merging, there may be multiple alloc sites.
     if ((AllocSites.size() != 1) ||
-       (SI->getParent() != AllocSites[0]->getParent()))
+       (SI->getFunction() != AllocSiteInst->getFunction()))
       return false;
 
     return true;
@@ -1549,12 +1621,15 @@ void DopeVectorInfo::validateDopeVector() {
                                           bool ComputeConstant,
                                           bool AnyWriteAllowed,
                                           bool NullWriteAllowed,
-                                          bool ReadAllowed) -> bool {
+                                          bool ReadAllowed,
+                                          Value *CopyFromPtr) -> bool {
     if (Field.getIsBottom())
       return false;
 
     if (!AnyWriteAllowed && Field.getIsWritten() &&
-        !Field.getIsOnlyWrittenWithNull()) {
+        !Field.getIsOnlyWrittenWithNull() && !IsCopyDopeVector &&
+        !Field.getIsSingleValue() &&
+        !IsCopyFromDVField(*Field.stores().begin(), CopyFromPtr)) {
       AnalysisRes = DopeVectorInfo::AnalysisResult::AR_WriteIllegality;
       return false;
     }
@@ -1593,7 +1668,8 @@ void DopeVectorInfo::validateDopeVector() {
                                             false /* ComputeConstant */,
                                             false /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            true /* ReadAllowed */);
+                                            true /* ReadAllowed */,
+                                            CopyFromPtr);
 
   // The element size and co-dimension should have a single non-null
   // value that is written and can also be read.
@@ -1604,12 +1680,15 @@ void DopeVectorInfo::validateDopeVector() {
                                             true /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            true /* ReadAllowed */);
+                                            true /* ReadAllowed */,
+                                            CopyFromPtr);
+
   PassValidation &= ValidateDopeVectorField(CodimAddr,
                                             true /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            true /* ReadAllowed */);
+                                            true /* ReadAllowed */,
+                                            CopyFromPtr);
 
   // NOTE: The FE can generate a load to the flags field, then do some
   // operations and followed by a store to the same field. In summary,
@@ -1622,13 +1701,15 @@ void DopeVectorInfo::validateDopeVector() {
                                             false /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            true /* ReadAllowed */);
+                                            true /* ReadAllowed */,
+                                            CopyFromPtr);
 
   PassValidation &= ValidateDopeVectorField(DimensionsAddr,
                                             true /* ComputeConstant */,
                                             true /* AnyWriteAllowed */,
                                             true /* NullWriteAllowed */,
-                                            false /* ReadAllowed */);
+                                            false /* ReadAllowed */,
+                                            CopyFromPtr);
 
   // This is the actual information of the dope vector. The extent,
   // stride and lower bounds fields can be read and written. If the
@@ -1642,17 +1723,22 @@ void DopeVectorInfo::validateDopeVector() {
                                               true /* ComputeConstant */,
                                               true /* AnyWriteAllowed */,
                                               true /* NullWriteAllowed */,
-                                              ReadAllowed);
+                                              ReadAllowed,
+                                              CopyFromPtr);
+
     PassValidation &= ValidateDopeVectorField(StrideAddr[I],
                                               true /* ComputeConstant */,
                                               true /* AnyWriteAllowed */,
                                               true /* NullWriteAllowed */,
-                                              ReadAllowed);
+                                              ReadAllowed,
+                                              CopyFromPtr);
+
     PassValidation &= ValidateDopeVectorField(LowerBoundAddr[I],
                                               true /* ComputeConstant */,
                                               true /* AnyWriteAllowed */,
                                               true /* NullWriteAllowed */,
-                                              ReadAllowed);
+                                              ReadAllowed,
+                                              CopyFromPtr);
   }
 
   if (PassValidation)
@@ -2112,8 +2198,14 @@ void NestedDopeVectorInfo::analyzeNestedDopeVector() {
     LowerBoundAddr[I].analyzeUses();
   }
 
+  // If the current dope vector is a copy dope vector then collect the
+  // base from VBase.
+  Value *CopyFromPtr = nullptr;
+  if (IsCopyDopeVector)
+    CopyFromPtr = VBase;
+
   // Load and stores collected, now validate the dope vector
-  validateDopeVector();
+  validateDopeVector(CopyFromPtr);
 }
 
 // Return true if the input BitCast operator is used for allocation
@@ -2992,6 +3084,137 @@ GlobalDopeVector::mergeNestedDopeVectors() {
   LLVM_DEBUG(DumpNestedDopeVectors("AFTER"));
 }
 
+// This function will collect the information from the nested dope vectors that
+// are copied. A copy dope vector is a dope vector that was allocated and each
+// field is a copy from another dope vector. For example:
+//
+//   %DV2 = alloca %"__DTRT_QNCA_a0$double*$rank3$"
+//   %1 = getelementptr inbounds %"__DTRT_QNCA_a0$double*$rank3$",
+//           %"__DTRT_QNCA_a0$double*$rank3$"* @DV1, i64 0, i32 0
+//   %2 = load double*, double** %1
+//   %3 = getelementptr inbounds %"__DTRT_QNCA_a0$double*$rank3$",
+//           %"__DTRT_QNCA_a0$double*$rank3$"* %DV2, i64 0, i32 0
+//   store double* %2, double** %3
+//
+// Assume that @DV1 is a global dope vector that was collected, analyzed and
+// validated, then %DV2 will be a local copy since the fields of @DV1 are
+// copied to it. The local copy is a new instantiation, therefore the analysis
+// result won't affect the result from the original dope vector. The goal is
+// to find these copy dope vectors and prove that the fields won't change
+// in order to propagate the constants collected for them too.
+void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
+    const DataLayout &DL) {
+
+  // Collect the copy dope vector from the store instruction. From the
+  // example above, assume that we are analyzing the store instruction,
+  // then this function will return %DV2.
+  auto GetLocalDopeVector = [](StoreInst *SI) -> AllocaInst * {
+    auto *DVField = SI->getPointerOperand();
+    auto *GEPDV = dyn_cast<GEPOperator>(DVField);
+    if (!GEPDV)
+      return nullptr;
+
+    if (DopeVectorAnalyzer::identifyDopeVectorField(*GEPDV) !=
+        DopeVectorFieldType::DV_ArrayPtr)
+      return nullptr;
+
+    AllocaInst *AI = dyn_cast<AllocaInst>(GEPDV->getOperand(0));
+    return AI;
+  };
+
+  // Generate a new nested dope vector that represents a copy of the
+  // current dope vector. The alloc site will be AI and VBase is the
+  // pointer to the original dope vector.
+  auto GenerateCopyNestedDV = [DL](AllocaInst *AI, Value *VBase,
+                                   uint64_t FieldNum,
+                                   Type *DVType) -> NestedDopeVectorInfo * {
+    assert(isDopeVectorType(DVType, DL) && "Trying to make a copy dope vector "
+                                           "from a non-dope vector type");
+
+
+    auto *PtrAllocType = AI->getType();
+    // NOTE: This won't work for opaque pointers. We need to address collecting
+    // the dope vector for opaque pointers.
+    auto *AllocMainType = PtrAllocType->getPointerElementType();
+    if (AllocMainType != DVType)
+      return nullptr;
+
+    auto CopyNestedDV = new NestedDopeVectorInfo(AI, AllocMainType, FieldNum,
+        VBase, true /* AllowMultipleFieldAddresses */,
+        true /* IsCopyDopeVector */);
+
+    CopyNestedDV->addAllocSite(AI);
+    return CopyNestedDV;
+  };
+
+  // Traverse through each nested dope vector and collect any information
+  // from the copies.
+  for (auto *NestedDV : NestedDopeVectors) {
+    if (NestedDV->getAnalysisResult() !=
+        DopeVectorInfo::AnalysisResult::AR_Pass)
+      continue;
+
+    // Find where the pointer to the array is being copied
+    SetVector<AllocaInst *> CopyNestedDopeVectorsAllocs;
+    SetVector<NestedDopeVectorInfo *> CopyNestedDopeVectors;
+    auto PtrAddrField =
+        NestedDV->getDopeVectorField(DopeVectorFieldType::DV_ArrayPtr);
+
+    assert(!PtrAddrField->getIsBottom() && "Dope vector field set to bottom "
+                                           "when analysis passes");
+
+    // Identify the alloc sites
+    for (auto *LI : PtrAddrField->loads()) {
+
+      GEPOperator *GEPO = dyn_cast<GEPOperator>(LI->getPointerOperand());
+      // NOTE: Perhaps this should be an assert
+      if (!GEPO)
+        continue;
+
+      Value *VBase = GEPO->getOperand(0);
+
+      // The load will be used in a store instruction to another dope vector
+      for (auto U : LI->users()) {
+        if (auto *SI = dyn_cast<StoreInst>(U)) {
+          if (SI->getValueOperand() != LI)
+            continue;
+
+          if (AllocaInst *AllocI = GetLocalDopeVector(SI)) {
+            if (AllocI->getFunction() != LI->getFunction())
+              continue;
+
+            if (!CopyNestedDopeVectorsAllocs.insert(AllocI))
+              continue;
+
+            // Generate the copy and store it
+            auto *CopyNestedDV = GenerateCopyNestedDV(AllocI, VBase,
+                NestedDV->getFieldNum(), NestedDV->getLLVMStructType());
+            if (!CopyNestedDV)
+              continue;
+
+            CopyNestedDopeVectors.insert(CopyNestedDV);
+          }
+        }
+      }
+    }
+
+    // Traverse through each copy, collect where each field was accessed and
+    // analyze it. If the analysis passes then we are going to merge the load
+    // instructions.
+    for (auto *LocalDV : CopyNestedDopeVectors) {
+      SetVector<Value *> ValueChecked;
+      if (collectNestedDopeVectorFieldAddress(LocalDV, LocalDV->getDVObject(),
+          GetTLI, ValueChecked, DL, true)) {
+        LocalDV->analyzeNestedDopeVector();
+        NestedDV->collectFromCopy(*LocalDV);
+      }
+      // Delete the pointer since we already copied the information to the
+      // current dope vector.
+      delete LocalDV;
+    }
+  }
+}
+
 // This function will check if there are nested dope vectors for the global
 // dope vector, collect the information and analyze if there is any illegal
 // access that could invalidate the data.
@@ -3072,14 +3295,19 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
       break;
   }
 
-  // Analyze the nested dope vectors if they were collected correctly
   NestedDVDataCollected = NestedDVDataValid;
   if (!NestedDVDataValid || NestedDopeVectors.empty())
     return;
 
+  // Analyze the nested dope vectors if they were collected correctly
   for (auto *NestedDV : NestedDopeVectors)
     NestedDV->analyzeNestedDopeVector();
+
   mergeNestedDopeVectors();
+
+  // Collect any information from the copy dope vectors to check if we
+  // can also propagate the constants to it.
+  collectAndAnalyzeCopyNestedDopeVectors(DL);
 }
 
 // Validate that the data was collected correctly for the global dope vector

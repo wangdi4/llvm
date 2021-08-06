@@ -63,7 +63,7 @@
 ; CHECK: Global variable: arr_mod_mp_a_
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$float*$rank2$
 ; CHECK-NEXT:  Global dope vector result: Failed to collect global dope vector info
-; CHECK-NEXT:  Dope vector analysis result: Store won't execute with alloc site
+; CHECK-NEXT:  Dope vector analysis result: Invalid data collection
 ; CHECK-NEXT:   Constant propagation status: NOT performed
 
 ; ModuleID = 'ld-temp.o'
@@ -76,6 +76,11 @@ target triple = "x86_64-unknown-linux-gnu"
 @arr_mod_mp_a_ = internal global %"QNCA_a0$float*$rank2$" { float* null, i64 0, i64 0, i64 0, i64 2, i64 0, [2 x { i64, i64, i64 }] zeroinitializer }
 @anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
 @anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
+
+define internal i32 @arr_alloc_dv() {
+  %1 = tail call i32 @for_allocate_handle(i64 400, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), i32 262144, i8* null)
+  ret i32 %1
+}
 
 ; Function Attrs: nofree noinline nounwind uwtable
 define internal void @arr_mod_mp_allocate_arr_(i32 %temp) #0 {

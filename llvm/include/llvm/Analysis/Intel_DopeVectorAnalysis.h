@@ -139,7 +139,9 @@ extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
 // can access the field.
 class DopeVectorFieldUse {
 public:
-  using LoadInstSet = SmallPtrSet<LoadInst *, 8>;
+  // Use a SetVector so that the NestedDopeVectors are placed in their
+  // SetVector in a consistent order.
+  using LoadInstSet = SetVector<LoadInst *>;
   using LoadInstSetIter = LoadInstSet::const_iterator;
 
   // Normally, we expect at most 1 store instruction
@@ -246,6 +248,8 @@ public:
 
   // Merge relevant info from 'Other' into '*this'.
   void merge(const DopeVectorFieldUse &Other);
+
+  void collectFromCopy(const DopeVectorFieldUse& CopyDVField);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -646,7 +650,8 @@ public:
   // Constructor for DopeVectorInfo. Technically is the same constructor
   // as DopeVectorAnalyzer, but the classes have different purposes.
   DopeVectorInfo(Value *DVObject, Type *DVType,
-                 bool AllowMultipleFieldAddresses = false);
+                 bool AllowMultipleFieldAddresses = false,
+                 bool IsCopyDopeVector = false);
 
   ~DopeVectorInfo() {
     ExtentAddr.clear();
@@ -658,7 +663,7 @@ public:
   Value *getDVObject() { return DVObject; }
 
   // Check if all fields in the dope vector are valid (not set to bottom).
-  void validateDopeVector();
+  void validateDopeVector(Value *CopyFromPtr = nullptr);
 
   // Check if one of more allocation sites were found.
   void validateAllocSite();
@@ -677,11 +682,13 @@ public:
   unsigned long getRank() { return Rank; }
 
   // Set the allocation site
-  void addAllocSite(CallBase *Call) {
-    for (CallBase *CB : AllocSites)
-      if (CB == Call)
+  void addAllocSite(Value *AllocSite) {
+    assert((isa<CallBase>(AllocSite) || isa<AllocaInst>(AllocSite)) &&
+            "Storing alloc site that is not a call or an alloca instruction");
+    for (auto *AS : AllocSites)
+      if (AS == AllocSite)
         return;
-    AllocSites.push_back(Call);
+    AllocSites.push_back(AllocSite);
   }
 
   // Return true if one or more allocation sites were found
@@ -765,12 +772,49 @@ public:
     for (unsigned I = 0; I < LowerBoundAddr.size(); ++I)
       LowerBoundAddr[I].merge(Other.LowerBoundAddr[I]);
     if (Other.hasAllocSite())
-      for (CallBase *CB : Other.AllocSites)
-        addAllocSite(CB);
+      for (Value *AllocSite : Other.AllocSites)
+        addAllocSite(AllocSite);
+  }
+
+  // Collect the information from a copy dope vector. A copy dope vector
+  // is a dope vector that was allocated in another memory space and
+  // all the entries of the current dope vector were copied to it.
+  // If we can prove that the field copy dope vector will be constant,
+  // then we can replace the loaded values from the copy dope vector with
+  // the constants that we collected for the current dope vector.
+  void collectFromCopy(const DopeVectorInfo &CopyDV) {
+
+    if (!CopyDV.getIsCopyDopeVector())
+      return;
+
+    if (CopyDV.getAnalysisResult() !=
+        DopeVectorInfo::AnalysisResult::AR_Pass)
+      return;
+
+    if (getAnalysisResult() !=
+        DopeVectorInfo::AnalysisResult::AR_Pass)
+      return;
+
+    ElementSizeAddr.collectFromCopy(CopyDV.ElementSizeAddr);
+    CodimAddr.collectFromCopy(CopyDV.CodimAddr);
+    FlagsAddr.collectFromCopy(CopyDV.FlagsAddr);
+    DimensionsAddr.collectFromCopy(CopyDV.DimensionsAddr);
+    assert(ExtentAddr.size() == CopyDV.ExtentAddr.size());
+    for (unsigned I = 0; I < ExtentAddr.size(); ++I)
+      ExtentAddr[I].collectFromCopy(CopyDV.ExtentAddr[I]);
+    assert(StrideAddr.size() == CopyDV.StrideAddr.size());
+    for (unsigned I = 0; I < StrideAddr.size(); ++I)
+      StrideAddr[I].collectFromCopy(CopyDV.StrideAddr[I]);
+    assert(LowerBoundAddr.size() == CopyDV.LowerBoundAddr.size());
+    for (unsigned I = 0; I < LowerBoundAddr.size(); ++I)
+      LowerBoundAddr[I].collectFromCopy(CopyDV.LowerBoundAddr[I]);
   }
 
   // Identify subscripts accessing the PtrAddr of the dope vector
   void identifyPtrAddrSubs(SubscriptInstSet &SIS);
+
+  // Return true if the current dope vector is a copy dope vector
+  bool getIsCopyDopeVector() const { return IsCopyDopeVector; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
@@ -796,7 +840,7 @@ protected:
 
   // Store the instructions that will allocate the dope vector, this will be
   // used for the purpose of analysis
-  SmallVector<CallBase *, 4> AllocSites;
+  SmallVector<Value *, 4> AllocSites;
 
   // LLVM structure type of the current dope vector
   StructType *LLVMDVType;
@@ -807,6 +851,16 @@ protected:
   // True if the constant propagation was already applied to the current
   // dope vector
   bool ConstantsPropagated;
+
+  // True if the current dope vector is a copy of another dope vector. By copy
+  // we mean that the current dope vector is in local memory that was allocated
+  // as a dope vector and each dope vector field copies the field from another
+  // dope vector. The memory space from this dope vector is independent from
+  // the other dope vector and would not affect the analysis process for the
+  // other dope vector. If we can prove that the information for the current
+  // dope vector will be constant too, then we can merge both dope vectors
+  // and propagate the data from the other dope vector to the current one.
+  bool IsCopyDopeVector;
 };
 
 // Helper class to handle the nested dope vectors. Nested dope vectors are dope
@@ -828,9 +882,10 @@ protected:
 class NestedDopeVectorInfo : public DopeVectorInfo {
 public:
   NestedDopeVectorInfo(Value *DVObject, Type *DVType, uint64_t FieldNum,
-      Value *VBase, bool AllowMultipleFieldAddresses = false) :
-      DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses),
-      FieldNum(FieldNum), VBase(VBase) { }
+      Value *VBase, bool AllowMultipleFieldAddresses = false,
+      bool IsCopyDopeVector = false) :
+      DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses,
+                     IsCopyDopeVector), FieldNum(FieldNum), VBase(VBase) { }
 
   Value *getVBase() { return VBase; }
   void nullifyVBase() { VBase = nullptr; }
@@ -971,6 +1026,12 @@ private:
 
   // Validate that all the data was collected correctly
   void validateGlobalDopeVector();
+
+  // Identify if the current dope vector is copied to local dope vectors. If
+  // so, then generate a list of new nested dope vectors to be analyzed. The
+  // information of those local dope vectors that pass the analysis will
+  // be merged with the nested dope vectors.
+  void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL);
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,
