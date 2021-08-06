@@ -1,14 +1,12 @@
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -debug-only=hir-runtime-dd< %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 ;
-; In this case, we access (i32*)(%arg)[0] and (%arg)[0] with size i64*
+; In this case, HIRRuntimeDD multiversioning is not triggered, because %arg[0] and %tempcast[0].1 are partial alias
+; based on alias analysis result.
+; We skip multiversioning the loop if memrefs in different groups are must alias or partial alias.
 ;
-; (i32*)(%arg)[0] (smaller sized ref) should be ordered before (%arg)[0] (larger sized ref)
-; because (%arg) is i64*.
 ;
-; This lets us test the correct address range for the group.
-;
-;*** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
+; *** IR Dump Before HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
 ;Function: foo
 ;
 ;<0>          BEGIN REGION { }
@@ -20,33 +18,8 @@
 ;<14>               + END LOOP
 ;<0>          END REGION
 ;
-;*** IR Dump After HIR RuntimeDD Multiversioning (hir-runtime-dd) ***
-;Function: foo
-;
-; CHECK:     BEGIN REGION { }
-; CHECK:            %mv.upper.base = &((i32*)(%arg)[0]);
-; CHECK:            %mv.test = &((%mv.upper.base)[1]) >=u &((%Tempcast)[0].1);
-; CHECK:            %mv.test3 = &((%Tempcast)[0].1) >=u &((i32*)(%arg)[0]);
-; CHECK:            %mv.and = %mv.test  &  %mv.test3;
-; CHECK:            if (%mv.and == 0)
-; CHECK:            {
-; CHECK:               + DO i1 = 0, 49, 1   <DO_LOOP>  <MVTag: 14> <nounroll>
-; CHECK:               |   (i32*)(%arg)[0] = %a1;
-; CHECK:               |   (%Tempcast)[0].1 = %a2;
-; CHECK:               |   %l64 = (%arg)[0];
-; CHECK:               |   (%tt)[0][%l64] = 5;
-; CHECK:               + END LOOP
-; CHECK:            }
-; CHECK:            else
-; CHECK:            {
-; CHECK:               + DO i1 = 0, 49, 1   <DO_LOOP>  <MVTag: 14> <nounroll> <novectorize>
-; CHECK:               |   (i32*)(%arg)[0] = %a1;
-; CHECK:               |   (%Tempcast)[0].1 = %a2;
-; CHECK:               |   %l64 = (%arg)[0];
-; CHECK:               |   (%tt)[0][%l64] = 5;
-; CHECK:               + END LOOP
-; CHECK:            }
-; CHECK:      END REGION
+; CHECK: Runtime DD for loop [[LOOP:[0-9]+]]:
+; CHECK: LOOPOPT_OPTREPORT: [RTDD] Loop [[LOOP]]: Loop considered non-profitable due to partial/must alias between groups
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -58,14 +31,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 
 ; Function Attrs: nofree nosync nounwind uwtable
-define dso_local void @foo(i64* %arg, %struct.test1* %Tempcast, i32 %a1, i32 %a2) local_unnamed_addr #0 {
+define dso_local void @foo(i32 %a1, i32 %a2) local_unnamed_addr #0 {
 entry:
+  %arg = alloca i64, align 8
   %st = alloca %struct.test1, align 8
   %tt = alloca [100 x i32], align 16
   %0 = bitcast [100 x i32]* %tt to i8*
   call void @llvm.lifetime.start.p0i8(i64 400, i8* nonnull %0) #2
   %1 = load i32, i32* @val1, align 4, !tbaa !3
   %idxprom = sext i32 %1 to i64
+  %Tempcast =  bitcast i64* %arg to %struct.test1*
   %arg.temp = bitcast i64* %arg to i32*
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* %tt, i64 0, i64 %idxprom, !intel-tbaa !7
   %arrayidx.promoted = load i32, i32* %arrayidx, align 4, !tbaa !7

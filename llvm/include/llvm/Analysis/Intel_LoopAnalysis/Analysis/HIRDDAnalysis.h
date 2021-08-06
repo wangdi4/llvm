@@ -254,6 +254,11 @@ public:
   /// Both the refs are supposed to be memrefs.
   bool doRefsAlias(const RegDDRef *SrcRef, const RegDDRef *DstRef) const;
 
+  /// Return true if \p SrcRef and \p DstRef are must alias or partial alias
+  /// based on the alias analysis.
+  bool areRefsMustAliasOrPartialAlias(const RegDDRef *SrcRef,
+                                      const RegDDRef *DstRef) const;
+
   /// Forces DDG build for verification purposes.
   void forceBuild();
 

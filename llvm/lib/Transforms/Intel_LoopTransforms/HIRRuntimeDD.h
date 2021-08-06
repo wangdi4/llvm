@@ -58,6 +58,7 @@ enum RuntimeDDResult {
   IVDEP_PRAGMA_LOOP,
   NON_PROFITABLE,
   NON_PROFITABLE_SUBS,
+  NON_PROFITABLE_ALIAS,
   STRUCT_ACCESS,
   DIFF_ADDR_SPACE,
   UNSIZED,
@@ -103,6 +104,7 @@ class IVSegment {
   const CanonExpr *BaseCE;
 
   bool IsWrite;
+
 public:
   IVSegment(const RefGroupTy &Group, bool IsWrite);
   IVSegment(const IVSegment &) = delete;

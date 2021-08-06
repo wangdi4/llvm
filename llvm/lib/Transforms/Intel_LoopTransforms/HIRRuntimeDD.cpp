@@ -210,7 +210,8 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
     // analyzed the memrefs.
     return (Result != ALREADY_MV) && (Result != NON_DO_LOOP) &&
            (Result != NON_PROFITABLE) && (Result != NON_PERFECT_LOOPNEST) &&
-           (Result != NON_NORMALIZED_BLOB_IV_COEFF);
+           (Result != NON_NORMALIZED_BLOB_IV_COEFF) &&
+           (Result != NON_PROFITABLE_ALIAS);
   }
 
 private:
@@ -540,6 +541,9 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Loop considered non-profitable";
   case NON_PROFITABLE_SUBS:
     return "Subscript multiversioning is non-profitable";
+  case NON_PROFITABLE_ALIAS:
+    return "Loop considered non-profitable due to partial/must alias between "
+           "groups";
   case STRUCT_ACCESS:
     return "Struct refs not supported yet";
   case DIFF_ADDR_SPACE:
@@ -863,12 +867,17 @@ RuntimeDDResult HIRRuntimeDD::processDDGToGroupPairs(
       }
 
       RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
+
       auto GroupBI = RefGroupIndex.find(DstRef);
       assert(GroupBI != RefGroupIndex.end() &&
              "Found dependence to unknown ref");
       unsigned GroupB = GroupBI->second;
 
       if (GroupA != GroupB) {
+        if (DDA.areRefsMustAliasOrPartialAlias(SrcRef, DstRef)) {
+          return NON_PROFITABLE_ALIAS;
+        }
+
         auto IsSupported = isTestSupported(SrcRef, DstRef);
         if (IsSupported != OK) {
           return IsSupported;
