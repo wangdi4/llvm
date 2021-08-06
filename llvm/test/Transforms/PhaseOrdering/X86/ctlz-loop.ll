@@ -7,6 +7,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; This test ensures we are able to optimize the following loop to an llvm.abs
 ; followed by an llvm.ctlz.
 ; FIXME: LoopIdiom recongize is not forming llvm.ctlz.
+; INTEL_CUSTOMIZATION
+; INTEL: Our compiler now recognizes this pattern and is able to form the CTLZ.
+; end INTEL_CUSTOMIZATION
 
 ; int ctlz_zero_check(int n)
 ; {
@@ -20,24 +23,22 @@ target triple = "x86_64-unknown-linux-gnu"
 ; }
 
 define i32 @ctlz_loop_with_abs(i32 %n) {
+; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @ctlz_loop_with_abs(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TOBOOL_NOT1:%.*]] = icmp eq i32 [[N:%.*]], 0
-; CHECK-NEXT:    br i1 [[TOBOOL_NOT1]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
-; CHECK:       while.body.preheader:
+; CHECK-NEXT:    br i1 [[TOBOOL_NOT1]], label [[WHILE_END:%.*]], label [[WHILE_END_LOOPEXIT:%.*]]
+; CHECK:       while.end.loopexit:
 ; CHECK-NEXT:    [[TMP0:%.*]] = call i32 @llvm.abs.i32(i32 [[N]], i1 true)
-; CHECK-NEXT:    br label [[WHILE_BODY:%.*]]
-; CHECK:       while.body:
-; CHECK-NEXT:    [[N_ADDR_03:%.*]] = phi i32 [ [[TMP1:%.*]], [[WHILE_BODY]] ], [ [[TMP0]], [[WHILE_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[I_02:%.*]] = phi i32 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[WHILE_BODY_PREHEADER]] ]
-; CHECK-NEXT:    [[TMP1]] = lshr i32 [[N_ADDR_03]], 1
-; CHECK-NEXT:    [[INC]] = add nuw nsw i32 [[I_02]], 1
-; CHECK-NEXT:    [[TOBOOL_NOT:%.*]] = icmp ult i32 [[N_ADDR_03]], 2
-; CHECK-NEXT:    br i1 [[TOBOOL_NOT]], label [[WHILE_END]], label [[WHILE_BODY]]
+; CHECK-NEXT:    [[TMP1:%.*]] = lshr i32 [[TMP0]], 1
+; CHECK-NEXT:    [[TMP2:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP1]], i1 false), !range [[RNG0:![0-9]+]]
+; CHECK-NEXT:    [[TMP3:%.*]] = sub nuw nsw i32 33, [[TMP2]]
+; CHECK-NEXT:    br label [[WHILE_END]]
 ; CHECK:       while.end:
-; CHECK-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC]], [[WHILE_BODY]] ]
+; CHECK-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[TMP3]], [[WHILE_END_LOOPEXIT]] ]
 ; CHECK-NEXT:    ret i32 [[I_0_LCSSA]]
 ;
+; end INTEL_CUSTOMIZATION
 entry:
   %cmp = icmp sge i32 %n, 0
   br i1 %cmp, label %cond.true, label %cond.false
