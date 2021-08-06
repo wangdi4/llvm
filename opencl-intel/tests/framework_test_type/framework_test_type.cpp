@@ -146,6 +146,11 @@ TEST(FrameworkTestType, Test_clBuildInvalidSpirProgramWithBinaryTest)
     EXPECT_TRUE(clBuildInvalidSpirProgramWithBinaryTest());
 }
 
+TEST(FrameworkTestType, Test_clBuildSpirvFriendlyIRProgramWithBinaryTest)
+{
+    EXPECT_TRUE(clBuildSpirvFriendlyIRProgramWithBinaryTest());
+}
+
 TEST(FrameworkTestType, Test_clCheckJITSaveLoadTest)
 {
     EXPECT_TRUE(clCheckJITSaveLoadTest());

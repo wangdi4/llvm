@@ -105,10 +105,13 @@ OpenCLProgram::OpenCLProgram(OpenCLProgramConfiguration * oclProgramConfig,
 #else
                 std::string clangLib = buildLibName("clang_compiler");
 #endif
-                OCLBuilder& builder = OCLBuilder::Instance().
-                withSource(source).
-                withBuildOptions(buildOptions.str().c_str()).
-                withLibrary(clangLib.c_str());
+                OCLBuilder &builder =
+                    OCLBuilder::Instance()
+                        .withSource(source)
+                        .withBuildOptions(buildOptions.str().c_str())
+                        .withLibrary(clangLib.c_str())
+                        .withFpgaEmulator(oclProgramConfig->GetDeviceMode() ==
+                                          FPGA_EMU_DEVICE);
                 IOCLFEBinaryResult* result = builder.build();
                 delete[] source;
                 //

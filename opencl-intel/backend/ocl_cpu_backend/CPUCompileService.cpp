@@ -24,13 +24,8 @@
 #include "elf_binary.h"
 #include "cache_binary_handler.h"
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Module.h"
-
-#if defined _M_X64 || defined __x86_64__
-#define SPIR_TARGET_TRIPLE "spir64-unknown-unknown"
-#else
-#define SPIR_TARGET_TRIPLE "spir-unknown-unknown"
-#endif
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
@@ -137,16 +132,29 @@ cl_dev_err_code
 CPUCompileService::CheckProgramBinary(const void *pBinary,
                                       size_t uiBinarySize)
 {
-    // check if it is LLVM BC (such as SPIR 1.2)
+    // check if it is LLVM BC (such as SPIR 1.2 or SPV-IR)
     if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1)) {
-        std::string strTargetTriple = (m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
-
-        if (strTargetTriple.find(SPIR_TARGET_TRIPLE) != 0) {
-            assert(strTargetTriple.substr(0, 4) == "spir" && "Unexpected non-spir triple");
-            return CL_DEV_INVALID_BINARY;
-        }
-
+      std::string strTargetTriple = (m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
+      llvm::Triple TT(strTargetTriple);
+      // Must be "spir*" target.
+      if (!TT.isSPIR())
+        return CL_DEV_INVALID_BINARY;
+#if defined _M_X64 || defined __x86_64__
+      if (!TT.isArch64Bit())
+        return CL_DEV_INVALID_BINARY;
+      // "spir64_x86_64" arch implies non-spirv CPU AOT.
+      // Input format is SPV-IR (SPIRV-Friendly-IR).
+      if (TT.getSubArch() == llvm::Triple::SPIRSubArch_x86_64)
         return CL_DEV_SUCCESS;
+#else
+      if (!TT.isArch32Bit())
+        return CL_DEV_INVALID_BINARY;
+#endif
+      // Should be "spir64" or "spir" target without subarch postfix.
+      if (TT.getSubArch() == llvm::Triple::NoSubArch)
+        return CL_DEV_SUCCESS;
+
+      return CL_DEV_INVALID_BINARY;
     }
 
     // check if it is a binary object

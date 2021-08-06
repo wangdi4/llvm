@@ -130,7 +130,7 @@ bool CompileTask::Execute()
     if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT ||
         m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_LIBRARY)
     {
-        // we have spir binary, no need for FE compilation
+        // we have spir binary / SPV-IR, no need for FE compilation
         m_pDeviceProgram->SetBuildLogInternal("Compilation done\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;

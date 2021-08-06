@@ -39,6 +39,7 @@ bool GenerateBinaryFile();
 bool clCheckCPUArchForJIT();
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildInvalidSpirProgramWithBinaryTest();
+bool clBuildSpirvFriendlyIRProgramWithBinaryTest();
 bool clBuildProgramTwiceTest();
 bool clBuildEmptyProgramTest();
 bool clBuildWithCL11option();
