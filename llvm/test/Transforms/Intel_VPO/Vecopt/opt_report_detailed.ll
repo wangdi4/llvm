@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 declare void @serial_call() nounwind
 
 define void @test_serialized(i32* nocapture %arr) local_unnamed_addr {
-; LLVM-LABEL:  Global loop optimization report for : test_serialized
+; LLVM-LABEL:  Global optimization report for : test_serialized
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -75,7 +75,7 @@ declare void @vec_func(i64) #0
 declare void @_ZGVBN4v_vec_func(i64)
 
 define void @test_vector_variant(i32* nocapture %arr) local_unnamed_addr {
-; LLVM-LABEL:  Global loop optimization report for : test_vector_variant
+; LLVM-LABEL:  Global optimization report for : test_vector_variant
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -137,7 +137,7 @@ declare double @llvm.sqrt.f64(double %val) #1
 declare double @_Z4sqrtd(double %val) #1
 declare double @sqrt(double %val) #1
 define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
-; LLVM-LABEL:  Global loop optimization report for : test_sqrt
+; LLVM-LABEL:  Global optimization report for : test_sqrt
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -197,7 +197,7 @@ loop.exit:
 }
 
 define void @test_nonvls_mem(i64* %ptr, i64 *%ptr2) #1 {
-; LLVM-LABEL:  Global loop optimization report for : test_nonvls_mem
+; LLVM-LABEL:  Global optimization report for : test_nonvls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED
@@ -300,7 +300,7 @@ loop.exit:
 }
 
 define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
-; LLVM-LABEL:  Global loop optimization report for : test_vls_mem
+; LLVM-LABEL:  Global optimization report for : test_vls_mem
 ; LLVM-EMPTY:
 ; LLVM-NEXT:  LOOP BEGIN
 ; LLVM-NEXT:      remark #15300: LOOP WAS VECTORIZED

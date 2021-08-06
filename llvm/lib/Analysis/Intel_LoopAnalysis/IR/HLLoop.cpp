@@ -596,12 +596,12 @@ void HLLoop::dumpOptReport() const {
   formatted_raw_ostream OS(dbgs());
   OptReport OR = getOptReport();
 
-  OptReportUtils::printLoopHeaderAndOrigin(OS, 0, OR, getDebugLoc());
+  OptReportUtils::printNodeHeaderAndOrigin(OS, 0, OR, getDebugLoc());
 
   if (OR)
     OptReportUtils::printOptReport(OS, 0, OR);
 
-  OptReportUtils::printLoopFooter(OS, 0, OR);
+  OptReportUtils::printNodeFooter(OS, 0, OR);
 
   if (OR && OR.nextSibling())
     OptReportUtils::printEnclosedOptReport(OS, 0, OR.nextSibling());
@@ -2275,13 +2275,13 @@ OptReport OptReportTraits<HLLoop>::getOrCreateParentOptReport(
   llvm_unreachable("Failed to find a parent");
 }
 
-void OptReportTraits<HLLoop>::traverseChildLoopsBackward(HLLoop &Loop,
-                                                         LoopVisitorTy Func) {
+void OptReportTraits<HLLoop>::traverseChildNodesBackward(HLLoop &Loop,
+                                                         NodeVisitorTy Func) {
   struct LoopVisitor : public HLNodeVisitorBase {
-    using LoopVisitorTy = OptReportTraits<HLLoop>::LoopVisitorTy;
-    LoopVisitorTy Func;
+    using NodeVisitorTy = OptReportTraits<HLLoop>::NodeVisitorTy;
+    NodeVisitorTy Func;
 
-    LoopVisitor(LoopVisitorTy Func) : Func(Func) {}
+    LoopVisitor(NodeVisitorTy Func) : Func(Func) {}
     void postVisit(HLLoop *Lp) { Func(*Lp); }
     void visit(const HLNode *Node) {}
     void postVisit(const HLNode *Node) {}

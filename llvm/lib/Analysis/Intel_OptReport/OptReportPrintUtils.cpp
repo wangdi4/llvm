@@ -174,20 +174,20 @@ void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
       << DL->getColumn() << ")\n";
 }
 
-void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
+void printNodeHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
   FOS << '\n';
   FOS.indent(IntentationStep * Depth);
   FOS << OR.title() << " BEGIN";
 }
 
-void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
+void printNodeFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
   FOS.indent(IntentationStep * Depth);
   FOS << OR.title() << " END\n";
 }
 
-void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
+void printNodeHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
                               OptReport OR, const DebugLoc &DL) {
-  printLoopHeader(FOS, Depth, OR);
+  printNodeHeader(FOS, Depth, OR);
 
   if (DL.get())
     printDebugLocation(FOS, Depth, DL.get());
@@ -207,10 +207,10 @@ void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
                             OptReport OR) {
   assert(OR && "Client code is responsible for providing non-null OptReport");
 
-  printLoopHeaderAndOrigin(FOS, Depth, OR, DebugLoc());
+  printNodeHeaderAndOrigin(FOS, Depth, OR, DebugLoc());
 
   printOptReport(FOS, Depth + 1, OR);
-  printLoopFooter(FOS, Depth, OR);
+  printNodeFooter(FOS, Depth, OR);
 
   // After printing Optimization Report for the first child, we check whether it
   // has attached lost next sibling loops.

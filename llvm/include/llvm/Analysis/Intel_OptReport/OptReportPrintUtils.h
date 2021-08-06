@@ -26,9 +26,9 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark R);
 void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin);
 void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
                         const DILocation *DL);
-void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
-void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
-void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
+void printNodeHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
+void printNodeFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
+void printNodeHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
                               OptReport OR, const DebugLoc &DL);
 // This function prints the opt report enclosed with header/footer.
 // It is useful for printing first childs or next siblings.

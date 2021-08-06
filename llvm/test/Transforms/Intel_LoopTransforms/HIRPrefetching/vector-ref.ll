@@ -39,7 +39,7 @@
 ; CHECK:             + END LOOP
 ; CHECK:       END REGION
 ;
-; OPTREPORT: Global loop optimization report for : foo
+; OPTREPORT: Global optimization report for : foo
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     remark #15300: LOOP WAS VECTORIZED

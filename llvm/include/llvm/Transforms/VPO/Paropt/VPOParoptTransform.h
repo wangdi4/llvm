@@ -2264,11 +2264,11 @@ template <> struct OptReportTraits<vpo::WRegionNode> {
     llvm_unreachable("Failed to find a parent.");
   }
 
-  using ChildLoopTy = vpo::WRegionNode;
-  using ChildHandleTy = typename OptReportTraits<ChildLoopTy>::ObjectHandleTy;
-  using LoopVisitorTy = function_ref<void(ChildHandleTy)>;
-  static void traverseChildLoopsBackward(const ObjectHandleTy &Handle,
-                                         LoopVisitorTy Func) {}
+  using ChildNodeTy = vpo::WRegionNode;
+  using ChildHandleTy = typename OptReportTraits<ChildNodeTy>::ObjectHandleTy;
+  using NodeVisitorTy = function_ref<void(ChildHandleTy)>;
+  static void traverseChildNodesBackward(const ObjectHandleTy &Handle,
+                                         NodeVisitorTy Func) {}
 };
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm

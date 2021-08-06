@@ -232,7 +232,7 @@ public:
 
 } // End namespace loopopt
 
-// Traits of HLRegion for LoopOptReportBuilder.
+// Traits of HLRegion for OptReportBuilder.
 template <> struct OptReportTraits<loopopt::HLRegion> {
   using ObjectHandleTy = loopopt::HLRegion &;
 

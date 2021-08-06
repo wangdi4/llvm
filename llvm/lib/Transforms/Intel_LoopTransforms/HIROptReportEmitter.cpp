@@ -73,7 +73,7 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
   void visit(const HLLoop *Lp) {
     OptReport OR = Lp->getOptReport();
 
-    printLoopHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc());
+    printNodeHeaderAndOrigin(FOS, Depth, OR, Lp->getDebugLoc());
 
     ++Depth;
     if (OR)
@@ -84,7 +84,7 @@ struct HIROptReportEmitVisitor final : public HLNodeVisitorBase {
     OptReport OR = Lp->getOptReport();
 
     --Depth;
-    printLoopFooter(FOS, Depth, OR);
+    printNodeFooter(FOS, Depth, OR);
 
     if (OR && OR.nextSibling())
       printEnclosedOptReport(FOS, Depth, OR.nextSibling());

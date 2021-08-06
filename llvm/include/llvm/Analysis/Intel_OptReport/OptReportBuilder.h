@@ -163,8 +163,8 @@ public:
   }
 
   // Backward traversal of child loops (without recursion).
-  template <typename F> void traverseChildLoopsBackward(F &&Func) const {
-    OptReportTraits<T>::traverseChildLoopsBackward(Handle,
+  template <typename F> void traverseChildNodesBackward(F &&Func) const {
+    OptReportTraits<T>::traverseChildNodesBackward(Handle,
                                                    std::forward<F>(Func));
   }
 
@@ -257,11 +257,11 @@ public:
     // traverseChildLoopsBwd is not recursive by itself, but a lambda passed
     // into it makes indirect recursive call back to preserveLostOptReport,
     // so that all child loops are processed before their parent loop.
-    using ChildLoopTy = typename OptReportTraits<T>::ChildLoopTy;
-    using ChildHandleTy = typename OptReportTraits<ChildLoopTy>::ObjectHandleTy;
+    using ChildNodeTy = typename OptReportTraits<T>::ChildNodeTy;
+    using ChildHandleTy = typename OptReportTraits<ChildNodeTy>::ObjectHandleTy;
     const OptReportBuilder &B = Builder;
-    traverseChildLoopsBackward([&B](ChildHandleTy ChildHandle) {
-      OptReportThunk<ChildLoopTy>(B, ChildHandle).preserveLostOptReport();
+    traverseChildNodesBackward([&B](ChildHandleTy ChildHandle) {
+      OptReportThunk<ChildNodeTy>(B, ChildHandle).preserveLostOptReport();
     });
 
     // Even if there is no optreport yet, create one to report at least source
@@ -446,11 +446,11 @@ template <> struct OptReportTraits<Loop> {
     llvm_unreachable("Failed to find a parent.");
   }
 
-  using ChildLoopTy = Loop;
-  using ChildHandleTy = typename OptReportTraits<ChildLoopTy>::ObjectHandleTy;
-  using LoopVisitorTy = std::function<void(ChildHandleTy)>;
-  static void traverseChildLoopsBackward(const ObjectHandleTy &Handle,
-                                         LoopVisitorTy Func) {
+  using ChildNodeTy = Loop;
+  using ChildHandleTy = typename OptReportTraits<ChildNodeTy>::ObjectHandleTy;
+  using NodeVisitorTy = std::function<void(ChildHandleTy)>;
+  static void traverseChildNodesBackward(const ObjectHandleTy &Handle,
+                                         NodeVisitorTy Func) {
     auto &L = Handle.first;
     std::for_each(L.rbegin(), L.rend(), [&Handle, &Func](Loop *CL) {
       Func(ChildHandleTy(*CL, Handle.second));

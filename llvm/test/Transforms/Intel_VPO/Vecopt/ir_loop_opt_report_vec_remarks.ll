@@ -50,7 +50,7 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
 }
 
 define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
-; OPTREPORT-LABEL:  Global loop optimization report for : test_outer
+; OPTREPORT-LABEL:  Global optimization report for : test_outer
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT:  LOOP BEGIN
 ; OPTREPORT-NEXT:      remark #15300: LOOP WAS VECTORIZED
