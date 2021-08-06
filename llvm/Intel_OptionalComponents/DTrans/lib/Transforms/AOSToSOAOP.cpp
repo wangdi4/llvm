@@ -674,8 +674,12 @@ void AOSCollector::visitCallBase(CallBase &I) {
   if (I.isIndirectCall())
     return;
 
-  Function *F = I.getCalledFunction();
-  assert(F && "Expected direct call");
+  // Check for a bitcast function call. With opaque pointers, there will not be
+  // bitcast calls, because the call type will just be 'ptr', but for
+  // type-pointers a check is necessary to find the target function.
+  Value *Callee = I.getCalledOperand();
+  Function *F = dyn_cast<Function>(Callee->stripPointerCasts());
+  assert(F && "Expected to identify called function");
   if (!Transform.isFnClonedForIndex(F))
     return;
 
@@ -2375,10 +2379,12 @@ void AOSToSOAOPTransformImpl::convertDepBinaryOperator(
 }
 
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
-  LLVM_DEBUG(dbgs() << "AOS-to-SOA: Checking call attributes for: " << Call
+  LLVM_DEBUG(dbgs() << "AOS-to-SOA: Checking call attributes for: " << *Call
                     << "\n");
 
-  Function *Callee = Call->getCalledFunction();
+  Value *CallOp = Call->getCalledOperand();
+  Function *Callee = dyn_cast<Function>(CallOp->stripPointerCasts());
+  assert(Callee && "Expect to identify called function");
   auto *OrigFnType = cast<llvm::FunctionType>(Callee->getValueType());
   auto *CloneFnType =
       cast<llvm::FunctionType>(getClonedFunction(Callee)->getValueType());
