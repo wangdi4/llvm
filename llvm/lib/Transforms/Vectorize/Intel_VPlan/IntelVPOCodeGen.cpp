@@ -3298,9 +3298,9 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       Builder.SetInsertPoint(ScalarInst->getParent(), It);
     };
 
-    // TODO: Temporarily allow bcast of strictly first scalar non-uniform
-    // instruction as it can be used in other instructions whose opcodes haven't
-    // been uplifted to be scalarized via SVA. For example -
+    // TODO: Temporarily allow bcast of strictly scalar non-uniform instruction
+    // as it can be used in other instructions whose opcodes haven't been
+    // uplifted to be scalarized via SVA. For example -
     // [DA: Div, SVA: (F  )] %gep1 = getelementptr %src i64 0 i64 %iv
     // [DA: Div, SVA: (F  )] %gep2 = getelementptr %src i64 1 i64 %iv
     // [DA: Div, SVA: (F  )] %ptr = select %cond i32* %gep1 i32* %gep2
@@ -3313,12 +3313,24 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     // get{Vector|Scalar}Value interfaces.
     auto *VInst = dyn_cast<VPInstruction>(V);
     auto *SVA = Plan->getVPlanSVA();
-    bool NeedsBcastForNonSVADrivenCG = VInst &&
-                                       SVA->instNeedsFirstScalarCode(VInst) &&
-                                       !SVA->instNeedsLastScalarCode(VInst) &&
-                                       !SVA->instNeedsVectorCode(VInst);
-    if (IsUniform || NeedsBcastForNonSVADrivenCG) {
-      Value *ScalarValue = VPScalarMap[V][0];
+    bool NeedsFirstLaneBcastForNonSVADrivenCG =
+        VInst && SVA->instNeedsFirstScalarCode(VInst) &&
+        !SVA->instNeedsLastScalarCode(VInst) &&
+        !SVA->instNeedsVectorCode(VInst);
+    bool NeedsLastLaneBcastForNonSVADrivenCG =
+        VInst && SVA->instNeedsLastScalarCode(VInst) &&
+        !SVA->instNeedsFirstScalarCode(VInst) &&
+        !SVA->instNeedsVectorCode(VInst);
+    bool UnsupportedSVABits = !IsUniform && !SVA->instNeedsVectorCode(VInst) &&
+                              SVA->instNeedsFirstScalarCode(VInst) &&
+                              SVA->instNeedsLastScalarCode(VInst);
+    assert(!UnsupportedSVABits &&
+           "Bcast of (F L) sequence of SVA bits is not supported.");
+    (void)UnsupportedSVABits;
+    if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
+        NeedsLastLaneBcastForNonSVADrivenCG) {
+      unsigned Lane = NeedsLastLaneBcastForNonSVADrivenCG ? VF - 1 : 0;
+      Value *ScalarValue = VPScalarMap[V][Lane];
       UpdateInsertPoint(ScalarValue);
       if (ScalarValue->getType()->isVectorTy()) {
         VectorValue =

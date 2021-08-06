@@ -1,0 +1,48 @@
+; Test to check stability of VPlan LLVM-IR vector CG for
+; sequence of instructions where some opcodes are SVA-driven.
+
+; RUN: opt -vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -disable-output < %s | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -S -vplan-vec -vplan-force-vf=2 < %s | FileCheck %s --check-prefix=LLVM-IR
+
+define void @foo(float* nocapture %arr, i32* %dest, i32 %uni) {
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %header
+
+header:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
+  %idx = getelementptr inbounds float, float* %arr, i64 %iv
+  %ld = load float, float* %idx
+; VPLAN-IR:        [DA: Div, SVA: ( V )] float [[VP_LD:%.*]] = load float* [[VP_IDX:%.*]] (SVAOpBits 0->F )
+; LLVM-IR:         [[WIDE_LOAD:%.*]] = load <2 x float>, <2 x float>* [[TMP0:%.*]], align 4
+
+  ; Bitcast is scalarized using SVA and only last lane value
+  ; is preserved.
+  %bc = bitcast float %ld to i32
+; VPLAN-IR:        [DA: Div, SVA: (  L)] i32 [[VP_BC:%.*]] = bitcast float [[VP_LD]] (SVAOpBits 0->L )
+; LLVM-IR:         [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i32 1
+; LLVM-IR-NEXT:    [[TMP1:%.*]] = bitcast float [[WIDE_LOAD_EXTRACT_1_]] to i32
+
+  ; CG for add is not SVA-driven so we need to bcast %bc from
+  ; last lane to emit vector add.
+; VPLAN-IR:        [DA: Div, SVA: (  L)] i32 [[VP_RES:%.*]] = add i32 [[VP_BC]] i32 [[UNI0:%.*]] (SVAOpBits 0->L 1->L )
+; LLVM-IR-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[TMP1]], i32 0
+; LLVM-IR-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; LLVM-IR-NEXT:    [[TMP2:%.*]] = add <2 x i32> [[BROADCAST_SPLAT]], [[BROADCAST_SPLAT4:%.*]]
+  %res = add i32 %bc, %uni
+
+; VPLAN-IR:        [DA: Div, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
+; LLVM-IR-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
+; LLVM-IR-NEXT:    store i32 [[DOTEXTRACT_1_]], i32* [[DEST:%.*]], align 4
+  store i32 %res, i32* %dest
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 300
+  br i1 %exitcond, label %loop.exit, label %header
+
+loop.exit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)
