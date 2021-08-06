@@ -559,6 +559,20 @@ void OpenMPLateOutliner::getApplicableDirectives(
 
     switch (CK) {
     case OMPC_reduction:
+      if (CodeGenFunction::requiresImplicitTaskgroup(Directive)) {
+        // Processing a directive with an implicit taskgroup, implement special
+        // rules.
+        if (D.DKind == OMPD_taskgroup) {
+          if (ICK == ICK_reduction)
+            Dirs.push_back(&D);
+          break;
+        }
+        if (D.DKind == OMPD_taskloop) {
+          if (ICK == ICK_inreduction)
+            Dirs.push_back(&D);
+          break;
+        }
+      }
       // Prevent reduction on target which is being allowed by
       // isAllowedClauseForDirective.
       if (D.DKind != OMPD_target &&
@@ -1046,7 +1060,8 @@ void OpenMPLateOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
 
 template <typename RedClause>
 void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
-                                                      StringRef QualName) {
+                                                      StringRef QualName,
+                                                      ImplicitClauseKind ICK) {
   // Reduction clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
@@ -1092,6 +1107,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
             ? OO_None
             : Cl->getNameInfo().getName().getCXXOverloadedOperator();
     ClauseEmissionHelper CEH(*this, Cl->getClauseKind(), "QUAL.OMP.");
+    CEH.setImplicitClause(ICK);
     ClauseStringBuilder &CSB = CEH.getBuilder();
     CSB.add(QualName);
     CSB.add(".");
@@ -1221,6 +1237,15 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
 }
 
 void OpenMPLateOutliner::emitOMPReductionClause(const OMPReductionClause *Cl) {
+  if (CodeGenFunction::requiresImplicitTaskgroup(Directive,
+                                                 /*TopLevel=*/false)) {
+    // Implicit taskgroups cause an INREDUCTION on the taskloop piece of the
+    // full directive.  Add both here and sort out which one to use in
+    // getApplicableDirectives.
+    emitOMPReductionClauseCommon(Cl, "REDUCTION", ICK_reduction);
+    emitOMPReductionClauseCommon(Cl, "INREDUCTION", ICK_inreduction);
+    return;
+  }
   emitOMPReductionClauseCommon(Cl, "REDUCTION");
 }
 
@@ -2568,6 +2593,10 @@ void OpenMPLateOutliner::emitOMPTaskDirective() {
 void OpenMPLateOutliner::emitOMPTaskGroupDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASKGROUP", "DIR.OMP.END.TASKGROUP",
                              OMPD_taskgroup);
+  if (CodeGenFunction::requiresImplicitTaskgroup(Directive)) {
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    addArg("QUAL.OMP.IMPLICIT");
+  }
 }
 void OpenMPLateOutliner::emitOMPTaskWaitDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASKWAIT", "DIR.OMP.END.TASKWAIT",
@@ -2668,6 +2697,13 @@ bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
            !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
                                         CGF.getLangOpts().OpenMP);
   }
+  if (isImplicitTaskgroup(OMPD_taskgroup)) {
+    return Kind != OMPC_reduction &&
+           !isAllowedClauseForDirective(
+               CurrentDirectiveKind,
+               Kind == OMPC_reduction ? OMPC_task_reduction : Kind,
+               CGF.getLangOpts().OpenMP);
+  }
   return !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
                                       CGF.getLangOpts().OpenMP);
 }
@@ -2737,6 +2773,8 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
     return Kind == OMPD_task;
 
   OpenMPDirectiveKind DKind = S.getDirectiveKind();
+  if (CodeGenFunction::requiresImplicitTaskgroup(S, /*TopLevel=*/true))
+    return Kind == OMPD_taskgroup;
   if (Kind == DKind)
     return true;
 
@@ -2899,6 +2937,26 @@ bool OpenMPLateOutliner::isImplicitTask(OpenMPDirectiveKind K) {
    return K == CurrentDirectiveKind;
 }
 
+/// Return true if processing the part of an implicit taskgroup corresponding
+/// to K.
+bool OpenMPLateOutliner::isImplicitTaskgroup(OpenMPDirectiveKind K) {
+  if (!CodeGenFunction::requiresImplicitTaskgroup(Directive))
+     return false;
+   return K == CurrentDirectiveKind;
+}
+
+/// Return true if Directive require implicit taskgroup
+bool CodeGenFunction::requiresImplicitTaskgroup(
+    const OMPExecutableDirective &Directive, bool TopLevel) {
+  OpenMPDirectiveKind DKind = Directive.getDirectiveKind();
+  if (TopLevel && DKind != OMPD_taskloop && DKind != OMPD_taskloop_simd)
+     return false;
+  if (isOpenMPTaskLoopDirective(DKind) &&
+      !Directive.hasClausesOfKind<OMPNogroupClause>())
+    return true;
+  return false;
+}
+
 /// Return true if Directive require implicit task to be generated.
 bool CodeGenFunction::requiresImplicitTask(
     const OMPExecutableDirective &Directive) {
@@ -2947,9 +3005,11 @@ bool CGLateOutlineOpenMPRegionInfo::isDispatchTargetCall(SourceLocation Loc) {
   const SourceLocation TLoc = DispatchD->getTargetCallLoc();
   return Loc.getRawEncoding() == TLoc.getRawEncoding();
 }
+static OpenMPDirectiveKind
+nextDirectiveKind(const OMPExecutableDirective &Directive,
+                  OpenMPDirectiveKind CurrDirKind) {
 
-static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
-                                             OpenMPDirectiveKind CurrDirKind) {
+  OpenMPDirectiveKind FullDirKind = Directive.getDirectiveKind();
   if (CurrDirKind == OMPD_task) {
     if (FullDirKind == OMPD_target_enter_data ||
         FullDirKind == OMPD_target_exit_data ||
@@ -2958,6 +3018,10 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
       return FullDirKind;
     return OMPD_target;
   }
+
+  if (CurrDirKind == OMPD_taskgroup &&
+      (FullDirKind == OMPD_taskloop || FullDirKind == OMPD_taskloop_simd))
+    return FullDirKind;
 
   switch (FullDirKind) {
   case OMPD_target_parallel:
@@ -3061,14 +3125,24 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
     return OMPD_unknown;
 
   case OMPD_master_taskloop:
+    // OMPD_master -> OMPD_taskgroup -> OMPD_taskloop
     // OMPD_master -> OMPD_taskloop
     if (CurrDirKind == OMPD_master)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop;
+    if (CurrDirKind == OMPD_taskgroup)
       return OMPD_taskloop;
     return OMPD_unknown;
 
   case OMPD_master_taskloop_simd:
+    // OMPD_master -> OMPD_taskgroup -> OMPD_taskloop -> OMPD_simd
     // OMPD_master -> OMPD_taskloop_simd
     if (CurrDirKind == OMPD_master)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop_simd;
+    if (CurrDirKind == OMPD_taskgroup)
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
@@ -3079,18 +3153,29 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
     return OMPD_unknown;
 
   case OMPD_parallel_master_taskloop:
+    // OMPD_parallel -> OMPD_master -> OMPD_taskgroup ->OMPD_taskloop
     // OMPD_parallel -> OMPD_master -> OMPD_taskloop
     if (CurrDirKind == OMPD_parallel)
       return OMPD_master;
     if (CurrDirKind == OMPD_master)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop;
+    if (CurrDirKind == OMPD_taskgroup)
       return OMPD_taskloop;
     return OMPD_unknown;
 
   case OMPD_parallel_master_taskloop_simd:
+    // OMPD_parallel -> OMPD_master -> OMPD_taskgroup -> OMPD_taskloop ->
+    // OMPD_simd
     // OMPD_parallel -> OMPD_master -> OMPD_taskloop_simd
     if (CurrDirKind == OMPD_parallel)
       return OMPD_master;
     if (CurrDirKind == OMPD_master)
+      return CodeGenFunction::requiresImplicitTaskgroup(Directive)
+                 ? OMPD_taskgroup
+                 : OMPD_taskloop_simd;
+    if (CurrDirKind == OMPD_taskgroup)
       return OMPD_taskloop_simd;
     return OMPD_unknown;
 
@@ -3346,8 +3431,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     Outliner.privatizeMappedPointers(MapClausePointerScope);
     if (S.getDirectiveKind() != CurrentDirectiveKind) {
       // Unless we've reached the innermost directive, keep going.
-      OpenMPDirectiveKind NextKind =
-          nextDirectiveKind(S.getDirectiveKind(), CurrentDirectiveKind);
+      OpenMPDirectiveKind NextKind = nextDirectiveKind(S, CurrentDirectiveKind);
       switch (NextKind) {
         case OMPD_parallel:
         case OMPD_teams:
@@ -3357,6 +3441,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
         case OMPD_target_exit_data:
         case OMPD_target_update:
         case OMPD_dispatch:
+        case OMPD_taskgroup:
           return EmitLateOutlineOMPDirective(S, NextKind);
         case OMPD_parallel_for:
         case OMPD_parallel_for_simd:

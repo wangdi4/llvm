@@ -201,88 +201,88 @@ void foo2(int *d) {
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD"(i64* [[N1_ADDR]])
 //CHECK: call void @llvm.directive.region.exit(token [[TOK6]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(+:n1)
+  #pragma omp taskloop in_reduction(+:n1) nogroup
   for(int i=0;i<20;++i)
     n1 += bar(1);
 
-//CHECK: [[TOK7:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK71:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.SUB"(i64* [[N2_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK7]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK71]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(-:n2)
+  #pragma omp taskloop in_reduction(-:n2) nogroup
   for(int i=0;i<20;++i)
     n2 += bar(2);
 
-//CHECK: [[TOK8:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK81:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL"(i64* [[N3_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK8]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK81]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(*:n3)
+  #pragma omp taskloop in_reduction(*:n3) nogroup
   for(int i=0;i<20;++i)
     n3 += bar(3);
 
-//CHECK: [[TOK9:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK91:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BAND"(i64* [[N4_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK9]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK91]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(&:n4)
+  #pragma omp taskloop in_reduction(&:n4) nogroup
   for(int i=0;i<20;++i)
     n4 += bar(4);
 
-//CHECK: [[TOK10:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK101:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BOR"(i64* [[N5_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK10]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK101]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(|:n5)
+  #pragma omp taskloop in_reduction(|:n5) nogroup
   for(int i=0;i<20;++i)
     n5 += bar(5);
 
-//CHECK: [[TOK11:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK111:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.BXOR"(i64* [[N6_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK11]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK111]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(^:n6)
+  #pragma omp taskloop in_reduction(^:n6) nogroup
   for(int i=0;i<20;++i)
     n6 += bar(6);
 
-//CHECK: [[TOK12:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK121:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.AND"(i64* [[N7_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK12]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK121]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(&&:n7)
+  #pragma omp taskloop in_reduction(&&:n7) nogroup
   for(int i=0;i<20;++i)
     n7 += bar(7);
 
-//CHECK: [[TOK13:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK131:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.OR"(i64* [[N8_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK13]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK131]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(||:n8)
+  #pragma omp taskloop in_reduction(||:n8) nogroup
   for(int i=0;i<20;++i)
     n8 += bar(8);
 
-//CHECK: [[TOK14:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK141:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MAX"(i64* [[N9_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK14]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK141]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(max:n9)
+  #pragma omp taskloop in_reduction(max:n9) nogroup
   for(int i=0;i<20;++i)
     n9 += bar(9);
 
-//CHECK: [[TOK15:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK151:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MIN"(i64* [[N10_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK15]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK151]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(min:n10)
+  #pragma omp taskloop in_reduction(min:n10) nogroup
   for(int i=0;i<20;++i)
     n10 += bar(10);
   }
@@ -301,12 +301,12 @@ void foo2(int *d) {
 //CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
 //CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 
-//CHECK: [[TOK17:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK: [[TOK171:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
 //CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:CMPLX"({ double, double }* [[X_ADDR]])
-//CHECK: call void @llvm.directive.region.exit(token [[TOK17]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK171]])
 //CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
-  #pragma omp taskloop in_reduction(*:x)
+  #pragma omp taskloop in_reduction(*:x) nogroup
   for(int i=0;i<20;++i)
     cmplx(x);
 }

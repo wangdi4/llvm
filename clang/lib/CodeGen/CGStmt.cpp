@@ -86,9 +86,13 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #endif // INTEL_CUSTOMIZATION
     // Handle reprocessing VLASizeMap expressions.
     CGVLASizeMapHandler VSMH(*this);
-    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S)) {
       if (requiresImplicitTask(*Dir))
         return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_task);
+      // Implicit taskgroup for taskloop directives
+      if (requiresImplicitTaskgroup(*Dir, /*TopLevel=*/true))
+        return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_taskgroup);
+    }
 
     // Combined target directives
     if (S->getStmtClass() == Stmt::OMPTargetParallelDirectiveClass ||

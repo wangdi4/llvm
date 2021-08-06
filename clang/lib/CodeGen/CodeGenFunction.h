@@ -4089,6 +4089,8 @@ public:
   }
   void clearMappedRefTemps() { MapRefTemps.clear(); }
   static bool requiresImplicitTask(const OMPExecutableDirective &S);
+  static bool requiresImplicitTaskgroup(const OMPExecutableDirective &S,
+                                        bool TopLevel = false);
   void EmitLateOutlineOMPUncollapsedLoop(const OMPLoopDirective &S,
                                          OpenMPDirectiveKind Kind,
                                          unsigned Depth);
