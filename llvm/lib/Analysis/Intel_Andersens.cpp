@@ -2072,9 +2072,17 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
                      getNode(AI.getValOperand()));
 }
 
+// Syntax:
+//   <result> = freeze ty <val>
+//
+// Treating FreezeInst conservatively. Since freeze is just a copy, we could
+// improve by treating as "<result> = <val>" if needed.
+void AndersensAAResult::visitFreezeInst(FreezeInst &FI) {
+  CreateConstraint(Constraint::Copy, getNodeValue(FI), UniversalSet);
+}
+
 // Only known UnaryOperators:
 //  FNeg: FPOrFPVectorTy
-//  Freeze: Any type
 //
 void AndersensAAResult::visitUnaryOperator(UnaryOperator &AI) {
   CreateConstraint(Constraint::Copy, getNodeValue(AI), UniversalSet);
