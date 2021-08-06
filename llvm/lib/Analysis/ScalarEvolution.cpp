@@ -6724,12 +6724,22 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   }
 
   if (const SCEVUnknown *U = dyn_cast<SCEVUnknown>(S)) {
-
     // Check if the IR explicitly contains !range metadata.
     Optional<ConstantRange> MDRange = GetRangeFromMetadata(U->getValue());
     if (MDRange.hasValue())
       ConservativeResult = ConservativeResult.intersectWith(MDRange.getValue(),
                                                             RangeType);
+
+#if INTEL_CUSTOMIZATION
+    if (auto *I = dyn_cast<Instruction>(U->getValue())) {
+      if (I->getType()->isIntOrIntVectorTy()) {
+        // asserts for non-int types
+        auto ComputedRange = computeConstantRange(I, true, &AC, I);
+        ConservativeResult =
+          ConservativeResult.intersectWith(ComputedRange, RangeType);
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Use facts about recurrences in the underlying IR.  Note that add
     // recurrences are AddRecExprs and thus don't hit this path.  This

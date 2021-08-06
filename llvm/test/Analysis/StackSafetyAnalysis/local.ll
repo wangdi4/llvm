@@ -205,7 +205,10 @@ define void @NonConstantOffset(i1 zeroext %z) {
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
 ; FIXME: SCEV can't look through selects.
-; CHECK-NEXT: x[4]: [0,4){{$}}
+; INTEL_CUSTOMIZATION
+; Fixed with SCEV improvement: select result must be 1 or 2.
+; CHECK-NEXT: x[4]: [1,3){{$}}
+; end INTEL_CUSTOMIZATION
 ; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4
@@ -246,7 +249,10 @@ define void @NonConstantOffsetOOB(i1 zeroext %z) {
 ; CHECK-LABEL: @NonConstantOffsetOOB dso_preemptable{{$}}
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
-; CHECK-NEXT: x[4]: [0,6){{$}}
+; INTEL_CUSTOMIZATION
+; Fixed with SCEV improvement: select result must be 1 or 4: [1,5)
+; CHECK-NEXT: x[4]: [1,5){{$}}
+; end INTEL_CUSTOMIZATION
 ; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4

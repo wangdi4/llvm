@@ -7403,12 +7403,42 @@ static void setLimitsForIntrinsic(const IntrinsicInst &II, APInt &Lower,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// select %cond, iXX C1, iXX C2
+// C1 and C2 must be non-negative, as we don't know the signed/unsigned
+// context.
+static void tryToMatchTwoConstIntSelect(const SelectInst &SI, APInt &Lower,
+                                        APInt &Upper) {
+  auto *C1 = dyn_cast<ConstantInt>(SI.getTrueValue());
+  auto *C2 = dyn_cast<ConstantInt>(SI.getFalseValue());
+  if (!C1 || !C2)
+    return;
+
+  auto Int1 = C1->getValue();
+  auto Int2 = C2->getValue();
+  // This checks the high bit of the value.
+  if (Int1.isNegative() || Int2.isNegative())
+    return;
+  if (Int1.ult(Int2)) {
+    Lower = Int1;
+    Upper = Int2 + 1;
+  } else {
+    Lower = Int2;
+    Upper = Int1 + 1;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void setLimitsForSelectPattern(const SelectInst &SI, APInt &Lower,
                                       APInt &Upper, const InstrInfoQuery &IIQ) {
   const Value *LHS = nullptr, *RHS = nullptr;
   SelectPatternResult R = matchSelectPattern(&SI, LHS, RHS);
-  if (R.Flavor == SPF_UNKNOWN)
+#if INTEL_CUSTOMIZATION
+  if (R.Flavor == SPF_UNKNOWN) {
+    tryToMatchTwoConstIntSelect(SI, Lower, Upper);
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   unsigned BitWidth = SI.getType()->getScalarSizeInBits();
 
