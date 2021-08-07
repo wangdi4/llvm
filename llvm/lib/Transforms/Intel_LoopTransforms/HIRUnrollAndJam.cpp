@@ -929,6 +929,91 @@ void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
   UnrollFactor = EqualizedUnrollFactor;
 }
 
+// Checks for specific pattern for \p LoadRef with \p LoadNum ranging from
+// [1-4]. Refer to the caller below for the actual pattern.
+static bool isMatchingLoad(const RegDDRef *LoadRef, unsigned LoadNum) {
+  assert(LoadRef->isMemRef() && "Memref expected!");
+  assert((LoadNum >= 1) && (LoadNum <= 4) && "Unexpected load number!");
+
+  if (LoadRef->getNumDimensions() != 1) {
+    return false;
+  }
+
+  auto *IndexCE = LoadRef->getDimensionIndex(1);
+
+  if ((IndexCE->getDenominator() != 1) ||
+      (IndexCE->getConstant() != (LoadNum - 1))) {
+    return false;
+  }
+
+  int64_t Coeff;
+  unsigned Index;
+
+  IndexCE->getIVCoeff(3, &Index, &Coeff);
+
+  if ((Index != InvalidBlobIndex) || (Coeff != 2)) {
+    return false;
+  }
+
+  if (LoadNum == 1 || LoadNum == 2) {
+    if ((IndexCE->numIVs() != 1) || (IndexCE->numBlobs() != 0)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  IndexCE->getIVCoeff(2, &Index, &Coeff);
+
+  if ((Index == InvalidBlobIndex) || (IndexCE->numIVs() != 2) ||
+      (IndexCE->numBlobs() != 1)) {
+    return false;
+  }
+
+  return true;
+}
+
+// We want to disable unroll and jam for this pattern-
+//
+// + DO i2 = 0, ((-1 + sext.i32.i64(%11)) /u sext.i32.i64((2 * %86))), 1
+// |   + DO i3 = 0, %86 + -2, 1   <DO_LOOP>
+// |   |   %133 = (%84)[2 * i3];
+// |   |   %134 = (%84)[2 * i3 + 1];
+// |   |   %146 = (%7)[sext.i32.i64((4 * %86)) * i2 + 2 * i3 + 2 *
+// zext.i32.i64(%86) + 2]; |   |   %150 = (%7)[sext.i32.i64((4 * %86)) * i2 + 2
+// * i3 + 2 * zext.i32.i64(%86) + 3];
+static bool isNonProfitablePattern(const HLLoop *Lp) {
+  if (Lp->getNestingLevel() != 2) {
+    return false;
+  }
+
+  const HLLoop *InnermostLp = nullptr;
+  if (!HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLp) ||
+      (InnermostLp->getNestingLevel() != 3)) {
+    return false;
+  }
+
+  auto *ChildNode = InnermostLp->getFirstChild();
+
+  for (unsigned I = 1; I <= 4; ++I, ChildNode = ChildNode->getNextNode()) {
+    auto *LInst = dyn_cast_or_null<HLInst>(ChildNode);
+
+    if (!LInst) {
+      return false;
+    }
+
+    if (!isa<LoadInst>(LInst->getLLVMInstruction())) {
+      return false;
+    }
+
+    if (!isMatchingLoad(LInst->getRvalDDRef(), I)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 
   if (Lp->isInnermost()) {
@@ -981,6 +1066,13 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
     if (!canLegallyUnrollAndJam(Lp)) {
       LLVM_DEBUG(
           dbgs() << "Skipping unroll & jam for loop as it is illegal!\n");
+      HUAJ.throttle(Lp);
+      return;
+    }
+
+    if (isNonProfitablePattern(Lp)) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping unroll & jam for non-profitable pattern!\n");
       HUAJ.throttle(Lp);
       return;
     }
