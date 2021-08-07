@@ -922,7 +922,10 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
-      if (!MPlan->getPreferredPeeling(VF))
+      auto *StaticPeelingVariant =
+          dyn_cast_or_null<VPlanStaticPeeling>(MPlan->getPreferredPeeling(VF));
+      if (!MPlan->getPreferredPeeling(VF) ||
+          (StaticPeelingVariant && !StaticPeelingVariant->peelCount()))
         MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
     }
   }
