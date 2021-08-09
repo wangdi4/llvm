@@ -12089,6 +12089,70 @@ static bool isValidForComputingDiff(const SCEV *Scev, bool IsSigned) {
   return true;
 }
 
+static bool isValidConstantInType(const SCEV *SC, Type *Ty, bool IsSigned) {
+
+  auto *ConstSC = dyn_cast<SCEVConstant>(SC);
+
+  if (!ConstSC)
+    return false;
+
+  unsigned TypeSize = Ty->getPrimitiveSizeInBits();
+
+  return IsSigned ? ConstSC->getAPInt().isSignedIntN(TypeSize)
+                  : ConstSC->getAPInt().isIntN(TypeSize);
+}
+
+// Strips extra casts from SCEVs to help constant difference analysis.
+//
+// For example, given-
+//
+// FoundLHS: zext(%t)
+// FoundRHS: 0
+// LHS: zext(1+%t)
+// RHS: 0
+//
+// We can safely strip zext() from all SCEVs for EQ/NE predicates. The predicate
+// type is checked by the caller.
+static void stripCastsForConstDiffAnalysis(ScalarEvolution &SE,
+                                           const SCEV *&LHS, const SCEV *&RHS,
+                                           const SCEV *&FoundLHS,
+                                           const SCEV *&FoundRHS) {
+
+  auto *ZExtLHS = dyn_cast<SCEVZeroExtendExpr>(LHS);
+  auto *ZExtFoundLHS = dyn_cast<SCEVZeroExtendExpr>(FoundLHS);
+
+  auto *SExtLHS = dyn_cast<SCEVSignExtendExpr>(LHS);
+  auto *SExtFoundLHS = dyn_cast<SCEVSignExtendExpr>(FoundLHS);
+  Type *OpTy = nullptr;
+
+  if (ZExtLHS && ZExtFoundLHS) {
+    OpTy = ZExtLHS->getOperand()->getType();
+
+    if (OpTy != ZExtFoundLHS->getOperand()->getType())
+      return;
+
+  } else if (SExtLHS && SExtFoundLHS) {
+    OpTy = SExtLHS->getOperand()->getType();
+
+    if (OpTy != SExtFoundLHS->getOperand()->getType())
+      return;
+
+  } else {
+    return;
+  }
+
+  if (!isValidConstantInType(RHS, OpTy, SExtLHS) ||
+      !isValidConstantInType(FoundRHS, OpTy, SExtLHS)) {
+    return;
+  }
+
+  LHS = ZExtLHS ? ZExtLHS->getOperand() : SExtLHS->getOperand();
+  FoundLHS = ZExtLHS ? ZExtFoundLHS->getOperand() : SExtFoundLHS->getOperand();
+
+  RHS = SE.getTruncateExpr(RHS, OpTy);
+  FoundRHS = SE.getTruncateExpr(FoundRHS, OpTy);
+}
+
 /// Tries to prove condition by comparing constant difference between
 /// (FoundLHS - LHS) and (FoundRHS - RHS).
 static Optional<bool> isImpliedCondOperandsViaConstantDifference(
@@ -12108,6 +12172,14 @@ static Optional<bool> isImpliedCondOperandsViaConstantDifference(
         !isValidForComputingDiff(FoundLHS, IsSigned) ||
         !isValidForComputingDiff(FoundRHS, IsSigned))
       return None;
+  } else {
+    // For NE/EQ, we can handle cases like the following by stripping out casts-
+    // FoundPred: zext(%t) == 0
+    // Pred:      zext(1+%t) == 0
+    //
+    // We can compute constant difference after stripping out zext and prove
+    // 'Pred' false.
+    stripCastsForConstDiffAnalysis(SE, LHS, RHS, FoundLHS, FoundRHS);
   }
 
   // If the difference results in signed overflow, we have to give up.
