@@ -175,7 +175,8 @@ VPlanAddRecHIR *VPlanScalarEvolutionHIR::getMinusExprImpl(VPlanAddRecHIR *LHS,
     return nullptr;
 
   CanonExpr *Diff = CanonExprUtils::cloneAndSubtract(LHS->Base, RHS->Base);
-  assert(Diff && "CanonExprs are not mergeable");
+  if (!Diff)
+    return nullptr;
 
   return makeVPlanAddRecHIR(Diff, LHS->Stride - RHS->Stride);
 }
