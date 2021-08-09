@@ -402,12 +402,7 @@
 // RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
-// RUN: %clang -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
-// RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"{{.*}} "-mllvm" "-paropt=11"
-
-// RUN: %clang -### --intel -fno-iopenmp-simd -c %s 2>&1 | FileCheck -check-prefix CHECK-FNO-IOPENMP-SIMD %s
-// CHECK-FNO-IOPENMP-SIMD-NOT: "-fopenmp-simd" "-fopenmp-late-outline"{{.*}} "-mllvm" "-paropt=11"
 
 // Behavior with fkeep-static-consts/Qkeep-static-consts option
 // RUN: %clang -### -c -fkeep-static-consts %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-CONSTS %s
