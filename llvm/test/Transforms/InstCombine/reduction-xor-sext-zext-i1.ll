@@ -17,10 +17,10 @@ define i32 @reduce_xor_sext(<4 x i1> %x) {
 ; CHECK-LABEL: @reduce_xor_sext(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i1> [[X:%.*]] to i4
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i4 @llvm.ctpop.i4(i4 [[TMP1]]), !range [[RNG1:![0-9]+]]
-; CHECK-NEXT:    [[TMP3:%.*]] = shl i4 [[TMP2]], 3        ;INTEL
-; CHECK-NEXT:    [[SEXT:%.*]] = ashr exact i4 [[TMP3]], 3 ;INTEL
-; CHECK-NEXT:    [[TMP4:%.*]] = sext i4 [[SEXT]] to i32   ;INTEL
-; CHECK-NEXT:    ret i32 [[TMP4]]                         ;INTEL
+; CHECK-NEXT:    [[TMP3:%.*]] = and i4 [[TMP2]], 1
+; CHECK-NEXT:    [[SEXT:%.*]] = sub nsw i4 0, [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = sext i4 [[SEXT]] to i32
+; CHECK-NEXT:    ret i32 [[TMP4]]
 ;
   %sext = sext <4 x i1> %x to <4 x i32>
   %res = call i32 @llvm.vector.reduce.xor.v4i32(<4 x i32> %sext)
@@ -44,9 +44,9 @@ define i16 @reduce_xor_sext_same(<16 x i1> %x) {
 ; CHECK-LABEL: @reduce_xor_sext_same(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <16 x i1> [[X:%.*]] to i16
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i16 @llvm.ctpop.i16(i16 [[TMP1]]), !range [[RNG2:![0-9]+]]
-; CHECK-NEXT:    [[TMP3:%.*]] = shl i16 [[TMP2]], 15        ;INTEL
-; CHECK-NEXT:    [[SEXT:%.*]] = ashr exact i16 [[TMP3]], 15 ;INTEL
-; CHECK-NEXT:    ret i16 [[SEXT]]                           ;INTEL
+; CHECK-NEXT:    [[TMP3:%.*]] = and i16 [[TMP2]], 1
+; CHECK-NEXT:    [[SEXT:%.*]] = sub nsw i16 0, [[TMP3]]
+; CHECK-NEXT:    ret i16 [[SEXT]]
 ;
   %sext = sext <16 x i1> %x to <16 x i16>
   %res = call i16 @llvm.vector.reduce.xor.v16i16(<16 x i16> %sext)
@@ -57,10 +57,10 @@ define i8 @reduce_xor_zext_long(<128 x i1> %x) {
 ; CHECK-LABEL: @reduce_xor_zext_long(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <128 x i1> [[X:%.*]] to i128
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i128 @llvm.ctpop.i128(i128 [[TMP1]]), !range [[RNG3:![0-9]+]]
-; CHECK-NEXT:    [[TMP3:%.*]] = shl i128 [[TMP2]], 127        ;INTEL
-; CHECK-NEXT:    [[SEXT:%.*]] = ashr exact i128 [[TMP3]], 127 ;INTEL
-; CHECK-NEXT:    [[TMP4:%.*]] = trunc i128 [[SEXT]] to i8     ;INTEL
-; CHECK-NEXT:    ret i8 [[TMP4]]                              ;INTEL
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i128 [[TMP2]] to i8
+; CHECK-NEXT:    [[TMP4:%.*]] = and i8 [[TMP3]], 1
+; CHECK-NEXT:    [[TMP5:%.*]] = sub nsw i8 0, [[TMP4]]
+; CHECK-NEXT:    ret i8 [[TMP5]]
 ;
   %sext = sext <128 x i1> %x to <128 x i8>
   %res = call i8 @llvm.vector.reduce.xor.v128i8(<128 x i8> %sext)
@@ -72,9 +72,9 @@ define i8 @reduce_xor_zext_long_external_use(<128 x i1> %x) {
 ; CHECK-LABEL: @reduce_xor_zext_long_external_use(
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <128 x i1> [[X:%.*]] to i128
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i128 @llvm.ctpop.i128(i128 [[TMP1]]), !range [[RNG3]]
-; CHECK-NEXT:    [[TMP3:%.*]] = shl i128 [[TMP2]], 127                 ;INTEL
-; CHECK-NEXT:    [[SEXT1:%.*]] = ashr exact i128 [[TMP3]], 127         ;INTEL
-; CHECK-NEXT:    [[TMP5:%.*]] = trunc i128 [[SEXT1]] to i8             ;INTEL
+; CHECK-NEXT:    [[TMP3:%.*]] = trunc i128 [[TMP2]] to i8
+; CHECK-NEXT:    [[TMP4:%.*]] = and i8 [[TMP3]], 1
+; CHECK-NEXT:    [[TMP5:%.*]] = sub nsw i8 0, [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <128 x i1> [[X]], i32 0
 ; CHECK-NEXT:    [[EXT:%.*]] = sext i1 [[TMP6]] to i8
 ; CHECK-NEXT:    store i8 [[EXT]], i8* @glob, align 1
