@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -passes='cgscc(inline)' -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -passes='cgscc(inline)' -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 ; RUN: opt -inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -inline -inline-report=0x186 -S | opt -inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-OLD %s
 ; RUN: opt -passes=inlinereportsetup -inline-report=0x186 < %s -S 2>&1 | opt -passes='cgscc(inline)' -inline-report=0x186 -S | opt -passes=inlinereportemitter -inline-report=0x186 -S 2>&1 | FileCheck --check-prefix=CHECK-MD-NEW %s
 

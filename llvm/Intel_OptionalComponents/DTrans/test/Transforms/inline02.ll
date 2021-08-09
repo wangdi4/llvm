@@ -2,8 +2,8 @@
 ; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -dtrans-inline-heuristics -inline < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
 ; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics < %s -S 2>&1 | FileCheck --check-prefix=CHECK-IR %s
-; RUN: opt -dtrans-inline-heuristics -inline -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
-; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
+; RUN: opt -dtrans-inline-heuristics -inline -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
+; RUN: opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=0xe847 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-RPT %s
 
 ; ------------------------------------------------------------------------------------------------------------------
 ; Function Description                                                  | Inline Heuristic                         |

@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=7 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -dtrans-inline-heuristics -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=0x86 -S | opt -passes='inlinereportemitter' -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt < %s -dtrans-inline-heuristics -inline -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt < %s -dtrans-inline-heuristics -passes='cgscc(inline)' -inline-report=0xe807 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-CL
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -dtrans-inline-heuristics -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)' -dtrans-inline-heuristics -inline-report=0xe886 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MD
 
 ; Check that foo is inlined when -dtrans-inline-heuristics is set, despite
 ; the existence of dynamic alloca %mes

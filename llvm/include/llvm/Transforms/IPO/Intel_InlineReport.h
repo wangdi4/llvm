@@ -178,7 +178,7 @@ private:
   bool SuppressPrint; // suppress inline-report print info
 
   void printCostAndThreshold(unsigned Level);
-  void printOuterCostAndThreshold(void);
+  void printOuterCostAndThreshold(unsigned Level);
   void printCalleeNameModuleLineCol(unsigned Level);
 
   /// Search 'OldIRCSV' for 'this' and if it is found, move it to 'NewIRCSV'.

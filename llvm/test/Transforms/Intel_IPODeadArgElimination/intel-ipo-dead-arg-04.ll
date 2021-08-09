@@ -1,10 +1,10 @@
 ; Inline report
-; RUN: opt  -inline -intel-ipo-dead-arg-elimination -inline-report=7 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
-; RUN: opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=7 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
+; RUN: opt  -inline -intel-ipo-dead-arg-elimination -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
+; RUN: opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe807 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2  < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR
 
 ; Inline report with metadata
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inline -intel-ipo-dead-arg-elimination -inline-report=134 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt  -inlinereportemitter -inline-report=134 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
-; RUN: opt -passes='inlinereportsetup' -inline-report=134 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=134 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=134 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inline -intel-ipo-dead-arg-elimination -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt  -inlinereportemitter -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
+; RUN: opt -passes='inlinereportsetup' -inline-report=0xe886 < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='cgscc(inline)',intel-ipo-dead-arg-elimination -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -passes='inlinereportemitter' -inline-report=0xe886 -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s -check-prefix=CHECK-IR-MD
 
 ; This test case checks that the inlining report is preserved after simplified
 ; dead arguments elimination. Function @foo wasn't inlined intentionally to
