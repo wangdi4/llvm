@@ -2373,8 +2373,18 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
         }
       }
 
+#if INTEL_CUSTOMIZATION
+      // Guard the gep(gep) fold so we don't create an add inside a loop
+      // when there wasn't an equivalent instruction there before.
+      bool DifferentLoops = false;
+      if (LI)
+        if (auto *GEPLoop = LI->getLoopFor(GEP.getParent()))
+          if (auto *SrcOpI = dyn_cast<Instruction>(Src))
+            if (LI->getLoopFor(SrcOpI->getParent()) != GEPLoop)
+              DifferentLoops = true;
       // Fold (gep(gep(Ptr,Idx0),Idx1) -> gep(Ptr,add(Idx0,Idx1))
-      if (GO1->getType() == SO1->getType()) {
+      if (!DifferentLoops && GO1->getType() == SO1->getType()) {
+#endif // INTEL_CUSTOMIZATION
         bool NewInBounds = GEP.isInBounds() && Src->isInBounds();
         auto *NewIdx =
             Builder.CreateAdd(GO1, SO1, GEP.getName() + ".idx",
