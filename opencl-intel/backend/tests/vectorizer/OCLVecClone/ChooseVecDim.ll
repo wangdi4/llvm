@@ -1,5 +1,5 @@
-; RUN: %oclopt --ocl-vector-variant-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vector-variant-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -o %t
+; RUN: %oclopt --dpcpp-vector-variant-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --dpcpp-vector-variant-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -o %t
 ; The order of generated functions may vary, so we run FileCheck multiple times.
 ; RUN: FileCheck -check-prefix CHECK0 %s -input-file=%t
 ; RUN: FileCheck -check-prefix CHECK1 %s -input-file=%t
