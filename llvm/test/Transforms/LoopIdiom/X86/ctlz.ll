@@ -630,32 +630,39 @@ while.end:                                        ; preds = %while.cond.while.en
   ret i32 %cnt.0.lcssa
 }
 
-; We can't easily transform this loop. It returns 1 for an input of both
-; 0 and 1.
+; INTEL_CUSTOMIZATION
+; We can transform this loop, but it requires using a trip count of
+; (bitwidth - ctlz(n>>1)) + 1 rather than bitwidth - ctlz(n).
 ;
-; int ctlz_bad(unsigned n)
+; int ctlz_ugly(unsigned n)
 ; {
 ;   int i = 0;
 ;   do {
 ;     i++;
 ;     n >>= 1;
-;   } while(n != 0) {
+;   } while(n != 0)
 ;   return i;
 ; }
 ;
-define i32 @ctlz_bad(i32 %n) {
-; ALL-LABEL: @ctlz_bad(
+define i32 @ctlz_ugly(i32 %n) {
+; ALL-LABEL: @ctlz_ugly(
 ; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
 ; ALL-NEXT:    br label [[WHILE_COND:%.*]]
 ; ALL:       while.cond:
-; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N:%.*]], [[ENTRY:%.*]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
 ; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
 ; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
-; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[SHR]], 0
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
 ; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
 ; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
 ; ALL:       while.end:
-; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[INC]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP3]], [[WHILE_COND]] ]
 ; ALL-NEXT:    ret i32 [[INC_LCSSA]]
 ;
 entry:
@@ -672,6 +679,7 @@ while.cond:                                       ; preds = %while.cond, %entry
 while.end:                                        ; preds = %while.cond
   ret i32 %inc
 }
+; end INTEL_CUSTOMIZATION
 
 ; Recognize CTLZ builtin pattern.
 ; Here it will replace the loop -
@@ -1126,5 +1134,664 @@ while.cond:                                       ; preds = %while.cond, %entry
 
 while.end:                                        ; preds = %while.cond
   ret i32 %i.0
+}
+
+; Check that CTLZ is generated with an ==0 check preceding the shift.
+;
+; int ctlz_preshift_0(int n)
+; {
+;   int i = 0;
+;   while(n) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_0(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_0(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = call i32 @llvm.ctlz.i32(i32 [[N:%.*]], i1 false)
+; ALL-NEXT:    [[TMP1:%.*]] = sub i32 32, [[TMP0]]
+; ALL-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP2]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP1]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp eq i32 %n.addr.0, 0
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Check that CTLZ is generated with a <2 check following the shift for an
+; arithmetic shift.
+;
+; int ctlz_postshift_2(int n)
+; {
+;   n = n >= 0 ? n : -n;
+;   int i = 0;
+;   while(!((n >>= 1) < 2)) {
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_postshift_2(i32 %n) {
+; ALL-LABEL: @ctlz_postshift_2(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[C:%.*]] = icmp sgt i32 [[N:%.*]], 0
+; ALL-NEXT:    [[NEGN:%.*]] = sub nsw i32 0, [[N]]
+; ALL-NEXT:    [[ABS_N:%.*]] = select i1 [[C]], i32 [[N]], i32 [[NEGN]]
+; ALL-NEXT:    [[TMP0:%.*]] = ashr i32 [[ABS_N]], 2
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[ABS_N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = ashr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  %c = icmp sgt i32 %n, 0
+  %negn = sub nsw i32 0, %n
+  %abs_n = select i1 %c, i32 %n, i32 %negn
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %abs_n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %shr = ashr i32 %n.addr.0, 1
+  %tobool = icmp ult i32 %shr, 2
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Check that CTLZ is generated with a <2 check following the shift for a logical
+; shift.
+;
+; int ctlz_lshr_postshift_2(int n)
+; {
+;   int i = 0;
+;   while(!((n >>= 1) < 2)) {
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_lshr_postshift_2(i32 %n) {
+; ALL-LABEL: @ctlz_lshr_postshift_2(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 2
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %shr = lshr i32 %n.addr.0, 1
+  %tobool = icmp ult i32 %shr, 2
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Check that CTLZ is generated for a <4 check preceding the shift.
+;
+; int ctlz_preshift_4(int n)
+; {
+;   int i = 0;
+;   while(!(n < 4)) {
+;     n >>= 1;
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_preshift_4(i32 %n) {
+; ALL-LABEL: @ctlz_preshift_4(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 2
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %tobool = icmp ult i32 %n.addr.0, 4
+  %shr = lshr i32 %n.addr.0, 1
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Check that CTLZ is generated for a <4 check following the shift.
+;
+; int ctlz_postshift_4(int n)
+; {
+;   int i = 0;
+;   while(!((n >>= 1) < 4)) {
+;     i++;
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_postshift_4(i32 %n) {
+; ALL-LABEL: @ctlz_postshift_4(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 3
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    ret i32 [[I_0_LCSSA]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %shr = lshr i32 %n.addr.0, 1
+  %tobool = icmp ult i32 %shr, 4
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  ret i32 %i.0
+}
+
+; Check that CTLZ is generated even in cases where both the pre- and
+; post-increment count values from the loop are used.
+;
+; int ctlz_bothcntused(int n)
+; {
+;   int i = 0, pre_i = 0;
+;   do {
+;     pre_i = i++;
+;   } while(n >>= 1);
+;   return pre_i * i;
+; }
+;
+define i32 @ctlz_bothcntused(i32 %n) {
+; ALL-LABEL: @ctlz_bothcntused(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 0, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP3]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[MUL:%.*]] = mul i32 [[I_0_LCSSA]], [[INC_LCSSA]]
+; ALL-NEXT:    ret i32 [[MUL]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %while.cond ]
+  %shr = lshr i32 %n.addr.0, 1
+  %tobool = icmp eq i32 %shr, 0
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %mul = mul i32 %i.0, %inc
+  ret i32 %mul
+}
+
+; Check that CTLZ is generated with the correct adds when both the pre- and
+; post-increment values from the loop are used.
+;
+; int ctlz_add_bothcntused(int n, int i0)
+; {
+;   int i = i0, pre_i = i0;
+;   do {
+;     pre_i = i++;
+;   } while(n >>= 1);
+;   return pre_i * i;
+; }
+;
+define i32 @ctlz_add_bothcntused(i32 %n, i32 %i0) {
+; ALL-LABEL: @ctlz_add_bothcntused(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    [[TMP4:%.*]] = add i32 [[TMP2]], [[I0:%.*]]
+; ALL-NEXT:    [[TMP5:%.*]] = add i32 [[TMP3]], [[I0]]
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ [[I0]], [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], 1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP4]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP5]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[MUL:%.*]] = mul i32 [[I_0_LCSSA]], [[INC_LCSSA]]
+; ALL-NEXT:    ret i32 [[MUL]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ %i0, %entry ], [ %inc, %while.cond ]
+  %shr = lshr i32 %n.addr.0, 1
+  %tobool = icmp eq i32 %shr, 0
+  %inc = add nsw i32 %i.0, 1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %mul = mul i32 %i.0, %inc
+  ret i32 %mul
+}
+
+; Check that CTLZ is generated with the correct subs when both the pre- and
+; post-decrement values from a loop are used.
+;
+; int ctlz_decrement_bothcntused(int n)
+; {
+;   int i = 31, pre_i = 31;
+;   while(n >>= 1) {
+;     pre_i = i--;
+;   }
+;   return pre_i * i;
+; }
+;
+define i32 @ctlz_decrement_bothcntused(i32 %n) {
+; ALL-LABEL: @ctlz_decrement_bothcntused(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N:%.*]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    [[TMP4:%.*]] = sub i32 31, [[TMP2]]
+; ALL-NEXT:    [[TMP5:%.*]] = sub i32 31, [[TMP3]]
+; ALL-NEXT:    br label [[WHILE_COND:%.*]]
+; ALL:       while.cond:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[ENTRY:%.*]] ], [ [[TCDEC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[N_ADDR_0:%.*]] = phi i32 [ [[N]], [[ENTRY]] ], [ [[SHR:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[I_0:%.*]] = phi i32 [ 31, [[ENTRY]] ], [ [[INC:%.*]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_0]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_0]], -1
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END:%.*]], label [[WHILE_COND]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_LCSSA:%.*]] = phi i32 [ [[TMP4]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP5]], [[WHILE_COND]] ]
+; ALL-NEXT:    [[MUL:%.*]] = mul i32 [[I_0_LCSSA]], [[INC_LCSSA]]
+; ALL-NEXT:    ret i32 [[MUL]]
+;
+entry:
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.cond, %entry
+  %n.addr.0 = phi i32 [ %n, %entry ], [ %shr, %while.cond ]
+  %i.0 = phi i32 [ 31, %entry ], [ %inc, %while.cond ]
+  %shr = lshr i32 %n.addr.0, 1
+  %tobool = icmp eq i32 %shr, 0
+  %inc = add nsw i32 %i.0, -1
+  br i1 %tobool, label %while.end, label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %mul = mul i32 %i.0, %inc
+  ret i32 %mul
+}
+
+; Check that CTLZ is generated with the non-zero input flag set to true and with
+; the add optimized out with matching <2 checks in the loop and guard.
+;
+; int ctlz_zero_check_2(int n)
+; {
+;   int i = 0;
+;   if (!(n < 2)) {
+;     do {
+;       n >>= 1;
+;       i++;
+;     } while (!(n < 2));
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_zero_check_2(i32 %n) {
+; ALL-LABEL: @ctlz_zero_check_2(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TOBOOL4:%.*]] = icmp ult i32 [[N:%.*]], 2
+; ALL-NEXT:    br i1 [[TOBOOL4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
+; ALL:       while.body.preheader:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 true)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    br label [[WHILE_BODY:%.*]]
+; ALL:       while.body:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP2]], [[WHILE_BODY_PREHEADER]] ], [ [[TCDEC:%.*]], [[WHILE_BODY]] ]
+; ALL-NEXT:    [[I_06:%.*]] = phi i32 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[N_ADDR_05:%.*]] = phi i32 [ [[SHR:%.*]], [[WHILE_BODY]] ], [ [[N]], [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_05]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_06]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END_LOOPEXIT:%.*]], label [[WHILE_BODY]]
+; ALL:       while.end.loopexit:
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_BODY]] ]
+; ALL-NEXT:    br label [[WHILE_END]]
+; ALL:       while.end:
+; ALL-NEXT:    [[INC_FINAL:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC_LCSSA]], [[WHILE_END_LOOPEXIT]] ]
+; ALL-NEXT:    ret i32 [[INC_FINAL]]
+;
+entry:
+  %tobool4 = icmp ult i32 %n, 2
+  br i1 %tobool4, label %while.end, label %while.body.preheader
+
+while.body.preheader:                             ; preds = %entry
+  br label %while.body
+
+while.body:                                       ; preds = %while.body.preheader, %while.body
+  %i.06 = phi i32 [ %inc, %while.body ], [ 0, %while.body.preheader ]
+  %n.addr.05 = phi i32 [ %shr, %while.body ], [ %n, %while.body.preheader ]
+  %shr = lshr i32 %n.addr.05, 1
+  %inc = add nsw i32 %i.06, 1
+  %tobool = icmp ult i32 %shr, 2
+  br i1 %tobool, label %while.end.loopexit, label %while.body
+
+while.end.loopexit:                               ; preds = %while.body
+  br label %while.end
+
+while.end:                                        ; preds = %while.end.loopexit, %entry
+  %inc.final = phi i32 [ 0, %entry ], [ %inc, %while.end.loopexit ]
+  ret i32 %inc.final
+}
+
+; Check that CTLZ is generated with the non-zero input flag set to true and with
+; the add optimized out with a ==0 check in the loop and <2 in the guard.
+;
+; int ctlz_zero_check_2_0(int n)
+; {
+;   int i = 0;
+;   if (!(n < 2)) {
+;     do {
+;       n >>= 1;
+;       i++;
+;     } while (n);
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_zero_check_2_0(i32 %n) {
+; ALL-LABEL: @ctlz_zero_check_2_0(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TOBOOL4:%.*]] = icmp ult i32 [[N:%.*]], 2
+; ALL-NEXT:    br i1 [[TOBOOL4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
+; ALL:       while.body.preheader:
+; ALL-NEXT:    [[TMP0:%.*]] = call i32 @llvm.ctlz.i32(i32 [[N]], i1 true)
+; ALL-NEXT:    [[TMP1:%.*]] = sub i32 32, [[TMP0]]
+; ALL-NEXT:    br label [[WHILE_BODY:%.*]]
+; ALL:       while.body:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP1]], [[WHILE_BODY_PREHEADER]] ], [ [[TCDEC:%.*]], [[WHILE_BODY]] ]
+; ALL-NEXT:    [[I_06:%.*]] = phi i32 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[N_ADDR_05:%.*]] = phi i32 [ [[SHR:%.*]], [[WHILE_BODY]] ], [ [[N]], [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_05]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_06]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END_LOOPEXIT:%.*]], label [[WHILE_BODY]]
+; ALL:       while.end.loopexit:
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP1]], [[WHILE_BODY]] ]
+; ALL-NEXT:    br label [[WHILE_END]]
+; ALL:       while.end:
+; ALL-NEXT:    [[INC_FINAL:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC_LCSSA]], [[WHILE_END_LOOPEXIT]] ]
+; ALL-NEXT:    ret i32 [[INC_FINAL]]
+;
+entry:
+  %tobool4 = icmp ult i32 %n, 2
+  br i1 %tobool4, label %while.end, label %while.body.preheader
+
+while.body.preheader:                             ; preds = %entry
+  br label %while.body
+
+while.body:                                       ; preds = %while.body.preheader, %while.body
+  %i.06 = phi i32 [ %inc, %while.body ], [ 0, %while.body.preheader ]
+  %n.addr.05 = phi i32 [ %shr, %while.body ], [ %n, %while.body.preheader ]
+  %shr = lshr i32 %n.addr.05, 1
+  %inc = add nsw i32 %i.06, 1
+  %tobool = icmp eq i32 %shr, 0
+  br i1 %tobool, label %while.end.loopexit, label %while.body
+
+while.end.loopexit:                               ; preds = %while.body
+  br label %while.end
+
+while.end:                                        ; preds = %while.end.loopexit, %entry
+  %inc.final = phi i32 [ 0, %entry ], [ %inc, %while.end.loopexit ]
+  ret i32 %inc.final
+}
+
+; Check that CTLZ is generated without the non-zero input flag set and without
+; the add optimized out when the loop has a <2 check and the guard is just ==0.
+;
+; int ctlz_zero_check_0_2(int n)
+; {
+;   int i = 0;
+;   if (n) {
+;     do {
+;       n >>= 1;
+;       i++;
+;     } while (!(n < 2));
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_zero_check_0_2(i32 %n) {
+; ALL-LABEL: @ctlz_zero_check_0_2(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TOBOOL4:%.*]] = icmp eq i32 [[N:%.*]], 0
+; ALL-NEXT:    br i1 [[TOBOOL4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
+; ALL:       while.body.preheader:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N]], 2
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 false)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_BODY:%.*]]
+; ALL:       while.body:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[WHILE_BODY_PREHEADER]] ], [ [[TCDEC:%.*]], [[WHILE_BODY]] ]
+; ALL-NEXT:    [[I_06:%.*]] = phi i32 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[N_ADDR_05:%.*]] = phi i32 [ [[SHR:%.*]], [[WHILE_BODY]] ], [ [[N]], [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_05]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_06]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END_LOOPEXIT:%.*]], label [[WHILE_BODY]]
+; ALL:       while.end.loopexit:
+; ALL-NEXT:    [[INC_LCSSA:%.*]] = phi i32 [ [[TMP3]], [[WHILE_BODY]] ]
+; ALL-NEXT:    br label [[WHILE_END]]
+; ALL:       while.end:
+; ALL-NEXT:    [[INC_FINAL:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INC_LCSSA]], [[WHILE_END_LOOPEXIT]] ]
+; ALL-NEXT:    ret i32 [[INC_FINAL]]
+;
+entry:
+  %tobool4 = icmp eq i32 %n, 0
+  br i1 %tobool4, label %while.end, label %while.body.preheader
+
+while.body.preheader:                             ; preds = %entry
+  br label %while.body
+
+while.body:                                       ; preds = %while.body.preheader, %while.body
+  %i.06 = phi i32 [ %inc, %while.body ], [ 0, %while.body.preheader ]
+  %n.addr.05 = phi i32 [ %shr, %while.body ], [ %n, %while.body.preheader ]
+  %shr = lshr i32 %n.addr.05, 1
+  %inc = add nsw i32 %i.06, 1
+  %tobool = icmp ult i32 %shr, 2
+  br i1 %tobool, label %while.end.loopexit, label %while.body
+
+while.end.loopexit:                               ; preds = %while.body
+  br label %while.end
+
+while.end:                                        ; preds = %while.end.loopexit, %entry
+  %inc.final = phi i32 [ 0, %entry ], [ %inc, %while.end.loopexit ]
+  ret i32 %inc.final
+}
+
+; Check that CTLZ is generated with the non-zero input flag set to true even
+; without the add optimized out with a ==0 check in the loop and <2 in the
+; guard.
+;
+; int ctlz_zero_check_2_0_i_0(int n)
+; {
+;   int i = 0;
+;   if (!(n < 2)) {
+;     while (n >>= 1) {
+;       i++;
+;     }
+;   }
+;   return i;
+; }
+;
+define i32 @ctlz_zero_check_2_0_i_0(i32 %n) {
+; ALL-LABEL: @ctlz_zero_check_2_0_i_0(
+; ALL-NEXT:  entry:
+; ALL-NEXT:    [[TOBOOL4:%.*]] = icmp ult i32 [[N:%.*]], 2
+; ALL-NEXT:    br i1 [[TOBOOL4]], label [[WHILE_END:%.*]], label [[WHILE_BODY_PREHEADER:%.*]]
+; ALL:       while.body.preheader:
+; ALL-NEXT:    [[TMP0:%.*]] = lshr i32 [[N]], 1
+; ALL-NEXT:    [[TMP1:%.*]] = call i32 @llvm.ctlz.i32(i32 [[TMP0]], i1 true)
+; ALL-NEXT:    [[TMP2:%.*]] = sub i32 32, [[TMP1]]
+; ALL-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
+; ALL-NEXT:    br label [[WHILE_BODY:%.*]]
+; ALL:       while.body:
+; ALL-NEXT:    [[TCPHI:%.*]] = phi i32 [ [[TMP3]], [[WHILE_BODY_PREHEADER]] ], [ [[TCDEC:%.*]], [[WHILE_BODY]] ]
+; ALL-NEXT:    [[I_06:%.*]] = phi i32 [ [[INC:%.*]], [[WHILE_BODY]] ], [ 0, [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[N_ADDR_05:%.*]] = phi i32 [ [[SHR:%.*]], [[WHILE_BODY]] ], [ [[N]], [[WHILE_BODY_PREHEADER]] ]
+; ALL-NEXT:    [[SHR]] = lshr i32 [[N_ADDR_05]], 1
+; ALL-NEXT:    [[INC]] = add nsw i32 [[I_06]], 1
+; ALL-NEXT:    [[TCDEC]] = sub nsw i32 [[TCPHI]], 1
+; ALL-NEXT:    [[TOBOOL:%.*]] = icmp eq i32 [[TCDEC]], 0
+; ALL-NEXT:    br i1 [[TOBOOL]], label [[WHILE_END_LOOPEXIT:%.*]], label [[WHILE_BODY]]
+; ALL:       while.end.loopexit:
+; ALL-NEXT:    [[I_06_LCSSA:%.*]] = phi i32 [ [[TMP2]], [[WHILE_BODY]] ]
+; ALL-NEXT:    br label [[WHILE_END]]
+; ALL:       while.end:
+; ALL-NEXT:    [[I_0_FINAL:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[I_06_LCSSA]], [[WHILE_END_LOOPEXIT]] ]
+; ALL-NEXT:    ret i32 [[I_0_FINAL]]
+;
+entry:
+  %tobool4 = icmp ult i32 %n, 2
+  br i1 %tobool4, label %while.end, label %while.body.preheader
+
+while.body.preheader:                             ; preds = %entry
+  br label %while.body
+
+while.body:                                       ; preds = %while.body.preheader, %while.body
+  %i.06 = phi i32 [ %inc, %while.body ], [ 0, %while.body.preheader ]
+  %n.addr.05 = phi i32 [ %shr, %while.body ], [ %n, %while.body.preheader ]
+  %shr = lshr i32 %n.addr.05, 1
+  %inc = add nsw i32 %i.06, 1
+  %tobool = icmp eq i32 %shr, 0
+  br i1 %tobool, label %while.end.loopexit, label %while.body
+
+while.end.loopexit:                               ; preds = %while.body
+  br label %while.end
+
+while.end:                                        ; preds = %while.end.loopexit, %entry
+  %i_0.final = phi i32 [ 0, %entry ], [ %i.06, %while.end.loopexit ]
+  ret i32 %i_0.final
 }
 ; end INTEL_CUSTOMIZATION
