@@ -343,15 +343,15 @@ private:
     return Storage;
   }
 
-  void setType(detail::CommandGroup::CGType Type) {
+  void setType(detail::CommandGroup::CGTYPE Type) {
     constexpr detail::CommandGroup::CG_VERSION Version =
         detail::CommandGroup::CG_VERSION::V1;
-    MCGType = static_cast<detail::CommandGroup::CGType>(
+    MCGType = static_cast<detail::CommandGroup::CGTYPE>(
         getVersionedCGType(Type, static_cast<int>(Version)));
   }
 
-  detail::CommandGroup::CGType getType() {
-    return static_cast<detail::CommandGroup::CGType>(
+  detail::CommandGroup::CGTYPE getType() {
+    return static_cast<detail::CommandGroup::CGTYPE>(
         getUnversionedCGType(MCGType));
   }
 
@@ -2384,7 +2384,7 @@ private:
   /// Type of the command group, e.g. kernel, fill. Can also encode version.
   /// Use getType and setType methods to access this variable unless
   /// manipulations with version are required
-  detail::CommandGroup::CGType MCGType = detail::CommandGroup::None;
+  detail::CommandGroup::CGTYPE MCGType = detail::CommandGroup::None;
   /// Pointer to the source host memory or accessor(depending on command type).
   void *MSrcPtr = nullptr;
   /// Pointer to the dest host memory or accessor(depends on command type).

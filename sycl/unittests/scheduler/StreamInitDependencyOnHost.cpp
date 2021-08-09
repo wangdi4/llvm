@@ -18,7 +18,7 @@ public:
   MockHandler(shared_ptr_class<detail::queue_impl> Queue, bool IsHost)
       : sycl::handler(Queue, IsHost) {}
 
-  void setType(detail::CommandGroup::CGType Type) {
+  void setType(detail::CommandGroup::CGTYPE Type) {
     static_cast<sycl::handler *>(this)->MCGType = Type;
   }
 

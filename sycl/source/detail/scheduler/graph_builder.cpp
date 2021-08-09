@@ -849,7 +849,7 @@ Scheduler::GraphBuilder::addEmptyCmd(Command *Cmd, const std::vector<T *> &Reqs,
 }
 
 static bool isInteropHostTask(const std::unique_ptr<ExecCGCommand> &Cmd) {
-  if (Cmd->getCG().getType() != CommandGroup::CGType::CodeplayHostTask)
+  if (Cmd->getCG().getType() != CommandGroup::CGTYPE::CodeplayHostTask)
     return false;
 
   const detail::CGHostTask &HT =
@@ -883,7 +883,7 @@ Command *Scheduler::GraphBuilder::addCG(
     std::vector<Command *> &ToEnqueue) {
   std::vector<Requirement *> &Reqs = CommandGroup->MRequirements;
   const std::vector<detail::EventImplPtr> &Events = CommandGroup->MEvents;
-  const CommandGroup::CGType CGType = CommandGroup->getType();
+  const CommandGroup::CGTYPE CGType = CommandGroup->getType();
 
   std::unique_ptr<ExecCGCommand> NewCmd(
       new ExecCGCommand(std::move(CommandGroup), Queue));
@@ -977,7 +977,7 @@ Command *Scheduler::GraphBuilder::addCG(
       ToEnqueue.push_back(ConnCmd);
   }
 
-  if (CGType == CommandGroup::CGType::CodeplayHostTask)
+  if (CGType == CommandGroup::CGTYPE::CodeplayHostTask)
     NewCmd->MEmptyCmd =
         addEmptyCmd(NewCmd.get(), NewCmd->getCG().MRequirements, Queue,
                     Command::BlockReason::HostTask, ToEnqueue);
