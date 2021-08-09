@@ -19,6 +19,7 @@ extern cl_device_type gDeviceType;
 * (5) build program
 
 The input bitcode must have "spir64_x86_64" triple.
+This test is not supported on 32bit systems (CL_INVALID_BINARY).
 **************************************************************************************************/
 
 bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
@@ -106,6 +107,10 @@ bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
   program = clCreateProgramWithBinary(
       context, 1, &device, &uiContSize,
       const_cast<const unsigned char **>(&pCont), &binaryStatus, &iRet);
+#if defined(_WIN32) && !defined(_WIN64)
+  bResult &= Check("clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
+  return bResult;
+#else
   bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
   if (!bResult) {
@@ -123,4 +128,5 @@ bool clBuildSpirvFriendlyIRProgramWithBinaryTest() {
   clReleaseProgram(program);
   clReleaseContext(context);
   return bResult;
+#endif
 }
