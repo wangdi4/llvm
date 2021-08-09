@@ -302,7 +302,7 @@ INLINE void *__kmp_alloc(size_t align, size_t size) {
     return (void *)aligned;
   }
 
-  printf("Warning: __kmp_alloc returns NULL (out of memory)\n");
+  PRINT0("Warning: __kmp_alloc returns NULL (out of memory)\n");
   return NULL;
 }
 
