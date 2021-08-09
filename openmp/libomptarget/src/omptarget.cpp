@@ -540,11 +540,13 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
          !(Device.is_device_accessible_ptr(HstPtrBegin) ||
            !Device.managed_memory_supported()) ||
          HasCloseModifier))
+      MoveData = HasFlagAlways ? MoveDataStateTy::REQUIRED
+                               : MoveDataStateTy::UNKNOWN;
 #else // INTEL_COLLAB
     if (HasFlagTo && (!UseUSM || HasCloseModifier))
-#endif // INTEL_COLLAB
       MoveData = HasFlagAlways ? MoveDataStateTy::REQUIRED
                                : MoveData = MoveDataStateTy::UNKNOWN;
+#endif // INTEL_COLLAB
 
     auto TPR = Device.getTargetPointer(
         HstPtrBegin, HstPtrBase, data_size, HstPtrName, MoveData, IsImplicit,
