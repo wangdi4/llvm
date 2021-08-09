@@ -6,7 +6,7 @@ target triple = "x86_64-pc-linux"
 ; Function Attrs: convergent noinline norecurse nounwind
 define i32 @foo(i32 %lid) #0 {
 entry:
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.
 
 sg.dummy.bb.:                                     ; preds = %entry
@@ -40,7 +40,7 @@ sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
 ;CHECK-LABEL: sg.dummy.bb.3:
 ;CHECK: call void @_Z17sub_group_barrierj(i32 1)
 ;CHECK-NEXT: %[[#RET:]] = load <4 x i32>, <4 x i32>* %w.{{.*}}, align 16
-;CHECK-NEXT: call void @_Z7barrierj(i32 1)
+;CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
 ;CHECK-NEXT: ret <4 x i32> %[[#RET]]
 
 ; Function Attrs: convergent
@@ -52,7 +52,7 @@ declare i32 @_Z28sub_group_scan_inclusive_addi(i32) #2
 ; Function Attrs: convergent noinline norecurse nounwind
 define void @basic(i32 addrspace(1)* noalias %scan_add) #3 !no_barrier_path !10 !kernel_has_sub_groups !12 !kernel_has_barrier !10 !sg_emu_size !14 {
 entry:
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.2
 
 sg.dummy.bb.2:                                    ; preds = %entry
@@ -74,11 +74,11 @@ sg.barrier.bb.:                                   ; preds = %sg.dummy.bb.2
 ; CHECK: %[[#WIDE_ARG:]] = load <4 x i32>, <4 x i32>* %{{w.*}}, align 16
 ; CHECK-NEXT: call void @_Z7barrierj(i32 1)
 ; CHECK-NEXT: %[[#WIDE_RET:]] = call <4 x i32> @_ZGVbN4v_foo(<4 x i32> %[[#WIDE_ARG]])
-; CHECK-NEXT: call void @dummybarrier.()
+; CHECK-NEXT: call void @dummy_barrier.()
 ; CHECK-NEXT: store <4 x i32> %[[#WIDE_RET]], <4 x i32>* %{{w.*}}, align 16
 
   %call1 = call i32 @foo(i32 %0) #8
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
   br label %sg.dummy.bb.
 
 sg.dummy.bb.:                                     ; preds = %sg.barrier.bb.
@@ -103,7 +103,7 @@ sg.dummy.bb.3:                                    ; preds = %sg.barrier.bb.1
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) #4
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 
 declare void @_Z17sub_group_barrierj(i32)
 

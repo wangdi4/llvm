@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2017-2019 Intel Corporation.
+// Copyright 2017-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,10 +12,10 @@
 
 #include "PipeOrdering.h"
 
-#include "BarrierUtils.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>

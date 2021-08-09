@@ -17,21 +17,11 @@ include_directories(
     )
 
 set(TARGET_SOURCE_FILES
-  GroupBuiltinPass.cpp
-  BarrierInFunctionPass.cpp
   BarrierMain.cpp
-  BarrierPass.cpp
-  BarrierUtils.cpp
-  DataPerBarrierPass.cpp
-  DataPerValuePass.cpp
-  DuplicateCalledKernelsPass.cpp
   ImplicitGIDPass.cpp
-  RedundantPhiNodePass.cpp
   ReduceCrossBarrierValues.cpp
   RemoveDuplicationBarrierPass.cpp
   ReplaceScalarWithMaskPass.cpp
-  SplitBBonBarrierPass.cpp
-  WIRelatedValuePass.cpp
 )
 
 add_opencl_library(

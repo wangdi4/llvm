@@ -267,7 +267,7 @@ message(STATUS "PRODUCTVER_MAJOR: ${PRODUCTVER_MAJOR}")
 # Define product info (currently uses only for win resource file generation)
 set(PRODUCTNAME "Intel(R) OpenCL")
 set(COMPANYNAME "Intel Corporation")
-set(LEGALCOPYRIGHT "Copyright (C) 2020 ${COMPANYNAME}. All rights reserved.")
+set(LEGALCOPYRIGHT "Copyright (C) 2020-2021 ${COMPANYNAME}. All rights reserved.")
 
 # --------------
 #  write a file with the BUILDVERSION define

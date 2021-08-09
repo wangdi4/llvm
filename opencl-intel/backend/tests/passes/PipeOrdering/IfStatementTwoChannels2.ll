@@ -26,7 +26,7 @@
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK-LABEL: for.cond:
-; CHECK: call void @_Z7barrierj(i32 1)
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br i1 %tobool, label %if.then, label %if.else
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

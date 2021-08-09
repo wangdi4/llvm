@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -45,17 +43,8 @@ void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
 void initializeIRInjectModulePass(llvm::PassRegistry&);
 void initializenameByInstTypePass(llvm::PassRegistry&);
-void initializeDuplicateCalledKernelsPass(llvm::PassRegistry&);
-void initializeRedundantPhiNodePass(llvm::PassRegistry&);
-void initializeGroupBuiltinPass(llvm::PassRegistry&);
-void initializeBarrierInFunctionPass(llvm::PassRegistry&);
 void initializeRemoveDuplicationBarrierPass(llvm::PassRegistry&);
-void initializeSplitBBonBarrierPass(llvm::PassRegistry&);
-void initializeBarrierPass(llvm::PassRegistry&);
-void initializeWIRelatedValuePass(llvm::PassRegistry&);
 void initializeSinCosFoldPass(llvm::PassRegistry&);
-void initializeDataPerBarrierPass(llvm::PassRegistry&);
-void initializeDataPerValuePass(llvm::PassRegistry&);
 // SGEmulation passes
 void initializeSGBuiltinPass(llvm::PassRegistry &);
 void initializeSGSizeAnalysisPass(llvm::PassRegistry &);

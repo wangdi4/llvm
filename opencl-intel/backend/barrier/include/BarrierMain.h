@@ -56,13 +56,6 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<BuiltinLibInfo>();
     }
-
-    /// @brief return special buffer stride size map
-    /// @param bufferStrideMap - the map to output all data into
-    void getStrideMap(std::map<std::string, unsigned int>& bufferStrideMap) {
-      bufferStrideMap.clear();
-      bufferStrideMap.insert(m_bufferStrideMap.begin(), m_bufferStrideMap.end());
-    }
   private:
     /// The optimization level being used
     unsigned m_optLevel;
@@ -72,10 +65,6 @@ namespace intel {
 
     /// Use TLS globals instead of implicit arguments
     bool m_useTLSGlobals;
-
-    /// This holds a map between kernel function name and buffer stride size
-    std::map<std::string, unsigned int> m_bufferStrideMap;
-
   };
 
 } // namespace intel

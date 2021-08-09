@@ -16,9 +16,9 @@
 #define REDUCE_CROSS_BARRIER_VALUES_H
 
 #include "BuiltinLibInfo.h"
-#include "DataPerValuePass.h"
 #include "OCLPassSupport.h"
-#include "WIRelatedValuePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 
 #include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/IR/Dominators.h"
@@ -34,16 +34,16 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<BuiltinLibInfo>();
-    AU.addRequired<DataPerBarrier>();
-    AU.addRequired<DataPerValue>();
+    AU.addRequired<DataPerBarrierWrapper>();
+    AU.addRequired<DataPerValueWrapper>();
     AU.addRequired<DominanceFrontierWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<WIRelatedValue>();
+    AU.addRequired<WIRelatedValueWrapper>();
     AU.addPreserved<BuiltinLibInfo>();
-    AU.addPreserved<DataPerBarrier>();
+    AU.addPreserved<DataPerBarrierWrapper>();
     AU.addPreserved<DominanceFrontierWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<WIRelatedValue>();
+    AU.addPreserved<WIRelatedValueWrapper>();
   }
 
   bool runOnFunction(Function &) override;

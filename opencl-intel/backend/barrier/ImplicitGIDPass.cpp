@@ -1,5 +1,3 @@
-// INTEL CONFIDENTIAL
-//
 // Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -18,6 +16,7 @@
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -30,7 +29,7 @@ OCL_INITIALIZE_PASS_BEGIN(
     ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass",
     "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
     false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
+OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
 OCL_INITIALIZE_PASS_END(
     ImplicitGlobalIdPass, "B-ImplicitGlobalIdPass",
     "Implicit Global Id Pass - Add parameters for native (gdb) debugging",
@@ -49,7 +48,7 @@ bool ImplicitGlobalIdPass::runOnModule(Module &M) {
 
   m_pContext = &M.getContext();
 
-  m_pDataPerBarrier = &getAnalysis<DataPerBarrier>();
+  m_pDataPerBarrier = &getAnalysis<DataPerBarrierWrapper>().getDPB();
 
   m_util.init(&M);
   m_SGHelper.initialize(M);

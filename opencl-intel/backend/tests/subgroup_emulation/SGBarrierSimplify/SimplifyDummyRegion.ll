@@ -7,9 +7,9 @@ target triple = "x86_64-pc-linux"
 define void @test1(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK-LABEL: define void @test1
 entry:
-; CHECK: call void @dummybarrier.()
+; CHECK: call void @dummy_barrier.()
   call void @dummy_sg_barrier()
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
 
 ; no SG barriers or SG dummy barriers in WG dummy region
 ; CHECK-NOT: call void @_Z17sub_group_barrierj(i32 1)
@@ -17,17 +17,17 @@ entry:
   call void @_Z17sub_group_barrierj(i32 1)
   call void @dummy_sg_barrier()
 
-; CHECK: call void @dummybarrier.()
-  call void @dummybarrier.()
+; CHECK: call void @dummy_barrier.()
+  call void @dummy_barrier.()
   ret void
 }
 
 define void @test2(i32 %a) !kernel_has_sub_groups !1 !sg_emu_size !2 {
 ; CHECK-LABEL: define void @test2
 entry:
-; CHECK: call void @dummybarrier.()
+; CHECK: call void @dummy_barrier.()
   call void @dummy_sg_barrier()
-  call void @dummybarrier.()
+  call void @dummy_barrier.()
 
 ; this is not a dummy region
 ; CHECK: call void @_Z17sub_group_barrierj(i32 1)
@@ -42,12 +42,12 @@ entry:
   call void @_Z17sub_group_barrierj(i32 1)
   call void @dummy_sg_barrier()
 
-; CHECK: call void @dummybarrier.()
-  call void @dummybarrier.()
+; CHECK: call void @dummy_barrier.()
+  call void @dummy_barrier.()
   ret void
 }
 
-declare void @dummybarrier.()
+declare void @dummy_barrier.()
 declare void @_Z7barrierj(i32)
 
 declare void @dummy_sg_barrier()

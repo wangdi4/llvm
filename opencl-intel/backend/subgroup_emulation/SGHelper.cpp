@@ -1,6 +1,6 @@
 //=--------------------------- SGHelper.cpp -*- C++ -*-----------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -10,7 +10,6 @@
 
 #include "SGHelper.h"
 
-#include "BarrierUtils.h"
 #include "CompilationUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
@@ -19,6 +18,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelBarrierUtils.h"
 
 #include <string>
 

@@ -1,6 +1,4 @@
-// INTEL CONFIDENTIAL
-//
-// Copyright 2010-2020 Intel Corporation.
+// Copyright 2010-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -36,16 +34,8 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeCleanupWrappedKernelsPass(Registry);
     intel::initializeIRInjectModulePass(Registry);
     intel::initializenameByInstTypePass(Registry);
-    intel::initializeDuplicateCalledKernelsPass(Registry);
-    intel::initializeRedundantPhiNodePass(Registry);
-    intel::initializeGroupBuiltinPass(Registry);
-    intel::initializeBarrierInFunctionPass(Registry);
     intel::initializeRemoveDuplicationBarrierPass(Registry);
-    intel::initializeSplitBBonBarrierPass(Registry);
-    intel::initializeBarrierPass(Registry);
-    intel::initializeWIRelatedValuePass(Registry);
-    intel::initializeDataPerBarrierPass(Registry);
-    intel::initializeDataPerValuePass(Registry);
+
     // SGEmulation
     intel::initializeSGBuiltinPass(Registry);
     intel::initializeSGBarrierPropagatePass(Registry);

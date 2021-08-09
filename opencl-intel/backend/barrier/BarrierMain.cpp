@@ -1,5 +1,3 @@
-// INTEL CONFIDENTIAL
-//
 // Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
@@ -13,11 +11,13 @@
 // License.
 
 #include "BarrierMain.h"
-#include "BarrierUtils.h"
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -31,19 +31,12 @@ static cl::opt<bool> EnableReducingCrossBarrierValues(
     cl::init(true), cl::Hidden);
 
 extern "C" {
-  FunctionPass* createPhiCanon();
-
-  void* createRedundantPhiNodePass();
-  void* createGroupBuiltinPass();
-  void* createBarrierInFunctionPass();
   void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
-  void* createSplitBBonBarrierPass();
+
   Pass *createImplicitGIDPass(bool HandleBarrier);
   void* createReplaceScalarWithMaskPass();
-  void *createBarrierPass(bool isNativeDebug, bool useTLSGlobals);
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
   Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
-  void getBarrierPassStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap);
   FunctionPass *createReduceCrossBarrierValuesPass();
 
   // subgroup emulation passes
@@ -52,8 +45,15 @@ extern "C" {
   Pass *createSGLoopConstructPass();
   Pass *createSGValueWidenPass(bool EnableDebug);
   Pass *createSubGroupBuiltinPass();
-}
 
+  /// Support for static linking of modules for Windows
+  /// This pass is called by a modified Opt.exe
+  Pass *createBarrierMainPass(unsigned optLevel,
+                              intel::DebuggingServiceType debugType,
+                              bool useTLSGlobals) {
+    return new intel::BarrierMain(optLevel, debugType, useTLSGlobals);
+  }
+}
 
 namespace intel {
 
@@ -80,11 +80,12 @@ namespace intel {
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
 
-    barrierModulePM.add(createPhiCanon());
+    barrierModulePM.add(createPhiCanonicalizationLegacyPass());
     //Register barrier module passes
-    barrierModulePM.add((FunctionPass*)createRedundantPhiNodePass());
-    barrierModulePM.add((ModulePass*)createGroupBuiltinPass());
-    barrierModulePM.add((ModulePass*)createBarrierInFunctionPass());
+    barrierModulePM.add(createRedundantPhiNodeLegacyPass());
+    barrierModulePM.add(createGroupBuiltinLegacyPass(
+        getAnalysis<BuiltinLibInfo>().getBuiltinModules()));
+    barrierModulePM.add(createBarrierInFunctionLegacyPass());
 
     // Only run this when not debugging or when not in native (gdb) debugging
     if ( m_debugType != Native ) {
@@ -121,7 +122,7 @@ namespace intel {
     barrierModulePM.add(
         createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
 
-    barrierModulePM.add((ModulePass*)createSplitBBonBarrierPass());
+    barrierModulePM.add(createSplitBBonBarrierLegacyPass());
 
     if (m_optLevel > 0 && EnableReducingCrossBarrierValues) {
       barrierModulePM.add(createReduceCrossBarrierValuesPass());
@@ -129,8 +130,8 @@ namespace intel {
       barrierModulePM.add(createVerifierPass());
 #endif
     }
-    Pass *pBarrierPass =
-        (ModulePass *)createBarrierPass(m_debugType == Native, m_useTLSGlobals);
+    Pass *pBarrierPass = (ModulePass *)createKernelBarrierLegacyPass(
+        m_debugType == Native, m_useTLSGlobals);
     barrierModulePM.add((ModulePass*)pBarrierPass);
 #ifdef _DEBUG
     barrierModulePM.add(createVerifierPass());
@@ -143,8 +144,6 @@ namespace intel {
     //Run module passes
     barrierModulePM.run(M);
 
-    getBarrierPassStrideSize(pBarrierPass, m_bufferStrideMap);
-
     return true;
   }
 
@@ -154,16 +153,3 @@ namespace intel {
   //  false, true);
 
 } // namespace intel
-
-/// Support for static linking of modules for Windows
-/// This pass is called by a modified Opt.exe
-extern "C" {
-Pass *createBarrierMainPass(unsigned optLevel, intel::DebuggingServiceType debugType,
-                            bool useTLSGlobals) {
-  return new intel::BarrierMain(optLevel, debugType, useTLSGlobals);
-  }
-
-  void getBarrierStrideSize(Pass *pPass, std::map<std::string, unsigned int>& bufferStrideMap) {
-    ((intel::BarrierMain*)pPass)->getStrideMap(bufferStrideMap);
-  }
-}
