@@ -4,7 +4,7 @@
 clang/ @premanandrao @elizabethandrews @AaronBallman @xmain/llvm-clang-front-end # INTEL
 
 # Driver
-clang/**/Driver @mdtoguchi @AGindinson @xmain/llvm-driver # INTEL
+clang/**/Driver @mdtoguchi @AGindinson @hchilama @xmain/llvm-driver # INTEL
 
 # LLVM-SPIRV translator
 llvm-spirv/ @AlexeySotkin @AlexeySachkov
