@@ -44,7 +44,7 @@
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
-; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> ;INTEL
+; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Function.*}}, llvm::Module> ;INTEL
 ; CHECK-CORO-NEXT: Running pass: CoroEarlyPass
 ; CHECK-CORO-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-CORO-NEXT: Running analysis: LazyCallGraphAnalysis

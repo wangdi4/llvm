@@ -155,26 +155,23 @@
 
 // Behavior with -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -dynamic -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
 // CHECK-INTEL-STATIC: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-STATIC: "-Bstatic" "-lirc" "-Bdynamic"
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-SHARED-STATIC-INTEL %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-SHARED-STATIC-INTEL %s
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-SHARED-STATIC-INTEL: "-Bstatic" "-lirc" "-Bdynamic"
 
 // Behavior with -shared-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-INTEL-SHARED %s
 // CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
 // CHECK-STATIC-INTEL-SHARED: "-Bdynamic" "-lintlc" "-Bstatic"
-// CHECK-INTEL-SHARED: "-lsvml"
-// CHECK-INTEL-SHARED: "-lintlc"
 
 // Behavior with combination of -shared-intel and -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lsvml" "-Bstatic"
 // CHECK-INTEL-LIBS-NOT: "-Bdynamic" "-lirc" "-Bstatic"
 // CHECK-INTEL-LIBS-NOT: "-Bstatic" "-lsvml" "-Bdynamic"
@@ -184,6 +181,8 @@
 // -i_no-use-libirc
 // RUN: %clang -### --intel -i_no-use-libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
 // RUN: %clang_cl -### --intel /Q_no-use-libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang -### --intel -no-intel-lib=libirc -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
+// RUN: %clang_cl -### --intel /Qno-intel-lib:libirc %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-NOIRC %s
 // CHECK-INTEL-NOIRC-NOT: "-intel-libirc-allowed"
 // CHECK-INTEL-NOIRC-NOT: "-lirc"
 // CHECK-INTEL-NOIRC-NOT: "--dependent-lib=libircmt"
@@ -195,7 +194,6 @@
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -dynamic -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // RUN: %clang -### --intel -target i386-unknown-linux -shared-intel %s 2>&1 \
 // RUN:  | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-INTEL %s
 // CHECK-INTEL-LIBS-SHARED-INTEL: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lintlc"
@@ -208,6 +206,23 @@
 
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-SHARED-STATIC %s
 // CHECK-INTEL-LIBS-SHARED-STATIC: "-lsvml" "-lirng" "-limf" "-lm" {{.*}} "-lirc"
+
+// -no-intel-lib
+// RUN: %clangxx -### --intel -no-intel-lib -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_NOIMF,CHECK_INTEL_LIB_NOSVML,CHECK_INTEL_LIB_NOIRNG,CHECK_INTEL_LIB_NOIRC %s
+// RUN: %clangxx -### --intel -no-intel-lib=libimf -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIMF %s
+// RUN: %clangxx -### --intel -no-intel-lib=libsvml -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOSVML %s
+// RUN: %clangxx -### --intel -no-intel-lib=libirng -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIRNG %s
+// CHECK_INTEL_LIB_NOSVML-NOT: "-lsvml"
+// CHECK_INTEL_LIB_NOIMF-NOT: "-limf"
+// CHECK_INTEL_LIB_NOIRNG-NOT: "-lirng"
+// CHECK_INTEL_LIB_NOIRC-NOT: "-lirc"
+
+// -Qno-intel-lib
+// RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libirc --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOIRC %s
+// RUN: %clang_cl -### --intel -Qno-intel-lib:libsvml --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_WIN_NOSVML %s
+// CHECK_INTEL_LIB_WIN_NOIRC-NOT: "--dependent-lib=libircmt"
+// CHECK_INTEL_LIB_WIN_NOSVML-NOT: "--dependent-lib=svml.*"
 
 // Behavior with Qvla and Qvla- option
 // RUN: %clang_cl -### -c /Qvla- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-VLA %s

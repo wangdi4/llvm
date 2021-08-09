@@ -728,6 +728,12 @@ def device_math_lib_EQ : CommaJoined<["-"], "device-math-lib=">,
   "are fp64, fp32">;
 def no_device_math_lib_EQ : CommaJoined<["-"], "no-device-math-lib=">,
   Flags<[NoXarchOption]>, Values<"fp32,fp64">;
+def no_intel_lib_EQ : CommaJoined<["-"], "no-intel-lib=">,
+  Values<"libirc,libimf,libirng,libsvml,libifport">, HelpText<"Restrict "
+  "linking of Intel specific libraries. Valid arguments are libirc, libimf, "
+  "libirng, libsvml,">;
+def no_intel_lib : Flag<["-"], "no-intel-lib">,
+  HelpText<"Restrict linking of all Intel specific libraries.">;
 #endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[NoXarchOption, CoreOption, FlangOption]>,
@@ -7508,6 +7514,11 @@ def _SLASH_Qprotect_parens : CLFlag<"Qprotect-parens">,
   "parentheses when floating-point expressions are evaluated">;
 def _SLASH_Qprotect_parens_ : CLFlag<"Qprotect-parens-">,
   Alias<fno_protect_parens>;
+def : CLFlag<"Qno-intel-lib">, Alias<no_intel_lib>, HelpText<"Restrict "
+  "linking of Intel specific libraries. Valid arguments are libirc, libsvml">;
+def : CLCommaJoined<"Qno-intel-lib=">, Alias<no_intel_lib_EQ>;
+def : CLCommaJoined<"Qno-intel-lib:">, Alias<no_intel_lib_EQ>,
+  HelpText<"Restrict linking of all Intel specific libraries.">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">;
