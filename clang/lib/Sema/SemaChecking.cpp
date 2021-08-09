@@ -1689,6 +1689,12 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     Diag(TheCall->getBeginLoc(), diag::warn_alloca)
         << TheCall->getDirectCallee();
     break;
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__fence:
+    if (SemaBuiltinArithmeticFence(TheCall, /*IsIntelFence*/ true))
+      return ExprError();
+    break;
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__arithmetic_fence:
     if (SemaBuiltinArithmeticFence(TheCall))
       return ExprError();
@@ -8440,7 +8446,8 @@ bool Sema::SemaBuiltinPrefetch(CallExpr *TheCall) {
 }
 
 /// SemaBuiltinArithmeticFence - Handle __arithmetic_fence.
-bool Sema::SemaBuiltinArithmeticFence(CallExpr *TheCall) {
+bool Sema::SemaBuiltinArithmeticFence(CallExpr *TheCall, // INTEL
+                                      bool IsIntelFence) { // INTEL
   if (!Context.getTargetInfo().checkArithmeticFenceSupported())
     return Diag(TheCall->getBeginLoc(), diag::err_builtin_target_unsupported)
            << SourceRange(TheCall->getBeginLoc(), TheCall->getEndLoc());
@@ -8451,9 +8458,16 @@ bool Sema::SemaBuiltinArithmeticFence(CallExpr *TheCall) {
     return false;
 
   QualType ArgTy = Arg->getType();
-  if (!ArgTy->hasFloatingRepresentation())
+  if (!ArgTy->hasFloatingRepresentation() && !IsIntelFence) // INTEL
     return Diag(TheCall->getEndLoc(), diag::err_typecheck_expect_flt_or_vector)
            << ArgTy;
+#if INTEL_CUSTOMIZATION
+  else if (IsIntelFence && !ArgTy->hasFloatingRepresentation() &&
+           !ArgTy->isAnyPointerType() && !ArgTy->isScalarType())
+    // ICC allows integer but the builtin call is ignored in codegen.
+    return Diag(TheCall->getEndLoc(), diag::err_typecheck_expect_scalar_operand)
+                << ArgTy;
+#endif // INTEL_CUSTOMIZATION
   if (Arg->isLValue()) {
     ExprResult FirstArg = DefaultLvalueConversion(Arg);
     TheCall->setArg(0, FirstArg.get());
