@@ -18,7 +18,7 @@ public:
   MockHandler(shared_ptr_class<detail::queue_impl> Queue, bool IsHost)
       : sycl::handler(Queue, IsHost) {}
 
-  void setType(detail::CG::CGTYPE Type) {
+  void setType(detail::CommandGroup::CGTYPE Type) {
     static_cast<sycl::handler *>(this)->MCGType = Type;
   }
 
@@ -38,13 +38,13 @@ public:
     sycl::handler::addStream(Stream);
   }
 
-  unique_ptr_class<detail::CG> finalize() {
+  unique_ptr_class<detail::CommandGroup> finalize() {
     auto CGH = static_cast<sycl::handler *>(this);
-    unique_ptr_class<detail::CG> CG;
+    unique_ptr_class<detail::CommandGroup> CommandGroup;
     switch (CGH->MCGType) {
-    case detail::CG::Kernel:
-    case detail::CG::RunOnHostIntel: {
-      CG.reset(new detail::CGExecKernel(
+    case detail::CommandGroup::Kernel:
+    case detail::CommandGroup::RunOnHostIntel: {
+      CommandGroup.reset(new detail::CGExecKernel(
           std::move(CGH->MNDRDesc), std::move(CGH->MHostKernel),
           std::move(CGH->MKernel), std::move(CGH->MArgsStorage),
           std::move(CGH->MAccStorage), std::move(CGH->MSharedPtrStorage),
@@ -59,7 +59,7 @@ public:
                                 PI_INVALID_OPERATION);
     }
 
-    return CG;
+    return CommandGroup;
   }
 };
 
@@ -97,7 +97,7 @@ TEST_F(SchedulerTest, StreamInitDependencyOnHost) {
 
   // Emulating processing of command group function
   MockHandler MockCGH(HQueueImpl, true);
-  MockCGH.setType(detail::CG::Kernel);
+  MockCGH.setType(detail::CommandGroup::Kernel);
 
   auto EmptyKernel = [](sycl::nd_item<1>) {};
   MockCGH
@@ -118,7 +118,7 @@ TEST_F(SchedulerTest, StreamInitDependencyOnHost) {
   ASSERT_TRUE(!!FlushBufMemObjPtr)
       << "Memory object for stream flush buffer not initialized";
 
-  unique_ptr_class<detail::CG> MainCG = MockCGH.finalize();
+  unique_ptr_class<detail::CommandGroup> MainCG = MockCGH.finalize();
 
   // Emulate call of Scheduler::addCG
   vector_class<detail::StreamImplPtr> Streams =

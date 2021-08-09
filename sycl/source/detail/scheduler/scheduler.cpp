@@ -69,17 +69,17 @@ void Scheduler::waitForRecordToFinish(MemObjRecord *Record,
 }
 
 EventImplPtr
-Scheduler::addCG(std::unique_ptr<detail::CG> CG,
+Scheduler::addCG(std::unique_ptr<detail::CommandGroup> CommandGroup,
                  QueueImplPtr Queue) {
   EventImplPtr NewEvent = nullptr;
-  const bool IsKernel = CG->getType() == CG::Kernel;
+  const bool IsKernel = CommandGroup->getType() == CommandGroup::Kernel;
   std::vector<Command *> AuxiliaryCmds;
   const bool IsHostKernel =
-      CG->getType() == CG::RunOnHostIntel;
+      CommandGroup->getType() == CommandGroup::RunOnHostIntel;
   std::vector<StreamImplPtr> Streams;
 
   if (IsKernel) {
-    Streams = ((CGExecKernel *)CG.get())->getStreams();
+    Streams = ((CGExecKernel *)CommandGroup.get())->getStreams();
     // Stream's flush buffer memory is mainly initialized in stream's __init
     // method. However, this method is not available on host device.
     // Initializing stream's flush buffer on the host side in a separate task.
@@ -89,10 +89,10 @@ Scheduler::addCG(std::unique_ptr<detail::CG> CG,
       }
     }
 
-    if (CG->MRequirements.size() + CG->MEvents.size() ==
+    if (CommandGroup->MRequirements.size() + CommandGroup->MEvents.size() ==
         0) {
       ExecCGCommand *NewCmd(
-          new ExecCGCommand(std::move(CG), std::move(Queue)));
+          new ExecCGCommand(std::move(CommandGroup), std::move(Queue)));
       if (!NewCmd)
         throw runtime_error("Out of host memory", PI_OUT_OF_HOST_MEMORY);
       NewEvent = NewCmd->getEvent();
@@ -148,17 +148,17 @@ Scheduler::addCG(std::unique_ptr<detail::CG> CG,
     acquireWriteLock(Lock);
 
     Command *NewCmd = nullptr;
-    switch (CG->getType()) {
-    case CG::UpdateHost:
-      NewCmd = MGraphBuilder.addCGUpdateHost(std::move(CG),
+    switch (CommandGroup->getType()) {
+    case CommandGroup::UpdateHost:
+      NewCmd = MGraphBuilder.addCGUpdateHost(std::move(CommandGroup),
                                              DefaultHostQueue, AuxiliaryCmds);
       break;
-    case CG::CodeplayHostTask:
-      NewCmd = MGraphBuilder.addCG(std::move(CG), DefaultHostQueue,
+    case CommandGroup::CodeplayHostTask:
+      NewCmd = MGraphBuilder.addCG(std::move(CommandGroup), DefaultHostQueue,
                                    AuxiliaryCmds);
       break;
     default:
-      NewCmd = MGraphBuilder.addCG(std::move(CG), std::move(Queue),
+      NewCmd = MGraphBuilder.addCG(std::move(CommandGroup), std::move(Queue),
                                    AuxiliaryCmds);
     }
     NewEvent = NewCmd->getEvent();

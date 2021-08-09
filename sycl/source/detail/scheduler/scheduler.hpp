@@ -361,9 +361,9 @@ public:
   ///
   /// It's called by SYCL's queue.submit.
   ///
-  /// \param CG is a unique_ptr to a command group to be added.
+  /// \param CommandGroup is a unique_ptr to a command group to be added.
   /// \return an event object to wait on for command group completion.
-  EventImplPtr addCG(std::unique_ptr<detail::CG> CG,
+  EventImplPtr addCG(std::unique_ptr<detail::CommandGroup> CommandGroup,
                      QueueImplPtr Queue);
 
   /// Registers a command group, that copies most recent memory to the memory
@@ -479,14 +479,14 @@ protected:
     /// \sa queue::submit, Scheduler::addCG
     ///
     /// \return a command that represents command group execution.
-    Command *addCG(std::unique_ptr<detail::CG> CG,
+    Command *addCG(std::unique_ptr<detail::CommandGroup> CommandGroup,
                    QueueImplPtr Queue, std::vector<Command *> &ToEnqueue);
 
     /// Registers a \ref CG "command group" that updates host memory to the
     /// latest state.
     ///
     /// \return a command that represents command group execution.
-    Command *addCGUpdateHost(std::unique_ptr<detail::CG> CG,
+    Command *addCGUpdateHost(std::unique_ptr<detail::CommandGroup> CommandGroup,
                              QueueImplPtr HostQueue,
                              std::vector<Command *> &ToEnqueue);
 
