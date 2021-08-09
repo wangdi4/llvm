@@ -117,6 +117,18 @@
 #define OP_SHL(X, Y, DT) ((X) << (Y))
 #define OP_SHR(X, Y, DT) ((X) >> (Y))
 
+/// Use of printf is disabled for now
+#ifdef USE_PRINTF
+#define PRINT0(Fmt) printf(Fmt)
+#define PRINT1(Fmt, Arg0) printf(Fmt, Arg0)
+#else
+#if INTEL_CUSTOMIZATION
+// Leaving Fmt string since one of the tests hang with empty PRINT*().
+#endif // INTEL_CUSTOMIZATION
+#define PRINT0(Fmt) (void)(Fmt)
+#define PRINT1(Fmt, Arg0) (void)(Fmt)
+#endif
+
 
 ///
 /// Types

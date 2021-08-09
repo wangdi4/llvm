@@ -43,13 +43,13 @@ __SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupMaxSize;
 #define KMP_ASSERT(Check, Message)                                             \
   do {                                                                         \
     if (!(Check))                                                              \
-      printf("Assertion Failed: " #Check ", " Message "\n");                   \
+      PRINT0("Assertion Failed: " #Check ", " Message "\n");                   \
   } while (0)
 
 /// Unsupported feature
 #define KMP_UNSUPPORTED(Feature)                                               \
   do {                                                                         \
-    printf("Device does not support " Feature "\n");                           \
+    PRINT0("Device does not support " Feature "\n");                           \
   } while (0)
 
 ///

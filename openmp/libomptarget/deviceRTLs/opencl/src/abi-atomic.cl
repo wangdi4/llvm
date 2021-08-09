@@ -24,21 +24,21 @@
 #define KMPC_ATOMIC_IMPL_FALLBACK(DATANAME, DATATYPE, OPNAME, OP)              \
   /* __kmpc_atomic_DATANAME_OPNAME(*lhs, rhs) */                               \
   KMPC_ATOMIC_FN(DATANAME, OPNAME, DATATYPE) {                                 \
-    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    PRINT1("Device does not support this atomic data type: %s\n", #DATATYPE);  \
   }
 
 /// Fallback for binary and/or
 #define KMPC_ATOMIC_IMPL_FALLBACK_B(DATANAME, DATATYPE, OPNAME, OP)            \
   /* __kmpc_atomic_DATANAME_OPNAMEb(*lhs, rhs) */                              \
   KMPC_ATOMIC_FN(DATANAME, OPNAME##b, DATATYPE) {                              \
-    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    PRINT1("Device does not support this atomic data type: %s\n", #DATATYPE);  \
   }
 
 /// Fallback for capture atomics
 #define KMPC_ATOMIC_IMPL_FALLBACK_CPT(DATANAME, DATATYPE, OPNAME, OP)          \
   /* __kmpc_atomic_DATANAME_OPNAME_cpt(*lhs, rhs, flag) */                     \
   KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME, DATATYPE) {                             \
-    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    PRINT1("Device does not support this atomic data type: %s\n", #DATATYPE);  \
     return *lhs;                                                               \
   }
 
@@ -46,7 +46,7 @@
 #define KMPC_ATOMIC_IMPL_FALLBACK_B_CPT(DATANAME, DATATYPE, OPNAME, OP)        \
   /* __kmpc_atomic_DATANAME_OPNAMEb_cpt(*lhs, rhs, flag) */                    \
   KMPC_ATOMIC_FN_CPT(DATANAME, OPNAME##b, DATATYPE) {                          \
-    printf("Device does not support this atomic data type: %s\n", #DATATYPE);  \
+    PRINT1("Device does not support this atomic data type: %s\n", #DATATYPE);  \
     return *lhs;                                                               \
   }
 
@@ -466,7 +466,7 @@ EXTERN void __kmpc_atomic_load(size_t size, void *ptr, void *ret, int order) {
     }
 #endif
   } else {
-    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    PRINT1("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
 }
 
@@ -511,7 +511,7 @@ EXTERN void __kmpc_atomic_store(size_t size, void *ptr, void *val, int order) {
     }
 #endif
   } else {
-    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    PRINT1("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
 }
 
@@ -581,7 +581,7 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t size, void *ptr,
     }
 #endif
   } else {
-    printf("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
+    PRINT1("WARNING: Device does not support %zu-bit atomics\n", 8 * size);
   }
   return ret;
 }
