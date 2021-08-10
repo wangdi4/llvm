@@ -951,6 +951,24 @@ WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
 }
 
 //
+// Methods for WRNScopeNode
+//
+
+// constructor
+WRNScopeNode::WRNScopeNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNScope, BB) {
+  setNowait(false);
+  LLVM_DEBUG(dbgs() << "\nCreated WRNScopeNode<" << getNumber() << ">\n");
+}
+
+// printer
+void WRNScopeNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                 unsigned Verbosity) const {
+  vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
+}
+
+
+//
 // Methods for WRNGenericLoopNode
 //
 

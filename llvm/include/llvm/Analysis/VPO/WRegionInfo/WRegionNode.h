@@ -883,7 +883,8 @@ public:
     WRNTaskgroup,
     WRNTaskwait,
     WRNTaskyield,
-    WRNInterop
+    WRNInterop,
+    WRNScope
   };
 
   /// WRN primary attributes
