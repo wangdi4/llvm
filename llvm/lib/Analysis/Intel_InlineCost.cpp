@@ -25,6 +25,9 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/LoopInfo.h"
@@ -3250,41 +3253,6 @@ static bool preferPartialInlineHasExtractedRecursiveCall(Function &F,
 static bool preferPartialInlineInlinedClone(Function *Callee) {
   return Callee &&
          Callee->hasFnAttribute("prefer-partial-inline-inlined-clone");
-}
-
-//
-// If 'Arg' is a pointer type, return the pointer element type that
-// can be inferred by checking the types of its uses through
-// GetElementPtrInsts and StoreInsts. Return 'nullptr' if no type
-// can be inferred or the types inferred are inconsistent.
-//
-// NOTE: The use of this replaces the use of getPointerElementType()
-// which will be removed when the community moves to opaque pointers.
-//
-static Type *inferPtrElementType(Argument &Arg) {
-  llvm::Type *Ty = Arg.getType();
-  if (!Ty->isPointerTy())
-    return nullptr;
-  Type *STy = nullptr;
-  for (User *U : Arg.users())
-    if (auto GEPI = dyn_cast<GetElementPtrInst>(U)) {
-      Type *LSTy = GEPI->getSourceElementType();
-      if (!STy)
-        STy = LSTy;
-      else if (LSTy != STy)
-        return nullptr;
-    } else if (auto SI = dyn_cast<StoreInst>(U)) {
-      if (SI->getPointerOperand() == &Arg) {
-        Type *LSTy = SI->getValueOperand()->getType();
-        if (!STy)
-          STy = LSTy;
-        else if (LSTy != STy)
-          return nullptr;
-      } else {
-        return nullptr;
-      }
-    }
-  return STy;
 }
 
 //

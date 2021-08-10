@@ -17,6 +17,7 @@
 #include <stack>
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -333,8 +334,8 @@ private:
 };
 
 bool TileMVInlMarker::isTileSubscriptArg(Argument &Arg) {
-  Type *Ty = Arg.getType();
-  if (!Ty->isPointerTy() || !Ty->getPointerElementType()->isDoubleTy())
+  Type *PTy = inferPtrElementType(Arg);
+  if (!PTy || !PTy->isDoubleTy())
     return false;
   for (User *U : Arg.users()) {
     auto SI = dyn_cast<SubscriptInst>(U);
@@ -1169,9 +1170,8 @@ void TileMVInlMarker::findGVMandCM() {
 bool TileMVInlMarker::validateGVM() {
 
   //
-  // If the user 'U' of 'BC' appears in a canonical, self-contained Fortran
-  // read of a GlobalVariable, return the StoreInst that references that
-  // GlobalVariable.
+  // Return 'true' if the user 'SI' stores the value of a GlobalVariable which
+  // is read via a canoinical, self-contained Fortran read.
   //
   // Here is an example of the sequence of Instructions that this function is
   // intended to match:
@@ -1185,43 +1185,42 @@ bool TileMVInlMarker::validateGVM() {
   //    i8* nonnull %1333, i32 9, i64 1239157112576, i8* nonnull %686,
   //    i8* nonnull %691)
   //
-  auto IsCanonicalFortranRead = [](BitCastOperator *BC,
-                                   User *U) -> StoreInst * {
-    auto SI = dyn_cast<StoreInst>(U);
-    if (!SI || SI->getValueOperand() != BC)
-      return nullptr;
+  // It is also intended to match the case without the bitcasts, as will be
+  // the case when opaque pointers are the default.
+  //
+  auto IsCanonicalFortranRead = [](StoreInst *SI) -> bool {
     auto GEPI = dyn_cast<GetElementPtrInst>(SI->getPointerOperand());
     if (!GEPI || !GEPI->hasAllZeroIndices())
-      return nullptr;
+      return false;
     auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
     if (!AI)
-      return nullptr;
+      return false;
     unsigned UserCount = 0;
     for (auto *V : AI->users()) {
       if (UserCount > 2)
-        return nullptr;
+        return false;
       if (V == GEPI) {
         ++UserCount;
         continue;
       }
-      auto BC = dyn_cast<BitCastInst>(V);
-      if (BC) {
+      Value *W = AI;
+      if (auto BC = dyn_cast<BitCastInst>(V)) {
         if (!BC->hasOneUse())
-          return nullptr;
-        auto CI = dyn_cast<CallInst>(BC->user_back());
-        if (!CI)
-          return nullptr;
-        Function *Callee = CI->getCalledFunction();
-        if (!Callee || !Callee->isDeclaration() ||
-            Callee->getName() != "for_read_seq_lis" || Callee->arg_size() < 5 ||
-            CI->getArgOperand(4) != BC)
-          return nullptr;
-        ++UserCount;
-        continue;
+          return false;
+        W = BC;
+        V = BC->user_back();
       }
-      return nullptr;
+      auto CI = dyn_cast<CallInst>(V);
+      if (!CI)
+        return false;
+      Function *Callee = CI->getCalledFunction();
+      if (!Callee || !Callee->isDeclaration() ||
+          Callee->getName() != "for_read_seq_lis" || Callee->arg_size() < 5 ||
+          CI->getArgOperand(4) != W)
+        return false;
+      ++UserCount;
     }
-    return UserCount == 2 ? SI : nullptr;
+    return UserCount == 2;
   };
 
   //
@@ -1237,16 +1236,21 @@ bool TileMVInlMarker::validateGVM() {
         if (isa<LoadInst>(V))
           continue;
         if (auto SI = dyn_cast<StoreInst>(V)) {
+          if (SI->getValueOperand() == GV) {
+            if (!IsCanonicalFortranRead(SI))
+              return false;
+            AS.insert(SI->getFunction());
+          }
           if (SI->getPointerOperand() != GV)
             return false;
           AS.insert(SI->getFunction());
         } else if (auto BC = dyn_cast<BitCastOperator>(V)) {
-          for (User *U : BC->users()) {
-            StoreInst *SI = IsCanonicalFortranRead(BC, U);
-            if (!SI)
-              return false;
-            AS.insert(SI->getFunction());
-          }
+          if (!BC->hasOneUse())
+            return false;
+          auto SI = dyn_cast<StoreInst>(BC->user_back());
+          if (!SI || SI->getValueOperand() != BC || !IsCanonicalFortranRead(SI))
+            return false;
+          AS.insert(SI->getFunction());
         } else if (auto CB = dyn_cast<CallBase>(V)) {
           Function *Callee = CB->getCalledFunction();
           if (!Callee)
