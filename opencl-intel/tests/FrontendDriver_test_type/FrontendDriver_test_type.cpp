@@ -552,7 +552,8 @@ TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnCPUAndFPGA) {
       spv::internal::CapabilityOptNoneINTEL, SPIRVOpCapability,
       spv::internal::CapabilityMemoryAccessAliasingINTEL, SPIRVOpCapability,
       spv::internal::CapabilityTokenTypeINTEL, SPIRVOpCapability,
-      spv::CapabilityDebugInfoModuleINTEL,
+      spv::CapabilityDebugInfoModuleINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityRuntimeAlignedAttributeINTEL,
       // Memory model
       SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
 
