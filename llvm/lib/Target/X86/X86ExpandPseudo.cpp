@@ -589,6 +589,22 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     MI.setDesc(TII->get(Opc));
     return true;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_LNC
+  case X86::PTTDPBF16PSV:
+  case X86::PTTDPFP16PSV:
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  case X86::PTCMMIMFP16PSV:
+  case X86::PTCMMRLFP16PSV:
+  case X86::PTCONJCMMIMFP16PSV:
+  case X86::PTTCMMIMFP16PSV:
+  case X86::PTTCMMRLFP16PSV:
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+  case X86::PTMMULFP19PSV:
+  case X86::PTTMMULFP19PSV:
+#endif // INTEL_FEATURE_ISA_AMX_FP19
   case X86::PTDPBSSDV:
   case X86::PTDPBSUDV:
   case X86::PTDPBUSDV:
@@ -599,6 +615,21 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
       MI.RemoveOperand(i);
     unsigned Opc;
     switch (Opcode) {
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+    case X86::PTCMMIMFP16PSV:    Opc = X86::TCMMIMFP16PS; break;
+    case X86::PTCMMRLFP16PSV:    Opc = X86::TCMMRLFP16PS; break;
+    case X86::PTCONJCMMIMFP16PSV: Opc = X86::TCONJCMMIMFP16PS; break;
+    case X86::PTTCMMIMFP16PSV:   Opc = X86::TTCMMIMFP16PS; break;
+    case X86::PTTCMMRLFP16PSV:   Opc = X86::TTCMMRLFP16PS; break;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_FP19
+    case X86::PTMMULFP19PSV:     Opc = X86::TMMULFP19PS; break;
+    case X86::PTTMMULFP19PSV:    Opc = X86::TTMMULFP19PS; break;
+#endif // INTEL_FEATURE_ISA_AMX_FP19
+#if INTEL_FEATURE_ISA_AMX_LNC
+    case X86::PTTDPBF16PSV:      Opc = X86::TTDPBF16PS; break;
+    case X86::PTTDPFP16PSV:      Opc = X86::TTDPFP16PS; break;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
     case X86::PTDPBSSDV:   Opc = X86::TDPBSSD; break;
     case X86::PTDPBSUDV:   Opc = X86::TDPBSUD; break;
     case X86::PTDPBUSDV:   Opc = X86::TDPBUSD; break;
@@ -620,6 +651,57 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     for (int i = 2; i > 0; --i) // Remove row, col
       MI.RemoveOperand(i);
     MI.setDesc(TII->get(X86::TILEZERO));
+    return true;
+  }
+#if INTEL_FEATURE_ISA_AMX_LNC
+  case X86::PTILEMOVROWErreV:
+  case X86::PTILEMOVROWErriV:
+  case X86::PTTRANSPOSEDV:
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+  case X86::PTCONJFP16V:
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+  case X86::PTCVTROWD2PSErreV:
+  case X86::PTCVTROWD2PSErriV:
+  case X86::PTCVTROWPS2PBF16HErreV:
+  case X86::PTCVTROWPS2PBF16HErriV:
+  case X86::PTCVTROWPS2PBF16LErreV:
+  case X86::PTCVTROWPS2PBF16LErriV:
+  case X86::PTCVTROWPS2PHHErreV:
+  case X86::PTCVTROWPS2PHHErriV:
+  case X86::PTCVTROWPS2PHLErreV:
+  case X86::PTCVTROWPS2PHLErriV:
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+  {
+    for (int i = 2; i > 0; --i)
+      MI.RemoveOperand(i);
+    unsigned Opc;
+    switch (Opcode) {
+#if INTEL_FEATURE_ISA_AMX_LNC
+    case X86::PTILEMOVROWErreV:           Opc = X86::TILEMOVROWErre; break;
+    case X86::PTILEMOVROWErriV:           Opc = X86::TILEMOVROWErri; break;
+    case X86::PTTRANSPOSEDV:              Opc = X86::TTRANSPOSED; break;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_COMPLEX
+    case X86::PTCONJFP16V:                Opc = X86::TCONJFP16; break;
+#endif // INTEL_FEATURE_ISA_AMX_COMPLEX
+#if INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+    case X86::PTCVTROWD2PSErreV:          Opc = X86::TCVTROWD2PSErre; break;
+    case X86::PTCVTROWD2PSErriV:          Opc = X86::TCVTROWD2PSErri; break;
+    case X86::PTCVTROWPS2PBF16HErreV:     Opc = X86::TCVTROWPS2PBF16HErre; break;
+    case X86::PTCVTROWPS2PBF16HErriV:     Opc = X86::TCVTROWPS2PBF16HErri; break;
+    case X86::PTCVTROWPS2PBF16LErreV:     Opc = X86::TCVTROWPS2PBF16LErre; break;
+    case X86::PTCVTROWPS2PBF16LErriV:     Opc = X86::TCVTROWPS2PBF16LErri; break;
+    case X86::PTCVTROWPS2PHHErreV:        Opc = X86::TCVTROWPS2PHHErre; break;
+    case X86::PTCVTROWPS2PHHErriV:        Opc = X86::TCVTROWPS2PHHErri; break;
+    case X86::PTCVTROWPS2PHLErreV:        Opc = X86::TCVTROWPS2PHLErre; break;
+    case X86::PTCVTROWPS2PHLErriV:        Opc = X86::TCVTROWPS2PHLErri; break;
+#endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#endif // INTEL_CUSTOMIZATION
+    default: llvm_unreachable("Impossible Opcode!");
+    }
+    MI.setDesc(TII->get(Opc));
     return true;
   }
   case X86::CALL64pcrel32_RVMARKER:

@@ -2132,6 +2132,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
   }
 
   if (Subtarget.hasAMXTILE()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+    addRegisterClass(MVT::x86amx, &X86::TILEXRegClass);
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#endif // INTEL_CUSTOMIZATION
     addRegisterClass(MVT::x86amx, &X86::TILERegClass);
   }
 
@@ -37070,6 +37075,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
 

@@ -753,8 +753,8 @@ def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Siz
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // Tiles
-let isAllocatable = 0 in
-def TILEX : RegisterClass<"X86", [x86amx], 0,
+let isAllocatable = 1 in
+def TILEX : RegisterClass<"X86", [x86amx], 8192,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
 
 // TMM0-TMM31 register pairs
@@ -767,7 +767,7 @@ def TPAIRSX : RegisterTuples<[sub_t0, sub_t1],
                                TMM29, TMM31)]>;
 
 // Need check alignment 3rd operand size=1024*2*8
-let isAllocatable = 0 in
+let isAllocatable = 1 in
 def TILEPAIRX : RegisterClass<"X86", [untyped], 0, (add TPAIRSX)> {let Size = 16384;}
 
 // TMM register quad
