@@ -19,11 +19,6 @@ DEVICE_EXTERN_C
 void *__devicelib_memcpy(void *dest, const void *src, size_t n) {
   return __builtin_memcpy(dest, src, n);
 }
-#if INTEL_COLLAB
-#if OMP_LIBDEVICE
-#pragma omp end declare target
-#endif  // OMP_LIBDEVICE
-#endif  // INTEL_COLLAB
 DEVICE_EXTERN_C
 void *__devicelib_memset(void *dest, int c, size_t n) {
   return __builtin_memset(dest, c, n);
@@ -95,4 +90,9 @@ int __devicelib_memcmp(const void *s1, const void *s2, size_t n) {
 
   return head_cmp;
 }
+#if INTEL_COLLAB
+#if OMP_LIBDEVICE
+#pragma omp end declare target
+#endif  // OMP_LIBDEVICE
+#endif  // INTEL_COLLAB
 #endif // __SPIR__
