@@ -421,9 +421,7 @@ def i64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand>;
 def i128mem : X86MemOperand<"printxmmwordmem", X86Mem128AsmOperand>;
 def i256mem : X86MemOperand<"printymmwordmem", X86Mem256AsmOperand>;
 def i512mem : X86MemOperand<"printzmmwordmem", X86Mem512AsmOperand>;
-#if INTEL_CUSTOMIZATION
-def f16mem  : X86MemOperand<"printwordmem",  X86Mem16AsmOperand>;
-#endif // INTEL_CUSTOMIZATION
+def f16mem  : X86MemOperand<"printwordmem",   X86Mem16AsmOperand>;
 def f32mem  : X86MemOperand<"printdwordmem",  X86Mem32AsmOperand>;
 def f64mem  : X86MemOperand<"printqwordmem",  X86Mem64AsmOperand>;
 def f80mem  : X86MemOperand<"printtbytemem",  X86Mem80AsmOperand>;
@@ -999,9 +997,7 @@ def NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBF16()">
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
 def HasFP16      : Predicate<"Subtarget->hasFP16()">;
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
@@ -1474,9 +1470,7 @@ def loadi32 : PatFrag<(ops node:$ptr), (i32 (unindexedload node:$ptr)), [{
 }]>;
 
 def loadi64  : PatFrag<(ops node:$ptr), (i64 (load node:$ptr))>;
-#if INTEL_CUSTOMIZATION
 def loadf16  : PatFrag<(ops node:$ptr), (f16 (load node:$ptr))>;
-#endif // INTEL_CUSTOMIZATION
 def loadf32  : PatFrag<(ops node:$ptr), (f32 (load node:$ptr))>;
 def loadf64  : PatFrag<(ops node:$ptr), (f64 (load node:$ptr))>;
 def loadf80  : PatFrag<(ops node:$ptr), (f80 (load node:$ptr))>;

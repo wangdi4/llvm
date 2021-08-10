@@ -335,7 +335,6 @@ typedef struct __tile1024i_str {
 #include <avx512pfintrin.h>
 #endif
 
-/* INTEL_CUSTOMIZATION */
 /*
  * FIXME: _Float16 type is legal only when HW support float16 operation.
  * We use __AVX512FP16__ to identify if float16 is supported or not, so
@@ -349,7 +348,7 @@ typedef struct __tile1024i_str {
 #if defined(__AVX512FP16__) && defined(__AVX512VL__)
 #include <avx512vlfp16intrin.h>
 #endif
-/* end INTEL_CUSTOMIZATION */
+
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512BF16__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <avx512bf16intrin.h>

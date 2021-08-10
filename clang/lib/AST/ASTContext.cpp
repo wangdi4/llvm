@@ -10557,13 +10557,6 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
            "Bad modifiers used with 'h'!");
     Type = Context.HalfTy;
     break;
-#if INTEL_CUSTOMIZATION
-  case 'g':
-    assert(HowLong == 0 && !Signed && !Unsigned &&
-           "Bad modifiers used with 'g'!");
-    Type = Context.Float16Ty;
-    break;
-#endif // INTEL_CUSTOMIZATION
   case 'f':
     assert(HowLong == 0 && !Signed && !Unsigned &&
            "Bad modifiers used with 'f'!");

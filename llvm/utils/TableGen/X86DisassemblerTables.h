@@ -41,9 +41,9 @@ private:
   /// [5] XOP9 map opcode
   /// [6] XOPA map opcode
   /// [7] 3dnow map opcode
+  /// [8] fixed length MAP5 opcode
+  /// [9] fixed length MAP6 opcode
 #if INTEL_CUSTOMIZATION
-  /// [8] three-byte opcodes of the form 0f 39 __
-  /// [9] three-byte opcodes of the form 0f 3B __
   /// [10] fixed length opcodes of the form MAP8 __
   std::unique_ptr<ContextDecision> Tables[11];
 #endif // INTEL_CUSTOMIZATION

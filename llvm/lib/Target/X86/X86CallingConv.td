@@ -233,17 +233,13 @@ def RetCC_X86Common : CallingConv<[
   // Vector types are returned in XMM0 and XMM1, when they fit.  XMM2 and XMM3
   // can only be used by ABI non-compliant code. If the target doesn't have XMM
   // registers, it won't have vector types.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
-#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[XMM0,XMM1,XMM2,XMM3]>>,
 
   // 256-bit vectors are returned in YMM0 and XMM1, when they fit. YMM2 and YMM3
   // can only be used by ABI non-compliant code. This vector type is only
   // supported while using the AVX target feature.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
-#endif // INTEL_CUSTOMIZATION
             CCAssignToReg<[YMM0,YMM1,YMM2,YMM3]>>,
 
   // 512-bit vectors are returned in ZMM0 and ZMM1, when they fit. ZMM2 and ZMM3
@@ -282,12 +278,7 @@ def RetCC_X86_32_C : CallingConv<[
   CCIfInReg<CCIfSubtarget<"hasSSE2()",
     CCIfType<[f32, f64], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
   CCIfType<[f32,f64], CCAssignToReg<[FP0, FP1]>>,
-
-#if INTEL_CUSTOMIZATION
-  // FIXME: Is this correct?
   CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>,
-#endif // INTEL_CUSTOMIZATION
-
   CCDelegateTo<RetCC_X86Common>
 ]>;
 
@@ -350,9 +341,7 @@ def RetCC_X86_32_VectorCall : CallingConv<[
 // X86-64 C return-value convention.
 def RetCC_X86_64_C : CallingConv<[
   // The X86-64 calling convention always returns FP values in XMM0.
-#if INTEL_CUSTOMIZATION
   CCIfType<[f16], CCAssignToReg<[XMM0, XMM1]>>,
-#endif // INTEL_CUSTOMIZATION
   CCIfType<[f32], CCAssignToReg<[XMM0, XMM1]>>,
   CCIfType<[f64], CCAssignToReg<[XMM0, XMM1]>>,
   CCIfType<[f128], CCAssignToReg<[XMM0, XMM1]>>,
@@ -659,19 +648,14 @@ def CC_X86_64_C : CallingConv<[
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
-#if INTEL_CUSTOMIZATION
-  // FIXME: Is this correct for f16?
   CCIfType<[i32, i64, f16, f32, f64], CCAssignToStack<8, 8>>,
-#endif // INTEL_CUSTOMIZATION
 
   // Long doubles get stack slots whose size and alignment depends on the
   // subtarget.
   CCIfType<[f80, f128], CCAssignToStack<0, 0>>,
 
   // Vectors get 16-byte stack slots that are 16-byte aligned.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64], CCAssignToStack<16, 16>>,
-#endif // INTEL_CUSTOMIZATION
 
   // 256-bit vectors get 32-byte stack slots that are 32-byte aligned.
 #if INTEL_CUSTOMIZATION
@@ -680,10 +664,8 @@ def CC_X86_64_C : CallingConv<[
 #endif // INTEL_CUSTOMIZATION
 
   // 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
            CCAssignToStack<64, 64>>
-#endif // INTEL_CUSTOMIZATION
 ]>;
 
 // Calling convention for X86-64 HHVM.
@@ -730,19 +712,13 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfCFGuardTarget<CCAssignToReg<[RAX]>>,
 
   // 128 bit vectors are passed by pointer
-#if INTEL_CUSTOMIZATION
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64], CCPassIndirect<i64>>,
-#endif // INTEL_CUSTOMIZATION
 
   // 256 bit vectors are passed by pointer
-#if INTEL_CUSTOMIZATION
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64], CCPassIndirect<i64>>,
-#endif // INTEL_CUSTOMIZATION
 
   // 512 bit vectors are passed by pointer
-#if INTEL_CUSTOMIZATION
   CCIfType<[v64i8, v32i16, v16i32, v32f16, v16f32, v8f64, v8i64], CCPassIndirect<i64>>,
-#endif // INTEL_CUSTOMIZATION
 
   // Long doubles are passed by pointer
   CCIfType<[f80], CCPassIndirect<i64>>,
@@ -756,9 +732,7 @@ def CC_X86_Win64_C : CallingConv<[
   CCIfType<[f64], CCIfNotSubtarget<"hasSSE1()", CCBitConvertToType<i64>>>,
 
   // The first 4 FP/Vector arguments are passed in XMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfType<[f16, f32, f64],
-#endif // INTEL_CUSTOMIZATION
            CCAssignToRegWithShadow<[XMM0, XMM1, XMM2, XMM3],
                                    [RCX , RDX , R8  , R9  ]>>,
 
@@ -781,9 +755,7 @@ def CC_X86_Win64_C : CallingConv<[
 
   // Integer/FP values get stored in stack slots that are 8 bytes in size and
   // 8-byte aligned if there are no more registers to hold them.
-#if INTEL_CUSTOMIZATION
   CCIfType<[i8, i16, i32, i64, f16, f32, f64], CCAssignToStack<8, 8>>
-#endif // INTEL_CUSTOMIZATION
 ]>;
 
 def CC_X86_Win64_VectorCall : CallingConv<[
@@ -862,44 +834,32 @@ def CC_X86_64_AnyReg : CallingConv<[
 /// values are spilled on the stack.
 def CC_X86_32_Vector_Common : CallingConv<[
   // Other SSE vectors get 16-byte stack slots that are 16-byte aligned.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
            CCAssignToStack<16, 16>>,
-#endif // INTEL_CUSTOMIZATION
 
   // 256-bit AVX vectors get 32-byte stack slots that are 32-byte aligned.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
            CCAssignToStack<32, 32>>,
-#endif // INTEL_CUSTOMIZATION
 
   // 512-bit AVX 512-bit vectors get 64-byte stack slots that are 64-byte aligned.
-#if INTEL_CUSTOMIZATION
   CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
            CCAssignToStack<64, 64>>
-#endif // INTEL_CUSTOMIZATION
 ]>;
 
 // CC_X86_32_Vector_Standard - The first 3 vector arguments are passed in
 // vector registers
 def CC_X86_32_Vector_Standard : CallingConv<[
   // SSE vector arguments are passed in XMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
-#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[XMM0, XMM1, XMM2]>>>,
 
   // AVX 256-bit vector arguments are passed in YMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
-#endif // INTEL_CUSTOMIZATION
                 CCIfSubtarget<"hasAVX()",
                 CCAssignToReg<[YMM0, YMM1, YMM2]>>>>,
 
   // AVX 512-bit vector arguments are passed in ZMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
-#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[ZMM0, ZMM1, ZMM2]>>>,
 
   CCDelegateTo<CC_X86_32_Vector_Common>
@@ -909,22 +869,16 @@ def CC_X86_32_Vector_Standard : CallingConv<[
 // vector registers.
 def CC_X86_32_Vector_Darwin : CallingConv<[
   // SSE vector arguments are passed in XMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v8f16, v4f32, v2f64],
-#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[XMM0, XMM1, XMM2, XMM3]>>>,
 
   // AVX 256-bit vector arguments are passed in YMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v32i8, v16i16, v8i32, v4i64, v16f16, v8f32, v4f64],
-#endif // INTEL_CUSTOMIZATION
                 CCIfSubtarget<"hasAVX()",
                 CCAssignToReg<[YMM0, YMM1, YMM2, YMM3]>>>>,
 
   // AVX 512-bit vector arguments are passed in ZMM registers.
-#if INTEL_CUSTOMIZATION
   CCIfNotVarArg<CCIfType<[v64i8, v32i16, v16i32, v8i64, v32f16, v16f32, v8f64],
-#endif // INTEL_CUSTOMIZATION
                 CCAssignToReg<[ZMM0, ZMM1, ZMM2, ZMM3]>>>,
 
   CCDelegateTo<CC_X86_32_Vector_Common>
@@ -943,20 +897,14 @@ def CC_X86_32_Common : CallingConv<[
                 CCIfSubtarget<"hasSSE2()",
                 CCAssignToReg<[XMM0,XMM1,XMM2]>>>>>,
 
-#if INTEL_CUSTOMIZATION
-  // FIXME is this correct?
   CCIfNotVarArg<CCIfInReg<CCIfType<[f16], CCAssignToReg<[XMM0,XMM1,XMM2]>>>>,
-#endif // INTEL_CUSTOMIZATION
 
   // The first 3 __m64 vector arguments are passed in mmx registers if the
   // call is not a vararg call.
   CCIfNotVarArg<CCIfType<[x86mmx],
                 CCAssignToReg<[MM0, MM1, MM2]>>>,
 
-#if INTEL_CUSTOMIZATION
-  // FIXME is this correct?
   CCIfType<[f16], CCAssignToStack<4, 4>>,
-#endif // INTEL_CUSTOMIZATION
 
   // Integer/Float values get stored in stack slots that are 4 bytes in
   // size and 4-byte aligned.

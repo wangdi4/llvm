@@ -178,9 +178,9 @@ def XOP8      : Map<4>;
 def XOP9      : Map<5>;
 def XOPA      : Map<6>;
 def ThreeDNow : Map<7>;
-#if INTEL_CUSTOMIZATION
 def T_MAP5    : Map<8>;
 def T_MAP6    : Map<9>;
+#if INTEL_CUSTOMIZATION
 def T_MAP8    : Map<10>;
 #endif // INTEL_CUSTOMIZATION
 
@@ -227,7 +227,6 @@ class XOP8   { Map OpMap = XOP8; Prefix OpPrefix = PS; }
 class XOP9   { Map OpMap = XOP9; Prefix OpPrefix = PS; }
 class XOPA   { Map OpMap = XOPA; Prefix OpPrefix = PS; }
 class ThreeDNow { Map OpMap = ThreeDNow; }
-#if INTEL_CUSTOMIZATION
 class T_MAP5     { Map OpMap = T_MAP5; }
 class T_MAP5PS : T_MAP5 { Prefix OpPrefix = PS; } // none
 class T_MAP5PD : T_MAP5 { Prefix OpPrefix = PD; } // 0x66
@@ -238,6 +237,7 @@ class T_MAP6PS : T_MAP6 { Prefix OpPrefix = PS; }
 class T_MAP6PD : T_MAP6 { Prefix OpPrefix = PD; }
 class T_MAP6XS : T_MAP6 { Prefix OpPrefix = XS; }
 class T_MAP6XD : T_MAP6 { Prefix OpPrefix = XD; }
+#if INTEL_CUSTOMIZATION
 class T_MAP8     { Map OpMap = T_MAP8; }
 class T_MAP8PS : T_MAP8 { Prefix OpPrefix = PS; } // none
 class T_MAP8PD : T_MAP8 { Prefix OpPrefix = PD; } // 0x66
@@ -347,9 +347,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   Prefix OpPrefix = NoPrfx; // Which prefix byte does this inst have?
   bits<3> OpPrefixBits = OpPrefix.Value;
   Map OpMap = OB;           // Which opcode map does this inst have?
-#if INTEL_CUSTOMIZATION
   bits<4> OpMapBits = OpMap.Value;
-#endif // INTEL_CUSTOMIZATION
   bit hasREX_WPrefix  = 0;  // Does this inst require the REX.W prefix?
   FPFormat FPForm = NotFP;  // What flavor of FP instruction is this?
   bit hasLockPrefix = 0;    // Does this inst have a 0xF0 prefix?
@@ -409,7 +407,6 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{10-9}  = AdSizeBits;
   // No need for 3rd bit, we don't need to distinguish NoPrfx from PS.
   let TSFlags{12-11} = OpPrefixBits{1-0};
-#if INTEL_CUSTOMIZATION
   let TSFlags{16-13} = OpMapBits;
   let TSFlags{17}    = hasREX_WPrefix;
   let TSFlags{21-18} = ImmT.Value;
@@ -431,6 +428,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{52-46} = CD8_Scale;
   let TSFlags{53}    = hasEVEX_RC;
   let TSFlags{54}    = hasNoTrackPrefix;
+#if INTEL_CUSTOMIZATION
   // Force the instruction to use VEX encoding.
   let TSFlags{55}    = ExplicitVEXPrefix;
   let TSFlags{56}    = ExplicitEVEXPrefix;

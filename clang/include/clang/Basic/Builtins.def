@@ -25,9 +25,6 @@
 //  s -> short
 //  i -> int
 //  h -> half (__fp16, OpenCL)
-#if INTEL_CUSTOMIZATION
-//  g -> _Float16
-#endif // INTEL_CUSTOMIZATION
 //  x -> half (_Float16)
 //  f -> float
 //  d -> double

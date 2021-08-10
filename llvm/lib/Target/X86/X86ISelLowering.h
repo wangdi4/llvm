@@ -467,9 +467,7 @@ namespace llvm {
     MOVHLPS,
     MOVSD,
     MOVSS,
-#if INTEL_CUSTOMIZATION
     MOVSH,
-#endif // INTEL_CUSTOMIZATION
     UNPCKL,
     UNPCKH,
     VPERMILPV,
@@ -1093,10 +1091,8 @@ namespace llvm {
     bool isCtlzFast() const override;
 
     bool hasBitPreservingFPLogic(EVT VT) const override {
-#if INTEL_CUSTOMIZATION
       return VT == MVT::f32 || VT == MVT::f64 || VT.isVector() ||
-             (VT == MVT::f16 && X86ScalarAVXf16);
-#endif // INTEL_CUSTOMIZATION
+             (VT == MVT::f16 && X86ScalarSSEf16);
     }
 
     bool isMultiStoresCheaperThanBitsMerge(EVT LTy, EVT HTy) const override {
@@ -1380,10 +1376,8 @@ namespace llvm {
     /// register, not on the X87 floating point stack.
     bool isScalarFPTypeInSSEReg(EVT VT) const {
       return (VT == MVT::f64 && X86ScalarSSEf64) || // f64 is when SSE2
-#if INTEL_CUSTOMIZATION
              (VT == MVT::f32 && X86ScalarSSEf32) || // f32 is when SSE1
-             (VT == MVT::f16 && X86ScalarAVXf16);   // f16 is when AVX512FP16
-#endif // INTEL_CUSTOMIZATION
+             (VT == MVT::f16 && X86ScalarSSEf16);   // f16 is when AVX512FP16
     }
 
     /// Returns true if it is beneficial to convert a load of a constant
@@ -1551,9 +1545,7 @@ namespace llvm {
     /// When SSE2 is available, use it for f64 operations.
     bool X86ScalarSSEf32;
     bool X86ScalarSSEf64;
-#if INTEL_CUSTOMIZATION
-    bool X86ScalarAVXf16;
-#endif // INTEL_CUSTOMIZATION
+    bool X86ScalarSSEf16;
 
     /// A list of legal FP immediates.
     std::vector<APFloat> LegalFPImmediates;

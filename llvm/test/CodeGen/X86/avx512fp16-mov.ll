@@ -143,7 +143,7 @@ define i16 @test1(half %x) {
 define <8 x i16> @test2(i16 %x) {
 ; X64-LABEL: test2:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovd %edi, %xmm0
+; X64-NEXT:    vmovw %edi, %xmm0
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: test2:
@@ -388,7 +388,7 @@ define <32 x i16> @test17(i16 %x) {
 define <8 x i16> @test18(i16 %x) {
 ; X64-LABEL: test18:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovd %edi, %xmm0
+; X64-NEXT:    vmovw %edi, %xmm0
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: test18:
@@ -402,7 +402,7 @@ define <8 x i16> @test18(i16 %x) {
 define <16 x i16> @test19(i16 %x) {
 ; X64-LABEL: test19:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovd %edi, %xmm0
+; X64-NEXT:    vmovw %edi, %xmm0
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: test19:
@@ -416,7 +416,7 @@ define <16 x i16> @test19(i16 %x) {
 define <32 x i16> @test20(i16 %x) {
 ; X64-LABEL: test20:
 ; X64:       # %bb.0:
-; X64-NEXT:    vmovd %edi, %xmm0
+; X64-NEXT:    vmovw %edi, %xmm0
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: test20:
@@ -543,7 +543,7 @@ define <32 x half> @loadu32f16maskz(<32 x half>* %a, i32 %c) {
 define void @store32f16(<32 x half> %a) {
 ; X64-LABEL: store32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g32f16@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g32f16@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovaps %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
@@ -560,7 +560,7 @@ define void @store32f16(<32 x half> %a) {
 define void @storeu32f16(<32 x half> %a) {
 ; X64-LABEL: storeu32f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g32f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g32f16u@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovups %zmm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
@@ -806,7 +806,7 @@ define <16 x half> @loadu16f16maskz(<16 x half>* %a, i16 %c) {
 define void @store16f16(<16 x half> %a) {
 ; X64-LABEL: store16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g16f16@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g16f16@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovaps %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
@@ -823,7 +823,7 @@ define void @store16f16(<16 x half> %a) {
 define void @storeu16f16(<16 x half> %a) {
 ; X64-LABEL: storeu16f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g16f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g16f16u@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovups %ymm0, (%rax)
 ; X64-NEXT:    vzeroupper
 ; X64-NEXT:    retq
@@ -1069,7 +1069,7 @@ define <8 x half> @loadu8f16maskz(<8 x half>* %a, i8 %c) {
 define void @store8f16(<8 x half> %a) {
 ; X64-LABEL: store8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g8f16@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g8f16@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovaps %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
@@ -1084,7 +1084,7 @@ define void @store8f16(<8 x half> %a) {
 define void @storeu8f16(<8 x half> %a) {
 ; X64-LABEL: storeu8f16:
 ; X64:       # %bb.0:
-; X64-NEXT:    movq g8f16u@{{.*}}(%rip), %rax
+; X64-NEXT:    movq g8f16u@GOTPCREL(%rip), %rax
 ; X64-NEXT:    vmovups %xmm0, (%rax)
 ; X64-NEXT:    retq
 ;
@@ -1214,19 +1214,6 @@ define <8 x half> @movrrkz8f16(<8 x half> %a, i8 %msk) {
 ; X86-NEXT:    retl
   %mask = bitcast i8 %msk to <8 x i1>
   %res = select <8 x i1> %mask, <8 x half> %a, <8 x half> zeroinitializer
-  ret <8 x half> %res
-}
-
-define <8 x half> @movsh(<8 x half> %a, <8 x half> %b) {
-; CHECK-LABEL: movsh:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vpshufb {{.*#+}} xmm2 = xmm0[0,1,14,15,0,1,2,3,4,5,6,7,14,15,10,11]
-; CHECK-NEXT:    vmovsh %xmm0, %xmm1, %xmm0
-; CHECK-NEXT:    vaddph %xmm0, %xmm2, %xmm0
-; CHECK-NEXT:    ret{{[l|q]}}
-  %res1 = shufflevector <8 x half> %a, <8 x half> %b, <8 x i32> <i32 0, i32 7, i32 0, i32 1, i32 2, i32 3, i32 7, i32 5>
-  %res2 = shufflevector <8 x half> %a, <8 x half> %b, <8 x i32> <i32 0, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-  %res = fadd <8 x half> %res1, %res2
   ret <8 x half> %res
 }
 
@@ -1855,31 +1842,46 @@ define <16 x half> @build_vector_xxxxuuuuuuuuxxxx(half %a0, half %a1, half %a2, 
   ret <16 x half> %h
 }
 
-; Make sure load/stores of v4f16 are handled well on 32-bit targets where
-; default widening legalization can't use i64.
-define void @load_store_v4f16(<4 x half>* %x, <4 x half>* %y, <4 x half>* %z) {
-; X64-LABEL: load_store_v4f16:
-; X64:       # %bb.0:
-; X64-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; X64-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X64-NEXT:    vaddph %xmm1, %xmm0, %xmm0
-; X64-NEXT:    vmovlps %xmm0, (%rdx)
-; X64-NEXT:    retq
-;
-; X86-LABEL: load_store_v4f16:
-; X86:       # %bb.0:
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; X86-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
-; X86-NEXT:    vaddph %xmm1, %xmm0, %xmm0
-; X86-NEXT:    vmovlps %xmm0, (%eax)
-; X86-NEXT:    retl
-  %a = load <4 x half>, <4 x half>* %x
-  %b = load <4 x half>, <4 x half>* %y
-  %c = fadd <4 x half> %a, %b
-  store <4 x half> %c, <4 x half>* %z
-  ret void
+define <8 x half> @regression1(<8 x half> %a, <8 x half> %b) {
+; CHECK-LABEL: regression1:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpshufb {{.*#+}} xmm0 = xmm0[0,1,14,15,0,1,2,3,4,5,6,7,14,15,10,11]
+; CHECK-NEXT:    ret{{[l|q]}}
+  %res = shufflevector <8 x half> %a, <8 x half> %b, <8 x i32> <i32 0, i32 7, i32 0, i32 1, i32 2, i32 3, i32 7, i32 5>
+  ret <8 x half> %res
 }
 
+define <4 x float> @regression2(i8 addrspace(1)* %0, <4 x i32> %1, <4 x i32> %2, <4 x float> %3, i8* %4) {
+; X64-LABEL: regression2:
+; X64:       # %bb.0:
+; X64-NEXT:    vmovw (%rsi), %xmm0
+; X64-NEXT:    vpmovzxbd {{.*#+}} xmm0 = xmm0[0],zero,zero,zero,xmm0[1],zero,zero,zero,xmm0[2],zero,zero,zero,xmm0[3],zero,zero,zero
+; X64-NEXT:    vcvtdq2ps %xmm0, %xmm0
+; X64-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0,1],mem[2,3]
+; X64-NEXT:    vmulps {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %xmm0
+; X64-NEXT:    retq
+;
+; X86-LABEL: regression2:
+; X86:       # %bb.0:
+; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    vmovw (%eax), %xmm0
+; X86-NEXT:    vpmovzxbd {{.*#+}} xmm0 = xmm0[0],zero,zero,zero,xmm0[1],zero,zero,zero,xmm0[2],zero,zero,zero,xmm0[3],zero,zero,zero
+; X86-NEXT:    vcvtdq2ps %xmm0, %xmm0
+; X86-NEXT:    vblendps {{.*#+}} xmm0 = xmm0[0,1],mem[2,3]
+; X86-NEXT:    vmulps {{\.?LCPI[0-9]+_[0-9]+}}{1to4}, %xmm0, %xmm0
+; X86-NEXT:    retl
+  %6 = getelementptr i8, i8* %4, i64 0
+  %7 = getelementptr i8, i8* %6, i64 0
+  %8 = getelementptr i8, i8* %7, i64 0
+  %9 = load i8, i8* %8, align 1
+  %10 = getelementptr i8, i8* %8, i64 1
+  %11 = addrspacecast i8* %10 to i8 addrspace(4)*
+  %12 = load i8, i8 addrspace(4)* %11, align 1
+  %13 = insertelement <2 x i8> poison, i8 %9, i32 0
+  %14 = insertelement <2 x i8> %13, i8 %12, i32 1
+  %15 = uitofp <2 x i8> %14 to <2 x float>
+  %16 = shufflevector <2 x float> %15, <2 x float> poison, <4 x i32> <i32 0, i32 1, i32 undef, i32 undef>
+  %17 = shufflevector <4 x float> %16, <4 x float> <float poison, float poison, float 0.000000e+00, float 2.550000e+02>, <4 x i32> <i32 0, i32 1, i32 6, i32 7>
+  %18 = fmul contract <4 x float> %17, <float 0x3F70101020000000, float 0x3F70101020000000, float 0x3F70101020000000, float 0x3F70101020000000>
+  ret <4 x float> %18
+}

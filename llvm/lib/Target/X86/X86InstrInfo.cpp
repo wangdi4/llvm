@@ -699,10 +699,8 @@ static bool isFrameLoadOpcode(int Opcode, unsigned &MemBytes) {
     return true;
   case X86::MOV16rm:
   case X86::KMOVWkm:
-#if INTEL_CUSTOMIZATION
   case X86::VMOVSHZrm:
   case X86::VMOVSHZrm_alt:
-#endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
   case X86::MOV32rm:
@@ -799,9 +797,7 @@ static bool isFrameStoreOpcode(int Opcode, unsigned &MemBytes) {
     return true;
   case X86::MOV16mr:
   case X86::KMOVWmk:
-#if INTEL_CUSTOMIZATION
   case X86::VMOVSHZmr:
-#endif // INTEL_CUSTOMIZATION
     MemBytes = 2;
     return true;
   case X86::MOV32mr:
@@ -987,9 +983,7 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
   case X86::AVX512_FsFLD0SD:
-#if INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0F128:
   case X86::AVX_SET0:
@@ -1084,10 +1078,8 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(const MachineInstr &MI,
   case X86::VMOVSSZrm_alt:
   case X86::VMOVSDZrm:
   case X86::VMOVSDZrm_alt:
-#if INTEL_CUSTOMIZATION
   case X86::VMOVSHZrm:
   case X86::VMOVSHZrm_alt:
-#endif // INTEL_CUSTOMIZATION
   case X86::VMOVAPDZ128rm:
   case X86::VMOVAPDZ256rm:
   case X86::VMOVAPDZrm:
@@ -3720,12 +3712,10 @@ static unsigned getLoadStoreRegOpcode(Register Reg,
   case 2:
     if (X86::VK16RegClass.hasSubClassEq(RC))
       return load ? X86::KMOVWkm : X86::KMOVWmk;
-#if INTEL_CUSTOMIZATION
     if (X86::FR16XRegClass.hasSubClassEq(RC)) {
       assert(STI.hasFP16());
       return load ? X86::VMOVSHZrm_alt : X86::VMOVSHZmr;
     }
-#endif // INTEL_CUSTOMIZATION
     assert(X86::GR16RegClass.hasSubClassEq(RC) && "Unknown 2-byte regclass");
     return load ? X86::MOV16rm : X86::MOV16mr;
   case 4:
@@ -4896,9 +4886,7 @@ bool X86InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   case X86::AVX512_128_SET0:
-#if INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SS:
   case X86::AVX512_FsFLD0SD:
   case X86::AVX512_FsFLD0F128: {
@@ -6548,11 +6536,9 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     case X86::AVX512_FsFLD0SS:
       Alignment = Align(4);
       break;
-#if INTEL_CUSTOMIZATION
     case X86::AVX512_FsFLD0SH:
       Alignment = Align(2);
       break;
-#endif // INTEL_CUSTOMIZATION
     default:
       return nullptr;
     }
@@ -6588,9 +6574,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   case X86::AVX512_256_SET0:
   case X86::AVX512_512_SET0:
   case X86::AVX512_512_SETALLONES:
-#if INTEL_CUSTOMIZATION
   case X86::AVX512_FsFLD0SH:
-#endif // INTEL_CUSTOMIZATION
   case X86::FsFLD0SD:
   case X86::AVX512_FsFLD0SD:
   case X86::FsFLD0SS:
@@ -6629,10 +6613,8 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
       Ty = Type::getDoubleTy(MF.getFunction().getContext());
     else if (Opc == X86::FsFLD0F128 || Opc == X86::AVX512_FsFLD0F128)
       Ty = Type::getFP128Ty(MF.getFunction().getContext());
-#if INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_FsFLD0SH)
       Ty = Type::getHalfTy(MF.getFunction().getContext());
-#endif // INTEL_CUSTOMIZATION
     else if (Opc == X86::AVX512_512_SET0 || Opc == X86::AVX512_512_SETALLONES)
       Ty = FixedVectorType::get(Type::getInt32Ty(MF.getFunction().getContext()),
                                 16);

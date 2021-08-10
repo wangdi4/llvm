@@ -14155,9 +14155,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_storeups512_mask:
     return EmitX86MaskedStore(*this, Ops, Align(1));
 
-#if INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_storesh128_mask:
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_storess128_mask:
   case X86::BI__builtin_ia32_storesd128_mask:
     return EmitX86MaskedStore(*this, Ops, Align(1));
@@ -14347,9 +14345,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_loaddqudi512_mask:
     return EmitX86MaskedLoad(*this, Ops, Align(1));
 
-#if INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_loadsh128_mask:
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_loadss128_mask:
   case X86::BI__builtin_ia32_loadsd128_mask:
     return EmitX86MaskedLoad(*this, Ops, Align(1));
@@ -15253,11 +15249,9 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectq_128:
   case X86::BI__builtin_ia32_selectq_256:
   case X86::BI__builtin_ia32_selectq_512:
-#if INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectph_128:
   case X86::BI__builtin_ia32_selectph_256:
   case X86::BI__builtin_ia32_selectph_512:
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectps_128:
   case X86::BI__builtin_ia32_selectps_256:
   case X86::BI__builtin_ia32_selectps_512:
@@ -15265,9 +15259,7 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_selectpd_256:
   case X86::BI__builtin_ia32_selectpd_512:
     return EmitX86Select(*this, Ops[0], Ops[1], Ops[2]);
-#if INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectsh_128:
-#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_selectss_128:
   case X86::BI__builtin_ia32_selectsd_128: {
     Value *A = Builder.CreateExtractElement(Ops[1], (uint64_t)0);

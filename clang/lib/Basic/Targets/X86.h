@@ -92,8 +92,8 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVX512CD = false;
   bool HasAVX512VPOPCNTDQ = false;
   bool HasAVX512VNNI = false;
-#if INTEL_CUSTOMIZATION
   bool HasAVX512FP16 = false;
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_BF16
   bool HasAVXBF16 = false;
 #endif // INTEL_FEATURE_ISA_AVX_BF16

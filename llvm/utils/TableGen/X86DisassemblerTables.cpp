@@ -1079,9 +1079,9 @@ void DisassemblerTables::emitContextDecisions(raw_ostream &o1, raw_ostream &o2,
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[5], XOP9_MAP_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[6], XOPA_MAP_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[7], THREEDNOW_MAP_STR);
+  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[8], MAP5_STR);
+  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[9], MAP6_STR);
 #if INTEL_CUSTOMIZATION
-  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[8], THREEBYTE39_STR);
-  emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[9], THREEBYTE3B_STR);
   emitContextDecision(o1, o2, i1, i2, ModRMTableNum, *Tables[10], MAP8_STR);
 #endif // INTEL_CUSTOMIZATION
 }
