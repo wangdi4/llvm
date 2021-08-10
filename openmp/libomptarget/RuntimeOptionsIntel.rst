@@ -161,8 +161,8 @@ Current experimental implementation does not support "free" operation.
 
 **Default**: 0 (disabled)
 
-``INTEL_LIBITTNOTIFY64=<Path>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``INTEL_ENABLE_OFFLOAD_ANNOTATIONS=<Path>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Enables ITT annotations in the target program if ``<Path>`` is not empty.
 
 **Default**: Disabled
