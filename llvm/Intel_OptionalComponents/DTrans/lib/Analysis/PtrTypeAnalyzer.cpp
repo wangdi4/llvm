@@ -504,6 +504,14 @@ public:
       DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
     else
       DTransIOPtrTy = PTA.getDTransI8PtrType();
+
+    // The landingpad instruction will always result in the literal structure:
+    //   { i8*, i32 }
+    // Build the type that will be used when analyzing the instruction.
+    DTransType *FieldTypes[2] = {
+        PTA.getDTransI8PtrType(),
+        TM.getOrCreateAtomicType(llvm::Type::getInt32Ty(Ctx)) };
+    DTransLandingPadTy = TM.getOrCreateLiteralStructType(Ctx, FieldTypes);
   }
 
   void visitModule(Module &M) {
@@ -1023,8 +1031,10 @@ public:
   void visitAllocaInst(AllocaInst &I) { analyzeValue(&I); }
   void visitBitCastInst(BitCastInst &I) { analyzeValue(&I); }
   void visitCallBase(CallBase &I) { analyzeValue(&I); }
+  void visitExtractValueInst(ExtractValueInst &I) { analyzeValue(&I); }
   void visitGetElementPtrInst(GetElementPtrInst &I) { analyzeValue(&I); }
   void visitIntToPtrInst(IntToPtrInst &I) { analyzeValue(&I); }
+  void visitLandingPadInst(LandingPadInst &I) { analyzeValue(&I); }
   void visitLoadInst(LoadInst &I) { analyzeValue(&I); }
   void visitPHINode(PHINode &I) { analyzeValue(&I); }
   void visitPtrToIntInst(PtrToIntInst &I) { analyzeValue(&I); }
@@ -1269,11 +1279,17 @@ private:
     case Instruction::Invoke:
       analyzeCallBase(cast<CallBase>(I), Info);
       break;
+    case Instruction::ExtractValue:
+      analyzeExtractValueInst(cast<ExtractValueInst>(I), Info);
+      break;
     case Instruction::GetElementPtr:
       analyzeGetElementPtrOperator(cast<GEPOperator>(I), Info);
       break;
     case Instruction::IntToPtr:
       analyzeIntToPtrInst(cast<IntToPtrInst>(I), Info);
+      break;
+    case Instruction::LandingPad:
+      analyzeLandingPadInst(cast<LandingPadInst>(I), Info);
       break;
     case Instruction::Load:
       analyzeLoadInst(cast<LoadInst>(I), Info);
@@ -2976,6 +2992,49 @@ private:
                       << "\n");
   }
 
+  void analyzeExtractValueInst(ExtractValueInst *EV,
+    ValueTypeInfo *ResultInfo) {
+    if (!isTypeOfInterest(EV->getType()))
+      return;
+
+    // Currently, only handle cases with a single index value.
+    if (EV->getNumIndices() > 1) {
+      ResultInfo->setUnhandled();
+      LLVM_DEBUG(
+        dbgs() << "Unhandled ExtractValueInst due to number of indices: "
+        << *EV << "\n");
+      return;
+    }
+
+    Value *Src = EV->getAggregateOperand();
+    unsigned Idx = EV->getAggregateOperandIndex();
+    ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(Src);
+    for (auto Alias :
+      SrcInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
+      if (!Alias->isAggregateType())
+        continue;
+
+      if (auto *DStTy = dyn_cast<DTransStructType>(Alias)) {
+        DTransFieldMember &Field = DStTy->getField(Idx);
+        for (auto *FieldTTy : Field.getTypes())
+          ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, FieldTTy);
+        continue;
+      }
+      else if (auto *DSeqTy = dyn_cast<DTransSequentialType>(Alias)) {
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+          DSeqTy->getTypeAtIndex(0));
+      }
+      else {
+        ResultInfo->setUnhandled();
+        LLVM_DEBUG(dbgs() << "Unahndled ExtractValue: " << *EV << "\n");
+      }
+    }
+  }
+
+  void analyzeLandingPadInst(LandingPadInst *LP, ValueTypeInfo *ResultInfo) {
+    ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, getDTransLandingPadTy());
+  }
+
   void analyzeLoadInst(LoadInst *LI, ValueTypeInfo *ResultInfo) {
     // We cannot just take the value type of the load, and set that as
     // the type of value produced because the pointer may be a
@@ -3271,6 +3330,9 @@ private:
   }
 
   DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
+  DTransStructType *getDTransLandingPadTy() const {
+    return DTransLandingPadTy;
+  }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -3284,6 +3346,10 @@ private:
 
   // Representation of %struct._IO_FILE*
   DTransPointerType *DTransIOPtrTy;
+
+  // A landing pad instruction generates a literal structure of the form:
+  // { i8*, i32 }. Represent this in the DTransType system.
+  DTransStructType *DTransLandingPadTy;
 
   // Keep a mapping of a set of types that are inferred for a Value that is
   // constructed when a type needs to be inferred by doing a look-ahead walk of
