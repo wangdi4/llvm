@@ -41,7 +41,8 @@ private:
   // calls outside of the for-loop might create additional load/stores for some
   // kernels with barriers.
   void handleLanguageSpecifics(Function &F, PHINode *Phi, Function *Clone,
-                               BasicBlock *EntryBlock) override;
+                               BasicBlock *EntryBlock,
+                               const VectorVariant &Variant) override;
 
   // Prepare OpenCL kernel for VecClone (emits vector-variant attributes).
   void languageSpecificInitializations(Module &M) override;
