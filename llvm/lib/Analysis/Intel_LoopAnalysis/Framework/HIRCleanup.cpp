@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "HIRCreation.h"
@@ -70,6 +71,23 @@ void HIRCleanup::eliminateRedundantLabels() {
   }
 }
 
+Optional<bool> HIRCleanup::isImpliedUsingSCEVAnalysis(Value *Cond) {
+
+  auto *ICmp = dyn_cast<ICmpInst>(Cond);
+
+  // Restrict to EQ predicates for compile time savings.
+  if (!ICmp || (ICmp->getPredicate() != CmpInst::ICMP_EQ)) {
+    return None;
+  }
+
+  auto &SE = HIRC.RI.getScopedSE();
+
+  auto *LHS = SE.getSCEV(ICmp->getOperand(0));
+  auto *RHS = SE.getSCEV(ICmp->getOperand(1));
+
+  return SE.evaluatePredicateAt(CmpInst::ICMP_EQ, LHS, RHS, ICmp);
+}
+
 // Replaces HLIfs which can be proven to be true/false using ValueTracking's
 // isImpliedByDomCondition() functionality, by their then/else bodies.
 // TODO: Move this logic to SimplifyCFG pass when it is capable of using and
@@ -78,6 +96,10 @@ void HIRCleanup::eliminateRedundantIfs() {
 
   auto &DL = HNU.getDataLayout();
   auto *DT = &HIRC.DT;
+
+  bool IsFunctionLevelRegion =
+      !HIRC.Ifs.empty() &&
+      HIRC.Ifs.begin()->first->getParentRegion()->isFunctionLevel();
 
   for (auto &IfBlockPair : HIRC.Ifs) {
     auto *SrcBB = IfBlockPair.second;
@@ -97,35 +119,47 @@ void HIRCleanup::eliminateRedundantIfs() {
       continue;
     }
 
+    auto *If = IfBlockPair.first;
     Optional<bool> Res = isImpliedByDomCondition(Cond, BI, DL, DT);
 
-    if (Res) {
-      bool ReplaceWithThenCase = *Res;
-      auto *If = IfBlockPair.first;
+    if (!Res) {
 
-      const HLNode *LastChild =
-          ReplaceWithThenCase ? If->getLastThenChild() : If->getLastElseChild();
-
-      auto *LastGoto = dyn_cast_or_null<HLGoto>(LastChild);
-      // If optimizing HLIf produces unconditional goto, verifier may complain
-      // about dead nodes after goto. It is non-trivial to clean up the nodes at
-      // this stage as we haven't formed loops out of loop header labels. It is
-      // better to simply give up.
-      if (LastGoto && !HLNodeUtils::isLexicalLastChildOfParent(If)) {
-        // If the next node is target of goto, eliminateRedundantGotos() will
-        // handle it.
-        auto *LabelSuccessor =
-            dyn_cast<HLLabel>(&*std::next(If->getIterator()));
-
-        if (!LabelSuccessor || (LastGoto->getTargetLabel() != LabelSuccessor)) {
-          continue;
-        }
+      // Only enable ScalarEvolution's implied logic for function level regions
+      // to save compile time as SCEV analysis is expensive.
+      if (!IsFunctionLevelRegion) {
+        continue;
       }
 
-      OptimizedRegions.insert(If->getParentRegion());
+      Res = isImpliedUsingSCEVAnalysis(Cond);
 
-      HLNodeUtils::replaceNodeWithBody(If, ReplaceWithThenCase);
+      if (!Res) {
+        continue;
+      }
     }
+
+    bool ReplaceWithThenCase = *Res;
+
+    const HLNode *LastChild =
+        ReplaceWithThenCase ? If->getLastThenChild() : If->getLastElseChild();
+
+    auto *LastGoto = dyn_cast_or_null<HLGoto>(LastChild);
+    // If optimizing HLIf produces unconditional goto, verifier may complain
+    // about dead nodes after goto. It is non-trivial to clean up the nodes at
+    // this stage as we haven't formed loops out of loop header labels. It is
+    // better to simply give up.
+    if (LastGoto && !HLNodeUtils::isLexicalLastChildOfParent(If)) {
+      // If the next node is target of goto, eliminateRedundantGotos() will
+      // handle it.
+      auto *LabelSuccessor = dyn_cast<HLLabel>(&*std::next(If->getIterator()));
+
+      if (!LabelSuccessor || (LastGoto->getTargetLabel() != LabelSuccessor)) {
+        continue;
+      }
+    }
+
+    OptimizedRegions.insert(If->getParentRegion());
+
+    HLNodeUtils::replaceNodeWithBody(If, ReplaceWithThenCase);
   }
 }
 

@@ -56,6 +56,9 @@ private:
   /// Eliminates redundant HLLabels created by HIRCreation pass.
   void eliminateRedundantLabels();
 
+  /// Checks if \p Cond can be implied true or false using SCEV analysis.
+  Optional<bool> isImpliedUsingSCEVAnalysis(Value *Cond);
+
   /// Eliminates redundant HLIfs in the incoming IR which can be proven to be
   /// true or false.
   void eliminateRedundantIfs();
