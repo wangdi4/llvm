@@ -2281,6 +2281,21 @@ StringRef WRegionNode::getName() const {
   return WRNName[getWRegionKindID()];
 }
 
+StringRef WRegionNode::getSourceName() const {
+  switch (getWRegionKindID()) {
+  case WRegionNode::WRNWksLoop:
+    return getEntryBBlock()->getParent()->isFortran() ? "do" : "for";
+  case WRegionNode::WRNParallelLoop:
+    return getEntryBBlock()->getParent()->isFortran() ? "parallel do"
+                                                      : "parallel for";
+  case WRegionNode::WRNDistributeParLoop:
+    return getEntryBBlock()->getParent()->isFortran()
+               ? "distribute parallel do"
+               : "distribute parallel for";
+  }
+  return getName();
+}
+
 void WRegionNode::errorClause(StringRef ClauseName) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());

@@ -26,16 +26,15 @@ void printRemark(formatted_raw_ostream &FOS, unsigned Depth, OptRemark R);
 void printOrigin(formatted_raw_ostream &FOS, unsigned Depth, OptRemark Origin);
 void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
                         const DILocation *DL);
-void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth);
-void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth);
+void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
+void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
 void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
-                              OptReport OptReport, const DebugLoc &DL);
+                              OptReport OR, const DebugLoc &DL);
 // This function prints the opt report enclosed with header/footer.
 // It is useful for printing first childs or next siblings.
 void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                            OptReport OptReport);
+                            OptReport OR);
 
-void printOptReport(formatted_raw_ostream &FOS, unsigned Depth,
-                    OptReport OptReport);
+void printOptReport(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR);
 } // namespace OptReportUtils
 } // namespace llvm

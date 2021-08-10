@@ -174,20 +174,20 @@ void printDebugLocation(formatted_raw_ostream &FOS, unsigned Depth,
       << DL->getColumn() << ")\n";
 }
 
-void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth) {
+void printLoopHeader(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
   FOS << '\n';
   FOS.indent(IntentationStep * Depth);
-  FOS << "LOOP BEGIN";
+  FOS << OR.title() << " BEGIN";
 }
 
-void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth) {
+void printLoopFooter(formatted_raw_ostream &FOS, unsigned Depth, OptReport OR) {
   FOS.indent(IntentationStep * Depth);
-  FOS << "LOOP END\n";
+  FOS << OR.title() << " END\n";
 }
 
 void printLoopHeaderAndOrigin(formatted_raw_ostream &FOS, unsigned Depth,
                               OptReport OR, const DebugLoc &DL) {
-  printLoopHeader(FOS, Depth);
+  printLoopHeader(FOS, Depth, OR);
 
   if (DL.get())
     printDebugLocation(FOS, Depth, DL.get());
@@ -210,7 +210,7 @@ void printEnclosedOptReport(formatted_raw_ostream &FOS, unsigned Depth,
   printLoopHeaderAndOrigin(FOS, Depth, OR, DebugLoc());
 
   printOptReport(FOS, Depth + 1, OR);
-  printLoopFooter(FOS, Depth);
+  printLoopFooter(FOS, Depth, OR);
 
   // After printing Optimization Report for the first child, we check whether it
   // has attached lost next sibling loops.

@@ -285,6 +285,7 @@ CallInst *VPOUtils::addOperandBundlesInCall(
   NewI->setCallingConv(CI->getCallingConv());
   NewI->setAttributes(CI->getAttributes());
   NewI->setDebugLoc(CI->getDebugLoc());
+  NewI->copyMetadata(*CI);
 
   CI->replaceAllUsesWith(NewI);
   CI->eraseFromParent();

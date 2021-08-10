@@ -1,9 +1,9 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=7 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x86 | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x87 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe807 < %s -S 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -inline -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0xe886 | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='cgscc(inline)'  -dtrans-inline-heuristics -pre-lto-inline-cost=false -inline-report=0x87 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
 
 ; Check that with -dtrans-inline-heuristics that @foo, which has a dynamic
 ; alloca, can be inlined.

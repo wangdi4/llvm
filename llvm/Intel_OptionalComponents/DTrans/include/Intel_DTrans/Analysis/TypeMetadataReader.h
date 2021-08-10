@@ -133,11 +133,6 @@ private:
 
   // Map of functions with DTrans metadata tags to a DTransFunctionType.
   DenseMap<Function *, DTransFunctionType *> FunctionToDTransTypeMap;
-
-  // Deprecated:
-  // Map of external symbol name to MDNode that describes the type.
-  // TODO: Remove when LIT tests are updated.
-  StringMap<MDNode *> SymbolNameToMDNodeMap;
 };
 
 #if !INTEL_PRODUCT_RELEASE

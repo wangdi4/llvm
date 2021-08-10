@@ -1454,7 +1454,7 @@ TEST_F(ScalarEvolutionsTest, ImpliedCond) {
   });
 }
 #if INTEL_CUSTOMIZATION
-TEST_F(ScalarEvolutionsTest, ImpliedCond1) {
+TEST_F(ScalarEvolutionsTest, ImpliedCondConstDiff) {
   LLVMContext C;
   SMDiagnostic Err;
   std::unique_ptr<Module> M = parseAssemblyString(
@@ -1482,6 +1482,37 @@ TEST_F(ScalarEvolutionsTest, ImpliedCond1) {
     // Len >s 0  does not -> Len >s 1
     EXPECT_FALSE(isImpliedCond(SE, ICmpInst::ICMP_SGT, Len, One,
                                ICmpInst::ICMP_SGT, Len, Zero));
+  });
+}
+
+TEST_F(ScalarEvolutionsTest, ImpliedCondConstDiffExt) {
+  LLVMContext C;
+  SMDiagnostic Err;
+  std::unique_ptr<Module> M =
+      parseAssemblyString("define void @foo(i32 %len) { "
+                          "entry: "
+                          "  %len.and = and i32 %len, 1 "
+                          "  %len.xor = xor i32 %len, -1 "
+                          "  %len.xor.and = and i32 %len.xor, 1"
+                          "  ret void "
+                          "}",
+                          Err, C);
+
+  ASSERT_TRUE(M && "Could not parse module?");
+  ASSERT_TRUE(!verifyModule(*M) && "Must have been well formed!");
+
+  runWithSE(*M, "foo", [](Function &F, LoopInfo &LI, ScalarEvolution &SE) {
+    // Parsed as: zext.i1.i32(trunc.i32.i1(Len))
+    auto *LenAnd = SE.getSCEV(getInstructionByName(F, "len.and"));
+    // Parsed as: zext.i1.i32(trunc.i32.i1(Len) + -1)
+    auto *LenXorAnd = SE.getSCEV(getInstructionByName(F, "len.xor.and"));
+    Type *Ty = LenAnd->getType();
+    const SCEV *Zero = SE.getZero(Ty);
+
+    // zext.i1.i32(trunc.i32.i1(Len)) == 0 ->  zext.i1.i32(trunc.i32.i1(Len) +
+    // -1) != 0
+    EXPECT_TRUE(isImpliedCond(SE, ICmpInst::ICMP_NE, LenXorAnd, Zero,
+                              ICmpInst::ICMP_EQ, LenAnd, Zero));
   });
 }
 #endif  // INTEL_CUSTOMIZATION

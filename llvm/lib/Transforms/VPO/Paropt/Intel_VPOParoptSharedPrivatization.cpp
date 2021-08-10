@@ -19,6 +19,7 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/InitializePasses.h"
@@ -45,6 +46,7 @@ static cl::opt<bool>
 
 static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
                                  OptimizationRemarkEmitter &ORE,
+                                 OptReportVerbosity::Level ORVerbosity,
                                  unsigned Mode) {
   bool Changed = false;
 
@@ -63,8 +65,8 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), Mode & OmpOffload,
-                        OptReportVerbosity::None, ORE, 2, false);
+                        WI.getAliasAnalysis(), Mode & OmpOffload, ORVerbosity,
+                        ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
 
@@ -76,11 +78,12 @@ VPOParoptSharedPrivatizationPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   WRegionInfo &WI = AM.getResult<WRegionInfoAnalysis>(F);
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+  auto ORVerbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
 
   PreservedAnalyses PA;
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!privatizeSharedItems(F, WI, ORE, Mode))
+  if (!privatizeSharedItems(F, WI, ORE, ORVerbosity, Mode))
     PA = PreservedAnalyses::all();
   else
     PA = PreservedAnalyses::none();
@@ -107,9 +110,10 @@ public:
 
     WRegionInfo &WI = getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
     auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
+    auto ORVerbosity = getAnalysis<OptReportOptionsPass>().getVerbosity();
 
     LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-    bool Changed = privatizeSharedItems(F, WI, ORE, Mode);
+    bool Changed = privatizeSharedItems(F, WI, ORE, ORVerbosity, Mode);
     LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
     return Changed;
   }
@@ -117,6 +121,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WRegionInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
+    AU.addRequired<OptReportOptionsPass>();
   }
 
 private:
@@ -130,6 +135,7 @@ INITIALIZE_PASS_BEGIN(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME,
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_END(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME, false,
                     false)
 
@@ -579,6 +585,12 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
                                        W->getEntryDirective())
             << GetMapName(MI) << " clause for variable '" << AI->getName()
             << "' on '" << W->getName() << "' construct is redundant");
+
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::Low,
+                       (Twine(GetMapName(MI)) + " clause for variable '" +
+                        AI->getName() + "' is redundant")
+                           .str());
         continue;
       }
 
@@ -609,6 +621,15 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           << "' on '" << W->getName()
           << "' construct can be changed to FIRSTPRIVATE to reduce mapping "
              "overhead");
+
+      ORBuilder(*W, WRegionList)
+          .addRemark(
+              OptReportVerbosity::Low,
+              (Twine(GetMapName(MI)) + " clause for variable '" +
+               AI->getName() + "' can be changed to " +
+               VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_FIRSTPRIVATE) +
+               " to reduce mapping overhead")
+                  .str());
     }
   }
 
@@ -638,8 +659,21 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
 
       // Do not change target regions so far because we cannot be sure that
       // both host and device sides will be changed the same way.
-      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses)
+      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
+        ORBuilder(*W, WRegionList)
+            .addRemark(OptReportVerbosity::Low,
+                       (Twine(ClauseName) + " clause for variable '" +
+                        V->getName() + "' is redundant")
+                           .str());
         return Changed;
+      }
+
+      ORBuilder(*W, WRegionList)
+          .addRemark(OptReportVerbosity::Low,
+                     (Twine(ClauseName) + " clause for variable '" +
+                      V->getName() + "' has been changed to " +
+                      VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
+                         .str());
 
       auto *Entry = cast<CallInst>(W->getEntryDirective());
       for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),

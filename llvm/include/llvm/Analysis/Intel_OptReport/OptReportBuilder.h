@@ -143,6 +143,9 @@ public:
     OptReport NewOR = OptReport::createEmptyOptReport(Builder.getContext());
     if (const DebugLoc &DL = getDebugLoc())
       NewOR.setDebugLoc(DL.get());
+    if (Optional<std::string> Title =
+            OptReportTraits<T>::getOptReportTitle(Handle))
+      NewOR.setTitle(*Title);
     setOptReport(NewOR);
     return NewOR;
   }
@@ -248,7 +251,7 @@ public:
     if (!Builder.getVerbosity())
       return;
 
-    // First, preserve OptReports of nested loops, if any. It is importand to
+    // First, preserve OptReports of nested loops, if any. It is important to
     // traverse child loops backwards, so that each loop is attached as a
     // sibling to the previous loop before the previous loop is "lost".
     // traverseChildLoopsBwd is not recursive by itself, but a lambda passed
@@ -340,6 +343,10 @@ template <> struct OptReportTraits<Function> {
   }
 
   static DebugLoc getDebugLoc(const Function &F) { return nullptr; }
+
+  static Optional<std::string> getOptReportTitle(const Function &F) {
+    return None;
+  }
 };
 
 // Traits of LLVM Loop for OptReportBuilder.
@@ -372,6 +379,10 @@ template <> struct OptReportTraits<Loop> {
 
   static DebugLoc getDebugLoc(const ObjectHandleTy &Handle) {
     return Handle.first.getLocRange().getStart();
+  }
+
+  static Optional<std::string> getOptReportTitle(const ObjectHandleTy &Handle) {
+    return None;
   }
 
   static OptReport getOrCreatePrevOptReport(const ObjectHandleTy &Handle,

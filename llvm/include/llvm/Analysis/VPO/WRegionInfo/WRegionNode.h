@@ -727,6 +727,11 @@ public:
   /// Returns the name for this WRN based on its SubClassID
   StringRef getName() const;
 
+  /// Similar to getName, but returns WRN name taking into account source
+  /// language differences. For example loop directives in C use word 'for' and
+  /// 'do' in Fortran.
+  StringRef getSourceName() const;
+
   /// Returns whether the WRegionNode is for an implicit construct.
   bool getIsImplicit() const { return IsImplicit; }
 

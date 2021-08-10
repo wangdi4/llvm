@@ -2458,11 +2458,22 @@ bool VPOParoptTransform::paroptTransforms() {
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    // Move all opt-report metadata to the function because after transform
+    // phase most of work regions will be removed, and for the remaining ones
+    // no passes are expected to add any opt-report remarks.
+    if ((Mode & OmpPar) && (Mode & ParTrans))
+      if (ORBuilder(*W, WRegionList).getOptReport())
+        ORBuilder(*W, WRegionList).preserveLostOptReport();
+
+#endif // INTEL_CUSTOMIZATION
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
     if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
+      W->setEntryDirective(nullptr);
+      W->setExitDirective(nullptr);
       RoutineChanged |= DirRemoved;
     } else if (Mode & ParPrepare)
 #if INTEL_CUSTOMIZATION

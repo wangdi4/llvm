@@ -1,9 +1,9 @@
 ; Inline report
-; RUN: opt -wholeprogramanalysis -whole-program-assume-read -inline -inline-report=7 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -inline-report=7 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
+; RUN: opt -wholeprogramanalysis -whole-program-assume-read -inline -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -inline-report=0xe807 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-BEFORE
 ; Inline report via metadata
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
-; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -inline-report=0x86 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
+; RUN: opt -inlinereportsetup -inline-report=0xe886 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -inline-report=0xe886 -S | opt -inlinereportemitter -inline-report=0xe886 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
 ; Check that no instances of @wolff_ are inlined due to the inline budget and
 ; single callsite local linkage heuristics, because this is not a link time

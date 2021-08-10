@@ -294,6 +294,13 @@ struct PerFunctionInfo {
   // type of structure, not the type being created by this transformation.
   SmallVector<std::pair<Instruction *, llvm::StructType *>, 16>
       InstructionsToAnnotate;
+
+  // When processing byte-flattened GEPs some instructions may be processed to
+  // get a Value for the index variable. This cache is used to get the processed
+  // values so they do not need to be recomputed when multiple instructions
+  // being processed. This is also necessary to avoid cycles when walking PHI
+  // nodes. This map needs to be cleared after processing each function.
+  DenseMap<Value *, Value *> IndexCache;
 };
 
 // This visitor will collect the instructions that need to be converted.
@@ -419,6 +426,9 @@ private: // methods
 
   LoadInst *createSOAFieldLoad(SOATypeInfoTy &SOAType, Value *FieldNumVal,
                                Instruction *InsertBefore);
+
+  Value *getIndexForValue(Value *Op, StructType *OrigStructTy);
+  Value *createIndexFromValue(Value *Op, StructType *OrigStructTy);
 
 private: // data
   // Class to handle changing the type of a 'null' Value object during this
@@ -1304,6 +1314,7 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     FuncInfo->InstructionsToDelete.clear();
     FuncInfo->InstructionsToMutate.clear();
     FuncInfo->ConstantsToReplace.clear();
+    FuncInfo->IndexCache.clear();
   };
 
   LLVM_DEBUG(dbgs() << "AOS-to-SOA: ProcessFunction: " << F.getName() << "\n");
@@ -1459,12 +1470,12 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
   // We need to get rid of all the cast instructions that were inserted to help
   // the type remapping because they are not valid after the type remapping
   // changed a pointer type to be an integer type.
-  SmallVector<Instruction *, 16> InstructionsToDelete;
+  SmallPtrSet<Instruction *, 16> InstructionsToDelete;
   for (auto *Conv : FuncInfo->PtrConverts) {
     if (IsCloned)
       Conv = cast<CastInst>(VMap[Conv]);
     if (Conv->user_empty()) {
-      InstructionsToDelete.push_back(Conv);
+      InstructionsToDelete.insert(Conv);
       continue;
     }
 
@@ -1483,13 +1494,13 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
       if (NotNeeded) {
         Instruction *SrcOperand = cast<Instruction>(Conv->getOperand(0));
         Conv->replaceAllUsesWith(SrcOperand->getOperand(0));
-        Conv->eraseFromParent();
+        InstructionsToDelete.insert(Conv);
 
         // Check if the source is now dead, but defer deletion
         // until processing all the elements of this loop, in case
         // the instruction is contained in the vector being iterated.
         if (SrcOperand->user_empty())
-          InstructionsToDelete.push_back(SrcOperand);
+          InstructionsToDelete.insert(SrcOperand);
       }
     }
 
@@ -1497,7 +1508,7 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
     assert(Conv->getType() == Conv->getOperand(0)->getType() &&
            "Expected self-type in cast after remap");
     Conv->replaceAllUsesWith(Conv->getOperand(0));
-    Conv->eraseFromParent();
+    InstructionsToDelete.insert(Conv);
   }
 
   // Insert the annotations that help the dynamic cloning recognize the new
@@ -1943,11 +1954,48 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
   FuncInfo->InstructionsToDelete.insert(GEP);
 }
 
+// The byte-flattened GEP needs to be transformed from getting the address as:
+//    %p8_B = getelementptr i8, i8* %p, i64 8
+// (Assume field 1 is an i32 that is offset 8 bytes from the start of the
+// structure)
+//
+// To:
+//    %indexAsInt = ptrtoint %struct.test01* %p to i64
+//    %soaField = getelementptr % __soa_struct.t,
+//                              %__soa_struct.t* @__soa_struct.t, i64 0, i32 1
+//    %soaAddr = load i32*, i32** %soaField
+//    %elementAddr = getelementptr i32, i32* %soaAddr, i64 %indexAsInt
+//    %p8_B = bitcast i32* %elementAddr to i8*
 void AOSToSOAOPTransformImpl::convertByteGEP(GetElementPtrInst *GEP,
                                              DTransStructType *OrigStructTy,
                                              size_t FieldNum) {
-  // TODO: Handle byte-flattened GEPs on the type being transformed.
-  llvm_unreachable("ByteGEP conversion not implemented yet");
+  LLVM_DEBUG(dbgs() << "Replacing byte flattened GEP for field "
+                    << *OrigStructTy << "@" << FieldNum << ":\n  " << *GEP
+                    << "\n");
+
+  auto *OrigLLVMStructTy = cast<llvm::StructType>(OrigStructTy->getLLVMType());
+  struct SOATypeInfoTy &SOAInfo = getSOATypeInfo(OrigLLVMStructTy);
+
+  // Trace the pointer operand to find the base value that is needed
+  // for indexing into the field's array.
+  Value *IndexAsInt =
+      getIndexForValue(GEP->getPointerOperand(), OrigLLVMStructTy);
+
+  StructType *SOAType = SOAInfo.SOAStructType;
+  Value *FieldNumValue =
+      ConstantInt::get(Type::getInt32Ty(GEP->getContext()), FieldNum);
+  Instruction *FieldGEP = createGEPFieldAddressReplacement(
+      SOAInfo, IndexAsInt, ConstantInt::get(PtrSizeIntLLVMType, 0),
+      FieldNumValue, GEP);
+
+  llvm::Type *FieldTy = SOAType->getElementType(FieldNum);
+  if (FieldTy != GEP->getType())
+    FieldGEP =
+        CastInst::CreateBitOrPointerCast(FieldGEP, GEP->getType(), "", GEP);
+
+  FieldGEP->takeName(GEP);
+  GEP->replaceAllUsesWith(FieldGEP);
+  FuncInfo->InstructionsToDelete.insert(GEP);
 }
 
 // Update the GEP result element type on the GEPs because now the result of a
@@ -2820,6 +2868,79 @@ GetElementPtrInst *AOSToSOAOPTransformImpl::createGEPFieldAddressReplacement(
       FieldElementTy, SOAAddr, AdjustedPeelIdxAsInt, "", InsertBefore);
 
   return FieldGEP;
+}
+
+// This is a helper function for identifying the index to use for byte-flattened
+// GEPs. This can be expanded to also support pointers passed to memintrinsic
+// calls to support passing the address of a field being transformed to a
+// memintrinsic call if support for those is added.
+Value *AOSToSOAOPTransformImpl::getIndexForValue(
+  Value *Op, StructType *OrigStructTy) {
+  auto &V = FuncInfo->IndexCache[Op];
+  if (!V)
+    V = createIndexFromValue(Op, OrigStructTy);
+
+  return V;
+}
+
+// This walks the definitions through bitcasts, selects and PHI nodes for
+// 'Op' to find the index value to use for the index value.
+Value *AOSToSOAOPTransformImpl::createIndexFromValue(
+  Value *Op, StructType *OrigStructTy) {
+  // If 'Op' is a bitcast from a pointer to the type being transformed to an
+  // i8*, then we can directly use the source operand of bitcast, since we
+  // know this the pointer that needs to be turned into the index type.
+  if (auto *BC = dyn_cast<BitCastInst>(Op))
+    return getIndexForValue(BC->getOperand(0), OrigStructTy);
+
+  // When opaque pointers are in use, it's possible to directly use the result
+  // of a load that is effectively a pointer to the structure type within a GEP
+  // that is performing byte offset indexing.
+  //  %sa = load ptr, ptr %source
+  //  %fa = getelementptr i8, ptr %sa, i64 12
+  //
+  // In this case, we need to convert %sa to be the index to enable access as:
+  //   @soaVar->field3[%sa]
+  if (auto *LI = dyn_cast<LoadInst>(Op)) {
+    CastInst *NewCast = createCastToIndexType(LI, nullptr);
+    NewCast->insertAfter(LI);
+    FuncInfo->PtrConverts.push_back(NewCast);
+    FuncInfo->IndexCache[LI] = NewCast;
+    return NewCast;
+  }
+
+  // For select and PHI nodes, create new instructions that will act on the
+  // index value type, instead of the pointer type.
+  if (auto *Sel = dyn_cast<SelectInst>(Op)) {
+    Value *NewTrue =
+      getIndexForValue(Sel->getTrueValue(), OrigStructTy);
+    Value *NewFalse =
+      getIndexForValue(Sel->getFalseValue(), OrigStructTy);
+    Instruction *NewSel =
+      SelectInst::Create(Sel->getCondition(), NewTrue, NewFalse, "", Sel);
+    return NewSel;
+  }
+
+  if (auto *PHI = dyn_cast<PHINode>(Op)) {
+    PHINode *NewPhi = PHINode::Create(PtrSizeIntLLVMType, 0, "", PHI);
+
+    // Save the new PHI so that if another reference to is found while walking
+    // the definitions this one will be used.
+    FuncInfo->IndexCache[PHI] = NewPhi;
+
+    SmallVector<Value *, 4> NewPhiVals;
+    for (Value *Val : PHI->incoming_values())
+      NewPhiVals.push_back(
+        getIndexForValue(Val, OrigStructTy));
+
+    unsigned NumIncoming = PHI->getNumIncomingValues();
+    for (unsigned Num = 0; Num < NumIncoming; ++Num)
+      NewPhi->addIncoming(NewPhiVals[Num], PHI->getIncomingBlock(Num));
+
+    return NewPhi;
+  }
+
+  llvm_unreachable("unexpected instruction");
 }
 
 char DTransAOSToSOAOPWrapper::ID = 0;

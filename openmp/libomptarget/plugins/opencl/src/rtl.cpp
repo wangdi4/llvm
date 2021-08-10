@@ -901,12 +901,11 @@ public:
     }
 #endif // INTEL_INTERNAL_BUILD
 
-    if ((env = readEnvVar("INTEL_LIBITTNOTIFY64"))) {
-      // INTEL_LIBITTNOTIFY64 points to ittnotify_collector library.
-      // Ignore empty path, but, otherwise, do not analyze it.
-      if (env[0] != '\0') {
-        CommonSpecConstants.addConstant<char>(0xFF747469, 1);
-      }
+    if ((env = readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS"))) {
+      // To match SYCL RT behavior, we just need to check whether
+      // INTEL_ENABLE_OFFLOAD_ANNOTATIONS is set. The actual value
+      // does not matter.
+      CommonSpecConstants.addConstant<char>(0xFF747469, 1);
     }
 
     if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS"))) {

@@ -115,6 +115,8 @@ static void printSimpleMessage(const char *Message, unsigned IndentCount,
 /// Print the inlining cost and threshold values
 ///
 void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
+  if (!(Level & InlineReportOptions::EarlyExitCost))
+    return;
   llvm::errs() << " (" << getInlineCost();
   if (getIsInlined())
     llvm::errs() << "<=";
@@ -135,7 +137,9 @@ void InlineReportCallSite::printCostAndThreshold(unsigned Level) {
 ///
 /// Print the outer inlining cost and threshold values
 ///
-void InlineReportCallSite::printOuterCostAndThreshold(void) {
+void InlineReportCallSite::printOuterCostAndThreshold(unsigned Level) {
+  if (!(Level & InlineReportOptions::EarlyExitCost))
+    return;
   llvm::errs() << " (" << getOuterInlineCost() << ">" << getInlineCost() << ">"
                << getInlineThreshold() << ")";
 }
@@ -205,20 +209,24 @@ void InlineReportCallSite::print(unsigned IndentCount, unsigned Level) {
         llvm::errs() << "\n";
         break;
       case NinlrExtern:
-        llvm::errs() << "-> EXTERN: ";
-        printCalleeNameModuleLineCol(Level);
-        llvm::errs() << "\n";
+        if (Level & InlineReportOptions::Externs) {
+          llvm::errs() << "-> EXTERN: ";
+          printCalleeNameModuleLineCol(Level);
+          llvm::errs() << "\n";
+        }
         break;
       case NinlrIndirect:
-        llvm::errs() << "-> INDIRECT: ";
-        printCalleeNameModuleLineCol(Level);
-        printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
-                           Level, false);
+        if (Level & InlineReportOptions::Indirects) {
+          llvm::errs() << "-> INDIRECT: ";
+          printCalleeNameModuleLineCol(Level);
+          printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
+                             Level, false);
+        }
         break;
       case NinlrOuterInlining:
         llvm::errs() << "-> ";
         printCalleeNameModuleLineCol(Level);
-        printOuterCostAndThreshold();
+        printOuterCostAndThreshold(Level);
         printSimpleMessage(InlineReasonText[getReason()].Message, IndentCount,
                            Level, false);
         break;
@@ -668,17 +676,20 @@ void InlineReport::print() const {
   if (!isClassicIREnabled())
     return;
   llvm::errs() << "---- Begin Inlining Report ----\n";
-  printOptionValues();
+  if (Level & InlineReportOptions::Options)
+    printOptionValues();
   auto &IRDFS = IRDeadFunctionSet;
-  for (auto I = IRDFS.begin(), E = IRDFS.end(); I != E; ++I) {
-    InlineReportFunction *IRF = *I;
-    // Suppress inline report on any Function with Suppress mark on
-    if (IRF->getSuppressPrint())
-      continue;
-    llvm::errs() << "DEAD STATIC FUNC: ";
-    printFunctionLinkage(Level, IRF);
-    printFunctionLanguage(Level, IRF);
-    llvm::errs() << IRF->getName() << "\n\n";
+  if (Level & InlineReportOptions::DeadStatics) {
+    for (auto I = IRDFS.begin(), E = IRDFS.end(); I != E; ++I) {
+      InlineReportFunction *IRF = *I;
+      // Suppress inline report on any Function with Suppress mark on
+      if (IRF->getSuppressPrint())
+        continue;
+      llvm::errs() << "DEAD STATIC FUNC: ";
+      printFunctionLinkage(Level, IRF);
+      printFunctionLanguage(Level, IRF);
+      llvm::errs() << IRF->getName() << "\n\n";
+    }
   }
 
   InlineReportFunctionMap::const_iterator Mit, E;

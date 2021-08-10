@@ -1223,6 +1223,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
   auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
+  NewEntryDir->copyMetadata(*KernelEntryDir);
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);

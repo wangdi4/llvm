@@ -57,6 +57,19 @@
 ; CHECK: @matmul_mkl_f64_
 ; CHECK: END REGION
 
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-generate-mkl-call -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-generate-mkl-call,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -disable-output < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+;
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:     remark #25459: Loopnest replaced by matmul intrinsic
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:         LOOP BEGIN
+; OPTREPORT:         LOOP END
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
+
+
 ;Module Before HIR
 ; ModuleID = 'double-matmul-only.cpp'
 source_filename = "double-matmul-only.cpp"
@@ -122,50 +135,6 @@ for.inc20:                                        ; preds = %for.inc17
 
 for.end22:                                        ; preds = %for.inc20
   ret void
-}
-
-; Function Attrs: norecurse nounwind uwtable
-define dso_local i32 @main() local_unnamed_addr #3 {
-entry:
-  br label %for.cond1.preheader.i
-
-for.cond1.preheader.i:                            ; preds = %for.inc20.i, %entry
-  %indvars.iv41.i = phi i64 [ 0, %entry ], [ %indvars.iv.next42.i, %for.inc20.i ]
-  br label %for.cond4.preheader.i
-
-for.cond4.preheader.i:                            ; preds = %for.inc17.i, %for.cond1.preheader.i
-  %indvars.iv38.i = phi i64 [ 0, %for.cond1.preheader.i ], [ %indvars.iv.next39.i, %for.inc17.i ]
-  %arrayidx16.i = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @c, i64 0, i64 %indvars.iv41.i, i64 %indvars.iv38.i, !intel-tbaa !2
-  %arrayidx16.promoted.i = load double, double* %arrayidx16.i, align 8, !tbaa !2
-  br label %for.body6.i
-
-for.body6.i:                                      ; preds = %for.body6.i, %for.cond4.preheader.i
-  %indvars.iv.i = phi i64 [ 0, %for.cond4.preheader.i ], [ %indvars.iv.next.i, %for.body6.i ]
-  %0 = phi double [ %arrayidx16.promoted.i, %for.cond4.preheader.i ], [ %add.i, %for.body6.i ]
-  %arrayidx8.i = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @a, i64 0, i64 %indvars.iv41.i, i64 %indvars.iv.i, !intel-tbaa !2
-  %1 = load double, double* %arrayidx8.i, align 8, !tbaa !2
-  %arrayidx12.i = getelementptr inbounds [1024 x [1024 x double]], [1024 x [1024 x double]]* @b, i64 0, i64 %indvars.iv.i, i64 %indvars.iv38.i, !intel-tbaa !2
-  %2 = load double, double* %arrayidx12.i, align 8, !tbaa !2
-  %mul.i = fmul double %1, %2
-  %add.i = fadd double %0, %mul.i
-  %indvars.iv.next.i = add nuw nsw i64 %indvars.iv.i, 1
-  %exitcond.i = icmp eq i64 %indvars.iv.next.i, 1024
-  br i1 %exitcond.i, label %for.inc17.i, label %for.body6.i
-
-for.inc17.i:                                      ; preds = %for.body6.i
-  %add.i.lcssa = phi double [ %add.i, %for.body6.i ]
-  store double %add.i.lcssa, double* %arrayidx16.i, align 8, !tbaa !2
-  %indvars.iv.next39.i = add nuw nsw i64 %indvars.iv38.i, 1
-  %exitcond40.i = icmp eq i64 %indvars.iv.next39.i, 1024
-  br i1 %exitcond40.i, label %for.inc20.i, label %for.cond4.preheader.i
-
-for.inc20.i:                                      ; preds = %for.inc17.i
-  %indvars.iv.next42.i = add nuw nsw i64 %indvars.iv41.i, 1
-  %exitcond43.i = icmp eq i64 %indvars.iv.next42.i, 1024
-  br i1 %exitcond43.i, label %_Z8multiplyv.exit, label %for.cond1.preheader.i
-
-_Z8multiplyv.exit:                                ; preds = %for.inc20.i
-  ret i32 0
 }
 
 ; Function Attrs: uwtable

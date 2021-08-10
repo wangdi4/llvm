@@ -37,13 +37,19 @@ typedef enum {
                    //   X: available externally (and generally not emitted)
                    //     (F.hasAvailableExternallyLinkage())
                    //   A: alternate (something other than L, O, or X)
-  RealCost = 0x40, // Compute both real and early exit inlining costs
+  EarlyExitCost = 0x40,    // Print the early exit cost vs. threshold info,
+                           //   where applicable
   BasedOnMetadata = 0x80,  // Create metadata-based inline report
   CompositeReport = 0x100, // Create composite inline report for an -flto
                            //   compilation
   DontSkipIntrin = 0x200,  // Do create the inlining report info for the
                            //   special intrinsic call sites
-  Language = 0x400     // Print the source language C for C/C++ F for Fortran
+  Language = 0x400,     // Print the source language C for C/C++ and F for Fortran
+  Options = 0x800,      // Print the inlining option values
+  RealCost = 0x1000,    // Print both early exit and real inlining costs
+  DeadStatics = 0x2000, // Print dead static functions
+  Externs = 0x4000,     // Print external function callsites
+  Indirects = 0x8000    // Print indirect function callsites
 } InlineReportOptions;
 }
 
