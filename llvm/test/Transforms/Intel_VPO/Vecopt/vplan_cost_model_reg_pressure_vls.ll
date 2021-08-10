@@ -47,7 +47,6 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:    Cost 2000 for i1 [[VP20:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP20]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB2]]: base cost: 127000
-; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 12000
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -56,8 +55,6 @@ define void @test(i8 *%p) local_unnamed_addr {
 ; CHECK-NEXT:    Cost 0 for br <External Block>
 ; CHECK-NEXT:  [[BB4]]: base cost: 0
 ; CHECK-NEXT:  Base Cost: 127000
-; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 12000
-; CHECK-NEXT:  Total Cost: 139000
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

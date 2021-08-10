@@ -48,7 +48,6 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB2]]: base cost: 94000
-; CMCHECK-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 8000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -58,8 +57,6 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
 ; CMCHECK-NEXT:  Base Cost: 94000
-; CMCHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 8000
-; CMCHECK-NEXT:  Total Cost: 102000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
