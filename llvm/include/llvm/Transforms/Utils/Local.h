@@ -292,8 +292,9 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
                    : FixedVectorType::get(DestTy, NumVectorElements);
 
       // No wrap, Index >= Lower
-      Diff = Builder->CreateNSWSub(Builder->CreateSExt(Index, DestTy),
-                                   Builder->CreateSExt(Lower, DestTy));
+      auto *Op0 = Builder->CreateSExt(Index, DestTy);
+      auto *Op1 = Builder->CreateSExt(Lower, DestTy);
+      Diff = Builder->CreateNSWSub(Op0, Op1);
     }
   }
 
@@ -307,8 +308,9 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
         return Builder->CreateSExtOrTrunc(Diff, OffsetTy);
   }
 
-  return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
-                               Builder->CreateSExt(Diff, OffsetTy));
+  auto *Op0 = Builder->CreateSExt(Stride, OffsetTy);
+  auto *Op1 = Builder->CreateSExt(Diff, OffsetTy);
+  return Builder->CreateNSWMul(Op0, Op1);
 }
 }
 
