@@ -7306,15 +7306,10 @@ namespace {
   class LoopBoundsExprChecker final :
     public ConstStmtVisitor<LoopBoundsExprChecker, void> {
     llvm::SmallDenseSet<const VarDecl *, 4> Vars;
-    bool FoundNonAuto = false;
   public:
     void VisitDeclRefExpr(const DeclRefExpr *E) {
-      if (const auto *VD = dyn_cast<VarDecl>(E->getDecl())) {
-        if (VD->getStorageDuration() != SD_Automatic)
-          FoundNonAuto = true;
-        else
-          Vars.insert(VD->getCanonicalDecl());
-      }
+      if (const auto *VD = dyn_cast<VarDecl>(E->getDecl()))
+        Vars.insert(VD->getCanonicalDecl());
     }
     void VisitStmt(const Stmt *S) {
       for (const Stmt *C : S->children())
@@ -7342,9 +7337,6 @@ namespace {
     /// the bounds are not used in certain clauses that would make
     /// hoisting illegal.
     bool okayToHoistNonCombinedLoop(const OMPExecutableDirective &S) {
-      // If variable without automatic storage was seen, don't hoist.
-      if (FoundNonAuto)
-        return false;
       // If there is a defaultmap, don't hoist.
       if (S.hasClausesOfKind<OMPDefaultmapClause>())
         return false;
