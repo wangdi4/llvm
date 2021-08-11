@@ -2385,6 +2385,24 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNScope:
+        if(Mode & ParPrepare){
+          debugPrintHeader(W, Mode);
+          Changed |= renameOperandsUsingStoreThenLoad(W);
+        }
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          debugPrintHeader(W, Mode);
+          Changed |= genBeginScopeCode(W);
+          Changed |= genPrivatizationCode(W,
+            W->getEntryBBlock()->getTerminator()->getPrevNonDebugInstruction());
+          Changed |= genReductionCode(W);
+          Changed |= genDestructorCode(W);
+          Changed |= genEndScopeCode(W);
+          if(!W->getNowait())
+            Changed |= genBarrier(W, false, isTargetSPIRV());
+          RemoveDirectives = true;
+        }
+        break;
       case WRegionNode::WRNOrdered:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
@@ -7900,7 +7918,8 @@ void VPOParoptTransform::genPrivatizationInitOrFini(
   }
 }
 
-bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
+bool VPOParoptTransform::genPrivatizationCode(
+    WRegionNode *W, Instruction *CtorInsertPt) {
 
   bool Changed = false;
 
@@ -7953,10 +7972,12 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         genPrivatizationReplacement(W, Orig, ReplacementVal);
 
         if (auto *Ctor = PrivI->getConstructor()) {
-          Instruction *CtorInsertPt = dyn_cast<Instruction>(NewPrivInst);
-          // NewPrivInst might be at module level. e.g. 'target private (x)'.
-          if (!CtorInsertPt)
-            CtorInsertPt = InsertPt;
+          if(!CtorInsertPt) {
+            CtorInsertPt = dyn_cast<Instruction>(NewPrivInst);
+            // NewPrivInst might be at module level. e.g. 'target private (x)'.
+            if (!CtorInsertPt)
+              CtorInsertPt = InsertPt;
+          }
 #if INTEL_CUSTOMIZATION
           if (PrivI->getIsF90NonPod()) {
             // genPrivatizationInitOrFini inserts copy-constructors before the
@@ -9890,6 +9911,38 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   CriticalNode->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
   return Changed || CriticalCallsInserted;
+}
+
+// Generate code for the begining of OMP scope construct.
+// #pragma omp scope
+bool VPOParoptTransform::genBeginScopeCode(WRegionNode *W)
+{
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBeginScopeCode\n");
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  Instruction *InsertPt = EntryBB->getTerminator();
+
+  CallInst *ScopeCI =
+      VPOParoptUtils::genKmpcScopeCall(W, IdentTy, TidPtrHolder, InsertPt);
+  ScopeCI->insertBefore(InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(ScopeCI, W->getDT());
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genBeginScopeCode\n");
+  return true;
+}
+
+// Generate code for the end of OMP scope construct.
+// #pragma omp scope
+bool VPOParoptTransform::genEndScopeCode(WRegionNode *W)
+{
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genEndScopeCode\n");
+  BasicBlock *EndBB = createEmptyPrivFiniBB(W, false);
+  Instruction *InsertEndPt = EndBB->getTerminator();
+
+  CallInst *EndScopeCI = VPOParoptUtils::genKmpcEndScopeCall(
+                                        W, IdentTy, TidPtrHolder, InsertEndPt);
+  EndScopeCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndScopeCI, W->getDT());
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genEndScopeCode\n");
+  return true;
 }
 
 // Emits an implicit barrier at the end of WRgion W if W contains

@@ -390,7 +390,8 @@ private:
                                   Instruction *InsertPt, DominatorTree *DT);
 
   /// Generate code for private variables
-  bool genPrivatizationCode(WRegionNode *W);
+  bool genPrivatizationCode(WRegionNode *W,
+                            Instruction *CtorInsertPt = nullptr );
 
   /// Generate code for linear variables.
   ///
@@ -1234,6 +1235,11 @@ private:
   /// Generates code for the OpenMP critical construct:
   /// #pragma omp critical [(name)]
   bool genCriticalCode(WRNCriticalNode *CriticalNode);
+
+  /// Generate code for OMP scope construct.
+  /// #pragma omp scope private(x) reduction(+:x) nowait
+  bool genBeginScopeCode(WRegionNode *W);
+  bool genEndScopeCode(WRegionNode *W);
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
