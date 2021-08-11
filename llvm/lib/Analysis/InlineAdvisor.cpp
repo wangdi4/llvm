@@ -58,9 +58,9 @@ void DefaultInlineAdvice::recordUnsuccessfulInliningImpl(
                                          "; " + inlineCostStr(IC)); // INTEL
   ORE.emit([&]() {
     return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc, Block)
-           << NV("Callee", Callee) << " will not be inlined into "
-           << NV("Caller", Caller) << ": "
-           << NV("Reason", Result.getFailureReason());
+           << "'" << NV("Callee", Callee) << "' is not inlined into '"
+           << "'" << NV("Caller", Caller)
+           << "': " << NV("Reason", Result.getFailureReason());
   });
 }
 
@@ -370,9 +370,9 @@ InlineCost llvm::shouldInline(
     if (IC.isNever()) {
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "NeverInline", Call)
-               << NV("Callee", Callee) << " not inlined into "
-               << NV("Caller", Caller) << " because it should never be inlined "
-               << IC;
+               << "'" << NV("Callee", Callee) << "' not inlined into '"
+               << NV("Caller", Caller)
+               << "' because it should never be inlined " << IC;
       });
 #if INTEL_CUSTOMIZATION
       if (CB.hasFnAttr("noinline-list"))
@@ -381,8 +381,8 @@ InlineCost llvm::shouldInline(
     } else {
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "TooCostly", Call)
-               << NV("Callee", Callee) << " not inlined into "
-               << NV("Caller", Caller) << " because too costly to inline "
+               << "'" << NV("Callee", Callee) << "' not inlined into '"
+               << NV("Caller", Caller) << "' because too costly to inline "
                << IC;
       });
     }
@@ -402,9 +402,9 @@ InlineCost llvm::shouldInline(
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "IncreaseCostInOtherContexts",
                                       Call)
-             << "Not inlining. Cost of inlining " << NV("Callee", Callee)
-             << " increases the cost of inlining " << NV("Caller", Caller)
-             << " in other contexts";
+             << "Not inlining. Cost of inlining '" << NV("Callee", Callee)
+             << "' increases the cost of inlining '" << NV("Caller", Caller)
+             << "' in other contexts";
     });
     setInlineRemark(CB, "deferred");
     // IC does not bool() to false, so get an InlineCost that will.
@@ -483,8 +483,8 @@ void llvm::emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
     StringRef RemarkName = AlwaysInline ? "AlwaysInline" : "Inlined";
     OptimizationRemark Remark(PassName ? PassName : DEBUG_TYPE, RemarkName,
                               DLoc, Block);
-    Remark << ore::NV("Callee", &Callee) << " inlined into ";
-    Remark << ore::NV("Caller", &Caller);
+    Remark << "'" << ore::NV("Callee", &Callee) << "' inlined into '"
+           << ore::NV("Caller", &Caller) << "'";
     if (ForProfileContext)
       Remark << " to match profiling context";
     Remark << " with " << IC;

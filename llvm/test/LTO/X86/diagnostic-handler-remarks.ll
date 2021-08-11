@@ -43,9 +43,9 @@
 ; RUN:     FileCheck %s -allow-empty
 ; RUN: cat %t.yaml | FileCheck %s -check-prefix=YAML
 
-; REMARKS: remark: {{.*}} foo inlined into main
+; REMARKS: remark: {{.*}} 'foo' inlined into 'main'
 ; REMARKS: remark: {{.*}} loop not vectorized: cannot prove it is safe to reorder memory operations
-; REMARKS_DH: llvm-lto: remark: {{.*}} foo inlined into main
+; REMARKS_DH: llvm-lto: remark: {{.*}} 'foo' inlined into 'main'
 ; REMARKS_DH: llvm-lto: remark: {{.*}} loop not vectorized: cannot prove it is safe to reorder memory operations
 ; CHECK-NOT: remark:
 ; CHECK-NOT: llvm-lto:
@@ -58,9 +58,11 @@
 ; YAML-NEXT: Name:            Inlined
 ; YAML-NEXT: Function:        main
 ; YAML-NEXT: Args:
+; YAML-NEXT:   - String:          ''''
 ; YAML-NEXT:   - Callee:          foo
-; YAML-NEXT:   - String:          ' inlined into '
+; YAML-NEXT:   - String:          ''' inlined into '''
 ; YAML-NEXT:   - Caller:          main
+; YAML-NEXT:   - String:          ''''
 ; YAML-NEXT:   - String:          ' with '
 ; YAML-NEXT:   - String:          '(cost='
 ; YAML-NEXT:   - Cost:            '-15000'
