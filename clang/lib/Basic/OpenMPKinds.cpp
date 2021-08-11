@@ -22,6 +22,8 @@ using namespace llvm::omp;
 
 #if INTEL_CUSTOMIZATION
 bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
+  if (isOpenMPSimdDirective(DKind))
+    return true;
   switch (DKind) {
 #define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)                                     \
   case OMPD_##Name:                                                            \

@@ -77,10 +77,11 @@
 
 #if INTEL_CUSTOMIZATION
 // OpenMP directives in the -qopenmp-simd subset
+// The directives from isOpenMPSimdDirective are already included and do
+// not need to be added here
 #ifndef OPENMP_DIRECTIVE_SIMD_SUBSET
 #define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)
 #endif
-OPENMP_DIRECTIVE_SIMD_SUBSET(simd)
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_reduction)
 
