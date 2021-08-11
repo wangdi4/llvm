@@ -18,6 +18,9 @@
 
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
+// enable cl_khr_fp16 extension to generate atomic_[max, min] functions with
+// half type returned
+#pragma OPENCL EXTENSION cl_khr_fp16: enable
 
 // integers masks
 extern const constant char char_MSB_mask;

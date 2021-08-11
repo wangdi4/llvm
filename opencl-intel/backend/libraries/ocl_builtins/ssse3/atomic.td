@@ -838,23 +838,6 @@ OclBuiltinImpl ocl20_and_intptr_impl = OclBuiltinImpl<ocl20_and_intptr, ocl20_an
 OclBuiltinImpl ocl20_min_intptr_impl = OclBuiltinImpl<ocl20_min_intptr, ocl20_min_intptr.Types, 0, ocl20_relop_code, [["$RELOP","<="]]>;
 OclBuiltinImpl ocl20_max_intptr_impl = OclBuiltinImpl<ocl20_max_intptr, ocl20_max_intptr.Types, 0, ocl20_relop_code, [["$RELOP",">="]]>;
 
-OclBuiltinImpl as_uintptr_t_impl = OclBuiltinImpl<as_uintptr_t, as_uintptr_t.Types, 0,
-  [{
-    return (uintptr_t)as_uint($Arg0VarName);
-  }]>;
-OclBuiltinImpl as_uintptr_t_64_impl = OclBuiltinImpl<as_uintptr_t_64, as_uintptr_t_64.Types, 0,
-  [{
-    return (uintptr_t)as_ulong($Arg0VarName);
-  }]>;
-OclBuiltinImpl as_intptr_t_impl = OclBuiltinImpl<as_intptr_t, as_intptr_t.Types, 0,
-  [{
-    return (intptr_t)as_int($Arg0VarName);
-  }]>;
-OclBuiltinImpl as_intptr_t_64_impl = OclBuiltinImpl<as_intptr_t_64, as_intptr_t_64.Types, 0,
-  [{
-    return (intptr_t)as_long($Arg0VarName);
-  }]>;
-
 // atomic_fetch_key code
 code atomic_fetch_key_code = [{
     return atomic_fetch_$KEY_explicit($Arg0VarName, $Arg1VarName, memory_order_seq_cst, memory_scope_device);
