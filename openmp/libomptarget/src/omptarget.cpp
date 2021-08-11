@@ -545,7 +545,7 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
 #else // INTEL_COLLAB
     if (HasFlagTo && (!UseUSM || HasCloseModifier))
       MoveData = HasFlagAlways ? MoveDataStateTy::REQUIRED
-                               : MoveData = MoveDataStateTy::UNKNOWN;
+                               : MoveDataStateTy::UNKNOWN;
 #endif // INTEL_COLLAB
 
     auto TPR = Device.getTargetPointer(
