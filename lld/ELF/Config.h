@@ -181,6 +181,7 @@ struct Configuration {
   bool intelAdvancedOptim = false;
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
+  bool ltoPGOWarnMismatch;
   bool ltoDebugPassManager;
   bool ltoEmitAsm;
   bool ltoNewPassManager;
