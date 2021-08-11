@@ -387,103 +387,22 @@ void FlatAffineConstraints::mergeAndAlignIdsWithOther(
   mergeAndAlignIds(offset, this, other);
 }
 
-// This routine may add additional local variables if the flattened expression
-// corresponding to the map has such variables due to mod's, ceildiv's, and
-// floordiv's in it.
 LogicalResult FlatAffineConstraints::composeMap(const AffineValueMap *vMap) {
-  std::vector<SmallVector<int64_t, 8>> flatExprs;
-  FlatAffineConstraints localCst;
-  if (failed(getFlattenedAffineExprs(vMap->getAffineMap(), &flatExprs,
-                                     &localCst))) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "composition unimplemented for semi-affine maps\n");
-    return failure();
-  }
-  assert(flatExprs.size() == vMap->getNumResults());
-
-  // Add localCst information.
-  if (localCst.getNumLocalIds() > 0) {
-    localCst.setIdValues(0, /*end=*/localCst.getNumDimAndSymbolIds(),
-                         /*values=*/vMap->getOperands());
-    // Align localCst and this.
-    mergeAndAlignIds(/*offset=*/0, &localCst, this);
-    // Finally, append localCst to this constraint set.
-    append(localCst);
-  }
-
-  // Add dimensions corresponding to the map's results.
-  for (unsigned t = 0, e = vMap->getNumResults(); t < e; t++) {
-    // TODO: Consider using a batched version to add a range of IDs.
-    addDimId(0);
-  }
-
-  // We add one equality for each result connecting the result dim of the map to
-  // the other identifiers.
-  // For eg: if the expression is 16*i0 + i1, and this is the r^th
-  // iteration/result of the value map, we are adding the equality:
-  //  d_r - 16*i0 - i1 = 0. Hence, when flattening say (i0 + 1, i0 + 8*i2), we
-  //  add two equalities overall: d_0 - i0 - 1 == 0, d1 - i0 - 8*i2 == 0.
-  for (unsigned r = 0, e = flatExprs.size(); r < e; r++) {
-    const auto &flatExpr = flatExprs[r];
-    assert(flatExpr.size() >= vMap->getNumOperands() + 1);
-
-    // eqToAdd is the equality corresponding to the flattened affine expression.
-    SmallVector<int64_t, 8> eqToAdd(getNumCols(), 0);
-    // Set the coefficient for this result to one.
-    eqToAdd[r] = 1;
-
-    // Dims and symbols.
-    for (unsigned i = 0, e = vMap->getNumOperands(); i < e; i++) {
-      unsigned loc;
-      bool ret = findId(vMap->getOperand(i), &loc);
-      assert(ret && "value map's id can't be found");
-      (void)ret;
-      // Negate 'eq[r]' since the newly added dimension will be set to this one.
-      eqToAdd[loc] = -flatExpr[i];
-    }
-    // Local vars common to eq and localCst are at the beginning.
-    unsigned j = getNumDimIds() + getNumSymbolIds();
-    unsigned end = flatExpr.size() - 1;
-    for (unsigned i = vMap->getNumOperands(); i < end; i++, j++) {
-      eqToAdd[j] = -flatExpr[i];
-    }
-
-    // Constant term.
-    eqToAdd[getNumCols() - 1] = -flatExpr[flatExpr.size() - 1];
-
-    // Add the equality connecting the result of the map to this constraint set.
-    addEquality(eqToAdd);
-  }
-
-  return success();
+  return composeMatchingMap(
+      computeAlignedMap(vMap->getAffineMap(), vMap->getOperands()));
 }
 
-// Similar to composeMap except that no Value's need be associated with the
-// constraint system nor are they looked at -- since the dimensions and
-// symbols of 'other' are expected to correspond 1:1 to 'this' system. It
-// is thus not convenient to share code with composeMap.
+// Similar to `composeMap` except that no Values need be associated with the
+// constraint system nor are they looked at -- the dimensions and symbols of
+// `other` are expected to correspond 1:1 to `this` system.
 LogicalResult FlatAffineConstraints::composeMatchingMap(AffineMap other) {
   assert(other.getNumDims() == getNumDimIds() && "dim mismatch");
   assert(other.getNumSymbols() == getNumSymbolIds() && "symbol mismatch");
 
   std::vector<SmallVector<int64_t, 8>> flatExprs;
-  FlatAffineConstraints localCst;
-  if (failed(getFlattenedAffineExprs(other, &flatExprs, &localCst))) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "composition unimplemented for semi-affine maps\n");
+  if (failed(flattenAlignedMapAndMergeLocals(other, &flatExprs)))
     return failure();
-  }
   assert(flatExprs.size() == other.getNumResults());
-
-  // Add localCst information.
-  if (localCst.getNumLocalIds() > 0) {
-    // Place local id's of A after local id's of B.
-    for (unsigned l = 0, e = localCst.getNumLocalIds(); l < e; l++) {
-      addLocalId(0);
-    }
-    // Finally, append localCst to this constraint set.
-    append(localCst);
-  }
 
   // Add dimensions corresponding to the map's results.
   for (unsigned t = 0, e = other.getNumResults(); t < e; t++) {
@@ -492,25 +411,24 @@ LogicalResult FlatAffineConstraints::composeMatchingMap(AffineMap other) {
 
   // We add one equality for each result connecting the result dim of the map to
   // the other identifiers.
-  // For eg: if the expression is 16*i0 + i1, and this is the r^th
+  // E.g.: if the expression is 16*i0 + i1, and this is the r^th
   // iteration/result of the value map, we are adding the equality:
-  //  d_r - 16*i0 - i1 = 0. Hence, when flattening say (i0 + 1, i0 + 8*i2), we
-  //  add two equalities overall: d_0 - i0 - 1 == 0, d1 - i0 - 8*i2 == 0.
+  // d_r - 16*i0 - i1 = 0. Similarly, when flattening (i0 + 1, i0 + 8*i2), we
+  // add two equalities: d_0 - i0 - 1 == 0, d1 - i0 - 8*i2 == 0.
   for (unsigned r = 0, e = flatExprs.size(); r < e; r++) {
     const auto &flatExpr = flatExprs[r];
     assert(flatExpr.size() >= other.getNumInputs() + 1);
 
-    // eqToAdd is the equality corresponding to the flattened affine expression.
     SmallVector<int64_t, 8> eqToAdd(getNumCols(), 0);
     // Set the coefficient for this result to one.
     eqToAdd[r] = 1;
 
     // Dims and symbols.
     for (unsigned i = 0, f = other.getNumInputs(); i < f; i++) {
-      // Negate 'eq[r]' since the newly added dimension will be set to this one.
+      // Negate `eq[r]` since the newly added dimension will be set to this one.
       eqToAdd[e + i] = -flatExpr[i];
     }
-    // Local vars common to eq and localCst are at the beginning.
+    // Local columns of `eq` are at the beginning.
     unsigned j = getNumDimIds() + getNumSymbolIds();
     unsigned end = flatExpr.size() - 1;
     for (unsigned i = other.getNumInputs(); i < end; i++, j++) {
@@ -1935,27 +1853,14 @@ void FlatAffineConstraints::getSliceBounds(unsigned offset, unsigned num,
   }
 }
 
-LogicalResult FlatAffineConstraints::addLowerOrUpperBound(unsigned pos,
-                                                          AffineMap boundMap,
-                                                          bool eq, bool lower) {
-  assert(boundMap.getNumDims() == getNumDimIds() && "dim mismatch");
-  assert(boundMap.getNumSymbols() == getNumSymbolIds() && "symbol mismatch");
-  assert(pos < getNumDimAndSymbolIds() && "invalid position");
-
-  // Equality follows the logic of lower bound except that we add an equality
-  // instead of an inequality.
-  assert((!eq || boundMap.getNumResults() == 1) && "single result expected");
-  if (eq)
-    lower = true;
-
-  std::vector<SmallVector<int64_t, 8>> flatExprs;
+LogicalResult FlatAffineConstraints::flattenAlignedMapAndMergeLocals(
+    AffineMap map, std::vector<SmallVector<int64_t, 8>> *flattenedExprs) {
   FlatAffineConstraints localCst;
-  if (failed(getFlattenedAffineExprs(boundMap, &flatExprs, &localCst))) {
+  if (failed(getFlattenedAffineExprs(map, flattenedExprs, &localCst))) {
     LLVM_DEBUG(llvm::dbgs()
                << "composition unimplemented for semi-affine maps\n");
     return failure();
   }
-  assert(flatExprs.size() == boundMap.getNumResults());
 
   // Add localCst information.
   if (localCst.getNumLocalIds() > 0) {
@@ -1971,6 +1876,27 @@ LogicalResult FlatAffineConstraints::addLowerOrUpperBound(unsigned pos,
     append(localCst);
   }
 
+  return success();
+}
+
+LogicalResult FlatAffineConstraints::addLowerOrUpperBound(unsigned pos,
+                                                          AffineMap boundMap,
+                                                          bool eq, bool lower) {
+  assert(boundMap.getNumDims() == getNumDimIds() && "dim mismatch");
+  assert(boundMap.getNumSymbols() == getNumSymbolIds() && "symbol mismatch");
+  assert(pos < getNumDimAndSymbolIds() && "invalid position");
+
+  // Equality follows the logic of lower bound except that we add an equality
+  // instead of an inequality.
+  assert((!eq || boundMap.getNumResults() == 1) && "single result expected");
+  if (eq)
+    lower = true;
+
+  std::vector<SmallVector<int64_t, 8>> flatExprs;
+  if (failed(flattenAlignedMapAndMergeLocals(boundMap, &flatExprs)))
+    return failure();
+  assert(flatExprs.size() == boundMap.getNumResults());
+
   // Add one (in)equality for each result.
   for (const auto &flatExpr : flatExprs) {
     SmallVector<int64_t> ineq(getNumCols(), 0);
@@ -1984,7 +1910,7 @@ LogicalResult FlatAffineConstraints::addLowerOrUpperBound(unsigned pos,
     if (ineq[pos] != 0)
       continue;
     ineq[pos] = lower ? 1 : -1;
-    // Local vars common to eq and localCst are at the beginning.
+    // Local columns of `ineq` are at the beginning.
     unsigned j = getNumDimIds() + getNumSymbolIds();
     unsigned end = flatExpr.size() - 1;
     for (unsigned i = boundMap.getNumInputs(); i < end; i++, j++) {
@@ -2001,19 +1927,9 @@ LogicalResult FlatAffineConstraints::addLowerOrUpperBound(unsigned pos,
   return success();
 }
 
-LogicalResult
-FlatAffineConstraints::addLowerOrUpperBound(unsigned pos, AffineMap boundMap,
-                                            ValueRange boundOperands, bool eq,
-                                            bool lower) {
-  // Fully compose map and operands; canonicalize and simplify so that we
-  // transitively get to terminal symbols or loop IVs.
-  auto map = boundMap;
-  SmallVector<Value, 4> operands(boundOperands.begin(), boundOperands.end());
-  fullyComposeAffineMapAndOperands(&map, &operands);
-  map = simplifyAffineMap(map);
-  canonicalizeMapAndOperands(&map, &operands);
-  for (auto operand : operands)
-    addInductionVarOrTerminalSymbol(operand);
+AffineMap FlatAffineConstraints::computeAlignedMap(AffineMap map,
+                                                   ValueRange operands) const {
+  assert(map.getNumInputs() == operands.size() && "number of inputs mismatch");
 
   SmallVector<Value> dims, syms;
 #ifndef NDEBUG
@@ -2036,8 +1952,23 @@ FlatAffineConstraints::addLowerOrUpperBound(unsigned pos, AffineMap boundMap,
   assert(syms.size() == newSymsPtr->size() && "unexpected new/missing symbols");
   assert(std::equal(syms.begin(), syms.end(), newSymsPtr->begin()) &&
          "unexpected new/missing symbols");
+  return alignedMap;
+}
 
-  return addLowerOrUpperBound(pos, alignedMap, eq, lower);
+LogicalResult
+FlatAffineConstraints::addLowerOrUpperBound(unsigned pos, AffineMap boundMap,
+                                            ValueRange boundOperands, bool eq,
+                                            bool lower) {
+  // Fully compose map and operands; canonicalize and simplify so that we
+  // transitively get to terminal symbols or loop IVs.
+  auto map = boundMap;
+  SmallVector<Value, 4> operands(boundOperands.begin(), boundOperands.end());
+  fullyComposeAffineMapAndOperands(&map, &operands);
+  map = simplifyAffineMap(map);
+  canonicalizeMapAndOperands(&map, &operands);
+  for (auto operand : operands)
+    addInductionVarOrTerminalSymbol(operand);
+  return addLowerOrUpperBound(pos, computeAlignedMap(map, operands), eq, lower);
 }
 
 // Adds slice lower bounds represented by lower bounds in 'lbMaps' and upper
