@@ -2071,7 +2071,7 @@ cl_int ExecCGCommand::enqueueImp() {
       Program = SyclProg->getHandleRef();
       if (SyclProg->is_cacheable()) {
         RT::PiKernel FoundKernel = nullptr;
-        std::tie(FoundKernel, KernelMutex) =
+        std::tie(FoundKernel, KernelMutex, std::ignore) =
             detail::ProgramManager::getInstance().getOrCreateKernel(
                 ExecKernel->MOSModuleHandle, ContextImpl, DeviceImpl,
                 ExecKernel->MKernelName, SyclProg.get());
@@ -2081,13 +2081,10 @@ cl_int ExecCGCommand::enqueueImp() {
     } else {
       // FIXME should validate if any use-case leads here as in such a case
       // Kernel handle remains nullptr
-      std::tie(Kernel, KernelMutex) =
+      std::tie(Kernel, KernelMutex, Program) =
           detail::ProgramManager::getInstance().getOrCreateKernel(
               ExecKernel->MOSModuleHandle, ContextImpl, DeviceImpl,
               ExecKernel->MKernelName, nullptr);
-      MQueue->getPlugin().call<PiApiKind::piKernelGetInfo>(
-          Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(RT::PiProgram), &Program,
-          nullptr);
     }
 
     pi_result Error = PI_SUCCESS;
