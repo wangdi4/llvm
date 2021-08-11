@@ -928,6 +928,13 @@ public:
                                      bool NoNaN = false,
                                      RegDDRef *LvalRef = nullptr);
 
+  /// Creates a new vector insert intrinsic call using
+  /// llvm.experimental.vector.insert. OpRef1 is the target vector and SubVecRef
+  /// is the sub-vector to be inserted starting at location Idx.
+  HLInst *createVectorInsert(RegDDRef *OpRef1, RegDDRef *SubVecRef,
+                             unsigned Idx, const Twine &Name,
+                             RegDDRef *LvalRef = nullptr);
+
   /// Creates a new ShuffleVector instruction
   HLInst *createShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                   RegDDRef *Mask, const Twine &Name = "shuffle",

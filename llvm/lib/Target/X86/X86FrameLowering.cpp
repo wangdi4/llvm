@@ -3800,6 +3800,21 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     // Insert vectorized spill code and remove original scalar spill code
     int LastFI = MinFI;
     MachineInstr *FirstMI = &MBB->front();
+    if (FirstMI != DeleteMI[0]) {
+      // If MBB (e.g entry BB) setup frame then vectorized code should
+      // be put after the frame setup code (i.e RSP is changed).
+      auto MRII = DeleteMI[0]->getReverseIterator();
+      auto MRIE = MBB->instr_rend();
+      while (++MRII != MRIE) {
+        MachineInstr *MI = &*MRII;
+        if (MI->getFlag(MachineInstr::FrameSetup)) {
+          MRII = std::prev(MRII);
+          break;
+        }
+      }
+      if (MRII != MRIE)
+        FirstMI = &*MRII; // Find setup frame instruction
+    }
     assert(FirstMI);
     int RegNum = MFI.VecSpillPhysRegMap[MBB] - X86::XMM0;
     int Offset = 0;

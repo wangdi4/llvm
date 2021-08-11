@@ -1020,7 +1020,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
 
   const Function *CalledFunc = CB.getCalledFunction();
   SmallVector<const Argument *, 4> NoAliasArgs;
-  DenseMap<const Argument *, SmallVector<const Value *, 2>> PtrNoAliasArgs; // INTEL
+  MapVector<const Argument *, SmallVector<const Value *, 2>> PtrNoAliasArgs; // INTEL
 
   for (const Argument &Arg : CalledFunc->args()) { // INTEL
     if (CB.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())

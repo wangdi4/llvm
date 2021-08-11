@@ -96,6 +96,9 @@ add_llvm_component_library(LLVMAnalysis
   Intel_InlineCost.cpp
 # INTEL_FEATURE_SW_ADVANCED
   Intel_LangRules.cpp
+#end INTEL_FEATURE_SW_ADVANCED
+  Intel_OPAnalysisUtils.cpp
+# INTEL_FEATURE_SW_ADVANCED
   Intel_PartialInlineAnalysis.cpp
 #end INTEL_FEATURE_SW_ADVANCED
   Intel_SNode.cpp
