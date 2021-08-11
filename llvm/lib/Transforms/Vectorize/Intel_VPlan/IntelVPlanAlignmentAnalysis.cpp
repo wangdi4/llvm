@@ -347,6 +347,8 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
         auto CandBase = Cand->accessAddress().InvariantBase;
         auto PrevBase = Prev->accessAddress().InvariantBase;
         auto Diff = VPSE->getMinusExpr(CandBase, PrevBase);
+        if (!Diff)
+          continue;
         auto KB = VPVT->getKnownBits(Diff, nullptr);
 
         // "Alignment" of the pointer difference determines how much alignment
@@ -461,6 +463,7 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     return AlignFromIR;
 
   VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
+  assert(Diff && "Cannot compute alignment for peeled memref");
   auto KB = VPVT->getKnownBits(Diff, &Memref);
   Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
 

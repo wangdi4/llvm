@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -tbaa -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -tbaa -print-after=hir-vplan-vec -vplan-enable-peeling < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -vplan-enable-peeling < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ;
 ; The following test computes an address, does a bitcast of the address, and then uses
