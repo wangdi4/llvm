@@ -68,12 +68,15 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
-                                    unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+// VPlan scope format.
+void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
+                                    const VPlan *, raw_ostream *OS) const {
+  if (!OS || NewCost == RefCost)
     return;
 
-  if (NewCost > RefCost)
+  if (NewCost == UnknownCost)
+    *OS << "Cost is set to Unknown by " << getName() << " heuristic\n";
+  else if (NewCost > RefCost)
     *OS << "Extra cost due to " << getName() << " heuristic is "
         << NewCost - RefCost << '\n';
   else
@@ -81,15 +84,16 @@ void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
         << RefCost - NewCost << '\n';
 }
 
-void HeuristicBase::printCostChangeInline(raw_ostream *OS, unsigned RefCost,
-                                          unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+// VPInstruction scope format:
+//  *name*(+num)
+// OR:
+//  *name*(-num)
+void HeuristicBase::printCostChange(unsigned RefCost, unsigned NewCost,
+                                    const VPInstruction *,
+                                    raw_ostream *OS) const {
+  if (!OS || NewCost == RefCost || NewCost == UnknownCost)
     return;
 
-  // Expected output is:
-  //  *name*(+num)
-  // OR:
-  //  *name*(-num)
   *OS << " *" << getName() << "*(";
   if (NewCost > RefCost)
     *OS << '+' << NewCost - RefCost << ')';
@@ -234,7 +238,6 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
   if (VF == 1)
     return;
 
-  unsigned NewCost = Cost;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
 
@@ -268,13 +271,7 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
   if ((ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
        ProcessSLPHIRMemrefs(HIRLoadMemrefs, VPlanSLPLoadPatternSize)) ||
       (NumSLPRednsSeen == 4 && !NonSLPRednSeen))
-    NewCost *= VF;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost *= VF;
 }
 
 void HeuristicSearchLoop::apply(
@@ -552,7 +549,6 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
-  unsigned NewCost = Cost;
   for (auto *Block : post_order(Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
@@ -564,17 +560,11 @@ void HeuristicSpillFill::apply(
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    NewCost += (*this)(Block, ScalLiveValues, false);
+    Cost += (*this)(Block, ScalLiveValues, false);
 
     if (VF > 1)
-      NewCost += (*this)(Block, VecLiveValues, true);
+      Cost += (*this)(Block, VecLiveValues, true);
   }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -610,15 +600,8 @@ void HeuristicGatherScatter::apply(
 
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
-  unsigned NewCost = Cost;
   if (TTICost * CMGatherScatterThreshold < GSCost * 100)
-    NewCost += CMGatherScatterPenaltyFactor * GSCost;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost += CMGatherScatterPenaltyFactor * GSCost;
 }
 
 unsigned HeuristicGatherScatter::operator()(
@@ -938,19 +921,12 @@ void HeuristicPsadbw::apply(
       PatternCost += CurrentPatternCost - PsadbwCost;
   }
 
-  unsigned NewCost;
   if (PatternCost > Cost)
     // TODO:
     // Consider returning PsadbwCost here.
-    NewCost = 0;
+    Cost = 0;
   else
-    NewCost = Cost - PatternCost;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChange(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+    Cost -= PatternCost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1047,13 +1023,7 @@ void HeuristicSVMLIDivIRem::apply(
 
   // For operations with constant in argument basic cost model gives better
   // estimation, which we want to use instead of VectorCost.
-  unsigned NewCost = std::min(VectorCost, TTICost);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  printCostChangeInline(OS, Cost, NewCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  Cost = NewCost;
+  Cost = std::min(VectorCost, TTICost);
 }
 
 void HeuristicOVLSMember::apply(
@@ -1133,10 +1103,6 @@ void HeuristicOVLSMember::apply(
                LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << '\n');
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      printCostChangeInline(OS, Cost, VLSGroupCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
       Cost = VLSGroupCost;
       return;
     }
@@ -1144,10 +1110,6 @@ void HeuristicOVLSMember::apply(
     LLVM_DEBUG(dbgs() << "Group cost for ";
                LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << " has already been taken into account.\n");
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, 0);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     Cost = 0;
     return;
@@ -1181,16 +1143,9 @@ void HeuristicOVLSMember::apply(
       LoadStore) {
     LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
                LoadStore->printWithoutAnalyses(dbgs()); dbgs() << '\n');
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, VLSGroupCost);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
     Cost = VLSGroupCost;
-  } else {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    printCostChangeInline(OS, Cost, 0);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  } else
     Cost = 0;
-  }
 }
 
 } // namespace VPlanCostModelHeuristics
