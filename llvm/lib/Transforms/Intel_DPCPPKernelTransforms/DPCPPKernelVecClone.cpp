@@ -79,6 +79,9 @@ static cl::opt<std::string> OptVectInfoFile("dpcpp-vect-info",
                                             cl::desc("Builtin VectInfo list"),
                                             cl::value_desc("filename"));
 
+extern bool DPCPPEnableDirectFunctionCallVectorization;
+extern bool DPCPPEnableSubgroupDirectCallVectorization;
+
 // Static container storing all the vector info entries.
 // Each entry would be a tuple of three strings:
 // 1. scalar variant name
@@ -671,6 +674,10 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       {mangledGetGlobalLinearId(), FnAction::AssertIfEncountered},
       {mangledGetLocalLinearId(), FnAction::AssertIfEncountered}};
 
+  auto Kernels = getKernels(*F.getParent());
+  std::set<Function *> KernelsSet(Kernels.begin(), Kernels.end());
+  bool IsKernel = KernelsSet.count(&F);
+
   // Collect all Kernel function built-ins.
   SmallVector<Instruction *, 4> InstsToRemove;
   for (const auto &Pair : FunctionsAndActions) {
@@ -743,14 +750,17 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
-  updateMetadata(F, Clone);
+  const unsigned VF = Variant.getVlen();
+
+  if (IsKernel)
+    updateMetadata(F, Clone);
+  else
+    Clone->addFnAttr("widened-size", std::to_string(VF));
 
   // Load all vector info into VecInfo, at most once.
   static llvm::once_flag InitializeVectInfoFlag;
   llvm::call_once(InitializeVectInfoFlag,
                   [&]() { InitializeVectInfoOnce(VectInfos); });
-
-  unsigned VF = Variant.getVlen();
 
   for (auto &Inst : instructions(Clone)) {
     auto *Call = dyn_cast<CallInst>(&Inst);
@@ -943,8 +953,10 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
     // TODO: replace canVectorizeForVPO with "KIMD.RecommendedVL.get() > 1" once
     // RecommendedVL is unconditionally set by a previous pass and OCLVPOCheckVF
     // is ported.
-    if (VectorizerUtils::CanVectorize::canVectorizeForVPO(*F,
-                                                          UnsupportedFuncs) &&
+    if (VectorizerUtils::CanVectorize::canVectorizeForVPO(
+          *F, UnsupportedFuncs,
+          DPCPPEnableDirectFunctionCallVectorization,
+          DPCPPEnableSubgroupDirectCallVectorization) &&
         !F->hasOptNone())
       PK.run(*F);
   }
