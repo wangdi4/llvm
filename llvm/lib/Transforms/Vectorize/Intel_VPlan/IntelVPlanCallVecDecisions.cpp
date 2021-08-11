@@ -371,11 +371,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
 
   // All other cases implies default properties i.e. call serialization.
   VPCall->setShouldBeSerialized();
-  if (!VPCall->isIntrinsicFromList({Intrinsic::lifetime_start,
-      Intrinsic::lifetime_end, Intrinsic::invariant_start,
-      Intrinsic::invariant_end}))
-    VPCall->setSerializationReason
-        (VPCallInstruction::SerializationReasonTy::NO_VECTOR_VARIANT);
+  VPCall->setSerializationReason
+      (VPCallInstruction::SerializationReasonTy::NO_VECTOR_VARIANT);
   // TODO:
   // 1. OpenCLReadChannel/OpenCLWriteChannel calls?
 }
