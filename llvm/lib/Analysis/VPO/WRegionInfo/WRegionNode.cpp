@@ -890,7 +890,6 @@ template <typename ClauseTy>
 void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       int ClauseID, ClauseTy &C) {
   C.setClauseID(ClauseID);
-
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
@@ -904,7 +903,7 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
-
+  bool IsTyped = ClauseInfo.getIsTyped();
   if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
     ClauseID = QUAL_OMP_USE_DEVICE_PTR;
     IsUseDeviceAddr = true;
@@ -940,6 +939,18 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       // For array section operands to use_device_addr clause, only the
       // base pointer operand is relevant, rest is ignored.
         break;
+    }
+
+    if (IsTyped) {
+      assert(ClauseID == QUAL_OMP_UNIFORM &&
+             "Unexpected TYPED modifier in a clause that doesn't support it");
+      assert(NumArgs == 3 && "Expected 3 arguments for TYPED UNIFORM clause");
+      assert(I == 0 && "More than one variable in a TYPED UNIFORM clause");
+      C.setClauseID(ClauseID);
+      C.back()->setIsTyped(true);
+      C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
+      C.back()->setNumElements(Args[2]);
+      break;
     }
   }
 }
@@ -1240,10 +1251,17 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
                                         LinearClause &C) {
   C.setClauseID(QUAL_OMP_LINEAR);
 
+  bool IsTyped = ClauseInfo.getIsTyped();
+
   // The 'step' is always present in the IR coming from Clang, and it is the
   // last argument in the operand list. Therefore, NumArgs >= 2, and the step
   // is the Value in Args[NumArgs-1].
-  assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
+  // If Clause is Typed, NumArgs == 4: the first one is linear item,
+  // the second and third one are type and size,
+  // the last one is the step
+  assert((!IsTyped || NumArgs == 4) &&
+         "Missing 'step' for a TYPED LINEAR clause");
+  assert((IsTyped || NumArgs >= 2) && "Missing 'step' for a LINEAR clause");
   Value *StepValue = Args[NumArgs-1];
   assert(StepValue != nullptr && "Null LINEAR 'step'");
 
@@ -1252,6 +1270,8 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
     Value *V = Args[I];
     if (!V || isa<ConstantPointerNull>(V)) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      if (IsTyped)
+        break;
       continue;
     }
     C.add(V);
@@ -1266,6 +1286,15 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
       LI->setHStep(CurrentBundleDDRefs[NumArgs - 1]);
     }
 #endif // INTEL_CUSTOMIZATION
+
+    if (IsTyped) {
+      LI->setIsTyped(IsTyped);
+      Type *V1 = Args[I + 1]->getType();
+      Value *V2 = Args[I + 2];
+      LI->setOrigItemElementTypeFromIR(V1);
+      LI->setNumElements(V2);
+      break;
+    }
   }
 }
 
@@ -1792,9 +1821,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
-      Type *VTy = isa<PointerType>(V->getType())
-                      ? V->getType()->getPointerElementType()
-                      : V->getType();
+      Type *VTy = nullptr;
+      if (ClauseInfo.getIsTyped())
+        VTy = Args[++I]->getType();
+      else
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
       getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
@@ -1807,9 +1840,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         break;
       }
       // TODO: OPAQUEPOINTER: Add this information in the clause
-      Type *VTy = isa<PointerType>(V->getType())
-                      ? V->getType()->getPointerElementType()
-                      : V->getType();
+      Type *VTy = nullptr;
+      if (ClauseInfo.getIsTyped())
+        VTy = Args[++I]->getType();
+      else
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
       getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;

@@ -356,17 +356,43 @@ class Item
     virtual bool getIsConditional() const {
      llvm_unreachable("Unexpected keyword: CONDITIONAL");
     }
-    virtual void setOrigItemElementTypeFromIR(Type *Ty) {
-      llvm_unreachable(
-          "Call of setOrigItemElementTypeFromIR for not TYPED clause");
+
+    bool canHaveTypeFromIR() const {
+      switch (Kind) {
+      case IK_Private:
+      case IK_Firstprivate:
+      case IK_Lastprivate:
+      case IK_Reduction:
+      case IK_Copyin:
+      case IK_Copyprivate:
+      case IK_Linear:
+      case IK_Uniform:
+        return true;
+      default:
+        return false;
+      }
+      // return false;
     }
-    virtual void setNumElements(Value *N) {
-      llvm_unreachable("Call of setNumElements for not TYPED clause");
+    void setOrigItemElementTypeFromIR(Type *Ty) {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type setter call for "
+                                    "a clause that doesn't support it");
+      OrigItemElementTypeFromIR = Ty;
     }
-    virtual Type *getOrigItemElementTypeFromIR() const {
+    void setNumElements(Value *N) {
+      assert(canHaveTypeFromIR() && "Unexepected Elements Number setter call "
+                                    "for a clause that doesn't support it");
+      NumElements = N;
+    }
+    Type *getOrigItemElementTypeFromIR() const {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type getter call for "
+                                    "a clause that doesn't support it");
       return OrigItemElementTypeFromIR;
     }
-    virtual Value *getNumElements() const { return NumElements; }
+    Value *getNumElements() const {
+      assert(canHaveTypeFromIR() && "Unexepected Element Type getter call for "
+                                    "a clause that doesn't support it");
+      return NumElements;
+    }
 };
 
 //
@@ -401,9 +427,6 @@ class PrivateItem : public Item
     RDECL Constructor;
     RDECL Destructor;
 
-    Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
-    Value *NumElements = nullptr; // Number of elements of this item
-
   public:
     PrivateItem(VAR Orig)
         : Item(Orig, IK_Private), InAllocate(nullptr), Constructor(nullptr),
@@ -420,8 +443,8 @@ class PrivateItem : public Item
       if (getIsTyped()) {
         // PRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor, dtor
         TypeOffset = 2;
-        OrigItemElementTypeFromIR = Args[1]->getType();
-        NumElements = Args[2];
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
       }
 
       // Make sure WRegion parsing doesn't crash while handling
@@ -467,16 +490,6 @@ class PrivateItem : public Item
       }
     }
     static bool classof(const Item *I) { return I->getKind() == IK_Private; }
-
-    void setOrigItemElementTypeFromIR(Type *Ty) override {
-      OrigItemElementTypeFromIR = Ty;
-    }
-    void setNumElements(Value *N) override { NumElements = N; }
-
-    Type *getOrigItemElementTypeFromIR() const override {
-      return OrigItemElementTypeFromIR;
-    }
-    Value *getNumElements() const override { return NumElements; }
 };
 
 class LastprivateItem; // forward declaration
@@ -507,9 +520,6 @@ class FirstprivateItem : public Item
     // pointer translation is still applied for zero-sized pointers).
     bool IsPointer = false;
 
-    Type *OrigItemElementTypeFromIR = nullptr; // Type of an item
-    Value *NumElements = nullptr; // Number of elements of this item
-
   public:
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
@@ -526,8 +536,8 @@ class FirstprivateItem : public Item
         // FIRSTPRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor,
         // dtor
         TypeOffset = 2;
-        OrigItemElementTypeFromIR = Args[1]->getType();
-        NumElements = Args[2];
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
       }
 
       Value *V = Args[0];
@@ -576,16 +586,6 @@ class FirstprivateItem : public Item
     static bool classof(const Item *I) {
       return I->getKind() == IK_Firstprivate;
     }
-
-    void setOrigItemElementTypeFromIR(Type *Ty) override {
-      OrigItemElementTypeFromIR = Ty;
-    }
-    void setNumElements(Value *N) override { NumElements = N; }
-
-    Type *getOrigItemElementTypeFromIR() const override {
-      return OrigItemElementTypeFromIR;
-    }
-    Value *getNumElements() const override { return NumElements; }
 };
 
 
@@ -606,11 +606,6 @@ class LastprivateItem : public Item
     RDECL CopyAssign;
     RDECL Destructor;
 
-    Type *OrigItemElementTypeFromIR =
-        nullptr; // Value that keeps a type of an item
-    Value *NumElements =
-        nullptr; // Value that keeps a number of elements of this item
-
   public:
     LastprivateItem(VAR Orig)
         : Item(Orig, IK_Lastprivate), IsConditional(false),
@@ -627,8 +622,8 @@ class LastprivateItem : public Item
       if (getIsTyped()) {
         // LASTPRIVATE:TYPED nonPOD Args are: var, Type, NumElements, ctor, dtor
         TypeOffset = 2;
-        OrigItemElementTypeFromIR = Args[1]->getType();
-        NumElements = Args[2];
+        setOrigItemElementTypeFromIR(Args[1]->getType());
+        setNumElements(Args[2]);
       }
 
       Value *V = Args[0];
@@ -692,16 +687,6 @@ class LastprivateItem : public Item
     static bool classof(const Item *I) {
       return I->getKind() == IK_Lastprivate;
     }
-
-    void setOrigItemElementTypeFromIR(Type *Ty) override {
-      OrigItemElementTypeFromIR = Ty;
-    }
-    void setNumElements(Value *N) override { NumElements = N; }
-
-    Type *getOrigItemElementTypeFromIR() const override {
-      return OrigItemElementTypeFromIR;
-    }
-    Value *getNumElements() const override { return NumElements; }
 };
 
 /// Contains information about an array section operand. Example:
@@ -986,7 +971,6 @@ class CopyprivateItem : public Item
     static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
 };
 
-
 //
 //   LinearItem: OMP LINEAR clause item
 //
@@ -1002,7 +986,6 @@ class LinearItem : public Item
                // the normalized loop IV.
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
-
   public:
 #if INTEL_CUSTOMIZATION
     LinearItem(VAR Orig)
@@ -1025,6 +1008,7 @@ class LinearItem : public Item
         OS << "IV";
       OS << "(";
       printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
       OS << ", ";
       auto *Step = getStep();
       assert(Step && "Null 'Step' for LINEAR clause.");
@@ -1044,9 +1028,15 @@ class LinearItem : public Item
 //
 class UniformItem : public Item
 {
-  public:
-    UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
-    static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
+public:
+  UniformItem(VAR Orig) : Item(Orig, IK_Uniform) {}
+  static bool classof(const Item *I) { return I->getKind() == IK_Uniform; }
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
+    OS << "(";
+    printOrig(OS, PrintType);
+    printIfTyped(OS, PrintType);
+    OS << ") ";
+  }
 };
 
 // MAP CHAINS
