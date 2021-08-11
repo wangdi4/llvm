@@ -942,10 +942,11 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
     }
 
     if (IsTyped) {
-      assert(ClauseID == QUAL_OMP_UNIFORM &&
+      assert((ClauseID == QUAL_OMP_UNIFORM || ClauseID == QUAL_OMP_COPYIN ||
+              ClauseID == QUAL_OMP_COPYPRIVATE) &&
              "Unexpected TYPED modifier in a clause that doesn't support it");
-      assert(NumArgs == 3 && "Expected 3 arguments for TYPED UNIFORM clause");
-      assert(I == 0 && "More than one variable in a TYPED UNIFORM clause");
+      assert(NumArgs == 3 && "Expected 3 arguments for TYPED clause");
+      assert(I == 0 && "More than one variable in a TYPED clause");
       C.setClauseID(ClauseID);
       C.back()->setIsTyped(true);
       C.back()->setOrigItemElementTypeFromIR(Args[1]->getType());
@@ -1327,6 +1328,9 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                   EntryDir->getDebugLoc()));
     return;
   }
+
+  bool IsTyped = ClauseInfo.getIsTyped();
+
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
     if (!V || isa<ConstantPointerNull>(V)) {
@@ -1346,22 +1350,51 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     //     RI->setIsTask(IsTask);
 
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
-    // The number of non array section tuple arguments is 2 by default (base
-    // pointer and dimension at the beginning). For UDR, it's 6, while there are
-    // 4 additional arguments for constructor, destructor, combiner and
-    // initializer at the end.
-    assert((NumArgs ==
-            3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
-                ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
-           "Unexpected number of args for array section operand.");
+    if (IsTyped) {
+      // The number of Typed arguments is 4 by default
+      // (base pointer, type, number of elements, offset). For UDR, it's 8,
+      // while there are 4 additional arguments for constructor, destructor,
+      // combiner and initializer at the end.
 
-    if (ReductionKind == ReductionItem::WRNReductionUdr) {
-      RI->setConstructor(
-          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
-      RI->setDestructor(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
-      RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
-      RI->setInitializer(
-          dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      RI->setIsTyped(true);
+      RI->setOrigItemElementTypeFromIR(Args[1]->getType());
+      RI->setNumElements(Args[2]);
+      RI->setArraySectionOffset(Args[3]);
+
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        assert(NumArgs == 8 &&
+               "Unexpected number of args for array section operand.");
+        RI->setConstructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+        RI->setDestructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+        RI->setInitializer(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      } else {
+        assert(NumArgs == 4 &&
+               "Unexpected number of args for array section operand.");
+      }
+    } else {
+      // The number of non array section tuple arguments is 2 by default (base
+      // pointer and dimension at the beginning). For UDR, it's 6, while there
+      // are 4 additional arguments for constructor, destructor, combiner and
+      // initializer at the end.
+      assert(
+          (NumArgs ==
+           3 * (cast<ConstantInt>(Args[1])->getZExtValue()) +
+               ((ReductionKind == ReductionItem::WRNReductionUdr) ? 6 : 2)) &&
+          "Unexpected number of args for array section operand.");
+
+      if (ReductionKind == ReductionItem::WRNReductionUdr) {
+        RI->setConstructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 4])));
+        RI->setDestructor(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 3])));
+        RI->setCombiner(dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 2])));
+        RI->setInitializer(
+            dyn_cast<Function>(dyn_cast<Value>(Args[NumArgs - 1])));
+      }
     }
 
     ArrSecInfo.populateArraySectionDims(Args, NumArgs);
@@ -1380,6 +1413,17 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+
+      if (IsTyped) {
+        LLVMContext &Ctxt = V->getContext();
+        RI->setIsTyped(true);
+        RI->setOrigItemElementTypeFromIR(Args[I + 1]->getType());
+        RI->setNumElements(Args[I + 2]);
+        RI->setArraySectionOffset(
+            Constant::getNullValue(Type::getInt32Ty(Ctxt)));
+        I += 2;
+      }
+
      // TODO: This code will be added once we start supporting task
      // reduction-modifier on a Reduction clause
      //   if (IsTask)
