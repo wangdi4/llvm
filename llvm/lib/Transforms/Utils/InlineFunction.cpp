@@ -27,6 +27,7 @@
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #if INTEL_COLLAB
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #endif // INTEL_COLLAB
@@ -2419,6 +2420,11 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
     /// Preserve all attributes on of the call and its parameters.
     salvageKnowledge(&CB, AC);
+
+#if INTEL_CUSTOMIZATION
+    // Copy opt-report metadata from callee to caller.
+    copyOptReport(*CalledFunc, *Caller);
+#endif // INTEL_CUSTOMIZATION
 
     // We want the inliner to prune the code as it copies.  We would LOVE to
     // have no dead or constant instructions leftover after inlining occurs

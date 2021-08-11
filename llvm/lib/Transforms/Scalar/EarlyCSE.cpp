@@ -24,6 +24,7 @@
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h" // INTEL
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -1227,6 +1228,14 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         LLVM_DEBUG(dbgs() << "Skipping due to debug counter\n");
         continue;
       }
+
+#if INTEL_CUSTOMIZATION
+      // If dead instruction is a function call copy opt-report metadata from
+      // callee to caller to preserve it from being lost.
+      if (auto *Call = dyn_cast<CallBase>(&Inst))
+        if (Function *Callee = Call->getCalledFunction())
+          copyOptReport(*Callee, *Call->getFunction());
+#endif // INTEL_CUSTOMIZATION
 
       salvageKnowledge(&Inst, &AC);
       salvageDebugInfo(Inst);

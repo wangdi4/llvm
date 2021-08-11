@@ -222,8 +222,10 @@ void OptReport::addOrigin(OptRemark Origin) const {
 
 void OptReport::setTitle(StringRef Title) const {
   assert(!Title.empty() && "Empty Title");
-  MDString *MDTitle = MDString::get(OptReportMD->getContext(), Title);
-  addOptReportSingleValue(OptReportMD, OptReportTag::Title, MDTitle);
+  if (Title != "LOOP") {
+    MDString *MDTitle = MDString::get(OptReportMD->getContext(), Title);
+    addOptReportSingleValue(OptReportMD, OptReportTag::Title, MDTitle);
+  }
 }
 
 void OptReport::setDebugLoc(DILocation *Location) const {
@@ -304,6 +306,28 @@ const OptReport OptReport::firstChild() const {
   Metadata *MDVal =
       findOptReportSingleValue(OptReportMD, OptReportTag::FirstChild);
   return cast_or_null<MDTuple>(MDVal);
+}
+
+OptReport OptReport::copy() const {
+  if (!OptReportMD)
+    return nullptr;
+
+  // Create an empty OptReport objects and fill in all fields.
+  OptReport Copy = OptReport::createEmptyOptReport(OptReportMD->getContext());
+  for (auto &Origin : origin())
+    Copy.addOrigin(Origin);
+  StringRef Title = title();
+  if (!Title.empty())
+    Copy.setTitle(title());
+  if (const DILocation *DL = debugLoc())
+    Copy.setDebugLoc(const_cast<DILocation *>(DL));
+  for (auto &Remark : remarks())
+    Copy.addRemark(Remark);
+
+  // Then replicate all children.
+  for (OptReport Child = firstChild(); Child; Child = Child.nextSibling())
+    Copy.addChild(Child.copy());
+  return Copy;
 }
 
 bool OptRemark::isOptRemarkMetadata(const Metadata *R) {
