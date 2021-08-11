@@ -18,7 +18,7 @@
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     remark #25580: Condition at line 4 was optimized
+;OPTREPORT:     remark #25580: Induction variable range split using condition at line 4
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)

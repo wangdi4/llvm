@@ -198,7 +198,7 @@ private:
                             BlobTy SplitPointBlob, bool IsSigned);
 
   void addVarPredicateReport(HLIf *If, HLLoop *Loop,
-                             OptReportBuilder &ORBuilder);
+                             OptReportBuilder &ORBuilder, unsigned RemarkID);
 };
 } // namespace
 
@@ -548,24 +548,18 @@ static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
 }
 
 void HIROptVarPredicate::addVarPredicateReport(HLIf *If, HLLoop *Loop,
-                                               OptReportBuilder &ORBuilder) {
-  bool IsReportOn = ORBuilder.isOptReportOn();
-
-  if (!IsReportOn || !Loop) {
+                                               OptReportBuilder &ORBuilder,
+                                               unsigned RemarkID) {
+  if (!Loop) {
     return;
   }
 
-  SmallString<32> LoopNum;
-  unsigned LineNum;
-  raw_svector_ostream VOS(LoopNum);
+  unsigned LineNum = 0;
   if (If->getDebugLoc()) {
     LineNum = If->getDebugLoc().getLine();
-    VOS << " at line ";
-    VOS << LineNum;
   }
 
-  // Condition%s was optimized
-  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25580u, LoopNum);
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low, RemarkID, LineNum);
 }
 
 // The loop could be split into two loops:
@@ -725,11 +719,10 @@ void HIROptVarPredicate::splitLoop(
     Loop->createZtt(false, true);
 
     FirstLoopNeeded = true;
-  } else {
-    HLNodeUtils::remove(Loop);
 
-    // Remove Loop from the invalidation set as we just removed it from the HIR.
-    NodesToInvalidate.erase(Loop);
+    if (OutLoops) {
+      OutLoops->push_back(Loop);
+    }
   }
 
   if (!isLoopRedundant(SecondLoop, SecondLoop)) {
@@ -744,9 +737,19 @@ void HIROptVarPredicate::splitLoop(
     }
 
     SecondLoopNeeded = true;
+
+    if (SecondLoop && OutLoops) {
+      OutLoops->push_back(SecondLoop);
+    }
   } else {
     HLNodeUtils::remove(SecondLoop);
+
+    // Remove Loop from the invalidation set as we just removed it from the HIR.
     NodesToInvalidate.erase(SecondLoop);
+  }
+
+  if (ThirdLoopNeeded && OutLoops) {
+    OutLoops->push_back(ThirdLoop);
   }
 
   if (FirstLoopNeeded && (SecondLoopNeeded || ThirdLoopNeeded)) {
@@ -760,42 +763,62 @@ void HIROptVarPredicate::splitLoop(
   OptReportBuilder &ORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  HLLoop *OptReportLoop = nullptr;
-  unsigned VNum = 1;
+  if (ORBuilder.isOptReportOn()) {
 
-  if (FirstLoopNeeded) {
-    if (OutLoops) {
-      OutLoops->push_back(Loop);
+    bool SecondLoopNeededAndNotNull = SecondLoopNeeded && SecondLoop;
+    SmallVector<bool, 3> LoopsNeeded = { FirstLoopNeeded, SecondLoopNeededAndNotNull, ThirdLoopNeeded };
+    unsigned NumLoopsNeeded = std::count(LoopsNeeded.begin(), LoopsNeeded.end(), true);
+    if (NumLoopsNeeded >= 2) {
+      unsigned VNum = 1;
+
+      if (FirstLoopNeeded) {
+        // Predicate Optimized v%d
+        ORBuilder(*Loop).addOrigin(25476u, VNum++);
+      }
+
+      if (SecondLoopNeededAndNotNull) {
+        // Predicate Optimized v%d
+        ORBuilder(*SecondLoop).addOrigin(25476u, VNum++);
+      }
+
+      if (ThirdLoopNeeded) {
+        // Predicate Optimized v%d
+        ORBuilder(*ThirdLoop).addOrigin(25476u, VNum++);
+      }
     }
 
-    OptReportLoop = Loop;
-    ORBuilder(*Loop).addOrigin("Predicate Optimized v%d", VNum++);
-  }
+    bool IsLoopPeeled = IsEqualCase && NumLoopsNeeded == 1;
+    bool IsLoopOptimizedAway = NumLoopsNeeded == 0;
 
-  if (SecondLoopNeeded && SecondLoop) {
-    if (OutLoops) {
-      OutLoops->push_back(SecondLoop);
-    }
-
-    if (!OptReportLoop) {
+    HLLoop *OptReportLoop = nullptr;
+    if (FirstLoopNeeded || IsLoopOptimizedAway) {
+      OptReportLoop = Loop;
+    } else if (SecondLoopNeededAndNotNull) {
       OptReportLoop = SecondLoop;
-    }
-    ORBuilder(*SecondLoop).addOrigin("Predicate Optimized v%d", VNum++);
-  }
-
-  if (ThirdLoopNeeded) {
-    if (OutLoops) {
-      OutLoops->push_back(ThirdLoop);
-    }
-
-    if (!OptReportLoop) {
+      ORBuilder(*Loop).moveOptReportTo(*SecondLoop);
+    } else if (ThirdLoopNeeded) {
       OptReportLoop = ThirdLoop;
+      ORBuilder(*Loop).moveOptReportTo(*ThirdLoop);
     }
-    ORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
+
+    for (HLIf *If : Candidates) {
+      if (IsLoopPeeled) {
+        // Loop peeled using condition at line %d
+        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25258u);
+      } else if (IsLoopOptimizedAway) {
+        // Loop optimized away using condition at line %d
+        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25259u);
+        ORBuilder(*OptReportLoop).preserveLostOptReport();
+      } else {
+        // Induction variable range split using condition at line %d
+        addVarPredicateReport(If, OptReportLoop, ORBuilder, 25580u);
+      }
+    }
   }
 
-  for (HLIf *If : Candidates) {
-    addVarPredicateReport(If, OptReportLoop, ORBuilder);
+  if (!FirstLoopNeeded) {
+    HLNodeUtils::remove(Loop);
+    NodesToInvalidate.erase(Loop);
   }
 }
 

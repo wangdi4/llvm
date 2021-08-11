@@ -2,7 +2,7 @@
 ;void foo(int *a) {
 ;  int i;
 ;  for (i=0;i<100;i++) {
-;    if (i == 0) {
+;    if (i == 99) {
 ;      a[i] = 0;
 ;    }
 ;    a[i] += i;
@@ -12,20 +12,8 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
-; We test the optreport for three things:
-;
-; (1) "<Predicate Optimized v1>" is not printed when there is less than two output
-;     loops.
-; (2) If the input loop is optimized away, and we have a different output loop,
-;     any remarks from the input loop (e.g., from previous passes) are moved to
-;     the output loop. Remark #25579 is a dummy remark included in the input
-;     llvm-ir loop's metadata for test purposes only.
-; (3) If the loop is peeled, the peeling-specific remark (#25258) is printed
-;     instead of the generic remark for hir-opt-var-predicate.
-;
 ;OPTREPORT:     LOOP BEGIN at foo.c (3, 3)
 ;OPTREPORT-NOT: <Predicate Optimized v1>
-;OPTREPORT:         remark #25579: Loop was reversed
 ;OPTREPORT:         remark #25258: Loop peeled using condition at line 4
 ;OPTREPORT:     LOOP END
 
@@ -45,7 +33,7 @@ entry:
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !15, metadata !DIExpression()), !dbg !17
-  %cmp1 = icmp eq i64 %indvars.iv, 0, !dbg !20
+  %cmp1 = icmp eq i64 %indvars.iv, 99, !dbg !20
   br i1 %cmp1, label %if.then, label %if.end, !dbg !24
 
 if.then:                                          ; preds = %for.body
@@ -113,10 +101,6 @@ attributes #1 = { nounwind readnone speculatable }
 !33 = !DILocation(line: 7, column: 10, scope: !22)
 !34 = !DILocation(line: 3, column: 19, scope: !23)
 !35 = !DILocation(line: 3, column: 13, scope: !23)
-!36 = distinct !{!36, !18, !37, !39}
+!36 = distinct !{!36, !18, !37}
 !37 = !DILocation(line: 8, column: 3, scope: !19)
 !38 = !DILocation(line: 9, column: 1, scope: !8)
-!39 = distinct !{!"intel.optreport.rootnode", !40}
-!40 = distinct !{!"intel.optreport", !41}
-!41 = !{!"intel.optreport.remarks", !42}
-!42 = !{!"intel.optreport.remark", i32 25579, !"Loop was reversed"}

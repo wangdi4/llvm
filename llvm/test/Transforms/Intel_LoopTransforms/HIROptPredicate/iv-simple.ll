@@ -46,11 +46,14 @@
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
+; The mention of incorrect line number ("at line 0" in the remark) only occurs
+; during some lit-tests (real-world test cases would have correct line numbers).
+;
 ;OPTREPORT: Global optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     remark #25580: Condition was optimized
+;OPTREPORT:     remark #25580: Induction variable range split using condition at line 0
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN

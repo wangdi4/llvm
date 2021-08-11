@@ -1,32 +1,19 @@
 ; Source code:
 ;void foo(int *a) {
 ;  int i;
-;  for (i=0;i<100;i++) {
-;    if (i == 0) {
+;  for (i=0;i<50;i++) {
+;    if (i == 100) {
 ;      a[i] = 0;
 ;    }
-;    a[i] += i;
 ;  }
 ;}
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-opt-var-predicate -disable-output -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-opt-var-predicate,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 
-; We test the optreport for three things:
-;
-; (1) "<Predicate Optimized v1>" is not printed when there is less than two output
-;     loops.
-; (2) If the input loop is optimized away, and we have a different output loop,
-;     any remarks from the input loop (e.g., from previous passes) are moved to
-;     the output loop. Remark #25579 is a dummy remark included in the input
-;     llvm-ir loop's metadata for test purposes only.
-; (3) If the loop is peeled, the peeling-specific remark (#25258) is printed
-;     instead of the generic remark for hir-opt-var-predicate.
-;
 ;OPTREPORT:     LOOP BEGIN at foo.c (3, 3)
 ;OPTREPORT-NOT: <Predicate Optimized v1>
-;OPTREPORT:         remark #25579: Loop was reversed
-;OPTREPORT:         remark #25258: Loop peeled using condition at line 4
+;OPTREPORT:         remark #25259: Loop optimized away using condition at line 4
 ;OPTREPORT:     LOOP END
 
 
@@ -45,21 +32,17 @@ entry:
 for.body:                                         ; preds = %if.end, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %if.end ]
   call void @llvm.dbg.value(metadata i64 %indvars.iv, metadata !15, metadata !DIExpression()), !dbg !17
-  %cmp1 = icmp eq i64 %indvars.iv, 0, !dbg !20
+  %cmp1 = icmp eq i64 %indvars.iv, 100, !dbg !20
   br i1 %cmp1, label %if.then, label %if.end, !dbg !24
 
 if.then:                                          ; preds = %for.body
-  store i32 0, i32* %a, align 4, !dbg !25, !tbaa !27
+  %arrayidx3 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv, !dbg !32
+  store i32 0, i32* %arrayidx3, align 4, !dbg !25, !tbaa !27
   br label %if.end, !dbg !31
 
 if.end:                                           ; preds = %if.then, %for.body
-  %arrayidx3 = getelementptr inbounds i32, i32* %a, i64 %indvars.iv, !dbg !32
-  %0 = load i32, i32* %arrayidx3, align 4, !dbg !33, !tbaa !27
-  %1 = trunc i64 %indvars.iv to i32, !dbg !33
-  %add = add nsw i32 %0, %1, !dbg !33
-  store i32 %add, i32* %arrayidx3, align 4, !dbg !33, !tbaa !27
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !34
-  %exitcond = icmp eq i64 %indvars.iv.next, 100, !dbg !35
+  %exitcond = icmp eq i64 %indvars.iv.next, 50, !dbg !35
   br i1 %exitcond, label %for.end, label %for.body, !dbg !18, !llvm.loop !36
 
 for.end:                                          ; preds = %if.end
@@ -113,10 +96,6 @@ attributes #1 = { nounwind readnone speculatable }
 !33 = !DILocation(line: 7, column: 10, scope: !22)
 !34 = !DILocation(line: 3, column: 19, scope: !23)
 !35 = !DILocation(line: 3, column: 13, scope: !23)
-!36 = distinct !{!36, !18, !37, !39}
+!36 = distinct !{!36, !18, !37}
 !37 = !DILocation(line: 8, column: 3, scope: !19)
 !38 = !DILocation(line: 9, column: 1, scope: !8)
-!39 = distinct !{!"intel.optreport.rootnode", !40}
-!40 = distinct !{!"intel.optreport", !41}
-!41 = !{!"intel.optreport.remarks", !42}
-!42 = !{!"intel.optreport.remark", i32 25579, !"Loop was reversed"}
