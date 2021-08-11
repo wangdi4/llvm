@@ -13449,7 +13449,8 @@ multiclass avx512_dpbf16ps_sizes<bits<8> opc, string OpcodeStr, SDNode OpNode,
 let ExeDomain = SSEPackedSingle in
 defm VDPBF16PS : avx512_dpbf16ps_sizes<0x52, "vdpbf16ps", X86dpbf16ps, SchedWriteFMA,
                                        avx512vl_f32_info, avx512vl_i32_info,
-                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>;
+                                       HasBF16>, T8XS, EVEX_CD8<32, CD8VF>, // INTEL
+                                       NotEVEX2VEXConvertible; // INTEL
 
 //===----------------------------------------------------------------------===//
 // AVX512FP16
