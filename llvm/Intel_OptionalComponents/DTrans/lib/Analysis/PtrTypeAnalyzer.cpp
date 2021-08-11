@@ -102,52 +102,6 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   return false;
 }
 
-#if 0
-// TODO: This commented out code will be needed when opaque pointers are
-// unabled.
-// Check whether the DTransType \p has a pointer. This is similar to the
-// utility function dtrans::hasPointerType(llvm::Type* Ty), which operates
-// on llvm Types.
-static bool hasPointerType(dtrans::DTransType *Ty) {
-  if (Ty->isPointerTy())
-    return true;
-
-  if (auto *SeqTy = dyn_cast<DTransSequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
-
-  if (auto *StTy = dyn_cast<DTransStructType>(Ty)) {
-    // Check inside of literal structures because those cannot be referenced by
-    // name. However, there is no need to look inside non-literal structures
-    // because those will be referenced by their name.
-    if (StTy->isLiteralStruct())
-      for (auto &Field : StTy->getFields())
-        for (auto *ElemTy : Field.getTypes()) {
-          bool HasPointer = hasPointerType(ElemTy);
-          if (HasPointer)
-            return true;
-        }
-  }
-
-  if (auto *FnTy = dyn_cast<DTransFunctionType>(Ty)) {
-    // Check the return type and the parameter types for any possible
-    // pointer because metadata descriptions on these will be used to help
-    // recovery of opaque pointer types.
-    DTransType *RetTy = FnTy->getReturnType();
-    if (RetTy && hasPointerType(RetTy))
-      return true;
-
-    unsigned NumParams = FnTy->getNumArgs();
-    for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
-      DTransType *ParmTy = FnTy->getArgType(Idx);
-      if (ParmTy && hasPointerType(ParmTy))
-        return true;
-    }
-  }
-
-  return false;
-}
-#endif
-
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {

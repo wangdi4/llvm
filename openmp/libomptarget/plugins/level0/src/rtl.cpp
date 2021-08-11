@@ -63,8 +63,10 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 
 /// Default alignmnet for allocation
 #define LEVEL0_ALIGNMENT 0
-/// Staging buffer size for host to device copy
+/// Default staging buffer size for host to device copy
 #define LEVEL0_STAGING_BUFFER_SIZE (1 << 12)
+/// Default staging buffer count
+#define LEVEL0_STAGING_BUFFER_COUNT 64
 
 // Subdevice utilities
 // Device encoding (MSB=63, LSB=0)
@@ -209,13 +211,130 @@ namespace L0Interop {
   }
 }
 
+/// Staging buffer
+/// A single staging buffer is not enough when batching is enabled since there
+/// can be multiple pending copy operations.
+class StagingBufferTy {
+  ze_context_handle_t Context = nullptr;
+  size_t Size = LEVEL0_STAGING_BUFFER_SIZE;
+  size_t Count = LEVEL0_STAGING_BUFFER_COUNT;
+  std::vector<void *> Buffers;
+  size_t Offset = 0;
+
+  void *addBuffers() {
+    ze_host_mem_alloc_desc_t AllocDesc = {
+      ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0
+    };
+    void *Ret = nullptr;
+    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &AllocDesc, Size * Count,
+                     LEVEL0_ALIGNMENT, &Ret);
+    Buffers.push_back(Ret);
+    return Ret;
+  }
+
+public:
+  ~StagingBufferTy() {
+    ze_result_t Rc;
+    for (auto Ptr : Buffers)
+      CALL_ZE(Rc, zeMemFree, Context, Ptr);
+  }
+
+  bool initialized() { return Context != nullptr; }
+
+  void init(ze_context_handle_t _Context, size_t _Size, size_t _Count) {
+    Context = _Context;
+    Size = _Size;
+    Count = _Count;
+  }
+
+  void reset() { Offset = 0; }
+
+  /// Always return the first buffer
+  void *get() {
+    if (Size == 0 || Count == 0)
+      return nullptr;
+    if (Buffers.empty())
+      return addBuffers();
+    else
+      return Buffers[0];
+  }
+
+  /// Return the next available buffer
+  void *getNext() {
+    void *Ret = nullptr;
+    if (Size == 0 || Count == 0)
+      return Ret;
+    if (Buffers.empty() || Offset >= Buffers.size() * Size * Count) {
+      Ret = addBuffers();
+      if (!Ret)
+        return Ret;
+    } else {
+      Ret = (void *)((uintptr_t)Buffers.back() + (Offset % (Size * Count)));
+    }
+    Offset += Size;
+    return Ret;
+  }
+};
+
+/// Command batch manager
+class CommandBatchTy {
+  struct MemCopyTy {
+    void *Dst;
+    const void *Src;
+    size_t Size;
+    MemCopyTy(void *_Dst, const void *_Src, size_t _Size) :
+        Dst(_Dst), Src(_Src), Size(_Size) {}
+  };
+
+  /// For device-to-host copy with staging buffer
+  std::list<MemCopyTy> MemCopyList;
+
+  /// For delayed data delete
+  std::list<void *> MemFreeList;
+
+  /// Internal device ID
+  int32_t DeviceId = -1;
+
+  /// Current batch state
+  /// State increments when batch begins and decrements when it ends
+  int32_t State = 0;
+
+  /// Number of enqueued copy commands
+  uint32_t NumCopyTo = 0;
+  uint32_t NumCopyFrom = 0;
+
+  /// Kernel information
+  ze_kernel_handle_t Kernel = nullptr;
+  ze_event_handle_t KernelEvent = nullptr;
+
+  /// Command list/queue
+  ze_command_list_handle_t CmdList = nullptr;
+  ze_command_queue_handle_t CmdQueue = nullptr;
+
+public:
+  int32_t begin(int32_t DeviceId);
+
+  int32_t end();
+
+  int32_t commit(bool Always = false);
+
+  int32_t enqueueMemCopyTo(int32_t DeviceId, void *Dst, void *Src, size_t Size);
+
+  int32_t enqueueMemCopyFrom(int32_t DeviceId, void *Dst, void *Src,
+                             size_t Size);
+
+  int32_t enqueueLaunchKernel(int32_t DeviceId, ze_kernel_handle_t Kernel,
+                              ze_group_count_t *GroupCounts);
+
+  int32_t enqueueMemFree(int32_t DeviceId, void *Ptr);
+
+  bool isActive() { return State > 0; }
+};
+
 class RTLProfileTy;
 
 /// All thread-local data used by RTL
 class TLSTy {
-  /// For memory release
-  ze_context_handle_t Context = nullptr;
-
   /// Command list for each device
   std::map<int32_t, ze_command_list_handle_t> CmdLists;
 
@@ -231,15 +350,16 @@ class TLSTy {
   /// Run profile for each device
   std::map<int32_t, RTLProfileTy *> Profiles;
 
+  /// Staging buffer
+  StagingBufferTy StagingBuffer;
+
+  /// Batch manager
+  CommandBatchTy CommandBatch;
+
   /// Subdevice encoding
   int64_t SubDeviceCode = 0;
 
-  /// Staging buffer
-  void *StagingBuffer = nullptr;
-
 public:
-  TLSTy(ze_context_handle_t Context) : Context(Context) {}
-
   ~TLSTy();
 
   ze_command_list_handle_t getCmdList(int32_t ID) {
@@ -264,7 +384,9 @@ public:
 
   int64_t getSubDeviceCode() { return SubDeviceCode; }
 
-  void *getStagingBuffer() { return StagingBuffer; }
+  StagingBufferTy &getStagingBuffer() { return StagingBuffer; }
+
+  CommandBatchTy &getCommandBatch() { return CommandBatch; }
 
   void setCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
     CmdLists[ID] = CmdList;
@@ -287,20 +409,18 @@ public:
   }
 
   void setSubDeviceCode(int64_t Code) { SubDeviceCode = Code; }
-
-  void setStagingBuffer(void *Buffer) { StagingBuffer = Buffer; }
 };
 
 /// Global list for clean-up
 std::list<TLSTy *> *TLSList = nullptr;
 
 /// Returns thread-local storage while adding a new instance to the global list.
-static TLSTy *getTLS(ze_context_handle_t Context) {
+static TLSTy *getTLS() {
   static thread_local TLSTy *TLS = nullptr;
   static std::mutex Mtx;
   if (TLS)
     return TLS;
-  TLS = new TLSTy(Context);
+  TLS = new TLSTy();
   std::lock_guard<std::mutex> Lock(Mtx);
   TLSList->push_back(TLS);
   return TLS;
@@ -734,36 +854,42 @@ public:
     fprintf(stderr, "%s\n", profileSep.c_str());
   }
 
-  void update(const char *Name, double Elapsed) {
-    std::string key(Name);
-    TimeTy &time = Data[key];
-    time.HostTime += Elapsed;
+  void update(const char *Name, double HostTime, double DeviceTime = 0) {
+    std::string Key(Name);
+    update(Key, HostTime, DeviceTime);
   }
 
-  void update(std::string &Name, double Elapsed) {
-    TimeTy &time = Data[Name];
-    time.HostTime += Elapsed;
+  void update(std::string &Name, double HostTime, double DeviceTime = 0) {
+    auto &Time = Data[Name];
+    Time.HostTime += HostTime;
+    Time.DeviceTime += DeviceTime;
   }
 
-  void update(std::string &Name, ze_event_handle_t Event) {
-    TimeTy &time = Data[Name];
-    ze_kernel_timestamp_result_t ts;
-    CALL_ZE_EXIT_FAIL(zeEventQueryKernelTimestamp, Event, &ts);
-    double wallTime = 0;
+  /// Return elapsed time from the given profile event
+  double getEventTime(ze_event_handle_t Event) {
+    ze_kernel_timestamp_result_t TS;
+    CALL_ZE_EXIT_FAIL(zeEventQueryKernelTimestamp, Event, &TS);
+    double WallTime = 0;
 
-    if (ts.global.kernelEnd >= ts.global.kernelStart)
-      wallTime = ts.global.kernelEnd - ts.global.kernelStart;
+    if (TS.global.kernelEnd >= TS.global.kernelStart)
+      WallTime = TS.global.kernelEnd - TS.global.kernelStart;
     else if (TimestampMax > 0)
-      wallTime = TimestampMax - ts.global.kernelStart + ts.global.kernelEnd + 1;
+      WallTime = TimestampMax - TS.global.kernelStart + TS.global.kernelEnd + 1;
     else
       WARNING("Timestamp overflow cannot be handled for this device.\n");
 
     if (TimestampNsec > 0)
-      time.DeviceTime += wallTime * (double)TimestampNsec / NSEC_PER_SEC;
+      WallTime *= (double)TimestampNsec / NSEC_PER_SEC;
     else
-      time.DeviceTime += wallTime / (double)TimestampCyclePerSec;
+      WallTime /= (double)TimestampCyclePerSec;
 
     CALL_ZE_EXIT_FAIL(zeEventHostReset, Event);
+
+    return WallTime;
+  }
+
+  void update(std::string &Name, ze_event_handle_t Event) {
+    Data[Name].DeviceTime += getEventTime(Event);
   }
 };
 int64_t RTLProfileTy::Multiplier;
@@ -1281,6 +1407,13 @@ public:
   /// Staging buffer size
   size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
 
+  /// Staging buffer count
+  size_t StagingBufferCount = LEVEL0_STAGING_BUFFER_COUNT;
+
+  /// Command batch support
+  int32_t CommandBatchLevel = 0;
+  int32_t CommandBatchCount = INT32_MAX;
+
   /// Memory pool parameters
   /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
   std::map<int32_t, std::vector<int32_t>> MemPoolInfo = {
@@ -1653,10 +1786,40 @@ public:
       size_t SizeInKB = std::stoi(env);
       StagingBufferSize = SizeInKB << 10;
     }
+    // LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH=<Type>[,<Count>]
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL_ZERO_COMMAND_BATCH")) {
+      std::string Value(env);
+      int32_t Count = 0;
+      auto I = Value.find(",");
+      if (I != std::string::npos) {
+        Count = std::atoi(Value.substr(I + 1).c_str());
+        Value.erase(I);
+      }
+      if (Count > 0) {
+        CommandBatchCount = Count;
+        if ((size_t)Count < StagingBufferCount)
+          StagingBufferCount = Count;
+      }
+      if (Value == "none" || Value == "NONE") {
+        CommandBatchLevel = 0;
+        DP("Disabled command batching.\n");
+      } else if (Value == "copy" || Value == "COPY") {
+        CommandBatchLevel = 1;
+        DP("Enabled command batching up to %" PRId32 " copy commands.\n",
+           Count);
+      } else if (Value == "compute" || Value == "COMPUTE") {
+        CommandBatchLevel = 2;
+        DP("Enabled command batching up to %" PRId32
+           " copy and compute commands.\n", Count);
+      } else {
+        CommandBatchLevel = 0;
+        DP("Disabled command batching due to unknown input \"%s\".\n", env);
+      }
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
-    auto TLS = getTLS(Context);
+    auto TLS = getTLS();
     auto CmdList = TLS->getCmdList(DeviceId);
     if (!CmdList) {
       CmdList = createCmdList(Context, Devices[DeviceId],
@@ -1667,7 +1830,7 @@ public:
   }
 
   ze_command_queue_handle_t getCmdQueue(int32_t DeviceId) {
-    auto TLS = getTLS(Context);
+    auto TLS = getTLS();
     auto CmdQueue = TLS->getCmdQueue(DeviceId);
     if (!CmdQueue) {
       CmdQueue = createCommandQueue(DeviceId);
@@ -1681,7 +1844,7 @@ public:
         CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
       return getCmdList(DeviceId);
     // Use copy engine
-    auto TLS = getTLS(Context);
+    auto TLS = getTLS();
     auto CmdList = TLS->getCopyCmdList(DeviceId);
     if (!CmdList) {
       CmdList = createCmdList(Context, Devices[DeviceId],
@@ -1703,7 +1866,7 @@ public:
         CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
       return getCmdQueue(DeviceId);
     // Use copy engine
-    auto TLS = getTLS(Context);
+    auto TLS = getTLS();
     auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
     if (!CmdQueue) {
       CmdQueue = createCmdQueue(Context, Devices[DeviceId],
@@ -1716,7 +1879,7 @@ public:
   RTLProfileTy *getProfile(int32_t DeviceId) {
     if (!Flags.EnableProfile)
       return nullptr;
-    auto TLS = getTLS(Context);
+    auto TLS = getTLS();
     auto Profile = TLS->getProfile(DeviceId);
     if (!Profile) {
       Profile = new RTLProfileTy(DeviceProperties[DeviceId],
@@ -1727,10 +1890,10 @@ public:
     return Profile;
   }
 
-  int64_t getSubDeviceCode() { return getTLS(Context)->getSubDeviceCode(); }
+  int64_t getSubDeviceCode() { return getTLS()->getSubDeviceCode(); }
 
   void setSubDeviceCode(int64_t Code) {
-    getTLS(Context)->setSubDeviceCode(Code);
+    getTLS()->setSubDeviceCode(Code);
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -1789,7 +1952,7 @@ public:
   ze_command_queue_handle_t createCommandQueue(int32_t DeviceId);
 
   /// Get thread-local staging buffer for copying
-  void *getStagingBuffer();
+  StagingBufferTy &getStagingBuffer();
 
   /// Add host-accessible memory range
   void addHostAccessible(int32_t DeviceId, void *Ptr, size_t Size,
@@ -1807,6 +1970,15 @@ public:
   /// that was previously read by readKernelInfo().
   const KernelInfoTy *
       getKernelInfo(int32_t DeviceId, const ze_kernel_handle_t &Kernel) const;
+
+  /// Check if the device is discrete
+  bool isDiscreteDevice(int32_t DeviceId);
+
+  /// Get internal device ID from subdevice encoding
+  int32_t getInternalDeviceId(int32_t DeviceId);
+
+  /// Data delete
+  int32_t dataDelete(int32_t DeviceId, void *Ptr);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -2274,8 +2446,197 @@ TLSTy::~TLSTy() {
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
   for (auto Profile : Profiles)
     delete Profile.second;
-  if (StagingBuffer)
-    CALL_ZE_EXIT_FAIL(zeMemFree, Context, StagingBuffer);
+}
+
+int32_t CommandBatchTy::begin(int32_t ID) {
+  if (State < 0 || (DeviceId >= 0 && ID != DeviceId)) {
+    DP("Invalid command batching state\n");
+    return OFFLOAD_FAIL;
+  }
+  DP("Command batching begins\n");
+  DeviceId = ID;
+  if (CmdList == nullptr || CmdQueue == nullptr) {
+    if (DeviceInfo->CommandBatchLevel > 1) {
+      CmdList = DeviceInfo->getCmdList(DeviceId);
+      CmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+    } else {
+      CmdList = DeviceInfo->getCopyCmdList(DeviceId);
+      CmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
+    }
+  }
+  State++;
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t CommandBatchTy::end() {
+  if (State <= 0 || DeviceId < 0) {
+    DP("Invalid command batching state\n");
+    return OFFLOAD_FAIL;
+  }
+  DP("Command batching ends\n");
+  State--;
+  if (State > 0) {
+    // Batching is still in progress
+    return OFFLOAD_SUCCESS;
+  }
+  if (NumCopyTo == 0 && NumCopyFrom == 0 && Kernel == nullptr) {
+    // Nothing was enqueued
+    return OFFLOAD_SUCCESS;
+  }
+
+  if (commit(true) != OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
+  // Commit enqueued memory free
+  for (auto Ptr : MemFreeList)
+    if (DeviceInfo->dataDelete(DeviceId, Ptr) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
+  MemFreeList.clear();
+
+  DeviceId = -1;
+
+  DP("Command batching completed\n");
+
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t CommandBatchTy::commit(bool Always) {
+  int32_t BatchCount = NumCopyTo + NumCopyFrom + (Kernel ? 1 : 0);
+  if (!Always && BatchCount < DeviceInfo->CommandBatchCount)
+    return OFFLOAD_SUCCESS;
+
+  DP("Command batching commits %" PRId32 " enqueued commands\n", BatchCount);
+
+  double BatchTime = 0;
+  if (DeviceInfo->Flags.EnableProfile)
+    BatchTime = omp_get_wtime();
+
+  // Launch enqueued commands
+  CALL_ZE_RET_FAIL(zeCommandListClose, CmdList);
+  CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, CmdQueue, 1, &CmdList,
+                   nullptr);
+  CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, CmdQueue, UINT64_MAX);
+  CALL_ZE_RET_FAIL(zeCommandListReset, CmdList);
+
+  if (DeviceInfo->Flags.EnableProfile) {
+    BatchTime = omp_get_wtime() - BatchTime;
+    auto *Profile = DeviceInfo->getProfile(DeviceId);
+    if (Kernel) {
+      double DeviceTime = Profile->getEventTime(KernelEvent);
+      std::string KernelName = "Kernel ";
+      KernelName += DeviceInfo->KernelProperties[DeviceId][Kernel].Name;
+      if (NumCopyTo > 0 || NumCopyFrom > 0) {
+        // Batch includes copy and kernel launch
+        BatchTime -= DeviceTime;
+        Profile->update(KernelName, DeviceTime, DeviceTime);
+      } else {
+        // Batch only includes kernel launch
+        Profile->update(KernelName, BatchTime, DeviceTime);
+      }
+    }
+    if (NumCopyTo > 0 && NumCopyFrom > 0)
+      Profile->update("DataCopy", BatchTime, BatchTime);
+    else if (NumCopyTo > 0)
+      Profile->update("DataWrite (Host to Device)", BatchTime, BatchTime);
+    else if (NumCopyFrom > 0)
+      Profile->update("DataRead (Device to Host)", BatchTime, BatchTime);
+  }
+
+  // Commit enqueued memory copy from staging buffer to host buffer
+  for (auto &Arg : MemCopyList)
+    std::copy_n((const char *)Arg.Src, Arg.Size, (char *)Arg.Dst);
+  MemCopyList.clear();
+
+  NumCopyTo = 0;
+  NumCopyFrom = 0;
+  Kernel = nullptr;
+  KernelEvent = nullptr;
+
+  // Reset staging buffer
+  getTLS()->getStagingBuffer().reset();
+
+  return OFFLOAD_SUCCESS;
+}
+
+int32_t CommandBatchTy::enqueueMemCopyTo(
+    int32_t ID, void *Dst, void *Src, size_t Size) {
+  if (DeviceId != ID) {
+    DP("Invalid device ID %" PRId32 " while performing command batching\n", ID);
+    return OFFLOAD_FAIL;
+  }
+
+  void *SrcPtr = Src;
+  if (Size <= DeviceInfo->StagingBufferSize &&
+      DeviceInfo->getMemAllocType(Src) == ZE_MEMORY_TYPE_UNKNOWN) {
+    SrcPtr = DeviceInfo->getStagingBuffer().getNext();
+    std::copy_n(static_cast<char *>(Src), Size, static_cast<char *>(SrcPtr));
+  }
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, Dst, SrcPtr, Size,
+                   nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
+  DP("Enqueued memory copy " DPxMOD " --> " DPxMOD "\n", DPxPTR(Src),
+     DPxPTR(Dst));
+
+  NumCopyTo++;
+
+  return commit();
+}
+
+int32_t CommandBatchTy::enqueueMemCopyFrom(
+    int32_t ID, void *Dst, void *Src, size_t Size) {
+  if (DeviceId != ID) {
+    DP("Invalid device ID %" PRId32 " while performing command batching\n", ID);
+    return OFFLOAD_FAIL;
+  }
+
+  void *DstPtr = Dst;
+  if (Size <= DeviceInfo->StagingBufferSize &&
+      DeviceInfo->getMemAllocType(Dst) == ZE_MEMORY_TYPE_UNKNOWN) {
+    DstPtr = DeviceInfo->getStagingBuffer().getNext();
+    // Delayed copy from staging buffer to host buffer
+    MemCopyList.emplace_back(Dst, DstPtr, Size);
+  }
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, CmdList, DstPtr, Src, Size,
+                   nullptr, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
+  DP("Enqueued memory copy " DPxMOD " --> " DPxMOD "\n", DPxPTR(Src),
+     DPxPTR(Dst));
+
+  NumCopyFrom++;
+
+  return commit();
+}
+
+int32_t CommandBatchTy::enqueueLaunchKernel(
+    int32_t ID, ze_kernel_handle_t _Kernel, ze_group_count_t *GroupCounts) {
+  if (DeviceId != ID) {
+    DP("Invalid device ID %" PRId32 " while performing command batching\n", ID);
+    return OFFLOAD_FAIL;
+  }
+
+  Kernel = _Kernel;
+  if (DeviceInfo->Flags.EnableProfile)
+    KernelEvent = DeviceInfo->ProfileEvents.getEvent();
+
+  CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, CmdList, Kernel,
+                   GroupCounts, KernelEvent, 0, nullptr);
+  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, CmdList, nullptr, 0, nullptr);
+  DP("Enqueued launch kernel " DPxMOD "\n", DPxPTR(Kernel));
+
+  return commit();
+}
+
+int32_t CommandBatchTy::enqueueMemFree(int32_t ID, void *Ptr) {
+  if (DeviceId != ID) {
+    DP("Invalid device ID %" PRId32 " while performing command batching\n", ID);
+    return OFFLOAD_FAIL;
+  }
+
+  MemFreeList.push_back(Ptr);
+
+  return OFFLOAD_SUCCESS;
 }
 
 /// Initialize memory pool with the parameters
@@ -2529,19 +2890,10 @@ RTLDeviceInfoTy::createCommandQueue(int32_t DeviceId) {
 }
 
 /// Get thread-local staging buffer for copying
-void *RTLDeviceInfoTy::getStagingBuffer() {
-  if (StagingBufferSize == 0)
-    return nullptr;
-
-  auto TLS = getTLS(Context);
-  auto Buffer = TLS->getStagingBuffer();
-  if (!Buffer) {
-    ze_host_mem_alloc_desc_t Desc = {
-        ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0};
-    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &Desc,
-                     StagingBufferSize, LEVEL0_ALIGNMENT, &Buffer);
-    TLS->setStagingBuffer(Buffer);
-  }
+StagingBufferTy &RTLDeviceInfoTy::getStagingBuffer() {
+  auto &Buffer = getTLS()->getStagingBuffer();
+  if (!Buffer.initialized())
+    Buffer.init(Context, StagingBufferSize, StagingBufferCount);
 
   return Buffer;
 }
@@ -2635,6 +2987,51 @@ const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
     return nullptr;
 
   return &(It->second);
+}
+
+bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) {
+  return isDiscrete(DeviceProperties[DeviceId].deviceId);
+}
+
+int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
+#if !SUBDEVICE_USE_ROOT_MEMORY
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
+  if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
+    auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
+    auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
+    DeviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subStart];
+  }
+#endif
+  return DeviceId;
+}
+
+int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
+  void *Base = nullptr;
+  size_t Size = 0;
+
+  auto &Mtx = Mutexes[DeviceId];
+
+  Mtx.lock();
+  removeImplicitArgs(DeviceId, Ptr);
+  Mtx.unlock();
+
+  removeHostAccessible(DeviceId, Ptr);
+
+  if (Flags.UseMemoryPool) {
+    bool Deallocated = poolFree(DeviceId, Ptr);
+    if (Deallocated) {
+      DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(Ptr));
+      return OFFLOAD_SUCCESS;
+    }
+  }
+  CALL_ZE_RET_FAIL(zeMemGetAddressRange, Context, Ptr, &Base, &Size);
+  LOG_MEM_USAGE(Devices[DeviceId], 0, Base);
+  CALL_ZE_RET_FAIL_MTX(zeMemFree, Mtx, Context, Base);
+
+  DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
+     DPxPTR(Ptr), DPxPTR(Base), Size);
+
+  return OFFLOAD_SUCCESS;
 }
 
 static void dumpImageToFile(
@@ -3694,14 +4091,11 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
-#if !SUBDEVICE_USE_ROOT_MEMORY
-  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
-  if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
-    auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
-    auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
-    DeviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subStart];
-  }
-#endif
+  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+
+  auto &Batch = getTLS()->getCommandBatch();
+  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    return Batch.enqueueMemCopyTo(DeviceId, TgtPtr, HstPtr, Size);
 
   ScopedTimerTy tmDataWrite(DeviceId, "DataWrite (Host to Device)");
 
@@ -3738,8 +4132,8 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     void *SrcPtr = HstPtr;
     if (static_cast<size_t>(Size) <= DeviceInfo->StagingBufferSize &&
         DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
-        isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId)) {
-      SrcPtr = DeviceInfo->getStagingBuffer();
+        DeviceInfo->isDiscreteDevice(DeviceId)) {
+      SrcPtr = DeviceInfo->getStagingBuffer().get();
       std::copy_n(static_cast<char *>(HstPtr), Size,
                   static_cast<char *>(SrcPtr));
     }
@@ -3775,14 +4169,11 @@ static int32_t retrieveData(
   if (Size == 0)
     return OFFLOAD_SUCCESS;
 
-#if !SUBDEVICE_USE_ROOT_MEMORY
-  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
-  if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
-    auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
-    auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
-    DeviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subStart];
-  }
-#endif
+  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+
+  auto &Batch = getTLS()->getCommandBatch();
+  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    return Batch.enqueueMemCopyFrom(DeviceId, HstPtr, TgtPtr, Size);
 
   ScopedTimerTy tmDataRead(DeviceId, "DataRead (Device to Host)");
 
@@ -3819,13 +4210,13 @@ static int32_t retrieveData(
     void *DstPtr = HstPtr;
     if (static_cast<size_t>(Size) <= DeviceInfo->StagingBufferSize &&
         DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
-        isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId))
-      DstPtr = DeviceInfo->getStagingBuffer();
+        DeviceInfo->isDiscreteDevice(DeviceId))
+      DstPtr = DeviceInfo->getStagingBuffer().get();
     if (copyData(DeviceId, DstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
     if (DstPtr != HstPtr)
-      std::copy_n(static_cast<char *>(DstPtr), Size,
-                  static_cast<char *>(HstPtr));
+        std::copy_n(static_cast<char *>(DstPtr), Size,
+                    static_cast<char *>(HstPtr));
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }
@@ -3879,41 +4270,13 @@ EXTERN int32_t __tgt_rtl_data_exchange(
 }
 
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
-#if !SUBDEVICE_USE_ROOT_MEMORY
-  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
-  if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
-    auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
-    auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
-    DeviceId = DeviceInfo->SubDeviceIds[DeviceId][subLevel][subStart];
-  }
-#endif
+  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
 
-  void *base = nullptr;
-  size_t size = 0;
+  auto &Batch = getTLS()->getCommandBatch();
+  if (Batch.isActive())
+    return Batch.enqueueMemFree(DeviceId, TgtPtr);
 
-  auto &mutex = DeviceInfo->Mutexes[DeviceId];
-  auto context = DeviceInfo->Context;
-
-  mutex.lock();
-  DeviceInfo->removeImplicitArgs(DeviceId, TgtPtr);
-  mutex.unlock();
-
-  DeviceInfo->removeHostAccessible(DeviceId, TgtPtr);
-
-  if (DeviceInfo->Flags.UseMemoryPool) {
-    bool deallocated = DeviceInfo->poolFree(DeviceId, TgtPtr);
-    if (deallocated) {
-      DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(TgtPtr));
-      return OFFLOAD_SUCCESS;
-    }
-  }
-  CALL_ZE_RET_FAIL(zeMemGetAddressRange, context, TgtPtr, &base, &size);
-  LOG_MEM_USAGE(DeviceInfo->Devices[DeviceId], 0, base);
-  CALL_ZE_RET_FAIL_MTX(zeMemFree, mutex, context, base);
-
-  DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
-     DPxPTR(TgtPtr), DPxPTR(base), size);
-  return OFFLOAD_SUCCESS;
+  return DeviceInfo->dataDelete(DeviceId, TgtPtr);
 }
 
 static void decideLoopKernelGroupArguments(
@@ -4429,6 +4792,10 @@ static int32_t runTargetTeamRegion(
   auto cmdList = DeviceInfo->getCmdList(DeviceId);
   auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
+  auto &Batch = getTLS()->getCommandBatch();
+  if (Batch.isActive() && DeviceInfo->isDiscreteDevice(DeviceId))
+    return Batch.enqueueLaunchKernel(DeviceId, kernel, &groupCounts);
+
   if (AsyncEvent) {
     cmdList = createCmdList(context, DeviceInfo->Devices[DeviceId],
                             DeviceInfo->CmdQueueGroupOrdinals[DeviceId],
@@ -4885,6 +5252,36 @@ EXTERN int32_t __tgt_rtl_is_private_arg_on_host(
     return 1;
 
   return 0;
+}
+
+EXTERN int32_t __tgt_rtl_command_batch_begin(
+    int32_t DeviceId, int32_t BatchLevel) {
+  // Do not try command batching in these cases
+  // -- Integrated devices
+  // -- Kernel batching on subdevices
+  // -- Allowed batch level is lower than BatchLevel
+  if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
+      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
+      DeviceInfo->CommandBatchLevel < BatchLevel)
+    return OFFLOAD_SUCCESS;
+
+  DeviceId = DeviceInfo->getInternalDeviceId(DeviceId);
+
+  return getTLS()->getCommandBatch().begin(DeviceId);
+}
+
+EXTERN int32_t __tgt_rtl_command_batch_end(
+    int32_t DeviceId, int32_t BatchLevel) {
+  // Do not try command batching in these cases
+  // -- Integrated devices
+  // -- Kernel batching on subdevices
+  // -- Allowed batch level is lower than BatchLevel
+  if (!DeviceInfo->isDiscreteDevice(DeviceId) ||
+      (BatchLevel > 1 && DeviceInfo->getSubDeviceCode() != 0) ||
+      DeviceInfo->CommandBatchLevel < BatchLevel)
+    return OFFLOAD_SUCCESS;
+
+  return getTLS()->getCommandBatch().end();
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

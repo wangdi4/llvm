@@ -11,6 +11,7 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/InstIterator.h"
@@ -74,15 +75,54 @@ void TypeMetadataReader::addDTransMDNode(Value &V, MDNode *MD) {
     llvm_unreachable("Unexpected Value type passed into addDTransMDNode");
 }
 
-bool TypeMetadataReader::removeDTransFuncIndexAttribute(LLVMContext &Ctx,
-                                                        unsigned Index,
-                                                        AttributeList &Attrs) {
-  if (Attrs.hasAttribute(Index, DTransFuncIndexTag)) {
-    Attrs = Attrs.removeAttribute(Ctx, Index, DTransFuncIndexTag);
-    return true;
+void TypeMetadataReader::setDTransFuncMetadata(Function *F,
+                                               DTransFunctionType *FnType) {
+
+  auto RemoveDTransFuncIndexAttribute = [](Function *F, unsigned Index) {
+    F->removeAttribute(Index, DTransFuncIndexTag);
+  };
+
+  // Add a DTrans function index attribute to 'F' if 'Ty' requires an attribute
+  // because it refers to a pointer type, and update the MDTypeList with the
+  // metadata reference to add to the function. 'Index' is used to specify the
+  // return type or argument number the attribute will be attached to.
+  auto AddAttributeIfNeeded = [](Function *F, DTransType *Ty, unsigned Index,
+                                 SmallVectorImpl<Metadata *> &MDTypeList) {
+    if (hasPointerType(Ty)) {
+      Metadata *RetMD = Ty->createMetadataReference();
+      MDTypeList.push_back(RetMD);
+      // Attribute numbering starts with 1.
+      unsigned AttrNumber = MDTypeList.size();
+      std::string Label = std::to_string(AttrNumber);
+      Attribute Attr =
+          Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
+      F->addAttribute(Index, Attr);
+    }
+  };
+
+  // Clear any existing DTrans attributes for the function, and build the new
+  // attribute and metadata information for the function type.
+  F->setMetadata("intel.dtrans.func.type", nullptr);
+  SmallVector<Metadata *, 8> MDTypeList;
+  DTransType *RetTy = FnType->getReturnType();
+  assert(RetTy && "Invalid FnType");
+  LLVMContext &Ctx = F->getContext();
+  RemoveDTransFuncIndexAttribute(F, AttributeList::ReturnIndex);
+  AddAttributeIfNeeded(F, RetTy, AttributeList::ReturnIndex, MDTypeList);
+
+  unsigned NumArgs = FnType->getNumArgs();
+  for (unsigned ArgIdx = 0; ArgIdx < NumArgs; ++ArgIdx) {
+    RemoveDTransFuncIndexAttribute(F, AttributeList::FirstArgIndex + ArgIdx);
+    DTransType *ArgTy = FnType->getArgType(ArgIdx);
+    assert(ArgTy && "Invalid FnType");
+    AddAttributeIfNeeded(F, ArgTy, AttributeList::FirstArgIndex + ArgIdx,
+                         MDTypeList);
   }
 
-  return false;
+  if (!MDTypeList.empty()) {
+    auto *MDTypes = MDTuple::getDistinct(Ctx, MDTypeList);
+    F->addMetadata(DTransFuncTypeMDTag, *MDTypes);
+  }
 }
 
 bool TypeMetadataReader::initialize(Module &M) {

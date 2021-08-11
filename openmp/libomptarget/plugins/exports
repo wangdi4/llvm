@@ -56,6 +56,8 @@ VERS1.0 {
     __tgt_rtl_is_accessible_addr_range;
     __tgt_rtl_notify_indirect_access;
     __tgt_rtl_is_private_arg_on_host;
+    __tgt_rtl_command_batch_begin;
+    __tgt_rtl_command_batch_end;
 # end INTEL_COLLAB
     __tgt_rtl_register_lib;
     __tgt_rtl_unregister_lib;

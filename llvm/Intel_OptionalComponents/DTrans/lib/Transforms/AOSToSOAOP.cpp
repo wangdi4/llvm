@@ -1462,6 +1462,42 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
     updateFunctionAttributes(OrigFunc, *Func);
   }
 
+  DTransType *DTy =
+      DTInfo->getTypeMetadataReader().getDTransTypeFromMD(&OrigFunc);
+  if (DTy) {
+    // Reset the !intel.dtrans.func_type metadata and 'intel_dtrans_func_index'
+    // attributes on the function signature to reflect the new function type.
+    // (If the metadata was not there before, then there is no need to update it
+    // because no new pointer types will be created on a signature that did not
+    // have them before.) This is necessary for the AOS-to-SOA transformation
+    // due the way pointers are converted to be integer indices, and
+    // pointer-to-pointer types being converted to just be a pointer type. The
+    // pointer types are not stored directly, but rather store as a type and
+    // level of indirection causing special handling that cannot be handled by
+    // the type remapper to update the level of indirection.
+    //
+    // For example:
+    //   define "intel_dtrans_func_index"="1" ptr @test01(
+    //     ptr "intel_dtrans_func_index"="2" %in1
+    //     ptr "intel_dtrans_func_index"="3" %in2) !intel.dtrans.func_type !4
+    //   !1 = { %struct.test01 zeroinitializer, i32 1 } ; %struct.test01*
+    //   !2 = { %struct.test01 zeroinitializer, i32 2 } ; %struct.test01**
+    //   !3 = { %struct.test01dep zeroinitializer, i32 1 } ; %struct.test01dep*
+    //   !4 = distinct !{!1, !2, !3}               ; list of type encodings.
+    //
+    // If we are transforming %struct.test01, then this will become:
+    //   define i64 @test01(
+    //      ptr "intel_dtrans_func_index"="1" %in1,
+    //      ptr "intel_dtrans_func_index"="2" %in2) !intel.dtrans.func.type !3
+    //   !4 = distinct !{!2, !3}               ; list of type encodings.
+    //   !2 = { i64 0, i32 1 } ; i64*
+    //   !3 = { %__SOADT_struct.test01dep zeroinitializer, i32 1 }
+    //      ; %__SOADTstruct.test01dep*
+    //
+    auto *DReplTy = cast<DTransFunctionType>(TypeRemapper.remapType(DTy));
+    TypeMetadataReader::setDTransFuncMetadata(Func, DReplTy);
+  }
+
   DEBUG_WITH_TYPE(AOSTOSOA_VERBOSE,
                   dbgs() << "\nIR after type-remapping:\n"
                          << *Func
@@ -2664,37 +2700,6 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
   LLVMContext &Ctx = CloneFnType->getContext();
   bool Changed = false;
 
-  // We also want to remove the 'intel_dtrans_func_index' on the function
-  // signatures for the integer index value because a pointer is no longer
-  // passed.
-  //
-  // TODO: The format of the metadata that described a function type was such
-  // that this value represented an index into the metadata. For now, we are
-  // not changing the metadata, so that we don't need to change the index on
-  // subsequent parameters.
-  //
-  // For example, we could started with:
-  //   define intel_dtrans_func_index(1) p0 @bitop(
-  //      p0 intel_dtrans_func_index(2) %0,
-  //      i32 %1
-  //      p0 intel_dtrans_func_index(3) %2) !intel.dtrans.func.type !3
-  //   !3 = distinct !{!1, !1, !2}               ; list of type encodings.
-  //
-  // If we remove the first two intel_dtrans_func_index instances, we are left
-  // with:
-  //   define p0 @bitop(
-  //      i32 %0,
-  //      i32 %1
-  //      p0 intel_dtrans_func_index(3) %2) !intel.dtrans.func.type !3
-  //   !3 = distinct !{!1, !1, !2}               ; list of type encodings.
-  //
-  // We could update the metadata to be:
-  //   !3 = distinct !{!2}
-  // But doing so would mean that we need to change the index value used on the
-  // remaining intel_dtrans_func_index attribute, so for now we will leave the
-  // extra unreferenced elements in the metadata.
-  //
-
   llvm::Type *OrigRetTy = OrigFnType->getReturnType();
   llvm::Type *CloneRetTy = CloneFnType->getReturnType();
   if (OrigRetTy->isPointerTy() && !CloneRetTy->isPointerTy()) {
@@ -2704,11 +2709,6 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
                                      IndexInfo.IncompatibleTypeAttrs);
       Changed = true;
     }
-
-    // Remove the DTrans pointer type information attribute, if it is present.
-    if (TypeMetadataReader::removeDTransFuncIndexAttribute(
-            Ctx, AttributeList::ReturnIndex, Attrs))
-      Changed = true;
   }
 
   unsigned NumArgs = OrigFnType->getNumParams();
@@ -2724,10 +2724,6 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
                                    IndexInfo.IncompatibleTypeAttrs);
         Changed = true;
       }
-
-      if (TypeMetadataReader::removeDTransFuncIndexAttribute(
-              Ctx, ArgIdx + AttributeList::FirstArgIndex, Attrs))
-        Changed = true;
     }
   }
 

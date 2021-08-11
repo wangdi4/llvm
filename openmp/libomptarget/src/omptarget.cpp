@@ -417,6 +417,11 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
   auto &usedPtrs = Device.UsedPtrs[gtid];
   Device.UsedPtrsMtx.unlock();
   usedPtrs.emplace_back(std::set<void *>());
+  // Begin data batching
+  if (Device.commandBatchBegin() != OFFLOAD_SUCCESS) {
+    REPORT("Failed to begin command batching\n");
+    return OFFLOAD_FAIL;
+  }
 #endif // INTEL_COLLAB
   // process each input.
   for (int32_t i = 0; i < arg_num; ++i) {
@@ -635,6 +640,12 @@ int targetDataBegin(ident_t *loc, DeviceTy &Device, int32_t arg_num,
         Device.ShadowMtx.unlock();
     }
   }
+#if INTEL_COLLAB
+  if (Device.commandBatchEnd() != OFFLOAD_SUCCESS) {
+    REPORT("Failed to end command batching\n");
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
 
   return OFFLOAD_SUCCESS;
 }
@@ -664,6 +675,13 @@ int targetDataEnd(ident_t *loc, DeviceTy &Device, int32_t ArgNum,
   int Ret;
   std::vector<DeallocTgtPtrInfo> DeallocTgtPtrs;
   void *FromMapperBase = nullptr;
+#if INTEL_COLLAB
+  Ret = Device.commandBatchBegin();
+  if (Ret != OFFLOAD_SUCCESS) {
+    REPORT("Failed to begin command batching\n");
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
   // process each input.
   for (int32_t I = ArgNum - 1; I >= 0; --I) {
     // Ignore private variables and arrays - there is no mapping for them.
@@ -870,6 +888,13 @@ int targetDataEnd(ident_t *loc, DeviceTy &Device, int32_t ArgNum,
   Ret = AsyncInfo.synchronize();
   if (Ret != OFFLOAD_SUCCESS)
     return OFFLOAD_FAIL;
+#if INTEL_COLLAB
+  Ret = Device.commandBatchEnd();
+  if (Ret != OFFLOAD_SUCCESS) {
+    REPORT("Failed to end command batching\n");
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
 
   // Deallocate target pointer
   for (DeallocTgtPtrInfo &Info : DeallocTgtPtrs) {
@@ -1394,6 +1419,7 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
 
   TIMESCOPE_WITH_NAME_AND_IDENT("mappingBeforeTargetRegion", loc);
   DeviceTy &Device = PM->Devices[DeviceId];
+
   int Ret = targetDataBegin(loc, Device, ArgNum, ArgBases, Args, ArgSizes,
                             ArgTypes, ArgNames, ArgMappers, AsyncInfo);
   if (Ret != OFFLOAD_SUCCESS) {
@@ -1644,6 +1670,11 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
 #if INTEL_COLLAB
   void *TgtNDLoopDesc = nullptr;
   void *TgtEntryPtr = TargetTable->EntriesBegin[TM->Index].addr;
+
+  if (Device.commandBatchBegin(2) != OFFLOAD_SUCCESS) {
+    REPORT("Failed to begin command batching\n");
+    return OFFLOAD_FAIL;
+  }
 #endif // INTEL_COLLAB
 
   int Ret;
@@ -1734,6 +1765,12 @@ int target(ident_t *loc, DeviceTy &Device, void *HostPtr, int32_t ArgNum,
       return OFFLOAD_FAIL;
     }
   }
+#if INTEL_COLLAB
+  if (Device.commandBatchEnd(2) != OFFLOAD_SUCCESS) {
+    REPORT("Failed to end command batching\n");
+    return OFFLOAD_FAIL;
+  }
+#endif // INTEL_COLLAB
 
   return OFFLOAD_SUCCESS;
 }
