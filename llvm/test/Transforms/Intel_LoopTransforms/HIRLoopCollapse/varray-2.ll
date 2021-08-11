@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-details-dims -hir-ssa-deconstruction -hir-loop-collapse -print-before=hir-loop-collapse -print-after=hir-loop-collapse -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,print<hir>,hir-loop-collapse,print<hir>" -aa-pipeline="basic-aa" -hir-details-dims -disable-output < %s 2>&1 | FileCheck %s
 ;
 ;
 ; *** Source Code ***
@@ -20,27 +20,22 @@
 ;
 ; CHECK: Function
 ;
-; CHECK:  BEGIN REGION { }
-; CHECK:        + DO i1 = 0, zext.i32.i64(%P) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:        |   + DO i2 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |   |   + DO i3 = 0, zext.i32.i64(%Q) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:        |   |   |   %7 = (%vla)[100 * zext.i32.i64(%Q) * i1 + zext.i32.i64(%Q) * i2 + i3];
-; CHECK:        |   |   |   (%vla)[100 * zext.i32.i64(%Q) * i1 + zext.i32.i64(%Q) * i2 + i3] = %7 + 1;
-; CHECK:        |   |   + END LOOP
-; CHECK:        |   + END LOOP
-; CHECK:        + END LOOP
-; CHECK:  END REGION
+; CHECK:     + DO i1 = 0, zext.i32.i64(%P) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:     |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:     |   |   + DO i3 = 0, zext.i32.i64(%Q) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:     |   |   |   %7 = (%vla)[0:100 * zext.i32.i64(%Q) * i1 + zext.i32.i64(%Q) * i2 + i3:4(i32*:0)];
+; CHECK:     |   |   |   (%vla)[0:100 * zext.i32.i64(%Q) * i1 + zext.i32.i64(%Q) * i2 + i3:4(i32*:0)] = %7 + 1;
+; CHECK:     |   |   + END LOOP
+; CHECK:     |   + END LOOP
+; CHECK:     + END LOOP
 ;
 ;
 ; CHECK: Function
 ;
-; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:        |   %7 = (%vla)[i1];
-; CHECK:        |   (%vla)[i1] = %7 + 1;
-; CHECK:        + END LOOP
-; CHECK:  END REGION
-;
+; CHECK:     + DO i1 = 0, 100 * (zext.i32.i64(%P) * zext.i32.i64(%Q)) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:     |   %7 = (%vla)[0:i1:4(i32*:0)];
+; CHECK:     |   (%vla)[0:i1:4(i32*:0)] = %7 + 1;
+; CHECK:     + END LOOP
 ;
 ;
 ; === ---------------------------------------------------------------- ===

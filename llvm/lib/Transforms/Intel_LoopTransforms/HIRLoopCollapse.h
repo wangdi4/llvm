@@ -56,9 +56,7 @@ public:
   // Print the UBCEConstTuple
   LLVM_DUMP_METHOD void print(bool PrintHeader = false,
                               bool PrintNewLine = true) const {
-#ifndef NDEBUG
     formatted_raw_ostream FOS(dbgs());
-#endif
 
     if (PrintHeader) {
       FOS << "TripCountTuple: ";
@@ -107,7 +105,7 @@ class HIRLoopCollapse {
   // Thus, the NumCollapsableLoops (for this loop body) is min(3, 2) = 2.
   unsigned NumCollapsableLoops;
 
-  // an array storing relevant constant TripCounts or UpperBound CanonExpr*
+  // an array storing relevant constant or symbolic (in CanonExpr *) TripCount
   // for each relevant loop in the loop nest.
   std::array<TripCountTuple, MaxLoopNestLevel> TCArry;
 
@@ -124,9 +122,6 @@ public:
 
   // The only entry for all caller(s) to do HIR Loop Collapse.
   //
-  // Collapse the relevant part of loop nest.
-  //
-  //
   // E.g.
   // [from]
   // i1
@@ -137,7 +132,7 @@ public:
   // |
   //
   // [to]
-  // i1
+  // i1: adjusted trip count
   // | BODY_Transformed
   //
   // provided each IV-relevant GEPRef/Non-MemRef in the loop's body can be
@@ -149,14 +144,13 @@ private:
   // Do preliminary tests on the loop nest
   //
   // Check: each loop in the loop nest
-  //
   // - is a DO loop;
   // - is normalized;
   // - has same IV type;
-  // - is either a loop with Constant-Only TripCount
+  // - is either a loop with Constant-Only trip count
   //   or
-  //   is a loop with Blob-Only Trip Count.
-  //   (Bail out on any failure)
+  //   is a loop with a suitable symbolic trip count.
+  //   (Bail out otherwise)
   //
   //   and Populate TCArry for each loop in the loop nest;
   //
@@ -175,20 +169,19 @@ private:
     return InnermostLevel - NumCollapsableLoops + 1;
   }
 
-  // Analyze the Loop by doing preliminary checks, collection, profit analysis,
+  // Analyze the loop by doing preliminary checks, collection, profit analysis,
   // and legal analysis, etc.
   //
-  // Return true indicates that the all Ref(s) collected from the loop body are
-  // suitable (legal+profitable) for collapse.
-  //
-  bool doAnalysis(void);
+  // Return true indicates that the loopnest and all Ref(s) collected from the
+  // loop body are suitable (legal+profitable) for collapse.
+  bool doAnalysis(HLLoop *InnermostLp);
 
   // Collect each ref in the loop's body that has at least 1 iv for any valid
-  // nesting level within [OuterLevel, InnerLevel]
+  // nesting level within [OuterLevel, InnerLevel].
   // E.g.
   // A[0][i], A[j][1], A[i][j], A[i+j][j-1], i +1, 2*j, etc.
   //
-  // Note:
+  // [Note]
   // Not to collect any loop invariant memref.
   // E.g. A[1], B[2][t]
   //           (t is defined out of loop and is not modified inside loop)
@@ -197,15 +190,19 @@ private:
 
   // **HIR Loop Collapse's legal model**
   //
-  // A LoopNest is legal for collapse IF&F it is legal for each collected
+  // A LoopNest is legal to collapse IF&F it is legal for each collected
   // GEPRef.
   //
   // A GEPRef is legal for loop collapse IF&F:
-  // Each Dimension is a StandAlone-IV matching its corresponding loop level;
-  // E.g.
-  // - Dimension1 is a StandAlone IV (e.g. 1*i3) on Innermost-Level;
-  // - Dimension2 is a StandAlone IV (e.g. 1*i2) on Innermost-1 Level;
-  // - etc.
+  // -Each Dimension is a StandAlone-IV matching its corresponding loop level.
+  //  e.g.
+  //  . Dimension1 is a StandAlone IV (e.g. 1*i3) on Innermost-Level;
+  //  . Dimension2 is a StandAlone IV (e.g. 1*i2) on Innermost-1 Level;
+  //  . etc.
+  //
+  // or
+  // [[NEW]]
+  // The GEPRef is a dynamic-shape ref that can be pattern-recognized.
   //
   // E.g.
   // int A[10][10];
@@ -220,7 +217,7 @@ private:
   //
   // i: 0, 4, 1
   //   j: 0, 9, 1
-  // | | .  = A[i][2j]; // NOT OK, 2*j is not in SingleStandAlone form
+  // | | .  = A[i][2*j]; // NOT OK, 2*j is not in StandAlone form
   //
   // ------------------------------------
   // E.g.
@@ -238,7 +235,7 @@ private:
   //   A[i].0[j][k]: not good;
   //   A[i][j][k].0: good;
   //
-  bool areGEPRefsLegal(void);
+  bool areGEPRefsLegal(HLLoop *InnerLp);
 
   // Obtain the max level that a GEPRef can collapse
   // E.g.
@@ -260,15 +257,43 @@ private:
   // given GEPRef.
   unsigned getNumCollapsableLevels(RegDDRef *GEPRef);
 
-  // Check: Ref's SrcType and DestType on any dimension with LoopNest IV.
-  // Expect: both SrcType and DstType being same as the IVType.
-  // Return how many dimensions of the ref has the same src and dest type.
-  unsigned getNumDimensionsOfMatchedSrcAndDestType(RegDDRef *GEPRef);
+  // Check:
+  // 1. a dim start from 1 and goes up (+1),
+  //   and
+  //   a level starts from the Innermost level and goes down (-1)
+  //
+  // 2. at the current dim, the Ref's CE hasStandAloneIVOnlyOnLevel()
+  //   .matching SrcType==DstType,
+  //   and
+  //   .single IV matching level
+  //
+  // 3. Repeat 1 and 2, until the conditions are no longer hold, or the
+  //    Ref runs out of available dims.
+  //
+  // Return: the number of dimensions matched
+  // E.g.
+  // i1:
+  // | i2:
+  // || i3:
+  // |||  A[i1][i2][i3] = ..  ; <- matched dim is 3
+  // |||  A[ 0][i2][i3] = ..  ; <- matched dim is 2
+  // |||  A[i1][i2][ 0] = ..  ; <- matched dim is 0
+  // |||  A[i2][0][i3]  = ..  ; <- matched dim is 1
+  //
+  // [Note]
+  // - It is also possible that the entire ref is flattened with all information
+  //   presented in either index or stride.
+  //
+  // E.g. a ref with complexity in index.
+  // Ref: (%vla)[0:(zext.i32.i64(%P) * zext.i32.i64(%Q)) * i1 + zext.i32.i64(%Q)
+  //               * i2 + i3:4(i32*:0)]
+  //
+  unsigned getNumMatchedDimensions(RegDDRef *GEPRef);
 
   // ** HIR Loop Collapse's profit model **
   //
   // A HIR LoopNest is profitable for Loop Collapsing if EVERY collected
-  // non-GEPRef Ref is in SingleCanonExpr form of N * OuterLpIV + InnerLpIV
+  // non-GEP Ref is in SingleCanonExpr form of N * OuterLpIV + InnerLpIV
   // form, where: N is the InnerLpTripCount (constant or blob)
   //
   // E.g.
@@ -276,13 +301,14 @@ private:
   //
   // i1: 0,9,1
   // | i2: 0,9,1
-  // | | A[i1][i2][i3] = 100 *i1 + 10* i2 + i3; //more complex case
-  // | | A[ 0][i2][i3] =           10* i2 + i3; //simple case
-  // |
+  // | |  i3: 0,9,1
+  // | |  | A[i1][i2][i3] = 100 *i1 + 10* i2 + i3; //more complex case
+  // | |  | A[ 0][i2][i3] =           10* i2 + i3; //simple case
+  // | ..
   //                     ^test for profit model
   bool areNonGEPRefsProfitable(void);
 
-  // Check if there are continuous sub ranges of a given non-MemRef Ref, w.r.t.
+  // Check if there are continuous sub ranges of a given non-GEP Ref, w.r.t.
   // all levels of the loop nest, starting from the InnermostLp level.
   // E.g.
   // |||   A[i][j][k] =  i;
@@ -300,6 +326,7 @@ private:
   //
   // E.g.
   // |||   A[i][j][k] =  k;
+  //                     ^ check this!
   //
   // After check continuous range, the bool array has:
   // ----------------------------
@@ -406,11 +433,7 @@ private:
     }
   }
 
-  bool isSingleDimensionMemRef(RegDDRef *MemRef) const {
-    return MemRef->isSingleDimension();
-  }
-
-  // *** Pattern Matching Code ***
+  // *** Pattern Matching in GEPRef ***
   //
   // Requirements:
   // - one function, match all possible patterns;
@@ -419,12 +442,12 @@ private:
   //
   // Algorithm scratch:
   // - maintains 2 variables: 1 constant integer (ConstInt: start from 1),
-  //  and 1 Blob (BlobVal, start from nullptr);
+  //  and 1 Blob (BlobVal, start from a nullptr);
   //
   // - on 1st level:
   //  . set the ConstInt: if there is any valid IVCoeff;
   //  . set the BlobVal: if there is any valid IVBlobIndex;
-  // -
+  //
   // - on each valid additional level:
   //  . accumulate (*=) the ConstInt: if there is any valid IVCoeff;
   //  . accumulate (*=) the BlobVal: if there is any valid IVBlobIndex;
@@ -440,16 +463,19 @@ private:
   // -the number of levels matched
   //
   // \brief
-  // E.g. Try to match the following CanonExpr*:
+  // [E.g.] Try to match the following CanonExpr:
   // CE: 100 * zext.i32.i64(%Q) * i1 + zext.i32.i64(%Q) * i2 + i3
-  //                                                          ^1st
-  //					              ^2nd
-  //    ^3rd
+  //                                                           ^1st
+  //                                                      ^2nd
+  //     ^3rd
   //
   // Expected return:
   //- LevelsMatched: 3
   //
-  unsigned getLevelsOfIVPattern(CanonExpr *CE) const;
+  unsigned matchCEOnIVLevels(CanonExpr *CE) const;
+
+  unsigned matchSingleDimDynShapeArray(RegDDRef *Ref);
+  unsigned matchMultiDimDynShapeArray(RegDDRef *Ref, unsigned Level);
 
 #ifndef NDEBUG
   // Print GEPRefVec and RefVec
