@@ -1228,7 +1228,8 @@ public:
   /// A RegDDRef is nonlinear if any of the following is true:
   /// - its baseCE (if available) is nonlinear
   /// - any CE is nonlinear
-  bool isNonLinear(void) const;
+  bool isNonLinear(void) const { return getDefinedAtLevel() == NonLinearLevel; }
+
 
   /// Shift all CE(s) in the RegDDRef* by a given Amount.
   /// E.g.
