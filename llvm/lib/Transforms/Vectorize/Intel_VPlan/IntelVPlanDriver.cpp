@@ -95,6 +95,24 @@ static cl::opt<unsigned> VPlanVectCand(
     cl::desc(
         "Construct VPlan for vectorization candidates (CG stress testing)"));
 
+static cl::opt<bool>
+    VPlanEnablePeelingOpt("vplan-enable-peeling", cl::init(false),
+                          cl::desc("Enable generation of peel loops to improve "
+                                   "alignment of memory accesses"));
+
+static cl::opt<bool> VPlanEnablePeelingHIROpt(
+    "vplan-enable-peeling-hir", cl::init(false), cl::Hidden,
+    cl::desc("Enable generation of peel loops to improve "
+             "alignment of memory accesses in HIR path"));
+
+namespace llvm {
+namespace vpo {
+// Flag to indicate if peeling is enabled. Flag is set based on appropriate
+// value of command line option for the IR kind being processed.
+extern bool VPlanEnablePeeling;
+} // namespace vpo
+} // namespace llvm
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     VPlanPrintInit("vplan-print-after-init", cl::init(false),
@@ -226,6 +244,9 @@ bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
 bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                                   WRNVecLoopNode *WRLp) {
 #endif // INTEL_CUSTOMIZATION
+  // Enable peeling for LLVM-IR path from command line switch
+  VPlanEnablePeeling = VPlanEnablePeelingOpt;
+
   // TODO: Not sure if that's the correct long-term solution. If ScalarEvolution
   // can consume on-the-fly updates to the LoopInfo analysis, then we might be
   // able to use a single ScalarEvolution object. If not, then creating new
@@ -1113,6 +1134,9 @@ bool VPlanDriverHIRImpl::runImpl(
 
 bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
                                      WRNVecLoopNode *WRLp) {
+  // Enable peeling for HIR path from command line switch
+  VPlanEnablePeeling = VPlanEnablePeelingHIROpt;
+
   // TODO: How do we allow stress-testing for HIR path?
   assert(WRLp && "WRLp should be non-null!");
 
