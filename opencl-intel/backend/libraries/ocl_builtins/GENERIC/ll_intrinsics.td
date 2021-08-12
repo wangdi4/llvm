@@ -27,6 +27,20 @@ def zext_i32 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs 
 def zext_i64 : OclBuiltin<"__ocl_zext_$Arg0Symgentype_$ReturnSymgentype", (outs i64gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 }
 
+// fpext
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def fpext_f16 : OclBuiltin<"__ocl_fpext_$Arg0Symgentype_$ReturnSymgentype", (outs gentype:$ret), (ins f16gentype:$x), [], [], 0, 0>;
+}
+
+// fptrunc
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    IsDeclOnly = 1, NeedForwardDecl = 1 in {
+def fptrunc_f16 : OclBuiltin<"__ocl_fptrunc_$Arg0Symgentype_$ReturnSymgentype", (outs f16gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
+}
+
 // trunc
 let Types = [v1i16, v2i16, v3i16, v4i16, v8i16, v16i16,
              v1i32, v2i32, v3i32, v4i32, v8i32, v16i32,

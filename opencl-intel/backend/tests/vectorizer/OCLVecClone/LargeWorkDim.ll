@@ -1,5 +1,5 @@
-; RUN: %oclopt -ocl-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -ocl-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone -S %s | FileCheck %s
+; RUN: %oclopt -dpcpp-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone -S %s | FileCheck %s
 
 ; According to the OpenCL spec, get-id calls shall return 0 on dims larger than
 ; work dim. So it's legal to call get-id calls with dim >= 3. The test checks
