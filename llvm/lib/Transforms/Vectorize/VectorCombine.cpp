@@ -1146,14 +1146,6 @@ bool VectorCombine::foldVLSInsert(Instruction &I) {
   if (!FirstVLSInsertOpt) return false;
 
   VLSInsert FirstInsert = FirstVLSInsertOpt.getValue();
-  // The total size must be smaller than max vector register size.
-  unsigned MaxVecRegSize =
-      TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
-          .getFixedSize();
-  if (FirstInsert.NumElems * FirstInsert.ElemTy->getScalarSizeInBits() *
-          FirstInsert.SizeInGroup >
-      MaxVecRegSize)
-    return false;
 
   SmallVector<VLSInsert, 8> List;
   List.push_back(FirstInsert);
