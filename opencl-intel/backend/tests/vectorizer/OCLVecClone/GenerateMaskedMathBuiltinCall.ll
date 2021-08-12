@@ -1,5 +1,5 @@
-; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vecclone -vplan-vec --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --ocl-vecclone -vplan-vec --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; This test checks that vectorizer converts conditional math-builtin calls
 ; into correct masked version calls.
