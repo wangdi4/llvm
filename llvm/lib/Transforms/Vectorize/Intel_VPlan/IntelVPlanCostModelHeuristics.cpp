@@ -459,11 +459,23 @@ unsigned HeuristicSpillFill::operator()(
             (IsMasked && IsStore &&
              !CM->VPTTI.isLegalMaskedStore(VTy, Alignment)))
           return true;
+
+        return false;
       }
+
+      OVLSGroup *Group = CM->VLSA->getGroupsFor(Plan, &VPInst);
+      if (Group && Group->size() > 1)
+        // This is very imprecise and needs more refined checks. The idea is
+        // that if we have 4 consequtive byte accesses, each of them on its own
+        // might be illegal on HW (e.g. byte scatter), but legal if the whole
+        // VLS group is accessed at once. See CMPLRLLVM-29061 for the benchmark
+        // example.
+        return false;
+
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      else if ((IsLoad  && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
-               (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
+      if ((IsLoad && !CM->VPTTI.isLegalMaskedGather(VTy, Alignment)) ||
+          (IsStore && !CM->VPTTI.isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
