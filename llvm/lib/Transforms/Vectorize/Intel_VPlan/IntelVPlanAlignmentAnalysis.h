@@ -156,12 +156,14 @@ private:
 /// model. It is the most precise cost model for peeling analysis.
 class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
 public:
-  VPlanPeelingCostModelGeneral(VPlanCostModelInterface &CM) : CM(&CM) {}
+  VPlanPeelingCostModelGeneral(const VPlanCostModelInterface *CM) : CM(CM) {
+    assert(CM && "CostModel pointer should not be NULL.");
+  }
 
   int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
-  VPlanCostModelInterface *CM;
+  const VPlanCostModelInterface *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot

@@ -36,6 +36,8 @@ class LoopVectorizationPlannerHIR : public LoopVectorizationPlanner {
 private:
   /// The loop that we evaluate.
   HLLoop *TheLoop;
+  /// True when operating in lightweight mode.
+  bool LightWeightMode;
 
   /// HIR DDGraph that contains DD information for the incoming loop nest.
   HIRDDAnalysis *DDA;
@@ -63,10 +65,12 @@ public:
                               const TargetTransformInfo *TTI,
                               const DataLayout *DL,
                               HIRVectorizationLegality *HIRLegal,
-                              HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA)
+                              HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA,
+                              bool LightWeightMode)
       : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
                                  DL, nullptr, nullptr, VLSA),
-        TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {}
+        TheLoop(Lp), LightWeightMode(LightWeightMode), DDA(DDA),
+        HIRLegality(HIRLegal) {}
 
   /// Generate the HIR code for the body of the vectorized loop according to the
   /// best selected VPlan. This function returns true if code generation was
@@ -123,6 +127,11 @@ public:
   /// or advised by optimizations.
   /// \p Forced indicates that Unroll Factor is forced.
   virtual unsigned getLoopUnrollFactor(bool *Forced = nullptr) override;
+
+  /// Create and return Plan/VF specific CostModel object basic on global
+  /// compilation settings such as presence of -x knob in command line.
+  std::unique_ptr<VPlanCostModelInterface> createCostModel(
+    const VPlanVector *Plan, unsigned VF) const final;
 
   bool unroll(VPlanVector &Plan) override;
 

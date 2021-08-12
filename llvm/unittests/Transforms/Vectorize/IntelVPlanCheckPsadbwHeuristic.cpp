@@ -90,11 +90,30 @@ declare i32 @llvm.abs.i32(i32, i1))";
     (static_cast<TargetTransformInfoWrapperPass *>(TTIPass))->getTTI(*F);
   auto DL = std::make_unique<DataLayout>(&M);
 
-  VPlanCostModel CM(Plan.get(), 1, &TTI, nullptr, DL.get());
-  VPlanCostModelHeuristics::HeuristicPsadbw H(&CM);
-  unsigned RCost = 10000;
-  H.initForVPlan();
-  H.apply(RCost, RCost, Plan.get());
-  EXPECT_LT(RCost, 10000u);
+  LoopVectorizationPlanner LVP(nullptr /* WRL */,
+                               nullptr /* Loop */,
+                               nullptr /* LoopInfo */,
+                               nullptr /* LibraryInfo */,
+                               &TTI, DL.get(),
+                               nullptr /* DominatorTree */,
+                               nullptr /* legality */,
+                               nullptr /* VLSA*/);
+
+  // Base CM is expected to be created.
+  TM.get()->Options.IntelAdvancedOptim = false;
+  std::unique_ptr<VPlanCostModelInterface> CMBase =
+    LVP.createCostModel(Plan.get(), 1);
+
+  // Full CM is expected to be created.
+  TM.get()->Options.IntelAdvancedOptim = true;
+  std::unique_ptr<VPlanCostModelInterface> CMFull =
+    LVP.createCostModel(Plan.get(), 1);
+
+  unsigned BaseCost = CMBase.get()->getCost();
+  unsigned FullCost = CMFull.get()->getCost();
+  // psadbw heuristics should be a part of Full CM and expected to trigger on
+  // input in this test. The output Cost for Full CM is expected to be reduced
+  // by the heuristic.
+  EXPECT_LT(FullCost, BaseCost);
 }
 } // namespace

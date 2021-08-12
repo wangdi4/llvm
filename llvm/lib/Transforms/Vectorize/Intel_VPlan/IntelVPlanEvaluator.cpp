@@ -49,10 +49,9 @@ using namespace llvm::vpo;
 // this function returns UINT_MAX.
 unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
   if (Plan) {
-    VPlanCostModel CM(Plan, VF, TTI, TLI, DL, VLSA);
     // TODO: no peeling should be accounted here, update after interface
     // changes.
-    return CM.getCost();
+    return Planner.createCostModel(Plan, VF)->getCost();
   }
   return UINT_MAX;
 }

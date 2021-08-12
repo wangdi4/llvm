@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
 ; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 \
-; RUN:     | FileCheck %s
+; RUN:     -enable-intel-advanced-opts | FileCheck %s
 
 ; The test checks that OVLS group is detected by CM "OVLS" string in
 ; the dump) and verifies that the first Load of VLS group receive whole Cost

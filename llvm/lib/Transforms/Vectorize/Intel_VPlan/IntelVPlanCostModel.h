@@ -78,9 +78,10 @@ public:
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
   // of Load/Store VPInstruction given VF and Alignment on input.
   unsigned getLoadStoreCost(const VPLoadStoreInst *LoadStore, Align Alignment,
-                            unsigned VF);
+                            unsigned VF) const;
   // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
-  unsigned getLoadStoreCost(const VPLoadStoreInst *LoadStore, unsigned VF);
+  unsigned getLoadStoreCost(const VPLoadStoreInst *LoadStore,
+                            unsigned VF) const;
 
   const VPlanVector *const Plan;
   const unsigned VF;
@@ -274,8 +275,8 @@ public:
 
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
-  virtual unsigned getLoadStoreCost(
-    const VPLoadStoreInst *LoadOrStore, Align Alignment, unsigned VF) = 0;
+  virtual unsigned getLoadStoreCost(const VPLoadStoreInst *LoadOrStore,
+                                    Align Alignment, unsigned VF) const = 0;
 };
 
 // Definition of 'Cost Model with Heuristics' template class. As the name
@@ -381,8 +382,9 @@ private:
     return Cost;
   }
 
-public:
-  VPlanCostModelWithHeuristics() = delete;
+  // Ctor is private.
+  // CM objects should be created using special interface of planner class
+  // rather than created directly through the ctor.
   VPlanCostModelWithHeuristics(const VPlanVector *Plan, const unsigned VF,
                                const TargetTransformInfo *TTI,
                                const TargetLibraryInfo *TLI,
@@ -392,6 +394,26 @@ public:
     HeuristicsListVPInst(this), HeuristicsListVPBlock(this),
     HeuristicsListVPlan(this) {}
 
+protected:
+  // Planners are allowed to create CostModel objects through
+  // makeUniquePtr call.
+  friend class LoopVectorizationPlanner;
+  friend class LoopVectorizationPlannerHIR;
+
+  // Protected wrapper around ctor to create unique_ptr and to hide unique_ptr
+  // creating code and simplify caller's code.
+  static auto makeUniquePtr(const VPlanVector *Plan, const unsigned VF,
+                            const TargetTransformInfo *TTI,
+                            const TargetLibraryInfo *TLI,
+                            const DataLayout *DL,
+                            VPlanVLSAnalysis *VLSA = nullptr) {
+    std::unique_ptr<VPlanCostModelWithHeuristics> CMPtr(
+      new VPlanCostModelWithHeuristics(Plan, VF, TTI, TLI, DL, VLSA));
+    return CMPtr;
+  }
+
+public:
+  VPlanCostModelWithHeuristics() = delete;
   unsigned getBlockRangeCost(const VPBasicBlock *Begin,
                              const VPBasicBlock *End,
                              VPlanPeelingVariant *PeelingVariant = nullptr,
@@ -442,23 +464,38 @@ public:
     return TotCost;
   }
 
-  /// This mehod is proxy to implementation in TTI cost model, which returns
+  /// This method is proxy to implementation in TTI cost model, which returns
   /// TTI cost (unmodified by VPInst-level heuristics).
-  /// CUrrently we are Okay with that but may want to reconsider in future.
-  unsigned getLoadStoreCost(
-    const VPLoadStoreInst *LoadOrStore, Align Alignment, unsigned VF) final {
+  /// Currently we are Okay with that but may want to reconsider in future.
+  unsigned getLoadStoreCost(const VPLoadStoreInst *LoadOrStore,
+                            Align Alignment, unsigned VF) const final {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
   }
 };
 
-using VPlanCostModel = VPlanCostModelWithHeuristics<
+using VPlanCostModelBase = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
   HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<const VPlanVector,
                  VPlanCostModelHeuristics::HeuristicSLP,
                  VPlanCostModelHeuristics::HeuristicSpillFill>>;
 
-using VPlanCostModelProprietary = VPlanCostModelWithHeuristics<
+// TODO: lightweight mode CostModel heuristics set to be tuned yet.
+using VPlanCostModelLite = VPlanCostModelWithHeuristics<
+  HeuristicsList<
+    const VPInstruction,
+    VPlanCostModelHeuristics::HeuristicOVLSMember,
+    VPlanCostModelHeuristics::HeuristicSVMLIDivIRem>,
+  HeuristicsList<const VPBasicBlock>, // emptry list
+  HeuristicsList<
+    const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicSearchLoop,
+    VPlanCostModelHeuristics::HeuristicSLP,
+    VPlanCostModelHeuristics::HeuristicGatherScatter,
+    VPlanCostModelHeuristics::HeuristicSpillFill,
+    VPlanCostModelHeuristics::HeuristicPsadbw>>;
+
+using VPlanCostModelFull = VPlanCostModelWithHeuristics<
   HeuristicsList<
     const VPInstruction,
     VPlanCostModelHeuristics::HeuristicOVLSMember,

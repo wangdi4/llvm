@@ -490,8 +490,9 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
     std::unique_ptr<VPlanPeelingVariant> BestPeeling;
     if (EnableGeneralPeelingCostModel) {
-      VPlanCostModel GeneralCM(Plan, VF, TTI, TLI, DL, VLSA);
-      VPlanPeelingCostModelGeneral PeelingCM(GeneralCM);
+      std::unique_ptr<VPlanCostModelInterface> CMPtr =
+        createCostModel(Plan, VF);
+      VPlanPeelingCostModelGeneral PeelingCM(CMPtr.get());
       BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM, EnableDP);
     } else {
       VPlanPeelingCostModelSimple PeelingCM(*DL);
@@ -500,6 +501,19 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
     Plan->setPreferredPeeling(VF, std::move(BestPeeling));
   }
+}
+
+std::unique_ptr<VPlanCostModelInterface>
+LoopVectorizationPlanner::createCostModel(const VPlanVector *Plan,
+                                          unsigned VF) const {
+  // Do not run VLSA for VF = 1
+  VPlanVLSAnalysis *VLSACM = VF > 1 ? VLSA : nullptr;
+
+  if (TTI->isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42))
+    return VPlanCostModelFull::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
+  else
+    return VPlanCostModelBase::makeUniquePtr(Plan, VF, TTI, TLI, DL, VLSACM);
 }
 
 unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
@@ -644,7 +658,6 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
 /// the corresponding VPlan.
-template <typename CostModelTy>
 std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (VPlanEnablePeeling)
    selectBestPeelingVariants();
@@ -686,10 +699,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                       << ", selecting it.\n");
   }
 
-  CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL);
-  unsigned ScalarIterationCost = ScalarCM.getCost();
-  ScalarIterationCost =
-      ScalarIterationCost == CostModelTy::UnknownCost ? 0 : ScalarIterationCost;
+  unsigned ScalarIterationCost = createCostModel(ScalarPlan, 1)->getCost();
+  ScalarIterationCost = ScalarIterationCost == VPlanTTICostModel::UnknownCost ?
+    0 : ScalarIterationCost;
   // FIXME: that multiplication should be the part of CostModel - see below.
   uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
@@ -734,7 +746,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     assert(Plan && "Unexpected null VPlan");
 
     // Calculate cost for one iteration of the main loop.
-    CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
+    auto MainLoopCM = createCostModel(Plan, VF);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
     // Peeling is not supported for non-normalized loops.
@@ -742,9 +754,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (!L->hasNormalizedInduction())
       PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
 
-    const unsigned MainLoopIterationCost =
-      MainLoopCM.getCost(PeelingVariant);
-    if (MainLoopIterationCost == CostModelTy::UnknownCost) {
+    const unsigned MainLoopIterationCost = MainLoopCM->getCost(PeelingVariant);
+    if (MainLoopIterationCost == VPlanTTICostModel::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF) {
         // If the VF is forced and loop cost for it is unknown select the
@@ -786,8 +797,8 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           RemainderEvaluator.getLoopCost();
 
     // Calculate cost of one iteration of the main loop without preferred alignment.
-    const unsigned MainLoopIterationCostWithoutPeel = MainLoopCM.getCost();
-    if (MainLoopIterationCostWithoutPeel == CostModelTy::UnknownCost) {
+    const unsigned MainLoopIterationCostWithoutPeel = MainLoopCM->getCost();
+    if (MainLoopIterationCostWithoutPeel == VPlanTTICostModel::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " without peel is unknown. Skip it.\n");
       continue;
     }
@@ -987,13 +998,6 @@ void LoopVectorizationPlanner::updateVecScenario(
   VecScenario.setVectorMain(VF, UF);
 }
 
-template std::pair<unsigned, VPlanVector *>
-LoopVectorizationPlanner::selectBestPlan<VPlanCostModel>(void);
-#if INTEL_CUSTOMIZATION
-template std::pair<unsigned, VPlanVector *>
-LoopVectorizationPlanner::selectBestPlan<VPlanCostModelProprietary>(void);
-#endif // INTEL_CUSTOMIZATION
-
 void LoopVectorizationPlanner::predicate() {
   if (DisableVPlanPredicator)
     return;
@@ -1068,10 +1072,10 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlanVector *Plan,
   if (EnableAllZeroBypassNonLoops &&
       TTI->isAdvancedOptEnabled(
           TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelSSE42)) {
-    VPlanCostModelProprietary VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
+
     AZB.collectAllZeroBypassNonLoopRegions(AllZeroBypassRegions,
                                            RegionsCollected,
-                                           &VectorCM);
+                                           createCostModel(Plan, VF).get());
   }
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
   VPLAN_DUMP(AllZeroBypassDumpControl, Plan);
@@ -1088,7 +1092,6 @@ bool LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-template <typename CostModelTy>
 void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
   const std::string &Header) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
@@ -1099,12 +1102,6 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
     VPlanVector *Plan = getVPlanForVF(VFRequested);
     assert(Plan && "Unexpected null VPlan");
 
-#if INTEL_CUSTOMIZATION
-    CostModelTy CM(Plan, VFRequested, TTI, TLI, DL, VLSA);
-#else
-    CostModelTy CM(Plan, VFRequested, TTI, TLI, DL);
-#endif // INTEL_CUSTOMIZATION
-
     // If different stages in VPlanDriver were proper passes under pass manager
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
@@ -1113,17 +1110,10 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
     // Issue getCost() method of CM with specified OS argument. Eventually we
     // want to delete this method and allow normal call to CM.getCost() during
     // VF selection to dump.
-    CM.getCost(nullptr /* PeelingVariant */, &outs());
+    createCostModel(Plan, VFRequested)->getCost(nullptr /* PeelingVariant */,
+                                                &outs());
   }
 }
-
-// Explicit instantiations.
-template void
-LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>(
-  const std::string &Header);
-template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
-    VPlanCostModelProprietary>(
-  const std::string &Header);
 
 void SingleLoopVecScenario::fromString(StringRef S) {
   // The supported string format is:
