@@ -1134,12 +1134,14 @@ void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
 
 char DTransDeleteFieldOPWrapper::ID = 0;
 INITIALIZE_PASS_BEGIN(DTransDeleteFieldOPWrapper, "dtrans-deletefieldop",
-                      "DTrans delete field", false, false)
+                      "DTrans delete field with opaque pointer support", false,
+                      false)
 INITIALIZE_PASS_DEPENDENCY(DTransSafetyAnalyzerWrapper)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(DTransDeleteFieldOPWrapper, "dtrans-deletefieldop",
-                    "DTrans delete field", false, false)
+                    "DTrans delete field with opaque pointer support", false,
+                    false)
 
 ModulePass *llvm::createDTransDeleteFieldOPWrapperPass() {
   return new DTransDeleteFieldOPWrapper();
