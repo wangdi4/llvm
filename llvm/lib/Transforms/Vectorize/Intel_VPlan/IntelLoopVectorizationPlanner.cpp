@@ -42,11 +42,6 @@
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
 static cl::opt<bool>
-    VPlanEnablePeeling("vplan-enable-peeling", cl::init(false),
-    cl::desc("Enable generation of peel loops to improve "
-             "alignment of memory accesses"));
-
-static cl::opt<bool>
     VPlanEnableDynamicPeeling("vplan-enable-dynamic-peeling-cm", cl::init(true),
     cl::desc("Use cost model to decide whether to do dynamic peeling or not"));
 
@@ -238,6 +233,7 @@ bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = false;
 bool EnableNewCFGMerge = true;
+bool VPlanEnablePeeling = false;
 } // namespace vpo
 } // namespace llvm
 
