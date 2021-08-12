@@ -730,8 +730,12 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   for (auto *I : InstsToRemove)
     I->eraseFromParent();
 
+  unsigned VF = Variant.getVlen();
+
   if (IsKernel)
     updateKernelMetadata(F, Clone, VecDim, CanUniteWorkgroups);
+  else
+    Clone->addFnAttr("widened-size", std::to_string(VF));
 
   // Load all vector info into g_VecInfo, at most once.
   llvm::call_once(initVecInfoOnce, initializeVectInfo);
@@ -746,7 +750,6 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       continue;
 
     auto FnName = CalledFunc->getName();
-    unsigned VF = Variant.getVlen();
 
     // May be more than one entry, e.g. mask/unmasked (although currently that's
     // not the case).

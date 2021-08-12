@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -22,19 +23,22 @@ entry:
 }
 
 ; CHECK-LABEL: @_ZGVeM16v_foo_sg
-; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) #4
+; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) [[ATTR_16:#[0-9]+]]
 
 ; CHECK-LABEL: @_ZGVeN16v_foo_sg
-; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) #4
+; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) [[ATTR_16:#[0-9]+]]
 
 ; CHECK-LABEL: @_ZGVeM8v_foo_sg
-; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) #5
+; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) [[ATTR_8:#[0-9]+]]
 
 ; CHECK-LABEL: @_ZGVeN8v_foo_sg
-; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) #5
+; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) [[ATTR_8:#[0-9]+]]
 
 ; CHECK-LABEL: @_ZGVeN8uu_basic
-; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) #5
+; CHECK: tail call i32 @_Z28sub_group_scan_inclusive_addi(i32 %add) [[ATTR_8:#[0-9]+]]
+
+; CHECK: attributes [[ATTR_16]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM16v__Z28sub_group_scan_inclusive_addi(_Z28sub_group_scan_inclusive_addDv16_iDv16_j)" }
+; CHECK: attributes [[ATTR_8]] = { "has-vplan-mask" "kernel-call-once" "vector-variants"="_ZGVbM8v__Z28sub_group_scan_inclusive_addi(_Z28sub_group_scan_inclusive_addDv8_iDv8_j)" }
 
 declare i32 @_Z22get_sub_group_local_idv()
 
@@ -72,3 +76,117 @@ attributes #0 = { "vector-variants"="_ZGVeM16v_foo_sg,_ZGVeN16v_foo_sg,_ZGVeM8v_
 !0 = !{void (i64 addrspace(1)*, i32 addrspace(1)*)* @basic, void (i64 addrspace(1)*, i32 addrspace(1)*)* @basic_sg}
 !1 = !{i32 16}
 !2 = !{i32 8}
+
+; DEBUGIFY:      WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} trunc
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} sext
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16v_foo_sg {{.*}} ret
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16v_foo_sg {{.*}} ret
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} trunc
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} sext
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM8v_foo_sg {{.*}} ret
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8v_foo_sg {{.*}} ret
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_basic_sg {{.*}} br
+; DEBUGIFY-NEXT: CheckModuleDebugify: PASS
