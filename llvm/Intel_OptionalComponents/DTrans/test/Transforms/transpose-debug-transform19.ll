@@ -1,19 +1,30 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -dtrans-transpose -dtrans-transpose-print-candidates  2>&1 | FileCheck %s
-; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
+; RUN: opt < %s -dva-check-dtrans-outofboundsok -dtrans-outofboundsok=true -disable-output -passes=dtrans-transpose -debug-only=dtrans-transpose-transform 2>&1 | FileCheck %s
 
 ; Check that the array through which the indirect subscripting is occurring is
-; a candidate for transposing but not profitable.
+; should not be transposed.
 
-; CHECK: Transpose candidate: main_$MYK
-; CHECK: IsValid{{ *}}: true
-; CHECK: IsProfitable{{ *}}: false
+; CHECK: Transform candidate: main_$MYK
+; CHECK-NOT: Before
+; CHECK-NOT: After
 
-; Check that main_$PHYSPROP does not provide any candidates, because
-; -dtrans-outofboundsok=true, and our analysis is too weak at this point to
-; analyze non-dope-vector fields in this case.
+; Check that the array represented by the 0th field of main_$PHYSPROP
+; is transposed to ensure that the indirectly subscripted index is not the
+; fastest varying subscript. Also check that the strides are replaced by
+; literal constants.
 
-; CHECK-NOT: Transpose candidate: main_$PHYSPROP
+; CHECK-LABEL: Transform candidate: main_$PHYSPROP[0]
+; CHECK-NEXT: Before: MAIN__:  %i[[N0:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %i[[I0:[0-9]+]],
+; CHECK-NEXT: After : MAIN__:  %i[[N0]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4
+; CHECK-NEXT: Before: MAIN__:  %i[[N1:[0-9]+]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %i[[I1:[0-9]+]],
+; CHECK-NEXT: After : MAIN__:  %i[[N1]] = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 4000,
+
+; Check that the array represented by the 2nd field of main_$PHYSPROP
+; is not transposed because the indirectly subscripted index is not the
+; fastest varying subscript.
+
+; CHECK-LABEL: Transform candidate: main_$PHYSPROP[2]
 ; CHECK-NOT: Before
 ; CHECK-NOT: After
 

@@ -1134,6 +1134,10 @@ public:
       parseOverrideFlag();
 
     bool ValidCandidate = false;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintCandidates && Candidates.empty())
+      dbgs() << "No transpose candidates\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     for (auto &Cand : Candidates) {
       ValidCandidate |= Cand.analyze(DL);
 
