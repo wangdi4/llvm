@@ -5489,6 +5489,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-DPSTL_USE_PARALLEL_POLICIES=0");
     CmdArgs.push_back("-D_GLIBCXX_USE_TBB_PAR_BACKEND=0");
   }
+  // For MKL and SYCL, set MKL_ILP64
+  if (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT_fsycl))
+    CmdArgs.push_back("-DMKL_ILP64");
 #endif // INTEL_CUSTOMIZATION
 
   if (isa<AnalyzeJobAction>(JA))
