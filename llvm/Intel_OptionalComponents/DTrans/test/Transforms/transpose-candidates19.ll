@@ -9,11 +9,19 @@
 ; CHECK: IsValid{{ *}}: true
 ; CHECK: IsProfitable{{ *}}: false
 
-; Check that main_$PHYSPROP does not provide any candidates, because
-; -dtrans-outofboundsok=true, and our analysis is too weak at this point to
-; analyze non-dope-vector fields in this case.
+; Check that main_$PHYSPROP does provide any candidates, because even when
+; -dtrans-outofboundsok=true, and our analysis is strong enough to handle
+; simple loads and stores of non-dope-vector fields.
 
-; CHECK-NOT: Transpose candidate: main_$PHYSPROP
+; CHECK: Transpose candidate: main_$PHYSPROP
+; CHECK: Nested Field Number : 0
+; CHECK: IsValid      : true
+; CHECK: IsProfitable : true
+
+; CHECK: Transpose candidate: main_$PHYSPROP
+; CHECK: Nested Field Number : 2
+; CHECK: IsValid      : true
+; CHECK: IsProfitable : false
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -3117,10 +3117,30 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   };
 
   //
+  // Returns 'true' if 'V' is only used as the pointer operand of a simple load
+  // or store instruction.
+  //
+  auto PropagatesToSimpleLoadOrStore = [](Value *V) -> bool {
+    for (User *U : V->users()) {
+      if (isa<LoadInst>(U))
+        continue;
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        if (SI->getValueOperand() == V)
+          return false;
+        continue;
+      }
+      return false;
+    }
+    return true;
+  };
+
+  //
   // Return 'true' if 'V' is propagated down the call chain and terminates
   // with a LoadInst or StoreInst.
   //
   auto PropagatesToLoadOrStore = [&](Value *V) {
+    if (PropagatesToSimpleLoadOrStore(V))
+      return true;
 #if INTEL_FEATURE_SW_ADVANCED
     SmallPtrSet<Value *, 10> Visited;
     if (!CheckOutOfBoundsOK)
