@@ -22,13 +22,13 @@
 using namespace llvm;
 using namespace DPCPPKernelMetadataAPI;
 
-bool DPCPPEnableDirectFunctionCallVectorization = false;
+bool DPCPPEnableDirectFunctionCallVectorization = true;
 static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
     "dpcpp-enable-direct-function-call-vectorization",
     cl::location(DPCPPEnableDirectFunctionCallVectorization), cl::Hidden,
     cl::desc("Enable direct function call vectorization"));
 
-bool DPCPPEnableSubgroupDirectCallVectorization = false;
+bool DPCPPEnableSubgroupDirectCallVectorization = true;
 static cl::opt<bool, true> EnableSubgroupDirectCallVectorizationOpt(
     "dpcpp-enable-direct-subgroup-function-call-vectorization",
     cl::location(DPCPPEnableSubgroupDirectCallVectorization), cl::Hidden,
