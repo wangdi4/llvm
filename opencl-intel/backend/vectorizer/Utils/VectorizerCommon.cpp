@@ -13,15 +13,15 @@
 #include "LoopHandler/CLWGBoundDecoder.h"
 #include "llvm/IR/Function.h"
 
-extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
+extern cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride;
 
 namespace Intel {
 namespace VectorizerCommon {
 
 VectorVariant::ISAClass getCPUIdISA(
     const Intel::OpenCL::Utils::CPUDetect *CPUId /*=nullptr*/) {
-  if (IsaEncodingOverride.getNumOccurrences())
-    return IsaEncodingOverride.getValue();
+  if (CPUIsaEncodingOverride.getNumOccurrences())
+    return CPUIsaEncodingOverride.getValue();
 
   assert(CPUId && "Valid CPUDetect is expected!");
   if (CPUId->HasAVX512Core())

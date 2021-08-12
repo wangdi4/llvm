@@ -4,8 +4,8 @@
 ; Check for non-default case i.e. max number of work items < 2Gig. Note that %trunc.user is removed from function,
 ; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
 ; replaced by %add.sext.
-; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size=true < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size=true < %s -S -o - | FileCheck %s --check-prefix=LT2GIG
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size=true < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core --less-than-two-gig-max-global-work-size=true < %s -S -o - | FileCheck %s --check-prefix=LT2GIG
 ; LT2GIG-LABEL: @_ZGVeN8uu_foo
 
 ; LT2GIG-LABEL: entry:
@@ -36,8 +36,8 @@
 
 
 ; Check for default case i.e. max number of work items is assumed to be > 2Gig.
-; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefixes=DEBUGIFY,DEBUGIFY2 %s
-; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s --check-prefix=GT2GIG
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefixes=DEBUGIFY,DEBUGIFY2 %s
+; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s --check-prefix=GT2GIG
 ; GT2GIG-LABEL: @_ZGVeN8uu_foo
 
 ; GT2GIG-LABEL: entry:

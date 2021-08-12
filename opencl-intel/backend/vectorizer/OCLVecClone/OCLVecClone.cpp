@@ -37,7 +37,7 @@
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
 #include "NameMangleAPI.h"
-#include "VectorizerCommon.h"
+#include "OCLPrepareKernelForVecClone.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
@@ -51,7 +51,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Threading.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <mutex>
@@ -859,7 +858,7 @@ static ReturnInfoTy PopulateOCLBuiltinReturnInfo() {
 }
 
 void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
-  DPCPPPrepareKernelForVecClone PK(Intel::VectorizerCommon::getCPUIdISA(CPUId));
+  OCLPrepareKernelForVecClone PK(CPUId);
 
   // FIXME: Longer term plan is to make the return value propery part of
   // VectorVariant encoding
@@ -920,7 +919,7 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
     auto FMD = KernelInternalMetadataAPI(F);
     unsigned VectorLength = FMD.RecommendedVL.get();
     if ((VectorLength > 1) && (!F->hasOptNone()))
-      PK.run(*F);
+      PK.run(F);
   }
 }
 
