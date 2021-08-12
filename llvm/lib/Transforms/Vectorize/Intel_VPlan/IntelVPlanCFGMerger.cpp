@@ -1002,8 +1002,10 @@ VPValue *VPlanCFGMerger::emitDynamicPeelCount(VPlanDynamicPeeling &DP,
   QuotientTimesMultiplier->setName("qmultiplier");
   Plan.getVPlanDA()->markUniform(*QuotientTimesMultiplier);
 
-  VPInstruction *Ret = Builder.createNaryOp(Instruction::URem, Ty,
-                                            {QuotientTimesMultiplier, Divisor});
+  VPInstruction *PeelCnt =
+      Builder.createNaryOp(Instruction::URem, Ty,
+                           {QuotientTimesMultiplier, Divisor});
+  VPValue *Ret = Builder.createIntCast(PeelCnt, OrigUB->getType());
   Ret->setName("peel.count");
   Plan.getVPlanDA()->markUniform(*Ret);
   return Ret;

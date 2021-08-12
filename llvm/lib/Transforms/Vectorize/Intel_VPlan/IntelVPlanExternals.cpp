@@ -324,10 +324,14 @@ void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
 
 void VPLiveInOutCreator::restoreLiveIns() {
   VPExternalValues &ExtVals = Plan.getExternals();
-  for (VPLiveInValue *LIV : Plan.liveInValues())
-    if (LIV) // Might be not created for some MergeId-s.
-      LIV->replaceAllUsesWith(
-          ExtVals.getOriginalIncomingValue(LIV->getMergeId()));
+  for (VPLiveInValue *LIV : Plan.liveInValues()) {
+    if (LIV) { // might be not created for some MergeId-s.
+      // OrigValue = nullptr for live-ins that are not initialized.
+      auto *OrigValue = ExtVals.getOriginalIncomingValue(LIV->getMergeId());
+      if (OrigValue)
+        LIV->replaceAllUsesWith(OrigValue);
+    }
+  }
 }
 
 void VPLiveInOutCreator::createLiveInsForScalarVPlan(
