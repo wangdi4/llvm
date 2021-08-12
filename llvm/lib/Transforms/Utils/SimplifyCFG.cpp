@@ -8307,7 +8307,8 @@ bool SimplifyCFGOpt::simplifyOnceImpl(BasicBlock *BB) {
       // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
       // therefore, there might be conflicts during code merge. If resolving
       // conflicts becomes too cumbersome, we can try something different.
-      Changed |= FoldPHIEntries(PN, TTI, DTU, DL);
+      if (FoldPHIEntries(PN, TTI, DTU, DL))
+        return true;
 #endif //INTEL_CUSTOMIZATION
   }
 
