@@ -35,6 +35,7 @@ ModulePass *createDPCPPKernelVecClonePass(
 ModulePass *createDPCPPKernelPostVecPass();
 ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
 ModulePass *createDPCPPKernelAnalysisLegacyPass();
+ModulePass *createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
 ModulePass *createDuplicateCalledKernelsLegacyPass();
 FunctionPass *createPhiCanonicalizationLegacyPass();
 FunctionPass *createRedundantPhiNodeLegacyPass();
