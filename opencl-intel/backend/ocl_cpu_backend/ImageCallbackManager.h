@@ -61,10 +61,8 @@ public:
     getCallbackFunctions(const Intel::OpenCL::Utils::CPUDetect *);
 
   private:
-    typedef std::map<const Intel::OpenCL::Utils::CPUDetect *,
-                     ImageCallbackLibrary *>
+    typedef std::map<const Intel::OpenCL::Utils::ECPU, ImageCallbackLibrary *>
         ImageCallbackMap;
-
     static ImageCallbackManager* s_pInstance;
     ImageCallbackMap m_ImageCallbackLibs;
 };

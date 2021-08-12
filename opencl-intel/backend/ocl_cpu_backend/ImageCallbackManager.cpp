@@ -78,7 +78,7 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
     return true;
 
   // Find library for this platform if it has been built earlier
-  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
+  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId->GetCPU());
   if( it != m_ImageCallbackLibs.end() )
       return true;
 
@@ -90,18 +90,18 @@ bool ImageCallbackManager::InitLibrary(const ICompilerConfig &config,
   if (! spLibrary->LoadExecutable()){
       return false;   // failed to load library to the device
   }
-  m_ImageCallbackLibs[cpuId] = spLibrary.release();
+  m_ImageCallbackLibs[cpuId->GetCPU()] = spLibrary.release();
   return true;
 }
 
 ImageCallbackFunctions *ImageCallbackManager::getCallbackFunctions(
     const Intel::OpenCL::Utils::CPUDetect *cpuId) {
-  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId);
+  ImageCallbackMap::iterator it = m_ImageCallbackLibs.find(cpuId->GetCPU());
   if (it == m_ImageCallbackLibs.end()) {
     throw Exceptions::CompilerException(
         "Requested image function for library that hasn't been loaded");
   }
 
-  return m_ImageCallbackLibs[cpuId]->getImageCallbackFunctions();
+  return m_ImageCallbackLibs[cpuId->GetCPU()]->getImageCallbackFunctions();
 }
 }}}

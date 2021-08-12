@@ -2532,29 +2532,6 @@ cl_int CL_API_CALL clSetUserEventStatus(cl_event   evt,
 }
 SET_ALIAS(clSetUserEventStatus);
 
-// Check if the current CPU is supported. returns 0 if it does and 1 othrewise
-// Criteria: supports SSSE3 and SSE4.1 and SSE4.2
-
-int IsCPUSupported(void)
-{
-	if( CPUDetect::GetInstance()->IsFeatureSupported(CFS_SSE41) )
-	{
-		return 0;
-	}
-	return 1;
-}
-
-// check if the cpu feature is supported
-// returns 0 is it does and 1 otherwise
-int IsFeatureSupported(int iCPUFeature)
-{
-	if (CPUDetect::GetInstance()->IsFeatureSupported((Intel::OpenCL::Utils::ECPUFeatureSupport)iCPUFeature))
-	{
-		return 0;
-	}
-	return 1;
-}
-
 cl_int CL_API_CALL clRetainDevice(cl_device_id devId)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())

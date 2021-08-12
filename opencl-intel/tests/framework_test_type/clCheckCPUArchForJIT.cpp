@@ -39,7 +39,7 @@ bool GenerateBinaryFile()
   const char* filename = nullptr;
   printf("GenerateBinaryFile\n");
 
-  if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10))
+  if (!CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX10))
   {
     if (!SETENV("CL_CONFIG_CPU_TARGET_ARCH", "corei7-avx"))
     {
@@ -184,7 +184,7 @@ bool clCheckCPUArchForJIT() {
 
     // open binary file
     FILE* fout = NULL;
-    if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10))
+    if (!CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX10))
         fout = fopen("avx1.bin", "rb");
     else
         fout = fopen("sse4.bin", "rb");

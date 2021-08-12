@@ -155,7 +155,6 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
   Intel::OpenCL::Utils::ECPU selectedCpuId = Utils::GetOrDetectCpuId(cpuName);
   Utils::SplitString(cpuFeatures, ",", m_forcedCpuFeatures);
 
-  bool DisableAVX = false;
   m_CpuId = CPUDetect::GetInstance();
   if (cpuName == CPU_ARCH_AUTO) {
     // CPU name and features are detected by llvm sys utils, and will be passed
@@ -166,19 +165,18 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
     return;
   }
 
-  if (!DisableAVX && (selectedCpuId == Intel::OpenCL::Utils::CPU_SNB))
+  if (selectedCpuId == Intel::OpenCL::Utils::CPU_SNB)
     m_forcedCpuFeatures.push_back("+avx");
 
-  if (!DisableAVX && (selectedCpuId == Intel::OpenCL::Utils::CPU_HSW))
+  if (selectedCpuId == Intel::OpenCL::Utils::CPU_HSW)
     m_forcedCpuFeatures.push_back("+avx2");
 
   // Comment by Craig Topper: The F16C instructions are all encoded using the
   // VEX prefix which became available with AVX. That's why CPU_SANDYBRIDGE
   // appeared in condition.
-  if (!DisableAVX && (selectedCpuId >= Intel::OpenCL::Utils::CPU_SNB) &&
-      m_CpuId->IsFeatureSupported(Intel::OpenCL::Utils::CFS_F16C)) {
+  if ((selectedCpuId >= Intel::OpenCL::Utils::CPU_SNB) &&
+      m_CpuId->IsFeatureSupported(Intel::OpenCL::Utils::CFS_F16C))
     m_forcedCpuFeatures.push_back("+f16c");
-  }
 
   if (selectedCpuId == Intel::OpenCL::Utils::CPU_KNL) {
     m_forcedCpuFeatures.push_back("+avx512f");
@@ -217,8 +215,9 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
     m_forcedCpuFeatures.push_back("+amx-bf16");
   }
 
-  m_CpuId =
-      new CPUDetect(selectedCpuId, m_forcedCpuFeatures, sizeof(void *) == 8);
+  // When CL_CONFIG_CPU_TARGET_ARCH env is set, we need to reset CPU according
+  // to config
+  m_CpuId->ResetCPU(selectedCpuId, m_forcedCpuFeatures);
 }
 
 void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)

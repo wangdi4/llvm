@@ -289,6 +289,11 @@ TEST(FrameworkTestType, Test_clCreateImageWithPropertiesTest)
     EXPECT_TRUE(clCreateImageWithPropertiesTest());
 }
 
+TEST(FrameworkTestType, Test_clCreateImageTestWithCPUArchSet)
+{
+    EXPECT_TRUE(clCreateImageTestWithCPUArchSet());
+}
+
 TEST(FrameworkTestType, Test_clImageExecuteTest)
 {
     EXPECT_TRUE(clImageExecuteTest());

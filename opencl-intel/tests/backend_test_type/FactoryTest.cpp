@@ -19,7 +19,8 @@ File Name:  FactoryTest.cpp
 
 #include "BackendWrapper.h"
 #include <gtest/gtest.h>
-
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
+using ECPU = Intel::OpenCL::Utils::ECPU;
 
 TEST_F(BackEndTests_FactoryMethods, FactoryInitialization)
 {
@@ -56,11 +57,12 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
 
     //-----------------------------------------------------------------
     // create another set of valid options
-    std::string currCPU = "skx";
-    options.InitFromTestConfiguration(CPU_DEVICE, currCPU, "", TRANSPOSE_SIZE_1, true);
+    ECPU curCPUEnum = CPUDetect::GetInstance()->GetCPU();
+    std::string CPUStringName = CPUDetect::GetCPUName(curCPUEnum);
+    options.InitFromTestConfiguration(CPU_DEVICE, CPUStringName, "", TRANSPOSE_SIZE_1, true);
     EXPECT_TRUE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
     EXPECT_TRUE(STRING_EQ("",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
+    EXPECT_TRUE(STRING_EQ(CPUStringName,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
     EXPECT_EQ(TRANSPOSE_SIZE_1,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
     // call GetCompilationService with valid parameters - should success
     ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
@@ -69,14 +71,17 @@ TEST_F(BackEndTests_FactoryMethods, CompilerServiceCreation)
 
     //-----------------------------------------------------------------
     // create another set of valid options - enabling special features
-    options.InitFromTestConfiguration(CPU_DEVICE, currCPU, "+avx", TRANSPOSE_SIZE_16, false);
-    EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
-    EXPECT_TRUE(STRING_EQ("+avx",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
-    EXPECT_TRUE(STRING_EQ(currCPU,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
-    EXPECT_EQ(TRANSPOSE_SIZE_16,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
-    // call GetCompilationService with valid parameters - should success
-    ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
-    EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    const bool avx1Support = CPUDetect::GetInstance()->HasAVX1();
+    if(avx1Support){
+        options.InitFromTestConfiguration(CPU_DEVICE, CPUStringName, "+avx", TRANSPOSE_SIZE_16, false);
+        EXPECT_FALSE(options.GetBooleanValue(CL_DEV_BACKEND_OPTION_USE_VTUNE, false));
+        EXPECT_TRUE(STRING_EQ("+avx",options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, "")));
+        EXPECT_TRUE(STRING_EQ(CPUStringName,options.GetStringValue(CL_DEV_BACKEND_OPTION_SUBDEVICE, "")));
+        EXPECT_EQ(TRANSPOSE_SIZE_16,options.GetIntValue(CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, TRANSPOSE_SIZE_UNSUPPORTED));
+        // call GetCompilationService with valid parameters - should success
+        ret = funcGetFactory->GetCompilationService(&options, spCompileService.getOutPtr());
+        EXPECT_EQ(CL_DEV_SUCCESS, ret);
+    }
 }
 
 

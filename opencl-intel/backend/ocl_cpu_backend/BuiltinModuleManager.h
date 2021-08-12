@@ -19,6 +19,7 @@
 #include <thread>
 
 using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
+using ECPU = Intel::OpenCL::Utils::ECPU;
 
 namespace llvm
 {
@@ -82,7 +83,7 @@ private:
   template <typename DeviceBuiltinLibrary>
   BuiltinLibrary *GetOrLoadDeviceLibrary(const CPUDetect *cpuId);
 
-  typedef std::pair<std::thread::id, const CPUDetect *> TIdCpuId;
+  typedef std::pair<std::thread::id, ECPU> TIdCpuId;
   typedef std::map<TIdCpuId, BuiltinLibrary *> BuiltinsMap;
   static BuiltinModuleManager *s_pInstance;
   BuiltinsMap m_BuiltinLibs;

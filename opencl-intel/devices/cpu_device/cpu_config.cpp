@@ -131,40 +131,31 @@ bool CPUDeviceConfig::IsSpirSupported() const
     return true;
 }
 
-bool CPUDeviceConfig::IsDoubleSupported() const
-{
-    if (EYEQ_EMU_DEVICE == GetDeviceMode())
-    {
-        return false;
-    }
-    // Keep original logic
-    // disabled on Atom
-    if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetCPUBrandFamily()) {
-      return false;
-    }
-
-    // enabled on non-Atom brands
-    if (BRAND_UNKNOWN != CPUDetect::GetInstance()->GetCPUBrandFamily()) {
-      return true;
-    }
-
-    // if we can't detect brand, fallback to AVX support check
-    // enabled on CPUs with AVX support
-    bool isAVXSupported =
-        CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
-    if (isAVXSupported)
-    {
-        return true;
-    }
-
-    // enabled on Westmere
-    if (CPUDetect::GetInstance()->isWestmere())
-    {
-        return true;
-    }
-
-    // disabled in any other case
+bool CPUDeviceConfig::IsDoubleSupported() const {
+  if (EYEQ_EMU_DEVICE == GetDeviceMode())
     return false;
+  // Keep original logic
+  // disabled on Atom
+  if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetHostCPUBrandFamily())
+    return false;
+
+  // enabled on non-Atom brands
+  if (BRAND_UNKNOWN != CPUDetect::GetInstance()->GetHostCPUBrandFamily())
+    return true;
+
+  // if we can't detect brand, fallback to AVX support check
+  // enabled on CPUs with AVX support
+  bool isAVXSupported =
+      CPUDetect::GetInstance()->IsFeatureSupportedOnHost(CFS_AVX10);
+  if (isAVXSupported)
+    return true;
+
+  // enabled on Westmere
+  if (CPUDetect::GetInstance()->isWestmereForHost())
+    return true;
+
+  // disabled in any other case
+  return false;
 }
 
 const char* CPUDeviceConfig::GetExtensions() const

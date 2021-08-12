@@ -43,16 +43,6 @@
 #define EXECUTION_MODULE	FrameworkProxy::Instance()->GetExecutionModule()
 #define API_IS_DISABLED	    FrameworkProxy::Instance()->API_Disabled()
 
-extern "C" int IsCPUSupported(void);
-
-// SSE2   = 0x0001 (1)
-// SSE3   = 0x0002 (2)
-// SSSE3  = 0x0004 (4)
-// SSE4.1 = 0x0008 (8)
-// SSE4.2 = 0x0010 (16)
-// AVX1.0 = 0x0020 (32)
-extern "C" int IsFeatureSupported(int iCPUFeature);
-
 // Define a static map for extension functions support
 typedef std::map<std::string, void*> ExtensionFunctionAddressResolveMap;
 extern ExtensionFunctionAddressResolveMap g_extFuncResolveMap;
