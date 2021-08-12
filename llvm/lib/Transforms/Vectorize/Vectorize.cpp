@@ -67,6 +67,6 @@ void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {
 }
 
 void LLVMAddVPlanDriverHIRPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createVPlanDriverHIRPass());
+  unwrap(PM)->add(createVPlanDriverHIRPass(false));
 }
 #endif

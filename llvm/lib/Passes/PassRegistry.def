@@ -582,7 +582,6 @@ FUNCTION_PASS("hir-pragma-loop-blocking", loopopt::HIRPragmaLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", OptReportEmitterPass())
 FUNCTION_PASS("vplan-vec", vpo::VPlanDriverPass());
-FUNCTION_PASS("hir-vplan-vec", vpo::VPlanDriverHIRPass());
 FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
@@ -637,6 +636,14 @@ FUNCTION_PASS("ESIMDLowerLoadStore", ESIMDLowerLoadStorePass())
 #ifndef FUNCTION_PASS_WITH_PARAMS
 #define FUNCTION_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)
 #endif
+#if INTEL_CUSTOMIZATION
+FUNCTION_PASS_WITH_PARAMS("hir-vplan-vec", "vpo::VPlanDriverHIRPass",
+                          [](bool LightWeightMode) {
+                            return vpo::VPlanDriverHIRPass(LightWeightMode);
+                          },
+                          parseVPlanDriverHIROptions,
+                          "true;false;Full;Light;LightWeight");
+#endif // INTEL_CUSTOMIZATION
 FUNCTION_PASS_WITH_PARAMS("loop-unroll",
                           "LoopUnrollPass",
                            [](LoopUnrollOptions Opts) {

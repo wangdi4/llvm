@@ -2214,7 +2214,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       // if (RunVPOOpt) {
       FPM.addPass(HIRVecDirInsertPass(Level.getSpeedupLevel() == 3));
       // if (EnableVPlanDriverHIR) {
-      FPM.addPass(vpo::VPlanDriverHIRPass());
+      FPM.addPass(vpo::VPlanDriverHIRPass(
+        RunLoopOpts == LoopOptMode::LightWeight));
       // } END EnableVPlanDriverHIR
       // } END RunVPOOpt
       FPM.addPass(HIRPostVecCompleteUnrollPass(Level.getSpeedupLevel(),
@@ -3591,6 +3592,28 @@ parseStackLifetimeOptions(StringRef Params) {
   }
   return Result;
 }
+
+#if INTEL_CUSTOMIZATION
+Expected<bool> parseVPlanDriverHIROptions(StringRef Params) {
+  bool Result = false;
+  while (!Params.empty()) {
+    StringRef ParamName;
+    std::tie(ParamName, Params) = Params.split(';');
+
+    if (ParamName == "true" || ParamName == "LightWeight" ||
+        ParamName == "Light") {
+      Result = true;
+    } else if (ParamName == "false" || ParamName == "Full") {
+      Result = false;
+    } else {
+      return make_error<StringError>(
+        formatv("invalid hir-vplan-vec pass parameter '{0}' ", ParamName).str(),
+        inconvertibleErrorCode());
+    }
+  }
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace
 
