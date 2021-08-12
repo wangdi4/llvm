@@ -104,7 +104,7 @@ static cl::opt<bool>
 static cl::opt<bool> VPlanEnablePeelingHIROpt(
     "vplan-enable-peeling-hir", cl::init(false), cl::Hidden,
     cl::desc("Enable generation of peel loops to improve "
-             "alignment of memory accesses in "));
+             "alignment of memory accesses in HIR path"));
 
 namespace llvm {
 namespace vpo {
