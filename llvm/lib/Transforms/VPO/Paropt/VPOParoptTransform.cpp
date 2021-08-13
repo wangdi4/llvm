@@ -2339,6 +2339,7 @@ bool VPOParoptTransform::paroptTransforms() {
           RemoveDirectives = true;
         }
         break;
+      case WRegionNode::WRNMasked:
       case WRegionNode::WRNMaster:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
@@ -2353,7 +2354,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_CUSTOMIZATION
           if (isTargetSPIRV())
             Changed |= removeCompilerGeneratedFences(W);
-          Changed |= genMasterThreadCode(W, isTargetSPIRV());
+          Changed |= genMaskedThreadCode(W, isTargetSPIRV());
           RemoveDirectives = true;
         }
         break;
@@ -9411,79 +9412,79 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
   return NFn;
 }
 
-// Generate code for master/end master construct and update LLVM control-flow
+// Generate code for masked/end masked construct and update LLVM control-flow
 // and dominator tree accordingly
-bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
+bool VPOParoptTransform::genMaskedThreadCode(WRegionNode *W,
                                              bool IsTargetSPIRV) {
-  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMaskedThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
   Instruction *InsertPt = EntryBB->getTerminator();
 
-  // Generate __kmpc_master Call Instruction
-  CallInst *MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
+  // Generate __kmpc_masked Call Instruction
+  CallInst *MaskedCI = VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
       W, IdentTy, TidPtrHolder, InsertPt, true, IsTargetSPIRV);
-  MasterCI->insertBefore(InsertPt);
-  VPOParoptUtils::addFuncletOperandBundle(MasterCI, W->getDT());
+  MaskedCI->insertBefore(InsertPt);
+  VPOParoptUtils::addFuncletOperandBundle(MaskedCI, W->getDT());
 
-  // LLVM_DEBUG(dbgs() << " MasterCI: " << *MasterCI << "\n\n");
+  // LLVM_DEBUG(dbgs() << " MaskedCI: " << *MaskedCI << "\n\n");
 
   Instruction *InsertEndPt = ExitBB->getTerminator();
 
-  // Generate __kmpc_end_master Call Instruction
-  CallInst *EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(
+  // Generate __kmpc_end_masked Call Instruction
+  CallInst *EndMaskedCI = VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
       W, IdentTy, TidPtrHolder, InsertEndPt, false, IsTargetSPIRV);
-  EndMasterCI->insertBefore(InsertEndPt);
-  VPOParoptUtils::addFuncletOperandBundle(EndMasterCI, W->getDT());
+  EndMaskedCI->insertBefore(InsertEndPt);
+  VPOParoptUtils::addFuncletOperandBundle(EndMaskedCI, W->getDT());
 
-  // Generate (int)__kmpc_master(&loc, tid) test for executing code using
-  // Master thread.
+  // Generate (int)__kmpc_masked(&loc, tid, filter) test for executing code
+  // using Masked thread.
   //
-  // __kmpc_master return: 1: master thread, 0: non master thread
+  // __kmpc_masked return: 1: masked thread, 0: non masked thread
   //
-  //      MasterBBTest
+  //      MaskedBBTest
   //         /    \
   //        /      \
-  //   MasterBB   emptyBB
+  //   MaskedBB   emptyBB
   //        \      /
   //         \    /
-  //   SuccessorOfMasterBB
+  //   SuccessorOfMaskedBB
   //
-  BasicBlock *MasterTestBB = MasterCI->getParent();
-  BasicBlock *MasterBB = EndMasterCI->getParent();
+  BasicBlock *MaskedTestBB = MaskedCI->getParent();
+  BasicBlock *MaskedBB = EndMaskedCI->getParent();
 
-  BasicBlock *ThenMasterBB = MasterTestBB->getTerminator()->getSuccessor(0);
-  BasicBlock *SuccEndMasterBB = MasterBB->getTerminator()->getSuccessor(0);
-  bool IDomOfSuccEndMasterBBNeedsUpdating =
-      DT->properlyDominates(MasterTestBB, SuccEndMasterBB);
+  BasicBlock *ThenMaskedBB = MaskedTestBB->getTerminator()->getSuccessor(0);
+  BasicBlock *SuccEndMaskedBB = MaskedBB->getTerminator()->getSuccessor(0);
+  bool IDomOfSuccEndMaskedBBNeedsUpdating =
+      DT->properlyDominates(MaskedTestBB, SuccEndMaskedBB);
 
-  ThenMasterBB->setName("if.then.master." + Twine(W->getNumber()));
+  ThenMaskedBB->setName("if.then.masked." + Twine(W->getNumber()));
 
-  Function *F = MasterTestBB->getParent();
+  Function *F = MaskedTestBB->getParent();
   LLVMContext &C = F->getContext();
 
   ConstantInt *ValueOne = ConstantInt::get(Type::getInt32Ty(C), 1);
 
-  Instruction *TermInst = MasterTestBB->getTerminator();
+  Instruction *TermInst = MaskedTestBB->getTerminator();
 
-  ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_EQ,
-                                    MasterCI, ValueOne, "");
+  ICmpInst *CondInst =
+      new ICmpInst(TermInst, ICmpInst::ICMP_EQ, MaskedCI, ValueOne, "");
 
-  Instruction *NewTermInst = BranchInst::Create(ThenMasterBB,
-                                                   SuccEndMasterBB, CondInst);
+  Instruction *NewTermInst =
+      BranchInst::Create(ThenMaskedBB, SuccEndMaskedBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  if (!DT->isReachableFromEntry(SuccEndMasterBB) ||
-      !DT->isReachableFromEntry(MasterTestBB))
-    DT->insertEdge(MasterTestBB, SuccEndMasterBB);
-  else if (IDomOfSuccEndMasterBBNeedsUpdating)
-    DT->changeImmediateDominator(SuccEndMasterBB, MasterTestBB);
+  if (!DT->isReachableFromEntry(SuccEndMaskedBB) ||
+      !DT->isReachableFromEntry(MaskedTestBB))
+    DT->insertEdge(MaskedTestBB, SuccEndMaskedBB);
+  else if (IDomOfSuccEndMaskedBBNeedsUpdating)
+    DT->changeImmediateDominator(SuccEndMaskedBB, MaskedTestBB);
 
-  assert(DT->verify() && "DominatorTree update failed after Master codegen.");
+  assert(DT->verify() && "DominatorTree update failed after Masked codegen.");
 
   W->resetBBSet(); // Invalidate BBSet
-  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMaskedThreadCode\n");
   return true; // Changed
 }
 

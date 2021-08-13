@@ -698,17 +698,17 @@ public:
                             LoopInfo *LI, bool IsTargetSPIRV,
                             const StringRef LockNameSuffix);
 
-  /// Generate a call to query if the current thread is master thread or a
-  /// call to end_master for the team of threadsi. Emitted call:
+  /// Generate a call to query if the current thread is masked thread or a
+  /// call to end_masked for the team of threads. Emitted call:
   /// \code
-  ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
+  ///  masked = call @__kmpc_masked(%ident_t* %loc, i32 %tid, i32 %filter)
   ///      or
-  ///   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
+  ///   call void @__kmpc_end_masked(%ident_t* %loc, i32 %tid)
   /// \endcode
-  static CallInst *genKmpcMasterOrEndMasterCall(WRegionNode *W,
+  static CallInst *genKmpcMaskedOrEndMaskedCall(WRegionNode *W,
                                                 StructType *IdentTy, Value *Tid,
                                                 Instruction *InsertPt,
-                                                bool IsMasterStart,
+                                                bool IsMaskedStart,
                                                 bool IsTargetSPIRV = false);
 
   /// Generate a call to guard single-region is executed by one of threads in

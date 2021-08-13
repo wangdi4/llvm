@@ -13,8 +13,8 @@
 ; }
 
 ; CHECK-NOT: DominatorTree update failed after Master codegen
-; CHECK: call i32 @__kmpc_master({{.*}})
-; CHECK: call void @__kmpc_end_master({{.*}})
+; CHECK: call i32 @__kmpc_masked({{.*}})
+; CHECK: call void @__kmpc_end_masked({{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

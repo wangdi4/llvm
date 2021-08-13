@@ -3383,49 +3383,47 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   return TaskgroupOrEndCall;
 }
 
-// This function generates a call to query the current thread if it is a master
-// thread. Or, generates a call to end_master callfor the team of threads.
-//   %master = call @__kmpc_master(%ident_t* %loc, i32 %tid)
+// This function generates a call to query if the current thread is a masked
+// thread. Or, generates a call to end_masked for the team of threads.
+//   %masked = call @__kmpc_masked(%ident_t* %loc, i32 %tid, i32 %filter)
 //      or
-//   call void @__kmpc_end_master(%ident_t* %loc, i32 %tid)
-CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
+//   call void @__kmpc_end_masked(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcMaskedOrEndMaskedCall(
     WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
-    bool IsMasterStart, bool IsTargetSPIRV) {
+    bool IsMaskedStart, bool IsTargetSPIRV) {
 
-  BasicBlock  *B = W->getEntryBBlock();
-  Function    *F = B->getParent();
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
   LLVMContext &C = F->getContext();
 
   Type *RetTy = nullptr;
   Type *I32Ty = Type::getInt32Ty(C);
   StringRef FnName;
 
-  if (IsMasterStart) {
-    FnName = "__kmpc_master";
+  if (IsMaskedStart) {
+    FnName = "__kmpc_masked";
     RetTy = I32Ty;
-  }
-  else {
-    FnName = "__kmpc_end_master";
+  } else {
+    FnName = "__kmpc_end_masked";
     RetTy = Type::getVoidTy(C);
   }
 
-  if (IsTargetSPIRV) {
-    // Create an empty begin/end master call without parameters.
-    // Don't insert it into the IR yet.
-    Module *M = F->getParent();
-    CallInst *MasterOrEndCall = genEmptyCall(M, FnName, RetTy, nullptr);
-    return MasterOrEndCall;
-  }
-
-  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(Align(4));
-
   // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
+  SmallVector<Value *, 3> FnArgs;
+  IRBuilder<> Builder(InsertPt);
+  Value *Zero = Builder.getInt32(0);
 
-  CallInst *MasterOrEndCall = VPOParoptUtils::genKmpcCall(W,
-                                IdentTy, InsertPt, FnName, RetTy, FnArgs);
-  return MasterOrEndCall;
+  // The Tid arg is ignored by the target device runtime, hence we push 0.
+  FnArgs.push_back(IsTargetSPIRV ? Zero
+                                 : Builder.CreateAlignedLoad(
+                                       I32Ty, Tid, Align(4), "my.tid"));
+
+  if (IsMaskedStart)
+    FnArgs.push_back(isa<WRNMaskedNode>(W) ? W->getFilter() : Zero);
+
+  CallInst *MaskedOrEndCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return MaskedOrEndCall;
 }
 
 // This function generates calls to guard the single thread execution for the
