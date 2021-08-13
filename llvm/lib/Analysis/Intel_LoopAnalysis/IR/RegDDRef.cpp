@@ -1682,29 +1682,6 @@ bool RegDDRef::containsUndef() const {
   return false;
 }
 
-bool RegDDRef::isNonLinear(void) const {
-
-  bool HasGEPInfo = hasGEPInfo();
-
-  if (HasGEPInfo && getBaseCE()->isNonLinear()) {
-    return true;
-  }
-
-  // Check each dimension
-  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
-    if (getDimensionIndex(I)->isNonLinear()) {
-      return true;
-    }
-
-    if (HasGEPInfo && (getDimensionLower(I)->isNonLinear() ||
-                       getDimensionStride(I)->isNonLinear())) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
   auto *Node = getHLDDNode();
   bool IsLoopBound = Node && isa<HLLoop>(Node);
@@ -2067,25 +2044,14 @@ bool RegDDRef::hasIV() const {
 }
 
 unsigned RegDDRef::getDefinedAtLevel() const {
-  unsigned MaxLevel = 0;
-
-  bool HasGEPInfo = hasGEPInfo();
-
-  if (HasGEPInfo) {
-    MaxLevel = getBaseCE()->getDefinedAtLevel();
+  if (isTerminalRef()) {
+    return getSingleCanonExpr()->getDefinedAtLevel();
   }
 
-  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
-    MaxLevel = std::max(MaxLevel, getDimensionIndex(I)->getDefinedAtLevel());
+  unsigned MaxLevel = 0;
 
-    if (HasGEPInfo) {
-      MaxLevel = std::max(MaxLevel, getDimensionLower(I)->getDefinedAtLevel());
-      MaxLevel = std::max(MaxLevel, getDimensionStride(I)->getDefinedAtLevel());
-    }
-
-    if (MaxLevel == NonLinearLevel) {
-      return NonLinearLevel;
-    }
+  for (auto *BlobRef : blobs()) {
+    MaxLevel = std::max(BlobRef->getDefinedAtLevel(), MaxLevel);
   }
 
   return MaxLevel;

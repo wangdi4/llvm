@@ -3691,8 +3691,11 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
          "dimensions",
          &I);
 
-  Assert(cast<PointerType>(PtrTy->getScalarType())->getElementType()->isSized(),
-         "llvm.intel.subscript into unsized type!", &I);
+  // Currently, we cannot look for the size of opaque pointer in the subscript
+  // intrinsic. We can add this assertion back after we add 'ElementType'
+  // attribute to the subscript intrinsic.
+  //Assert(cast<PointerType>(PtrTy->getScalarType())->getElementType()->isSized(),
+  //       "llvm.intel.subscript into unsized type!", &I);
 
   Value* IntArgs[] = {Lower, Stride, Index};
   Assert(all_of(IntArgs,

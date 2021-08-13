@@ -1357,7 +1357,7 @@ public:
   // Command queue index for each device
   std::vector<uint32_t> CmdQueueIndices;
 
-  std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
   std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
       KernelProperties;
 
@@ -1371,7 +1371,7 @@ public:
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
   std::mutex *RTLMutex;
-  std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::list<std::vector<DeviceOffloadEntryTy>>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
 
   /// Host memory pool for all devices
@@ -2285,12 +2285,15 @@ static void closeRTL() {
       LOG_MEM_USAGE(DeviceInfo->Devices[i], 0, mem);
       CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
     }
-    for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
-      if (kernel)
-        CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
+
+    for (auto &Entries : DeviceInfo->FuncGblEntries[i]) {
+      for (auto Kernel : Entries.Kernels)
+        if (Kernel)
+          CALL_ZE_EXIT_FAIL(zeKernelDestroy, Kernel);
+      for (auto Module : Entries.Modules)
+        CALL_ZE_EXIT_FAIL(zeModuleDestroy, Module);
     }
-    for (auto module : DeviceInfo->FuncGblEntries[i].Modules)
-      CALL_ZE_EXIT_FAIL(zeModuleDestroy, module);
+
     if (DeviceInfo->DeviceMode == DEVICE_MODE_TOP &&
         DeviceInfo->NumDevices > DeviceInfo->NumRootDevices &&
         i < DeviceInfo->NumRootDevices) {
@@ -2974,19 +2977,21 @@ bool RTLDeviceInfoTy::readKernelInfo(
     Info.addArgInfo(ArgIsLiteral, ArgSize);
   }
 
-  FuncGblEntries[DeviceId].KernelInfo.emplace(
+  FuncGblEntries[DeviceId].back().KernelInfo.emplace(
       std::make_pair(*KernelPtr, std::move(Info)));
   return true;
 }
 
 const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
     int32_t DeviceId, const ze_kernel_handle_t &Kernel) const {
-  auto &KernelInfo = FuncGblEntries[DeviceId].KernelInfo;
-  auto It = KernelInfo.find(Kernel);
-  if (It == KernelInfo.end())
-    return nullptr;
+  for (auto &Entry : FuncGblEntries[DeviceId]) {
+    auto &KernelInfo = Entry.KernelInfo;
+    auto It = KernelInfo.find(Kernel);
+    if (It != KernelInfo.end())
+      return &(It->second);
+  }
 
-  return &(It->second);
+  return nullptr;
 }
 
 bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) {
@@ -3705,7 +3710,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   ScopedTimerTy tmModuleCompile(DeviceId, "Compiling");
 
-  auto &modules = DeviceInfo->FuncGblEntries[DeviceId].Modules;
+  DeviceInfo->FuncGblEntries[DeviceId].emplace_back();
+  auto &FuncGblEntries = DeviceInfo->FuncGblEntries[DeviceId].back();
+  auto &modules = FuncGblEntries.Modules;
   auto mainModule = getModuleForImage(context, device, Image,
                                       compilationOptions);
   if (!mainModule) {
@@ -3762,8 +3769,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   tmModuleLink.stop();
 #endif // ENABLE_LIBDEVICE_LINKING
 
-  auto &entries = DeviceInfo->FuncGblEntries[DeviceId].Entries;
-  auto &kernels = DeviceInfo->FuncGblEntries[DeviceId].Kernels;
+  auto &entries = FuncGblEntries.Entries;
+  auto &kernels = FuncGblEntries.Kernels;
   entries.resize(numEntries);
   kernels.resize(numEntries);
 
@@ -3892,7 +3899,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   if (DeviceInfo->initProgramData(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
-  __tgt_target_table &table = DeviceInfo->FuncGblEntries[DeviceId].Table;
+  __tgt_target_table &table = FuncGblEntries.Table;
   table.EntriesBegin = &(entries.data()[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
 
@@ -4571,14 +4578,22 @@ static int32_t runTargetTeamRegionSub(
   std::vector<ze_command_list_handle_t> usedCmdLists;
 
   ze_kernel_handle_t rootKernel = *(ze_kernel_handle_t *)TgtEntryPtr;
-  uint32_t kernelId = 0;
-  auto &rootEntries = DeviceInfo->FuncGblEntries[rootId].Entries;
+  uint32_t KernelId = 0;
+  auto &RootEntries = DeviceInfo->FuncGblEntries[rootId];
 
   // Find kernel ID
-  while (rootEntries[kernelId].addr != TgtEntryPtr &&
-         kernelId < rootEntries.size())
-    kernelId++;
-  if (kernelId == rootEntries.size()) {
+  uint32_t EntryId = 0;
+  for (auto &E : RootEntries) {
+    KernelId = 0;
+    for (; KernelId < E.Entries.size(); KernelId++)
+      if (E.Entries[KernelId].addr == TgtEntryPtr)
+        break;
+    if (KernelId != E.Entries.size())
+      break;
+    EntryId++;
+  }
+  if (EntryId == RootEntries.size() &&
+      KernelId == RootEntries.back().Entries.size()) {
     DP("Could not find a kernel for entry " DPxMOD " in the table\n",
        DPxPTR(TgtEntryPtr));
     return OFFLOAD_FAIL;
@@ -4586,7 +4601,9 @@ static int32_t runTargetTeamRegionSub(
 
   ze_event_handle_t profileEvent = nullptr;
   std::string tmName("Kernel ");
-  tmName = tmName + rootEntries[kernelId].name;
+  auto EntryItr = RootEntries.begin();
+  std::advance(EntryItr, EntryId);
+  tmName = tmName + EntryItr->Entries[KernelId].name;
   std::vector<ScopedTimerTy> tmKernels;
 
   if (DeviceInfo->Flags.EnableProfile) {
@@ -4605,7 +4622,9 @@ static int32_t runTargetTeamRegionSub(
     auto kernel = rootKernel;
 #else // !SUBDEVICE_USE_ROOT_KERNELS
     std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[subId]);
-    auto kernel = DeviceInfo->FuncGblEntries[subId].Kernels[kernelId];
+    auto SubItr = DeviceInfo->FuncGblEntries[subId].begin();
+    std::advance(SubItr, EntryId);
+    auto kernel = SubItr->Kernels[KernelId];
 #endif // !SUBDEVICE_USE_ROOT_KERNELS
 
     auto *KernelInfo = DeviceInfo->getKernelInfo(subId, kernel);
@@ -5289,7 +5308,8 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
      Name, Size, DeviceId);
 
-  std::vector<DeviceOffloadEntryTy> &OffloadTable = OffloadTables[DeviceId];
+  std::vector<DeviceOffloadEntryTy> &OffloadTable =
+      OffloadTables[DeviceId].back();
   if (!OffloadTable.empty()) {
     size_t NameSize = strlen(Name) + 1;
     auto I = std::lower_bound(
@@ -5327,7 +5347,7 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
     DP("Looking up device global variable '%s' of unknown size "
        "on device %d.\n", Name, DeviceId);
   CALL_ZE_RET_NULL(zeModuleGetGlobalPointer,
-                   FuncGblEntries[DeviceId].Modules[0], Name, &TgtSize,
+                   FuncGblEntries[DeviceId].back().Modules[0], Name, &TgtSize,
                    &TgtAddr);
 
   if (Size != TgtSize && SizeIsKnown) {
@@ -5390,13 +5410,13 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     return false;
   }
 
-  OffloadTables[DeviceId].resize(DeviceNumEntries);
-  rc = enqueueMemCopy(DeviceId, OffloadTables[DeviceId].data(),
+  OffloadTables[DeviceId].emplace_back();
+  auto &DeviceTable = OffloadTables[DeviceId].back();
+  DeviceTable.resize(DeviceNumEntries);
+  rc = enqueueMemCopy(DeviceId, DeviceTable.data(),
                       OffloadTableVarAddr, TableSize);
   if (rc != OFFLOAD_SUCCESS)
     return false;
-
-  std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
 
   size_t I = 0;
   const char *PreviousName = "";
@@ -5453,7 +5473,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
         delete[] Entry.Base.name;
     }
 
-    OffloadTables[DeviceId].clear();
+    DeviceTable.clear();
     return false;
   }
 
@@ -5467,8 +5487,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
 }
 
 void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
-  for (auto &E : OffloadTables[DeviceId])
-    delete[] E.Base.name;
+  for (auto &T : OffloadTables[DeviceId])
+    for (auto &E : T)
+      delete[] E.Base.name;
 
   OffloadTables[DeviceId].clear();
 }
