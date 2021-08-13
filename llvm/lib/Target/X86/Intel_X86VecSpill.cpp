@@ -62,6 +62,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "X86.h"
@@ -250,60 +251,95 @@ bool X86VecSpill::canVecSpill(const SmallVector<int, 8> &FIVec, MCPhysReg &Reg,
   unsigned int YInsts;
   unsigned int XSize;
   unsigned int XInsts;
-  unsigned int Size = FIVec.size();
-  unsigned int MinInstrNum = Size;
-  unsigned int OrigInstrNum = Size;
-  BitVector CurCandidate(Size);
-  Select.reset();
+  unsigned int FISize = FIVec.size();
+  unsigned int OrigInstrNum = FISize;
+  BitVector CurCandidate(FISize);
+  Select.resize(FISize);
 
-  // Find spill combination which results minimum vec spill instructions
-  while (true) {
-    unsigned int Pos = 0;
-    // Find next spill combination
-    while (Pos < Size && CurCandidate[Pos]) {
-      CurCandidate.reset(Pos);
-      Pos++;
-    }
-    if (Pos >= Size)
-      break;
-    CurCandidate.set(Pos);
-    unsigned int TotalSize = 0;
-    // One extra instruction (xorps   %ymm16, %ymm16) is needed
-    unsigned int InstrNum = 1;
-    for (unsigned int i = 0; i < Size; i++)
-      if (CurCandidate[i])
-        TotalSize += MFI->getObjectSize(FIVec[i]);
-      else
-        InstrNum++; // remaining not vectorized instructions
-
-    if (TotalSize % 16 != 0)
-      continue; // must be N*128bit
-    if (ST->useAVX512Regs()) {
-      ZInsts = TotalSize / 64;
-      YSize  = TotalSize % 64;
-    } else {
-      ZInsts = 0;
-      YSize  = TotalSize;
-    }
-    YInsts = YSize / 32;
-    XSize = YSize % 32;
-    XInsts = XSize / 16;
-    assert(XSize % 16 == 0);
-    InstrNum += ZInsts;
-    InstrNum += YInsts;
-    InstrNum += XInsts;
-    if (InstrNum < MinInstrNum) {
-      MinInstrNum = InstrNum;
-      Select = CurCandidate;
-    }
+  unsigned int TotalSize = 0;
+  SmallVector<unsigned int, 8> FISizeArr(FISize);
+  for (unsigned int i = 0; i < FISize; i++) {
+    FISizeArr[i] = MFI->getObjectSize(FIVec[i]);
+    TotalSize += FISizeArr[i];
   }
 
-  if (OrigInstrNum < VecSpillFactor*MinInstrNum)
+  unsigned int AlignedTotalSize = alignDown(TotalSize, 16);
+  // We can optimize MaxFINum to 1-dim but keep it as 2-dim for better debug
+  SmallVector<SmallVector<int, 8>, 8>
+    MaxFINum(FISize, SmallVector<int, 8>(AlignedTotalSize+1, -1));
+  SmallVector<SmallVector<char, 8>, 8>
+    SelFI(FISize, SmallVector<char, 8>(AlignedTotalSize+1, 0));
+
+  // Initialize the first column
+  for (unsigned int Row = 0; Row < FISize; ++Row)
+    MaxFINum[Row][0] = 0; // Don't need to select anyone
+
+  // Initialize the first row
+  if (FISizeArr[0] <= AlignedTotalSize) {
+    MaxFINum[0][FISizeArr[0]] = 1;
+    SelFI[0][FISizeArr[0]] = 1;
+  }
+
+  for (unsigned int Row = 1; Row < FISize; ++Row)
+    for (unsigned int Col = 1; Col < AlignedTotalSize+1; ++Col) {
+      // Remaining size if select current FI
+      int SelectRemSize = Col - FISizeArr[Row];
+      // Current FI is not selected
+      int UnselectValue = MaxFINum[Row - 1][Col];
+      int SelectValue = -1;
+      if (SelectRemSize >= 0 && MaxFINum[Row-1][SelectRemSize] != -1) {
+        // There is solution if selecting current FI
+        SelectValue = MaxFINum[Row-1][SelectRemSize] + 1;
+      }
+      if (SelectValue > UnselectValue) {
+        // Select current FI
+        MaxFINum[Row][Col] = SelectValue;
+        SelFI[Row][Col] = 1;
+      } else {
+        // Not select current FI
+        MaxFINum[Row][Col] = UnselectValue;
+        SelFI[Row][Col] = 0;
+      }
+    }
+
+  unsigned int SelInstrNum = MaxFINum[FISize-1][AlignedTotalSize];
+  assert(SelInstrNum > 0 && SelInstrNum <= OrigInstrNum);
+  unsigned int InstrNum = OrigInstrNum - SelInstrNum;
+  if (ST->useAVX512Regs()) {
+    ZInsts = AlignedTotalSize / 64;
+    YSize  = AlignedTotalSize % 64;
+  } else {
+    ZInsts = 0;
+    YSize  = AlignedTotalSize;
+  }
+  YInsts = YSize / 32;
+  XSize = YSize % 32;
+  XInsts = XSize / 16;
+  assert(XSize % 16 == 0);
+  InstrNum += ZInsts;
+  InstrNum += YInsts;
+  InstrNum += XInsts;
+
+  if (OrigInstrNum < VecSpillFactor*InstrNum)
     return false;
+
+  unsigned int Row = FISize - 1;
+  unsigned int Col = AlignedTotalSize;
+  while (SelInstrNum) {
+      if (SelFI[Row][Col]) {
+        Select.set(Row);
+        Col -= FISizeArr[Row];
+        Row--;
+        SelInstrNum--;
+      } else {
+        Select.reset(Row);
+        Row--;
+      }
+  }
 
   LLVM_DEBUG({
     dbgs() << "Optimal Vec Spill solution for MBB" << MBB.getNumber() << ":\n";
-    for (unsigned int i = 0; i < Size; i++) {
+    for (unsigned int i = 0; i < FISize; i++) {
       dbgs() << i << " Slot: " << FIVec[i] << "\tSize: " <<
           MFI->getObjectSize(FIVec[i]);
       if (Select[i])
@@ -311,7 +347,7 @@ bool X86VecSpill::canVecSpill(const SmallVector<int, 8> &FIVec, MCPhysReg &Reg,
       else
         dbgs() << "\n";
     }
-    dbgs() << "Spill#: " << OrigInstrNum << "\nVecSpill#: " << MinInstrNum << "\n";
+    dbgs() << "Spill#: " << OrigInstrNum << "\nVecSpill#: " << InstrNum << "\n";
     MBB.dump();
   });
 
