@@ -3723,6 +3723,7 @@ public:
   EnforceTCBAttr *mergeEnforceTCBAttr(Decl *D, const EnforceTCBAttr &AL);
   EnforceTCBLeafAttr *mergeEnforceTCBLeafAttr(Decl *D,
                                               const EnforceTCBLeafAttr &AL);
+  BTFTagAttr *mergeBTFTagAttr(Decl *D, const BTFTagAttr &AL);
 
 #if INTEL_CUSTOMIZATION
   void AddAllowCpuFeaturesAttr(Decl *D, const AttributeCommonInfo &CI, Expr *P1,
@@ -13012,6 +13013,15 @@ public:
                                       const VirtSpecifiers *VS = nullptr);
   void CodeCompleteBracketDeclarator(Scope *S);
   void CodeCompleteCase(Scope *S);
+  enum class AttributeCompletion {
+    Attribute,
+    Scope,
+    None,
+  };
+  void CodeCompleteAttribute(
+      AttributeCommonInfo::Syntax Syntax,
+      AttributeCompletion Completion = AttributeCompletion::Attribute,
+      const IdentifierInfo *Scope = nullptr);
   /// Determines the preferred type of the current function argument, by
   /// examining the signatures of all possible overloads.
   /// Returns null if unknown or ambiguous, or if code completion is off.
