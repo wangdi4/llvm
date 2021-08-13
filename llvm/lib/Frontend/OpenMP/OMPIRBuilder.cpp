@@ -348,9 +348,8 @@ Constant *OpenMPIRBuilder::getOrCreateDefaultSrcLocStr() {
   return getOrCreateSrcLocStr(";unknown;unknown;0;0;;");
 }
 
-Constant *
-OpenMPIRBuilder::getOrCreateSrcLocStr(const LocationDescription &Loc) {
-  DILocation *DIL = Loc.DL.get();
+Constant *OpenMPIRBuilder::getOrCreateSrcLocStr(DebugLoc DL, Function *F) {
+  DILocation *DIL = DL.get();
   if (!DIL)
     return getOrCreateDefaultSrcLocStr();
   StringRef FileName = M.getName();
@@ -358,10 +357,15 @@ OpenMPIRBuilder::getOrCreateSrcLocStr(const LocationDescription &Loc) {
     if (Optional<StringRef> Source = DIF->getSource())
       FileName = *Source;
   StringRef Function = DIL->getScope()->getSubprogram()->getName();
-  Function =
-      !Function.empty() ? Function : Loc.IP.getBlock()->getParent()->getName();
+  if (Function.empty() && F)
+    Function = F->getName();
   return getOrCreateSrcLocStr(Function, FileName, DIL->getLine(),
                               DIL->getColumn());
+}
+
+Constant *
+OpenMPIRBuilder::getOrCreateSrcLocStr(const LocationDescription &Loc) {
+  return getOrCreateSrcLocStr(Loc.DL, Loc.IP.getBlock()->getParent());
 }
 
 Value *OpenMPIRBuilder::getOrCreateThreadID(Value *Ident) {
@@ -1003,8 +1007,9 @@ OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createSections(
   Value *ST = ConstantInt::get(I32Ty, 1);
   llvm::CanonicalLoopInfo *LoopInfo = createCanonicalLoop(
       Loc, LoopBodyGenCB, LB, UB, ST, true, false, AllocaIP, "section_loop");
-  LoopInfo = createStaticWorkshareLoop(Loc, LoopInfo, AllocaIP, true);
-  BasicBlock *LoopAfterBB = LoopInfo->getAfter();
+  InsertPointTy AfterIP =
+      applyStaticWorkshareLoop(Loc.DL, LoopInfo, AllocaIP, true);
+  BasicBlock *LoopAfterBB = AfterIP.getBlock();
   Instruction *SplitPos = LoopAfterBB->getTerminator();
   if (!isa_and_nonnull<BranchInst>(SplitPos))
     SplitPos = new UnreachableInst(Builder.getContext(), LoopAfterBB);
@@ -1344,8 +1349,6 @@ CanonicalLoopInfo *OpenMPIRBuilder::createLoopSkeleton(
   CL->Exit = Exit;
   CL->After = After;
 
-  CL->IsValid = true;
-
 #ifndef NDEBUG
   CL->assertOK();
 #endif
@@ -1482,14 +1485,17 @@ void setCanonicalLoopTripCount(CanonicalLoopInfo *CLI, Value *TripCount) {
   CLI->assertOK();
 }
 
-CanonicalLoopInfo *OpenMPIRBuilder::createStaticWorkshareLoop(
-    const LocationDescription &Loc, CanonicalLoopInfo *CLI,
-    InsertPointTy AllocaIP, bool NeedsBarrier, Value *Chunk) {
-  // Set up the source location value for OpenMP runtime.
-  if (!updateToLocation(Loc))
-    return nullptr;
+OpenMPIRBuilder::InsertPointTy
+OpenMPIRBuilder::applyStaticWorkshareLoop(DebugLoc DL, CanonicalLoopInfo *CLI,
+                                          InsertPointTy AllocaIP,
+                                          bool NeedsBarrier, Value *Chunk) {
+  assert(CLI->isValid() && "Requires a valid canonical loop");
 
-  Constant *SrcLocStr = getOrCreateSrcLocStr(Loc);
+  // Set up the source location value for OpenMP runtime.
+  Builder.restoreIP(CLI->getPreheaderIP());
+  Builder.SetCurrentDebugLocation(DL);
+
+  Constant *SrcLocStr = getOrCreateSrcLocStr(DL);
   Value *SrcLoc = getOrCreateIdent(SrcLocStr);
 
   // Declare useful OpenMP runtime functions.
@@ -1519,6 +1525,7 @@ CanonicalLoopInfo *OpenMPIRBuilder::createStaticWorkshareLoop(
   Builder.CreateStore(UpperBound, PUpperBound);
   Builder.CreateStore(One, PStride);
 
+  // FIXME: schedule(static) is NOT the same as schedule(static,1)
   if (!Chunk)
     Chunk = One;
 
@@ -1559,19 +1566,21 @@ CanonicalLoopInfo *OpenMPIRBuilder::createStaticWorkshareLoop(
 
   // Add the barrier if requested.
   if (NeedsBarrier)
-    createBarrier(LocationDescription(Builder.saveIP(), Loc.DL),
+    createBarrier(LocationDescription(Builder.saveIP(), DL),
                   omp::Directive::OMPD_for, /* ForceSimpleCall */ false,
                   /* CheckCancelFlag */ false);
 
-  CLI->assertOK();
-  return CLI;
+  InsertPointTy AfterIP = CLI->getAfterIP();
+  CLI->invalidate();
+
+  return AfterIP;
 }
 
-CanonicalLoopInfo *OpenMPIRBuilder::createWorkshareLoop(
-    const LocationDescription &Loc, CanonicalLoopInfo *CLI,
-    InsertPointTy AllocaIP, bool NeedsBarrier) {
+OpenMPIRBuilder::InsertPointTy
+OpenMPIRBuilder::applyWorkshareLoop(DebugLoc DL, CanonicalLoopInfo *CLI,
+                                    InsertPointTy AllocaIP, bool NeedsBarrier) {
   // Currently only supports static schedules.
-  return createStaticWorkshareLoop(Loc, CLI, AllocaIP, NeedsBarrier);
+  return applyStaticWorkshareLoop(DL, CLI, AllocaIP, NeedsBarrier);
 }
 
 /// Returns an LLVM function to call for initializing loop bounds using OpenMP
@@ -1606,14 +1615,15 @@ getKmpcForDynamicNextForType(Type *Ty, Module &M, OpenMPIRBuilder &OMPBuilder) {
   llvm_unreachable("unknown OpenMP loop iterator bitwidth");
 }
 
-OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createDynamicWorkshareLoop(
-    const LocationDescription &Loc, CanonicalLoopInfo *CLI,
-    InsertPointTy AllocaIP, OMPScheduleType SchedType, bool NeedsBarrier,
-    Value *Chunk) {
-  // Set up the source location value for OpenMP runtime.
-  Builder.SetCurrentDebugLocation(Loc.DL);
+OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::applyDynamicWorkshareLoop(
+    DebugLoc DL, CanonicalLoopInfo *CLI, InsertPointTy AllocaIP,
+    OMPScheduleType SchedType, bool NeedsBarrier, Value *Chunk) {
+  assert(CLI->isValid() && "Requires a valid canonical loop");
 
-  Constant *SrcLocStr = getOrCreateSrcLocStr(Loc);
+  // Set up the source location value for OpenMP runtime.
+  Builder.SetCurrentDebugLocation(DL);
+
+  Constant *SrcLocStr = getOrCreateSrcLocStr(DL);
   Value *SrcLoc = getOrCreateIdent(SrcLocStr);
 
   // Declare useful OpenMP runtime functions.
@@ -1707,11 +1717,12 @@ OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createDynamicWorkshareLoop(
   // Add the barrier if requested.
   if (NeedsBarrier) {
     Builder.SetInsertPoint(&Exit->back());
-    createBarrier(LocationDescription(Builder.saveIP(), Loc.DL),
+    createBarrier(LocationDescription(Builder.saveIP(), DL),
                   omp::Directive::OMPD_for, /* ForceSimpleCall */ false,
                   /* CheckCancelFlag */ false);
   }
 
+  CLI->invalidate();
   return AfterIP;
 }
 
@@ -1803,6 +1814,8 @@ OpenMPIRBuilder::collapseLoops(DebugLoc DL, ArrayRef<CanonicalLoopInfo *> Loops,
   // TODO: Find common/largest indvar type.
   Value *CollapsedTripCount = nullptr;
   for (CanonicalLoopInfo *L : Loops) {
+    assert(L->isValid() &&
+           "All loops to collapse must be valid canonical loops");
     Value *OrigTripCount = L->getTripCount();
     if (!CollapsedTripCount) {
       CollapsedTripCount = OrigTripCount;
@@ -1891,6 +1904,9 @@ OpenMPIRBuilder::collapseLoops(DebugLoc DL, ArrayRef<CanonicalLoopInfo *> Loops,
     Loop->collectControlBlocks(OldControlBBs);
   removeUnusedBlocksFromParent(OldControlBBs);
 
+  for (CanonicalLoopInfo *L : Loops)
+    L->invalidate();
+
 #ifndef NDEBUG
   Result->assertOK();
 #endif
@@ -1917,6 +1933,7 @@ OpenMPIRBuilder::tileLoops(DebugLoc DL, ArrayRef<CanonicalLoopInfo *> Loops,
   // any original CanonicalLoopInfo.
   SmallVector<Value *, 4> OrigTripCounts, OrigIndVars;
   for (CanonicalLoopInfo *L : Loops) {
+    assert(L->isValid() && "All input loops must be valid canonical loops");
     OrigTripCounts.push_back(L->getTripCount());
     OrigIndVars.push_back(L->getIndVar());
   }
@@ -2074,6 +2091,9 @@ OpenMPIRBuilder::tileLoops(DebugLoc DL, ArrayRef<CanonicalLoopInfo *> Loops,
   for (CanonicalLoopInfo *Loop : Loops)
     Loop->collectControlBlocks(OldControlBBs);
   removeUnusedBlocksFromParent(OldControlBBs);
+
+  for (CanonicalLoopInfo *L : Loops)
+    L->invalidate();
 
 #ifndef NDEBUG
   for (CanonicalLoopInfo *GenL : Result)
@@ -2975,7 +2995,8 @@ void CanonicalLoopInfo::collectControlBlocks(
 
 void CanonicalLoopInfo::assertOK() const {
 #ifndef NDEBUG
-  if (!IsValid)
+  // No constraints if this object currently does not describe a loop.
+  if (!isValid())
     return;
 
   // Verify standard control-flow we use for OpenMP loops.
@@ -3060,4 +3081,14 @@ void CanonicalLoopInfo::assertOK() const {
   assert(CmpI->getOperand(1) == TripCount &&
          "Exit condition must compare with the trip count");
 #endif
+}
+
+void CanonicalLoopInfo::invalidate() {
+  Preheader = nullptr;
+  Header = nullptr;
+  Cond = nullptr;
+  Body = nullptr;
+  Latch = nullptr;
+  Exit = nullptr;
+  After = nullptr;
 }
