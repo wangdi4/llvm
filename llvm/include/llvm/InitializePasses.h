@@ -744,8 +744,9 @@ void initializeIntelIPODeadArgEliminationWrapperPass(PassRegistry &);
 void initializeWRegionCollectionWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoWrapperPassPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
-// VPO Utility Pass
+// VPO Utility Passes
 void initializeVPOCFGRestructuringPass(PassRegistry&);
+void initializeVPOCFGSimplifyPass(PassRegistry&);
 // VPO Paropt Loop Collapse Pass
 void initializeVPOParoptLoopCollapsePass(PassRegistry&);
 // VPO Paropt Prepare Pass

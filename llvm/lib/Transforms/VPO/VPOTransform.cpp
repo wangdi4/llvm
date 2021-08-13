@@ -29,6 +29,7 @@ void llvm::initializeVPOTransforms(PassRegistry &Registry) {
 
   initializeVPORestoreOperandsPass(Registry);
   initializeVPOCFGRestructuringPass(Registry);
+  initializeVPOCFGSimplifyPass(Registry);
 }
 
 #endif // INTEL_COLLAB

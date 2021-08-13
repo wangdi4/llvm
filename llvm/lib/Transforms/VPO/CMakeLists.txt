@@ -51,6 +51,7 @@ add_llvm_component_library(LLVMVPOTransforms
   VPOTransform.cpp
 
   Utils/CFGRestructuring.cpp
+  Utils/CFGSimplify.cpp
   Utils/VPORestoreOperands.cpp
   Utils/MultiVersioning.cpp
   Utils/ParSecTrans.cpp
