@@ -1,6 +1,7 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
-; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NOT:  Running pass: InternalizeNonKernelFuncPass

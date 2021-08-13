@@ -94,6 +94,7 @@ void OptimizerLTO::Optimize() {
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [](ModulePassManager &MPM, OptimizationLevel Level) {
+        MPM.addPass(DPCPPPreprocessSPIRVFriendlyIRPass());
         // TODO: SPIRVLowerConstExprPass() is required before SPIRVToOCL20Pass,
         // but the class definition is not exposed in SPIRV header file yet.
         MPM.addPass(SPIRVToOCL20Pass());

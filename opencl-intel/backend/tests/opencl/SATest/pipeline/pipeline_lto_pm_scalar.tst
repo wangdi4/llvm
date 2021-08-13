@@ -1,7 +1,8 @@
 ; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 ; TODO: check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 
-; CHECK:      Running pass: SPIRV::SPIRVToOCL20Pass
+; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
+; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass
 ; CHECK-NEXT: Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running pass: DuplicateCalledKernels
 ; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
