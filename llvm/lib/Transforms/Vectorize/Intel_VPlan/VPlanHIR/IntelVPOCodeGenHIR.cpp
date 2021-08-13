@@ -692,7 +692,13 @@ void HandledCheck::visit(HLDDNode *Node) {
 // present inside it.
 void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
 
-  if (!isVectorizableTy(RegDD->getDestType())) {
+  bool NodeIsCall = false;
+  if (auto *Inst = dyn_cast<HLInst>(RegDD->getHLDDNode()))
+    NodeIsCall = Inst->isCallInst();
+
+  // Call serialization is supported by CG, so don't check for non-vectorizable
+  // types for calls.
+  if (!NodeIsCall && !isVectorizableTy(RegDD->getDestType())) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->dump(); dbgs() << "\n");
     DEBUG_WITH_TYPE("VPOCGHIR-bailout", RegDD->getDestType()->dump());
     DEBUG_WITH_TYPE("VPOCGHIR-bailout",
@@ -3122,10 +3128,11 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
       CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
 
   // Create address-of ref to compute vector of pointers using base-address and
-  // vector indices.
+  // vector indices. The base ptr of this address-of ref will be defined in loop
+  // preheader always, hence set defined at level as (LoopLevel - 1).
   auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
       BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
-      BaseRef->getDefinedAtLevel(), AllocaMemRefSym);
+      OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
   VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
   return VecPvtPtrs;
@@ -3341,6 +3348,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         std::make_pair(AllocaBlob, AllocaMemRefSym);
     // Add the newly generated alloca as live-in to the main loop.
     MainLoop->addLiveInTemp(AllocaBlob->getSymbase());
+    // Since we are adding a new r-val use of temp outside the loop (check
+    // createVectorPrivatePtrs), make the temp live-in at all parent loop
+    // levels.
+    makeSymLiveInForParentLoops(AllocaBlob->getSymbase());
 
     // Generated blob provides a pointer to the widened memory, here we generate
     // code to compute a vector of pointers pointing to each element of widened
@@ -3349,11 +3360,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // VecTyForAlloca = <VF x i32>
     // AllocaBlob = <VF x i32>* %priv.mem
     // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
-    // ScalPvtPtr = &((<VF x i32>* %priv.mem)[i32 0])
+    // ScalPvtPtr = &((i32 *)(<VF x i32>* %priv.mem)[i32 0])
     RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
     RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
         AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
         AllocaMemRefSym);
+    ScalPvtPtr->setBitCastDestType(VPAllocaPriv->getType());
 
     LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
                dbgs() << " got the vector of private pointers: ";
@@ -4640,11 +4652,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         }
         // Since we are adding a new r-val use of temp outside the loop, make
         // the temp live-in at all parent loop levels.
-        auto *ParentLoop = MainLoop->getParentLoop();
-        while (ParentLoop != nullptr) {
-          ParentLoop->addLiveInTemp(RvalSym);
-          ParentLoop = ParentLoop->getParentLoop();
-        }
+        makeSymLiveInForParentLoops(RvalSym);
       }
       addInstUnmasked(NewInst);
       addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());

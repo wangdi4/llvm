@@ -1034,6 +1034,22 @@ OMPBarrierDirective *OMPBarrierDirective::CreateEmpty(const ASTContext &C,
   return new (C) OMPBarrierDirective();
 }
 
+#if INTEL_COLLAB
+OMPTaskwaitDirective *OMPTaskwaitDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses) {
+  return createDirective<OMPTaskwaitDirective>(
+      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
+      EndLoc);
+}
+
+OMPTaskwaitDirective *OMPTaskwaitDirective::CreateEmpty(const ASTContext &C,
+                                                        unsigned NumClauses,
+                                                        EmptyShell) {
+  return createEmptyDirective<OMPTaskwaitDirective>(C, NumClauses,
+                                                    /*NumChildren=*/0);
+}
+#else // INTEL_COLLAB
 OMPTaskwaitDirective *OMPTaskwaitDirective::Create(const ASTContext &C,
                                                    SourceLocation StartLoc,
                                                    SourceLocation EndLoc) {
@@ -1044,6 +1060,7 @@ OMPTaskwaitDirective *OMPTaskwaitDirective::CreateEmpty(const ASTContext &C,
                                                         EmptyShell) {
   return new (C) OMPTaskwaitDirective();
 }
+#endif // INTEL_COLLAB
 
 OMPTaskgroupDirective *OMPTaskgroupDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,

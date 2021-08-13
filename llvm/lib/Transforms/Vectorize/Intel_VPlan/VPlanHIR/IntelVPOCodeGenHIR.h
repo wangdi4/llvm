@@ -935,6 +935,14 @@ private:
     }
   }
 
+  void makeSymLiveInForParentLoops(unsigned Sym) {
+    auto *ParentLoop = MainLoop->getParentLoop();
+    while (ParentLoop != nullptr) {
+      ParentLoop->addLiveInTemp(Sym);
+      ParentLoop = ParentLoop->getParentLoop();
+    }
+  }
+
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
   // the cost model.

@@ -61,6 +61,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransOPUtils.h"
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -251,8 +252,10 @@ struct PerFunctionInfo {
   // processFunction routine (pointer to int, int to pointer, or pointer of
   // original type to a pointer of the remapped type) that after the type
   // remapping process should have the same source and destination types, and
-  // must be removed during postProcessFunction routine.
-  SmallVector<CastInst *, 16> PtrConverts;
+  // must be removed during postProcessFunction routine. A set is used rather
+  // than a vector because a cast instruction may be reused for multiple
+  // byte-flattened GEP accesses.
+  SmallPtrSet<CastInst *, 16> PtrConverts;
 
   // When some instructions are converted for shrinking the index to 32-bits, cast
   // instructions are generated during processFunction around the replacement
@@ -295,6 +298,17 @@ struct PerFunctionInfo {
   SmallVector<std::pair<Instruction *, llvm::StructType *>, 16>
       InstructionsToAnnotate;
 
+  // List of instructions that need to have the DTrans type metadata updated to
+  // reflect that a type and pointer indirection level is being changed on the
+  // type being transformed. The type remapper will update the types for a case
+  // where %struct.arc changes to %_DT_struct.arc because the level of
+  // indirection remains the same. However, for the type being transformed in
+  // this transformation, the metadata needs to be directly updated because
+  // pointers to %struct.node are changed to be an integer with one less level
+  // of indirection. The DTransType component of the pair holds the type decoded
+  // from the metadata prior to type remapping.
+  SmallVector<std::pair<Instruction *, DTransType *>, 4> InstMDToUpdate;
+
   // When processing byte-flattened GEPs some instructions may be processed to
   // get a Value for the index variable. This cache is used to get the processed
   // values so they do not need to be recomputed when multiple instructions
@@ -322,6 +336,7 @@ public:
   void visitBitCastInst(BitCastInst &I);
   void visitPtrToIntInst(PtrToIntInst &I);
   void visitBinaryOperator(BinaryOperator &I);
+  void visitAllocaInst(AllocaInst &I);
   void visitInstruction(Instruction &I);
 
   void checkForConstantToConvert(Instruction *I, uint32_t OpNum);
@@ -408,6 +423,7 @@ private: // methods
   void convertDepMemfuncCall(MemfuncCallInfo *CInfo, StructInfo *StInfo);
   void convertDepBinaryOperator(BinaryOperator *I, DTransStructType *StructTy);
 
+  void updateDTransMetadata(Instruction *I, DTransType *Ty);
   void updateCallAttributes(CallBase *Call);
   void updateFunctionAttributes(Function &OrigFn, Function &CloneFn);
   bool updateAttributeList(llvm::FunctionType *OrigFnType,
@@ -1050,6 +1066,29 @@ void AOSCollector::visitBinaryOperator(BinaryOperator &I) {
     FuncInfo.DepBinOpsToConvert.push_back({ &I, StTy });
 }
 
+void AOSCollector::visitAllocaInst(AllocaInst &I) {
+  // Alloca instructions may have metadata attachments that describe the DTrans
+  // type to handle the case where a pointer type is being allocated. When a
+  // pointer to the structure type being transformed is allocated, then the
+  // metadata needs to be updated to reflect that a pointer to an integer type
+  // with one less level of indirection will be used.
+  DTransType *DType = MDReader.getDTransTypeFromMD(&I);
+  if (!DType)
+    return;
+
+  DTransType *BaseType = DType;
+  while (BaseType->isArrayTy())
+    BaseType = BaseType->getArrayElementType();
+
+  while (BaseType->isPointerTy())
+    BaseType = BaseType->getPointerElementType();
+
+  if (!Transform.isTypeToTransform(BaseType->getLLVMType()))
+    return;
+
+  FuncInfo.InstMDToUpdate.push_back({&I, DType});
+}
+
 // Catch any other instruction. If the instruction produces the type being
 // transformed, throw an assertion that it is not handled.
 void AOSCollector::visitInstruction(Instruction &I) {
@@ -1315,6 +1354,7 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
     FuncInfo->InstructionsToMutate.clear();
     FuncInfo->ConstantsToReplace.clear();
     FuncInfo->IndexCache.clear();
+    FuncInfo->InstMDToUpdate.clear();
   };
 
   LLVM_DEBUG(dbgs() << "AOS-to-SOA: ProcessFunction: " << F.getName() << "\n");
@@ -1352,6 +1392,9 @@ void AOSToSOAOPTransformImpl::processFunction(Function &F) {
 
   for (auto &KV : FuncInfo->BinOpsToConvert)
     convertBinaryOperator(KV.first, KV.second);
+
+  for (auto &KV : FuncInfo->InstMDToUpdate)
+    updateDTransMetadata(KV.first, KV.second);
 
   // Process the instructions using dependent structure types.
   for (auto *GEP : FuncInfo->DepGEPsToConvert)
@@ -1515,36 +1558,36 @@ void AOSToSOAOPTransformImpl::postprocessFunction(Function &OrigFunc,
       continue;
     }
 
-    // Check for cast instructions generated that cancel out another cast.
-    // These instructions would have eventually been removed by the instcombine
-    // pass, but we cannot run instcombine between transformations now because
-    // it would produce other IR instruction patterns that are not currently
-    // recognized by DTransAnalysis, such as shift instructions.
-    for (auto *Conv : FuncInfo->IntermediateConverts) {
-      if (IsCloned)
-        Conv = cast<Instruction>(VMap[Conv]);
-
-      bool NotNeeded = isCancellingConvert<IntToPtrInst, PtrToIntInst>(Conv) ||
-                       isCancellingConvert<PtrToIntInst, IntToPtrInst>(Conv) ||
-                       isCancellingConvert<ZExtInst, TruncInst>(Conv);
-      if (NotNeeded) {
-        Instruction *SrcOperand = cast<Instruction>(Conv->getOperand(0));
-        Conv->replaceAllUsesWith(SrcOperand->getOperand(0));
-        InstructionsToDelete.insert(Conv);
-
-        // Check if the source is now dead, but defer deletion
-        // until processing all the elements of this loop, in case
-        // the instruction is contained in the vector being iterated.
-        if (SrcOperand->user_empty())
-          InstructionsToDelete.insert(SrcOperand);
-      }
-    }
-
     LLVM_DEBUG(dbgs() << "Post process deleting: " << *Conv << "\n");
     assert(Conv->getType() == Conv->getOperand(0)->getType() &&
            "Expected self-type in cast after remap");
     Conv->replaceAllUsesWith(Conv->getOperand(0));
     InstructionsToDelete.insert(Conv);
+  }
+
+  // Check for cast instructions generated that cancel out another cast.
+  // These instructions would have eventually been removed by the instcombine
+  // pass, but we cannot run instcombine between transformations now because
+  // it would produce other IR instruction patterns that are not currently
+  // recognized by DTransAnalysis, such as shift instructions.
+  for (auto *Conv : FuncInfo->IntermediateConverts) {
+    if (IsCloned)
+      Conv = cast<Instruction>(VMap[Conv]);
+
+    bool NotNeeded = isCancellingConvert<IntToPtrInst, PtrToIntInst>(Conv) ||
+                     isCancellingConvert<PtrToIntInst, IntToPtrInst>(Conv) ||
+                     isCancellingConvert<ZExtInst, TruncInst>(Conv);
+    if (NotNeeded) {
+      Instruction *SrcOperand = cast<Instruction>(Conv->getOperand(0));
+      Conv->replaceAllUsesWith(SrcOperand->getOperand(0));
+      InstructionsToDelete.insert(Conv);
+
+      // Check if the source is now dead, but defer deletion
+      // until processing all the elements of this loop, in case
+      // the instruction is contained in the vector being iterated.
+      if (SrcOperand->user_empty())
+        InstructionsToDelete.insert(SrcOperand);
+    }
   }
 
   // Insert the annotations that help the dynamic cloning recognize the new
@@ -1913,7 +1956,7 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
     CastInst *ArrayIdx =
         CastInst::CreateBitOrPointerCast(Add, OrigStructTy->getPointerTo());
     ArrayIdx->insertBefore(GEP);
-    FuncInfo->PtrConverts.push_back(ArrayIdx);
+    FuncInfo->PtrConverts.insert(ArrayIdx);
     GEP->replaceAllUsesWith(ArrayIdx);
 
     // When opaque pointers are in use, we need the pointer to be in an
@@ -1982,7 +2025,7 @@ void AOSToSOAOPTransformImpl::convertGEP(GetElementPtrInst *GEP) {
     CastInst *CastToPtr =
         CastInst::CreateBitOrPointerCast(FieldGEP, OrigFieldTy);
     CastToPtr->insertBefore(GEP);
-    FuncInfo->PtrConverts.push_back(CastToPtr);
+    FuncInfo->PtrConverts.insert(CastToPtr);
     ReplVal = CastToPtr;
   }
 
@@ -2196,7 +2239,7 @@ void AOSToSOAOPTransformImpl::convertPtrToInt(PtrToIntInst *I,
   if (!IndexInfo.PointerShrinkingEnabled) {
     // The form: ptrtoint i64 %x to i64
     // will be a meaningless cast, and should be removed during post processing.
-    FuncInfo->PtrConverts.push_back(I);
+    FuncInfo->PtrConverts.insert(I);
     return;
   }
 
@@ -2219,7 +2262,7 @@ void AOSToSOAOPTransformImpl::convertPtrToInt(PtrToIntInst *I,
                     << "\n");
 
   FuncInfo->InstructionsToDelete.insert(I);
-  FuncInfo->PtrConverts.push_back(NewPTI);
+  FuncInfo->PtrConverts.insert(NewPTI);
 }
 
 void AOSToSOAOPTransformImpl::convertBinaryOperator(
@@ -2406,7 +2449,7 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
         ConstantInt::get(IndexInfo.LLVMType, 1), TypeInAddrSpace);
     IndexAsPtr->insertBefore(SI);
     SI->setOperand(0, IndexAsPtr);
-    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+    FuncInfo->PtrConverts.insert(IndexAsPtr);
   }
 
   // Replace the BitCast instructions with an IntToPtr instruction that casts
@@ -2419,7 +2462,7 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
     IndexAsPtr->insertBefore(BC);
     BC->replaceAllUsesWith(IndexAsPtr);
     FuncInfo->InstructionsToDelete.insert(BC);
-    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+    FuncInfo->PtrConverts.insert(IndexAsPtr);
 
     // Change the type IntToPtr instruction so that it will be recognized as
     // needing to be updated during type remapping.
@@ -2437,7 +2480,7 @@ void AOSToSOAOPTransformImpl::convertAllocCall(AllocCallInfo *AInfo,
         PointerType::get(GEP->getSourceElementType(), AddrSpace));
     IndexAsPtr->insertBefore(GEP);
     GEP->setOperand(0, IndexAsPtr);
-    FuncInfo->PtrConverts.push_back(IndexAsPtr);
+    FuncInfo->PtrConverts.insert(IndexAsPtr);
   }
 
   // Initialize the pointer fields of the SOA structure to store an
@@ -2661,6 +2704,16 @@ void AOSToSOAOPTransformImpl::convertDepBinaryOperator(
   dtrans::updatePtrSubDivUserSizeOperand(I, OrigLLVMTy, ReplTy, DL);
 }
 
+void AOSToSOAOPTransformImpl::updateDTransMetadata(Instruction *I,
+                                                   DTransType *Ty) {
+  // Clear or update the new DTrans metadata type node based on whether the
+  // allocation is still allocating a pointer after the transformation.
+  DTransType *NewTy = TypeRemapper.remapType(Ty);
+  MDNode *NewMD =
+      hasPointerType(NewTy) ? NewTy->createMetadataReference() : nullptr;
+  TypeMetadataReader::addDTransMDNode(*I, NewMD);
+}
+
 void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
   LLVM_DEBUG(dbgs() << "AOS-to-SOA: Checking call attributes for: " << *Call
                     << "\n");
@@ -2739,7 +2792,7 @@ AOSToSOAOPTransformImpl::createCastToIndexType(Value *V,
                                                Instruction *InsertBefore) {
   CastInst *ToInt =
       CastInst::CreateBitOrPointerCast(V, IndexInfo.LLVMType, "", InsertBefore);
-  FuncInfo->PtrConverts.push_back(ToInt);
+  FuncInfo->PtrConverts.insert(ToInt);
   return ToInt;
 }
 
@@ -2900,7 +2953,7 @@ Value *AOSToSOAOPTransformImpl::createIndexFromValue(
   if (auto *LI = dyn_cast<LoadInst>(Op)) {
     CastInst *NewCast = createCastToIndexType(LI, nullptr);
     NewCast->insertAfter(LI);
-    FuncInfo->PtrConverts.push_back(NewCast);
+    FuncInfo->PtrConverts.insert(NewCast);
     FuncInfo->IndexCache[LI] = NewCast;
     return NewCast;
   }

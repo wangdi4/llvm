@@ -3274,6 +3274,17 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     WrongDirective = true;
   }
 
+#if INTEL_COLLAB
+  // Not yet implemented with FE outlining. BE outlining only.
+  if (!getLangOpts().OpenMPLateOutline && DKind == OMPD_taskwait &&
+      (CKind == OMPC_depend || CKind == OMPC_nowait)) {
+    Diag(Tok, diag::err_omp_unexpected_clause)
+        << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
+    ErrorFound = true;
+    WrongDirective = true;
+  }
+#endif // INTEL_COLLAB
+
   switch (CKind) {
   case OMPC_final:
   case OMPC_num_threads:
