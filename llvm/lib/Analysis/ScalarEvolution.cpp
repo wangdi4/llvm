@@ -3882,7 +3882,10 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
   // non-negative, we can use nuw.
   SCEV::NoWrapFlags BaseWrap = GEP->isInBounds() && isKnownNonNegative(Offset)
                                    ? SCEV::FlagNUW : SCEV::FlagAnyWrap;
-  return getAddExpr(BaseExpr, Offset, BaseWrap);
+  auto *GEPExpr = getAddExpr(BaseExpr, Offset, BaseWrap);
+  assert(BaseExpr->getType() == GEPExpr->getType() &&
+         "GEP should not change type mid-flight.");
+  return GEPExpr;
 }
 
 std::tuple<SCEV *, FoldingSetNodeID, void *>
