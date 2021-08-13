@@ -2868,6 +2868,8 @@ public:
           continue;
 
         DTransType *ElemTy = Ty->getPointerElementType();
+        // Add this to our type info list.
+        (void)DTInfo.getOrCreateTypeInfo(ElemTy);
         if (isTypeOfInterest(ElemTy))
           CI->addElemType(ElemTy);
       }
@@ -3235,7 +3237,10 @@ public:
         SetSafetyDataOnElementPointees(
             SrcInfo, dtrans::BadMemFuncManipulation,
             "memcpy/memmove - dest was not supported", &I);
-        processBadMemFuncSize(I, DstStructTy);
+
+        // Treat all the fields of the destination as being written with an
+        // unknown value.
+        markAllFieldsWritten(I, DstInfo);
         return;
       }
 
@@ -3533,17 +3538,7 @@ public:
   // would leave a complete known value set for some fields, so for now go
   // conservative and set them all to 'incomplete'.
   void processBadMemFuncManipulation(Instruction &I, ValueTypeInfo *Info) {
-    for (auto *AliasTy : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-      if (AliasTy->isPointerTy()) {
-        dtrans::TypeInfo *TI =
-            DTInfo.getTypeInfo(AliasTy->getPointerElementType());
-        markAllFieldsWritten(TI, I, FWT_NonZeroValue);
-      }
-    for (auto &PointeePair :
-         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
-      dtrans::TypeInfo *TI = DTInfo.getTypeInfo(PointeePair.first);
-      markAllFieldsWritten(TI, I, FWT_NonZeroValue);
-    }
+    markAllFieldsWritten(I, Info);
   }
 
   // For ReturnInst, we need to perform the following checks:
@@ -4293,6 +4288,22 @@ private:
     }
   }
 
+  // Mark all the fields of any aggregate types contained in the alias and
+  // element pointer type sets as written.
+  void markAllFieldsWritten(Instruction &I, ValueTypeInfo *Info) {
+    for (auto *AliasTy : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (AliasTy->isPointerTy()) {
+        dtrans::TypeInfo *TI =
+            DTInfo.getTypeInfo(AliasTy->getPointerElementType());
+        markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+      }
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      dtrans::TypeInfo *TI = DTInfo.getTypeInfo(PointeePair.first);
+      markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+    }
+  }
+
   // A specialized form of the MarkAllFieldsWritten that is used to mark a
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
@@ -4326,6 +4337,8 @@ private:
   // memset call.
   void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
+    // Add this to our type info list.
+    (void)DTInfo.getOrCreateTypeInfo(ElemTy);
     dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
         &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
     MCI->setAliasesToAggregateType(true);
@@ -4339,6 +4352,8 @@ private:
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
+    // Add this to our type info list.
+    (void)DTInfo.getOrCreateTypeInfo(ElemTy);
     dtrans::MemfuncCallInfo *MCI =
         DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
     MCI->setAliasesToAggregateType(true);
