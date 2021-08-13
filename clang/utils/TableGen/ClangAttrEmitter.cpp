@@ -4027,14 +4027,8 @@ static void GenerateLangOptRequirements(const Record &R,
   if (LangOpts.empty())
     return;
 
-  OS << "bool diagLangOpts(Sema &S, const ParsedAttr &PA) ";
-  OS << "const override {\n";
-  OS << "  const auto &LangOpts = S.LangOpts;\n";
-  OS << "  if (" << GenerateTestExpression(LangOpts, true) << ")\n";
-  OS << "    return true;\n\n";
-  OS << "  if (" << GenerateTestExpression(LangOpts, false) << ")\n";
-  OS << "    S.Diag(PA.getLoc(), diag::warn_attribute_ignored) << PA;\n";
-  OS << "  return false;\n";
+  OS << "bool acceptsLangOpts(const LangOptions &LangOpts) const override {\n";
+  OS << "  return " << GenerateTestExpression(LangOpts, true) << ";\n";
   OS << "}\n\n";
 }
 
