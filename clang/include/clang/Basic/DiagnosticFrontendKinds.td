@@ -247,7 +247,7 @@ def err_invalid_vfs_overlay : Error<
   "invalid virtual filesystem overlay file '%0'">, DefaultFatal;
 
 def warn_option_invalid_ocl_version : Warning<
-  "OpenCL version %0 does not support the option '%1'">, InGroup<Deprecated>;
+  "%0 does not support the option '%1'">, InGroup<Deprecated>;
 
 // if INTEL_CUSTOMIZATION
 def err_unable_to_load_vfs_overlay : Error<
