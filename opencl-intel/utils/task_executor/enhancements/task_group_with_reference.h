@@ -27,7 +27,28 @@ public:
   }
   void reserve_wait() { m_wait_ctx.reserve(); }
   void release_wait() { m_wait_ctx.release(); }
-  unsigned ref_count() const { return m_wait_ctx.reference_count(); }
+  unsigned ref_count() const {
+    // From: https://github.com/oneapi-src/oneTBB
+    // Commit: 112076d06c1fdab3df8612ee091fb639194fc6c4
+    // Path: include/oneapi/tbb/detail/_task.h
+    //
+    // class wait_context {
+    //     static constexpr std::uint64_t overflow_mask = ~((1LLU << 32) - 1);
+    //     std::uint64_t m_version_and_traits{1};
+    //     std::atomic<std::uint64_t> m_ref_count{};
+    //     ... ...
+    // };
+    //
+    // We have to do a nasty hack here because there is no public method to get
+    // reference count from m_wait_ctx any more.
+    // Fortunately, the ABI compatibility of wait_context is preserved so that
+    // we can access the reference count from the 2nd filed of m_wait_ctx via
+    // memory cast.
+    static_assert(sizeof(std::uint64_t) == sizeof(std::atomic<std::uint64_t>),
+                  "the sizes are expected to be equal");
+    return unsigned(((std::atomic<std::uint64_t> *)&m_wait_ctx)[1].load(
+        std::memory_order_acquire));
+  }
 };
 
 #endif // #ifndef ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H
