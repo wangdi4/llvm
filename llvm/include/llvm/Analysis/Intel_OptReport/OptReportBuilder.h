@@ -323,6 +323,23 @@ public:
         .addSibling(Sibling);
     OR.eraseSiblings();
   }
+
+  // Copy OptReport's children to another OptReport.
+  template <
+      typename R, typename... AuxObjectTys,
+      typename X = typename std::enable_if<!std::is_const<R>::value>::type>
+  void copyChildrenTo(R &Other, AuxObjectTys &&...AuxObjects) const {
+    if (!Builder.getVerbosity())
+      return;
+
+    OptReport OR = getOptReport();
+    if (!OR)
+      return;
+
+    for (OptReport Child = OR.firstChild(); Child; Child = Child.nextSibling())
+      Builder(Other, std::forward<AuxObjectTys>(AuxObjects)...)
+          .addChild(Child.copy());
+  }
 };
 
 // Traits of LLVM Function for OptReportBuilder.
@@ -440,6 +457,19 @@ template <> struct OptReportTraits<Loop> {
     });
   }
 };
+
+// Copy opt-report metadata from one function to another. Opt-report from
+// the 'From' function is appended to the 'To' function.
+inline void copyOptReport(Function &From, Function &To) {
+  OptReportBuilder ORBuilder;
+  // Opt-report verbosity level is not important here, we can use any
+  // value >= Low just to copy opt-report metadata from one function to
+  // another.
+  ORBuilder.setup(To.getContext(), OptReportVerbosity::Low);
+  if (ORBuilder(From).getOptReport())
+    ORBuilder(From).copyChildrenTo(To);
+}
+
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_INTEL_OPTREPORT_MDOPTREPORTBUILDER_H

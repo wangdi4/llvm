@@ -187,6 +187,10 @@ public:
   explicit operator bool() const { return OptReportMD; }
   MDTuple *get() const { return OptReportMD; }
 
+  /// Create a copy of the OptReport object. This call creates a copy of the
+  /// opt-report metadata tree it points to together with the children.
+  OptReport copy() const;
+
   /// \brief Checks if metadata is an instance of OptReport.
   ///
   /// Checks if metadata \M is a tuple tagged with OptReportTag::Root.
