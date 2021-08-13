@@ -1725,7 +1725,7 @@ static bool RemoveDeadThingsFromFunction(Function *F, Function *&NF,
       Params.push_back(I->getType());
       ArgAlive[i] = true;
       ArgAttrVec.push_back(PAL.getParamAttributes(i));
-      HasLiveReturnedArg |= PAL.hasParamAttribute(i, Attribute::Returned);
+      HasLiveReturnedArg |= PAL.hasParamAttr(i, Attribute::Returned);
     } else {
       ++NumArgumentsEliminated;
       LLVM_DEBUG(dbgs() << "Removing argument " << i << " (" << I->getName()

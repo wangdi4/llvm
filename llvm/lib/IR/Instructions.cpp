@@ -350,11 +350,11 @@ Value *CallBase::getReturnedArgOperand() const {
 bool CallBase::paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
   assert(ArgNo < getNumArgOperands() && "Param index out of bounds!");
 
-  if (Attrs.hasParamAttribute(ArgNo, Kind))
+  if (Attrs.hasParamAttr(ArgNo, Kind))
     return true;
 #if INTEL_CUSTOMIZATION
   if (const Function *F = getCalledFunction()) {
-    if (F->getAttributes().hasParamAttribute(ArgNo, Kind))
+    if (F->getAttributes().hasParamAttr(ArgNo, Kind))
       return true;
     if (CallBaseLookupCallbackAttrs)
       // If we are dealing with a callback call site check if callback function
