@@ -1826,13 +1826,14 @@ def int_matrix_column_major_store
 def int_experimental_matrix_load
   : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
               [llvm_anyptr_ty, llvm_i64_ty, llvm_i1_ty,
-               llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty, llvm_metadata_ty]>;
+               llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty, llvm_metadata_ty,
+               llvm_metadata_ty]>;
 
 def int_experimental_matrix_store
   : DefaultAttrsIntrinsic<[],
               [llvm_anyvector_ty, llvm_anyptr_ty,
                llvm_i64_ty, llvm_i1_ty, llvm_i32_ty, llvm_i32_ty,
-               llvm_metadata_ty, llvm_metadata_ty]>;
+               llvm_metadata_ty, llvm_metadata_ty, llvm_metadata_ty]>;
 
 def int_experimental_matrix_mad
   : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
