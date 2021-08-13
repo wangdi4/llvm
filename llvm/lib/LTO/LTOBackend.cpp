@@ -321,6 +321,8 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   legacy::PassManager passes;
   passes.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
 
+  NoPGOWarnMismatch = !Conf.PGOWarnMismatch; // INTEL
+
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
   if (Conf.Freestanding)
