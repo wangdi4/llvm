@@ -189,6 +189,8 @@ private:
 
   bool IsSimdLoop = false;
 
+  bool HasF90DopeVectorPrivate = false;
+
 public:
   /// Add stride information for pointer \p Ptr.
   // Used for a temporary solution of teaching legality based on DA.
@@ -212,7 +214,7 @@ public:
   }
 
   /// Add an in memory POD private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, bool IsLast = false,
+  void addLoopPrivate(Value *PrivVal, bool IsF90DopeVector, bool IsLast = false,
                       bool IsConditional = false) {
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
@@ -222,6 +224,9 @@ public:
     std::unique_ptr<PrivDescrTy> PrivItem =
         std::make_unique<PrivDescrTy>(PrivVal, Kind);
     Privates.insert({PrivVal, std::move(PrivItem)});
+
+    if (IsF90DopeVector)
+      HasF90DopeVectorPrivate = true;
   }
 
   /// Register explicit reduction variables provided from outside.

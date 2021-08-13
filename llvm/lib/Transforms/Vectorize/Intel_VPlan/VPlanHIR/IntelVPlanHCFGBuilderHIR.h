@@ -153,8 +153,8 @@ public:
 
   // Add explicit private.
   // Add POD privates to PrivatesList
-  void addLoopPrivate(RegDDRef *PrivVal, bool IsLast = false,
-                      bool IsConditional = false) {
+  void addLoopPrivate(RegDDRef *PrivVal, bool IsF90DopeVector,
+                      bool IsLast = false, bool IsConditional = false) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
@@ -162,6 +162,9 @@ public:
     if (IsConditional)
       Kind = PrivateKindTy::Conditional;
     PrivatesList.emplace_back(PrivVal, Kind);
+
+    if (IsF90DopeVector)
+      HasF90DopeVectorPrivate = true;
   }
 
   // Add non-POD privates to PrivatesList
@@ -262,6 +265,8 @@ public:
   void collectPreLoopDescrAliases();
   void collectPostExitLoopDescrAliases();
 
+  bool hasF90DopeVectorPrivate() { return HasF90DopeVectorPrivate; }
+
 private:
   void addReduction(RegDDRef *V, RecurKind Kind, bool IsSigned = false) {
     assert(V->isAddressOf() && "Reduction ref is not an address-of type.");
@@ -305,6 +310,7 @@ private:
   // getVectorIdioms(HLLoop*).
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
   bool IsSimdLoop = false;
+  bool HasF90DopeVectorPrivate = false;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {
