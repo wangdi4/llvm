@@ -96,13 +96,14 @@ static bool hasLoopIndexArg(CallBase &CB) {
 //   (1) It is by reference.
 //   (2) It is not cyclic.
 //   (3) It has only one recursive call site.
-// For the meaning of 'TestCountForConstant', 'Start', 'Inc', and 'Count'
-// and the definition of cyclic, see the description of the function
-// 'isRecProgressionCloneArgument' below.
+// For the meaning of 'TestCountForConstant', 'Start', 'Inc', 'Count',
+// and 'ArgType' and the definition of cyclic, see the description of the
+// function 'isRecProgressionCloneArgument' below.
 //
 static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
                                            Argument &Arg, unsigned &Count,
-                                           int &Start, int &Inc) {
+                                           int &Start, int &Inc,
+                                           Type *&ArgType) {
 
   //
   // Given a BasicBlock 'BS' and a dominating BasicBlock 'BT', compute
@@ -190,6 +191,7 @@ static bool isRecProgressionCloneArgument1(bool TestCountForConstant,
     return false;
   if (!LI->getType()->isIntegerTy())
     return false;
+  ArgType = LI->getType();
   // Validate the form of the recursive progression.
   AllocaInst *LAV = nullptr;
   StoreInst *SI = nullptr;
@@ -408,10 +410,12 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 // Return 'true' if 'Arg' is a recursive progression argument for a recursive
 // progression clone candidate. If 'true' is returned, set 'Start', 'Inc' and
 // 'Count' to the beginning, increment, and length of the recursive
-// progression. Also, set 'IsByRef' if the recursive progression argument is
-// a by reference value, and set 'IsCyclic' if the recursive progression is
-// cyclic.
-//
+// progression. Set 'IsByRef' if the recursive progression argument is
+// a by reference value. Set 'ArgType' to the type of the argument if it is
+// not a by reference value, and to the pointer element type of the argument
+// if it is a by reference value. Set 'IsCyclic' if the recursive progression
+// is cyclic.
+
 // If 'TestForConstant' is 'true', we return 'false' if the 'Count' value is
 // not a constant. In determining whether we are sure we have a recursive
 // progression, we should set 'TestForConstant' to 'true'. We use this
@@ -461,13 +465,16 @@ static bool isRecProgressionCloneArgument2(bool TestCountForConstant,
 static bool isRecProgressionCloneArgument(bool TestCountForConstant,
                                           Argument &Arg, unsigned &Count,
                                           int &Start, int &Inc,
-                                          bool &IsByRef, bool &IsCyclic) {
+                                          bool &IsByRef, Type *&ArgType,
+                                          bool &IsCyclic) {
 
-   bool RV;
+   bool RV = false;
+   Type *LArgType = nullptr;
    RV = isRecProgressionCloneArgument1(TestCountForConstant, Arg, Count,
-                                       Start, Inc);
+                                       Start, Inc, LArgType);
    if (RV) {
      IsByRef = true;
+     ArgType = LArgType;
      IsCyclic = false;
      return true;
    }
@@ -475,6 +482,7 @@ static bool isRecProgressionCloneArgument(bool TestCountForConstant,
                                        Start, Inc);
    if (RV) {
      IsByRef = false;
+     ArgType = Arg.getType();
      IsCyclic = true;
      return true;
    }
@@ -487,16 +495,19 @@ extern bool isRecProgressionCloneCandidate(Function &F,
                                            bool TestCountForConstant,
                                            unsigned *ArgPos, unsigned *Count,
                                            int *Start, int *Inc,
-                                           bool *IsByRef, bool *IsCyclic) {
+                                           bool *IsByRef, Type **ArgType,
+                                           bool *IsCyclic) {
   unsigned LocalCount;
   int LocalStart;
   int LocalInc;
   bool LocalIsByRef;
+  Type *LocalArgType = nullptr;
   bool LocalIsCyclic;
+
   for (auto &Arg : F.args()) {
     if (isRecProgressionCloneArgument(TestCountForConstant, Arg, LocalCount,
                                       LocalStart, LocalInc, LocalIsByRef,
-                                      LocalIsCyclic)) {
+                                      LocalArgType, LocalIsCyclic)) {
       unsigned LocalArgPos = Arg.getArgNo();
       if (ArgPos)
         *ArgPos = LocalArgPos;
@@ -508,6 +519,8 @@ extern bool isRecProgressionCloneCandidate(Function &F,
         *Inc = LocalInc;
       if (IsByRef)
         *IsByRef = LocalIsByRef;
+      if (ArgType)
+        *ArgType = LocalArgType;
       if (IsCyclic)
         *IsCyclic = LocalIsCyclic;
       return true;

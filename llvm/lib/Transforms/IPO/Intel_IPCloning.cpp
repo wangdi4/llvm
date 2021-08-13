@@ -15,6 +15,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/AbstractCallSite.h"
@@ -305,29 +306,32 @@ static bool isConstantArgWorthyForGenericClone(Value *Arg) {
   return true;
 }
 
-// Return true if constant argument 'Arg' is worth considering for cloning
-// based on 'CloneType'.
+// Return true if constant argument 'ActualV' with corresponding formal
+// argument 'FormalV' is worth considering for cloning based on 'CloneType'.
 //
-static bool isConstantArgWorthy(Value *Arg, IPCloneKind CloneType) {
+static bool isConstantArgWorthy(Argument *FormalV, Value *ActualV,
+                                IPCloneKind CloneType) {
   bool IsWorthy = false;
 
   if (CloneType == FuncPtrsClone) {
-    IsWorthy = isConstantArgWorthyForFuncPtrsClone(Arg);
+    IsWorthy = isConstantArgWorthyForFuncPtrsClone(ActualV);
   } else if (CloneType == SpecializationClone) {
-    IsWorthy = isConstantArgWorthyForSpecializationClone(Arg);
+    IsWorthy = isConstantArgWorthyForSpecializationClone(FormalV, ActualV);
   } else if (CloneType == GenericClone) {
-    IsWorthy = isConstantArgWorthyForGenericClone(Arg);
+    IsWorthy = isConstantArgWorthyForGenericClone(ActualV);
   }
   return IsWorthy;
 }
 
-// Return true if actual argument is considered for cloning
-static bool isConstantArgForCloning(Value *Arg, IPCloneKind CloneType) {
-  if (Constant *C = dyn_cast<Constant>(Arg)) {
+// Return true if actual argument 'ActualV' with corresponding formal
+// argument 'FormalV' is considered for cloning.
+static bool isConstantArgForCloning(Argument *FormalV, Value *ActualV,
+                                    IPCloneKind CloneType) {
+  if (Constant *C = dyn_cast<Constant>(ActualV)) {
     if (isa<UndefValue>(C))
       return false;
 
-    if (isConstantArgWorthy(Arg, CloneType))
+    if (isConstantArgWorthy(FormalV, ActualV, CloneType))
       return true;
   }
   return false;
@@ -336,10 +340,10 @@ static bool isConstantArgForCloning(Value *Arg, IPCloneKind CloneType) {
 // Collect constant value if 'ActualV' is constant actual argument
 // and save it in constant list of 'FormalV'. Otherwise, mark
 // 'FormalV' as inexact.
-static void collectConstantArgument(Value *FormalV, Value *ActualV,
+static void collectConstantArgument(Argument *FormalV, Value *ActualV,
                                     IPCloneKind CloneType) {
 
-  if (!isConstantArgForCloning(ActualV, CloneType)) {
+  if (!isConstantArgForCloning(FormalV, ActualV, CloneType)) {
     // Mark inexact formal
     if (!InexactFormals.count(FormalV))
       InexactFormals.insert(FormalV);
@@ -400,19 +404,19 @@ static unsigned getMinClones() {
 // Sets 'SizeInBytes' to size of array of char and 'NumElems'
 // to number of elements in array. 'DL' is used to get size of array.
 //
-static void GetPointerToArrayDims(Type *PTy, unsigned &SizeInBytes,
+static void GetPointerToArrayDims(Argument *Arg, unsigned &SizeInBytes,
                                   unsigned &NumElems, const DataLayout &DL) {
 
-  if (!isPointerToCharArray(PTy))
+  Type *ATy = inferPtrElementType(*Arg);
+  if (!ATy || !isCharArray(ATy))
     return;
-  auto ATy = cast<PointerType>(PTy)->getElementType();
 
   NumElems = cast<ArrayType>(ATy)->getNumElements();
   SizeInBytes = DL.getTypeSizeInBits(ATy);
 }
 
-// Return true if 'V' is address of packed array (i.e int64 value) on
-// stack.
+// Return a StoreInst (like StInst in the example below) if 'V' is the address
+// of packed array (i.e int64 value) on stack.
 //
 //  Ex:
 //   AInst:        %6 = alloca i64, align 8
@@ -428,14 +432,14 @@ static void GetPointerToArrayDims(Type *PTy, unsigned &SizeInBytes,
 //   Callee:       call void @llvm.lifetime.end(i64 8, i8* %10) #9
 //
 //
-static Value *isStartAddressOfPackedArrayOnStack(Value *V) {
+static StoreInst *isStartAddressOfPackedArrayOnStack(Value *V) {
   Instruction *I = cast<Instruction>(V);
   Value *AInst = I->getOperand(0);
   if (!isa<AllocaInst>(AInst))
     return nullptr;
   AllocaInst *AllocaI = cast<AllocaInst>(AInst);
 
-  Value *StInst = nullptr;
+  StoreInst *StInst = nullptr;
   for (User *U : AInst->users()) {
 
     // Ignore if it is the arg that is passed to call.
@@ -454,13 +458,14 @@ static Value *isStartAddressOfPackedArrayOnStack(Value *V) {
       continue;
     }
 
-    if (!isa<StoreInst>(U))
+    auto SI = dyn_cast<StoreInst>(U);
+    if (!SI)
       return nullptr;
 
     // More than one use is noticed
     if (StInst != nullptr)
       return nullptr;
-    StInst = U;
+    StInst = SI;
   }
   if (StInst == nullptr)
     return nullptr;
@@ -475,46 +480,46 @@ static Value *isStartAddressOfPackedArrayOnStack(Value *V) {
   return StInst;
 }
 
-// Returns true if 'V' is a Global Variable candidate for specialization
-// cloning. 'I' is used to get DataLayout to compute sizes of types.
+// Returns 'V' as A GlobalVariable if 'V' is a Global Variable candidate for
+// specialization cloning. 'I' is used to get DataLayout to compute sizes of
+// types.
 //
-static bool isSpecializationGVCandidate(Value *V, Instruction *I) {
-  GlobalVariable *GV;
-  GV = dyn_cast<GlobalVariable>(V);
+static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
+  auto GV = dyn_cast<GlobalVariable>(V);
   if (!GV)
-    return false;
+    return nullptr;
 
   if (!GV->isConstant())
-    return false;
+    return nullptr;
   if (!GV->hasDefinitiveInitializer())
-    return false;
+    return nullptr;
   Constant *Init = GV->getInitializer();
   if (!isa<ConstantArray>(Init))
-    return false;
+    return nullptr;
 
   if (GV->getLinkage() != GlobalVariable::PrivateLinkage)
-    return false;
+    return nullptr;
   if (GV->hasComdat())
-    return false;
+    return nullptr;
   if (GV->isThreadLocal())
-    return false;
+    return nullptr;
 
   Type *Ty = GV->getValueType();
   if (!Ty->isSized())
-    return false;
+    return nullptr;
   const DataLayout &DL = I->getModule()->getDataLayout();
   if (DL.getTypeSizeInBits(Ty) > IPSpecCloningArrayLimit)
-    return false;
+    return nullptr;
 
   // Add more checks like below but not required
-  // if (GlobalWasGeneratedByCompiler(GV)) return false;
+  // if (GlobalWasGeneratedByCompiler(GV)) return nullptr;
   // if (!Ty->isArrayTy() ||
-  //     !Ty->getArrayElementType()->isArrayTy()) return false;
-  return true;
+  //     !Ty->getArrayElementType()->isArrayTy()) return nullptr;
+  return GV;
 }
 
-// Return true if 'V' is address of stack location where Global array
-// is copied completely.
+// Return a GlobalVariable (like GlobAddr in th example below) if 'V' is
+// the address of stack location where Global array is copied completely.
 //
 // Ex:
 //
@@ -539,7 +544,7 @@ static bool isSpecializationGVCandidate(Value *V, Instruction *I) {
 //
 //  GlobAddr:     @t.CM_THREE
 //
-static Value *isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
+static GlobalVariable *isStartAddressOfGlobalArrayCopyOnStack(Value *V) {
   GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(V);
   if (!GEP)
     return nullptr;
@@ -580,7 +585,7 @@ static Value *isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
   if (GEPType != MemCpySrc->getSourceElementType())
     return nullptr;
 
-  Value *GlobAddr = nullptr;
+  GlobalVariable *GlobAddr = nullptr;
   for (const User *U : AUse->users()) {
     auto User = dyn_cast<CallInst>(U);
     if (!User)
@@ -612,9 +617,9 @@ static Value *isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
     // Make sure there is only one memcpy
     if (GlobAddr != nullptr)
       return nullptr;
-    GlobAddr = MemCpyDst->getOperand(0);
 
-    if (!isSpecializationGVCandidate(GlobAddr, GEP))
+    GlobAddr = isSpecializationGVCandidate(MemCpyDst->getOperand(0), GEP);
+    if (!GlobAddr)
       return nullptr;
 
     const DataLayout &DL = GEP->getModule()->getDataLayout();
@@ -635,11 +640,11 @@ static Value *isStartAddressOfGLobalArrayCopyOnStack(Value *V) {
 // operands and save it in SpecialConstGEPMap to use it during
 // transformation.
 //
-static bool isSpecializationCloningSpecialConst(Value *V, Value *Arg) {
+static bool isSpecializationCloningSpecialConst(Value *V, PHINode *Arg) {
   Value *PropVal = nullptr;
 
   if (isa<GetElementPtrInst>(V)) {
-    PropVal = isStartAddressOfGLobalArrayCopyOnStack(V);
+    PropVal = isStartAddressOfGlobalArrayCopyOnStack(V);
   } else if (isa<BitCastInst>(V)) {
     PropVal = isStartAddressOfPackedArrayOnStack(V);
   } else {
@@ -692,7 +697,7 @@ collectArgsSetsForSpecialization(Function &F, CallInst &CI,
 
       auto PHI = cast<PHINode>(*CAI1);
       Value *C = PHI->getIncomingValueForBlock(PredBB);
-      if (isa<Constant>(C) || isSpecializationCloningSpecialConst(C, *CAI1)) {
+      if (isa<Constant>(C) || isSpecializationCloningSpecialConst(C, PHI)) {
         ConstantArgs.push_back(std::make_pair(Position, C));
       } else {
         Inexact = true;
@@ -841,13 +846,11 @@ static bool analyzeAllCallsOfFunction(Function &F, IPCloneKind CloneType) {
 // Returns true if it has at least one formal of function pointer type.
 //
 static bool IsFunctionPtrCloneCandidate(Function &F) {
-  for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
-       ++AI) {
-    Type *T = (&*AI)->getType();
-    if (isa<PointerType>(T) &&
-        isa<FunctionType>(cast<PointerType>(T)->getElementType()))
-      return true;
-  }
+  for (auto &Arg : F.args())
+    for (User *U : Arg.users())
+      if (auto CB = dyn_cast<CallBase>(U))
+        if (CB->getCalledOperand()->stripPointerCasts() == &Arg)
+          return true;
   return false;
 }
 
@@ -944,10 +947,7 @@ static bool IsFunctionPtrCloneCandidate(Function &F) {
 // above example, that will be 9.)
 //
 static bool isRecProAllocaIntArray(AllocaInst *AI, int *ArrayLengthOut) {
-  Type *PT = AI->getType();
-  if (!PT->isPointerTy())
-    return false;
-  Type *T = PT->getPointerElementType();
+  Type *T = AI->getAllocatedType();
   if (!T->isArrayTy() || !T->getArrayElementType()->isIntegerTy())
     return false;
   *ArrayLengthOut = T->getArrayNumElements();
@@ -1461,7 +1461,7 @@ static GetElementPtrInst *findOrCreateRecProGEP(AllocaInst *AI,
   Indices.push_back(CI1);
   auto CI2 = ConstantInt::get(Int64Ty, 0, true);
   Indices.push_back(CI2);
-  Type *GEPT = AI->getType()->getElementType();
+  Type *GEPT = AI->getAllocatedType();
   return GetElementPtrInst::Create(GEPT, AI, Indices, "", BB);
 }
 
@@ -1502,13 +1502,19 @@ static void addSpecialRecProCloneCode(Function *F, Function *FClone,
   Instruction *SILB = Builder.CreateSubscript(
       0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPL,
       ConstantInt::get(Int64Ty, 8));
-  auto LILBType = SILB->getType()->getPointerElementType();
+  auto LILBArType = GEPL->getSourceElementType();
+  // We checked AILower allocates an array type in isRecProAllocaIntArray(),
+  // so casting is OK here.
+  auto LILBType = cast<ArrayType>(LILBArType)->getElementType();
   LoadInst *LILB8 = Builder.CreateLoad(LILBType, SILB, "LILB8");
   GetElementPtrInst *GEPU = findOrCreateRecProGEP(AIUpper, BBCond);
   Instruction *SIUB = Builder.CreateSubscript(
       0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPU,
       ConstantInt::get(Int64Ty, 8));
-  auto SIUBType = SIUB->getType()->getPointerElementType();
+  auto SIUBArType = GEPU->getSourceElementType();
+  // We checked AIUpper allocates an array type in isRecProAllocaIntArray(),
+  // so casting is OK here.
+  auto SIUBType = cast<ArrayType>(SIUBArType)->getElementType();
   LoadInst *LIUB8 = Builder.CreateLoad(SIUBType, SIUB, "LIUB8");
   Value *CmpI = Builder.CreateICmpEQ(LILB8, LIUB8, "CMP8S");
   Builder.CreateCondBr(CmpI, BBCallClone, BBConstStore);
@@ -1525,11 +1531,9 @@ static void addSpecialRecProCloneCode(Function *F, Function *FClone,
   }
   Builder.CreateRetVoid();
   Builder.SetInsertPoint(BBConstStore);
-  Constant *C1 =
-      ConstantInt::get(SILB->getType()->getPointerElementType(), CVLower);
+  Constant *C1 = ConstantInt::get(LILBType, CVLower);
   Builder.CreateStore(C1, SILB);
-  Constant *C9 =
-      ConstantInt::get(SIUB->getType()->getPointerElementType(), CVUpper);
+  Constant *C9 = ConstantInt::get(SIUBType, CVUpper);
   Builder.CreateStore(C9, SIUB);
   Builder.CreateBr(BBLastExit);
   LLVM_DEBUG({
@@ -1758,8 +1762,10 @@ static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
 // argument, whose initial value is 'Start', and is incremented by 'Inc', a
 // total of 'Count' times, and then repeats.
 //
-// If 'IsByRef' is 'true', the recursive progression argument is by reference.
-// If 'IsCyclic' is 'true', the recursive progression is cyclic.
+// If 'IsByRef' is 'true', the recursive progression argument is by reference
+// and 'ArgType' is the pointer element type of the recursive progression
+// argument, otherwise 'ArgType' is the type of the recursive progression
+// argument.  If 'IsCyclic' is 'true', the recursive progression is cyclic.
 //
 // For example, in the case of a cyclic recursive progression:
 //   static void foo(int i) {
@@ -1844,7 +1850,8 @@ static void deleteRecProgressionRecCalls(Function &OrigF, Function &PrevF) {
 // create an extra clone.
 static void createRecProgressionClones(Function &F, unsigned ArgPos,
                                        unsigned Count, int Start, int Inc,
-                                       bool IsByRef, bool IsCyclic) {
+                                       bool IsByRef, Type *ArgType,
+                                       bool IsCyclic) {
   int FormalValue = Start;
   Function *FirstCloneF = nullptr;
   Function *LastCloneF = nullptr;
@@ -1869,9 +1876,7 @@ static void createRecProgressionClones(Function &F, unsigned ArgPos,
       fixRecProgressionBasisCall(F, *NewF);
     NumIPCloned++;
     Argument *NewFormal = NewF->arg_begin() + ArgPos;
-    auto ConstantType = NewFormal->getType();
-    if (IsByRef)
-      ConstantType = ConstantType->getPointerElementType();
+    Type *ConstantType = ArgType;
     Value *Rep = ConstantInt::get(ConstantType, FormalValue);
     FormalValue += Inc;
     LLVM_DEBUG({
@@ -2087,14 +2092,12 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
   unsigned GlobalIFCount = 0;
   unsigned GlobalSwitchCount = 0;
   bool SawPending = false;
-  for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end(); AI != E;
-       ++AI) {
+  for (auto &Arg : F.args()) {
 
-    Value *V = &*AI;
     f_count++;
 
     // Ignore formal if it doesn't have any constants at call-sites
-    auto &ValList = FormalConstantValues[V];
+    auto &ValList = FormalConstantValues[&Arg];
     if (ValList.size() == 0)
       continue;
 
@@ -2106,10 +2109,10 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       unsigned IFCount = 0;
       unsigned SwitchCount = 0;
       if (findPotentialConstsAndApplyHeuristics(
-              F, V, &LI, true, IFSwitchHeuristic, &IFCount, &SwitchCount)) {
+              F, &Arg, &LI, true, IFSwitchHeuristic, &IFCount, &SwitchCount)) {
         if (IFCount + SwitchCount == 0) {
           // Qualified unconditionally under the loop heuristic.
-          WorthyFormalsForCloning.insert(V);
+          WorthyFormalsForCloning.insert(&Arg);
           LLVM_DEBUG(dbgs() << "  Selecting FORMAL_" << (f_count - 1) << "\n");
         } else {
           // Qualified under the if-switch heuristic. Mark the formal as
@@ -2118,7 +2121,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
           SawPending = true;
           GlobalIFCount += IFCount;
           GlobalSwitchCount += SwitchCount;
-          PossiblyWorthyFormalsForCloning.insert(V);
+          PossiblyWorthyFormalsForCloning.insert(&Arg);
           LLVM_DEBUG({
             dbgs() << "  Pending FORMAL_" << (f_count - 1) << "\n";
             dbgs() << "    IFCount " << GlobalIFCount << " <- " << IFCount
@@ -2135,7 +2138,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl,
       }
     } else {
       // No heuristics for IPCloning before Inlining, unless IsGenRec
-      WorthyFormalsForCloning.insert(V);
+      WorthyFormalsForCloning.insert(&Arg);
     }
   }
 
@@ -2246,7 +2249,7 @@ static bool okayEliminateRecursion(Function *ClonedFn, unsigned index,
     if (!isArgumentConstantAtPosition(CArgs, position)) {
       // If argument is not constant in CArgs, then actual argument of CI
       // should be non-constant.
-      if (isConstantArgForCloning(*CAI, FuncPtrsClone))
+      if (isConstantArgForCloning(&*AI, *CAI, FuncPtrsClone))
         return false;
 
     } else {
@@ -2738,11 +2741,11 @@ static Value *isSpecializationConstantAtPosition(
 // %7 = getelementptr inbounds [3 x [2 x i8]],
 //                [3 x [2 x i8]]* @t.CM_ONE, i32 0, i32 0
 //
-static Value *createGEPAtFrontInClonedFunction(Function *NewFn, Value *BaseAddr,
-                                               unsigned NumIndices) {
+static GetElementPtrInst *
+createGEPAtFrontInClonedFunction(Function *NewFn, GlobalVariable *BaseAddr,
+                                 unsigned NumIndices) {
 
   Type *Int32Ty;
-  Value *Rep;
   SmallVector<Value *, 4> Indices;
 
   Instruction *InsertPt = &NewFn->begin()->front();
@@ -2751,9 +2754,8 @@ static Value *createGEPAtFrontInClonedFunction(Function *NewFn, Value *BaseAddr,
   for (unsigned I = 0; I < NumIndices; I++)
     Indices.push_back(ConstantInt::get(Int32Ty, 0));
 
-  Rep = GetElementPtrInst::CreateInBounds(
-      (BaseAddr->getType()->getScalarType())->getPointerElementType(), BaseAddr,
-      Indices, "", InsertPt);
+  GetElementPtrInst *Rep = GetElementPtrInst::CreateInBounds(
+      BaseAddr->getValueType(), BaseAddr, Indices, "", InsertPt);
   LLVM_DEBUG(dbgs() << "     Created New GEP: " << *Rep << "\n");
 
   return Rep;
@@ -2815,7 +2817,7 @@ createGlobalVariableWithInit(Function *NewFn, uint64_t Number,
 // argument. 'CallI' and 'DL' are used to get Module and size info.
 //
 static Value *getReplacementValueForArg(Function *NewFn, Value *V,
-                                        Value *Formal, Instruction *CallI,
+                                        Argument *Formal, Instruction *CallI,
                                         const DataLayout &DL,
                                         unsigned &Counter) {
 
@@ -2848,7 +2850,8 @@ static Value *getReplacementValueForArg(Function *NewFn, Value *V,
     //    %7 = getelementptr inbounds [5 x [2 x i8]],
     //                [5 x [2 x i8]]* @t.CM_THREE, i32 0, i32 0
     //
-    Rep = createGEPAtFrontInClonedFunction(NewFn, PropValue, NumIndices);
+    auto GV = cast<GlobalVariable>(PropValue);
+    Rep = createGEPAtFrontInClonedFunction(NewFn, GV, NumIndices);
     return Rep;
   }
 
@@ -2873,7 +2876,7 @@ static Value *getReplacementValueForArg(Function *NewFn, Value *V,
   Value *Val = cast<StoreInst>(PropValue)->getOperand(0);
   ConstantInt *CI = cast<ConstantInt>(Val);
 
-  GetPointerToArrayDims(Formal->getType(), SizeInBytes, NumElems, DL);
+  GetPointerToArrayDims(Formal, SizeInBytes, NumElems, DL);
   assert((SizeInBytes > 0) && "Expects pointer to Array Type");
 
   // Create New GlobalVariable
@@ -2908,7 +2911,7 @@ static void propagateArgumentsToClonedFunction(Function *NewFn,
     if (V == nullptr)
       continue;
 
-    Value *Formal = &*AI;
+    Argument *Formal = &*AI;
 
     Rep = getReplacementValueForArg(NewFn, V, Formal, CallI, DL, Counter);
 
@@ -4162,25 +4165,27 @@ bool Splitter::canReloadPHI(PHINode *PHIN) {
     for (auto &I : *BB) {
       if (auto SI = dyn_cast<StoreInst>(&I)) {
         Value *V = SI->getPointerOperand();
+        GetElementPtrInst *GEPIX = nullptr;
         if (auto BC = dyn_cast<BitCastInst>(V)) {
+          V = BC->getOperand(0);
+          GEPIX = dyn_cast<GetElementPtrInst>(V);
+          if (!GEPIX)
+            return false;
           const DataLayout &DL = BC->getModule()->getDataLayout();
-          Type *TySrc = BC->getSrcTy();
-          if (!TySrc->isPointerTy())
+          if (!BC->getSrcTy()->isPointerTy())
             return false;
-          Type *TySrcE = TySrc->getPointerElementType();
-          Type *TyDest = BC->getDestTy();
-          if (!TyDest->isPointerTy())
+          if (!BC->getDestTy()->isPointerTy())
             return false;
-          Type *TyDestE = TyDest->getPointerElementType();
+          Type *TySrcE = GEPIX->getResultElementType();
+          Type *TyDestE = SI->getValueOperand()->getType();
           if (DL.getTypeSizeInBits(TySrcE) != DL.getTypeSizeInBits(TyDestE))
             return false;
-          V = BC->getOperand(0);
+        } else {
+          GEPIX = dyn_cast<GetElementPtrInst>(V);
+          if (!GEPIX)
+            return false;
         }
-        auto GEPIX = dyn_cast<GetElementPtrInst>(V);
-        if (!GEPIX)
-          return false;
-        if (GEPIX->getPointerOperand()->getType() !=
-            GEPI->getPointerOperand()->getType())
+        if (GEPIX->getSourceElementType() != GEPI->getSourceElementType())
           return false;
         if (GEPIX->getNumOperands() < GEPI->getNumOperands())
           return false;
@@ -4389,7 +4394,7 @@ void Splitter::replicateGEPI(GetElementPtrInst *GEPI) {
   SmallVector<Value *, 8> Idxs;
   for (unsigned I = 1, E = GEPI->getNumOperands(); I != E; ++I)
     Idxs.push_back(GEPI->getOperand(I));
-  Type *Ty = GEPI->getPointerOperand()->getType()->getPointerElementType();
+  Type *Ty = GEPI->getSourceElementType();
   auto GEPINew =
       GetElementPtrInst::Create(Ty, GEPIPO, Idxs, "", InstInsertBefore);
   moveNonVisitedUses(GEPI, GEPINew);
@@ -4400,7 +4405,7 @@ void Splitter::reloadPHI(PHINode *PHIN) {
   assert(GEPI != nullptr && "Expecting PHINode in map");
   auto GEPINew = GEPI->clone();
   GEPINew->insertBefore(InstInsertBefore);
-  Type *LType = GEPINew->getType()->getPointerElementType();
+  Type *LType = GEPI->getResultElementType();
   const DataLayout &DL = GEPINew->getFunction()->getParent()->getDataLayout();
   Align LAlign = DL.getABITypeAlign(LType);
   LoadInst *LI =
@@ -5086,7 +5091,7 @@ static bool isManyLoopSpecializationCandidate(Function *F,
         nullptr;
     IRBuilder <> Builder(CI);
     Value *ArgOut = CI->getArgOperand(ArgNo);
-    Type *Ty = GEPI->getPointerOperand()->getType()->getPointerElementType();
+    Type *Ty = GEPI->getSourceElementType();
     Value *GEPINew = Builder.CreateConstGEP2_32(Ty, ArgOut, 0, 1);
     LoadInst *LINew = Builder.CreateLoad(LI->getType(), GEPINew, "");
     if (DIL)
@@ -5129,10 +5134,18 @@ static bool isManyLoopSpecializationCandidate(Function *F,
     // Test some basic arguments. 'onlyReadsMemory' is the most important one,
     // since we need to test the argument value in the specialization test.
     const DataLayout &DL = F->getParent()->getDataLayout();
-    if (!Arg.hasNoCaptureAttr() || !Arg.getType()->isPointerTy() ||
-        Arg.getDereferenceableBytes() <
-            DL.getTypeStoreSize(Arg.getType()->getPointerElementType()) ||
-        !Arg.onlyReadsMemory()) {
+    if (!Arg.hasNoCaptureAttr() || !Arg.getType()->isPointerTy()) {
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "Arg missing required attributes\n");
+      continue;
+    }
+    Type *Ty = inferPtrElementType(Arg);
+    if (!Ty || Arg.getDereferenceableBytes() < DL.getTypeStoreSize(Ty)) {
+      LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
+                        << "Arg missing required attributes\n");
+      continue;
+    }
+    if (!Arg.onlyReadsMemory()) {
       LLVM_DEBUG(dbgs() << "MLSC: Arg(" << ArgNo << "): "
                         << "Arg missing required attributes\n");
       continue;
@@ -5330,18 +5343,19 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       int Start, Inc;
       unsigned ArgPos, Count;
       bool IsByRef, IsCyclic;
+      Type *ArgType = nullptr;
       // Extra data returned from ManyLoopSpecializationClone testing
       Value *IC = nullptr;
       LoadInst *LI = nullptr;
       unsigned TCNumber = 0;
       if (EnableDTrans &&
           isRecProgressionCloneCandidate(F, true, &ArgPos, &Count, &Start, &Inc,
-                                         &IsByRef, &IsCyclic)) {
+                                         &IsByRef, &ArgType, &IsCyclic)) {
         CloneType = RecProgressionClone;
         LLVM_DEBUG(dbgs() << "    Selected RecProgression cloning  "
                           << "\n");
         createRecProgressionClones(F, ArgPos, Count, Start, Inc, IsByRef,
-                                   IsCyclic);
+                                   ArgType, IsCyclic);
         if (!IsCyclic && canChangeCPUAttributes(M))
           changeCPUAttributes(M);
         continue;

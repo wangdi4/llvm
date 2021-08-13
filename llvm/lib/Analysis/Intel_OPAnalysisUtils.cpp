@@ -54,11 +54,13 @@ static Type *inferPtrElementTypeX(Value *V) {
 }
 
 //
-// If 'Arg' is a pointer type, return its pointer element type if it can be inferred
-// by checking the types of its uses through various instruction types. Return
-// 'nullptr' if no type can be inferred or the types inferred are inconsistent.
+// If 'Arg' is a pointer type, return its pointer element type if it can be
+// inferred by checking the types of its uses through various instruction
+// types. Return 'nullptr' if no type can be inferred or the types inferred
+// are inconsistent.
 //
-// NOTE: The use of this replaces the use of getPointerElementType()
+// NOTE: The use of this replaces the use of
+//   Arg.getType()->getPointerElementType()
 // which will be removed when the community moves to opaque pointers.
 //
 Type *inferPtrElementType(Argument &Arg) {
