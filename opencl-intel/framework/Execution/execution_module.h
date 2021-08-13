@@ -336,7 +336,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
                           SharedPtr<USMBuffer> &buf);
 
         // Register tracker event for blocking USMFree
-        void SetTrackerForUSM(const std::vector<const void *> &usmPtrList,
+        void SetTrackerForUSM(Command *command,
+                              const std::vector<const void *> &usmPtrList,
                               cl_event tracker, bool isTrackerVisible);
 
         size_t              CalcRegionSizeInBytes(SharedPtr<MemoryObject> pImage, const size_t* szRegion);

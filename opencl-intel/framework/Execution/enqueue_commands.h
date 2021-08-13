@@ -115,13 +115,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
         
         // ICmdStatusChangedObserver function
         cl_err_code NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletionResult, cl_ulong ulTimer) override;
-        
+
         // Command general functions
         const SharedPtr<QueueEvent>& GetEvent()                             { return m_Event; }
         void            SetDevCmdListId    (cl_dev_cmd_list clDevCmdListId) { m_clDevCmdListId = clDevCmdListId; }
         cl_dev_cmd_list GetDevCmdListId    () const                         { return m_clDevCmdListId; }
         void            SetDevice(const SharedPtr<FissionableDevice>& pDevice)               { m_pDevice = pDevice; }
         const SharedPtr<FissionableDevice>& GetDevice() const                                { return m_pDevice; }
+
+        void SetUsmPtrList(const std::vector<const void *> &usmPtrs) { m_UsmPtrs = usmPtrs; }
 
         cl_dev_cmd_desc* GetDeviceCommandDescriptor();
 
@@ -165,7 +167,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // call this to break event<>command sharedPtr loop and initiate command deletion
         void DetachEventSharedPtr();
-        
+
+        void UnregisterUSMFreeWaitEvent();
+
         // retrieve device specific descriptor of the memory object.
         // If descriptor is not ready on a device:
         //  1. The descriptor value will be set with NULL
@@ -217,24 +221,27 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<IOclCommandQueueBase> m_pCommandQueue;            // A pointer to the command queue on which the command resides
         cl_int                          m_returnCode;               // The result of the completed command. Can be CL_SUCCESS or one of the errors defined by the spec.
         cl_command_type                 m_commandType;              // Command type
-        
+
         ocl_gpa_command*                m_pGpaCommand;
         bool                            m_bIsBeingDeleted;          // Command destructor is active - to be check during internal event destructor 
         volatile bool                   m_bEventDetached;           // event already detached from the command
-        
 
         // Intermediate data
         MemoryObjectArgList             m_MemOclObjects;
-        
+
+        ContextModule*                  m_pContextModule;
+        // A list of pointers to USM whose free may be blocked by this command.
+        std::vector<const void *>       m_UsmPtrs;
+
         DECLARE_LOGGER_CLIENT;
     private:
-        
+
         // disable possibility to create two instances of Command with the same logger pointer.
         Command(const Command& s);
         Command& operator=(const Command& s);
         // return CL_SUCCESS if ready and succeeded, CL_NOT_READY if not ready yet and succeeded, other error code in case of error
         cl_err_code AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev );
-                
+
         bool                        m_memory_objects_acquired;
        
     };
@@ -1179,7 +1186,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         MigrateSVMMemCommand(
             const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
-            ContextModule*         pContextModule,
             cl_mem_migration_flags clFlags,
             cl_uint                uNumMemObjects,
             const void**           pMemObject,
@@ -1199,7 +1205,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
       protected:
         const void**                m_pMemObjects;      // used temporary to pass info from contructor to init()
         const size_t*               m_pSizes;
-        ContextModule*              m_pContextModule;
 
         cl_dev_cmd_param_migrate    m_migrateCmdParams;
     };
@@ -1214,7 +1219,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         MigrateMemObjCommand(
             const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
             ocl_entry_points *     pOclEntryPoints,
-            ContextModule*         pContextModule,
             cl_mem_migration_flags clFlags,
             cl_uint                uNumMemObjects,
             const cl_mem*          pMemObjects
@@ -1232,7 +1236,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
       protected:
         const cl_mem*               m_pMemObjects;      // used temporary to pass info from contructor to init()
-        ContextModule*              m_pContextModule;
 
         cl_dev_cmd_param_migrate    m_migrateCmdParams;
     };
@@ -1247,7 +1250,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         MigrateUSMMemCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ContextModule* contextModule,
             cl_mem_migration_flags_intel clFlags,
             const void* ptr,
             size_t size
@@ -1265,7 +1267,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
       protected:
         const void*                  m_ptr;
-        ContextModule*               m_contextModule;
 
         cl_dev_cmd_param_migrate_usm m_migrateCmdParams;
     };
@@ -1278,7 +1279,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     public:
         AdviseUSMMemCommand(
             const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-            ContextModule* pContextModule,
             const void* ptr,
             size_t size,
             cl_mem_advice_intel advice
@@ -1296,7 +1296,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
       protected:
         const void*                 m_ptr;
-        ContextModule*              m_contextModule;
 
         cl_dev_cmd_param_advise_usm m_adviseCmdParams;
     };

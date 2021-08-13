@@ -900,7 +900,6 @@ cl_err_code ExecutionModule::EnqueueMigrateMemObjects(cl_command_queue clCommand
 
     MigrateMemObjCommand* pMigrateCommand = new MigrateMemObjCommand(
                                         pCommandQueue, (ocl_entry_points*)((_cl_command_queue_int*)pCommandQueue->GetHandle())->dispatch,
-                                        m_pContextModule,
                                         clFlags,
                                         uiNumMemObjects, pMemObjects );
     if (NULL == pMigrateCommand)
@@ -2385,7 +2384,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         for (auto buf : nonArgUsmBufs)
             usmPtrList.push_back(buf->GetAddr());
 
-        SetTrackerForUSM(usmPtrList, trackerEvent, pEvent != nullptr);
+        SetTrackerForUSM(pNDRangeKernelCmd, usmPtrList, trackerEvent,
+                         pEvent != nullptr);
     }
 
     return  errVal;
@@ -3403,8 +3403,8 @@ cl_err_code ExecutionModule::EnqueueSVMMigrateMem(cl_command_queue clCommandQueu
       return CL_INVALID_COMMAND_QUEUE;
     }
 
-    MigrateSVMMemCommand* pMigrateSVMCommand = new MigrateSVMMemCommand(pQueue, m_pContextModule, flags,
-                                                                    num_svm_pointers, svm_pointers, sizes);
+    MigrateSVMMemCommand *pMigrateSVMCommand = new MigrateSVMMemCommand(
+        pQueue, flags, num_svm_pointers, svm_pointers, sizes);
 
     if (NULL == pMigrateSVMCommand)
     {
@@ -3756,10 +3756,13 @@ bool ExecutionModule::CanAccessUSM(SharedPtr<IOclCommandQueueBase> &queue,
     return true;
 }
 
-void ExecutionModule::SetTrackerForUSM(
+void ExecutionModule::SetTrackerForUSM(Command *command,
         const std::vector<const void *> &usmPtrList, cl_event tracker,
         bool isTrackerVisible) {
-    std::shared_ptr<_cl_event> trackerEvtSPtr(tracker, [&](cl_event e) {
+    if (!isTrackerVisible)
+        command->SetUsmPtrList(usmPtrList);
+
+    std::shared_ptr<_cl_event> trackerEvtSPtr(tracker, [=](cl_event e) {
         // If tracker event is not visible to user, we should release it.
         // Otherwise, it is expected to be released by user.
         if (!isTrackerVisible)
@@ -3844,7 +3847,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemset(cl_command_queue command_queue,
         return err;
     }
 
-    SetTrackerForUSM({dst_ptr}, trackerEvent, event != nullptr);
+    SetTrackerForUSM(memsetCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -3924,7 +3927,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemFill(cl_command_queue command_queue,
         return err;
     }
 
-    SetTrackerForUSM({dst_ptr}, trackerEvent, event != nullptr);
+    SetTrackerForUSM(memFillCommand, {dst_ptr}, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4045,7 +4048,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
         usmPtrs.push_back(src_ptr);
         usmPtrs.push_back(dst_ptr);
     }
-    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
+    SetTrackerForUSM(memcpyCommand, usmPtrs, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4078,8 +4081,8 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
     if (CL_FAILED(err))
         return err;
 
-    MigrateUSMMemCommand* migrateCommand = new MigrateUSMMemCommand(
-        queue, m_pContextModule, flags, ptr, size );
+    MigrateUSMMemCommand *migrateCommand =
+        new MigrateUSMMemCommand(queue, flags, ptr, size);
 
     err = migrateCommand->Init();
     if (CL_FAILED(err))
@@ -4104,7 +4107,7 @@ cl_err_code ExecutionModule::EnqueueUSMMigrateMem(
         return err;
     }
 
-    SetTrackerForUSM({ptr}, trackerEvent, event != nullptr);
+    SetTrackerForUSM(migrateCommand, {ptr}, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4140,8 +4143,8 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
     if (0 == advice)
         return CL_INVALID_VALUE;
 
-    AdviseUSMMemCommand* adviseCommand = new AdviseUSMMemCommand(
-        queue, m_pContextModule, ptr, size, advice);
+    AdviseUSMMemCommand *adviseCommand =
+        new AdviseUSMMemCommand(queue, ptr, size, advice);
 
     err = adviseCommand->Init();
     if (CL_FAILED(err))
@@ -4166,7 +4169,7 @@ cl_err_code ExecutionModule::EnqueueUSMMemAdvise(
         return err;
     }
 
-    SetTrackerForUSM({ptr}, trackerEvent, event != nullptr);
+    SetTrackerForUSM(adviseCommand, {ptr}, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4248,7 +4251,7 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
         if (is_dst_usm)
             usmPtrs.push_back(dst);
     }
-    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
+    SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4336,7 +4339,7 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
     if (is_dst_usm) {
         usmPtrs.push_back(dst);
     }
-    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
+    SetTrackerForUSM(cmd, usmPtrs, trackerEvent, event != nullptr);
 
 
     return CL_SUCCESS;
