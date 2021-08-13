@@ -10539,10 +10539,11 @@ bool VPOParoptTransform::addNormUBsToParents(WRegionNode* W) {
       LLVMContext &C = CI->getContext();
       const DataLayout &DL = CI->getModule()->getDataLayout();
 
-      for (Value *V: NormUBs) {
+      for (unsigned I = 0; I < LI.getNormUBSize(); ++I) {
         // TODO: OPAQUEPOINTER: normalized UBs must be stored with
         // their data types so that we can get them here.
-        Type *UBType = V->getType()->getPointerElementType();
+        Value *V = LI.getNormUB(I);
+        Type *UBType = LI.getNormUBElemTy(I);
         ConstantInt *Size =
             ConstantInt::get(Type::getInt64Ty(C),
                              DL.getTypeAllocSize(UBType));
@@ -11320,9 +11321,9 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   SmallVector<Value *, 3> MulOperands;
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     auto *UBPtrDef = W->getWRNLoopInfo().getNormUB(Idx);
+    auto *UBType = W->getWRNLoopInfo().getNormUBElemTy(Idx);
     auto *UBVal = BeforeRegBuilder.CreateLoad(
-        UBPtrDef->getType()->getPointerElementType(), UBPtrDef,
-        Twine(UBPtrDef->getName()) + Twine(".val"));
+        UBType, UBPtrDef, Twine(UBPtrDef->getName()) + Twine(".val"));
     MulOperands.push_back(
         BeforeRegBuilder.CreateAdd(
             BeforeRegBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext"),
@@ -11384,9 +11385,9 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   SmallVector<Value *, 3> Dimensions;
   for (unsigned Idx = 1; Idx < NumLoops; ++Idx) {
     auto *UBPtrDef = W->getWRNLoopInfo().getNormUB(Idx);
+    auto *UBType = W->getWRNLoopInfo().getNormUBElemTy(Idx);
     auto *UBVal = DimInitBuilder.CreateLoad(
-        UBPtrDef->getType()->getPointerElementType(), UBPtrDef,
-        Twine(UBPtrDef->getName()) + Twine(".val"));
+        UBType, UBPtrDef, Twine(UBPtrDef->getName()) + Twine(".val"));
     Dimensions.push_back(
         DimInitBuilder.CreateAdd(
             DimInitBuilder.CreateZExtOrTrunc(UBVal, CombinedUBType, ".zext"),
