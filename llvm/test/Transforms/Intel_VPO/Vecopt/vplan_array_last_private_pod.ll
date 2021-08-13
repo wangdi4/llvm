@@ -42,7 +42,7 @@ define i32 @sum_() {
 ; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ;
 DIR.OMP.SIMD.144:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE:F90_DV"(%"QNCA_a0$i32*$rank2$"* undef) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.LASTPRIVATE"(%"QNCA_a0$i32*$rank2$"* undef) ]
   br label %loop_test12.preheader
 
 loop_test12.preheader:
