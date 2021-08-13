@@ -1080,13 +1080,11 @@ void HeuristicOVLSMember::apply(
     // Holds the indices of existing members in an interleaved load group.
     // Currently we only support accesses with no gaps and hence all indices
     // are pushed onto the vector.
-    // An interleaved store group doesn't need this as it doesn't allow gaps.
     // NOTE: The code here mimics what is done in community LV to get the cost
     // of the interleaved access.
     SmallVector<unsigned, 4> Indices;
-    if (LoadStore->getOpcode() == Instruction::Load)
-      for (int i = 0; i < InterleaveFactor; i++)
-        Indices.push_back(i);
+    for (int i = 0; i < InterleaveFactor; i++)
+      Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
     unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
