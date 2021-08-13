@@ -951,7 +951,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
   // Transform calls to sin and cos to calls to sinpi, cospi or
   // sincospi.
-  MPM.add(createTransformSinAndCosCallsPass());
+  // The transformation is not launched for SYCL, because sinpi, cospi and
+  // sincospi are not available in standard libraries provided by OpenCL RTs
+  if (!SYCLOptimizationMode)
+    MPM.add(createTransformSinAndCosCallsPass());
 #endif // INTEL_CUSTOMIZATION
 }
 
