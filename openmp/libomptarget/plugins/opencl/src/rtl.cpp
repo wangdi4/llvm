@@ -595,7 +595,7 @@ public:
   std::vector<ExtensionsTy> Extensions;
   std::vector<cl_command_queue> Queues;
   std::vector<cl_command_queue> QueuesInOrder;
-  std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::vector<std::list<FuncOrGblEntryTy>> FuncGblEntries;
   std::vector<std::map<cl_kernel, KernelPropertiesTy>>
       KernelProperties;
   std::vector<std::map<void *, BufferInfoTy>> Buffers;
@@ -607,7 +607,7 @@ public:
   std::vector<std::map<void *, int64_t>> DeviceAccessibleData;
   std::mutex *Mutexes;
   std::mutex *ProfileLocks;
-  std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::vector<std::vector<DeviceOffloadEntryTy>>> OffloadTables;
   std::vector<std::set<void *>> ClMemBuffers;
   // Memory owned by the plugin
   std::vector<std::vector<void *>> OwnedMemory;
@@ -1190,14 +1190,15 @@ static void closeRTL() {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
-    // Making OpenCL calls during process exit on Windows is unsafe.
-    for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
-      if (kernel)
-        CALL_CL_EXIT_FAIL(clReleaseKernel, kernel);
+
+    for (auto &Entries : DeviceInfo->FuncGblEntries[i]) {
+      for (auto Kernel : Entries.Kernels)
+        if (Kernel)
+          CALL_CL_EXIT_FAIL(clReleaseKernel, Kernel);
+      // No entries may exist if offloading was done through MKL
+      if (Entries.Program)
+        CALL_CL_EXIT_FAIL(clReleaseProgram, Entries.Program);
     }
-    // No entries may exist if offloading was done through MKL
-    if (DeviceInfo->FuncGblEntries[i].Program)
-      CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
 
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
 
@@ -1320,7 +1321,8 @@ void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
   DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
      Name, Size, DeviceId);
 
-  std::vector<DeviceOffloadEntryTy> &OffloadTable = OffloadTables[DeviceId];
+  std::vector<DeviceOffloadEntryTy>
+      &OffloadTable = OffloadTables[DeviceId].back();
   if (!OffloadTable.empty()) {
     size_t NameSize = strlen(Name) + 1;
     auto I = std::lower_bound(
@@ -1362,7 +1364,7 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
           getExtensionFunctionPtr(
               DeviceId, clGetDeviceGlobalVariablePointerINTELId));
   rc = clGetDeviceGlobalVariablePointerINTELFn(Devices[DeviceId],
-      FuncGblEntries[DeviceId].Program, Name, &DeviceSize, &TgtAddr);
+      FuncGblEntries[DeviceId].back().Program, Name, &DeviceSize, &TgtAddr);
 
   if (rc != CL_SUCCESS) {
     DPI("Warning: clGetDeviceGlobalVariablePointerINTEL API returned "
@@ -1427,11 +1429,12 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
     return false;
   }
 
-  OffloadTables[DeviceId].resize(DeviceNumEntries);
+  OffloadTables[DeviceId].emplace_back();
+  auto &DeviceTable = OffloadTables[DeviceId].back();
+  DeviceTable.resize(DeviceNumEntries);
   CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL, Queues[DeviceId],
-                  CL_TRUE, OffloadTables[DeviceId].data(), OffloadTableVarAddr,
+                  CL_TRUE, DeviceTable.data(), OffloadTableVarAddr,
                   TableSize, 0, nullptr, nullptr);
-  std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
 
   size_t I = 0;
   const char *PreviousName = "";
@@ -1487,7 +1490,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
         delete[] Entry.Base.name;
     }
 
-    OffloadTables[DeviceId].clear();
+    DeviceTable.clear();
     return false;
   }
 
@@ -1501,8 +1504,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
 }
 
 void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
-  for (auto &E : OffloadTables[DeviceId])
-    delete[] E.Base.name;
+  for (auto &T : OffloadTables[DeviceId])
+    for (auto &E : T)
+      delete[] E.Base.name;
 
   OffloadTables[DeviceId].clear();
 }
@@ -2276,6 +2280,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   ProfileIntervalTy CompilationTimer("Compiling", device_id);
   ProfileIntervalTy LinkingTimer("Linking", device_id);
 
+  DeviceInfo->FuncGblEntries[device_id].emplace_back();
+  auto &FuncGblEntries = DeviceInfo->FuncGblEntries[device_id].back();
+
   // create Program
   cl_int status;
   std::vector<cl_program> programs;
@@ -2344,7 +2351,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       return NULL;
     }
     linked_program = program;
-    DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
+    FuncGblEntries.Program = linked_program;
     CompilationTimer.stop();
   } else {
     CALL_CL(status, clCompileProgram, program, 0, nullptr,
@@ -2393,17 +2400,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     } else {
       DP("Successfully linked program.\n");
     }
-    DeviceInfo->FuncGblEntries[device_id].Program = linked_program;
+    FuncGblEntries.Program = linked_program;
     LinkingTimer.stop();
   }
 
   // create kernel and target entries
-  DeviceInfo->FuncGblEntries[device_id].Entries.resize(NumEntries);
-  DeviceInfo->FuncGblEntries[device_id].Kernels.resize(NumEntries);
-  std::vector<__tgt_offload_entry> &entries =
-      DeviceInfo->FuncGblEntries[device_id].Entries;
-  std::vector<cl_kernel> &kernels =
-      DeviceInfo->FuncGblEntries[device_id].Kernels;
+  FuncGblEntries.Entries.resize(NumEntries);
+  FuncGblEntries.Kernels.resize(NumEntries);
+  auto &entries = FuncGblEntries.Entries;
+  auto &kernels = FuncGblEntries.Kernels;
 
   ProfileIntervalTy EntriesTimer("OffloadEntriesInit", device_id);
   EntriesTimer.start();
@@ -2529,7 +2534,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   if (DeviceInfo->initProgramData(device_id) != OFFLOAD_SUCCESS)
     return nullptr;
-  __tgt_target_table &table = DeviceInfo->FuncGblEntries[device_id].Table;
+  __tgt_target_table &table = FuncGblEntries.Table;
   table.EntriesBegin = &(entries[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
 
