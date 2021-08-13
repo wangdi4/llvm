@@ -464,7 +464,7 @@ void CoerceTypes::copyAttributesAndArgNames(
   for (const auto &NewArgTypePair : NewArgTypePairs) {
     if (NewArgTypePair.first == OldArgI->getType()) {
       assert(!NewArgTypePair.second && "Unexpected second type");
-      if (OldAttrList.hasParamAttribute(I, Attribute::ByVal))
+      if (OldAttrList.hasParamAttr(I, Attribute::ByVal))
         OldAttrList =
             OldAttrList.removeParamAttributes(m_pModule->getContext(), I);
       ArgAttrs.push_back(
