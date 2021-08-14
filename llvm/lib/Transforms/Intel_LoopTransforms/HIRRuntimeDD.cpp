@@ -1137,15 +1137,21 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
   Type *LowerType = Lower->getDestType();
   Type *UpperType = Upper->getDestType();
 
+  Type *LowerElementType = Lower->getDereferencedType();
+  Type *UpperElementType = Upper->getDereferencedType();
+
+  Type *PtrElementType = PtrType;
   // Determine smallest type.
   if (!PtrType) {
-    auto LowerSize = DL.getTypeSizeInBits(LowerType->getPointerElementType());
-    auto UpperSize = DL.getTypeSizeInBits(UpperType->getPointerElementType());
+    auto LowerSize = DL.getTypeSizeInBits(LowerElementType);
+    auto UpperSize = DL.getTypeSizeInBits(UpperElementType);
 
     if (LowerSize < UpperSize) {
       PtrType = LowerType;
+      PtrElementType = LowerElementType;
     } else {
       PtrType = UpperType;
+      PtrElementType = UpperElementType;
     }
   }
 
@@ -1156,9 +1162,8 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
   if (UpperType != PtrType) {
     Upper->setBitCastDestType(PtrType);
 
-    auto UpperTypeSize =
-        DL.getTypeSizeInBits(UpperType->getPointerElementType());
-    auto PtrTypeSize = DL.getTypeSizeInBits(PtrType->getPointerElementType());
+    auto UpperTypeSize = DL.getTypeSizeInBits(UpperElementType);
+    auto PtrTypeSize = DL.getTypeSizeInBits(PtrElementType);
 
     auto Ceil = [](unsigned A, unsigned B) { return (A + B - 1) / B; };
     unsigned Offset = Ceil(UpperTypeSize, PtrTypeSize) - 1;
@@ -1229,7 +1234,8 @@ static Type *getMinimalElementSizeType(const DataLayout &DL,
   for (auto &Segment : Segments) {
     for (auto &Ref : {Segment.Lower, Segment.Upper}) {
       Type *RefType = Ref->getDestType();
-      auto Size = DL.getTypeSizeInBits(RefType->getPointerElementType());
+      Type *RefElementType = Ref->getDereferencedType();
+      auto Size = DL.getTypeSizeInBits(RefElementType);
       if (Size < MinTypeSize) {
         MinTypeSize = Size;
         MinType = RefType;
