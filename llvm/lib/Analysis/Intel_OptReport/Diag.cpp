@@ -499,7 +499,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25527, "VECTOR TRIP COUNT IS ESTIMATED CONSTANT"},
     {25528, "VECTOR TRIP COUNT IS KNOWN CONSTANT"},
     {25529, "Dead stores eliminated in loop"},
-    {25530, "NORMALIZED VECTORIZATION OVERHEAD"},
+    {25530, "Stmt at line %d sinked after loop using last value computation"},
     {25531, "LOOP WITH USER VECTOR INTRINSICS"},
     {25540, "Loop unrolled and jammed by %d"},
     {25562, "The loop has been multiversioned for the small trip count"},
