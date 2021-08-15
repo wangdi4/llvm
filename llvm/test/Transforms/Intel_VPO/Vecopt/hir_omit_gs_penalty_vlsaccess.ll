@@ -21,13 +21,13 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB1]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP4:%.*]] = hir-copy i64 [[VP0]] , OriginPhiId: -1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
@@ -44,7 +44,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB2]]: base cost: 74000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB3]]: base cost: 0
@@ -53,7 +53,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
 ; CMCHECK-NEXT:  Base Cost: 74000
 ;
-; HIRCHECK:       IR Dump After VPlan HIR Vectorizer
+; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:            BEGIN REGION { modified }
@@ -62,10 +62,10 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; HIRCHECK:                      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; HIRCHECK-NEXT:                 |   [[DOTCOPY0:%.*]] = [[RED_VAR0]]
 ; HIRCHECK-NEXT:                 |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)([[LP0:%.*]])[2 * i1]
-; HIRCHECK-NEXT:                 |   [[VLS_SHUF0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
-; HIRCHECK-NEXT:                 |   [[VLS_SHUF10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
-; HIRCHECK-NEXT:                 |   [[DOTVEC0:%.*]] = [[VLS_SHUF0]]  +  [[DOTCOPY0]]
-; HIRCHECK-NEXT:                 |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_SHUF10]]
+; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
+; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
+; HIRCHECK-NEXT:                 |   [[DOTVEC0:%.*]] = [[VLS_EXTRACT0]]  +  [[DOTCOPY0]]
+; HIRCHECK-NEXT:                 |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_EXTRACT10]]
 ; HIRCHECK-NEXT:                 + END LOOP
 ; HIRCHECK:                      [[SUM_0130]] = @llvm.vector.reduce.add.v4i64([[RED_VAR0]])
 ; HIRCHECK-NEXT:            END REGION
