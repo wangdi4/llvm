@@ -1,0 +1,47 @@
+//===------ SOAToAOSOP.h - DTransSOAToAOSOPPass for opaque pointers -------===//
+//
+// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file declares the DTrans Structure of Arrays to Array of Structures
+// data layout optimization pass with support for IR using either opaque or
+// non-opaque pointers.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef INTEL_DTRANS_TRANSFORMS_SOATOAOSOP_H
+#define INTEL_DTRANS_TRANSFORMS_SOATOAOSOP_H
+
+#if !INTEL_FEATURE_SW_DTRANS
+#error SOAToAOSOP.h include in an non-INTEL_FEATURE_SW_DTRANS build.
+#endif
+
+#include "llvm/IR/PassManager.h"
+
+namespace llvm {
+class Module;
+class WholeProgramInfo;
+
+namespace dtransOP {
+class DTransSafetyInfo;
+
+/// Pass to perform DTrans SOA to AOS optimizations.
+class SOAToAOSOPPass : public PassInfoMixin<SOAToAOSOPPass> {
+public:
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+  // This is used to share the core implementation with the legacy pass.
+  bool runImpl(Module &M, DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo);
+};
+} // namespace dtransOP
+
+ModulePass *createDTransSOAToAOSOPWrapperPass();
+
+} // namespace llvm
+
+#endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSOP_H

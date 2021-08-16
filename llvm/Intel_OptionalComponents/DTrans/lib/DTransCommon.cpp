@@ -194,6 +194,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransResolveTypesWrapperPass(PR);
   initializeDTransSOAToAOSPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
+  initializeDTransSOAToAOSOPWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
   initializeDTransDeleteFieldOPWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
@@ -360,6 +361,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createPaddedPtrPropWrapperPass();
   (void)llvm::createDTransSOAToAOSPrepareWrapperPass();
   (void)llvm::createDTransSOAToAOSWrapperPass();
+  (void)llvm::createDTransSOAToAOSOPWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
   (void)llvm::createDTransImmutableAnalysisWrapperPass();
   (void)llvm::createDTransSafetyAnalyzerTestWrapperPass();
