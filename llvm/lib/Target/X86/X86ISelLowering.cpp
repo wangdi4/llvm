@@ -1874,10 +1874,6 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
       setOperationAction(ISD::VSELECT,            VT, Expand);
       setOperationAction(ISD::TRUNCATE,           VT, Custom);
       setOperationAction(ISD::SETCC,              VT, Custom);
-#if INTEL_CUSTOMIZATION
-      setOperationAction(ISD::STRICT_FSETCC,      VT, Custom);
-      setOperationAction(ISD::STRICT_FSETCCS,     VT, Custom);
-#endif // INTEL_CUSTOMIZATION
       setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
       setOperationAction(ISD::INSERT_VECTOR_ELT,  VT, Custom);
       setOperationAction(ISD::SELECT,             VT, Custom);
@@ -2005,6 +2001,9 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
 
       setLoadExtAction(ISD::EXTLOAD, MVT::v8f64,  MVT::v8f16,  Legal);
       setLoadExtAction(ISD::EXTLOAD, MVT::v16f32, MVT::v16f16, Legal);
+
+      setOperationAction(ISD::STRICT_FSETCC,      MVT::v32i1, Custom);
+      setOperationAction(ISD::STRICT_FSETCCS,     MVT::v32i1, Custom);
     }
 
     if (Subtarget.hasVLX()) {
@@ -51012,9 +51011,7 @@ static SDValue combineFMinNumFMaxNum(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   if (!((Subtarget.hasSSE1() && VT == MVT::f32) ||
         (Subtarget.hasSSE2() && VT == MVT::f64) ||
-#if INTEL_CUSTOMIZATION
         (Subtarget.hasFP16() && VT == MVT::f16) ||
-#endif // INTEL_CUSTOMIZATION
         (VT.isVector() && TLI.isTypeLegal(VT))))
     return SDValue();
 
@@ -51576,11 +51573,9 @@ static SDValue combineExtSetcc(SDNode *N, SelectionDAG &DAG,
       SVT != MVT::i64 && SVT != MVT::f32 && SVT != MVT::f64)
     return SDValue();
 
-#if INTEL_CUSTOMIZATION
   // We don't have CMPP Instruction for vxf16
   if (N0.getOperand(0).getValueType().getVectorElementType() == MVT::f16)
     return SDValue();
-#endif // INTEL_CUSTOMIZATION
 
   // We can only do this if the vector size in 256 bits or less.
   unsigned Size = VT.getSizeInBits();

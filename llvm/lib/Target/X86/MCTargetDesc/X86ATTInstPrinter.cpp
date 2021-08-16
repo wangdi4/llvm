@@ -153,7 +153,6 @@ bool X86ATTInstPrinter::printVecCompareInstr(const MCInst *MI,
   case X86::VCMPPSZrrib:    case X86::VCMPPSZrribk:
   case X86::VCMPSDZrrb_Int: case X86::VCMPSDZrrb_Intk:
   case X86::VCMPSSZrrb_Int: case X86::VCMPSSZrrb_Intk:
-#if INTEL_CUSTOMIZATION
   case X86::VCMPPHZ128rmi:  case X86::VCMPPHZ128rri:
   case X86::VCMPPHZ256rmi:  case X86::VCMPPHZ256rri:
   case X86::VCMPPHZrmi:     case X86::VCMPPHZrri:
@@ -168,7 +167,6 @@ bool X86ATTInstPrinter::printVecCompareInstr(const MCInst *MI,
   case X86::VCMPPHZrmbi:    case X86::VCMPPHZrmbik:
   case X86::VCMPPHZrrib:    case X86::VCMPPHZrribk:
   case X86::VCMPSHZrrb_Int: case X86::VCMPSHZrrb_Intk:
-#endif // INTEL_CUSTOMIZATION
     if (Imm >= 0 && Imm <= 31) {
       OS << '\t';
       printCMPMnemonic(MI, /*IsVCMP*/true, OS);
@@ -192,6 +190,8 @@ bool X86ATTInstPrinter::printVecCompareInstr(const MCInst *MI,
             NumElts = (Desc.TSFlags & X86II::VEX_W) ? 4 : 8;
           else
             NumElts = (Desc.TSFlags & X86II::VEX_W) ? 2 : 4;
+          if ((Desc.TSFlags & X86II::OpMapMask) == X86II::TA)
+            NumElts *= 2;
           OS << "{1to" << NumElts << "}";
         } else {
           if ((Desc.TSFlags & X86II::OpPrefixMask) == X86II::XS)

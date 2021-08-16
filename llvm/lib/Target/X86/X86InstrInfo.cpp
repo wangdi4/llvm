@@ -2514,12 +2514,10 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VCMPSSZrr:
   case X86::VCMPPDZrri:
   case X86::VCMPPSZrri:
-#if INTEL_CUSTOMIZATION
   case X86::VCMPSHZrr:
   case X86::VCMPPHZrri:
   case X86::VCMPPHZ128rri:
   case X86::VCMPPHZ256rri:
-#endif // INTEL_CUSTOMIZATION
   case X86::VCMPPDZ128rri:
   case X86::VCMPPSZ128rri:
   case X86::VCMPPDZ256rri:
@@ -6426,11 +6424,10 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     }
   }
 
-#if INTEL_CUSTOMIZATION
   if ((Opc == X86::VMOVSHZrm || Opc == X86::VMOVSHZrm_alt) && RegSize > 16) {
     // These instructions only load 16 bits, we can't fold them if the
     // destination register is wider than 16 bits (2 bytes), and its user
-    // instruction isn't scalar (SS).
+    // instruction isn't scalar (SH).
     switch (UserOpc) {
     case X86::VADDSHZrr_Int:
     case X86::VCMPSHZrr_Int:
@@ -6446,6 +6443,7 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     case X86::VMINSHZrr_Intk: case X86::VMINSHZrr_Intkz:
     case X86::VMULSHZrr_Intk: case X86::VMULSHZrr_Intkz:
     case X86::VSUBSHZrr_Intk: case X86::VSUBSHZrr_Intkz:
+#if INTEL_CUSTOMIZATION
     case X86::VFMADD132SHZr_Int: case X86::VFNMADD132SHZr_Int:
     case X86::VFMADD213SHZr_Int: case X86::VFNMADD213SHZr_Int:
     case X86::VFMADD231SHZr_Int: case X86::VFNMADD231SHZr_Int:
@@ -6464,12 +6462,12 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     case X86::VFMSUB132SHZr_Intkz: case X86::VFNMSUB132SHZr_Intkz:
     case X86::VFMSUB213SHZr_Intkz: case X86::VFNMSUB213SHZr_Intkz:
     case X86::VFMSUB231SHZr_Intkz: case X86::VFNMSUB231SHZr_Intkz:
+#endif // INTEL_CUSTOMIZATION
       return false;
     default:
       return true;
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -8917,7 +8915,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCSSrr:
   case X86::VMINCSDZrr:
   case X86::VMINCSSZrr:
-#if INTEL_CUSTOMIZATION
   case X86::VMAXCPHZ128rr:
   case X86::VMAXCPHZ256rr:
   case X86::VMAXCPHZrr:
@@ -8926,7 +8923,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCPHZ256rr:
   case X86::VMINCPHZrr:
   case X86::VMINCSHZrr:
-#endif // INTEL_CUSTOMIZATION
     return true;
   case X86::ADDPDrr:
   case X86::ADDPSrr:
@@ -8964,7 +8960,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSSrr:
   case X86::VMULSDZrr:
   case X86::VMULSSZrr:
-#if INTEL_CUSTOMIZATION
   case X86::VADDPHZ128rr:
   case X86::VADDPHZ256rr:
   case X86::VADDPHZrr:
@@ -8973,7 +8968,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULPHZ256rr:
   case X86::VMULPHZrr:
   case X86::VMULSHZrr:
-#endif // INTEL_CUSTOMIZATION
     return Inst.getFlag(MachineInstr::MIFlag::FmReassoc) &&
            Inst.getFlag(MachineInstr::MIFlag::FmNsz);
   default:

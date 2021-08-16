@@ -2,7 +2,6 @@
 ; RUN: llc < %s -verify-machineinstrs --show-mc-encoding -mtriple=x86_64-unknown-unknown -mattr=+avx512fp16    | FileCheck %s --check-prefixes=CHECK
 
 declare half @llvm.maxnum.f16(half, half)
-
 declare <2 x half> @llvm.maxnum.v2f16(<2 x half>, <2 x half>)
 declare <4 x half> @llvm.maxnum.v4f16(<4 x half>, <4 x half>)
 declare <8 x half> @llvm.maxnum.v8f16(<8 x half>, <8 x half>)
@@ -90,7 +89,6 @@ define <4 x half> @maxnum_intrinsic_nnan_fmf_f432(<4 x half> %a, <4 x half> %b) 
   ret <4 x half> %r
 }
 
-
 define half @maxnum_intrinsic_nnan_attr_f16(half %a, half %b) #0 {
 ; CHECK-LABEL: maxnum_intrinsic_nnan_attr_f16:
 ; CHECK:       # %bb.0:
@@ -103,8 +101,8 @@ define half @maxnum_intrinsic_nnan_attr_f16(half %a, half %b) #0 {
 define half @test_maxnum_const_op1(half %x) {
 ; CHECK-LABEL: test_maxnum_const_op1:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmaxsh {{.*}}(%rip), %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5f,0x05,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmaxsh {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5f,0x05,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %r = call half @llvm.maxnum.f16(half 1.0, half %x)
   ret half %r
@@ -113,8 +111,8 @@ define half @test_maxnum_const_op1(half %x) {
 define half @test_maxnum_const_op2(half %x) {
 ; CHECK-LABEL: test_maxnum_const_op2:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vmaxsh {{.*}}(%rip), %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5f,0x05,A,A,A,A]
-; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.LCPI.*}}-4, kind: reloc_riprel_4byte
+; CHECK-NEXT:    vmaxsh {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0 # encoding: [0x62,0xf5,0x7e,0x08,0x5f,0x05,A,A,A,A]
+; CHECK-NEXT:    # fixup A - offset: 6, value: {{\.?LCPI[0-9]+_[0-9]+}}-4, kind: reloc_riprel_4byte
 ; CHECK-NEXT:    retq # encoding: [0xc3]
   %r = call half @llvm.maxnum.f16(half %x, half 1.0)
   ret half %r
@@ -127,5 +125,5 @@ define half @test_maxnum_const_nan(half %x) {
   %r = call half @llvm.maxnum.f16(half %x, half 0x7fff000000000000)
   ret half %r
 }
-attributes #0 = { "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true"}
 
+attributes #0 = { "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true"}

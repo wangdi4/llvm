@@ -52,3 +52,32 @@ define <8 x half> @divsh(<8 x half> %va, half* %pb) {
   %vr = insertelement <8 x half> %va, half %r, i32 0
   ret <8 x half> %vr
 }
+
+define <8 x half> @minsh(<8 x half> %va, half* %pb) {
+; CHECK-LABEL: minsh:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminsh (%rdi), %xmm0, %xmm1
+; CHECK-NEXT:    vmovsh %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = extractelement <8 x half> %va, i32 0
+  %b = load half, half* %pb
+  %r = call nnan half @llvm.minnum.f16(half %a, half %b) readnone
+  %vr = insertelement <8 x half> %va, half %r, i32 0
+  ret <8 x half> %vr
+}
+
+define <8 x half> @maxsh(<8 x half> %va, half* %pb) {
+; CHECK-LABEL: maxsh:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vminsh (%rdi), %xmm0, %xmm1
+; CHECK-NEXT:    vmovsh %xmm1, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %a = extractelement <8 x half> %va, i32 0
+  %b = load half, half* %pb
+  %r = call nnan half @llvm.minnum.f16(half %a, half %b) readnone
+  %vr = insertelement <8 x half> %va, half %r, i32 0
+  ret <8 x half> %vr
+}
+
+declare half @llvm.minnum.f16(half, half)
+declare half @llvm.maxnum.f16(half, half)
