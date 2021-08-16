@@ -132,7 +132,7 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
   /// Checks whether given function is
-  /// cl::sycl::INTEL::non_uniform_sub_group::invoke_unmasked API.
+  /// cl::sycl::ext::intel::non_uniform_sub_group::invoke_unmasked API.
   static bool isSyclInvokeUnmaskedFunction(const FunctionDecl *FD);
 #endif // INTEL_CUSTOMIZATION
 
@@ -5320,13 +5320,20 @@ bool Util::isSyclInvokeUnmaskedFunction(const FunctionDecl *FD) {
   if (DC->isTranslationUnit())
     return false;
 
-  std::array<DeclContextDesc, 4> Scopes = {
+  std::array<DeclContextDesc, 5> Scopes = {
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "cl"),
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "sycl"),
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "ext"),
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "intel"),
+      Util::MakeDeclContextDesc(Decl::Kind::CXXRecord,
+                                "non_uniform_sub_group")};
+  std::array<DeclContextDesc, 4> ScopesDeprecated = {
       Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "cl"),
       Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "sycl"),
       Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "INTEL"),
       Util::MakeDeclContextDesc(Decl::Kind::CXXRecord,
                                 "non_uniform_sub_group")};
-  return matchContext(DC, Scopes);
+  return matchContext(DC, Scopes) || matchContext(DC, ScopesDeprecated);
 }
 #endif // INTEL_CUSTOMIZATION
 
