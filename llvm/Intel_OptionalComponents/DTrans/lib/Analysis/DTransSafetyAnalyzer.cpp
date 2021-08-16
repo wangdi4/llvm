@@ -69,6 +69,10 @@ static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
 }
 
+static bool isCompilerConstantData(Value *V) {
+  return isa<ConstantData>(V);
+}
+
 // Helper to print a Value object (and optionally the name of the function it
 // belongs to, if there is one). If the Value represents a GlobalValue, such as
 // a Function or GlobalVariable, just print the object's name instead of the
@@ -901,6 +905,10 @@ public:
   // to a different type.
   void visitLoadInst(LoadInst &I) {
     Value *Ptr = I.getPointerOperand();
+    // Ignore loads from constant locations like null or undef.
+    if (isCompilerConstantData(Ptr))
+      return;
+
     ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(&I);
 
@@ -2941,6 +2949,11 @@ public:
                           << "dtrans: Analyzing memset call: ["
                           << I.getFunction()->getName() << "] " << I << "\n");
     Value *DestArg = I.getRawDest();
+    // Ignore the memset if the destination is a constant location like null or
+    // undef.
+    if (isCompilerConstantData(DestArg))
+      return;
+
     Value *SetSize = I.getLength();
     Value *SetValue = I.getValue();
     bool IsSettingNullValue = isa<ConstantInt>(SetValue) &&
@@ -3094,6 +3107,11 @@ public:
 
     auto *DestArg = I.getRawDest();
     auto *SrcArg = I.getRawSource();
+    // Ignore the memcpy if the source or destination is a constant location
+    // like null or undef.
+    if (isCompilerConstantData(DestArg) || isCompilerConstantData(SrcArg))
+      return;
+
     ValueTypeInfo *DstInfo = PTA.getValueTypeInfo(DestArg);
     ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(SrcArg);
     assert(DstInfo && SrcInfo &&

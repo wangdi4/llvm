@@ -996,11 +996,19 @@ public:
   void visitSelectInst(SelectInst &I) { analyzeValue(&I); }
 
   void visitStoreInst(StoreInst &I) {
-    // Storing a 'null' constant is a special case, because a Value of 'p0 null'
-    // may be used to represent any pointer type. For a store of a 'null'
-    // constant we want to capture a type of the value operand so that the
-    // safety analyzer will be able to analyze the instruction without needing
-    // to examine the value being stored with a special case for 'null'
+
+    // Analyze the pointer operand to ensure that there is a ValueTypeInfo
+    // object available for it for the DTransSafetyAnalyzer. This is needed to
+    // handle cases where the operand is not a local or global variable. For
+    // example:
+    //   store i32 0, ptrtoint (i64 256 to i32*)
+    ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
+
+    // Storing a 'null' constant is a special case, because a Value of
+    // 'ptr null' may be used to represent any pointer type. For a store of a
+    // 'null' constant we want to capture a type of the value operand so that
+    // the safety analyzer will be able to analyze the instruction without
+    // needing to examine the value being stored with a special case for 'null'
     // constants.
     if (isa<ConstantPointerNull>(I.getValueOperand())) {
       auto &LocalTM = this->TM;
@@ -1046,7 +1054,6 @@ public:
               PointerInfo->addTypeAlias(Kind, Ty);
           };
 
-      ValueTypeInfo *PtrInfo = analyzeValue(I.getPointerOperand());
       ValueTypeInfo *ValInfo = PTA.getOrCreateValueTypeInfo(&I, 0);
       PropagateDereferencedType(PtrInfo, ValInfo,
                                 ValueTypeInfo::ValueAnalysisType::VAT_Decl);
@@ -2387,9 +2394,22 @@ private:
 
       if (auto *IndexedStTy = dyn_cast<DTransStructType>(IndexedTy)) {
         // The final argument of the GEP of a structure field element must
-        // always be a constant value
+        // always be a constant value when a structure type is indexed. However,
+        // if the alias type we are testing does not match the type of the GEP,
+        // then we may not have a constant value. For example:
+        //   %18 = getelementptr %struct.varray_head_tag,
+        //                       %struct.varray_head_tag* %2, i64 0, i32 4
+        //   %19 = bitcast %union.varray_data_tag* %18 to [1 x i8*]*
+        //   %20 = getelementptr [1 x i8*], [1 x i8*]* %19, i64 0, i64 %21
+        //
+        // The pointer type collection analysis would have %19 as being the type
+        // "%union.varray_data_tag*" based on the result of the GEP for %18, and
+        // not the type the GEP is being used as.
         auto *LastArg =
-            cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
+            dyn_cast<ConstantInt>(GEP.getOperand(GEP.getNumOperands() - 1));
+        if (!LastArg)
+          return false;
+
         uint64_t FieldNum = LastArg->getLimitedValue();
         if (FieldNum >= IndexedStTy->getNumFields())
           return false;
