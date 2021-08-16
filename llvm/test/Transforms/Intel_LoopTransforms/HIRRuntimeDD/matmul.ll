@@ -1,7 +1,7 @@
 ; Check for dd multiversioning for matmul loopnest
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; float matmul(e_fp *px, e_fp *vy, e_fp *cx, int n, int loop) {
 ;  float ret;
@@ -28,11 +28,11 @@
 
 ; Check that proper optreport is emitted for multiversioned loop.
 
-; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -S -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
-; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -S -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd  -hir-post-vec-complete-unroll -hir-cg -disable-output -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -disable-output -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark #25582: Loop multiversioned for Data Dependence{{[[:space:]]}}
+; OPTREPORT-NEXT: <Multiversioned v2>{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:             LOOP BEGIN
@@ -41,7 +41,8 @@
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     <Multiversioned loop>{{[[:space:]]}}
+; OPTREPORT-NEXT: <Multiversioned v1>
+; OPTREPORT-NEXT:     remark #25228: Loop multiversioned for Data Dependence{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:             LOOP BEGIN

@@ -437,6 +437,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25046, "Loop lost in Fusion"},
     {25147, "Using directive-based hint=%d, distance=%d for prefetching spatial memory reference"},
     {25150, "Using directive-based hint=%d, distance=%d for indirect memory reference"},
+    {25228, "Loop multiversioned for Data Dependence"},
     {25264, "Loop rerolled by %d"},
     {25397, "Materialized a loop with a trip count of %d"},
     {25399, "memcopy generated"},
@@ -511,7 +512,6 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25579, "Loop was reversed"},
     {25580, "Condition%s was optimized"},
     {25581, "Loop has been row-wise multiversioned"},
-    {25582, "Loop multiversioned for Data Dependence"},
     {25583, "Number of Array Refs Scalar Replaced In Loop: %d"},
     {25584, "Inner loop sums optimized with sum window reuse"},
 };
