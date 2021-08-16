@@ -7336,7 +7336,7 @@ namespace {
     /// This routine checks that variables used to compute the
     /// the bounds are not used in certain clauses that would make
     /// hoisting illegal.
-    bool okayToHoistNonCombinedLoop(const OMPExecutableDirective &S) {
+    bool okayToHoistLoop(const OMPExecutableDirective &S) {
       // If there is a defaultmap, don't hoist.
       if (S.hasClausesOfKind<OMPDefaultmapClause>())
         return false;
@@ -7375,16 +7375,14 @@ namespace {
 const OMPLoopDirective *
 CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
                                     OpenMPDirectiveKind Kind) {
+  const OMPLoopDirective *LoopDirToCheck = nullptr;
   OpenMPDirectiveKind DKind = S.getDirectiveKind();
-  if (DKind == OMPD_target_parallel_for ||
-      DKind == OMPD_target_parallel_for_simd ||
-      DKind == OMPD_target_teams_distribute ||
-      DKind == OMPD_target_teams_distribute_parallel_for ||
-      DKind == OMPD_target_teams_distribute_parallel_for_simd) {
-    return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
-  }
-  // Try to hoist a loop directly under a target or target teams
-  if (DKind == OMPD_target || DKind == OMPD_target_teams) {
+
+  if (isOpenMPLoopDirective(DKind) && isOpenMPTargetExecutionDirective(DKind) &&
+      Kind == OMPD_target) {
+    // Full directive is a target loop.
+    LoopDirToCheck = cast<OMPLoopDirective>(&S);
+  } else if (DKind == OMPD_target || DKind == OMPD_target_teams) {
     if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
       if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
         if (CompStmt->body_front() &&
@@ -7393,13 +7391,13 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
       }
       if (auto *TeamsDir = dyn_cast<OMPTeamsDirective>(CS))
         CS = TeamsDir->getInnermostCapturedStmt()->getCapturedStmt();
-      if (auto *LD = dyn_cast<OMPLoopDirective>(CS)) {
-        LoopBoundsExprChecker Checker(*this, LD);
-        if (!Checker.okayToHoistNonCombinedLoop(S))
-          return nullptr;
-        return LD;
-      }
+      LoopDirToCheck = dyn_cast<OMPLoopDirective>(CS);
     }
+  }
+  if (LoopDirToCheck) {
+    LoopBoundsExprChecker Checker(*this, LoopDirToCheck);
+    if (Checker.okayToHoistLoop(S))
+      return LoopDirToCheck;
   }
   return nullptr;
 }
