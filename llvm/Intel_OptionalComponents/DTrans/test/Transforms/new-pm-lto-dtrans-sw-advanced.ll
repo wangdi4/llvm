@@ -49,6 +49,7 @@
 ; CHECK: Running pass: dtrans::SOAToAOSPreparePass
 ; CHECK: Running pass: dtrans::SOAToAOSPass
 ; CHECK: Running pass: dtrans::MemManageTransPass
+; CHECK: Running pass: dtrans::CodeAlignPass
 ; The ordering of the analysis passes seems not to be deterministic so we
 ; don't check them all here. The check below guarantees that WeakAlignPass
 ; is the next non-analysis pass to run.
