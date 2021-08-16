@@ -969,6 +969,11 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = sizeof(size_t);
         break;
     }
+    case CL_DEV_KERNEL_NEED_SERIALIZE_WG: {
+      *(cl_bool *)pValue = (cl_bool)pKernelProps->NeedSerializeWGs();
+      stValSize = sizeof(cl_bool);
+      break;
+    }
     case CL_DEV_KERNEL_IS_AUTORUN:
     {
         *(cl_bool*)pValue = (cl_bool)pKernelProps->IsAutorun();

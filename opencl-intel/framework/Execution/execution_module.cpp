@@ -2268,6 +2268,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     cl_event trackerEvent = nullptr;
 
     if (isFPGAEmulator && (program->GetNumDevices() == 1) &&
+        pKernel->GetDeviceKernel(pDevice.GetPtr())->NeedSerializeWGs() &&
         pCommandQueue->IsOutOfOrderExecModeEnabled())
     {
         std::vector<cl_event> EventListToWait;
@@ -2330,8 +2331,9 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
             {
                 OclAutoMutex mu(&KernelEventMutex);
                 m_OclKernelEventMap[kernelName] = trackerEvent;
-                // Increment reference count. It will be decremented in
-                // callbackForKernelEventMap.
+                // TODO CMPLRLLVM-30536 There is race condition if trackerEvent
+                // is released by users. Workaround is to increment reference
+                // count. It will be decremented in callbackForKernelEventMap.
                 RetainEvent(trackerEvent);
             }
 

@@ -203,6 +203,20 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
     }
     m_bCanUseGlobalWorkOffset = canUseGlobalWorkOffset;
 
+    cl_bool NeedSerializeWGs = CL_FALSE;
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(
+        m_clDevKernel, CL_DEV_KERNEL_NEED_SERIALIZE_WG, 0, nullptr,
+        sizeof(NeedSerializeWGs), &NeedSerializeWGs, nullptr);
+    if (CL_DEV_FAILED(clErrRet)) {
+      LOG_ERROR(TEXT("clDevGetKernelInfo CL_DEV_KERNEL_NEED_SERIALIZE_WG "
+                     "failed kernel<%s>, ERR=%d"),
+                pKernelName, clErrRet);
+      *pErr = (clErrRet == CL_DEV_INVALID_KERNEL_NAME) ? CL_INVALID_KERNEL_NAME
+                                                       : CL_OUT_OF_HOST_MEMORY;
+      return;
+    }
+    m_NeedSerializeWGs = NeedSerializeWGs;
+
     // we are here - all passed ok    
     if (!CacheRequiredInfo())
     {
