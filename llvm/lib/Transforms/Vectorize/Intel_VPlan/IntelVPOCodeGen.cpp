@@ -933,22 +933,28 @@ void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
   generateVectorCode(VPInst);
 }
 
-void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
   // TODO: Temporary switch to track list of opcodes that have been uplifted to
   // do SVA-driven scalarization. This will be used as staging area until all
   // scalarization related code duplication is removed in every opcode's vector
   // CG.
   switch (VPInst->getOpcode()) {
   default: {
-    LLVM_DEBUG(
-        dbgs()
-        << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
-    return;
+    return false;
   }
   case Instruction::GetElementPtr:
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
-    break;
+    return true;
+  }
+}
+
+void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+  if (!isOpcodeCGSVADriven(VPInst)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
+    return;
   }
 
   // Helper lambda to scalarize the VPInstruction for a specific lane.
@@ -3313,12 +3319,13 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     // get{Vector|Scalar}Value interfaces.
     auto *VInst = dyn_cast<VPInstruction>(V);
     auto *SVA = Plan->getVPlanSVA();
+    bool InstCGIsSVADriven = VInst && isOpcodeCGSVADriven(VInst);
     bool NeedsFirstLaneBcastForNonSVADrivenCG =
-        VInst && SVA->instNeedsFirstScalarCode(VInst) &&
+        InstCGIsSVADriven && SVA->instNeedsFirstScalarCode(VInst) &&
         !SVA->instNeedsLastScalarCode(VInst) &&
         !SVA->instNeedsVectorCode(VInst);
     bool NeedsLastLaneBcastForNonSVADrivenCG =
-        VInst && SVA->instNeedsLastScalarCode(VInst) &&
+        InstCGIsSVADriven && SVA->instNeedsLastScalarCode(VInst) &&
         !SVA->instNeedsFirstScalarCode(VInst) &&
         !SVA->instNeedsVectorCode(VInst);
     bool UnsupportedSVABits = !IsUniform && !SVA->instNeedsVectorCode(VInst) &&
