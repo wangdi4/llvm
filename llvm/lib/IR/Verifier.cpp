@@ -3690,11 +3690,9 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
          "dimensions",
          &I);
 
-  // Currently, we cannot look for the size of opaque pointer in the subscript
-  // intrinsic. We can add this assertion back after we add 'ElementType'
-  // attribute to the subscript intrinsic.
-  //Assert(cast<PointerType>(PtrTy->getScalarType())->getElementType()->isSized(),
-  //       "llvm.intel.subscript into unsized type!", &I);
+  // Check for proper 'ElementType' attribute and expected size.
+  Assert(I.getElementType()->isSized(),
+         "llvm.intel.subscript into unsized type!", &I);
 
   Value* IntArgs[] = {Lower, Stride, Index};
   Assert(all_of(IntArgs,
@@ -3746,6 +3744,11 @@ void Verifier::visitSubscriptInst(SubscriptInst &I) {
            "Constant stride is too big for pointer size", &I, PointerSize);
 
     int64_t Scale = CStride->getSExtValue();
+
+    // Check that the Elementtype Size evenly divides Const Stride
+    Assert(Scale % DL.getTypeAllocSize(I.getElementType()) == 0,
+           "llvm.intel.subscript incompatible Stride for ElemTy!", Scale,
+           DL.getTypeAllocSize(I.getElementType()));
     if (const ConstantInt *CIdx = dyn_cast<ConstantInt>(Index))
       if (const ConstantInt *CLb = dyn_cast<ConstantInt>(Lower)) {
         int64_t Offset = Scale * (CIdx->getSExtValue() - CLb->getSExtValue());

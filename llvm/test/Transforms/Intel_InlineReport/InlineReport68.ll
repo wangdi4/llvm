@@ -62,7 +62,7 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
 
 6:                                                ; preds = %14, %6
   %7 = phi i64 [ 1, %14 ], [ %9, %6 ]
-  %8 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %16, i64 %7)
+  %8 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %16, i64 %7)
   store double 0.000000e+00, double* %8, align 1
   %9 = add nuw nsw i64 %7, 1
   %10 = icmp eq i64 %9, 7
@@ -75,7 +75,7 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
 
 14:                                               ; preds = %11, %4
   %15 = phi i64 [ 1, %4 ], [ %12, %11 ]
-  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 %15)
+  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 %15)
   br label %6
 
 17:                                               ; preds = %11
@@ -84,78 +84,78 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
   %20 = load double, double* %3, align 1
   %21 = fmul fast double %20, 2.000000e+00
   %22 = fadd fast double %21, %19
-  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 1)
-  %24 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %23, i64 1)
+  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 1)
+  %24 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %23, i64 1)
   store double %22, double* %24, align 1
-  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 2)
-  %26 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %25, i64 1)
+  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 2)
+  %26 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %25, i64 1)
   store double %19, double* %26, align 1
-  %27 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 3)
-  %28 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %27, i64 1)
+  %27 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 3)
+  %28 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %27, i64 1)
   store double %19, double* %28, align 1
-  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %23, i64 2)
+  %29 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %23, i64 2)
   store double %19, double* %29, align 1
-  %30 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %25, i64 2)
+  %30 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %25, i64 2)
   store double %22, double* %30, align 1
-  %31 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %27, i64 2)
+  %31 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %27, i64 2)
   store double %19, double* %31, align 1
-  %32 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %23, i64 3)
+  %32 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %23, i64 3)
   store double %19, double* %32, align 1
-  %33 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %25, i64 3)
+  %33 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %25, i64 3)
   store double %19, double* %33, align 1
-  %34 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %27, i64 3)
+  %34 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %27, i64 3)
   store double %22, double* %34, align 1
-  %35 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 4)
-  %36 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %35, i64 4)
+  %35 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 4)
+  %36 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %35, i64 4)
   store double %20, double* %36, align 1
-  %37 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 5)
-  %38 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %37, i64 5)
+  %37 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 5)
+  %38 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %37, i64 5)
   store double %20, double* %38, align 1
-  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 6)
-  %40 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %39, i64 6)
+  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 6)
+  %40 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %39, i64 6)
   store double %20, double* %40, align 1
   %41 = load double*, double** %5, align 1
-  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %18, i32 0)
+  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %18, i32 0)
   %43 = load i64, i64* %42, align 1
-  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %18, i32 1)
+  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %18, i32 1)
   %45 = load i64, i64* %44, align 1
-  %46 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* %41, i64 1)
-  %47 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %46, i64 1)
+  %46 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* elementtype(double) %41, i64 1)
+  %47 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %46, i64 1)
   %48 = bitcast double* %47 to i64*
   %49 = load i64, i64* %48, align 1
-  %50 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 1)
+  %50 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 1)
   %51 = bitcast double* %50 to i64*
   store i64 %49, i64* %51, align 1
-  %52 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* %41, i64 2)
-  %53 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %52, i64 2)
+  %52 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* elementtype(double) %41, i64 2)
+  %53 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %52, i64 2)
   %54 = bitcast double* %53 to i64*
   %55 = load i64, i64* %54, align 1
-  %56 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 2)
+  %56 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 2)
   %57 = bitcast double* %56 to i64*
   store i64 %55, i64* %57, align 1
-  %58 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* %41, i64 3)
-  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %58, i64 3)
+  %58 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %45, double* elementtype(double) %41, i64 3)
+  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %58, i64 3)
   %60 = bitcast double* %59 to i64*
   %61 = load i64, i64* %60, align 1
-  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 3)
+  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 3)
   %63 = bitcast double* %62 to i64*
   store i64 %61, i64* %63, align 1
-  %64 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %58, i64 2)
+  %64 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %58, i64 2)
   %65 = bitcast double* %64 to i64*
   %66 = load i64, i64* %65, align 1
-  %67 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 4)
+  %67 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 4)
   %68 = bitcast double* %67 to i64*
   store i64 %66, i64* %68, align 1
-  %69 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %58, i64 1)
+  %69 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %58, i64 1)
   %70 = bitcast double* %69 to i64*
   %71 = load i64, i64* %70, align 1
-  %72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 5)
+  %72 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 5)
   %73 = bitcast double* %72 to i64*
   store i64 %71, i64* %73, align 1
-  %74 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* %52, i64 1)
+  %74 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %43, double* elementtype(double) %52, i64 1)
   %75 = bitcast double* %74 to i64*
   %76 = load i64, i64* %75, align 1
-  %77 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 6)
+  %77 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 6)
   %78 = bitcast double* %77 to i64*
   store i64 %76, i64* %78, align 1
   br label %79
@@ -167,10 +167,10 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
 81:                                               ; preds = %81, %79
   %82 = phi double [ 0.000000e+00, %79 ], [ %90, %81 ]
   %83 = phi i64 [ 1, %79 ], [ %91, %81 ]
-  %84 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 %83)
-  %85 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %84, i64 %80)
+  %84 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 48, double* elementtype(double) getelementptr inbounds ([6 x [6 x double]], [6 x [6 x double]]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_CONSTITUTIVE_TENSOR", i64 0, i64 0, i64 0), i64 %83)
+  %85 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %84, i64 %80)
   %86 = load double, double* %85, align 1
-  %87 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 %83)
+  %87 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRAIN_VECTOR", i64 0, i64 0), i64 %83)
   %88 = load double, double* %87, align 1
   %89 = fmul fast double %88, %86
   %90 = fadd fast double %89, %82
@@ -179,7 +179,7 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
   br i1 %92, label %93, label %81
 
 93:                                               ; preds = %81
-  %94 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 %80)
+  %94 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 %80)
   store double %90, double* %94, align 1
   %95 = add nuw nsw i64 %80, 1
   %96 = icmp eq i64 %95, 7
@@ -187,53 +187,53 @@ define internal fastcc void @perdida_m_mp_generalized_hookes_law_(%"QNCA_a0$doub
 
 97:                                               ; preds = %93
   %98 = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %0, i64 0, i32 0
-  %99 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 1)
+  %99 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 1)
   %100 = bitcast double* %99 to i64*
   %101 = load i64, i64* %100, align 1
   %102 = load double*, double** %98, align 1
-  %103 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* %102, i64 1)
-  %104 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %103, i64 1)
+  %103 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) %102, i64 1)
+  %104 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %103, i64 1)
   %105 = bitcast double* %104 to i64*
   store i64 %101, i64* %105, align 1
-  %106 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 2)
+  %106 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 2)
   %107 = bitcast double* %106 to i64*
   %108 = load i64, i64* %107, align 1
-  %109 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* %102, i64 2)
-  %110 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %109, i64 2)
+  %109 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) %102, i64 2)
+  %110 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %109, i64 2)
   %111 = bitcast double* %110 to i64*
   store i64 %108, i64* %111, align 1
-  %112 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 3)
+  %112 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 3)
   %113 = bitcast double* %112 to i64*
   %114 = load i64, i64* %113, align 1
-  %115 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* %102, i64 3)
-  %116 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %115, i64 3)
+  %115 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) %102, i64 3)
+  %116 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %115, i64 3)
   %117 = bitcast double* %116 to i64*
   store i64 %114, i64* %117, align 1
-  %118 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 4)
+  %118 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 4)
   %119 = bitcast double* %118 to i64*
   %120 = load i64, i64* %119, align 1
-  %121 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %115, i64 2)
+  %121 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %115, i64 2)
   %122 = bitcast double* %121 to i64*
   store i64 %120, i64* %122, align 1
-  %123 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 5)
+  %123 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 5)
   %124 = bitcast double* %123 to i64*
   %125 = load i64, i64* %124, align 1
-  %126 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %115, i64 1)
+  %126 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %115, i64 1)
   %127 = bitcast double* %126 to i64*
   store i64 %125, i64* %127, align 1
-  %128 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 6)
+  %128 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) getelementptr inbounds ([6 x double], [6 x double]* @"perdida_m_mp_generalized_hookes_law_$GENERALIZED_STRESS_VECTOR", i64 0, i64 0), i64 6)
   %129 = bitcast double* %128 to i64*
   %130 = load i64, i64* %129, align 1
-  %131 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %109, i64 1)
+  %131 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %109, i64 1)
   %132 = bitcast double* %131 to i64*
   store i64 %130, i64* %132, align 1
-  %133 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %109, i64 3)
+  %133 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %109, i64 3)
   %134 = bitcast double* %133 to i64*
   store i64 %120, i64* %134, align 1
-  %135 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %103, i64 3)
+  %135 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %103, i64 3)
   %136 = bitcast double* %135 to i64*
   store i64 %125, i64* %136, align 1
-  %137 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %103, i64 2)
+  %137 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %103, i64 2)
   %138 = bitcast double* %137 to i64*
   store i64 %130, i64* %138, align 1
   ret void
@@ -309,30 +309,30 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
   %87 = fsub fast double 1.000000e+00, %86
   %88 = tail call i8* @llvm.stacksave()
   %89 = load double*, double** %36, align 1
-  %90 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 0)
+  %90 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %38, i32 0)
   %91 = load i64, i64* %90, align 1
-  %92 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %37, i32 0)
-  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 1)
+  %92 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %37, i32 0)
+  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %38, i32 1)
   %94 = load i64, i64* %93, align 1
-  %95 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %37, i32 1)
+  %95 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %37, i32 1)
   %96 = load double, double* %17, align 1
   %97 = load double*, double** %39, align 1
-  %98 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %41, i32 0)
+  %98 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %41, i32 0)
   %99 = load i64, i64* %98, align 1
-  %100 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %40, i32 0)
+  %100 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %40, i32 0)
   %101 = load i64, i64* %100, align 1
   %102 = icmp sgt i64 %101, 0
   %103 = select i1 %102, i64 %101, i64 0
-  %104 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %41, i32 1)
+  %104 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %41, i32 1)
   %105 = load i64, i64* %104, align 1
-  %106 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %40, i32 1)
+  %106 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %40, i32 1)
   %107 = load i64, i64* %106, align 1
   %108 = icmp sgt i64 %107, 0
   %109 = select i1 %108, i64 %107, i64 0
   %110 = load double*, double** %42, align 1
-  %111 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %43, i32 0)
+  %111 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %43, i32 0)
   %112 = load i64, i64* %111, align 1
-  %113 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %43, i32 1)
+  %113 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %43, i32 1)
   %114 = load i64, i64* %113, align 1
   %115 = shl nsw i64 %103, 3
   %116 = mul nsw i64 %109, %115
@@ -350,12 +350,12 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 125:                                              ; preds = %138, %125
   %126 = phi i64 [ 1, %138 ], [ %133, %125 ]
-  %127 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* %140, i64 %126)
+  %127 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* elementtype(double) %140, i64 %126)
   %128 = load double, double* %127, align 1
-  %129 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* %141, i64 %126)
+  %129 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* elementtype(double) %141, i64 %126)
   %130 = load double, double* %129, align 1
   %131 = fsub fast double %128, %130
-  %132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %142, i64 %126)
+  %132 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %142, i64 %126)
   store double %131, double* %132, align 1
   %133 = add nuw nsw i64 %126, 1
   %134 = icmp eq i64 %133, %123
@@ -368,43 +368,43 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 138:                                              ; preds = %135, %122
   %139 = phi i64 [ %136, %135 ], [ 1, %122 ]
-  %140 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* %97, i64 %139)
-  %141 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* %110, i64 %139)
-  %142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %115, double* nonnull %118, i64 %139)
+  %140 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* elementtype(double) %97, i64 %139)
+  %141 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* elementtype(double) %110, i64 %139)
+  %142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %115, double* elementtype(double) nonnull %118, i64 %139)
   br label %125
 
 143:                                              ; preds = %135, %20
   store i64 8, i64* %45, align 8
   store i64 2, i64* %48, align 8
   store i64 0, i64* %46, align 8
-  %144 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %50, i32 0)
+  %144 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %50, i32 0)
   store i64 8, i64* %144, align 1
-  %145 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %51, i32 0)
+  %145 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %51, i32 0)
   store i64 1, i64* %145, align 1
-  %146 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %49, i32 0)
+  %146 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 0)
   store i64 %103, i64* %146, align 1
-  %147 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %50, i32 1)
+  %147 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %50, i32 1)
   store i64 %115, i64* %147, align 1
-  %148 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %51, i32 1)
+  %148 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %51, i32 1)
   store i64 1, i64* %148, align 1
-  %149 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %49, i32 1)
+  %149 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 1)
   store i64 %109, i64* %149, align 1
   store double* %118, double** %44, align 8
   store i64 1, i64* %47, align 8
   store i64 8, i64* %53, align 8
   store i64 2, i64* %56, align 8
   store i64 0, i64* %54, align 8
-  %150 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %58, i32 0)
+  %150 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %58, i32 0)
   store i64 8, i64* %150, align 1
-  %151 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %59, i32 0)
+  %151 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %59, i32 0)
   store i64 1, i64* %151, align 1
-  %152 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %57, i32 0)
+  %152 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 0)
   store i64 3, i64* %152, align 1
-  %153 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %58, i32 1)
+  %153 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %58, i32 1)
   store i64 24, i64* %153, align 1
-  %154 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %59, i32 1)
+  %154 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %59, i32 1)
   store i64 1, i64* %154, align 1
-  %155 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %57, i32 1)
+  %155 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 1)
   store i64 3, i64* %155, align 1
   store double* %35, double** %52, align 8
   store i64 1, i64* %55, align 8
@@ -414,10 +414,10 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 157:                                              ; preds = %168, %157
   %158 = phi i64 [ 1, %168 ], [ %163, %157 ]
-  %159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %170, i64 %158)
+  %159 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %170, i64 %158)
   %160 = load double, double* %159, align 1
   %161 = fmul fast double %160, %156
-  %162 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %171, i64 %158)
+  %162 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %171, i64 %158)
   store double %161, double* %162, align 1
   %163 = add nuw nsw i64 %158, 1
   %164 = icmp eq i64 %163, 4
@@ -430,21 +430,21 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 168:                                              ; preds = %165, %143
   %169 = phi i64 [ 1, %143 ], [ %166, %165 ]
-  %170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* nonnull %35, i64 %169)
-  %171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* %89, i64 %169)
+  %170 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) nonnull %35, i64 %169)
+  %171 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) %89, i64 %169)
   br label %157
 
 172:                                              ; preds = %165
   call void @llvm.stackrestore(i8* %88)
-  %173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* nonnull %89, i64 1)
-  %174 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %173, i64 1)
+  %173 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) nonnull %89, i64 1)
+  %174 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %173, i64 1)
   %175 = load double, double* %174, align 1
-  %176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* nonnull %89, i64 2)
-  %177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %176, i64 2)
+  %176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) nonnull %89, i64 2)
+  %177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %176, i64 2)
   %178 = load double, double* %177, align 1
   %179 = fadd fast double %178, %175
-  %180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* nonnull %89, i64 3)
-  %181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %180, i64 3)
+  %180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) nonnull %89, i64 3)
+  %181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %180, i64 3)
   %182 = load double, double* %181, align 1
   %183 = fadd fast double %179, %182
   %184 = fmul fast double %183, 0x3FD5555555555555
@@ -455,7 +455,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 188:                                              ; preds = %199, %188
   %189 = phi i64 [ 1, %199 ], [ %194, %188 ]
-  %190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %201, i64 %189)
+  %190 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %201, i64 %189)
   %191 = load double, double* %190, align 1
   %192 = fmul fast double %191, %217
   %193 = fdiv fast double %192, %156
@@ -471,7 +471,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 199:                                              ; preds = %218, %196
   %200 = phi i64 [ %197, %196 ], [ 1, %218 ]
-  %201 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* nonnull %89, i64 %200)
+  %201 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) nonnull %89, i64 %200)
   br label %188
 
 202:                                              ; preds = %214, %209, %196
@@ -503,10 +503,10 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 221:                                              ; preds = %233, %221
   %222 = phi i64 [ 1, %233 ], [ %228, %221 ]
-  %223 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %235, i64 %222)
+  %223 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %235, i64 %222)
   %224 = bitcast double* %223 to i64*
   %225 = load i64, i64* %224, align 1
-  %226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %236, i64 %222)
+  %226 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %236, i64 %222)
   %227 = bitcast double* %226 to i64*
   store i64 %225, i64* %227, align 1
   %228 = add nuw nsw i64 %222, 1
@@ -520,8 +520,8 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 233:                                              ; preds = %237, %230
   %234 = phi i64 [ 1, %237 ], [ %231, %230 ]
-  %235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* nonnull %89, i64 %234)
-  %236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %234)
+  %235 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) nonnull %89, i64 %234)
+  %236 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %234)
   br label %221
 
 237:                                              ; preds = %202, %172
@@ -534,16 +534,16 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 243:                                              ; preds = %230
   %244 = fsub fast double %240, %241
-  %245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 1)
-  %246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %245, i64 1)
+  %245 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 1)
+  %246 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %245, i64 1)
   store double %244, double* %246, align 1
   %247 = fsub fast double %239, %241
-  %248 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 2)
-  %249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %248, i64 2)
+  %248 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 2)
+  %249 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %248, i64 2)
   store double %247, double* %249, align 1
   %250 = fsub fast double %238, %241
-  %251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 3)
-  %252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %251, i64 3)
+  %251 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 3)
+  %252 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %251, i64 3)
   store double %250, double* %252, align 1
   %253 = fmul fast double %242, %96
   %254 = fsub fast double 1.000000e+00, %253
@@ -551,10 +551,10 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 255:                                              ; preds = %266, %255
   %256 = phi i64 [ 1, %266 ], [ %261, %255 ]
-  %257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %268, i64 %256)
+  %257 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %268, i64 %256)
   %258 = load double, double* %257, align 1
   %259 = fdiv fast double %258, %254
-  %260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %269, i64 %256)
+  %260 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %269, i64 %256)
   store double %259, double* %260, align 1
   %261 = add nuw nsw i64 %256, 1
   %262 = icmp eq i64 %261, 4
@@ -567,16 +567,16 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 266:                                              ; preds = %263, %243
   %267 = phi i64 [ 1, %243 ], [ %264, %263 ]
-  %268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %267)
-  %269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %267)
+  %268 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %267)
+  %269 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %267)
   br label %255
 
 270:                                              ; preds = %285, %270
   %271 = phi double [ %286, %285 ], [ %279, %270 ]
   %272 = phi i64 [ 1, %285 ], [ %280, %270 ]
-  %273 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %288, i64 %272)
+  %273 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %288, i64 %272)
   %274 = load double, double* %273, align 1
-  %275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %289, i64 %272)
+  %275 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %289, i64 %272)
   %276 = load double, double* %275, align 1
   %277 = fsub fast double %274, %276
   %278 = fmul fast double %277, %277
@@ -593,13 +593,13 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 285:                                              ; preds = %302, %282
   %286 = phi double [ 0.000000e+00, %302 ], [ %279, %282 ]
   %287 = phi i64 [ 1, %302 ], [ %283, %282 ]
-  %288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %287)
-  %289 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* %303, i64 %287)
+  %288 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %287)
+  %289 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) %303, i64 %287)
   br label %270
 
 290:                                              ; preds = %282
-  %291 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %61, i32 0)
-  %292 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %61, i32 1)
+  %291 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 0)
+  %292 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 1)
   %293 = fmul fast double %279, 1.500000e+00
   %294 = call fast double @llvm.sqrt.f64(double %293)
   %295 = load double, double* %16, align 1
@@ -613,18 +613,18 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 302:                                              ; preds = %263
   %303 = load double*, double** %60, align 1
-  %304 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 0)
+  %304 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 0)
   %305 = load i64, i64* %304, align 1
-  %306 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 1)
+  %306 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 1)
   %307 = load i64, i64* %306, align 1
   br label %285
 
 308:                                              ; preds = %320, %308
   %309 = phi i64 [ 1, %320 ], [ %315, %308 ]
-  %310 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* %322, i64 %309)
+  %310 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* elementtype(double) %322, i64 %309)
   %311 = bitcast double* %310 to i64*
   %312 = load i64, i64* %311, align 1
-  %313 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %323, i64 %309)
+  %313 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %323, i64 %309)
   %314 = bitcast double* %313 to i64*
   store i64 %312, i64* %314, align 1
   %315 = add nuw nsw i64 %309, 1
@@ -638,24 +638,24 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 320:                                              ; preds = %381, %317
   %321 = phi i64 [ 1, %381 ], [ %318, %317 ]
-  %322 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* %382, i64 %321)
-  %323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %321)
+  %322 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* elementtype(double) %382, i64 %321)
+  %323 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %321)
   br label %308
 
 324:                                              ; preds = %317
   %325 = fmul fast double %397, 0x3FD5555555555555
-  %326 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %64, i32 1)
+  %326 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %64, i32 1)
   %327 = fsub fast double %389, %325
-  %328 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 1)
-  %329 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %328, i64 1)
+  %328 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 1)
+  %329 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %328, i64 1)
   store double %327, double* %329, align 1
   %330 = fsub fast double %392, %325
-  %331 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 2)
-  %332 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %331, i64 2)
+  %331 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 2)
+  %332 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %331, i64 2)
   store double %330, double* %332, align 1
   %333 = fsub fast double %396, %325
-  %334 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 3)
-  %335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %334, i64 3)
+  %334 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 3)
+  %335 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %334, i64 3)
   store double %333, double* %335, align 1
   %336 = load i64, i64* %398, align 1
   %337 = icmp sgt i64 %336, 0
@@ -666,17 +666,17 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
   store i64 8, i64* %66, align 8
   store i64 2, i64* %69, align 8
   store i64 0, i64* %67, align 8
-  %342 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %71, i32 0)
+  %342 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %71, i32 0)
   store i64 %384, i64* %342, align 1
-  %343 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %72, i32 0)
+  %343 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %72, i32 0)
   store i64 1, i64* %343, align 1
-  %344 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %70, i32 0)
+  %344 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %70, i32 0)
   store i64 %338, i64* %344, align 1
-  %345 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %71, i32 1)
+  %345 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %71, i32 1)
   store i64 %386, i64* %345, align 1
-  %346 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %72, i32 1)
+  %346 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %72, i32 1)
   store i64 1, i64* %346, align 1
-  %347 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %70, i32 1)
+  %347 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %70, i32 1)
   store i64 %341, i64* %347, align 1
   %348 = bitcast %"QNCA_a0$double*$rank2$"* %25 to i64*
   store i64 %399, i64* %348, align 8
@@ -684,17 +684,17 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
   store i64 8, i64* %74, align 8
   store i64 2, i64* %77, align 8
   store i64 0, i64* %75, align 8
-  %349 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %79, i32 0)
+  %349 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %79, i32 0)
   store i64 8, i64* %349, align 1
-  %350 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %80, i32 0)
+  %350 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %80, i32 0)
   store i64 1, i64* %350, align 1
-  %351 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %78, i32 0)
+  %351 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %78, i32 0)
   store i64 3, i64* %351, align 1
-  %352 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %79, i32 1)
+  %352 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %79, i32 1)
   store i64 24, i64* %352, align 1
-  %353 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %80, i32 1)
+  %353 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %80, i32 1)
   store i64 1, i64* %353, align 1
-  %354 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %78, i32 1)
+  %354 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %78, i32 1)
   store i64 3, i64* %354, align 1
   store double* %34, double** %73, align 8
   store i64 1, i64* %76, align 8
@@ -704,12 +704,12 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 355:                                              ; preds = %372, %355
   %356 = phi double [ %373, %372 ], [ %366, %355 ]
   %357 = phi i64 [ 1, %372 ], [ %367, %355 ]
-  %358 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %375, i64 %357)
+  %358 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %375, i64 %357)
   %359 = load double, double* %358, align 1
-  %360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %376, i64 %357)
+  %360 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %376, i64 %357)
   %361 = load double, double* %360, align 1
   %362 = fsub fast double %359, %361
-  %363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %377, i64 %357)
+  %363 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %377, i64 %357)
   %364 = load double, double* %363, align 1
   %365 = fmul fast double %362, %364
   %366 = fadd fast double %365, %356
@@ -725,9 +725,9 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 372:                                              ; preds = %369, %324
   %373 = phi double [ 0.000000e+00, %324 ], [ %366, %369 ]
   %374 = phi i64 [ 1, %324 ], [ %370, %369 ]
-  %375 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %374)
-  %376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* %303, i64 %374)
-  %377 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* nonnull %34, i64 %374)
+  %375 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %374)
+  %376 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) %303, i64 %374)
+  %377 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) nonnull %34, i64 %374)
   br label %355
 
 378:                                              ; preds = %369
@@ -737,31 +737,31 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 381:                                              ; preds = %290
   %382 = load double*, double** %63, align 1
-  %383 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 0)
+  %383 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %65, i32 0)
   %384 = load i64, i64* %383, align 1
-  %385 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 1)
+  %385 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %65, i32 1)
   %386 = load i64, i64* %385, align 1
-  %387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* %382, i64 1)
-  %388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* %387, i64 1)
+  %387 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* elementtype(double) %382, i64 1)
+  %388 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* elementtype(double) %387, i64 1)
   %389 = load double, double* %388, align 1
-  %390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* %382, i64 2)
-  %391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* %390, i64 2)
+  %390 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* elementtype(double) %382, i64 2)
+  %391 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* elementtype(double) %390, i64 2)
   %392 = load double, double* %391, align 1
   %393 = fadd fast double %392, %389
-  %394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* %382, i64 3)
-  %395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* %394, i64 3)
+  %394 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %386, double* elementtype(double) %382, i64 3)
+  %395 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %384, double* elementtype(double) %394, i64 3)
   %396 = load double, double* %395, align 1
   %397 = fadd fast double %393, %396
-  %398 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %64, i32 0)
+  %398 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %64, i32 0)
   %399 = ptrtoint double* %382 to i64
   br label %320
 
 400:                                              ; preds = %412, %400
   %401 = phi i64 [ 1, %412 ], [ %407, %400 ]
-  %402 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* %414, i64 %401)
+  %402 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* elementtype(double) %414, i64 %401)
   %403 = bitcast double* %402 to i64*
   %404 = load i64, i64* %403, align 1
-  %405 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %415, i64 %401)
+  %405 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %415, i64 %401)
   %406 = bitcast double* %405 to i64*
   store i64 %404, i64* %406, align 1
   %407 = add nuw nsw i64 %401, 1
@@ -775,14 +775,14 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 412:                                              ; preds = %778, %409
   %413 = phi i64 [ %410, %409 ], [ 1, %778 ]
-  %414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* %110, i64 %413)
-  %415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$OLD_PLASTIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %413)
+  %414 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* elementtype(double) %110, i64 %413)
+  %415 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$OLD_PLASTIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %413)
   br label %400
 
 416:                                              ; preds = %428, %416
   %417 = phi double [ %429, %428 ], [ %422, %416 ]
   %418 = phi i64 [ 1, %428 ], [ %423, %416 ]
-  %419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %431, i64 %418)
+  %419 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %431, i64 %418)
   %420 = load double, double* %419, align 1
   %421 = fmul fast double %420, %420
   %422 = fadd fast double %421, %417
@@ -798,15 +798,15 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 428:                                              ; preds = %425, %409
   %429 = phi double [ %422, %425 ], [ 0.000000e+00, %409 ]
   %430 = phi i64 [ %426, %425 ], [ 1, %409 ]
-  %431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %430)
+  %431 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %430)
   br label %416
 
 432:                                              ; preds = %446, %432
   %433 = phi double [ %447, %446 ], [ %440, %432 ]
   %434 = phi i64 [ 1, %446 ], [ %441, %432 ]
-  %435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %449, i64 %434)
+  %435 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %449, i64 %434)
   %436 = load double, double* %435, align 1
-  %437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %450, i64 %434)
+  %437 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %450, i64 %434)
   %438 = load double, double* %437, align 1
   %439 = fmul fast double %438, %436
   %440 = fadd fast double %439, %433
@@ -822,8 +822,8 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 446:                                              ; preds = %443, %425
   %447 = phi double [ %440, %443 ], [ 0.000000e+00, %425 ]
   %448 = phi i64 [ %444, %443 ], [ 1, %425 ]
-  %449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %448)
-  %450 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* %303, i64 %448)
+  %449 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %448)
+  %450 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) %303, i64 %448)
   br label %432
 
 451:                                              ; preds = %443
@@ -843,7 +843,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 461:                                              ; preds = %473, %461
   %462 = phi double [ %474, %473 ], [ %467, %461 ]
   %463 = phi i64 [ 1, %473 ], [ %468, %461 ]
-  %464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %476, i64 %463)
+  %464 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %476, i64 %463)
   %465 = load double, double* %464, align 1
   %466 = fmul fast double %465, %465
   %467 = fadd fast double %466, %462
@@ -859,7 +859,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 473:                                              ; preds = %470, %458
   %474 = phi double [ %467, %470 ], [ 0.000000e+00, %458 ]
   %475 = phi i64 [ %471, %470 ], [ 1, %458 ]
-  %476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* nonnull %303, i64 %475)
+  %476 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) nonnull %303, i64 %475)
   br label %461
 
 477:                                              ; preds = %470, %451
@@ -936,7 +936,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 524:                                              ; preds = %534, %524
   %525 = phi i64 [ 1, %534 ], [ %529, %524 ]
-  %526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %536, i64 %525)
+  %526 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %536, i64 %525)
   %527 = load double, double* %526, align 1
   %528 = fmul fast double %527, %502
   store double %528, double* %526, align 1
@@ -951,7 +951,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 534:                                              ; preds = %537, %531
   %535 = phi i64 [ 1, %537 ], [ %532, %531 ]
-  %536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %535)
+  %536 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %535)
   br label %524
 
 537:                                              ; preds = %506, %498
@@ -959,10 +959,10 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 538:                                              ; preds = %550, %538
   %539 = phi i64 [ 1, %550 ], [ %545, %538 ]
-  %540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %552, i64 %539)
+  %540 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %552, i64 %539)
   %541 = bitcast double* %540 to i64*
   %542 = load i64, i64* %541, align 1
-  %543 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* %553, i64 %539)
+  %543 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %91, double* elementtype(double) %553, i64 %539)
   %544 = bitcast double* %543 to i64*
   store i64 %542, i64* %544, align 1
   %545 = add nuw nsw i64 %539, 1
@@ -976,8 +976,8 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 550:                                              ; preds = %547, %531
   %551 = phi i64 [ %548, %547 ], [ 1, %531 ]
-  %552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %551)
-  %553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* %89, i64 %551)
+  %552 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %551)
+  %553 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %94, double* elementtype(double) %89, i64 %551)
   br label %538
 
 554:                                              ; preds = %547
@@ -990,25 +990,25 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
   %559 = load double, double* %181, align 1
   %560 = fadd fast double %559, %241
   store double %560, double* %181, align 1
-  %561 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* %97, i64 1)
-  %562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* %561, i64 1)
+  %561 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* elementtype(double) %97, i64 1)
+  %562 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* elementtype(double) %561, i64 1)
   %563 = load double, double* %562, align 1
-  %564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* %97, i64 2)
-  %565 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* %564, i64 2)
+  %564 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* elementtype(double) %97, i64 2)
+  %565 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* elementtype(double) %564, i64 2)
   %566 = load double, double* %565, align 1
   %567 = fadd fast double %566, %563
-  %568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* %97, i64 3)
-  %569 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* %568, i64 3)
+  %568 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* elementtype(double) %97, i64 3)
+  %569 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* elementtype(double) %568, i64 3)
   %570 = load double, double* %569, align 1
   %571 = fadd fast double %567, %570
   br label %584
 
 572:                                              ; preds = %584, %572
   %573 = phi i64 [ 1, %584 ], [ %579, %572 ]
-  %574 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* %586, i64 %573)
+  %574 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %99, double* elementtype(double) %586, i64 %573)
   %575 = bitcast double* %574 to i64*
   %576 = load i64, i64* %575, align 1
-  %577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %587, i64 %573)
+  %577 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %587, i64 %573)
   %578 = bitcast double* %577 to i64*
   store i64 %576, i64* %578, align 1
   %579 = add nuw nsw i64 %573, 1
@@ -1022,24 +1022,24 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 584:                                              ; preds = %581, %554
   %585 = phi i64 [ 1, %554 ], [ %582, %581 ]
-  %586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* nonnull %97, i64 %585)
-  %587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %585)
+  %586 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %105, double* elementtype(double) nonnull %97, i64 %585)
+  %587 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %585)
   br label %572
 
 588:                                              ; preds = %581
   %589 = fmul fast double %571, 0x3FD5555555555555
-  %590 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 1)
-  %591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %590, i64 1)
+  %590 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 1)
+  %591 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %590, i64 1)
   %592 = load double, double* %591, align 1
   %593 = fsub fast double %592, %589
   store double %593, double* %591, align 1
-  %594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 2)
-  %595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %594, i64 2)
+  %594 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 2)
+  %595 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %594, i64 2)
   %596 = load double, double* %595, align 1
   %597 = fsub fast double %596, %589
   store double %597, double* %595, align 1
-  %598 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 3)
-  %599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %598, i64 3)
+  %598 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 3)
+  %599 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %598, i64 3)
   %600 = load double, double* %599, align 1
   %601 = fsub fast double %600, %589
   store double %601, double* %599, align 1
@@ -1047,9 +1047,9 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 602:                                              ; preds = %616, %602
   %603 = phi i64 [ 1, %616 ], [ %611, %602 ]
-  %604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* %618, i64 %603)
+  %604 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* elementtype(double) %618, i64 %603)
   %605 = load double, double* %604, align 1
-  %606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %619, i64 %603)
+  %606 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %619, i64 %603)
   %607 = load double, double* %606, align 1
   %608 = fsub fast double %605, %607
   %609 = fmul fast double %608, %502
@@ -1066,8 +1066,8 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 616:                                              ; preds = %613, %588
   %617 = phi i64 [ 1, %588 ], [ %614, %613 ]
-  %618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* %110, i64 %617)
-  %619 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %617)
+  %618 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* elementtype(double) %110, i64 %617)
+  %619 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DEVIATORIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %617)
   br label %602
 
 620:                                              ; preds = %613
@@ -1079,7 +1079,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 625:                                              ; preds = %633, %625
   %626 = phi i64 [ 1, %633 ], [ %628, %625 ]
-  %627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %635, i64 %626)
+  %627 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %635, i64 %626)
   store double 0.000000e+00, double* %627, align 1
   %628 = add nuw nsw i64 %626, 1
   %629 = icmp eq i64 %628, 4
@@ -1092,18 +1092,18 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 633:                                              ; preds = %630, %620
   %634 = phi i64 [ %631, %630 ], [ 1, %620 ]
-  %635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %634)
+  %635 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %634)
   br label %625
 
 636:                                              ; preds = %650, %636
   %637 = phi i64 [ 1, %650 ], [ %645, %636 ]
-  %638 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* %652, i64 %637)
+  %638 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %112, double* elementtype(double) %652, i64 %637)
   %639 = load double, double* %638, align 1
-  %640 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %653, i64 %637)
+  %640 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %653, i64 %637)
   %641 = load double, double* %640, align 1
   %642 = fsub fast double %639, %641
   %643 = fdiv fast double %642, %623
-  %644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %654, i64 %637)
+  %644 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %654, i64 %637)
   store double %643, double* %644, align 1
   %645 = add nuw nsw i64 %637, 1
   %646 = icmp eq i64 %645, 4
@@ -1116,15 +1116,15 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 650:                                              ; preds = %647, %620
   %651 = phi i64 [ %648, %647 ], [ 1, %620 ]
-  %652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* nonnull %110, i64 %651)
-  %653 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$OLD_PLASTIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %651)
-  %654 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %651)
+  %652 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %114, double* elementtype(double) nonnull %110, i64 %651)
+  %653 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$OLD_PLASTIC_STRAIN_TENSOR", i64 0, i64 0, i64 0), i64 %651)
+  %654 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %651)
   br label %636
 
 655:                                              ; preds = %667, %655
   %656 = phi double [ %668, %667 ], [ %661, %655 ]
   %657 = phi i64 [ 1, %667 ], [ %662, %655 ]
-  %658 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %670, i64 %657)
+  %658 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %670, i64 %657)
   %659 = load double, double* %658, align 1
   %660 = fmul fast double %659, %659
   %661 = fadd fast double %660, %656
@@ -1140,7 +1140,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 667:                                              ; preds = %682, %664
   %668 = phi double [ 0.000000e+00, %682 ], [ %661, %664 ]
   %669 = phi i64 [ 1, %682 ], [ %665, %664 ]
-  %670 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %669)
+  %670 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %669)
   br label %655
 
 671:                                              ; preds = %664
@@ -1162,15 +1162,15 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 683:                                              ; preds = %699, %683
   %684 = phi i64 [ 1, %699 ], [ %694, %683 ]
-  %685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %701, i64 %684)
+  %685 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %701, i64 %684)
   %686 = load double, double* %685, align 1
   %687 = fmul fast double %681, %686
-  %688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %702, i64 %684)
+  %688 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %702, i64 %684)
   %689 = load double, double* %688, align 1
   %690 = fmul fast double %689, %674
   %691 = fsub fast double %687, %690
   %692 = fmul fast double %691, %678
-  %693 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %703, i64 %684)
+  %693 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %703, i64 %684)
   store double %692, double* %693, align 1
   %694 = add nuw nsw i64 %684, 1
   %695 = icmp eq i64 %694, 4
@@ -1183,9 +1183,9 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 699:                                              ; preds = %696, %671
   %700 = phi i64 [ 1, %671 ], [ %697, %696 ]
-  %701 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %700)
-  %702 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* %303, i64 %700)
-  %703 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$BACK_STRESS_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %700)
+  %701 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$PLASTIC_STRAIN_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %700)
+  %702 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) %303, i64 %700)
+  %703 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$BACK_STRESS_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %700)
   br label %683
 
 704:                                              ; preds = %696
@@ -1195,9 +1195,9 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 707:                                              ; preds = %720, %707
   %708 = phi i64 [ 1, %720 ], [ %715, %707 ]
-  %709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* %722, i64 %708)
+  %709 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 %305, double* elementtype(double) %722, i64 %708)
   %710 = load double, double* %709, align 1
-  %711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %723, i64 %708)
+  %711 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %723, i64 %708)
   %712 = load double, double* %711, align 1
   %713 = fmul fast double %712, %623
   %714 = fadd fast double %713, %710
@@ -1213,8 +1213,8 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 
 720:                                              ; preds = %717, %704
   %721 = phi i64 [ 1, %704 ], [ %718, %717 ]
-  %722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* nonnull %303, i64 %721)
-  %723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$BACK_STRESS_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %721)
+  %722 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %307, double* elementtype(double) nonnull %303, i64 %721)
+  %723 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$BACK_STRESS_RATE_TENSOR", i64 0, i64 0, i64 0), i64 %721)
   br label %707
 
 724:                                              ; preds = %717
@@ -1230,7 +1230,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 731:                                              ; preds = %743, %731
   %732 = phi double [ %744, %743 ], [ %737, %731 ]
   %733 = phi i64 [ 1, %743 ], [ %738, %731 ]
-  %734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %746, i64 %733)
+  %734 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %746, i64 %733)
   %735 = load double, double* %734, align 1
   %736 = fmul fast double %735, %735
   %737 = fadd fast double %736, %732
@@ -1246,7 +1246,7 @@ define internal fastcc void @perdida_m_mp_perdida_(double* noalias nocapture rea
 743:                                              ; preds = %740, %724
   %744 = phi double [ %737, %740 ], [ 0.000000e+00, %724 ]
   %745 = phi i64 [ %741, %740 ], [ 1, %724 ]
-  %746 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %745)
+  %746 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 24, double* elementtype(double) getelementptr inbounds ([3 x [3 x double]], [3 x [3 x double]]* @"perdida_m_mp_perdida_$DAMAGED_DEV_STRESS_TENSOR", i64 0, i64 0, i64 0), i64 %745)
   br label %731
 
 747:                                              ; preds = %740
@@ -1326,18 +1326,18 @@ bb1:
   br label %bb2
 bb2:
   %index = phi i32 [ 1, %bb1 ], [ %add, %bb2 ]
-  %t661 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$DAMAGE", i64 0, i32 6, i64 0, i32 2), i32 0)
-  %t684 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ACCUMULATED_PLASTIC_STRAIN", i64 0, i32 6, i64 0, i32 2), i32 0)
-  %t707 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ISOTROPIC_HARDENING_STRESS", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %t661 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$DAMAGE", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %t684 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ACCUMULATED_PLASTIC_STRAIN", i64 0, i32 6, i64 0, i32 2), i32 0)
+  %t707 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ISOTROPIC_HARDENING_STRESS", i64 0, i32 6, i64 0, i32 2), i32 0)
   %t2092 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ACCUMULATED_PLASTIC_STRAIN", i64 0, i32 0), align 16
   %t2093 = load i64, i64* %t684, align 1
-  %t2094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2093, i64 8, double* %t2092, i64 1)
+  %t2094 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2093, i64 8, double* elementtype(double) %t2092, i64 1)
   %t2105 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$ISOTROPIC_HARDENING_STRESS", i64 0, i32 0), align 16
   %t2106 = load i64, i64* %t707, align 1
-  %t2107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2106, i64 8, double* %t2105, i64 1)
+  %t2107 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2106, i64 8, double* elementtype(double) %t2105, i64 1)
   %t2108 = load double*, double** getelementptr inbounds (%"QNCA_a0$double*$rank1$", %"QNCA_a0$double*$rank1$"* @"iztaccihuatl_$DAMAGE", i64 0, i32 0), align 16
   %t2109 = load i64, i64* %t661, align 1
-  %t2110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2109, i64 8, double* %t2108, i64 1)
+  %t2110 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %t2109, i64 8, double* elementtype(double) %t2108, i64 1)
   call fastcc void @perdida_m_mp_perdida_(double* nonnull %t26, double* nonnull %t24, double* nonnull %t23, double* nonnull %t25, double* nonnull %t22, double* nonnull %t21, double* nonnull %t20, double* nonnull %t19, double* nonnull %t18, double* nonnull %t17, %"QNCA_a0$double*$rank2$"* nonnull %t52, %"QNCA_a0$double*$rank2$"* nonnull %t53, %"QNCA_a0$double*$rank2$"* nonnull %t54, %"QNCA_a0$double*$rank2$"* nonnull %t55, double* %t2094, %"QNCA_a0$double*$rank2$"* nonnull %t56, double* %t2107, double* %t2110, double* nonnull %t12, double* nonnull %t11)
   %add = add nuw nsw i32 %index, 1
   %rel = icmp ult i32 %index, 5

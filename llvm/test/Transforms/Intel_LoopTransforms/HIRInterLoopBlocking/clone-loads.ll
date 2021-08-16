@@ -163,22 +163,22 @@ bb2.preheader:                                    ; preds = %alloca_0
   %"sub1_$B.addr_a0$" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$B", i64 0, i32 0
   %"sub1_$B.addr_a0$_fetch" = load double*, double** %"sub1_$B.addr_a0$", align 1
   %"sub1_$B.dim_info$.lower_bound$55" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$B", i64 0, i32 6, i64 0, i32 2
-  %"sub1_$B.dim_info$.lower_bound$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$B.dim_info$.lower_bound$55", i32 0)
+  %"sub1_$B.dim_info$.lower_bound$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$B.dim_info$.lower_bound$55", i32 0)
   %"sub1_$B.dim_info$.lower_bound$[]_fetch" = load i64, i64* %"sub1_$B.dim_info$.lower_bound$[]", align 1
   %"sub1_$B.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$B", i64 0, i32 6, i64 0, i32 1
-  %"sub1_$B.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$B.dim_info$.spacing$", i32 1)
+  %"sub1_$B.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$B.dim_info$.spacing$", i32 1)
   %"sub1_$B.dim_info$.spacing$[]_fetch" = load i64, i64* %"sub1_$B.dim_info$.spacing$[]", align 1
-  %"sub1_$B.dim_info$.lower_bound$[]3" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$B.dim_info$.lower_bound$55", i32 1)
+  %"sub1_$B.dim_info$.lower_bound$[]3" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$B.dim_info$.lower_bound$55", i32 1)
   %"sub1_$B.dim_info$.lower_bound$[]3_fetch" = load i64, i64* %"sub1_$B.dim_info$.lower_bound$[]3", align 1
   %"sub1_$A.addr_a0$" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$A", i64 0, i32 0
   %"sub1_$A.addr_a0$_fetch" = load double*, double** %"sub1_$A.addr_a0$", align 1
   %"sub1_$A.dim_info$.lower_bound$" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$A", i64 0, i32 6, i64 0, i32 2
-  %"sub1_$A.dim_info$.lower_bound$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$A.dim_info$.lower_bound$", i32 0)
+  %"sub1_$A.dim_info$.lower_bound$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$A.dim_info$.lower_bound$", i32 0)
   %"sub1_$A.dim_info$.lower_bound$[]_fetch" = load i64, i64* %"sub1_$A.dim_info$.lower_bound$[]", align 1
   %"sub1_$A.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$double*$rank2$", %"QNCA_a0$double*$rank2$"* %"sub1_$A", i64 0, i32 6, i64 0, i32 1
-  %"sub1_$A.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$A.dim_info$.spacing$", i32 1)
+  %"sub1_$A.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$A.dim_info$.spacing$", i32 1)
   %"sub1_$A.dim_info$.spacing$[]_fetch" = load i64, i64* %"sub1_$A.dim_info$.spacing$[]", align 1
-  %"sub1_$A.dim_info$.lower_bound$31[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"sub1_$A.dim_info$.lower_bound$", i32 1)
+  %"sub1_$A.dim_info$.lower_bound$31[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"sub1_$A.dim_info$.lower_bound$", i32 1)
   %"sub1_$A.dim_info$.lower_bound$31[]_fetch" = load i64, i64* %"sub1_$A.dim_info$.lower_bound$31[]", align 1
   %0 = add nuw nsw i32 %"sub1_$NTIMES_fetch", 1
   br label %bb2
@@ -189,16 +189,16 @@ bb2:                                              ; preds = %bb2.preheader, %bb5
 
 bb6:                                              ; preds = %bb13, %bb2
   %indvars.iv199 = phi i64 [ %indvars.iv.next200, %bb13 ], [ 1, %bb2 ]
-  %"sub1_$B.addr_a0$_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$B.dim_info$.lower_bound$[]3_fetch", i64 %"sub1_$B.dim_info$.spacing$[]_fetch", double* %"sub1_$B.addr_a0$_fetch", i64 %indvars.iv199)
-  %"sub1_$A.addr_a0$_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$A.dim_info$.lower_bound$31[]_fetch", i64 %"sub1_$A.dim_info$.spacing$[]_fetch", double* %"sub1_$A.addr_a0$_fetch", i64 %indvars.iv199)
+  %"sub1_$B.addr_a0$_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$B.dim_info$.lower_bound$[]3_fetch", i64 %"sub1_$B.dim_info$.spacing$[]_fetch", double* elementtype(double) %"sub1_$B.addr_a0$_fetch", i64 %indvars.iv199)
+  %"sub1_$A.addr_a0$_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$A.dim_info$.lower_bound$31[]_fetch", i64 %"sub1_$A.dim_info$.spacing$[]_fetch", double* elementtype(double) %"sub1_$A.addr_a0$_fetch", i64 %indvars.iv199)
   br label %bb10
 
 bb10:                                             ; preds = %bb10, %bb6
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb10 ], [ 1, %bb6 ]
-  %"sub1_$B.addr_a0$_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$B.dim_info$.lower_bound$[]_fetch", i64 8, double* %"sub1_$B.addr_a0$_fetch[]", i64 %indvars.iv)
+  %"sub1_$B.addr_a0$_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$B.dim_info$.lower_bound$[]_fetch", i64 8, double* elementtype(double) %"sub1_$B.addr_a0$_fetch[]", i64 %indvars.iv)
   %"sub1_$B.addr_a0$_fetch[][]_fetch" = load double, double* %"sub1_$B.addr_a0$_fetch[][]", align 1
   %add21 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$B.addr_a0$_fetch[][]_fetch", 1.000000e+00
-  %"sub1_$A.addr_a0$_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$A.dim_info$.lower_bound$[]_fetch", i64 8, double* %"sub1_$A.addr_a0$_fetch[]", i64 %indvars.iv)
+  %"sub1_$A.addr_a0$_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$A.dim_info$.lower_bound$[]_fetch", i64 8, double* elementtype(double) %"sub1_$A.addr_a0$_fetch[]", i64 %indvars.iv)
   store double %add21, double* %"sub1_$A.addr_a0$_fetch[][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 4
@@ -220,8 +220,8 @@ bb47:                                             ; preds = %bb47.preheader, %bb
   br i1 %rel73, label %bb52, label %bb51.preheader
 
 bb51.preheader:                                   ; preds = %bb47
-  %"sub1_$A.addr_a0$_fetch[]109" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$A.dim_info$.lower_bound$31[]_fetch", i64 %"sub1_$A.dim_info$.spacing$[]_fetch", double* %"sub1_$A.addr_a0$_fetch", i64 %indvars.iv205)
-  %"sub1_$B.addr_a0$113_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$B.dim_info$.lower_bound$[]3_fetch", i64 %"sub1_$B.dim_info$.spacing$[]_fetch", double* %"sub1_$B.addr_a0$_fetch", i64 %indvars.iv205)
+  %"sub1_$A.addr_a0$_fetch[]109" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$A.dim_info$.lower_bound$31[]_fetch", i64 %"sub1_$A.dim_info$.spacing$[]_fetch", double* elementtype(double) %"sub1_$A.addr_a0$_fetch", i64 %indvars.iv205)
+  %"sub1_$B.addr_a0$113_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$B.dim_info$.lower_bound$[]3_fetch", i64 %"sub1_$B.dim_info$.spacing$[]_fetch", double* elementtype(double) %"sub1_$B.addr_a0$_fetch", i64 %indvars.iv205)
   %1 = sext i32 %globalvar_mod_mp_zstart__fetch to i64
   %2 = add nsw i32 %globalvar_mod_mp_zstop__fetch, 1
   %wide.trip.count = sext i32 %2 to i64
@@ -229,10 +229,10 @@ bb51.preheader:                                   ; preds = %bb47
 
 bb51:                                             ; preds = %bb51.preheader, %bb51
   %indvars.iv202 = phi i64 [ %1, %bb51.preheader ], [ %indvars.iv.next203, %bb51 ]
-  %"sub1_$A.addr_a0$_fetch[]109[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$A.dim_info$.lower_bound$[]_fetch", i64 8, double* %"sub1_$A.addr_a0$_fetch[]109", i64 %indvars.iv202)
+  %"sub1_$A.addr_a0$_fetch[]109[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$A.dim_info$.lower_bound$[]_fetch", i64 8, double* elementtype(double) %"sub1_$A.addr_a0$_fetch[]109", i64 %indvars.iv202)
   %"sub1_$A.addr_a0$_fetch[]109[]_fetch" = load double, double* %"sub1_$A.addr_a0$_fetch[]109[]", align 1
   %add111 = fadd reassoc ninf nsz arcp contract afn double %"sub1_$A.addr_a0$_fetch[]109[]_fetch", 2.000000e+00
-  %"sub1_$B.addr_a0$113_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$B.dim_info$.lower_bound$[]_fetch", i64 8, double* %"sub1_$B.addr_a0$113_fetch[]", i64 %indvars.iv202)
+  %"sub1_$B.addr_a0$113_fetch[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %"sub1_$B.dim_info$.lower_bound$[]_fetch", i64 8, double* elementtype(double) %"sub1_$B.addr_a0$113_fetch[]", i64 %indvars.iv202)
   store double %add111, double* %"sub1_$B.addr_a0$113_fetch[][]", align 1
   %indvars.iv.next203 = add nsw i64 %indvars.iv202, 1
   %exitcond204 = icmp eq i64 %indvars.iv.next203, %wide.trip.count

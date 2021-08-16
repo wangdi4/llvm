@@ -63,7 +63,7 @@ define internal void @extra_(double* noalias nocapture %0, i32* noalias nocaptur
 
 8:                                                ; preds = %8, %5
   %9 = phi i64 [ 1, %5 ], [ %11, %8 ]
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   store double 5.000000e+00, double* %10, align 8
   %11 = add nuw nsw i64 %9, 1
   %12 = icmp eq i64 %11, %7
@@ -114,16 +114,16 @@ define internal fastcc void @fun01_(double* noalias nocapture %0, double* noalia
 8:                                                ; preds = %8, %5
   %9 = phi i64 [ 3, %5 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -144,16 +144,16 @@ define internal fastcc void @fun00_(double* noalias nocapture %0, double* noalia
 8:                                                ; preds = %8, %5
   %9 = phi i64 [ 3, %5 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -174,16 +174,16 @@ define internal fastcc void @fun1_(double* noalias nocapture readonly %0, double
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -204,16 +204,16 @@ define internal fastcc void @fun2_(double* noalias nocapture readonly %0, double
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8
@@ -234,16 +234,16 @@ define internal fastcc void @fun0_(double* noalias nocapture %0, double* noalias
 8:                                                ; preds = %8, %6
   %9 = phi i64 [ 2, %6 ], [ %13, %8 ]
   %10 = add nsw i64 %9, -1
-  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %10)
+  %11 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %10)
   %12 = load double, double* %11, align 8
   %13 = add nuw nsw i64 %9, 1
-  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %13)
+  %14 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %13)
   %15 = load double, double* %14, align 8
   %16 = fadd double %12, %15
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %1, i64 %9)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %1, i64 %9)
   %18 = load double, double* %17, align 8
   %19 = fadd double %16, %18
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %0, i64 %9)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %0, i64 %9)
   store double %19, double* %20, align 8
   %21 = icmp eq i64 %13, %7
   br i1 %21, label %22, label %8

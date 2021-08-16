@@ -717,7 +717,7 @@ define void @PR43833(i32* %0, i32 %1) {
 ; FNATTR-NEXT:    [[TMP5:%.*]] = zext i32 [[TMP1]] to i64
 ; INTEL_CUSTOMIZATION
 ; FNATTR-NO-SS-NEXT: [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 [[TMP5]]
-; FNATTR-SS-NEXT:    [[TMP6:%.*]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* [[TMP0:%.*]], i64 [[TMP5]])
+; FNATTR-SS-NEXT:    [[TMP6:%.*]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) [[TMP0:%.*]], i64 [[TMP5]])
 ; end INTEL_CUSTOMIZATION
 ; FNATTR-NEXT:    br label [[TMP8:%.*]]
 ; FNATTR:       7:
@@ -757,7 +757,7 @@ define void @PR43833_simple(i32* %0, i32 %1) {
 ; FNATTR-NEXT:    [[TMP5:%.*]] = zext i32 [[TMP1]] to i64
 ; INTEL_CUSTOMIZATION
 ; FNATTR-NO-SS-NEXT: [[TMP6:%.*]] = getelementptr inbounds i32, i32* [[TMP0:%.*]], i64 [[TMP5]]
-; FNATTR-SS-NEXT:    [[TMP6:%.*]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* [[TMP0:%.*]], i64 [[TMP5]])
+; FNATTR-SS-NEXT:    [[TMP6:%.*]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) [[TMP0:%.*]], i64 [[TMP5]])
 ; end INTEL_CUSTOMIZATION
 ; FNATTR-NEXT:    br label [[TMP8:%.*]]
 ; FNATTR:       7:

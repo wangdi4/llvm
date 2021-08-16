@@ -16,7 +16,7 @@ entry:
   %A.6.1 = getelementptr inbounds %dv, %dv* %A, i64 0, i32 6, i64 0, i32 1
   %N4 = load i32, i32* %N, align 4
   %rel = icmp sgt i32 %N4, 100
-  %sptr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %A.6.1, i32 0)
+  %sptr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %A.6.1, i32 0)
 ; CHECK: %A.03 = load float*, float** %A.0, align 8
 ; CHECK: %s = load i64, i64* %sptr, align 8
   br label %loop_header
@@ -29,7 +29,7 @@ loop_header:
 then:
   %A.03 = load float*, float** %A.0, align 8
   %s = load i64, i64* %sptr, align 8
-  %p = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %s, float* %A.03, i64 %indvars.iv)
+  %p = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %s, float* elementtype(float) %A.03, i64 %indvars.iv)
   store float 1.000000e+00, float* %p, align 4
   br label %loop_latch
 

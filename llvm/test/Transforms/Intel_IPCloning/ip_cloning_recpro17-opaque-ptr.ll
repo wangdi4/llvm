@@ -91,17 +91,17 @@ bb:
 
 bb8:                                              ; preds = %bb22, %bb
   %i9 = phi i64 [ 1, %bb ], [ %i23, %bb22 ]
-  %i10 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i9)
+  %i10 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i9)
   br label %bb11
 
 bb11:                                             ; preds = %bb19, %bb8
   %i12 = phi i64 [ 1, %bb8 ], [ %i20, %bb19 ]
-  %i13 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i10, i64 %i12)
+  %i13 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i10, i64 %i12)
   br label %bb14
 
 bb14:                                             ; preds = %bb14, %bb11
   %i15 = phi i64 [ 1, %bb11 ], [ %i17, %bb14 ]
-  %i16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i13, i64 %i15)
+  %i16 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i13, i64 %i15)
   store i32 2, ptr %i16, align 4
   %i17 = add nuw nsw i64 %i15, 1
   %i18 = icmp eq i64 %i17, 10
@@ -139,19 +139,19 @@ bb25:                                             ; preds = %bb22
 bb35:                                             ; preds = %bb54, %bb25
   %i36 = phi i64 [ 1, %bb25 ], [ %i55, %bb54 ]
   %i37 = phi i32 [ 0, %bb25 ], [ %i48, %bb54 ]
-  %i38 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
+  %i38 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
   br label %bb39
 
 bb39:                                             ; preds = %bb51, %bb35
   %i40 = phi i64 [ 1, %bb35 ], [ %i52, %bb51 ]
   %i41 = phi i32 [ %i37, %bb35 ], [ %i48, %bb51 ]
-  %i42 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i38, i64 %i40)
+  %i42 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i38, i64 %i40)
   br label %bb43
 
 bb43:                                             ; preds = %bb43, %bb39
   %i44 = phi i64 [ 1, %bb39 ], [ %i49, %bb43 ]
   %i45 = phi i32 [ %i41, %bb39 ], [ %i48, %bb43 ]
-  %i46 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i42, i64 %i44)
+  %i46 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i42, i64 %i44)
   %i47 = load i32, ptr %i46, align 4
   %i48 = add nsw i32 %i47, %i45
   %i49 = add nuw nsw i64 %i44, 1
@@ -196,9 +196,9 @@ bb:
 
 bb5:                                              ; preds = %bb106, %bb
   %i6 = phi i64 [ %i107, %bb106 ], [ 1, %bb ]
-  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i6)
-  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i7, i64 1)
-  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i8, i64 %i2)
+  %i7 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i6)
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i7, i64 1)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i8, i64 %i2)
   %i10 = load i32, ptr %i9, align 4
   %i11 = icmp slt i32 %i10, 1
   br i1 %i11, label %bb106, label %bb12
@@ -210,84 +210,84 @@ bb12:                                             ; preds = %bb5
 
 bb14:                                             ; preds = %bb103, %bb12
   %i15 = phi i64 [ %i104, %bb103 ], [ 1, %bb12 ]
-  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i15)
-  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i16, i64 2)
-  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i17, i64 %i2)
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i15)
+  %i17 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i16, i64 2)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i17, i64 %i2)
   %i19 = load i32, ptr %i18, align 4
   %i20 = icmp slt i32 %i19, 1
   br i1 %i20, label %bb103, label %bb21
 
 bb21:                                             ; preds = %bb100, %bb14
   %i22 = phi i64 [ %i101, %bb100 ], [ 1, %bb14 ]
-  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i22)
-  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i23, i64 3)
-  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i24, i64 %i2)
+  %i23 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i22)
+  %i24 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i23, i64 3)
+  %i25 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i24, i64 %i2)
   %i26 = load i32, ptr %i25, align 4
   %i27 = icmp slt i32 %i26, 0
   br i1 %i27, label %bb100, label %bb28
 
 bb28:                                             ; preds = %bb97, %bb21
   %i29 = phi i64 [ %i98, %bb97 ], [ 1, %bb21 ]
-  %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i29)
-  %i31 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i30, i64 4)
-  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i31, i64 %i2)
+  %i30 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i29)
+  %i31 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i30, i64 4)
+  %i32 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i31, i64 %i2)
   %i33 = load i32, ptr %i32, align 4
   %i34 = icmp slt i32 %i33, 0
   br i1 %i34, label %bb97, label %bb35
 
 bb35:                                             ; preds = %bb94, %bb28
   %i36 = phi i64 [ %i95, %bb94 ], [ 1, %bb28 ]
-  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
-  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i37, i64 5)
-  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i38, i64 %i2)
+  %i37 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i36)
+  %i38 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i37, i64 5)
+  %i39 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i38, i64 %i2)
   %i40 = load i32, ptr %i39, align 4
   %i41 = icmp slt i32 %i40, 0
   br i1 %i41, label %bb94, label %bb42
 
 bb42:                                             ; preds = %bb91, %bb35
   %i43 = phi i64 [ %i92, %bb91 ], [ 1, %bb35 ]
-  %i44 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i43)
-  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i44, i64 6)
-  %i46 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i45, i64 %i2)
+  %i44 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i43)
+  %i45 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i44, i64 6)
+  %i46 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i45, i64 %i2)
   %i47 = load i32, ptr %i46, align 4
   %i48 = icmp slt i32 %i47, 1
   br i1 %i48, label %bb91, label %bb49
 
 bb49:                                             ; preds = %bb42
-  %i50 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i44, i64 7)
-  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i50, i64 %i2)
+  %i50 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i44, i64 7)
+  %i51 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i50, i64 %i2)
   %i52 = trunc i64 %i43 to i32
   store i32 %i52, ptr %i51, align 4
   br label %bb53
 
 bb53:                                             ; preds = %bb88, %bb49
   %i54 = phi i64 [ %i89, %bb88 ], [ 1, %bb49 ]
-  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i54)
-  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i55, i64 7)
-  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i56, i64 %i2)
+  %i55 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i54)
+  %i56 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i55, i64 7)
+  %i57 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i56, i64 %i2)
   %i58 = load i32, ptr %i57, align 4
   %i59 = icmp slt i32 %i58, 1
   br i1 %i59, label %bb88, label %bb60
 
 bb60:                                             ; preds = %bb53
-  %i61 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i55, i64 1)
-  %i62 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i61, i64 %i2)
+  %i61 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i55, i64 1)
+  %i62 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i61, i64 %i2)
   %i63 = trunc i64 %i54 to i32
   store i32 %i63, ptr %i62, align 4
   br label %bb64
 
 bb64:                                             ; preds = %bb85, %bb60
   %i65 = phi i64 [ %i86, %bb85 ], [ 1, %bb60 ]
-  %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i65)
-  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i66, i64 8)
-  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i67, i64 %i2)
+  %i66 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 2, i64 1, i64 324, ptr elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], ptr @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %i65)
+  %i67 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i66, i64 8)
+  %i68 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i67, i64 %i2)
   %i69 = load i32, ptr %i68, align 4
   %i70 = icmp slt i32 %i69, 1
   br i1 %i70, label %bb85, label %bb71
 
 bb71:                                             ; preds = %bb64
-  %i72 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr %i66, i64 9)
-  %i73 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr %i72, i64 %i2)
+  %i72 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 36, ptr elementtype(i32) %i66, i64 9)
+  %i73 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 4, ptr elementtype(i32) %i72, i64 %i2)
   %i74 = trunc i64 %i65 to i32
   store i32 %i74, ptr %i73, align 4
   %i75 = load i32, ptr @brute_force_mp_count_, align 8

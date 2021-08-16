@@ -142,21 +142,21 @@ bb27:                                             ; preds = %bb26
   br label %bb28
 
 bb28:                                             ; preds = %bb27
-  %"MS_entry[]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 2, i64 1, i64 400, double addrspace(4)* %ptr_cast, i64 %int_sext52)
+  %"MS_entry[]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 2, i64 1, i64 400, double addrspace(4)* elementtype(double) %ptr_cast, i64 %int_sext52)
   br label %bb29
 
 bb29:                                             ; preds = %bb28
   br label %bb30
 
 bb30:                                             ; preds = %bb29
-  %"MS_entry[][]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 1, i64 1, i64 80, double addrspace(4)* %"MS_entry[]", i64 5)
+  %"MS_entry[][]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 1, i64 1, i64 80, double addrspace(4)* elementtype(double) %"MS_entry[]", i64 5)
   br label %bb31
 
 bb31:                                             ; preds = %bb30
   br label %bb32
 
 bb32:                                             ; preds = %bb31
-  %"MS_entry[][][]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 0, i64 1, i64 8, double addrspace(4)* %"MS_entry[][]", i64 %int_sext)
+  %"MS_entry[][][]" = call double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 0, i64 1, i64 8, double addrspace(4)* elementtype(double) %"MS_entry[][]", i64 %int_sext)
   store double %mul49, double addrspace(4)* %"MS_entry[][][]", align 1
   %_fetch54 = load i32, i32 addrspace(4)* %7, align 1
   %_fetch56 = load i32, i32 addrspace(4)* %9, align 1
@@ -328,7 +328,7 @@ declare token @llvm.directive.region.entry() #1
 declare void @llvm.directive.region.exit(token %0) #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 %0, i64 %1, i64 %2, double addrspace(4)* %3, i64 %4) #2
+declare double addrspace(4)* @llvm.intel.subscript.p4f64.i64.i64.p4f64.i64(i8 %0, i64 %1, i64 %2, double addrspace(4)* elementtype(double) %3, i64 %4) #2
 
 attributes #0 = { nounwind uwtable "contains-openmp-target"="true" "intel-lang"="fortran" "min-legal-vector-width"="0" }
 attributes #1 = { nounwind }

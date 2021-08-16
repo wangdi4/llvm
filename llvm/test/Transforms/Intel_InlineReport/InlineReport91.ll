@@ -45,13 +45,13 @@ define internal fastcc void @mycopy_(float* noalias nocapture dereferenceable(4)
 
 12:                                               ; preds = %12, %10
   %13 = phi i64 [ 1, %10 ], [ %21, %12 ]
-  %14 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull %1, i64 %13)
-  %15 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull %14, i64 %11)
-  %16 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %15, i64 %9)
+  %14 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) nonnull %1, i64 %13)
+  %15 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) nonnull %14, i64 %11)
+  %16 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %15, i64 %9)
   %17 = load float, float* %16, align 1
-  %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull %0, i64 %13)
-  %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull %18, i64 %11)
-  %20 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %19, i64 %9)
+  %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) nonnull %0, i64 %13)
+  %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) nonnull %18, i64 %11)
+  %20 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %19, i64 %9)
   store float %17, float* %20, align 1
   %21 = add nuw nsw i64 %13, 1
   %22 = icmp eq i64 %21, 101
@@ -68,9 +68,9 @@ define internal fastcc void @mycopy_(float* noalias nocapture dereferenceable(4)
   br i1 %28, label %29, label %8
 
 29:                                               ; preds = %26
-  %30 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull %0, i64 1)
-  %31 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull %30, i64 1)
-  %32 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %31, i64 1)
+  %30 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) nonnull %0, i64 1)
+  %31 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) nonnull %30, i64 1)
+  %32 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %31, i64 1)
   %33 = load float, float* %32, align 1
   %34 = getelementptr inbounds [4 x i8], [4 x i8]* %4, i64 0, i64 0
   store i8 26, i8* %34, align 1
@@ -85,9 +85,9 @@ define internal fastcc void @mycopy_(float* noalias nocapture dereferenceable(4)
   %39 = bitcast [8 x i64]* %3 to i8*
   %40 = bitcast { float }* %5 to i8*
   %41 = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %39, i32 -1, i64 1239157112576, i8* nonnull %34, i8* nonnull %40) #3
-  %42 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* nonnull %1, i64 1)
-  %43 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* nonnull %42, i64 1)
-  %44 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %43, i64 1)
+  %42 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) nonnull %1, i64 1)
+  %43 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) nonnull %42, i64 1)
+  %44 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %43, i64 1)
   %45 = load float, float* %44, align 1
   %46 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 0
   store i8 26, i8* %46, align 1

@@ -49,15 +49,15 @@ alloca_0:
   store i64 0, i64* %"var$3.codim$", align 1
   %"var$3.dim_info$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i32 0, i32 6, i32 0
   %"var$3.dim_info$.spacing$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$3.dim_info$", i32 0, i32 1
-  %"var$3.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$3.dim_info$.spacing$", i32 0)
+  %"var$3.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$3.dim_info$.spacing$", i32 0)
   store i64 4, i64* %"var$3.dim_info$.spacing$[]", align 1
   %"var$3.dim_info$1" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i32 0, i32 6, i32 0
   %"var$3.dim_info$.lower_bound$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$3.dim_info$1", i32 0, i32 2
-  %"var$3.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$3.dim_info$.lower_bound$", i32 0)
+  %"var$3.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$3.dim_info$.lower_bound$", i32 0)
   store i64 1, i64* %"var$3.dim_info$.lower_bound$[]", align 1
   %"var$3.dim_info$2" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i32 0, i32 6, i32 0
   %"var$3.dim_info$.extent$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$3.dim_info$2", i32 0, i32 0
-  %"var$3.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$3.dim_info$.extent$", i32 0)
+  %"var$3.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$3.dim_info$.extent$", i32 0)
   store i64 %slct.1, i64* %"var$3.dim_info$.extent$[]", align 1
   %"var$3.addr_a0$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i32 0, i32 0
   store float* %"ntscale_$A", float** %"var$3.addr_a0$", align 1
@@ -80,15 +80,15 @@ alloca_0:
   store i64 0, i64* %"var$5.codim$", align 1
   %"var$5.dim_info$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i32 0, i32 6, i32 0
   %"var$5.dim_info$.spacing$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$5.dim_info$", i32 0, i32 1
-  %"var$5.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$5.dim_info$.spacing$", i32 0)
+  %"var$5.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$5.dim_info$.spacing$", i32 0)
   store i64 4, i64* %"var$5.dim_info$.spacing$[]", align 1
   %"var$5.dim_info$6" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i32 0, i32 6, i32 0
   %"var$5.dim_info$.lower_bound$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$5.dim_info$6", i32 0, i32 2
-  %"var$5.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$5.dim_info$.lower_bound$", i32 0)
+  %"var$5.dim_info$.lower_bound$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$5.dim_info$.lower_bound$", i32 0)
   store i64 1, i64* %"var$5.dim_info$.lower_bound$[]", align 1
   %"var$5.dim_info$7" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i32 0, i32 6, i32 0
   %"var$5.dim_info$.extent$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$5.dim_info$7", i32 0, i32 0
-  %"var$5.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"var$5.dim_info$.extent$", i32 0)
+  %"var$5.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"var$5.dim_info$.extent$", i32 0)
   store i64 %slct.2, i64* %"var$5.dim_info$.extent$[]", align 1
   %"var$5.addr_a0$" = getelementptr inbounds %"QNCA_a0$float*$rank1$.1", %"QNCA_a0$float*$rank1$.1"* %"var$5", i32 0, i32 0
   store float* %"ntscale_$B", float** %"var$5.addr_a0$", align 1
@@ -149,14 +149,14 @@ bb1:                                              ; preds = %bb1, %omp.pdo.top7
   %"var$5.addr_a0$_fetch.21" = load float*, float** %"var$5.addr_a0$10", align 1
   %"ntscale_$I_fetch.22" = load i32, i32* %"ntscale_$I", align 1
   %int_sext11 = sext i32 %"ntscale_$I_fetch.22" to i64
-  %"var$5.addr_a0$_fetch.21[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"var$5.addr_a0$_fetch.21", i64 %int_sext11)
+  %"var$5.addr_a0$_fetch.21[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"var$5.addr_a0$_fetch.21", i64 %int_sext11)
   %"var$5.addr_a0$_fetch.21[]_fetch.23" = load float, float* %"var$5.addr_a0$_fetch.21[]", align 1
   %mul.3 = fmul reassoc ninf nsz arcp contract afn float 2.000000e+00, %"var$5.addr_a0$_fetch.21[]_fetch.23"
   %"var$3.addr_a0$12" = getelementptr inbounds %"QNCA_a0$float*$rank1$.0", %"QNCA_a0$float*$rank1$.0"* %"var$3", i32 0, i32 0
   %"var$3.addr_a0$_fetch.24" = load float*, float** %"var$3.addr_a0$12", align 1
   %"ntscale_$I_fetch.25" = load i32, i32* %"ntscale_$I", align 1
   %int_sext13 = sext i32 %"ntscale_$I_fetch.25" to i64
-  %"var$3.addr_a0$_fetch.24[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"var$3.addr_a0$_fetch.24", i64 %int_sext13)
+  %"var$3.addr_a0$_fetch.24[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"var$3.addr_a0$_fetch.24", i64 %int_sext13)
   store float %mul.3, float* %"var$3.addr_a0$_fetch.24[]", align 1
 ; CHECK: store float %mul.3, float* %"var$3.addr_a0$_fetch.24[]", align 1, !nontemporal ![[NTMD:[0-9]+]]
   %omp.pdo.step_fetch.26 = load i32, i32* %omp.pdo.step, align 1

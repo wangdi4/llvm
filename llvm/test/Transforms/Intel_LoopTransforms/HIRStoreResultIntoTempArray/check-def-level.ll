@@ -117,9 +117,9 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %36 = phi i64 [ %38, %96 ], [ 1, %32 ]
   %37 = phi double [ %97, %96 ], [ %34, %32 ]
   %38 = add nuw nsw i64 %36, 1
-  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* nonnull %0, i64 %38)
+  %39 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* elementtype(double) nonnull %0, i64 %38)
   %40 = add nuw nsw i64 %36, 2
-  %41 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* nonnull %0, i64 %40)
+  %41 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %14, double* elementtype(double) nonnull %0, i64 %40)
   br label %42
 
 42:                                               ; preds = %93, %35
@@ -129,9 +129,9 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %46 = add i32 %45, 2
   %47 = srem i32 %46, %10
   %48 = add nuw nsw i64 %43, 1
-  %49 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* nonnull %39, i64 %48)
+  %49 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %39, i64 %48)
   %50 = zext i32 %47 to i64
-  %51 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* nonnull %41, i64 %50)
+  %51 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %12, double* elementtype(double) nonnull %41, i64 %50)
   br label %52
 
 52:                                               ; preds = %52, %42
@@ -141,13 +141,13 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %56 = add i32 %55, 3
   %57 = srem i32 %56, %9
   %58 = add nuw nsw i64 %53, 1
-  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %49, i64 %58)
-  %60 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %59, i64 1)
+  %59 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %49, i64 %58)
+  %60 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %59, i64 1)
   %61 = load double, double* %60, align 1
-  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %59, i64 2)
+  %62 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %59, i64 2)
   %63 = load double, double* %62, align 1
   %64 = fdiv reassoc ninf nsz arcp contract afn double %63, %61
-  %65 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %59, i64 3)
+  %65 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %59, i64 3)
   %66 = load double, double* %65, align 1
   %67 = fdiv reassoc ninf nsz arcp contract afn double %66, %61
   %68 = fmul reassoc ninf nsz arcp contract afn double %64, %64
@@ -157,13 +157,13 @@ define void @jacobian_(double* noalias nocapture readonly dereferenceable(8) %0,
   %72 = fdiv reassoc ninf nsz arcp contract afn double %71, %61
   %73 = tail call reassoc ninf nsz arcp contract afn double @llvm.pow.f64(double %72, double 2.250000e+00)
   %74 = zext i32 %57 to i64
-  %75 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %51, i64 %74)
-  %76 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %75, i64 1)
+  %75 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %51, i64 %74)
+  %76 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %75, i64 1)
   %77 = load double, double* %76, align 1
-  %78 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %75, i64 2)
+  %78 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %75, i64 2)
   %79 = load double, double* %78, align 1
   %80 = fdiv reassoc ninf nsz arcp contract afn double %79, %77
-  %81 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %75, i64 3)
+  %81 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %75, i64 3)
   %82 = load double, double* %81, align 1
   %83 = fdiv reassoc ninf nsz arcp contract afn double %82, %77
   %84 = fmul reassoc ninf nsz arcp contract afn double %80, %80

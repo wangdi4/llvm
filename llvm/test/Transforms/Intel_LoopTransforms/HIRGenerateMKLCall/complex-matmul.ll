@@ -103,14 +103,14 @@ alloca:
 
 bb5:                                              ; preds = %bb10, %alloca
   %indvars.iv127 = phi i64 [ 1, %alloca ], [ %indvars.iv.next128, %bb10 ]
-  %1 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$C3", i64 0, i64 0, i64 0), i64 %indvars.iv127)
-  %2 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$B3", i64 0, i64 0, i64 0), i64 %indvars.iv127)
+  %1 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* elementtype(%complex_64bit) getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$C3", i64 0, i64 0, i64 0), i64 %indvars.iv127)
+  %2 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* elementtype(%complex_64bit) getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$B3", i64 0, i64 0, i64 0), i64 %indvars.iv127)
   br label %bb9
 
 bb9:                                              ; preds = %bb14, %bb5
   %indvars.iv124 = phi i64 [ 1, %bb5 ], [ %indvars.iv.next125, %bb14 ]
-  %3 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$A3", i64 0, i64 0, i64 0), i64 %indvars.iv124)
-  %4 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %2, i64 %indvars.iv124)
+  %3 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 1, i64 1, i64 400, %complex_64bit* elementtype(%complex_64bit) getelementptr inbounds ([50 x [50 x %complex_64bit]], [50 x [50 x %complex_64bit]]* @"main_$A3", i64 0, i64 0, i64 0), i64 %indvars.iv124)
+  %4 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %2, i64 %indvars.iv124)
   %.elt118 = getelementptr inbounds %complex_64bit, %complex_64bit* %4, i64 0, i32 0
   %.unpack119 = load float, float* %.elt118, align 4
   %.elt120 = getelementptr inbounds %complex_64bit, %complex_64bit* %4, i64 0, i32 1
@@ -119,12 +119,12 @@ bb9:                                              ; preds = %bb14, %bb5
 
 bb13:                                             ; preds = %bb13, %bb9
   %indvars.iv = phi i64 [ 1, %bb9 ], [ %indvars.iv.next, %bb13 ]
-  %5 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %1, i64 %indvars.iv)
+  %5 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %1, i64 %indvars.iv)
   %.elt = getelementptr inbounds %complex_64bit, %complex_64bit* %5, i64 0, i32 0
   %.unpack = load float, float* %.elt, align 4
   %.elt112 = getelementptr inbounds %complex_64bit, %complex_64bit* %5, i64 0, i32 1
   %.unpack113 = load float, float* %.elt112, align 4
-  %6 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* %3, i64 %indvars.iv)
+  %6 = tail call %complex_64bit* @llvm.intel.subscript.p0s_complex_64bits.i64.i64.p0s_complex_64bits.i64(i8 0, i64 1, i64 8, %complex_64bit* elementtype(%complex_64bit) %3, i64 %indvars.iv)
   %.elt114 = getelementptr inbounds %complex_64bit, %complex_64bit* %6, i64 0, i32 0
   %.unpack115 = load float, float* %.elt114, align 4
   %.elt116 = getelementptr inbounds %complex_64bit, %complex_64bit* %6, i64 0, i32 1

@@ -75,21 +75,21 @@ bb3.preheader:                                    ; preds = %alloca_0
 
 bb11.preheader.preheader:                         ; preds = %bb8, %bb3.preheader
   %indvars.iv103 = phi i64 [ 1, %bb3.preheader ], [ %indvars.iv.next104, %bb8 ]
-  %"sub2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul13, double* nonnull %"sub2_$B", i64 %indvars.iv103)
+  %"sub2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul13, double* elementtype(double) nonnull %"sub2_$B", i64 %indvars.iv103)
   br label %bb11.preheader
 
 bb11.preheader:                                   ; preds = %bb11.preheader.preheader, %bb12
   %indvars.iv99 = phi i64 [ 1, %bb11.preheader.preheader ], [ %indvars.iv.next100, %bb12 ]
-  %"sub2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub2_$B[]", i64 %indvars.iv99)
-  %"sub2_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul13, double* nonnull %"sub2_$A", i64 %indvars.iv99)
+  %"sub2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub2_$B[]", i64 %indvars.iv99)
+  %"sub2_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul13, double* elementtype(double) nonnull %"sub2_$A", i64 %indvars.iv99)
   br label %bb11
 
 bb11:                                             ; preds = %bb11.preheader, %bb11
   %indvars.iv = phi i64 [ 1, %bb11.preheader ], [ %indvars.iv.next, %bb11 ]
-  %"sub2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub2_$B[][]", i64 %indvars.iv)
+  %"sub2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub2_$B[][]", i64 %indvars.iv)
   %"sub2_$B[][][]_fetch" = load double, double* %"sub2_$B[][][]", align 1
-  %"sub2_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %"sub2_$A[]", i64 %indvars.iv)
-  %"sub2_$A[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"sub2_$A[][]", i64 %indvars.iv103)
+  %"sub2_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %"sub2_$A[]", i64 %indvars.iv)
+  %"sub2_$A[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"sub2_$A[][]", i64 %indvars.iv103)
   store double %"sub2_$B[][][]_fetch", double* %"sub2_$A[][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count105

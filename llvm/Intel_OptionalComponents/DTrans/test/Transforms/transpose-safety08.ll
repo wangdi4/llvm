@@ -30,17 +30,17 @@ define void @test01() {
   store i64 4, i64* %"var$01_$field1$", align 8
   store i64 2, i64* %"var$01_$field4$", align 8
   store i64 0, i64* %"var$01_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var01, i64 0, i64 0, i64 0), i32** %"var$01_$field0$", align 8
   store i64 1, i64* %"var$01_$field3$", align 8
@@ -79,14 +79,14 @@ define void @test01ul(%TEST01.uplevel_type* %UL_IN_PTR) {
 
   ; Load the stride for each dimension of the array
   %"ul_arg_0.GEP_$field6$_$field1$" = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %ul_arg_0.GEP, i64 0, i32 6, i64 0, i32 1
-  %stride0_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 0)
-  %stride1_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 1)
+  %stride0_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 0)
+  %stride1_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 1)
   %stride0 = load i64, i64* %stride0_addr, align 8
   %stride1 = load i64, i64* %stride1_addr, align 8
 
   ; Get the address of the element from the original array
-  %col_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %stride1, i32* %"ul_arg_0.GEP_$field0$30", i64 0)
-  %ptr_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride0, i32* %col_addr, i64 0)
+  %col_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %stride1, i32* elementtype(i32) %"ul_arg_0.GEP_$field0$30", i64 0)
+  %ptr_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride0, i32* elementtype(i32) %col_addr, i64 0)
   store i32 0, i32* %ptr_addr, align 4
 
     ; Variation of test perform an unsupported operation on the uplevel to
@@ -122,17 +122,17 @@ define void @test02() {
   store i64 4, i64* %"var$02_$field1$", align 8
   store i64 2, i64* %"var$02_$field4$", align 8
   store i64 0, i64* %"var$02_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var02, i64 0, i64 0, i64 0), i32** %"var$02_$field0$", align 8
   store i64 1, i64* %"var$02_$field3$", align 8
@@ -173,14 +173,14 @@ define void @test02ul(%TEST02.uplevel_type.12* %UL_IN_PTR) {
 
   ; Load the stride for each dimension of the array
   %"ul_arg_0.GEP_$field6$_$field1$" = getelementptr inbounds { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }, { i32*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }* %ul_arg_0.GEP, i64 0, i32 6, i64 0, i32 1
-  %stride0_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 0)
-  %stride1_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 1)
+  %stride0_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 0)
+  %stride1_addr = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"ul_arg_0.GEP_$field6$_$field1$", i32 1)
   %stride0 = load i64, i64* %stride0_addr, align 8
   %stride1 = load i64, i64* %stride1_addr, align 8
 
   ; Get the address of the element from the original array
-  %col_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %stride1, i32* %"ul_arg_0.GEP_$field0$30", i64 0)
-  %ptr_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride0, i32* %col_addr, i64 0)
+  %col_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %stride1, i32* elementtype(i32) %"ul_arg_0.GEP_$field0$30", i64 0)
+  %ptr_addr = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride0, i32* elementtype(i32) %col_addr, i64 0)
   store i32 0, i32* %ptr_addr, align 4
 
     ; Variation of test perform an unsupported operation on the uplevel to

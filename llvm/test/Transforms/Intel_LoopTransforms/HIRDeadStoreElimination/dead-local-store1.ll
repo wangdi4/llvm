@@ -117,7 +117,7 @@ alloca_0:
 
 bb13:                                             ; preds = %bb13, %bb14.preheader
   %"var$2.077" = phi i64 [ 1, %bb14.preheader ], [ %add, %bb13 ]
-  %"sub_$C[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"sub_$C[]", i64 %"var$2.077")
+  %"sub_$C[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub_$C[]", i64 %"var$2.077")
   store double 2.000000e+00, double* %"sub_$C[][]", align 1
   %add = add nuw nsw i64 %"var$2.077", 1
   %exitcond84 = icmp eq i64 %add, 101
@@ -133,15 +133,15 @@ bb36.preheader.preheader:                         ; preds = %bb16
 
 bb14.preheader:                                   ; preds = %bb16, %alloca_0
   %"var$3.078" = phi i64 [ 1, %alloca_0 ], [ %add12, %bb16 ]
-  %"sub_$C[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %"var$3.078")
+  %"sub_$C[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* elementtype(double) getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %"var$3.078")
   br label %bb13
 
 bb31:                                             ; preds = %bb31, %bb36.preheader
   %"var$4.075" = phi i64 [ 1, %bb36.preheader ], [ %add26, %bb31 ]
-  %"sub_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"sub_$B_entry[]", i64 %"var$4.075")
+  %"sub_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub_$B_entry[]", i64 %"var$4.075")
   %"sub_$B_entry[][]_fetch" = load double, double* %"sub_$B_entry[][]", align 1
   %add17 = fadd double %"sub_$B_entry[][]_fetch", 1.000000e+00
-  %"sub_$C[]13[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"sub_$C[]13", i64 %"var$4.075")
+  %"sub_$C[]13[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub_$C[]13", i64 %"var$4.075")
   store double %add17, double* %"sub_$C[]13[]", align 1
   %add26 = add nuw nsw i64 %"var$4.075", 1
   %exitcond82 = icmp eq i64 %add26, 101
@@ -157,21 +157,21 @@ bb44.preheader:                                   ; preds = %bb38
 
 bb36.preheader:                                   ; preds = %bb36.preheader.preheader, %bb38
   %"var$5.076" = phi i64 [ %add34, %bb38 ], [ 1, %bb36.preheader.preheader ]
-  %"sub_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* %"sub_$B", i64 %"var$5.076")
-  %"sub_$C[]13" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %"var$5.076")
+  %"sub_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* elementtype(double) %"sub_$B", i64 %"var$5.076")
+  %"sub_$C[]13" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* elementtype(double) getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %"var$5.076")
   br label %bb31
 
 bb44:                                             ; preds = %bb44.preheader, %bb49
   %indvars.iv79 = phi i64 [ %indvars.iv.next80, %bb49 ], [ 1, %bb44.preheader ]
   %"sub_$S.0" = phi float [ %float_cast.lcssa, %bb49 ], [ 0.000000e+00, %bb44.preheader ]
-  %"sub_$C[]35" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %indvars.iv79)
+  %"sub_$C[]35" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 800, double* elementtype(double) getelementptr inbounds ([100 x [100 x double]], [100 x [100 x double]]* @"sub_$C", i64 0, i64 0, i64 0), i64 %indvars.iv79)
   br label %bb48
 
 bb48:                                             ; preds = %bb48, %bb44
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb48 ], [ 1, %bb44 ]
   %"sub_$S.1" = phi float [ %float_cast, %bb48 ], [ %"sub_$S.0", %bb44 ]
   %float_cast38 = fpext float %"sub_$S.1" to double
-  %"sub_$C[]35[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"sub_$C[]35", i64 %indvars.iv)
+  %"sub_$C[]35[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"sub_$C[]35", i64 %indvars.iv)
   %"sub_$C[]35[]_fetch" = load double, double* %"sub_$C[]35[]", align 1
   %add37 = fadd double %"sub_$C[]35[]_fetch", %float_cast38
   %float_cast = fptrunc double %add37 to float

@@ -63,11 +63,11 @@ loop:
   %i2 = mul i64 %i, 2
 
   %p = getelementptr inbounds [256 x double], [256 x double]* @A, i64 0, i64 1
-  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* nonnull %p, i64 1)
-  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 32, double* nonnull %p1, i64 %i)
+  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 8, double* elementtype(double) nonnull %p, i64 1)
+  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 32, double* elementtype(double) nonnull %p1, i64 %i)
   store double 1.0, double* %p2
 
-  %p3 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 32, double* nonnull %B, i64 %i2)
+  %p3 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 0, i64 32, double* elementtype(double) nonnull %B, i64 %i2)
   store double 2.0, double* %p3
 
   %ip = add nsw nuw i64 %i, 1

@@ -35,10 +35,10 @@ preheader:                                    ; preds = %entry
 loop:                                              ; preds = %preheader, %loop
   %indvars.iv = phi i64 [ 1, %preheader ], [ %indvars.iv.next, %loop ]
   %2 = add nuw nsw i64 %indvars.iv, %0
-  %"A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"A", i64 %2)
+  %"A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"A", i64 %2)
   %"A[]_fetch.6" = load float, float* %"A[]", align 1
   %add.2 = fadd reassoc ninf nsz arcp contract afn float %"A[]_fetch.6", %"K_fetch.7"
-  %"A[]2" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"A", i64 %indvars.iv)
+  %"A[]2" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"A", i64 %indvars.iv)
   store float %add.2, float* %"A[]2", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count8

@@ -92,8 +92,8 @@ bb2:                                              ; preds = %bb2.preheader, %bb7
   br i1 %rel.2, label %bb7, label %bb6.preheader
 
 bb6.preheader:                                    ; preds = %bb2
-  %"val$[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* bitcast (i8* getelementptr inbounds ([175760 x i8], [175760 x i8]* @x_, i64 0, i64 87880) to double*), i64 %indvars.iv46)
-  %"val$[]8" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* bitcast ([175760 x i8]* @x_ to double*), i64 %indvars.iv46)
+  %"val$[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* elementtype(double) bitcast (i8* getelementptr inbounds ([175760 x i8], [175760 x i8]* @x_, i64 0, i64 87880) to double*), i64 %indvars.iv46)
+  %"val$[]8" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 6760, double* elementtype(double) bitcast ([175760 x i8]* @x_ to double*), i64 %indvars.iv46)
   br label %bb6
 
 bb6:                                              ; preds = %bb6.preheader, %bb11
@@ -101,21 +101,21 @@ bb6:                                              ; preds = %bb6.preheader, %bb1
   br i1 %rel.3, label %bb11, label %bb10.preheader
 
 bb10.preheader:                                   ; preds = %bb6
-  %"val$[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* %"val$[]", i64 %indvars.iv42)
-  %"val$[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* %"val$[]8", i64 %indvars.iv42)
+  %"val$[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* elementtype(double) %"val$[]", i64 %indvars.iv42)
+  %"val$[][]9" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 520, double* elementtype(double) %"val$[]8", i64 %indvars.iv42)
   br label %bb10
 
 bb10:                                             ; preds = %bb10.preheader, %bb17
   %indvars.iv39 = phi i64 [ 0, %bb10.preheader ], [ %indvars.iv.next40, %bb17 ]
-  %"val$[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* %"val$[][]", i64 %indvars.iv39)
-  %"val$[][][]10" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* %"val$[][]9", i64 %indvars.iv39)
+  %"val$[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* elementtype(double) %"val$[][]", i64 %indvars.iv39)
+  %"val$[][][]10" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 40, double* elementtype(double) %"val$[][]9", i64 %indvars.iv39)
   br label %bb14
 
 bb14:                                             ; preds = %bb14, %bb10
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb14 ], [ 1, %bb10 ]
-  %"val$[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"val$[][][]", i64 %indvars.iv)
+  %"val$[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"val$[][][]", i64 %indvars.iv)
   %"val$[][][][]_fetch.11" = load double, double* %"val$[][][][]", align 1
-  %"val$[][][][]11" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"val$[][][]10", i64 %indvars.iv)
+  %"val$[][][][]11" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"val$[][][]10", i64 %indvars.iv)
   %"val$[][][][]_fetch.16" = load double, double* %"val$[][][][]11", align 1
   %add.1 = fadd reassoc ninf nsz arcp contract afn double %"val$[][][][]_fetch.11", %"val$[][][][]_fetch.16"
   %add.2 = fadd reassoc ninf nsz arcp contract afn double %add.1, 1.000000e+00

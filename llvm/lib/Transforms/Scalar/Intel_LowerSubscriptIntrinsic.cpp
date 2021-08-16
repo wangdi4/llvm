@@ -268,7 +268,8 @@ static Value *convertGEPToSubscript(const DataLayout &DL,
             Rank - 1, ConstantInt::get(PtrIntTy, 0),
             ConstantInt::get(PtrIntTy,
                              DL.getTypeStoreSize(TypeIt.getIndexedType())),
-            Res, TypeIt.getOperand());
+            Res, Res->getType()->getScalarType()->getPointerElementType(),
+            TypeIt.getOperand());
     }
   }
 

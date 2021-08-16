@@ -62,8 +62,8 @@ for.cond.cleanup:                                 ; preds = %for.body
 
 for.body:                                         ; preds = %for.body, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
-  %outer = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 1, i64 0, i64 16, %struct.A* %arr, i64 0)
-  %inner = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 0, i64 0, i64 8, %struct.A* %outer, i64 %indvars.iv)
+  %outer = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 1, i64 0, i64 16, %struct.A* elementtype(%struct.A) %arr, i64 0)
+  %inner = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i64.i64.p0s_struct.As.i64(i8 0, i64 0, i64 8, %struct.A* elementtype(%struct.A) %outer, i64 %indvars.iv)
   %field.gep = getelementptr inbounds %struct.A, %struct.A* %inner, i64 0, i32 1
   %iv.trunc = trunc i64 %indvars.iv to i32
   %mul.iv = mul nuw nsw i32 %iv.trunc, 10

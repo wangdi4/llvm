@@ -34,9 +34,9 @@ define internal void @dv_test() {
   store i64 0, i64* %"var$01_$field2$", align 8
 
   ; Populate rank 0 fields
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 0)
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 0)
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 0)
 
   ; Store stride, lower bound and extent
   store i64 4, i64* %t0, align 8
@@ -69,9 +69,9 @@ define internal void @uplevel_user(%uplevel_type* %pUplevel) {
   %"var$01_$field6$_$field2$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"var$01_$field6$", i64 0, i32 2
 
   ; Load stride, lower bound, and extent
-  %rank0.stride = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 0)
-  %rank0.lb = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 0)
-  %rank0.extent = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 0)
+  %rank0.stride = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 0)
+  %rank0.lb = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 0)
+  %rank0.extent = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 0)
   %stride = load i64, i64* %rank0.stride
   %lb = load i64, i64* %rank0.lb
   %extent = load i64, i64* %rank0.extent

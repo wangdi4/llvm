@@ -54,27 +54,27 @@ alloca_0:
 
 bb3:                                              ; preds = %bb8, %alloca_0
   %indvars.iv74 = phi i64 [ %indvars.iv.next75, %bb8 ], [ 1, %alloca_0 ]
-  %"dgemm_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$B", i64 %indvars.iv74)
-  %"dgemm_$C_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$C", i64 %indvars.iv74)
+  %"dgemm_$B_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$B", i64 %indvars.iv74)
+  %"dgemm_$C_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$C", i64 %indvars.iv74)
   br label %bb7
 
 bb7:                                              ; preds = %bb40_endif, %bb3
   %indvars.iv71 = phi i64 [ %indvars.iv.next72, %bb40_endif ], [ 1, %bb3 ]
-  %"dgemm_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"dgemm_$B_entry[]", i64 %indvars.iv71)
+  %"dgemm_$B_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$B_entry[]", i64 %indvars.iv71)
   %"dgemm_$B_entry[][]_fetch" = load double, double* %"dgemm_$B_entry[][]", align 1
   %rel = fcmp fast ueq double %"dgemm_$B_entry[][]_fetch", 0.000000e+00
   br i1 %rel, label %bb40_endif, label %bb21.preheader
 
 bb21.preheader:                                   ; preds = %bb7
-  %"dgemm_$A_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* %"dgemm_$A", i64 %indvars.iv71)
+  %"dgemm_$A_entry[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 8000, double* elementtype(double) %"dgemm_$A", i64 %indvars.iv71)
   br label %bb21
 
 bb21:                                             ; preds = %bb21, %bb21.preheader
   %indvars.iv = phi i64 [ 1, %bb21.preheader ], [ %indvars.iv.next, %bb21 ]
-  %"dgemm_$A_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"dgemm_$A_entry[]", i64 %indvars.iv)
+  %"dgemm_$A_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$A_entry[]", i64 %indvars.iv)
   %"dgemm_$A_entry[][]_fetch" = load double, double* %"dgemm_$A_entry[][]", align 1
   %mul = fmul fast double %"dgemm_$A_entry[][]_fetch", %"dgemm_$B_entry[][]_fetch"
-  %"dgemm_$C_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"dgemm_$C_entry[]", i64 %indvars.iv)
+  %"dgemm_$C_entry[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"dgemm_$C_entry[]", i64 %indvars.iv)
   %"dgemm_$C_entry[][]_fetch" = load double, double* %"dgemm_$C_entry[][]", align 1
   %sub = fsub fast double %mul, %"dgemm_$C_entry[][]_fetch"
   store double %sub, double* %"dgemm_$C_entry[][]", align 1

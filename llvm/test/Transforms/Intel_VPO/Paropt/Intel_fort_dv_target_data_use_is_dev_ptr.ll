@@ -91,9 +91,9 @@ entry:
   %"foo_$B.addr_a0$_clone_2" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 0
   %"foo_$B.field_6$.spacing$_clone_2" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$B", i64 0, i32 6, i64 0, i32 1
   %"foo_$B.addr_a0$_clone_2_fetch" = load i32*, i32** %"foo_$B.addr_a0$_clone_2", align 1
-  %"foo_$B.field_6$.spacing$_clone_2[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"foo_$B.field_6$.spacing$_clone_2", i32 0)
+  %"foo_$B.field_6$.spacing$_clone_2[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"foo_$B.field_6$.spacing$_clone_2", i32 0)
   %"foo_$B.field_6$.spacing$_clone_2[]_fetch" = load i64, i64* %"foo_$B.field_6$.spacing$_clone_2[]", align 1
-  %"foo_$B.addr_a0$_clone_2_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %"foo_$B.field_6$.spacing$_clone_2[]_fetch", i32* %"foo_$B.addr_a0$_clone_2_fetch", i64 2)
+  %"foo_$B.addr_a0$_clone_2_fetch[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %"foo_$B.field_6$.spacing$_clone_2[]_fetch", i32* elementtype(i32) %"foo_$B.addr_a0$_clone_2_fetch", i64 2)
   store i32 20, i32* %"foo_$B.addr_a0$_clone_2_fetch[]", align 1
 
 

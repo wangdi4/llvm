@@ -18,7 +18,7 @@ alloca:
 
 bb3:                                              ; preds = %bb3, %alloca
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb3 ], [ 1, %alloca ]
-  %0 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %ptr_cast, i64 %indvars.iv)
+  %0 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %ptr_cast, i64 %indvars.iv)
   store float 1.500000e+01, float* %0, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 101

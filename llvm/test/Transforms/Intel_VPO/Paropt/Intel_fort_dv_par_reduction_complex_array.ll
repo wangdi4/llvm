@@ -139,7 +139,7 @@ alloca_0:
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 2), align 1
   %"complex_alloc_array_reduction_$NXXS_fetch" = load i32, i32* %"complex_alloc_array_reduction_$NXXS", align 1
   %int_sext117 = sext i32 %"complex_alloc_array_reduction_$NXXS_fetch" to i64
-  %"val$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   store i64 1, i64* %"val$[]", align 1
   %sub = sub nsw i64 %int_sext117, 1
   %add = add nsw i64 1, %sub
@@ -147,11 +147,11 @@ alloca_0:
   %rel6 = icmp sle i64 1, %int_sext117
   %rel8 = icmp ne i1 %rel6, false
   %slct = select i1 %rel8, i64 %add, i64 0
-  %"val$[]11" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 0), i32 0)
+  %"val$[]11" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 0), i32 0)
   store i64 %slct, i64* %"val$[]11", align 1
   %"complex_alloc_array_reduction_$NPOL_fetch" = load i32, i32* %"complex_alloc_array_reduction_$NPOL", align 1
   %int_sext = sext i32 %"complex_alloc_array_reduction_$NPOL_fetch" to i64
-  %"val$[]14" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]14" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   store i64 1, i64* %"val$[]14", align 1
   %sub16 = sub nsw i64 %int_sext, 1
   %add18 = add nsw i64 1, %sub16
@@ -159,12 +159,12 @@ alloca_0:
   %rel22 = icmp sle i64 1, %int_sext
   %rel24 = icmp ne i1 %rel22, false
   %slct26 = select i1 %rel24, i64 %add18, i64 0
-  %"val$[]29" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 0), i32 1)
+  %"val$[]29" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 0), i32 1)
   store i64 %slct26, i64* %"val$[]29", align 1
-  %"val$[]32" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 0)
+  %"val$[]32" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 0)
   store i64 16, i64* %"val$[]32", align 1
   %mul = mul nsw i64 16, %slct
-  %"val$[]35" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]35" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   store i64 %mul, i64* %"val$[]35", align 1
   %func_result37 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* %"var$4", i32 3, i64 %slct, i64 %slct26, i64 16)
   %"var$4_fetch" = load i64, i64* %"var$4", align 1
@@ -202,12 +202,12 @@ alloca_0:
   %and87 = and i32 %or85, -2031617
   %or89 = or i32 %and87, 262144
   %func_result91 = call i32 @for_alloc_allocatable(i64 %"var$4_fetch", i8** bitcast (%"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC" to i8**), i32 %or89)
-  %"val$[]94" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]94" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   %"val$[]94_fetch" = load i64, i64* %"val$[]94", align 1
   %mul96 = mul nsw i64 %"val$[]94_fetch", 16
-  %"val$[]99" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]99" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   %"val$[]99_fetch" = load i64, i64* %"val$[]99", align 1
-  %"val$[]102" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]102" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   %"val$[]102_fetch" = load i64, i64* %"val$[]102", align 1
   %mul104 = mul nsw i64 %"val$[]99_fetch", %"val$[]102_fetch"
   %add106 = add nsw i64 %mul96, %mul104
@@ -280,25 +280,25 @@ bb46:                                             ; preds = %bb39
 
 bb44:                                             ; preds = %bb44, %bb46
   %val_fetch240 = load %complex_128bit*, %complex_128bit** getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 0), align 1
-  %"val$[]172" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]172" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   %"val$[]172_fetch" = load i64, i64* %"val$[]172", align 1
   %"complex_alloc_array_reduction_$IR_fetch" = load i32, i32* %"complex_alloc_array_reduction_$IR", align 1
   %int_sext174 = sext i32 %"complex_alloc_array_reduction_$IR_fetch" to i64
-  %"val$[]177" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]177" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   %"val$[]177_fetch" = load i64, i64* %"val$[]177", align 1
-  %"val$[]180" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]180" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   %"val$[]180_fetch" = load i64, i64* %"val$[]180", align 1
-  %"val$[]183" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]183" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   %"val$[]183_fetch" = load i64, i64* %"val$[]183", align 1
   %mul185 = mul nsw i64 %"val$[]183_fetch", 16
-  %"val$[]188" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]188" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   %"val$[]188_fetch" = load i64, i64* %"val$[]188", align 1
-  %"val$[]191" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]191" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   %"val$[]191_fetch" = load i64, i64* %"val$[]191", align 1
   %mul193 = mul nsw i64 %"val$[]188_fetch", %"val$[]191_fetch"
   %add195 = add nsw i64 %mul185, %mul193
-  %"val_fetch[]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 1, i64 %"val$[]180_fetch", i64 %"val$[]177_fetch", %complex_128bit* %val_fetch240, i64 1)
-  %"val_fetch[][]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 0, i64 %"val$[]172_fetch", i64 16, %complex_128bit* %"val_fetch[]", i64 %int_sext174)
+  %"val_fetch[]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 1, i64 %"val$[]180_fetch", i64 %"val$[]177_fetch", %complex_128bit* elementtype(%complex_128bit) %val_fetch240, i64 1)
+  %"val_fetch[][]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 0, i64 %"val$[]172_fetch", i64 16, %complex_128bit* elementtype(%complex_128bit) %"val_fetch[]", i64 %int_sext174)
   %"val_fetch[][]_fetch" = load %complex_128bit, %complex_128bit* %"val_fetch[][]", align 1
   %"val_fetch[][]_fetch_comp_0" = extractvalue %complex_128bit %"val_fetch[][]_fetch", 0
   %add201 = fadd reassoc ninf nsz arcp contract afn double %"val_fetch[][]_fetch_comp_0", 1.000000e+00
@@ -307,25 +307,25 @@ bb44:                                             ; preds = %bb44, %bb46
   %insertval = insertvalue %complex_128bit zeroinitializer, double %add201, 0
   %insertval205 = insertvalue %complex_128bit %insertval, double %add203, 1
   %val_fetch207 = load %complex_128bit*, %complex_128bit** getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 0), align 1
-  %"val$[]210" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]210" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   %"val$[]210_fetch" = load i64, i64* %"val$[]210", align 1
   %"complex_alloc_array_reduction_$IR_fetch212" = load i32, i32* %"complex_alloc_array_reduction_$IR", align 1
   %int_sext214 = sext i32 %"complex_alloc_array_reduction_$IR_fetch212" to i64
-  %"val$[]217" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]217" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   %"val$[]217_fetch" = load i64, i64* %"val$[]217", align 1
-  %"val$[]220" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]220" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   %"val$[]220_fetch" = load i64, i64* %"val$[]220", align 1
-  %"val$[]223" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
+  %"val$[]223" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 0)
   %"val$[]223_fetch" = load i64, i64* %"val$[]223", align 1
   %mul225 = mul nsw i64 %"val$[]223_fetch", 16
-  %"val$[]228" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
+  %"val$[]228" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 2), i32 1)
   %"val$[]228_fetch" = load i64, i64* %"val$[]228", align 1
-  %"val$[]231" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
+  %"val$[]231" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%complex_128bit*$rank2$", %"QNCA_a0$%complex_128bit*$rank2$"* @"complex_alloc_array_reduction_$PSIC_ALL_NC", i32 0, i32 6, i32 0, i32 1), i32 1)
   %"val$[]231_fetch" = load i64, i64* %"val$[]231", align 1
   %mul233 = mul nsw i64 %"val$[]228_fetch", %"val$[]231_fetch"
   %add235 = add nsw i64 %mul225, %mul233
-  %"val_fetch207[]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 1, i64 %"val$[]220_fetch", i64 %"val$[]217_fetch", %complex_128bit* %val_fetch207, i64 1)
-  %"val_fetch207[][]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 0, i64 %"val$[]210_fetch", i64 16, %complex_128bit* %"val_fetch207[]", i64 %int_sext214)
+  %"val_fetch207[]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 1, i64 %"val$[]220_fetch", i64 %"val$[]217_fetch", %complex_128bit* elementtype(%complex_128bit) %val_fetch207, i64 1)
+  %"val_fetch207[][]" = call %complex_128bit* @llvm.intel.subscript.p0s_complex_128bits.i64.i64.p0s_complex_128bits.i64(i8 0, i64 %"val$[]210_fetch", i64 16, %complex_128bit* elementtype(%complex_128bit) %"val_fetch207[]", i64 %int_sext214)
   store %complex_128bit %insertval205, %complex_128bit* %"val_fetch207[][]", align 1
   %"complex_alloc_array_reduction_$JPOL_fetch" = load i32, i32* %"complex_alloc_array_reduction_$JPOL", align 1
   %add242 = add nsw i32 %"complex_alloc_array_reduction_$JPOL_fetch", 1

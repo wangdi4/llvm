@@ -1,8 +1,8 @@
 ; RUN: opt < %s -S -convert-to-subscript | FileCheck %s
 ;
 ; CHECK: for.body.preheader:
-; CHECK-NEXT: {{.*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 200, i32* getelementptr inbounds ([50 x i32], [50 x i32]* @A, i64 0, i64 0), i64 0)
-; CHECK-NEXT; {..*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* {{.*}}, i64 10)
+; CHECK-NEXT: {{.*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 200, i32* elementtype(i32) getelementptr inbounds ([50 x i32], [50 x i32]* @A, i64 0, i64 0), i64 0)
+; CHECK-NEXT; {..*}} = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) {{.*}}, i64 10)
 
 ; ModuleID = 'array-init-phi-base-ptr-iv.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

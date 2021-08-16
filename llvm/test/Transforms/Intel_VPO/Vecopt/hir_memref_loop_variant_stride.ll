@@ -34,7 +34,7 @@ for.cond.cleanup:                                 ; preds = %for.body
 for.body:                                         ; preds = %for.body, %entry
   %i = phi i64 [ 0, %entry ], [ %ip1, %for.body ]
   %s = load i64, i64* %q, align 4
-  %idx = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 %s, float* %p, i64 %i)
+  %idx = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 0, i64 %s, float* elementtype(float) %p, i64 %i)
   store float 5.000000e+02, float* %idx, align 4
   %ip1 = add nuw nsw i64 %i, 1
   %exitcond = icmp eq i64 %ip1, 1024

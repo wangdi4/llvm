@@ -422,9 +422,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   SubscriptInst *CI = cast<SubscriptInst>(Subs);
 
   // Extract element type.
-  Type *ElemTy = CI->getType()
-                     ->getScalarType() // Element of <vector of pointers>
-                     ->getPointerElementType();
+  Type *ElemTy = CI->getElementType();
 
   return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
                        CI->getLowerBound(), CI->getIndex(), CI->getStride(),

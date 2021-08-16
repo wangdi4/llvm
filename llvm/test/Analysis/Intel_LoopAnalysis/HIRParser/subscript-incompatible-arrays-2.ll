@@ -22,8 +22,8 @@ loop:
   %i = phi i32 [0, %entry], [%ip, %loop]
 
   %p = getelementptr inbounds [256 x double], [256 x double]* @A, i64 0, i64 1
-  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 512, double* nonnull %p, i64 2)
-  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 128, double* nonnull %p1, i64 3)
+  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 0, i64 512, double* elementtype(double) nonnull %p, i64 2)
+  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 0, i64 128, double* elementtype(double) nonnull %p1, i64 3)
   store double* %p2, double** %sp
 
   %ip = add nsw nuw i32 %i, 1

@@ -151,9 +151,9 @@ bb21:                                             ; preds = %bb21.preheader, %bb
   call void @llvm.dbg.value(metadata i64 %indvars.iv354, metadata !31, metadata !DIExpression()), !dbg !30
   call void @llvm.dbg.value(metadata i32 1, metadata !32, metadata !DIExpression()), !dbg !30
   %indvars.iv.next355 = add nuw nsw i64 %indvars.iv354, 1, !dbg !25
-  %"jacobian_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* %"jacobian_$Q", i64 %indvars.iv.next355), !dbg !19
+  %"jacobian_$Q[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* elementtype(double) %"jacobian_$Q", i64 %indvars.iv.next355), !dbg !19
   %3 = add nuw nsw i64 %indvars.iv354, 2, !dbg !33
-  %"jacobian_$Q[]119" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* %"jacobian_$Q", i64 %3), !dbg !33
+  %"jacobian_$Q[]119" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul28, double* elementtype(double) %"jacobian_$Q", i64 %3), !dbg !33
   br label %bb30.preheader, !dbg !34
 
 bb30.preheader:                                   ; preds = %bb31, %bb21
@@ -167,9 +167,9 @@ bb30.preheader:                                   ; preds = %bb31, %bb21
   %5 = add i32 %4, 2, !dbg !37
   %mod = srem i32 %5, %"jacobian_$NY_fetch", !dbg !37
   call void @llvm.dbg.value(metadata i32 %mod, metadata !35, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* %"jacobian_$Q[]", i64 %indvars.iv349), !dbg !19
+  %"jacobian_$Q[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) %"jacobian_$Q[]", i64 %indvars.iv349), !dbg !19
   %int_sext157 = zext i32 %mod to i64, !dbg !33
-  %"jacobian_$Q[]119[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* %"jacobian_$Q[]119", i64 %int_sext157), !dbg !33
+  %"jacobian_$Q[]119[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul, double* elementtype(double) %"jacobian_$Q[]119", i64 %int_sext157), !dbg !33
   br label %bb30, !dbg !27
 
 bb30:                                             ; preds = %bb30.preheader, %bb30
@@ -181,14 +181,14 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   %6 = trunc i64 %indvars.iv.next to i32, !dbg !39
   %mod26 = srem i32 %6, %"jacobian_$NX_fetch", !dbg !39
   call void @llvm.dbg.value(metadata i32 %mod26, metadata !40, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
-  %"jacobian_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[][][]", i64 2), !dbg !19
+  %"jacobian_$Q[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[][]", i64 %indvars.iv), !dbg !19
+  %"jacobian_$Q[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 2), !dbg !19
   %"jacobian_$Q[][][][]_fetch" = load double, double* %"jacobian_$Q[][][][]", align 1, !dbg !19
-  %"jacobian_$Q[]52[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[][][]", i64 1), !dbg !19
+  %"jacobian_$Q[]52[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 1), !dbg !19
   %"jacobian_$Q[]52[][][]_fetch" = load double, double* %"jacobian_$Q[]52[][][]", align 1, !dbg !19
   %div = fdiv double %"jacobian_$Q[][][][]_fetch", %"jacobian_$Q[]52[][][]_fetch", !dbg !41
   call void @llvm.dbg.value(metadata double %div, metadata !42, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[]63[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[][][]", i64 3), !dbg !43
+  %"jacobian_$Q[]63[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[][][]", i64 3), !dbg !43
   %"jacobian_$Q[]63[][][]_fetch" = load double, double* %"jacobian_$Q[]63[][][]", align 1, !dbg !43
   %div86 = fdiv double %"jacobian_$Q[]63[][][]_fetch", %"jacobian_$Q[]52[][][]_fetch", !dbg !44
   call void @llvm.dbg.value(metadata double %div86, metadata !45, metadata !DIExpression()), !dbg !30
@@ -203,14 +203,14 @@ bb30:                                             ; preds = %bb30.preheader, %bb
   %func_result = tail call double @llvm.pow.f64(double %div105, double 2.500000e+00), !dbg !54
   call void @llvm.dbg.value(metadata double %func_result, metadata !55, metadata !DIExpression()), !dbg !30
   %int_sext154 = zext i32 %mod26 to i64, !dbg !33
-  %"jacobian_$Q[]119[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* %"jacobian_$Q[]119[]", i64 %int_sext154), !dbg !33
-  %"jacobian_$Q[]119[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[]119[][]", i64 2), !dbg !33
+  %"jacobian_$Q[]119[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) %"jacobian_$Q[]119[]", i64 %int_sext154), !dbg !33
+  %"jacobian_$Q[]119[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 2), !dbg !33
   %"jacobian_$Q[]119[][][]_fetch" = load double, double* %"jacobian_$Q[]119[][][]", align 1, !dbg !33
-  %"jacobian_$Q[]144[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[]119[][]", i64 1), !dbg !33
+  %"jacobian_$Q[]144[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 1), !dbg !33
   %"jacobian_$Q[]144[][][]_fetch" = load double, double* %"jacobian_$Q[]144[][][]", align 1, !dbg !33
   %div152 = fdiv double %"jacobian_$Q[]119[][][]_fetch", %"jacobian_$Q[]144[][][]_fetch", !dbg !56
   call void @llvm.dbg.value(metadata double %div152, metadata !57, metadata !DIExpression()), !dbg !30
-  %"jacobian_$Q[]165[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %"jacobian_$Q[]119[][]", i64 3), !dbg !58
+  %"jacobian_$Q[]165[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %"jacobian_$Q[]119[][]", i64 3), !dbg !58
   %"jacobian_$Q[]165[][][]_fetch" = load double, double* %"jacobian_$Q[]165[][][]", align 1, !dbg !58
   %div202 = fdiv double %"jacobian_$Q[]165[][][]_fetch", %"jacobian_$Q[]144[][][]_fetch", !dbg !59
   call void @llvm.dbg.value(metadata double %div202, metadata !60, metadata !DIExpression()), !dbg !30

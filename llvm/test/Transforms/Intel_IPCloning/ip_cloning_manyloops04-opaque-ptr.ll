@@ -46,16 +46,16 @@ L83:                                              ; preds = %L96, %L0
   br i1 %t80, label %L96, label %L85
 
 L85:                                              ; preds = %L83
-  %t86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull %t79, i64 %t84)
-  %t87 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr nonnull %t81, i64 %t84)
+  %t86 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr elementtype(i32) nonnull %t79, i64 %t84)
+  %t87 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 1, i64 1, i64 32, ptr elementtype(i32) nonnull %t81, i64 %t84)
   br label %L88
 
 L88:                                              ; preds = %L88, %L85
   %t89 = phi i64 [ 1, %L85 ], [ %t94, %L88 ]
-  %t90 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull %t86, i64 %t89)
+  %t90 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(i32) nonnull %t86, i64 %t89)
   %t91 = load double, ptr %t90, align 1
   %t92 = fmul fast double %t91, %t78
-  %t93 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr nonnull %t87, i64 %t89)
+  %t93 = call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(i32) nonnull %t87, i64 %t89)
   store double %t92, ptr %t93, align 1
   %t94 = add nuw nsw i64 %t89, 1
   %t95 = icmp eq i64 %t94, %t82

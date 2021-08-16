@@ -61,7 +61,7 @@ bb19:                                             ; preds = %bb19, %bb15
   %"target_teams_distribute_parallel_for$I$_228_fetch" = load i32, i32* %"target_teams_distribute_parallel_for$I$_228", align 1
   %int_sext = sext i32 %"target_teams_distribute_parallel_for$I$_228_fetch" to i64
   %"(i32*)target_teams_distribute_parallel_for$NUM_THREADS$_228$" = bitcast [1024 x i32]* %"target_teams_distribute_parallel_for$NUM_THREADS$_228" to i32*
-  %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %"(i32*)target_teams_distribute_parallel_for$NUM_THREADS$_228$", i64 %int_sext)
+  %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %"(i32*)target_teams_distribute_parallel_for$NUM_THREADS$_228$", i64 %int_sext)
   store i32 %func_result, i32* %"target_teams_distribute_parallel_for$NUM_THREADS$_228[]", align 1
   %temp_fetch18 = load i32, i32* %temp36, align 1
   %temp_fetch20 = load i32, i32* %temp38, align 1

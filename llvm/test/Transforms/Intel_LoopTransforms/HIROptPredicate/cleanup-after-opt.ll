@@ -84,29 +84,29 @@ bb1102:                                           ; preds = %bb1185, %entry
   br i1 %i1106, label %bb1175, label %bb1185
 
 bb1107:                                           ; preds = %bb1127
-  %i1108 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 -4, i64 4, i32* nonnull %arg25, i64 %i1105)
-  %i1109 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %i1108, i64 %i83)
+  %i1108 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 -4, i64 4, i32* elementtype(i32) nonnull %arg25, i64 %i1105)
+  %i1109 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %i1108, i64 %i83)
   store i32 1, i32* %i1109, align 1
   br label %bb1150
 
 bb1110:                                           ; preds = %bb1113
-  %i1111 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 -4, i64 4, i32* nonnull %arg25, i64 %i1105)
-  %i1112 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %i1111, i64 %i83)
+  %i1111 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 -4, i64 4, i32* elementtype(i32) nonnull %arg25, i64 %i1105)
+  %i1112 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %i1111, i64 %i83)
   store i32 2, i32* %i1112, align 1
   br label %bb1150
 
 bb1113:                                           ; preds = %bb1139
   %i1114 = fadd fast double %i1178, -2.731600e+02
-  %i1115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %i133, i64 %i1105)
-  %i1116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1115, i64 %i83)
+  %i1115 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %i133, i64 %i1105)
+  %i1116 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1115, i64 %i83)
   %i1117 = load double, double* %i1116, align 1
   %i1126 = icmp slt i64 %i1105, 1
   br i1 %i1126, label %bb1110, label %bb1157
 
 bb1127:                                           ; preds = %bb1175
   %i1128 = fadd fast double %i1178, -2.731600e+02
-  %i1129 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %i133, i64 %i1105)
-  %i1130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1129, i64 %i83)
+  %i1129 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %i133, i64 %i1105)
+  %i1130 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1129, i64 %i83)
   %i1131 = load double, double* %i1130, align 1
   %i1134 = fadd fast double %i1182, %i1131
   %i1138 = icmp slt i64 %i1105, 1
@@ -114,8 +114,8 @@ bb1127:                                           ; preds = %bb1175
 
 bb1139:                                           ; preds = %bb1175
   %i1140 = fcmp fast olt double %i1178, 2.731600e+02
-  %i1141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %arg20, i64 %i1105)
-  %i1142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1141, i64 %i83)
+  %i1141 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %arg20, i64 %i1105)
+  %i1142 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1141, i64 %i83)
   %i1143 = load double, double* %i1142, align 1
   %i1144 = fcmp fast ogt double %i1143, 0.000000e+00
   %i1145 = and i1 %i1140, %i1144
@@ -132,20 +132,20 @@ bb1157:                                           ; preds = %bb1150, %bb1127, %b
   %i1162 = phi double [ %i1117, %bb1113 ], [ %i1134, %bb1127 ], [ %i1154, %bb1150 ]
   %i1164 = fsub fast double %i1182, %i1162
   store double %i1164, double* %i1181, align 1
-  %i1165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %arg20, i64 %i1105)
-  %i1166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1165, i64 %i83)
+  %i1165 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %arg20, i64 %i1105)
+  %i1166 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1165, i64 %i83)
   %i1167 = load double, double* %i1166, align 1
   %i1168 = fadd fast double %i1167, %i1162
   store double %i1168, double* %i1166, align 1
   br label %bb1185
 
 bb1175:                                           ; preds = %bb1102
-  %i1176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %arg19, i64 %i1105)
-  %i1177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1176, i64 %i83)
+  %i1176 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %arg19, i64 %i1105)
+  %i1177 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1176, i64 %i83)
   %i1178 = load double, double* %i1177, align 1
   %i1179 = fcmp fast ogt double %i1178, 2.731600e+02
-  %i1180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* nonnull %arg21, i64 %i1105)
-  %i1181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i1180, i64 %i83)
+  %i1180 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 -4, i64 8, double* elementtype(double) nonnull %arg21, i64 %i1105)
+  %i1181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i1180, i64 %i83)
   %i1182 = load double, double* %i1181, align 1
   %i1183 = fcmp fast ogt double %i1182, 0.000000e+00
   %i1184 = and i1 %i1179, %i1183

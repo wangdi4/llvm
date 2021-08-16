@@ -98,7 +98,7 @@ loop_test10.preheader.preheader:                  ; preds = %alloca_0
 
 loop_body7:                                       ; preds = %loop_body7.preheader, %loop_body7
   %"var$8.016" = phi i64 [ %add.16, %loop_body7 ], [ 3, %loop_body7.preheader ]
-  %"sub_$A[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 3, i64 4, float* nonnull %"sub_$A[][]", i64 %"var$8.016")
+  %"sub_$A[][][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 3, i64 4, float* elementtype(float) nonnull %"sub_$A[][]", i64 %"var$8.016")
   store float 1.000000e+00, float* %"sub_$A[][][]", align 1
   %add.16 = add nuw nsw i64 %"var$8.016", 1
   %exitcond = icmp eq i64 %add.16, %0
@@ -114,7 +114,7 @@ loop_exit8:                                       ; preds = %loop_exit8.loopexit
 
 loop_test6.preheader:                             ; preds = %loop_test6.preheader.preheader, %loop_exit8
   %"var$9.020" = phi i64 [ %add.18, %loop_exit8 ], [ -3, %loop_test6.preheader.preheader ]
-  %"sub_$A[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 -3, i64 %mul.1, float* nonnull %"sub_$A[]", i64 %"var$9.020")
+  %"sub_$A[][]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 -3, i64 %mul.1, float* elementtype(float) nonnull %"sub_$A[]", i64 %"var$9.020")
   br i1 %rel.4.not15, label %loop_exit8, label %loop_body7.preheader
 
 loop_body7.preheader:                             ; preds = %loop_test6.preheader
@@ -127,7 +127,7 @@ loop_exit12:                                      ; preds = %loop_exit8
 
 loop_test6.preheader.preheader:                   ; preds = %loop_exit12, %loop_test10.preheader.preheader
   %"var$10.023" = phi i64 [ %add.20, %loop_exit12 ], [ -3, %loop_test10.preheader.preheader ]
-  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 -3, i64 %mul.2, float* nonnull %"sub_$A", i64 %"var$10.023")
+  %"sub_$A[]" = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 -3, i64 %mul.2, float* elementtype(float) nonnull %"sub_$A", i64 %"var$10.023")
   br label %loop_test6.preheader
 
 loop_exit16.loopexit:                             ; preds = %loop_exit12
