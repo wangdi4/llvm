@@ -3096,7 +3096,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (!ArgPos)
         return false;
       auto F = dyn_cast<Function>(CB->getCalledOperand()->stripPointerCasts());
-      if (!F)
+      if (!F || F->isVarArg())
         return false;
       Argument *Arg = F->getArg(*ArgPos);
       if (!PropagatesToLoadOrStoreX(Arg, Visited))
