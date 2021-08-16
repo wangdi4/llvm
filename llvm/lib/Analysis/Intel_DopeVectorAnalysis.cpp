@@ -2818,7 +2818,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         if (!ArgPos)
           return false;
         Function *Callee = CB->getCalledFunction();
-        if (!Callee)
+        if (!Callee || Callee->isVarArg())
           return false;
         Argument *Arg = Callee->getArg(*ArgPos);
         if (!Visited.count(Arg) && !PropagatesToLoadOrStoreX(Arg, Visited))
