@@ -2,10 +2,8 @@
 ; Current llorg code base does not expect cleanuppad instruction edges to be split.
 ; Intel custom changes enable breaking the edge : delete.notnull->lpad.
 ; This enables loop unswitching on this loop.
-; RUN: opt -S -loop-unswitch -enable-new-pm=0 < %s -verify
-; RUN: opt -S -loop-unswitch -enable-new-pm=0 -enable-mssa-loop-dependency=true -verify-memoryssa < %s -verify
+; RUN: opt -S -loop-unswitch -enable-new-pm=0 -verify-memoryssa < %s -verify
 ; END INTEL_CUSTOMIZATION
-
 target triple = "x86_64-pc-win32"
 
 define void @f(i32 %doit, i1 %x, i1 %y) personality i32 (...)* @__CxxFrameHandler3 {
