@@ -29,7 +29,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
 
-    set( LLVMGenXIntrinsics_GIT_TAG 19e6ddafc545bc96ceaacbf7c81cacbff59a39b6 )
+    set( LLVMGenXIntrinsics_GIT_TAG fd9bf4b3a91f853ed74a376df58123bb75f64449 )
 
     if( INTEL_CUSTOMIZATION )
       set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )

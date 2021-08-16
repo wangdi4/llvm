@@ -1984,13 +1984,13 @@ public:
 
   // Some helpful getters based on underlying call's attributes.
   bool isKernelCallOnce() const {
-    return getOrigCallAttrs().hasFnAttribute("kernel-call-once");
+    return getOrigCallAttrs().hasFnAttr("kernel-call-once");
   }
   bool isOCLVecUniformReturn() const {
-    return getOrigCallAttrs().hasFnAttribute("opencl-vec-uniform-return");
+    return getOrigCallAttrs().hasFnAttr("opencl-vec-uniform-return");
   }
   bool isKernelUniformCall() const {
-    return getOrigCallAttrs().hasFnAttribute("kernel-uniform-call");
+    return getOrigCallAttrs().hasFnAttr("kernel-uniform-call");
   }
 
   /// Return \p true if this call is a lifetime_start/end intrinsic call.
