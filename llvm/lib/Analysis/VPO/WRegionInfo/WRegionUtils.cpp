@@ -912,7 +912,7 @@ WRegionNode *WRegionUtils::getParentRegion(
 // The container can be the top-level WRGraph or the Children of a WRN.
 bool WRegionUtils::hasTargetDirective(WRContainerImpl &WrnContainer) {
   for (WRegionNode *W : WrnContainer) {
-    if (W->getIsTarget())
+    if (isa<WRNTargetNode>(W))
       return true;
     if (hasTargetDirective(W->getChildren()))
       return true;
@@ -927,21 +927,26 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   return false;
 }
 
-bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
-  Function *F = W->getEntryDirective()->getFunction();
-  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "target.declare"))
-    return true;
-
+bool WRegionUtils::hasLexicalParentTarget(const WRegionNode *W) {
   WRegionNode *PW = W->getParent();
   while (PW) {
-    if (PW->getIsTarget())
+    if (isa<WRNTargetNode>(PW))
       return true;
 
     PW = PW->getParent();
   }
-
   return false;
+}
+
+bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
+  Function *F = W->getEntryDirective()->getFunction();
+  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                      "target.declare") ||
+      F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                      "openmp-target-declare"))
+    return true;
+
+  return hasLexicalParentTarget(W);
 }
 
 // Returns true iff W contains a WRN for which Predicate is true.
