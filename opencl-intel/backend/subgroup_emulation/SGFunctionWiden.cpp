@@ -161,16 +161,16 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attribute::SExt);
     // For <VF x pointer> sret.
     AB.addStructRetAttr(ArgType);
-    AttributeSet ParamAttr = Attrs.getParamAttributes(Pair.index());
+    AttributeSet ParamAttr = Attrs.getParamAttrs(Pair.index());
     ParamAttrs.push_back(ParamAttr.removeAttributes(Context, AB));
   }
 
   // FIXME
-  auto FnAttrs = Attrs.getFnAttributes().removeAttribute(
+  auto FnAttrs = Attrs.getFnAttrs().removeAttribute(
       Context, "min-legal-vector-width");
 
   // Remove incompatible return attributes.
-  auto RetAttrs = Attrs.getRetAttributes()
+  auto RetAttrs = Attrs.getRetAttrs()
                       .removeAttribute(Context, Attribute::ZExt)
                       .removeAttribute(Context, Attribute::SExt);
 
