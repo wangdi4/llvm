@@ -64,6 +64,10 @@ static cl::opt<bool> SPIRVTargetHasEUFusion(
     "vpo-paropt-spirv-target-has-eu-fusion", cl::Hidden, cl::init(true),
     cl::desc("Generate code for SPIR-V target with EU fusion."));
 
+static cl::opt<bool> VPOParoptParameterHoming(
+    "vpo-paropt-parameter-homing", cl::Hidden, cl::init(true),
+    cl::desc("Generate debug code to home parameter values to the stack."));
+
 // Undocumented option to control execution scheme for SPIR targets.
 // This option has to have the same value for the host and the target
 // compilations to work properly.
@@ -5736,6 +5740,7 @@ Function *VPOParoptUtils::genOutlineFunction(
                    MoveUnreachableRegionBlocksToExtractedFunction,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
+  CE.setWriteArgumentsToHomeLocations(VPOParoptParameterHoming);
   assert(CE.isEligible() && "Region is not eligible for extraction.");
 
   if (!BBsToExtractIn ||
