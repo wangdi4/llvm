@@ -346,6 +346,7 @@ enum cl_dev_kernel_info
     CL_DEV_KERNEL_IS_AUTORUN,
     CL_DEV_KERNEL_IS_TASK,
     CL_DEV_KERNEL_CAN_USE_GLOBAL_WORK_OFFSET,       //!< Specifies if a kernel can be enqueued with GlobalWorkOffset parameter
+    CL_DEV_KERNEL_NEED_SERIALIZE_WG,                //!< Specifies if workgroups in a kernel need to be serialized.
     CL_DEV_KERNEL_SPILL_MEM_SIZE_INTEL,             //!< Returns the amount of spill memory used by a kernel.
                                                     //!< The meaning of this value will vary from implementation-to-implementation,
                                                     //!< however a return value of 0 will always indicate that compiler was

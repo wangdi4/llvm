@@ -117,8 +117,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t          GetKernelArgBufferAlignment() const { return m_sKernelPrototype.m_dispatchBufferProperties.alignment;}
         bool            IsTask() const { return m_bIsTask; }
         bool            CanUseGlobalWorkOffset() const { return m_bCanUseGlobalWorkOffset; }
+        bool NeedSerializeWGs() const { return m_NeedSerializeWGs; }
 
-    private:
+      private:
         bool            CacheRequiredInfo();
 
         // device kernel id
@@ -141,6 +142,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_bool                                 m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT;
         cl_bool                                 m_bIsTask;
         cl_bool                                 m_bCanUseGlobalWorkOffset;
+        cl_bool m_NeedSerializeWGs;
 
         // logger client
         DECLARE_LOGGER_CLIENT;
