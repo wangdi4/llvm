@@ -84,22 +84,22 @@ void OptimizerLTO::Optimize() {
   ModulePassManager MPM;
 
   if (Config->GetDisableOpt())
-    MPM = PB.buildO0DefaultPipeline(PassBuilder::OptimizationLevel::O0);
+    MPM = PB.buildO0DefaultPipeline(OptimizationLevel::O0);
   else
-    MPM = PB.buildPerModuleDefaultPipeline(PassBuilder::OptimizationLevel::O3);
+    MPM = PB.buildPerModuleDefaultPipeline(OptimizationLevel::O3);
 
   MPM.run(*m_M, MAM);
 }
 
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
-      [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
+      [](ModulePassManager &MPM, OptimizationLevel Level) {
         // TODO: SPIRVLowerConstExprPass() is required before SPIRVToOCL20Pass,
         // but the class definition is not exposed in SPIRV header file yet.
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(DPCPPEqualizerPass());
         MPM.addPass(DuplicateCalledKernelsPass());
-        if (Level != PassBuilder::OptimizationLevel::O0)
+        if (Level != OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
         MPM.addPass(AddFunctionAttrsPass());
         MPM.addPass(LinearIdResolverPass());
@@ -110,14 +110,14 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
 
 void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
   PB.registerVectorizerStartEPCallback(
-      [](FunctionPassManager &FPM, PassBuilder::OptimizationLevel Level) {
+      [](FunctionPassManager &FPM, OptimizationLevel Level) {
         FPM.addPass(UnifyFunctionExitNodesPass());
       });
 }
 
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
   PB.registerOptimizerLastEPCallback([&](ModulePassManager &MPM,
-                                         PassBuilder::OptimizationLevel Level) {
+                                         OptimizationLevel Level) {
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
     // Barrier passes begin.
     MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
@@ -133,7 +133,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(LocalBuffersPass(/*UseTLSGlobals*/ false));
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
-    if (Level != PassBuilder::OptimizationLevel::O0) {
+    if (Level != OptimizationLevel::O0) {
       // AddImplicitArgs pass may create dead implicit arguments.
       MPM.addPass(DeadArgumentEliminationPass());
     }

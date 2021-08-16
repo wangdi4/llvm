@@ -48,9 +48,9 @@ end:
   ret void
 ;CHECK: define void @func2
 ;CHECK: entry:
-;CHECK-COUNT-2: getelementptr i1, i1* %{{.*}}, i32 2
+;CHECK-COUNT-2: getelementptr i1, i1* %{{.*}}, i32 1
 ;CHECK: BB1:
-;CHECK-COUNT-2: getelementptr i1, i1* %{{.*}}, i32 4
+;CHECK-COUNT-2: getelementptr i1, i1* %{{.*}}, i32 2
 ;CHECK: ret
 }
 
