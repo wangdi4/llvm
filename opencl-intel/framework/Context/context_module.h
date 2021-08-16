@@ -340,6 +340,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Register event that blocking USMFree need to wait.
         void RegisterUSMFreeWaitEvent(const void *usmPtr,
                                       std::shared_ptr<_cl_event> eventSPtr);
+        void UnregisterUSMFreeWaitEvent(const void *usmPtr, cl_event event);
 
 
     private:

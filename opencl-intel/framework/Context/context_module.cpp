@@ -3607,3 +3607,19 @@ void ContextModule::RegisterUSMFreeWaitEvent(
     OclAutoMutex mu(&m_SvmUsmMutex);
     m_mapUSMFreeWaitList[usmPtr].push_back(eventSPtr);
 }
+
+void ContextModule::UnregisterUSMFreeWaitEvent(const void *usmPtr, cl_event evt)
+{
+    assert(usmPtr != nullptr && "Not a valid USM pointer");
+    OclAutoMutex mu(&m_SvmUsmMutex);
+    auto WaitListIter = m_mapUSMFreeWaitList.find(usmPtr);
+    if (WaitListIter == m_mapUSMFreeWaitList.end())
+        return;
+
+    auto &WaitList = WaitListIter->second;
+    auto It = std::find_if(WaitList.begin(), WaitList.end(), [evt](auto &I) {
+        return evt == I.get();
+    });
+    if (It != WaitList.end())
+        WaitList.erase(It);
+}

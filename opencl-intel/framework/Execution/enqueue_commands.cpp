@@ -65,7 +65,7 @@ Command::Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue ):
     m_returnCode(CL_SUCCESS),
     m_bIsBeingDeleted(false),
     m_bEventDetached(false),
-    m_memory_objects_acquired(false)    
+    m_memory_objects_acquired(false)
 {
     memset(&m_DevCmd, 0, sizeof(cl_dev_cmd_desc));
     m_Event->SetCommand(this);
@@ -74,6 +74,7 @@ Command::Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue ):
     m_pDevice = m_pCommandQueue->GetDefaultDevice();
 
     m_pGpaCommand = nullptr;
+    m_pContextModule = FrameworkProxy::Instance()->GetContextModule();
     INIT_LOGGER_CLIENT(TEXT("Command Logger Client"),LL_DEBUG);
 }
 
@@ -121,14 +122,21 @@ cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList
 
 /******************************************************************
  *
- * Since the command holds the shared pointer to the event that is responsible for its own deletion, 
- * we need to do this here to break this cycle.
+ * Since the command holds the shared pointer to the event that is responsible
+ * for its own deletion, we need to do this here to break this cycle.
  *
  ******************************************************************/
 void inline Command::DetachEventSharedPtr()
 {
     m_bEventDetached = true;
     m_Event.DecRefCnt();
+}
+
+void inline Command::UnregisterUSMFreeWaitEvent() {
+    for (auto usmPtr : m_UsmPtrs) {
+        m_pContextModule->UnregisterUSMFreeWaitEvent(
+                usmPtr, this->GetEvent()->GetHandle());
+    }
 }
 
 /******************************************************************
@@ -215,8 +223,9 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_int iCmdStatus, cl_int iCompletio
         m_Event->SetEventState(EVENT_STATE_DONE);
 
         m_Event->AddProfilerMarker("COMPLETED", ITT_SHOW_COMPLETED_MARKER);
-        DetachEventSharedPtr();    
-        
+        UnregisterUSMFreeWaitEvent();
+        DetachEventSharedPtr();
+
         break;
 
     default:
@@ -2688,17 +2697,15 @@ cl_err_code FillMemObjCommand::CommandDone()
  ******************************************************************/
 MigrateSVMMemCommand::MigrateSVMMemCommand(
     const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
-    ContextModule*         pContextModule,
     cl_mem_migration_flags clFlags,
     cl_uint                uNumMemObjects,
     const void**           pMemObjects,
     const size_t*          sizes):
     Command(cmdQueue), m_pMemObjects(pMemObjects),
-    m_pSizes(sizes), m_pContextModule( pContextModule )
+    m_pSizes(sizes)
 {
     assert( 0 != uNumMemObjects );
     assert( nullptr != pMemObjects );
-    assert( nullptr != pContextModule );
 
     m_commandType = CL_COMMAND_SVM_MIGRATE_MEM;
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
@@ -2802,14 +2809,13 @@ cl_err_code MigrateSVMMemCommand::CommandDone()
  ******************************************************************/
 MigrateMemObjCommand::MigrateMemObjCommand(
     const SharedPtr<IOclCommandQueueBase> &cmdQueue,
-    ocl_entry_points * /*pOclEntryPoints*/, ContextModule *pContextModule,
+    ocl_entry_points * /*pOclEntryPoints*/,
     cl_mem_migration_flags clFlags, cl_uint uNumMemObjects,
     const cl_mem *pMemObjects)
-    : Command(cmdQueue), m_pMemObjects(pMemObjects),
-      m_pContextModule(pContextModule) {
+    : Command(cmdQueue), m_pMemObjects(pMemObjects)
+{
   assert(0 != uNumMemObjects);
   assert(nullptr != pMemObjects);
-  assert(nullptr != pContextModule);
 
   m_commandType = CL_COMMAND_MIGRATE_MEM_OBJECTS;
   memset(&m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
@@ -2910,15 +2916,12 @@ cl_err_code MigrateMemObjCommand::CommandDone()
  ******************************************************************/
 MigrateUSMMemCommand::MigrateUSMMemCommand(
     const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
-    ContextModule*         contextModule,
     cl_mem_migration_flags_intel clFlags,
     const void* ptr,
     size_t size):
-    Command(cmdQueue), m_ptr(ptr),
-    m_contextModule(contextModule)
+    Command(cmdQueue), m_ptr(ptr)
 {
     assert(nullptr != ptr);
-    assert(nullptr != contextModule);
 
     m_commandType = CL_COMMAND_MIGRATEMEM_INTEL;
     memset(&m_migrateCmdParams, 0, sizeof(m_migrateCmdParams));
@@ -2938,7 +2941,7 @@ cl_err_code MigrateUSMMemCommand::Init()
             : MemoryObject::READ_ONLY;
 
     SharedPtr<Context> queueContext =
-        m_contextModule->GetContext(m_pCommandQueue->GetParentHandle());
+        m_pContextModule->GetContext(m_pCommandQueue->GetParentHandle());
 
     SharedPtr<USMBuffer> memObj = queueContext->GetUSMBufferContainingAddr(
         const_cast<void*>(m_ptr));
@@ -2977,7 +2980,7 @@ cl_err_code MigrateUSMMemCommand::Execute()
     LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(),
               m_Event->GetId());
 
-    SharedPtr<Context> queueContext = m_contextModule->GetContext(
+    SharedPtr<Context> queueContext = m_pContextModule->GetContext(
         m_pCommandQueue->GetParentHandle());
     SharedPtr<USMBuffer> memObj = queueContext->GetUSMBufferContainingAddr(
         const_cast<void*>(m_ptr));
@@ -3007,14 +3010,12 @@ cl_err_code MigrateUSMMemCommand::CommandDone()
  ******************************************************************/
 AdviseUSMMemCommand::AdviseUSMMemCommand(
     const SharedPtr<IOclCommandQueueBase>& cmdQueue,
-    ContextModule* contextModule,
     const void* ptr,
     size_t size,
     cl_mem_advice_intel advice):
-    Command(cmdQueue), m_ptr(ptr), m_contextModule(contextModule)
+    Command(cmdQueue), m_ptr(ptr)
 {
     assert(nullptr != ptr);
-    assert(nullptr != contextModule);
 
     m_commandType = CL_COMMAND_MEMADVISE_INTEL;
     memset(&m_adviseCmdParams, 0, sizeof(m_adviseCmdParams));
@@ -3037,7 +3038,7 @@ cl_err_code AdviseUSMMemCommand::Init()
 
     MemoryObject::MemObjUsage access = MemoryObject::WRITE_ENTIRE;
 
-    SharedPtr<Context> queueContext = m_contextModule->GetContext(
+    SharedPtr<Context> queueContext = m_pContextModule->GetContext(
         m_pCommandQueue->GetParentHandle());
 
     SharedPtr<USMBuffer> memObj =
