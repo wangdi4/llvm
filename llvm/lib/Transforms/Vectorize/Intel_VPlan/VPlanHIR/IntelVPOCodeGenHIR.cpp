@@ -1182,7 +1182,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       // and call instruction can be generated.
       CallArgs.push_back(WideRef);
       ArgTys.push_back(VecDestTy);
-      ArgAttrs.push_back(Call->getAttributes().getParamAttributes(ArgNum));
+      ArgAttrs.push_back(Call->getAttributes().getParamAttrs(ArgNum));
     }
 
     // Using the newly created vector call arguments, generate the vector
@@ -2299,7 +2299,7 @@ HLInst *VPOCodeGenHIR::generateWideCall(const VPCallInstruction *VPCall,
     auto *WideArg = widenRef(VPCall->getOperand(I), VF);
     CallArgs.push_back(WideArg);
     ArgTys.push_back(WideArg->getDestType());
-    ArgAttrs.push_back(Attrs.getParamAttributes(I));
+    ArgAttrs.push_back(Attrs.getParamAttrs(I));
   }
 
   if (VectorIntrinID != Intrinsic::not_intrinsic) {

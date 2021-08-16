@@ -1219,8 +1219,7 @@ void DTransOPOptBase::updateAttributeTypes(Function *F) {
                         Attribute::getWithStructRetType(Context, RemapTy));
       }
     } else if (A.value().hasPreallocatedAttr()) {
-      AttributeSet ParamAttrs =
-          F->getAttributes().getParamAttributes(A.index());
+      AttributeSet ParamAttrs = F->getAttributes().getParamAttrs(A.index());
       if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
         F->removeParamAttr(A.index(), Attribute::Preallocated);
         F->addParamAttr(A.index(),

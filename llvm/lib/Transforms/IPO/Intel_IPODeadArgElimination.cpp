@@ -518,9 +518,9 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
 
   // Collect the arguments attribute list, return and function attributes
   const AttributeList &ArgsAttrList = F->getAttributes();
-  AttrBuilder RAttrs(ArgsAttrList.getRetAttributes());
+  AttrBuilder RAttrs(ArgsAttrList.getRetAttrs());
   AttributeSet RetAttrs = AttributeSet::get(F->getContext(), RAttrs);
-  AttributeSet FnAttrs = ArgsAttrList.getFnAttributes();
+  AttributeSet FnAttrs = ArgsAttrList.getFnAttrs();
 
   // Collect the type and the attributes for the parameters that are live
   unsigned DeadArgI = 0;
@@ -537,7 +537,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     }
     Argument *Arg = F->getArg(ArgNo);
     LiveArgsType.push_back(Arg->getType());
-    LiveArgsAttrVec.push_back(ArgsAttrList.getParamAttributes(ArgNo));
+    LiveArgsAttrVec.push_back(ArgsAttrList.getParamAttrs(ArgNo));
   }
 
   assert((LiveArgsType.size() == LiveArgsAttrVec.size()) &&
@@ -571,9 +571,9 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
     // Get the call, actual parameters and return attributes
     CallBase &Call = cast<CallBase>(*F->user_back());
     const AttributeList &CallAttrList = Call.getAttributes();
-    AttrBuilder CallRAttrs(CallAttrList.getRetAttributes());
+    AttrBuilder CallRAttrs(CallAttrList.getRetAttrs());
     AttributeSet CallRetAttrs = AttributeSet::get(F->getContext(), CallRAttrs);
-    AttributeSet CallFnAttrs = CallAttrList.getFnAttributes();
+    AttributeSet CallFnAttrs = CallAttrList.getFnAttrs();
 
     // Collect the live actual parameters and the attributes
     DeadArgI = 0;
@@ -591,7 +591,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
         continue;
       }
       LiveArgs.push_back(ActualArg);
-      LiveArgsAttrVec.push_back(CallAttrList.getParamAttributes(ArgNo));
+      LiveArgsAttrVec.push_back(CallAttrList.getParamAttrs(ArgNo));
     }
 
     assert(LiveArgsAttrVec.size() == LiveArgs.size() &&

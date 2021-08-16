@@ -1565,7 +1565,7 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
 #if INTEL_CUSTOMIZATION
 // FIXME: We should have a more general interface for the imf attributes.
 static bool hasAnyImfFnAttr(const CallBase *Call) {
-  for (const Attribute &Attr : Call->getAttributes().getFnAttributes()) {
+  for (const Attribute &Attr : Call->getAttributes().getFnAttrs()) {
     if (!Attr.isStringAttribute())
       continue;
     if (Attr.getKindAsString().startswith("imf-"))

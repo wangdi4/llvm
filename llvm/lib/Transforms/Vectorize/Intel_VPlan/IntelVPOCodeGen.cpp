@@ -2384,7 +2384,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     Value *VecArg = ProcessCallArg(OrigArgIdx, ParamsIdx);
     VecArgs.push_back(VecArg);
     VecArgTys.push_back(VecArg->getType());
-    VecArgAttrs.push_back(Attrs.getParamAttributes(ParamsIdx));
+    VecArgAttrs.push_back(Attrs.getParamAttrs(ParamsIdx));
   }
 
   // Process mask parameters for current part being pumped. Masked intrinsics

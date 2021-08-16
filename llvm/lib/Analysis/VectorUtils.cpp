@@ -703,7 +703,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
 
 std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   std::vector<Attribute> RetVal;
-  AttributeSet Attributes = F.getAttributes().getFnAttributes();
+  AttributeSet Attributes = F.getAttributes().getFnAttrs();
   AttributeSet::iterator ItA = Attributes.begin();
   AttributeSet::iterator EndA = Attributes.end();
   for (; ItA != EndA; ++ItA) {
@@ -871,11 +871,11 @@ void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
 
 void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
                                  ArrayRef<AttributeSet> ArgAttrs) {
-  AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
+  AttributeSet FnAttrs = Attrs.getFnAttrs().removeAttribute(
       VecCall->getContext(), "vector-variants");
 
-  VecCall->setAttributes(AttributeList::get(
-      VecCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
+  VecCall->setAttributes(AttributeList::get(VecCall->getContext(), FnAttrs,
+                                            Attrs.getRetAttrs(), ArgAttrs));
 }
 
 Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,

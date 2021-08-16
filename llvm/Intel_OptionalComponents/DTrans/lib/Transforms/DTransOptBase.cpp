@@ -793,7 +793,7 @@ void DTransOptBase::updateAttributeTypes(Function *CloneFunc) {
       }
     } else if (I.hasPreallocatedAttr()) {
       AttributeSet ParamAttrs =
-          CloneFunc->getAttributes().getParamAttributes(ArgIdx);
+          CloneFunc->getAttributes().getParamAttrs(ArgIdx);
       if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
         CloneFunc->removeParamAttr(ArgIdx, Attribute::Preallocated);
         CloneFunc->addParamAttr(
