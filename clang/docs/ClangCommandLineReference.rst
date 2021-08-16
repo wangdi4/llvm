@@ -1941,6 +1941,10 @@ Microsoft compiler version number to report in \_MSC\_VER (0 = don't define it (
 
 Specifies the largest alignment guaranteed by '::operator new(size\_t)'
 
+.. option:: -fnew-infallible
+
+Treats throwing global C++ operator new as always returning valid memory (annotates with \_\_attribute\_\_((returns\_nonnull)) and throw()). This is detectable in source.
+
 .. option:: -fnext-runtime
 
 .. option:: -fno-builtin-<arg>
@@ -3633,9 +3637,7 @@ X86
 
 .. option:: -mavx512f, -mno-avx512f
 
-.. INTEL_CUSTOMIZATION
 .. option:: -mavx512fp16, -mno-avx512fp16
-.. end INTEL_CUSTOMIZATION
 
 .. option:: -mavx512ifma, -mno-avx512ifma
 

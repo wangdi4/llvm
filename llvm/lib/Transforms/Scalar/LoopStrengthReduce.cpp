@@ -4139,6 +4139,14 @@ void LSRInstance::GenerateTruncates(LSRUse &LU, unsigned LUIdx, Formula Base) {
   if (DstTy->isPointerTy())
     return;
 
+  // It is invalid to extend a pointer type so exit early if ScaledReg or
+  // any of the BaseRegs are pointers.
+  if (Base.ScaledReg && Base.ScaledReg->getType()->isPointerTy())
+    return;
+  if (any_of(Base.BaseRegs,
+             [](const SCEV *S) { return S->getType()->isPointerTy(); }))
+    return;
+
   for (Type *SrcTy : Types) {
     if (SrcTy != DstTy && TTI.isTruncateFree(SrcTy, DstTy)) {
       Formula F = Base;
@@ -5978,9 +5986,12 @@ struct SCEVDbgValueBuilder {
     pushValue(V);
   }
 
-  void pushConst(const SCEVConstant *C) {
+  bool pushConst(const SCEVConstant *C) {
+    if (C->getAPInt().getMinSignedBits() > 64)
+      return false;
     Expr.push_back(llvm::dwarf::DW_OP_consts);
     Expr.push_back(C->getAPInt().getSExtValue());
+    return true;
   }
 
   /// Several SCEV types are sequences of the same arithmetic operator applied
@@ -6019,7 +6030,7 @@ struct SCEVDbgValueBuilder {
   bool pushSCEV(const llvm::SCEV *S) {
     bool Success = true;
     if (const SCEVConstant *StartInt = dyn_cast<SCEVConstant>(S)) {
-      pushConst(StartInt);
+      Success &= pushConst(StartInt);
 
     } else if (const SCEVUnknown *U = dyn_cast<SCEVUnknown>(S)) {
       if (!U->getValue())
@@ -6105,6 +6116,8 @@ struct SCEVDbgValueBuilder {
   /// SCEV constant value is an identity function.
   bool isIdentityFunction(uint64_t Op, const SCEV *S) {
     if (const SCEVConstant *C = dyn_cast<SCEVConstant>(S)) {
+      if (C->getAPInt().getMinSignedBits() > 64)
+        return false;
       int64_t I = C->getAPInt().getSExtValue();
       switch (Op) {
       case llvm::dwarf::DW_OP_plus:
@@ -6279,6 +6292,9 @@ DbgGatherSalvagableDVI(Loop *L, ScalarEvolution &SE,
     for (auto &I : *B) {
       auto DVI = dyn_cast<DbgValueInst>(&I);
       if (!DVI)
+        continue;
+
+      if (DVI->isUndef())
         continue;
 
       if (DVI->hasArgList())

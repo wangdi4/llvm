@@ -198,8 +198,8 @@ X86_FEATURE       (XSAVEC,          "xsavec")
 X86_FEATURE       (XSAVEOPT,        "xsaveopt")
 X86_FEATURE       (XSAVES,          "xsaves")
 X86_FEATURE       (HRESET,          "hreset")
-#if INTEL_CUSTOMIZATION
 X86_FEATURE       (AVX512FP16,      "avx512fp16")
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
 X86_FEATURE       (AVXIFMA,         "avxifma")
 #endif // INTEL_FEATURE_ISA_AVX_IFMA

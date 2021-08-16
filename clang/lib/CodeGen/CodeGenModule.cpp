@@ -245,7 +245,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
       !getModule().getSourceFileName().empty()) {
     std::string Path = getModule().getSourceFileName();
     // Check if a path substitution is needed from the MacroPrefixMap.
-    for (const auto &Entry : PPO.MacroPrefixMap)
+    for (const auto &Entry : LangOpts.MacroPrefixMap)
       if (Path.rfind(Entry.first, 0) != std::string::npos) {
         Path = Entry.second + Path.substr(Entry.first.size());
         break;
@@ -5469,7 +5469,9 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   if (GV && LangOpts.CUDA) {
     if (LangOpts.CUDAIsDevice) {
       if (Linkage != llvm::GlobalValue::InternalLinkage &&
-          (D->hasAttr<CUDADeviceAttr>() || D->hasAttr<CUDAConstantAttr>()))
+          (D->hasAttr<CUDADeviceAttr>() || D->hasAttr<CUDAConstantAttr>() ||
+           D->getType()->isCUDADeviceBuiltinSurfaceType() ||
+           D->getType()->isCUDADeviceBuiltinTextureType()))
         GV->setExternallyInitialized(true);
     } else {
       getCUDARuntime().internalizeDeviceSideVar(D, Linkage);

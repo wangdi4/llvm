@@ -896,7 +896,7 @@ static void LowerEsimdConstructs(Module &M) {
     MPM.add(createInstructionCombiningPass());
     MPM.add(createDeadCodeEliminationPass());
   }
-  MPM.add(createGenXSPIRVWriterAdaptorPass());
+  MPM.add(createGenXSPIRVWriterAdaptorPass(/*RewriteTypes=*/true));
   MPM.run(M);
 }
 

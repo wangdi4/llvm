@@ -1576,9 +1576,6 @@ void ompd_dll_locations_valid(void);
 #include <mutex>
 #include "omptarget.h"
 
-#ifndef OMPT_SUPPORT
-#define OMPT_SUPPORT 1
-#endif
 #define OMPT_SUCCESS 1
 #define OMPT_FAIL 0
 #ifndef HOST_DEVICE

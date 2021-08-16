@@ -1725,6 +1725,7 @@
 // CHECK_SPR_M32: #define __AVX512BW__ 1
 // CHECK_SPR_M32: #define __AVX512CD__ 1
 // CHECK_SPR_M32: #define __AVX512DQ__ 1
+// CHECK_SPR_M32: #define __AVX512FP16__ 1
 // CHECK_SPR_M32: #define __AVX512F__ 1
 // CHECK_SPR_M32: #define __AVX512IFMA__ 1
 // CHECK_SPR_M32: #define __AVX512VBMI2__ 1
@@ -1796,6 +1797,7 @@
 // CHECK_SPR_M64: #define __AVX512BW__ 1
 // CHECK_SPR_M64: #define __AVX512CD__ 1
 // CHECK_SPR_M64: #define __AVX512DQ__ 1
+// CHECK_SPR_M64: #define __AVX512FP16__ 1
 // CHECK_SPR_M64: #define __AVX512F__ 1
 // CHECK_SPR_M64: #define __AVX512IFMA__ 1
 // CHECK_SPR_M64: #define __AVX512VBMI2__ 1

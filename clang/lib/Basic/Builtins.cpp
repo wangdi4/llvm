@@ -235,7 +235,7 @@ bool Builtin::Context::OclBuiltinIsSupported(
       .Case("__opencl_c_device_enqueue", LangOpts.Blocks)
       .Case("__opencl_c_generic_address_space",
             LangOpts.OpenCLGenericAddressSpace)
-      .Case("__opencl_c_pipes", LangOpts.OpenCLPipe)
+      .Case("__opencl_c_pipes", LangOpts.OpenCLPipes)
       .Default(false);
 }
 

@@ -12,6 +12,7 @@
 #include "TestIndex.h"
 #include "TestTU.h"
 #include "index/MemIndex.h"
+#include "clang/AST/Attr.h"
 #include "clang/Basic/Specifiers.h"
 #include "clang/Index/IndexSymbol.h"
 #include "llvm/ADT/None.h"
@@ -2376,6 +2377,15 @@ TEST(Hover, All) {
          HI.LocalScope = "-[Foo variadicArgMethod:, ...]::";
          HI.NamespaceScope = "";
          HI.Value = "0";
+       }},
+      {R"cpp(
+         void foo(int * __attribute__(([[non^null]], noescape)) );
+         )cpp",
+       [](HoverInfo &HI) {
+         HI.Name = "nonnull";
+         HI.Kind = index::SymbolKind::Unknown; // FIXME: no suitable value
+         HI.Definition = "__attribute__((nonnull))";
+         HI.Documentation = Attr::getDocumentation(attr::NonNull).str();
        }},
   };
 

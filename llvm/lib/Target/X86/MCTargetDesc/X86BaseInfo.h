@@ -887,9 +887,7 @@ namespace X86II {
     // belongs to. i.e. one-byte, two-byte, 0x0f 0x38, 0x0f 0x3a, etc.
     //
     OpMapShift = OpPrefixShift + 2,
-#if INTEL_CUSTOMIZATION
     OpMapMask  = 0xF << OpMapShift,
-#endif // INTEL_CUSTOMIZATION
 
     // OB - OneByte - Set if this instruction has a one byte opcode.
     OB = 0 << OpMapShift,
@@ -918,10 +916,11 @@ namespace X86II {
     /// this flag to indicate that the encoder should do the wacky 3DNow! thing.
     ThreeDNow = 7 << OpMapShift,
 
-#if INTEL_CUSTOMIZATION
-    // MAP5, MAP6, MAP8 - Prefix after the 0x0F prefix.
+    // MAP5, MAP6 - Prefix after the 0x0F prefix.
     T_MAP5 = 8 << OpMapShift,
     T_MAP6 = 9 << OpMapShift,
+#if INTEL_CUSTOMIZATION
+    // MAP8 - Prefix after the 0x0F prefix.
     T_MAP8 = 10 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
@@ -931,9 +930,7 @@ namespace X86II {
     // etc. We only cares about REX.W and REX.R bits and only the former is
     // statically determined.
     //
-#if INTEL_CUSTOMIZATION
     REXShift    = OpMapShift + 4,
-#endif // INTEL_CUSTOMIZATION
     REX_W       = 1 << REXShift,
 
     //===------------------------------------------------------------------===//

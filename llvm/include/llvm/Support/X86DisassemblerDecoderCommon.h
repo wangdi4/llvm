@@ -31,10 +31,10 @@ namespace X86Disassembler {
 #define XOP9_MAP_SYM      x86DisassemblerXOP9Opcodes
 #define XOPA_MAP_SYM      x86DisassemblerXOPAOpcodes
 #define THREEDNOW_MAP_SYM x86Disassembler3DNowOpcodes
+#define MAP5_SYM          x86DisassemblerMap5Opcodes
+#define MAP6_SYM          x86DisassemblerMap6Opcodes
 
 #if INTEL_CUSTOMIZATION
-#define THREEBYTE39_SYM   x86DisassemblerThreeByte39Opcodes
-#define THREEBYTE3B_SYM   x86DisassemblerThreeByte3BOpcodes
 #define MAP8_SYM          x86DisassemblerMap8Opcodes
 #endif // INTEL_CUSTOMIZATION
 
@@ -48,10 +48,10 @@ namespace X86Disassembler {
 #define XOP9_MAP_STR      "x86DisassemblerXOP9Opcodes"
 #define XOPA_MAP_STR      "x86DisassemblerXOPAOpcodes"
 #define THREEDNOW_MAP_STR "x86Disassembler3DNowOpcodes"
+#define MAP5_STR          "x86DisassemblerMap5Opcodes"
+#define MAP6_STR          "x86DisassemblerMap6Opcodes"
 
 #if INTEL_CUSTOMIZATION
-#define THREEBYTE39_STR   "x86DisassemblerThreeByte39Opcodes"
-#define THREEBYTE3B_STR   "x86DisassemblerThreeByte3BOpcodes"
 #define MAP8_STR          "x86DisassemblerMap8Opcodes"
 #endif // INTEL_CUSTOMIZATION
 
@@ -339,11 +339,11 @@ enum OpcodeType {
   XOP8_MAP      = 4,
   XOP9_MAP      = 5,
   XOPA_MAP      = 6,
-#if INTEL_CUSTOMIZATION
   THREEDNOW_MAP = 7,
-  THREEBYTE_39  = 8,
-  THREEBYTE_3B  = 9,
-  MAP8 = 10
+  MAP5          = 8,
+#if INTEL_CUSTOMIZATION
+  MAP6          = 9,
+  MAP8          = 10
 #endif // INTEL_CUSTOMIZATION
 };
 

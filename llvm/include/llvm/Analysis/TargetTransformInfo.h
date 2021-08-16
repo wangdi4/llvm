@@ -47,6 +47,7 @@ class ExtractElementInst;
 class Function;
 class GlobalValue;
 class InstCombiner;
+class OptimizationRemarkEmitter;
 class IntrinsicInst;
 class LoadInst;
 class LoopAccessInfo;
@@ -507,7 +508,8 @@ public:
   /// transformation. The caller will initialize UP with the current
   /// target-independent defaults.
   void getUnrollingPreferences(Loop *L, ScalarEvolution &,
-                               UnrollingPreferences &UP) const;
+                               UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE) const;
 
   /// \brief Get target-customized default threshold for loop rotation.
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
@@ -1549,7 +1551,8 @@ public:
                                                   Value *NewV) const = 0;
   virtual bool isLoweredToCall(const Function *F) = 0;
   virtual void getUnrollingPreferences(Loop *L, ScalarEvolution &,
-                                       UnrollingPreferences &UP) = 0;
+                                       UnrollingPreferences &UP,
+                                       OptimizationRemarkEmitter *ORE) = 0;
   virtual unsigned                                            // INTEL
   getLoopRotationDefaultThreshold(bool OptForSize) const = 0; // INTEL
   virtual void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
@@ -1920,8 +1923,9 @@ public:
     return Impl.isLoweredToCall(F);
   }
   void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
-                               UnrollingPreferences &UP) override {
-    return Impl.getUnrollingPreferences(L, SE, UP);
+                               UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE) override {
+    return Impl.getUnrollingPreferences(L, SE, UP, ORE);
   }
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const override {
     return Impl.getLoopRotationDefaultThreshold(OptForSize);

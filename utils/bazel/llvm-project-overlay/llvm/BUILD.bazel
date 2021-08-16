@@ -33,30 +33,27 @@ enum_targets_gen(
     targets = llvm_targets,
 )
 
+# Enabled targets with ASM printers.
+llvm_target_asm_printers = [
+    t
+    for t in llvm_targets
+    if glob(["lib/Target/{}/*AsmPrinter.cpp".format(t)])
+]
+
 enum_targets_gen(
     name = "asm_printers_def_gen",
     src = "include/llvm/Config/AsmPrinters.def.in",
     out = "include/llvm/Config/AsmPrinters.def",
     macro_name = "ASM_PRINTER",
-    targets = llvm_targets,
+    targets = llvm_target_asm_printers,
 )
 
-# TODO(gcmn): We should derive these lists from the presence of CMakeLists.txt
-# files, as is done in the CMake build.
-# List of targets with ASM parsers, filtered to our list of overall targets.
-llvm_target_asm_parsers = [t for t in [
-    "AArch64",
-    "AMDGPU",
-    "ARM",
-    "BPF",
-    "Hexagon",
-    "Lanai",
-    "PowerPC",
-    "RISCV",
-    "Sparc",
-    "WebAssembly",
-    "X86",
-] if t in llvm_targets]
+# Enabled targets with ASM parsers.
+llvm_target_asm_parsers = [
+    t
+    for t in llvm_targets
+    if glob(["lib/Target/{}/AsmParser/CMakeLists.txt".format(t)])
+]
 
 enum_targets_gen(
     name = "asm_parsers_def_gen",
@@ -66,20 +63,12 @@ enum_targets_gen(
     targets = llvm_target_asm_parsers,
 )
 
-# List of targets with disassemblers, filtered to our list of overall targets.
-llvm_target_disassemblers = [t for t in [
-    "AArch64",
-    "AMDGPU",
-    "ARM",
-    "BPF",
-    "Hexagon",
-    "Lanai",
-    "PowerPC",
-    "RISCV",
-    "Sparc",
-    "WebAssembly",
-    "X86",
-] if t in llvm_targets]
+# Enabled targets with disassemblers.
+llvm_target_disassemblers = [
+    t
+    for t in llvm_targets
+    if glob(["lib/Target/{}/Disassembler/CMakeLists.txt".format(t)])
+]
 
 enum_targets_gen(
     name = "disassemblers_def_gen",
@@ -89,10 +78,12 @@ enum_targets_gen(
     targets = llvm_target_disassemblers,
 )
 
-# List of targets with mca, filtered to our list of overall targets.
-llvm_target_mcas = [t for t in [
-    "AMDGPU",
-] if t in llvm_targets]
+# Enabled targets with MCA.
+llvm_target_mcas = [
+    t
+    for t in llvm_targets
+    if glob(["lib/Target/{}/MCA/CMakeLists.txt".format(t)])
+]
 
 enum_targets_gen(
     name = "target_mca_def_gen",
@@ -413,6 +404,7 @@ cc_library(
     deps = [
         ":BinaryFormat",
         ":DebugInfoCodeView",
+        ":ProfileData",
         ":Support",
         ":config",
         ":ir_headers",
@@ -477,7 +469,6 @@ cc_library(
     features = ["-header_modules"],
     strip_include_prefix = "utils/TableGen",
     deps = [
-        ":MC",
         ":Support",
         ":TableGen",
         ":config",
@@ -2466,7 +2457,6 @@ cc_library(
         "tools/llvm-exegesis/lib/*.cpp",
         "tools/llvm-exegesis/lib/X86/*.cpp",
         "tools/llvm-exegesis/lib/X86/*.h",
-
         # We have to include these headers here as well as in the `hdrs` below
         # to allow the `.cpp` files to use file-relative-inclusion to find
         # them, even though consumers of this library use inclusion relative to
@@ -3289,6 +3279,20 @@ gentbl(
 )
 
 cc_binary(
+    name = "llvm-stress",
+    srcs = glob([
+        "tools/llvm-stress/*.cpp",
+        "tools/llvm-stress/*.h",
+    ]),
+    copts = llvm_copts,
+    stamp = 0,
+    deps = [
+        ":Core",
+        ":Support",
+    ],
+)
+
+cc_binary(
     name = "llvm-objcopy",
     srcs = glob([
         "tools/llvm-objcopy/**/*.cpp",
@@ -3826,6 +3830,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "Diff",
+    testonly = True,
+    srcs = glob(["tools/llvm-diff/lib/*.cpp"]),
+    hdrs = glob(["tools/llvm-diff/lib/*.h"]),
+    deps = [
+        ":Core",
+        ":Support",
+    ],
+)
+
 # A hacky library to expose some internal headers of gtest to its own
 # implementation source files using a stripped include prefix rather than
 # file-relative-inclusion.
@@ -4067,9 +4082,8 @@ cc_binary(
     copts = llvm_copts,
     stamp = 0,
     deps = [
-        ":AsmParser",
-        ":BitReader",
         ":Core",
+        ":Diff",
         ":IRReader",
         ":Support",
     ],

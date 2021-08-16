@@ -60,19 +60,14 @@ entry:
   ret i32 %result
 }
 
-; If bitcast isn't considered a safe phi/select use, the alloca
-; remains as an array.
-; FIXME: Why isn't this identical to test2?
 define float @test2_bitcast() {
 ; CHECK-LABEL: @test2_bitcast(
 ; CHECK-NEXT:  entry:
-; INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[COND:%.*]] = icmp sle i32 0, 1
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32 1 to float
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32 0 to float
 ; CHECK-NEXT:    [[RESULT_SROA_SPECULATED:%.*]] = select i1 [[COND]], float [[TMP0]], float [[TMP1]]
 ; CHECK-NEXT:    ret float [[RESULT_SROA_SPECULATED]]
-; end INTEL_CUSTOMIZATION
 ;
 entry:
   %a = alloca [2 x i32]

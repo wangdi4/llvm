@@ -87,12 +87,10 @@ class X86SchedWriteWidths<X86FoldableSchedWrite sScl,
 }
 
 // Multiclass that wraps X86SchedWriteWidths for each fp vector type.
-#if INTEL_CUSTOMIZATION
 class X86SchedWriteSizes<X86SchedWriteWidths sPH,
                          X86SchedWriteWidths sPS,
                          X86SchedWriteWidths sPD> {
   X86SchedWriteWidths PH = sPH;
-#endif // INTEL_CUSTOMIZATION
   X86SchedWriteWidths PS = sPS;
   X86SchedWriteWidths PD = sPD;
 }
@@ -685,7 +683,6 @@ def SchedWriteVarBlend
                        WriteVarBlendY, WriteVarBlendZ>;
 
 // Vector size wrappers.
-#if INTEL_CUSTOMIZATION
 // FIXME: Currently PH uses the same schedule method as PS.
 // We may refine them later.
 def SchedWriteFAddSizes
@@ -702,7 +699,6 @@ def SchedWriteFLogicSizes
  : X86SchedWriteSizes<SchedWriteFLogic, SchedWriteFLogic, SchedWriteFLogic>;
 def SchedWriteFShuffleSizes
  : X86SchedWriteSizes<SchedWriteFShuffle, SchedWriteFShuffle, SchedWriteFShuffle>;
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Generic Processor Scheduler Models.

@@ -549,6 +549,11 @@ static void PrintTagsAroundAddr(tag_t *tag_ptr) {
       "description of short granule tags\n");
 }
 
+uptr GetTopPc(StackTrace *stack) {
+  return stack->size ? StackTrace::GetPreviousInstructionPc(stack->trace[0])
+                     : 0;
+}
+
 void ReportInvalidFree(StackTrace *stack, uptr tagged_addr) {
   ScopedReport R(flags()->halt_on_error);
 
@@ -558,10 +563,16 @@ void ReportInvalidFree(StackTrace *stack, uptr tagged_addr) {
   tag_t mem_tag = *tag_ptr;
   Decorator d;
   Printf("%s", d.Error());
-  uptr pc = stack->size ? stack->trace[0] : 0;
+  uptr pc = GetTopPc(stack);
   const char *bug_type = "invalid-free";
-  Report("ERROR: %s: %s on address %p at pc %p\n", SanitizerToolName, bug_type,
-         untagged_addr, pc);
+  const Thread *thread = GetCurrentThread();
+  if (thread) {
+    Report("ERROR: %s: %s on address %p at pc %p on thread T%zd\n",
+           SanitizerToolName, bug_type, untagged_addr, pc, thread->unique_id());
+  } else {
+    Report("ERROR: %s: %s on address %p at pc %p on unknown thread\n",
+           SanitizerToolName, bug_type, untagged_addr, pc);
+  }
   Printf("%s", d.Access());
   Printf("tags: %02x/%02x (ptr/mem)\n", ptr_tag, mem_tag);
   Printf("%s", d.Default());
@@ -651,7 +662,7 @@ void ReportTagMismatch(StackTrace *stack, uptr tagged_addr, uptr access_size,
   uptr untagged_addr = UntagAddr(tagged_addr);
   // TODO: when possible, try to print heap-use-after-free, etc.
   const char *bug_type = "tag-mismatch";
-  uptr pc = stack->size ? stack->trace[0] : 0;
+  uptr pc = GetTopPc(stack);
   Report("ERROR: %s: %s on address %p at pc %p\n", SanitizerToolName, bug_type,
          untagged_addr, pc);
 

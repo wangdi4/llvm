@@ -4480,6 +4480,11 @@ SDValue DAGCombiner::visitMULHS(SDNode *N) {
   if (SDValue C = DAG.FoldConstantArithmetic(ISD::MULHS, DL, VT, {N0, N1}))
     return C;
 
+  // canonicalize constant to RHS.
+  if (DAG.isConstantIntBuildVectorOrConstantInt(N0) &&
+      !DAG.isConstantIntBuildVectorOrConstantInt(N1))
+    return DAG.getNode(ISD::MULHS, DL, N->getVTList(), N1, N0);
+
   // fold (mulhs x, 0) -> 0
   if (isNullConstant(N1))
     return N1;
@@ -4532,6 +4537,11 @@ SDValue DAGCombiner::visitMULHU(SDNode *N) {
   if (SDValue C = DAG.FoldConstantArithmetic(ISD::MULHU, DL, VT, {N0, N1}))
     return C;
 
+  // canonicalize constant to RHS.
+  if (DAG.isConstantIntBuildVectorOrConstantInt(N0) &&
+      !DAG.isConstantIntBuildVectorOrConstantInt(N1))
+    return DAG.getNode(ISD::MULHU, DL, N->getVTList(), N1, N0);
+
   // fold (mulhu x, 0) -> 0
   if (isNullConstant(N1))
     return N1;
@@ -4571,6 +4581,12 @@ SDValue DAGCombiner::visitMULHU(SDNode *N) {
       return DAG.getNode(ISD::TRUNCATE, DL, VT, N1);
     }
   }
+
+  // Simplify the operands using demanded-bits information.
+  // We don't have demanded bits support for MULHU so this just enables constant
+  // folding based on known bits.
+  if (SimplifyDemandedBits(SDValue(N, 0)))
+    return SDValue(N, 0);
 
   return SDValue();
 }
@@ -12541,8 +12557,8 @@ static SDNode *getBuildPairElt(SDNode *N, unsigned i) {
 SDValue DAGCombiner::CombineConsecutiveLoads(SDNode *N, EVT VT) {
   assert(N->getOpcode() == ISD::BUILD_PAIR);
 
-  LoadSDNode *LD1 = dyn_cast<LoadSDNode>(getBuildPairElt(N, 0));
-  LoadSDNode *LD2 = dyn_cast<LoadSDNode>(getBuildPairElt(N, 1));
+  auto *LD1 = dyn_cast<LoadSDNode>(getBuildPairElt(N, 0));
+  auto *LD2 = dyn_cast<LoadSDNode>(getBuildPairElt(N, 1));
 
   // A BUILD_PAIR is always having the least significant part in elt 0 and the
   // most significant part in elt 1. So when combining into one large load, we
@@ -12550,13 +12566,14 @@ SDValue DAGCombiner::CombineConsecutiveLoads(SDNode *N, EVT VT) {
   if (DAG.getDataLayout().isBigEndian())
     std::swap(LD1, LD2);
 
-  if (!LD1 || !LD2 || !ISD::isNON_EXTLoad(LD1) || !LD1->hasOneUse() ||
+  if (!LD1 || !LD2 || !ISD::isNON_EXTLoad(LD1) || !ISD::isNON_EXTLoad(LD2) ||
+      !LD1->hasOneUse() || !LD2->hasOneUse() ||
       LD1->getAddressSpace() != LD2->getAddressSpace())
     return SDValue();
+
   EVT LD1VT = LD1->getValueType(0);
   unsigned LD1Bytes = LD1VT.getStoreSize();
-  if (ISD::isNON_EXTLoad(LD2) && LD2->hasOneUse() &&
-      DAG.areNonVolatileConsecutiveLoads(LD2, LD1, LD1Bytes, 1)) {
+  if (DAG.areNonVolatileConsecutiveLoads(LD2, LD1, LD1Bytes, 1)) {
     Align Alignment = LD1->getAlign();
     Align NewAlign = DAG.getDataLayout().getABITypeAlign(
         VT.getTypeForEVT(*DAG.getContext()));
@@ -17448,7 +17465,8 @@ bool DAGCombiner::tryStoreMergeOfConstants(
         break;
 
       if (TLI.isTypeLegal(StoreTy) &&
-          TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
+          TLI.canMergeStoresTo(FirstStoreAS, StoreTy,
+                               DAG.getMachineFunction()) &&
           TLI.allowsMemoryAccess(Context, DL, StoreTy,
                                  *FirstInChain->getMemOperand(), &IsFast) &&
           IsFast) {
@@ -17460,7 +17478,8 @@ bool DAGCombiner::tryStoreMergeOfConstants(
         EVT LegalizedStoredValTy =
             TLI.getTypeToTransformTo(Context, StoredVal.getValueType());
         if (TLI.isTruncStoreLegal(LegalizedStoredValTy, StoreTy) &&
-            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValTy, DAG) &&
+            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValTy,
+                                 DAG.getMachineFunction()) &&
             TLI.allowsMemoryAccess(Context, DL, StoreTy,
                                    *FirstInChain->getMemOperand(), &IsFast) &&
             IsFast) {
@@ -17479,7 +17498,7 @@ bool DAGCombiner::tryStoreMergeOfConstants(
         unsigned Elts = (i + 1) * NumMemElts;
         EVT Ty = EVT::getVectorVT(Context, MemVT.getScalarType(), Elts);
         if (TLI.isTypeLegal(Ty) && TLI.isTypeLegal(MemVT) &&
-            TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG) &&
+            TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG.getMachineFunction()) &&
             TLI.allowsMemoryAccess(Context, DL, Ty,
                                    *FirstInChain->getMemOperand(), &IsFast) &&
             IsFast)
@@ -17555,7 +17574,8 @@ bool DAGCombiner::tryStoreMergeOfExtracts(
       if (Ty.getSizeInBits() > MaximumLegalStoreInBits)
         break;
 
-      if (TLI.isTypeLegal(Ty) && TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG) &&
+      if (TLI.isTypeLegal(Ty) &&
+          TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG.getMachineFunction()) &&
           TLI.allowsMemoryAccess(Context, DL, Ty,
                                  *FirstInChain->getMemOperand(), &IsFast) &&
           IsFast)
@@ -17704,7 +17724,8 @@ bool DAGCombiner::tryStoreMergeOfLoads(SmallVectorImpl<MemOpLink> &StoreNodes,
       bool IsFastSt = false;
       bool IsFastLd = false;
       if (TLI.isTypeLegal(StoreTy) &&
-          TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
+          TLI.canMergeStoresTo(FirstStoreAS, StoreTy,
+                               DAG.getMachineFunction()) &&
           TLI.allowsMemoryAccess(Context, DL, StoreTy,
                                  *FirstInChain->getMemOperand(), &IsFastSt) &&
           IsFastSt &&
@@ -17718,7 +17739,8 @@ bool DAGCombiner::tryStoreMergeOfLoads(SmallVectorImpl<MemOpLink> &StoreNodes,
       unsigned SizeInBits = (i + 1) * ElementSizeBytes * 8;
       StoreTy = EVT::getIntegerVT(Context, SizeInBits);
       if (TLI.isTypeLegal(StoreTy) &&
-          TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
+          TLI.canMergeStoresTo(FirstStoreAS, StoreTy,
+                               DAG.getMachineFunction()) &&
           TLI.allowsMemoryAccess(Context, DL, StoreTy,
                                  *FirstInChain->getMemOperand(), &IsFastSt) &&
           IsFastSt &&
@@ -17732,7 +17754,8 @@ bool DAGCombiner::tryStoreMergeOfLoads(SmallVectorImpl<MemOpLink> &StoreNodes,
                  TargetLowering::TypePromoteInteger) {
         EVT LegalizedStoredValTy = TLI.getTypeToTransformTo(Context, StoreTy);
         if (TLI.isTruncStoreLegal(LegalizedStoredValTy, StoreTy) &&
-            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValTy, DAG) &&
+            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValTy,
+                                 DAG.getMachineFunction()) &&
             TLI.isLoadExtLegal(ISD::ZEXTLOAD, LegalizedStoredValTy, StoreTy) &&
             TLI.isLoadExtLegal(ISD::SEXTLOAD, LegalizedStoredValTy, StoreTy) &&
             TLI.isLoadExtLegal(ISD::EXTLOAD, LegalizedStoredValTy, StoreTy) &&
@@ -21359,6 +21382,70 @@ SDValue DAGCombiner::visitVECTOR_SHUFFLE(SDNode *N) {
     }
   }
 
+  // See if we can replace a shuffle with an insert_subvector.
+  // e.g. v2i32 into v8i32:
+  // shuffle(lhs,concat(rhs0,rhs1,rhs2,rhs3),0,1,2,3,10,11,6,7).
+  // --> insert_subvector(lhs,rhs1,4).
+  if (Level < AfterLegalizeVectorOps && TLI.isTypeLegal(VT) &&
+      TLI.isOperationLegalOrCustom(ISD::INSERT_SUBVECTOR, VT)) {
+    auto ShuffleToInsert = [&](SDValue LHS, SDValue RHS, ArrayRef<int> Mask) {
+      // Ensure RHS subvectors are legal.
+      assert(RHS.getOpcode() == ISD::CONCAT_VECTORS && "Can't find subvectors");
+      EVT SubVT = RHS.getOperand(0).getValueType();
+      int NumSubVecs = RHS.getNumOperands();
+      int NumSubElts = SubVT.getVectorNumElements();
+      assert((NumElts % NumSubElts) == 0 && "Subvector mismatch");
+      if (!TLI.isTypeLegal(SubVT))
+        return SDValue();
+
+      // Don't bother if we have an unary shuffle (matches undef + LHS elts).
+      if (all_of(Mask, [NumElts](int M) { return M < (int)NumElts; }))
+        return SDValue();
+
+      // Search [NumSubElts] spans for RHS sequence.
+      // TODO: Can we avoid nested loops to increase performance?
+      SmallVector<int> InsertionMask(NumElts);
+      for (int SubVec = 0; SubVec != NumSubVecs; ++SubVec) {
+        for (int SubIdx = 0; SubIdx != (int)NumElts; SubIdx += NumSubElts) {
+          // Reset mask to identity.
+          std::iota(InsertionMask.begin(), InsertionMask.end(), 0);
+
+          // Add subvector insertion.
+          std::iota(InsertionMask.begin() + SubIdx,
+                    InsertionMask.begin() + SubIdx + NumSubElts,
+                    NumElts + (SubVec * NumSubElts));
+
+          // See if the shuffle mask matches the reference insertion mask.
+          bool MatchingShuffle = true;
+          for (int i = 0; i != (int)NumElts; ++i) {
+            int ExpectIdx = InsertionMask[i];
+            int ActualIdx = Mask[i];
+            if (0 <= ActualIdx && ExpectIdx != ActualIdx) {
+              MatchingShuffle = false;
+              break;
+            }
+          }
+
+          if (MatchingShuffle)
+            return DAG.getNode(ISD::INSERT_SUBVECTOR, SDLoc(N), VT, LHS,
+                               RHS.getOperand(SubVec),
+                               DAG.getVectorIdxConstant(SubIdx, SDLoc(N)));
+        }
+      }
+      return SDValue();
+    };
+    ArrayRef<int> Mask = SVN->getMask();
+    if (N1.getOpcode() == ISD::CONCAT_VECTORS)
+      if (SDValue InsertN1 = ShuffleToInsert(N0, N1, Mask))
+        return InsertN1;
+    if (N0.getOpcode() == ISD::CONCAT_VECTORS) {
+      SmallVector<int> CommuteMask(Mask.begin(), Mask.end());
+      ShuffleVectorSDNode::commuteMask(CommuteMask);
+      if (SDValue InsertN0 = ShuffleToInsert(N1, N0, CommuteMask))
+        return InsertN0;
+    }
+  }
+
   // Attempt to combine a shuffle of 2 inputs of 'scalar sources' -
   // BUILD_VECTOR or SCALAR_TO_VECTOR into a single BUILD_VECTOR.
   if (Level < AfterLegalizeDAG && TLI.isTypeLegal(VT))
@@ -22861,7 +22948,7 @@ SDValue DAGCombiner::BuildLogBase2(SDValue V, const SDLoc &DL) {
 
 /// Newton iteration for a function: F(X) is X_{i+1} = X_i - F(X_i)/F'(X_i)
 /// For the reciprocal, we need to find the zero of the function:
-///   F(X) = A X - 1 [which has a zero at X = 1/A]
+///   F(X) = 1/X - A [which has a zero at X = 1/A]
 ///     =>
 ///   X_{i+1} = X_i (2 - A X_i) = X_i + X_i (1 - A X_i) [this second form
 ///     does not require additional intermediate precision]

@@ -359,10 +359,10 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX = false;
 
-#if INTEL_CUSTOMIZATION
   /// Processor has AVX-512 16 bit floating-point extenstions
   bool HasFP16 = false;
 
+#if INTEL_CUSTOMIZATION
   /// True if cmul instructions have a false dependency
   /// on the destination register.
   bool HasCMULFalseDeps = false;
@@ -973,8 +973,8 @@ public:
   bool hasDQI() const { return HasDQI; }
   bool hasBWI() const { return HasBWI; }
   bool hasVLX() const { return HasVLX; }
-#if INTEL_CUSTOMIZATION
   bool hasFP16() const { return HasFP16; }
+#if INTEL_CUSTOMIZATION
   bool hasCMULFalseDeps() const { return HasCMULFalseDeps; }
 #endif // INTEL_CUSTOMIZATION
   bool hasPKU() const { return HasPKU; }

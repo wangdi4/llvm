@@ -4444,6 +4444,26 @@ void EmitClangAttrSubjectMatchRulesParserStringSwitches(RecordKeeper &Records,
   getPragmaAttributeSupport(Records).generateParsingHelpers(OS);
 }
 
+void EmitClangAttrDocTable(RecordKeeper &Records, raw_ostream &OS) {
+  emitSourceFileHeader("Clang attribute documentation", OS);
+
+  std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
+  for (const auto *A : Attrs) {
+    if (!A->getValueAsBit("ASTNode"))
+      continue;
+    std::vector<Record *> Docs = A->getValueAsListOfDefs("Documentation");
+    for (const auto *D : Docs) {
+      OS << "\nstatic const char AttrDoc_" << A->getName() << "[] = "
+         << "R\"reST("
+         << D->getValueAsOptionalString("Content").getValueOr("").trim()
+         << ")reST\";\n";
+      // Only look at the first documentation if there are several.
+      // (Currently there's only one such attr, revisit if this becomes common).
+      break;
+    }
+  }
+}
+
 enum class SpellingKind {
   GNU,
   CXX11,

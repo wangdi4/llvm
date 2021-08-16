@@ -229,12 +229,14 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
           ExprEvalContexts.empty() ||
           (!isUnevaluatedContext() && !isConstantEvaluated());
       bool IsEsimdPrivateGlobal = isSYCLEsimdPrivateGlobal(VD);
-      if (IsRuntimeEvaluated && !IsConst &&
+      // Non-const statics are not allowed in SYCL except for ESIMD or with the
+      // SYCLGlobalVar attribute.
+      if (IsRuntimeEvaluated && !IsEsimdPrivateGlobal && !IsConst &&
           VD->getStorageClass() == SC_Static &&
           !VD->hasAttr<SYCLGlobalVarAttr>())
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelNonConstStaticDataVariable;
-      // Non-const globals are allowed for SYCL explicit SIMD or with the
+      // Non-const globals are not allowed in SYCL except for ESIMD or with the
       // SYCLGlobalVar attribute.
       else if (IsRuntimeEvaluated && !IsEsimdPrivateGlobal && !IsConst &&
                VD->hasGlobalStorage() && !VD->hasAttr<SYCLGlobalVarAttr>())
@@ -6857,6 +6859,53 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
       return ExprError();
 
     checkDirectCallValidity(*this, Fn, FD, ArgExprs);
+
+    // If this expression is a call to a builtin function in HIP device
+    // compilation, allow a pointer-type argument to default address space to be
+    // passed as a pointer-type parameter to a non-default address space.
+    // If Arg is declared in the default address space and Param is declared
+    // in a non-default address space, perform an implicit address space cast to
+    // the parameter type.
+    if (getLangOpts().HIP && getLangOpts().CUDAIsDevice && FD &&
+        FD->getBuiltinID()) {
+      for (unsigned Idx = 0; Idx < FD->param_size(); ++Idx) {
+        ParmVarDecl *Param = FD->getParamDecl(Idx);
+        if (!ArgExprs[Idx] || !Param || !Param->getType()->isPointerType() ||
+            !ArgExprs[Idx]->getType()->isPointerType())
+          continue;
+
+        auto ParamAS = Param->getType()->getPointeeType().getAddressSpace();
+        auto ArgTy = ArgExprs[Idx]->getType();
+        auto ArgPtTy = ArgTy->getPointeeType();
+        auto ArgAS = ArgPtTy.getAddressSpace();
+
+        // Only allow implicit casting from a non-default address space pointee
+        // type to a default address space pointee type
+        if (ArgAS != LangAS::Default || ParamAS == LangAS::Default)
+          continue;
+
+        // First, ensure that the Arg is an RValue.
+        if (ArgExprs[Idx]->isGLValue()) {
+          ArgExprs[Idx] = ImplicitCastExpr::Create(
+              Context, ArgExprs[Idx]->getType(), CK_NoOp, ArgExprs[Idx],
+              nullptr, VK_PRValue, FPOptionsOverride());
+        }
+
+        // Construct a new arg type with address space of Param
+        Qualifiers ArgPtQuals = ArgPtTy.getQualifiers();
+        ArgPtQuals.setAddressSpace(ParamAS);
+        auto NewArgPtTy =
+            Context.getQualifiedType(ArgPtTy.getUnqualifiedType(), ArgPtQuals);
+        auto NewArgTy =
+            Context.getQualifiedType(Context.getPointerType(NewArgPtTy),
+                                     ArgTy.getQualifiers());
+
+        // Finally perform an implicit address space cast
+        ArgExprs[Idx] = ImpCastExprToType(ArgExprs[Idx], NewArgTy,
+                                          CK_AddressSpaceConversion)
+                            .get();
+      }
+    }
   }
 
   if (Context.isDependenceAllowed() &&
@@ -8020,6 +8069,9 @@ ExprResult Sema::BuildVectorLiteral(SourceLocation LParenLoc,
   // initializers must be one or must match the size of the vector.
   // If a single value is specified in the initializer then it will be
   // replicated to all the components of the vector
+  if (CheckAltivecInitFromScalar(E->getSourceRange(), Ty,
+                                 VTy->getElementType()))
+    return ExprError();
   if (ShouldSplatAltivecScalarInCast(VTy)) {
     // The number of initializers must be one or must match the size of the
     // vector. If a single value is specified in the initializer then it will
@@ -16956,7 +17008,8 @@ void Sema::CheckUnusedVolatileAssignment(Expr *E) {
 }
 
 ExprResult Sema::CheckForImmediateInvocation(ExprResult E, FunctionDecl *Decl) {
-  if (!E.isUsable() || !Decl || !Decl->isConsteval() || isConstantEvaluated() ||
+  if (isUnevaluatedContext() || !E.isUsable() || !Decl ||
+      !Decl->isConsteval() || isConstantEvaluated() ||
       RebuildingImmediateInvocation)
     return E;
 
@@ -19092,8 +19145,8 @@ void Sema::MarkDeclRefReferenced(DeclRefExpr *E, const Expr *Base) {
       OdrUse = false;
 
   if (auto *FD = dyn_cast<FunctionDecl>(E->getDecl()))
-    if (!isConstantEvaluated() && FD->isConsteval() &&
-        !RebuildingImmediateInvocation)
+    if (!isUnevaluatedContext() && !isConstantEvaluated() &&
+        FD->isConsteval() && !RebuildingImmediateInvocation)
       ExprEvalContexts.back().ReferenceToConsteval.insert(E);
   MarkExprReferenced(*this, E->getLocation(), E->getDecl(), E, OdrUse,
                      RefsMinusAssignments);

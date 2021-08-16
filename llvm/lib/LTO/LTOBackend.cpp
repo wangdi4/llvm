@@ -74,6 +74,10 @@ static cl::opt<bool> ThinLTOAssumeMerged(
     cl::desc("Assume the input has already undergone ThinLTO function "
              "importing and the other pre-optimization pipeline changes."));
 
+namespace llvm {
+extern cl::opt<bool> NoPGOWarnMismatch;
+}
+
 [[noreturn]] static void reportOpenError(StringRef Path, Twine Msg) {
   errs() << "failed to open " << Path << ": " << Msg << '\n';
   errs().flush();
@@ -221,6 +225,7 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
     PGOOpt = PGOOptions(Conf.CSIRProfile, "", Conf.ProfileRemapping,
                         PGOOptions::IRUse, PGOOptions::CSIRUse,
                         Conf.AddFSDiscriminator);
+    NoPGOWarnMismatch = !Conf.PGOWarnMismatch;
   } else if (Conf.AddFSDiscriminator) {
     PGOOpt = PGOOptions("", "", "", PGOOptions::NoAction,
                         PGOOptions::NoCSAction, true);
@@ -269,22 +274,22 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
   if (!Conf.DisableVerify)
     MPM.addPass(VerifierPass());
 
-  PassBuilder::OptimizationLevel OL;
+  OptimizationLevel OL;
 
   switch (OptLevel) {
   default:
     llvm_unreachable("Invalid optimization level");
   case 0:
-    OL = PassBuilder::OptimizationLevel::O0;
+    OL = OptimizationLevel::O0;
     break;
   case 1:
-    OL = PassBuilder::OptimizationLevel::O1;
+    OL = OptimizationLevel::O1;
     break;
   case 2:
-    OL = PassBuilder::OptimizationLevel::O2;
+    OL = OptimizationLevel::O2;
     break;
   case 3:
-    OL = PassBuilder::OptimizationLevel::O3;
+    OL = OptimizationLevel::O3;
     break;
   }
 
@@ -315,6 +320,8 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
                            const ModuleSummaryIndex *ImportSummary) {
   legacy::PassManager passes;
   passes.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
+
+  NoPGOWarnMismatch = !Conf.PGOWarnMismatch; // INTEL
 
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));

@@ -1618,7 +1618,6 @@ enum {
   NT_AMDGPU_METADATA = 32
 };
 
-#if INTEL_COLLAB
 // LLVMOMPOFFLOAD specific notes.
 enum : unsigned {
   NT_LLVM_OPENMP_OFFLOAD_VERSION = 1,
@@ -1626,7 +1625,6 @@ enum : unsigned {
   NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION = 3
 };
 
-#endif // INTEL_COLLAB
 enum {
   GNU_ABI_TAG_LINUX = 0,
   GNU_ABI_TAG_HURD = 1,

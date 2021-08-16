@@ -86,7 +86,8 @@ struct SymbolVersion {
 struct VersionDefinition {
   llvm::StringRef name;
   uint16_t id;
-  std::vector<SymbolVersion> patterns;
+  std::vector<SymbolVersion> nonLocalPatterns;
+  std::vector<SymbolVersion> localPatterns;
 };
 
 // This struct contains the global configuration for the linker.
@@ -180,6 +181,7 @@ struct Configuration {
   bool intelAdvancedOptim = false;
 #endif // INTEL_CUSTOMIZATION
   bool ltoCSProfileGenerate;
+  bool ltoPGOWarnMismatch;
   bool ltoDebugPassManager;
   bool ltoEmitAsm;
   bool ltoNewPassManager;

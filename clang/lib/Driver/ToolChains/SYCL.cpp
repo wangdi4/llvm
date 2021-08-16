@@ -620,12 +620,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     CmdArgs.push_back(C.getArgs().MakeArgString(
         Twine("-output-report-folder=") + ReportOptArg));
 
+#if INTEL_CUSTOMIZATION
   // Add any implied arguments before user defined arguments.
   TC.AddImpliedTargetArgs(
-      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
 
   // Add -Xsycl-target* options.
-#if INTEL_CUSTOMIZATION
   TC.TranslateBackendTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs);
   TC.TranslateLinkerTargetArgs(
