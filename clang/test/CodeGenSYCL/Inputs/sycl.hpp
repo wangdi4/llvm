@@ -572,7 +572,8 @@ public:
 };
 
 #ifdef INTEL_CUSTOMIZATION
-namespace INTEL {
+namespace ext {
+namespace intel {
 class non_uniform_sub_group {
 public:
   using mask_type = unsigned int;
@@ -582,7 +583,8 @@ public:
     return f(active_mask, args...);
   }
 };
-} // namespace INTEL
+} // namespace intel
+} // namespace ext
 #endif // INTEL_CUSTOMIZATION
 } // namespace sycl
 } // namespace cl
