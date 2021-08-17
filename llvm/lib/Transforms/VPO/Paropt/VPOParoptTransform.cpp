@@ -1670,6 +1670,14 @@ bool VPOParoptTransform::paroptTransforms() {
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
       RemoveDirectives = true;
+    } else if (hasOffloadCompilation() && !isa<WRNTargetNode>(W) &&
+               !WRegionUtils::hasParentTarget(W)) {
+      // In target compilation, ignore WRN if it is not TARGET, not lexically
+      // enclosed in TARGET, and not in a declare-target function.
+      LLVM_DEBUG(dbgs() << "   === WRN #" << W->getNumber() << " ("
+                        << W->getSourceName().upper()
+                        << ") is ignored in target compilation.\n");
+      RemoveDirectives = true;
     } else {
       if (isModeOmpNoFECollapse() &&
           W->canHaveCollapse()) {
@@ -1998,8 +2006,7 @@ bool VPOParoptTransform::paroptTransforms() {
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W) &&
-              !isFunctionOpenMPTargetDeclare())
+          if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W))
             Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
