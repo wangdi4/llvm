@@ -56,7 +56,7 @@ void MachineOptReportEmitter::printOptReportRecursive(
   MDNode *LoopID = ML->getLoopID();
   OptReport OR = OptReport::findOptReportInLoopID(LoopID);
 
-  printLoopHeaderAndOrigin(FOS, Depth, OR, ML->getStartLoc());
+  printNodeHeaderAndOrigin(FOS, Depth, OR, ML->getStartLoc());
 
   if (OR)
     printOptReport(FOS, Depth + 1, OR);
@@ -76,7 +76,7 @@ void MachineOptReportEmitter::printOptReportRecursive(
        I != E; ++I)
     printOptReportRecursive(*I, Depth + 1, FOS);
 
-  printLoopFooter(FOS, Depth, OR);
+  printNodeFooter(FOS, Depth, OR);
 
   if (OR && OR.nextSibling())
     printEnclosedOptReport(FOS, Depth, OR.nextSibling());

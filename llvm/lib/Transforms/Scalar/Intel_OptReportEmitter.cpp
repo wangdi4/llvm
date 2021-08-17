@@ -59,7 +59,7 @@ void OptReportEmitter::printOptReportRecursive(const Loop *L, unsigned Depth,
                                                formatted_raw_ostream &FOS) {
   OptReport OR = OptReport::findOptReportInLoopID(L->getLoopID());
 
-  printLoopHeaderAndOrigin(FOS, Depth, OR, L->getStartLoc());
+  printNodeHeaderAndOrigin(FOS, Depth, OR, L->getStartLoc());
 
   if (OR) {
     printOptReport(FOS, Depth + 1, OR);
@@ -68,7 +68,7 @@ void OptReportEmitter::printOptReportRecursive(const Loop *L, unsigned Depth,
   for (const Loop *CL : L->getSubLoops())
     printOptReportRecursive(CL, Depth + 1, FOS);
 
-  printLoopFooter(FOS, Depth, OR);
+  printNodeFooter(FOS, Depth, OR);
 
   if (OR && OR.nextSibling())
     printEnclosedOptReport(FOS, Depth, OR.nextSibling());
@@ -145,7 +145,7 @@ bool OptReportEmitter::run(Function &F, LoopInfo &LI) {
 #endif // INTEL_FEATURE_CSA
 
   formatted_raw_ostream OS(dbgs());
-  OS << "Global loop optimization report for : " << F.getName() << "\n";
+  OS << "Global optimization report for : " << F.getName() << "\n";
 
   // First check that there are attached reports to the function itself.
   OptReport FunOR = OptReportTraits<Function>::getOptReport(F);

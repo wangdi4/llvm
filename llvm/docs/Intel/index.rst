@@ -16,7 +16,7 @@ Xmain
 
    IRSuppression
    IRVersionCompatibility
-   LoopOptReport
+   OptReport
    TraceBack
    InlineReportViaMetadata
    LoopAnalysis/index
@@ -96,7 +96,7 @@ https://wiki.ith.intel.com/display/ITSCompilersDevOps/Xmain
    how backward compatibility will be handled if the bitcode changes in an
    incompatible way.
 
-:doc:`Loop Optimization Reports <LoopOptReport>`
+:doc:`Optimization Reports <OptReport>`
 
 :doc:`TraceBack <TraceBack>`
 

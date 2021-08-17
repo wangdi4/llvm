@@ -419,6 +419,7 @@ namespace {
       (void) llvm::createDPCPPKernelPostVecPass();
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
+      (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
       (void)llvm::createDuplicateCalledKernelsLegacyPass();
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();

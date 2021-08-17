@@ -1382,10 +1382,10 @@ private:
 
 } // End namespace loopopt
 
-// Traits of HLLoop for LoopOptReportBuilder.
+// Traits of HLLoop for OptReportBuilder.
 template <> struct OptReportTraits<loopopt::HLLoop> {
   using ObjectHandleTy = loopopt::HLLoop &;
-  using ChildLoopTy = loopopt::HLLoop;
+  using ChildNodeTy = loopopt::HLLoop;
 
   static OptReport getOptReport(const loopopt::HLLoop &Loop) {
     return Loop.getOptReport();
@@ -1411,9 +1411,9 @@ template <> struct OptReportTraits<loopopt::HLLoop> {
   static OptReport getOrCreateParentOptReport(loopopt::HLLoop &Loop,
                                               const OptReportBuilder &Builder);
 
-  using LoopVisitorTy = std::function<void(loopopt::HLLoop &)>;
-  static void traverseChildLoopsBackward(loopopt::HLLoop &Loop,
-                                         LoopVisitorTy Func);
+  using NodeVisitorTy = std::function<void(loopopt::HLLoop &)>;
+  static void traverseChildNodesBackward(loopopt::HLLoop &Loop,
+                                         NodeVisitorTy Func);
 };
 
 template <>

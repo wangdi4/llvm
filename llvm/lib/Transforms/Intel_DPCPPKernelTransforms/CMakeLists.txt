@@ -12,6 +12,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelLoopUtils.cpp
   DPCPPKernelWGLoopCreator.cpp
   DPCPPKernelAnalysis.cpp
+  DPCPPPreprocessSPIRVFriendlyIR.cpp
   ImplicitArgsAnalysis.cpp
   InternalizeNonKernelFunc.cpp
   LocalBufferAnalysis.cpp

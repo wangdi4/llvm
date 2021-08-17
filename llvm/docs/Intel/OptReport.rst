@@ -1,5 +1,5 @@
 ==================================
-Loop Optimization Reports in Xmain
+Optimization Reports in Xmain
 ==================================
 
 .. contents::
@@ -35,7 +35,7 @@ interface, API for transformation developers and the implementation details.
 Get started with the command line interface
 ===========================================
 
-For enabling loop optimization reports:
+For enabling optimization reports:
 
 .. code-block:: console
 
@@ -89,7 +89,7 @@ opt reports:
 
 Note: vtune-compatible binary output should go there.
 
-Let's take a look at the example of Loop Opt Report.
+Let's take a look at the example of Opt Report.
 
 .. code-block:: console
 
@@ -115,7 +115,7 @@ Let's take a look at the example of Loop Opt Report.
 
 ::
 
-   Global loop optimization report for : foo
+   Global optimization report for : foo
 
    LOOP BEGIN at /user/aivchenk/foo.c (3, 3)
        Remark #XXXXX: Loop has been unswitched via cmp230
@@ -142,7 +142,7 @@ Instrumenting your pass starts with adding headers:
 .. code-block:: c++
 
    +#include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
-   +#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h" // INTEL
+   +#include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"     // INTEL
 
 The first include declares immutable pass called ``OptReportOptionsPass``.
 That is an important concept that allows your pass to know whether opt reports
@@ -157,10 +157,10 @@ you should add this pass as a required one in getAnalysisUsage
 
    INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass) // INTEL
 
-The second include declares ``LoopOptReportBuilder`` class, which is a bread and
+The second include declares ``OptReportBuilder`` class, which is a bread and
 butter of optimization report framework. In essence, it allows you to add
-remarks about your transformation to IR loops, HIR loops or functions. For
-details about this class go the corresponding section in the
+remarks about your transformation to IR loops, HIR loops, OpenMP regions or
+functions. For details about this class go the corresponding section in the
 `Implementation Details`_, but for now let's concentrate on the API.
 
 You first initialize the builder, usually it happens in runOn[Function,Loop]:
@@ -168,9 +168,8 @@ You first initialize the builder, usually it happens in runOn[Function,Loop]:
 .. code-block:: c++
 
   auto &OROP = getAnalysis<OptReportOptionsPass>();
-  LORBuilder.setup(F->getContext(),
-                  OROP.getLoopOptReportVerbosity());
-  // Where LORBuilder is of type LoopOptReportBuilder and usually declared as a
+  ORBuilder.setup(F->getContext(), OROP.getOptReportVerbosity());
+  // Where ORBuilder is of type OptReportBuilder and usually declared as a
   // pass class member.
 
 Now you are ready to go. The simplest way you can use it is to add a remark to
@@ -205,18 +204,18 @@ If current verbosity level is lower than the remark verbosity, then this
 remark will not be added to the report. Sometimes though creating and composing
 proper remark messages is expensive and you would like to avoid that at all.
 Then you can call the ``OptReportOptionsPass`` method
-``isLoopOptReportOn()`` to guard the code with remarks.
+``isOptReportOn()`` to guard the code with remarks.
 
 .. code-block:: c++
 
-   if (OROP.isLoopOptReportOn()) {
+   if (OROP.isOptReportOn()) {
      // Code to generate remark messages
-     LORBuilder.addRemark(RemarkMsg);
+     ORBuilder.addRemark(RemarkMsg);
    }
    // Or it can be checked in a more precise way:
-   if (OROP.getLoopOptReportVerbosity() > OptReportVerbosity::Low) {
+   if (OROP.getOptReportVerbosity() > OptReportVerbosity::Low) {
      // Code to generate remark messages
-     LORBuilder.addRemark(RemarkMsg);
+     ORBuilder.addRemark(RemarkMsg);
    }
 
 
@@ -225,7 +224,7 @@ the user where the loop came from or what is the purpose of this loop.
 
 .. code-block:: c++
 
-   LORBuilder(*Loop).addOrigin("Remainder loop for vectorization");
+   ORBuilder(*Loop).addOrigin("Remainder loop for vectorization");
 
 The method currently does not have verbosity checks.
 
@@ -238,12 +237,12 @@ the report, you should use this method:
 
 .. code-block:: c++
 
-   LORBuilder(*Loop).preserveLostLoopOptReport();
+   ORBuilder(*Loop).preserveLostOptReport();
 
 You should call this method while the loop is not deleted, but after you
 have already put all the necessary remarks into that.
 
-Note: The preserveLostLoopOptReport method is only implemented for HLLoops as
+Note: The preserveLostOptReport method is only implemented for HLLoops as
 of now.
 
 **Important notice**: transformation developers have to be aware, that this
@@ -273,7 +272,7 @@ old loop to the new one:
 
 .. code-block:: c++
 
-  LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
+  ORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
 
 Let's say now that you would like to transform the original loop into the
 vectorization remainder. Keep in mind that opt report information that
@@ -285,16 +284,16 @@ to the now remainder.
 
 .. code-block:: c++
 
-  LORBuilder(*NewLoop).moveSiblingsTo(*OrigLoop);
+  ORBuilder(*NewLoop).moveSiblingsTo(*OrigLoop);
 
 
 The syntactic sugar allows you to 'stack' methods:
 
 .. code-block:: c++
 
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
+  ORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
                              "Loop completely unrolled")
-                   .preserveLostLoopOptReport();
+                   .preserveLostOptReport();
 
 
 Implementation details
@@ -304,12 +303,12 @@ The structure of optimization reports
 -------------------------------------
 
 The optimization reports should be considered as an opaque metadata attached to
-loops (and, as an exception, to some other objects, e.g functions). This metadata
-gets incrementally updated as optimizations are run. After all the interesting
-optimizations an emitter pass is scheduled. It traverses the code and prints
-found optimization reports in hierarchical order. That is, generally, the reports
-are not linked, and one needs to traverse the code to find them. However, this
-doesn't work well for reporting information about loops that got optimized away.
+loops, OpenMP work regions and functions. This metadata gets incrementally
+updated as optimizations are run. After all the interesting optimizations an
+emitter pass is scheduled. It traverses the code and prints found optimization
+reports in hierarchical order. That is, generally, the reports are not linked,
+and one needs to traverse the code to find them. However, this doesn't work well
+for reporting information about loops that got optimized away.
 To support such cases, two additional concepts are added to optimization
 reports: children and siblings. When a loop is optimized away, we attach its
 report either to the previous sibling loop or to the parent
@@ -329,9 +328,10 @@ special convention. Here is its format:
 
 ::
 
-  ROOT_NODE := <!"llvm.loop.optreport">, <PROXY_OPTREPORT_NODE>
-  PROXY_OPTREPORT_NODE := <!"intel.loop.optreport">, (DEBUG_LOC_NODE), (ORIGIN_NODE), (REMARKS_NODE), (FIRST_CHILD_NODE), (NEXT_SIBLING_NODE)
+  ROOT_NODE := <!"intel.optreport.rootnode">, <PROXY_OPTREPORT_NODE>
+  PROXY_OPTREPORT_NODE := <!"intel.optreport">, (DEBUG_LOC_NODE), (ORIGIN_NODE), (REMARKS_NODE), (FIRST_CHILD_NODE), (NEXT_SIBLING_NODE)
   DEBUG_LOC_NODE := <!"intel.optreport.debug_location">, <*DILocation>
+  TITLE_NODE := <!"intel.optreport.title">, <string>
   ORIGIN_NODE := <!"intel.optreport.origin">, <REMARK>, (REMARK), ..., (REMARK)
   REMARKS_NODE := <!"intel.optreport.remarks">, <REMARK>, (REMARK), ..., (REMARK)
   FIRST_CHILD_NODE := <!"intel.optreport.first_child">, <PROXY_OPTREPORT_NODE>
@@ -346,10 +346,10 @@ special convention. Here is its format:
 * All nodes are represented as MDTuple.
 
 * ``ROOT_NODE`` is always distinct, as we need that to be unique for
-  each loop to allow safe replacement of the proxy node in it.
+  each node to allow safe replacement of the proxy node in it.
 
 * ``PROXY_OPTREPORT_NODE`` is needed so the root node is never
-  invalidated (`LoopOptReport`_ class description contains more
+  invalidated (`OptReport`_ class description contains more
   details on that).
 
 * ``PROXY_OPTREPORT_NODE`` is distinct only if it has any optional operands.
@@ -360,44 +360,46 @@ special convention. Here is its format:
 
   !51 = distinct !{!51, !52, !53}
   !52 = !{!"llvm.loop.unroll.disable"}
-  !53 = distinct !{!"llvm.loop.optreport", !54}       <== ROOT_NODE
-  !54 = distinct !{!"intel.loop.optreport", !55, !56} <== PROXY_OPT_REPORT_NODE
+  !53 = distinct !{!"intel.optreport.rootnode", !54}  <== ROOT_NODE
+  !54 = distinct !{!"intel.optreport", !55, !56}      <== PROXY_OPT_REPORT_NODE
   !55 = !{!"intel.optreport.debug_location", !50}     <== DEBUG_LOC_NODE
   !56 = !{!"intel.optreport.remarks", !57}            <== REMARKS_NODE
   !57 = !{!"intel.optreport.remark", i32 XXXXX, !"*vectorized with vect. %d fact.", i32 4}
                                                       ^== REMARK_NODE
 
-``LoopOptReportBuilder``
+``OptReportBuilder``
 ------------------------
 
-``LoopOptReportBuilder`` is the main entry point for generating optimization
+``OptReportBuilder`` is the main entry point for generating optimization
 reports, and at first it is the only class visible to user. However, under the
-hood it uses several other classes. First of all, ``LoopOptReportBuilder`` itself
+hood it uses several other classes. First of all, ``OptReportBuilder`` itself
 doesn't provide any methods to manipulate optimization reports. Instead, its
-``operator()`` returns a transient instance of template ``LoopOptReportThunk<T>``
-class, which provides access to optimization report of a specific loop, and it
-has an extensive set of supported operations for that. ``LoopOptReportThunk`` is
-mostly implemented in a generic (type-agnostic) way. However, obviously, not all
-operations can be expressed in a generic way. The minimal set of such
-type-specific operations is incapsulated into template ``LoopOptReportTraits<T>``
-class. It doesn't have a default implementation, and each supported class should
-provide its own specialization of this template class. At the moment of writing,
-the specializations are provided for the following classes:
+``operator()`` returns a transient instance of template ``OptReportThunk<T>``
+class, which provides access to optimization report of a specific loop or OpenMP
+work region, and it has an extensive set of supported operations for that.
+``OptReportThunk`` is mostly implemented in a generic (type-agnostic) way.
+However, obviously, not all operations can be expressed in a generic way. The
+minimal set of such type-specific operations is incapsulated into template
+``OptReportTraits<T>`` class. It doesn't have a default implementation, and each
+supported class should provide its own specialization of this template class.
+At the moment of writing, the specializations are provided for the following
+classes:
 
-* ``llvm::loopopt::HLLoop``
-* ``llvm::loopopt::HLRegion``
+* ``llvm::Opt::HLLoop``
+* ``llvm::Opt::HLRegion``
 * ``llvm::Loop``
 * ``llvm::Function``
+* ``llvm::vpo::WRegionNode``
 
-``LoopOptReport``
+``OptReport``
 -----------------
 
-``LoopOptReport`` class, obviously, represents an optimization report and is
+``OptReport`` class, obviously, represents an optimization report and is
 intended to hide details of how optimization reports are represented in
 metadata.
 
-``LoopOptReport`` is a lightweight (pass it by value) wrapper for a pointer to
+``OptReport`` is a lightweight (pass it by value) wrapper for a pointer to
 actual metadata representation. It can be initialized with a pointer (possibly,
 with ``nullptr``) and it can be explicitly converted to ``bool``. All the
 necessary functionality to manipulate optreport metadata is exposed through
-``LoopOptReport`` API, and a user shouldn't fiddle with metadata himself.
+``OptReport`` API, and a user shouldn't fiddle with metadata himself.

@@ -10,7 +10,7 @@
 ; matching condition.
 
 ; CHECK: MLSC: Testing aer_rad_props_mp_aer_rad_props_sw_:
-; CHECK: MLSC: Arg(0): Arg has no uses
+; CHECK: MLSC: Arg(0): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(0): Missing minimal GEPI conditions
 ; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(0): Missing SExtInst or more than one use
 ; CHECK: MLSC: Arg(1): ArgUse(1): LoadUse(1): FOUND MLSC CANDIDATE
@@ -60,6 +60,7 @@ define i32 @mymain(%"PHYSICS_TYPES$.btPHYSICS_STATE"* nonnull %0) #0 {
 
 define internal i32 @aer_rad_props_mp_aer_rad_props_sw_(i32* noalias nocapture readonly dereferenceable(4) %0, %"PHYSICS_TYPES$.btPHYSICS_STATE"* noalias nocapture readonly dereferenceable(20552) %1) #0 {
 L0:
+  %t0 = load i32, i32* %0
   %t19 = alloca [26 x [4 x double]], align 32
   %t25 = alloca i32, align 8
   %t73 = getelementptr inbounds %"PHYSICS_TYPES$.btPHYSICS_STATE", %"PHYSICS_TYPES$.btPHYSICS_STATE"* %1, i64 0, i32 1

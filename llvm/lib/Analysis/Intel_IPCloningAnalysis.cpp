@@ -15,6 +15,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
+#include "llvm/Analysis/Intel_OPAnalysisUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
@@ -92,7 +93,8 @@ static bool isSpecializationCloningSafeArgument(Argument* Arg) {
   if (!PTy->isPointerTy()) return true;
 
   // Check for pointer to char array.
-  if (!isPointerToCharArray(PTy)) return false;
+  Type *Ty = inferPtrElementType(*Arg);
+  if (!Ty || !isCharArray(Ty)) return false;
 
   // Returns true if no uses.
   if (Arg->use_empty()) return true;
@@ -378,19 +380,17 @@ static bool applyIFSwitchHeuristics(Function &F, Value *V,
 namespace llvm {
 namespace llvm_cloning_analysis {
 
-// Return true if 'PTy' is pointer to array of chars.
+// Return true if 'Ty' is an array of chars.
 //
-extern bool isPointerToCharArray(Type* PTy) {
-  // Not pointer?
-  if (!isa<PointerType>(PTy)) return false;
+extern bool isCharArray(Type* ATy) {
+  // Is it an array?
+  if (!isa<ArrayType>(ATy))
+    return false;
 
-  // Is it pointer to array?
-  auto ATy = cast<PointerType>(PTy)->getElementType();
-  if (!isa<ArrayType>(ATy)) return false;
-
-  // Is is pointer to array of char?
+  // Is it an array of char?
   auto CTy = cast<ArrayType>(ATy)->getElementType();
-  if (!CTy->isIntegerTy(8)) return false;
+  if (!CTy->isIntegerTy(8))
+    return false;
 
   return true;
 }
@@ -412,20 +412,19 @@ extern GetElementPtrInst* getAnyGEPAsIncomingValueForPhi(Value *Phi) {
   return nullptr;
 }
 
-// Returns true if 'Arg' is considered as constant for
-// cloning based on SpecializationClone.
-extern bool isConstantArgWorthyForSpecializationClone(Value *Arg) {
-  Type *PhiTy = Arg->getType();
-
-  if (PhiTy->isIntegerTy()) return true;
-  if (!PhiTy->isPointerTy()) return false;
-
-  Type *Ty = PhiTy->getPointerElementType();
-  if (!Ty->isArrayTy()) return false;
+// Returns true if actual argument 'ActualV' with corresponding formal
+// argument 'FormalV' is considered as constant for cloning based on
+// SpecializationClone.
+extern bool isConstantArgWorthyForSpecializationClone(Argument *FormalV,
+                                                      Value *ActualV) {
+  if (FormalV->getType()->isIntegerTy()) return true;
+  Type *PETy = inferPtrElementType(*FormalV);
+  if (!PETy || !PETy->isArrayTy()) return false;
 
   // Makes sure at least one operand of Phi is GEP for
   // pointer type arguments.
-  if (getAnyGEPAsIncomingValueForPhi(Arg) == nullptr) return false;
+  if (!getAnyGEPAsIncomingValueForPhi(ActualV))
+    return false;
 
   return true;
 }
@@ -445,7 +444,7 @@ extern bool collectPHIsForSpecialization(Function &F, CallBase &CB,
     if (!isa<PHINode>(*CAI))
       continue;
 
-    if (!isConstantArgWorthyForSpecializationClone(*CAI))
+    if (!isConstantArgWorthyForSpecializationClone(&*AI, *CAI))
       continue;
 
     if (!isSpecializationCloningSafeArgument(&*AI))

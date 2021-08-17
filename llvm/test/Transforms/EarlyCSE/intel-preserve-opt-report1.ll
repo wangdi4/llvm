@@ -15,7 +15,7 @@
 ; Check that opt-report metadata is appended to the caller by Early CSE from
 ; both dead function calls. Outlined target regions in this test are dead calls.
 
-; CHECK:      Global loop optimization report for : foo{{[[:space:]]}}
+; CHECK:      Global optimization report for : foo{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (3, 1)
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'X' is redundant
 ; CHECK-NEXT: OMP TARGET END{{[[:space:]]}}

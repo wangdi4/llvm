@@ -31,17 +31,22 @@ class Function;
 // the position of the recursive progression argument, and set '*Start',
 // '*Inc', and '*Count' to the initial value, increment, and number of terms
 // in the recursive progression. Also set 'IsByRef' if the recursive
-// progression argument is a by reference value, and set 'IsCyclic' if the
-// recursive progression is cyclic.  If 'TestCountForConstant' is false, set
-// '*Count' to 0. If any of 'ArgPos', 'Count', 'Start' 'Inc', 'IsByRef', or
-// 'IsCyclic' are nullptr, do not set the value on return.
+// progression argument is a by reference value, set 'ArgType' to the type
+// of the recursive progression argument if the recursive progression
+// argument is by value and to the pointer element type of the recursive
+// progression argument if the recursive progression argument is by
+// reference, and set 'IsCyclic' if the recursive progression is cyclic.
+// If 'TestCountForConstant' is false, set '*Count' to 0. If any of 'ArgPos',
+// 'Count', 'Start' 'Inc', 'IsByRef', 'ArgType', or 'IsCyclic' are nullptr,
+// do not set the value on return.
 //
 // For an example of a recursive progression, see Intel_CloneUtils.cpp.
 //
 extern bool isRecProgressionCloneCandidate(
     Function &F, bool TestCountForConstant, unsigned *ArgPos = nullptr,
     unsigned *Count = nullptr, int *Start = nullptr, int *Inc = nullptr,
-    bool *IsByRef = nullptr, bool *IsCyclic = nullptr);
+    bool *IsByRef = nullptr, Type **ArgType = nullptr,
+    bool *IsCyclic = nullptr);
 
 #endif // INTEL_FEATURE_SW_ADVANCED
 //

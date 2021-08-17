@@ -947,6 +947,12 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
     addllvmOption("-vecopt=true");
     addllvmOption("-enable-vec-clone=true");
   }
+
+  // -fno-vectorize
+  if (Arg *A = Args.getLastArg(options::OPT_fvectorize,
+                               options::OPT_fno_vectorize))
+    if (A->getOption().matches(options::OPT_fno_vectorize))
+      addllvmOption("-disable-hir-vec-dir-insert");
 }
 #endif // INTEL_CUSTOMIZATION
 

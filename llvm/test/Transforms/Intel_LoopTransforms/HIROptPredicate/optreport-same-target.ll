@@ -83,7 +83,7 @@
 ;<54>            + END LOOP
 ;<0>       END REGION
 ;
-;Global loop optimization report for : foo
+;Global optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN at bar.c (2, 3)
 ;OPTREPORT:     LOOP BEGIN at bar.c (3, 5)

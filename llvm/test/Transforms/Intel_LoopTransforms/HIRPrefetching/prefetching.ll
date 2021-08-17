@@ -76,7 +76,7 @@
 ; CHECK-NEXT:      + END LOOP
 ; CHECK:     END  REGION
 ;
-; OPTREPORT: Global loop optimization report for : foo
+; OPTREPORT: Global optimization report for : foo
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     remark #25419: Number of spatial prefetches=6, dist=7

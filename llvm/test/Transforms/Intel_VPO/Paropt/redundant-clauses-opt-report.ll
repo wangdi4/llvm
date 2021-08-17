@@ -48,7 +48,7 @@
 ;   }
 ; }
 
-; CHECK:      Global loop optimization report for : __omp_offloading_35_d6824d91__Z5test1_l3{{[[:space:]]}}
+; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test1_l3{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (3, 1)
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'A' is redundant
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'B' is redundant{{[[:space:]]}}
@@ -67,7 +67,7 @@
 ; CHECK-NEXT:     OMP TEAMS END
 ; CHECK-NEXT: OMP TARGET END
 
-; CHECK:      Global loop optimization report for : __omp_offloading_35_d6824d91__Z5test2_l17{{[[:space:]]}}
+; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test2_l17{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (17, 1)
 ; CHECK-NEXT:     remark: MAP:TO clause for variable 'C' can be changed to FIRSTPRIVATE to reduce mapping overhead
 ; CHECK-NEXT:     remark: MAP:TOFROM clause for variable 'D' can be changed to FIRSTPRIVATE to reduce mapping overhead
@@ -83,7 +83,7 @@
 ; CHECK-NEXT:     OMP PARALLEL FOR END
 ; CHECK-NEXT: OMP TARGET END
 
-; CHECK:      Global loop optimization report for : __omp_offloading_35_d6824d91__Z5test3_l30{{[[:space:]]}}
+; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test3_l30{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (30, 1)
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'J' is redundant
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'K' is redundant{{[[:space:]]}}
@@ -101,7 +101,7 @@
 ; CHECK-NEXT:     OMP TEAMS END
 ; CHECK-NEXT: OMP TARGET END{{[[:space:]]}}
 
-; CHECK:      Global loop optimization report for : __omp_offloading_35_d6824d91__Z5test3_l37{{[[:space:]]}}
+; CHECK:      Global optimization report for : __omp_offloading_35_d6824d91__Z5test3_l37{{[[:space:]]}}
 ; CHECK-NEXT: OMP TARGET BEGIN at test.c (37, 1)
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'L' is redundant
 ; CHECK-NEXT:     remark: FIRSTPRIVATE clause for variable 'M' is redundant{{[[:space:]]}}
