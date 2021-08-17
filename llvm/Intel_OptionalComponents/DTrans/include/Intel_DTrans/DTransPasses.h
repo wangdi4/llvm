@@ -29,6 +29,7 @@
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Transforms/AOSToSOAOP.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
+#include "Intel_DTrans/Transforms/CodeAlign.h"
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
