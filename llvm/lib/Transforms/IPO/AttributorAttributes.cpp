@@ -6733,10 +6733,13 @@ void AAMemoryLocationImpl::categorizePtrValue(
     if (isa<UndefValue>(V))
       return true;
     if (auto *Arg = dyn_cast<Argument>(&V)) {
-      if (Arg->hasByValAttr())
-        MLK = NO_LOCAL_MEM;
-      else
-        MLK = NO_ARGUMENT_MEM;
+      // TODO: For now we do not treat byval arguments as local copies performed
+      // on the call edge, though, we should. To make that happen we need to
+      // teach various passes, e.g., DSE, about the copy effect of a byval. That
+      // would also allow us to mark functions only accessing byval arguments as
+      // readnone again, arguably their accesses have no effect outside of the
+      // function, like accesses to allocas.
+      MLK = NO_ARGUMENT_MEM;
     } else if (auto *GV = dyn_cast<GlobalValue>(&V)) {
       // Reading constant memory is not treated as a read "effect" by the
       // function attr pass so we won't neither. Constants defined by TBAA are
