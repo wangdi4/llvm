@@ -646,6 +646,12 @@ void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
                                             const CallInst *RegionEntry) {
 
+  // TODO: implement Fortran dope vectors support (CMPLRLLVM-10783)
+  if (HasF90DopeVectorPrivate) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
+
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
     LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
     return false;

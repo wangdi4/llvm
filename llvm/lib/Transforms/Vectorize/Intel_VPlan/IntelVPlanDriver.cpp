@@ -1204,6 +1204,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // Send explicit data from WRLoop to the Legality.
   LVP.EnterExplicitData(WRLp, HIRVecLegal);
+  if (HIRVecLegal.hasF90DopeVectorPrivate()) {
+    LLVM_DEBUG(dbgs() << "F90 dope vector privates are not supported\n");
+    return false;
+  }
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
   // variables
   HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
