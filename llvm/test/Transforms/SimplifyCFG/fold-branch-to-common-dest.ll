@@ -1045,8 +1045,8 @@ define i32 @pr51125() {
 ; CHECK:       L2:
 ; CHECK-NEXT:    [[LD_MERGE:%.*]] = phi i32 [ [[LD:%.*]], [[L2]] ], [ [[LD_OLD]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    store i32 -1, i32* @global_pr51125, align 4
-; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[LD_MERGE]], -1                       ;INTEL
-; CHECK-NEXT:    [[CMP_NOT:%.*]] = xor i1 [[CMP]], true                           ;INTEL
+; CHECK-NEXT:    [[CMP:%.*]] = icmp eq i32 [[LD_MERGE]], -1  ;INTEL
+; CHECK-NEXT:    [[CMP_NOT:%.*]] = xor i1 [[CMP]], true      ;INTEL
 ; CHECK-NEXT:    [[LD]] = load i32, i32* @global_pr51125, align 4
 ; CHECK-NEXT:    [[ISZERO:%.*]] = icmp eq i32 [[LD]], 0
 ; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[CMP_NOT]], i1 true, i1 [[ISZERO]]  ;INTEL
