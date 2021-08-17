@@ -11,6 +11,7 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
@@ -1118,6 +1119,33 @@ private:
       else
         PTA.setSawNonOpaquePointer();
     }
+
+    // Check for the special DTrans type metadata, !dtrans-type, used to
+    // communicate type information between DTrans passes because of IR
+    // produced by a DTrans transformation, that is not easily recoverable from
+    // IR analysis. For example, the AOS-to-SOA transformation allocates a large
+    // block of memory which is subdivided to hold arrays of different types.
+    // TODO: Try to unify this metadata with the other DTrans type metadata.
+    // Currently, this is not done because it appears on instructions that are
+    // not expected to have the other DTrans type metadata that is produced by
+    // the front-end, so will not be processed by the TypeMetadataReader.
+    if (auto *I = dyn_cast<Instruction>(V))
+      if (auto TyFromMD =
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
+        llvm::Type *Ty = TyFromMD.getValue().first;
+        unsigned Level = TyFromMD.getValue().second;
+
+        // The format of the metadata used restricts the type to being just a
+        // pointer to a scalar or a structure type. This assertion is to catch
+        // unsupported uses.
+        assert(TM.isSimpleType(Ty) && "Expected simple type");
+        DTransType *DTy = TM.getOrCreateSimpleType(Ty);
+        assert(DTy && "Failed to create type");
+        while (Level--)
+          DTy = TM.getOrCreatePointerType(DTy);
+
+        Info->addTypeAlias(ValueTypeInfo::VAT_Use, DTy);
+      }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.
