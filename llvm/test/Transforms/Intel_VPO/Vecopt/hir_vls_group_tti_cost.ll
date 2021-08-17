@@ -3,8 +3,8 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate GatherScatter(GS) cost being used for accesses
 ; where VLS optimization still kicks in but groups are not supported
@@ -35,19 +35,19 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*(+16000) AdjCost: 40000
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*(+6000) AdjCost: 18000
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*(-24000) AdjCost: 0
+; CMCHECK-NEXT:    Cost 12000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*(-12000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 [[VP4]]
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CMCHECK-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CMCHECK-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 94000
+; CMCHECK-NEXT:  [[BB2]]: base cost: 50000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -56,7 +56,7 @@ define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Base Cost: 94000
+; CMCHECK-NEXT:  Base Cost: 50000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo

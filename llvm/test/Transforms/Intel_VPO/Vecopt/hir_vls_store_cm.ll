@@ -2,8 +2,8 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate issue with VLS group cost being applied twice to stores in
 ; the group. This happens the first time when we see a new store group. The
@@ -28,18 +28,18 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB1]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-18000) AdjCost: 0
+; CMCHECK-NEXT:    Cost 12000 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-12000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+14000) AdjCost: 32000
+; CMCHECK-NEXT:    Cost 12000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+8000) AdjCost: 20000
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; CMCHECK-NEXT:    Cost 16000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CMCHECK-NEXT:    Cost 2000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 86000
+; CMCHECK-NEXT:  [[BB2]]: base cost: 52000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
@@ -47,7 +47,7 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Base Cost: 86000
+; CMCHECK-NEXT:  Base Cost: 52000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
