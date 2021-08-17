@@ -1333,8 +1333,8 @@ if (TENSORFLOW_C_LIB_PATH)
   include_directories(${TENSORFLOW_C_LIB_PATH}/include)
   if (NOT TF_PROTO_HEADERS)
     message(STATUS "TF_PROTO_HEADERS not defined. Looking for tensorflow pip package.")
-    execute_process(COMMAND 
-      ${Python3_EXECUTABLE} "-m" "pip" "show" "tensorflow" 
+    execute_process(COMMAND
+      ${Python3_EXECUTABLE} "-m" "pip" "show" "tensorflow"
       OUTPUT_VARIABLE TF_PIP_OUT)
     if ("${TF_PIP_OUT}" STREQUAL "")
       message(FATAL ERROR "Tensorflow pip package is also required for 'development' mode (protobuf headers)")
