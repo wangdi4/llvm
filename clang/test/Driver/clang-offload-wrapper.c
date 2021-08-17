@@ -100,7 +100,6 @@
 // -------
 // Check bitcode produced by the wrapper tool.
 //
-// INTEL_CUSTOMIZATION
 // RUN: clang-offload-wrapper                                                         \
 // RUN:   -host=x86_64-pc-linux-gnu                                                   \
 // RUN:     -kind=openmp -target=tg2                -format=native %t3.tgt %t1_mf.txt \
@@ -109,12 +108,9 @@
 // RUN:                  -target=tg2 -compile-opts= -link-opts=                       \
 // RUN:                  -format native %t2.tgt                                       \
 // RUN:   -o %t.wrapper.bc 2>&1 | FileCheck %s --check-prefix ELF-WARNING
-// end INTEL_CUSTOMIZATION
 // RUN: llvm-dis %t.wrapper.bc -o - | FileCheck %s --check-prefix CHECK-IR
 
-// INTEL_CUSTOMIZATION
 // ELF-WARNING: is not an ELF image, so notes cannot be added to it.
-// end INTEL_CUSTOMIZATION
 // CHECK-IR: target triple = "x86_64-pc-linux-gnu"
 
 // --- OpenMP device binary image descriptor structure
@@ -217,7 +213,7 @@
 // RUN: %clang -target x86_64-pc-linux-gnu -c %t.wrapper.bc -o %t.wrapper.o
 // RUN: clang-offload-bundler --type=o --inputs=%t.wrapper.o --targets=sycl-spir64-unknown-linux-sycldevice --outputs=%t1.out --unbundle
 // RUN: diff %t1.out %t1.tgt
-// INTEL_CUSTOMIZATION
+
 // Check that clang-offload-wrapper adds LLVMOMPOFFLOAD notes
 // into the ELF offload images:
 // RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.64le -DBITS=64 -DENCODING=LSB
@@ -238,7 +234,6 @@
 // the inserted ELF notes in the device image variable's
 // initializer:
 // OMPNOTES: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}"
-// end INTEL_CUSTOMIZATION
 // INTEL_CUSTOMIZATION
 // Check that SPIR-V image is automatically containerized, and the notes
 // can be added into the container ELF:

@@ -19,9 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
-#if INTEL_COLLAB
 #include "llvm/BinaryFormat/ELF.h"
-#endif // INTEL_COLLAB
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/IR/Constants.h"
@@ -33,14 +31,10 @@
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // NDEBUG
-#if INTEL_COLLAB
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Object/ObjectFile.h"
-#endif // INTEL_COLLAB
 #include "llvm/Support/CommandLine.h"
-#if INTEL_COLLAB
 #include "llvm/Support/EndianStream.h"
-#endif // INTEL_COLLAB
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
@@ -48,17 +42,13 @@
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h" // INTEL
-#if INTEL_COLLAB
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
-#endif // INTEL_COLLAB
 #include "llvm/Support/PropertySetIO.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/ToolOutputFile.h"
-#if INTEL_COLLAB
 #include "llvm/Support/VCSRevision.h"
-#endif // INTEL_COLLAB
 #include "llvm/Support/WithColor.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/ObjectYAML/ELFYAML.h"
@@ -74,14 +64,10 @@
 #include <string>
 #include <tuple>
 
-#if INTEL_COLLAB
 #define OPENMP_OFFLOAD_IMAGE_VERSION "1.0"
 
-#endif // INTEL_COLLAB
 using namespace llvm;
-#if INTEL_COLLAB
 using namespace llvm::object;
-#endif // INTEL_COLLAB
 
 // Fields in the binary descriptor which are made available to SYCL runtime
 // by the offload wrapper. Must match across tools -
@@ -274,14 +260,12 @@ static StringRef formatToString(BinaryImageFormat Fmt) {
   return "<ERROR>";
 }
 
-#if INTEL_COLLAB
 static cl::opt<bool> SaveTemps(
     "save-temps",
     cl::desc("Save temporary files that may be produced by the tool. "
              "This option forces print-out of the temporary files' names."),
     cl::Hidden);
 
-#endif // INTEL_COLLAB
 namespace {
 
 struct OffloadKindToUint {
@@ -362,7 +346,6 @@ public:
         File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile));
   }
 
-#if INTEL_COLLAB
   std::string ToolName;
   std::string ObjcopyPath;
   // Temporary file names that may be created during adding notes
@@ -372,7 +355,6 @@ public:
   // them, if you have multiple inputs.
   std::vector<std::string> TempFiles;
 
-#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   std::string Yaml2ObjPath;
 #endif // INTEL_CUSTOMIZATION
@@ -859,12 +841,10 @@ private:
     return addStructArrayToModule(PropSetsInits, getSyclPropSetTy());
   }
 
-#if INTEL_COLLAB
 public:
     MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
 
 private:
-#endif // INTEL_COLLAB
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -1051,12 +1031,10 @@ private:
       if (!BinOrErr)
         return BinOrErr.takeError();
       MemoryBuffer *Bin = *BinOrErr;
-#if INTEL_COLLAB
       if (Img.File != "-" && Kind == OffloadKind::OpenMP) {
         // Adding ELF notes for STDIN is not supported yet.
         Bin = addELFNotes(Bin, Img.File);
       }
-#endif // INTEL_COLLAB
       std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
           makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
@@ -1238,7 +1216,6 @@ public:
 
   }
 #endif // INTEL_CUSTOMIZATION
-#if INTEL_COLLAB
   BinaryWrapper(StringRef Target, StringRef ToolName)
       : M("offload.wrapper.object", C), ToolName(ToolName) {
     M.setTargetTriple(Target);
@@ -1298,11 +1275,6 @@ public:
                     << EC.message().c_str() << "\n";
     }
   }
-#else // INTEL_COLLAB
-  BinaryWrapper(StringRef Target) : M("offload.wrapper.object", C) {
-    M.setTargetTriple(Target);
-  }
-#endif // INTEL_COLLAB
 
   Expected<const Module *> wrap() {
     for (auto &X : Packs) {
@@ -1587,159 +1559,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
-llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
-                              const BinaryWrapper::Image &Img) {
-  Out << "\n{\n";
-  Out << "  file     = " << Img.File << "\n";
-  Out << "  manifest = " << (Img.Manif.empty() ? "-" : Img.Manif) << "\n";
-  Out << "  format   = " << formatToString(Img.Fmt) << "\n";
-  Out << "  target   = " << (Img.Tgt.empty() ? "-" : Img.Tgt) << "\n";
-  Out << "  compile options  = "
-      << (Img.CompileOpts.empty() ? "-" : Img.CompileOpts) << "\n";
-  Out << "  link options     = " << (Img.LinkOpts.empty() ? "-" : Img.LinkOpts)
-      << "\n";
-  Out << "}\n";
-  return Out;
-}
-
-// enable_if_t is available only starting with C++14
-template <bool Cond, typename T = void>
-using my_enable_if_t = typename std::enable_if<Cond, T>::type;
-
-// Helper class to order elements of multiple cl::list option lists according to
-// the sequence they occurred on the command line. Each cl::list defines a
-// separate options "class" to identify which class current options belongs to.
-// The ID of a class is simply the ordinal of its corresponding cl::list object
-// as passed to the constructor. Typical usage:
-//  do {
-//    ID = ArgSeq.next();
-//
-//    switch (ID) {
-//    case -1: // Done
-//      break;
-//    case 0: // An option from the cl::list which came first in the constructor
-//      (*(ArgSeq.template get<0>())); // get the option value
-//      break;
-//    case 1: // An option from the cl::list which came second in the
-//    constructor
-//      (*(ArgSeq.template get<1>())); // get the option value
-//      break;
-//    ...
-//    default:
-//      llvm_unreachable("bad option class ID");
-//    }
-//  } while (ID != -1);
-//
-template <typename... Tys> class ListArgsSequencer {
-private:
-  /// The class ID of current option
-  int Cur = -1;
-
-  /// Class IDs of all options from all lists. Filled in the constructor.
-  /// Can also be seen as a map from command line position to the option class
-  /// ID. If there is no option participating in one of the sequenced lists at
-  /// given position, then it is mapped to -1 marker value.
-  std::unique_ptr<std::vector<int>> OptListIDs;
-
-  using tuple_of_iters_t = std::tuple<typename Tys::iterator...>;
-
-  template <size_t I>
-  using iter_t = typename std::tuple_element<I, tuple_of_iters_t>::type;
-
-  /// Tuple of all lists' iterators pointing to "previous" option value -
-  /// before latest next() was called
-  tuple_of_iters_t Prevs;
-
-  /// Holds "current" iterators - after next()
-  tuple_of_iters_t Iters;
-
-public:
-  /// The only constructor.
-  /// Sz   - total number of options on the command line
-  /// Args - the cl::list objects to sequence elements of
-  ListArgsSequencer(size_t Sz, Tys &... Args)
-      : Prevs(Args.end()...), Iters(Args.begin()...) {
-    // make OptListIDs big enough to hold IDs of all options coming from the
-    // command line and initialize all IDs to default class -1
-    OptListIDs.reset(new std::vector<int>(Sz, -1));
-    // map command line positions where sequenced options occur to appropriate
-    // class IDs
-    addLists<sizeof...(Tys) - 1, 0>(Args...);
-  }
-
-  ListArgsSequencer() = delete;
-
-  /// Advances to the next option in the sequence. Returns the option class ID
-  /// or -1 when all lists' elements have been iterated over.
-  int next() {
-    size_t Sz = OptListIDs->size();
-
-    if ((Cur > 0) && (((size_t)Cur) >= Sz))
-      return -1;
-    while ((((size_t)++Cur) < Sz) && (cur() == -1))
-      ;
-
-    if (((size_t)Cur) < Sz)
-      inc<sizeof...(Tys) - 1>();
-    return ((size_t)Cur) >= Sz ? -1 : cur();
-  }
-
-  /// Retrieves the value of current option. ID must match is the option class
-  /// returned by next(), otherwise compile error can happen or incorrect option
-  /// value will be retrieved.
-  template <int ID> decltype(std::get<ID>(Prevs)) get() {
-    return std::get<ID>(Prevs);
-  }
-
-private:
-  int cur() {
-    assert(Cur >= 0 && ((size_t)Cur) < OptListIDs->size());
-    return (*OptListIDs)[Cur];
-  }
-
-  template <int MAX, int ID, typename XTy, typename... XTys>
-      my_enable_if_t < ID<MAX> addLists(XTy &Arg, XTys &... Args) {
-    addListImpl<ID>(Arg);
-    addLists<MAX, ID + 1>(Args...);
-  }
-
-  template <int MAX, int ID, typename XTy>
-  my_enable_if_t<ID == MAX> addLists(XTy &Arg) {
-    addListImpl<ID>(Arg);
-  }
-
-  /// Does the actual sequencing of options found in given list.
-  template <int ID, typename T> void addListImpl(T &L) {
-    // iterate via all occurences of an option of given list class
-    for (auto It = L.begin(); It != L.end(); It++) {
-      // calculate its sequential position in the command line
-      unsigned Pos = L.getPosition(It - L.begin());
-      assert((*OptListIDs)[Pos] == -1);
-      // ... and fill the corresponding spot in the list with the class ID
-      (*OptListIDs)[Pos] = ID;
-    }
-  }
-
-  template <int N> void incImpl() {
-    if (cur() == -1)
-      return;
-    if (N == cur()) {
-      std::get<N>(Prevs) = std::get<N>(Iters);
-      std::get<N>(Iters)++;
-    }
-  }
-
-  template <int N> my_enable_if_t<N != 0> inc() {
-    incImpl<N>();
-    inc<N - 1>();
-  }
-
-  template <int N> my_enable_if_t<N == 0> inc() { incImpl<N>(); }
-};
-#if INTEL_COLLAB
   // The whole function body is misaligned just to simplify
-  // conflict resolution, when https://reviews.llvm.org/D99551
-  // merges into xmain.
+  // conflict resolutions with llorg.
   MemoryBuffer *BinaryWrapper::addELFNotes(
       MemoryBuffer *Buf,
       StringRef OriginalFileName) {
@@ -1952,7 +1773,157 @@ private:
     AutoGcBufs.emplace_back(std::move(*BufOrErr));
     return AutoGcBufs.back().get();
   }
-#endif // INTEL_COLLAB
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
+                              const BinaryWrapper::Image &Img) {
+  Out << "\n{\n";
+  Out << "  file     = " << Img.File << "\n";
+  Out << "  manifest = " << (Img.Manif.empty() ? "-" : Img.Manif) << "\n";
+  Out << "  format   = " << formatToString(Img.Fmt) << "\n";
+  Out << "  target   = " << (Img.Tgt.empty() ? "-" : Img.Tgt) << "\n";
+  Out << "  compile options  = "
+      << (Img.CompileOpts.empty() ? "-" : Img.CompileOpts) << "\n";
+  Out << "  link options     = " << (Img.LinkOpts.empty() ? "-" : Img.LinkOpts)
+      << "\n";
+  Out << "}\n";
+  return Out;
+}
+
+// enable_if_t is available only starting with C++14
+template <bool Cond, typename T = void>
+using my_enable_if_t = typename std::enable_if<Cond, T>::type;
+
+// Helper class to order elements of multiple cl::list option lists according to
+// the sequence they occurred on the command line. Each cl::list defines a
+// separate options "class" to identify which class current options belongs to.
+// The ID of a class is simply the ordinal of its corresponding cl::list object
+// as passed to the constructor. Typical usage:
+//  do {
+//    ID = ArgSeq.next();
+//
+//    switch (ID) {
+//    case -1: // Done
+//      break;
+//    case 0: // An option from the cl::list which came first in the constructor
+//      (*(ArgSeq.template get<0>())); // get the option value
+//      break;
+//    case 1: // An option from the cl::list which came second in the
+//    constructor
+//      (*(ArgSeq.template get<1>())); // get the option value
+//      break;
+//    ...
+//    default:
+//      llvm_unreachable("bad option class ID");
+//    }
+//  } while (ID != -1);
+//
+template <typename... Tys> class ListArgsSequencer {
+private:
+  /// The class ID of current option
+  int Cur = -1;
+
+  /// Class IDs of all options from all lists. Filled in the constructor.
+  /// Can also be seen as a map from command line position to the option class
+  /// ID. If there is no option participating in one of the sequenced lists at
+  /// given position, then it is mapped to -1 marker value.
+  std::unique_ptr<std::vector<int>> OptListIDs;
+
+  using tuple_of_iters_t = std::tuple<typename Tys::iterator...>;
+
+  template <size_t I>
+  using iter_t = typename std::tuple_element<I, tuple_of_iters_t>::type;
+
+  /// Tuple of all lists' iterators pointing to "previous" option value -
+  /// before latest next() was called
+  tuple_of_iters_t Prevs;
+
+  /// Holds "current" iterators - after next()
+  tuple_of_iters_t Iters;
+
+public:
+  /// The only constructor.
+  /// Sz   - total number of options on the command line
+  /// Args - the cl::list objects to sequence elements of
+  ListArgsSequencer(size_t Sz, Tys &... Args)
+      : Prevs(Args.end()...), Iters(Args.begin()...) {
+    // make OptListIDs big enough to hold IDs of all options coming from the
+    // command line and initialize all IDs to default class -1
+    OptListIDs.reset(new std::vector<int>(Sz, -1));
+    // map command line positions where sequenced options occur to appropriate
+    // class IDs
+    addLists<sizeof...(Tys) - 1, 0>(Args...);
+  }
+
+  ListArgsSequencer() = delete;
+
+  /// Advances to the next option in the sequence. Returns the option class ID
+  /// or -1 when all lists' elements have been iterated over.
+  int next() {
+    size_t Sz = OptListIDs->size();
+
+    if ((Cur > 0) && (((size_t)Cur) >= Sz))
+      return -1;
+    while ((((size_t)++Cur) < Sz) && (cur() == -1))
+      ;
+
+    if (((size_t)Cur) < Sz)
+      inc<sizeof...(Tys) - 1>();
+    return ((size_t)Cur) >= Sz ? -1 : cur();
+  }
+
+  /// Retrieves the value of current option. ID must match is the option class
+  /// returned by next(), otherwise compile error can happen or incorrect option
+  /// value will be retrieved.
+  template <int ID> decltype(std::get<ID>(Prevs)) get() {
+    return std::get<ID>(Prevs);
+  }
+
+private:
+  int cur() {
+    assert(Cur >= 0 && ((size_t)Cur) < OptListIDs->size());
+    return (*OptListIDs)[Cur];
+  }
+
+  template <int MAX, int ID, typename XTy, typename... XTys>
+      my_enable_if_t < ID<MAX> addLists(XTy &Arg, XTys &... Args) {
+    addListImpl<ID>(Arg);
+    addLists<MAX, ID + 1>(Args...);
+  }
+
+  template <int MAX, int ID, typename XTy>
+  my_enable_if_t<ID == MAX> addLists(XTy &Arg) {
+    addListImpl<ID>(Arg);
+  }
+
+  /// Does the actual sequencing of options found in given list.
+  template <int ID, typename T> void addListImpl(T &L) {
+    // iterate via all occurences of an option of given list class
+    for (auto It = L.begin(); It != L.end(); It++) {
+      // calculate its sequential position in the command line
+      unsigned Pos = L.getPosition(It - L.begin());
+      assert((*OptListIDs)[Pos] == -1);
+      // ... and fill the corresponding spot in the list with the class ID
+      (*OptListIDs)[Pos] = ID;
+    }
+  }
+
+  template <int N> void incImpl() {
+    if (cur() == -1)
+      return;
+    if (N == cur()) {
+      std::get<N>(Prevs) = std::get<N>(Iters);
+      std::get<N>(Iters)++;
+    }
+  }
+
+  template <int N> my_enable_if_t<N != 0> inc() {
+    incImpl<N>();
+    inc<N - 1>();
+  }
+
+  template <int N> my_enable_if_t<N == 0> inc() { incImpl<N>(); }
+};
+
 } // anonymous namespace
 
 int main(int argc, const char **argv) {
@@ -2042,11 +2013,8 @@ int main(int argc, const char **argv) {
 
   // Construct BinaryWrapper::Image instances based on command line args and
   // add them to the wrapper
-#if INTEL_COLLAB
+
   BinaryWrapper Wr(Target, argv[0]);
-#else // INTEL_COLLAB
-  BinaryWrapper Wr(Target);
-#endif // INTEL_COLLAB
   OffloadKind Knd = OffloadKind::Unknown;
   llvm::StringRef Tgt = "";
   BinaryImageFormat Fmt = BinaryImageFormat::none;
