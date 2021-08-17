@@ -114,8 +114,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AssumptionCacheTracker>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
-    if (EnableMSSALoopDependency)
-      AU.addPreserved<MemorySSAWrapperPass>();
+    AU.addPreserved<MemorySSAWrapperPass>();
     getLoopAnalysisUsage(AU);
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
 
@@ -137,13 +136,11 @@ public:
     auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     const SimplifyQuery SQ = getBestSimplifyQuery(*this, F);
     Optional<MemorySSAUpdater> MSSAU;
-    if (EnableMSSALoopDependency) {
-      // Not requiring MemorySSA and getting it only if available will split
-      // the loop pass pipeline when LoopRotate is being run first.
-      auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
-      if (MSSAA)
-        MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
-    }
+    // Not requiring MemorySSA and getting it only if available will split
+    // the loop pass pipeline when LoopRotate is being run first.
+    auto *MSSAA = getAnalysisIfAvailable<MemorySSAWrapperPass>();
+    if (MSSAA)
+      MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
 #if INTEL_CUSTOMIZATION
     // Disable rotation when loops * blocks is extremely large.
     if (L->getHeader())
