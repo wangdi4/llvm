@@ -213,6 +213,10 @@ namespace llvm {
 
   /// RAReportEmitter - This pass prints register allocation reports.
   extern char &RAReportEmitterID;
+
+  /// FoldLoadsToGatherID -- This pass fold loads to gather intrinsic.
+  extern char &FoldLoadsToGatherID;
+
 #endif  // INTEL_CUSTOMIZATION
 
   /// PostRAHazardRecognizer - This pass runs the post-ra hazard
@@ -516,6 +520,8 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION
   // Expand fp128 operations into libcalls.
   FunctionPass *createFloat128ExpandPass();
+
+  FunctionPass *createFoldLoadsToGatherPass();
 #endif // INTEL_CUSTOMIZATION
 
   /// This pass inserts pseudo probe annotation for callsite profiling.
