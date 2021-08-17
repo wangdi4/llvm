@@ -28,7 +28,7 @@ int main() {
     h.single_task<class KernelName>(
         [=]() {
           A Obj;
-          INTEL::non_uniform_sub_group G;
+          ext::intel::non_uniform_sub_group G;
           G.invoke_unmasked(Obj);
           G.invoke_unmasked(bar10);
         });
