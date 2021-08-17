@@ -82,6 +82,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   FPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
   // Translate SPV-IR to OCL20-IR first.
+  MaterializerMPM.add(createDPCPPPreprocessSPIRVFriendlyIRLegacyPass());
   MaterializerMPM.add(createSPIRVLowerConstExprLegacy());
   MaterializerMPM.add(createSPIRVToOCL20Legacy());
 
