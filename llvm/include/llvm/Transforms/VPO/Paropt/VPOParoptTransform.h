@@ -1105,7 +1105,14 @@ private:
   /// The method populates \p ConstSizes, \p MapTypes, \p Names and \p Mappers
   /// vectors with the mapping information for each argument of \p Call.
   /// See genTgtInformationForPtrs() for more details about the meaning
-  /// of these vectors. \p HasRuntimeEvaluationCaptureSize is set to true
+  /// of these vectors.
+#if INTEL_CUSTOMIZATION
+  /// \p IsWILocalFirstprivate holds 'true' for those pointers that
+  /// identify mapped objects that can be firstprivated using SPIR-V
+  /// __private storage class vs __global storage class.
+  /// \p IsWILocalFirstprivate is used only for SPIR-V targets.
+#endif // INTEL_CUSTOMIZATION
+  /// \p HasRuntimeEvaluationCaptureSize is set to true
   /// iff any of the mappings requires dynamically computed size,
   /// otherwise, it is set to false.
   /// Return the number of entries in the output \p MapTypes.
@@ -1115,6 +1122,9 @@ private:
       SmallVectorImpl<uint64_t> &MapTypes,
       SmallVectorImpl<GlobalVariable *> &Names,
       SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+      SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
       bool &HasRuntimeEvaluationCaptureSize) const;
 
   /// Generate the initialization code for the directive omp target
@@ -1172,6 +1182,13 @@ private:
   /// \param [out]    MapTypes        array of map types.
   /// \param [out]    Names           array of names.
   /// \param [out]    Mappers         array of mappers.
+#if INTEL_CUSTOMIZATION
+  /// \param [out]    IsWILocalFirstprivate
+  ///                 'true' for pointers that identify mapped objects
+  ///                 that can be firstprivatized using SPIR-V __private
+  ///                 storage class vs __global storage class.
+  ///                 This result is used only for SPIR-V targets.
+#endif // INTEL_CUSTOMIZATION
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
   /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
@@ -1181,6 +1198,9 @@ private:
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 SmallVectorImpl<GlobalVariable *> &Names,
                                 SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+                                SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                                 bool &hasRuntimeEvaluationCaptureSize,
                                 bool VIsTargetKernelArg = false) const;
 
@@ -1931,6 +1951,9 @@ private:
   /// arguments.
   Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
       CallInst *&Call, const SmallVectorImpl<uint64_t> &MapTypes,
+#if INTEL_CUSTOMIZATION
+      const SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
       const SmallVectorImpl<Constant *> &ConstSizes);
 
   ///  Generate the iteration space partitioning code based on OpenCL.

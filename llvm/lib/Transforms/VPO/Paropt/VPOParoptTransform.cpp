@@ -6082,8 +6082,66 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         //     void (%class.C*)* @_ZTS1C.omp.destr),
         //   "QUAL.OMP.MAP.TO"(%class.C* %c1, %class.C* %c1, i64 4, i64 161) ]
         //
-        if (!FprivI->getIsNonPod() ||
-            (isTargetSPIRV() && !EmitTargetFPCtorDtors))
+        if (true &&
+#if INTEL_CUSTOMIZATION
+            // We have to create local copies for WILOCAL FIRSTPRIVATE
+            // variables even if they are present in the MAP clauses.
+            // We may later apply pass-as-kernel-argument optimization
+            // to such variables, and we have to make sure that we do not
+            // insert master-thread checks for accesses to these variables.
+            // Consider the following example:
+            // #pragma omp target firstprivate(a) firstprivate(j)
+            // {
+            //   a.i = 10;
+            //   j = 10;
+            // #pragma omp parallel for
+            //   for (int i = 0; i < 10; ++i)
+            //     printf("a.i = %d %d\n", a.i, j);
+            //
+            // Structure 'a' is marked as WILOCAL, so we will pass
+            // the structure object as a kernel argument. If we do this,
+            // the we cannot guard 'a.i = 10' store with the master-thread
+            // check, otherwise, 'a.i' will have the correct value only
+            // in the master thread, while it has to be equal to '10'
+            // in each thread. In order to avoid the master-thread check,
+            // we have to be able to reach the addrspace(0) definition
+            // of pointer to 'a' object.
+            // Unfortunately, under WriteArgumentsToHomeLocations
+            // the CodeExtractor replaces all uses of pointer to 'a'
+            // with the following:
+            //
+            // define internal spir_func void @kernel(
+            //     %struct.foo addrspace(4)* %a.ascast) {
+            // newFuncRoot:
+            //   %a.ascast.addr = alloca %struct.foo addrspace(4)*
+            //   store %struct.foo addrspace(4)* %a.ascast,
+            //       %struct.foo addrspace(4)** %a.ascast.addr
+            //   %a.ascast.value = load %struct.foo addrspace(4)*,
+            //       %struct.foo addrspace(4)** %a.ascast.addr
+            //
+            // Then all the references to 'a.ascast' are replaced
+            // with '%a.ascast.value'. This blocks the ignoreSpecialOperands()
+            // from reaching the argument definition. So when it is replaced
+            // with an addrspace(0) argument, we cannot prove that
+            // the master-thread is not needed.
+            //
+            // One way to resolve this is to introduce a local copy
+            // for 'a' and relink all uses to the new copy, which will
+            // be in addrspace(0) due to WILOCAL markup.
+            // This way, the parameter homing will attach the debug
+            // information to the original pointer argument, but
+            // I am not sure what will happen to the debug information
+            // of the private copy.
+            //
+            // An alternative approach would be to disable parameter
+            // homing for SPIR-V offload in genOutlineFunction(), but
+            // this will cause debugging issues.
+            //
+            // This comment is related to CMPLRLLVM-30385.
+            (!isTargetSPIRV() || !FprivI->getIsWILocal()) &&
+#endif // INTEL_CUSTOMIZATION
+            (!FprivI->getIsNonPod() ||
+             (isTargetSPIRV() && !EmitTargetFPCtorDtors)))
           continue;
 
       Value *NewPrivInst = nullptr;
