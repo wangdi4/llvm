@@ -13283,7 +13283,8 @@ public:
 private:
   bool SemaBuiltinPrefetch(CallExpr *TheCall);
   bool SemaBuiltinAllocaWithAlign(CallExpr *TheCall);
-  bool SemaBuiltinArithmeticFence(CallExpr *TheCall);
+  bool SemaBuiltinArithmeticFence(CallExpr *TheCall,  // INTEL
+                                  bool IsIntelFence = false); // INTEL
   bool SemaBuiltinAssume(CallExpr *TheCall);
   bool SemaBuiltinAssumeAligned(CallExpr *TheCall);
   bool SemaBuiltinLongjmp(CallExpr *TheCall);

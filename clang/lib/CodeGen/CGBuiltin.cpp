@@ -3269,7 +3269,15 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Function *FnAssume = CGM.getIntrinsic(Intrinsic::assume);
     return RValue::get(Builder.CreateCall(FnAssume, ArgValue));
   }
+  case Builtin::BI__fence: // INTEL
   case Builtin::BI__arithmetic_fence: {
+#if INTEL_CUSTOMIZATION
+    if (!E->getArg(0)->getType()->hasFloatingRepresentation()) {
+      // Fence is only meaningful if floating representation.
+      assert (BuiltinIDIfNoAsmLabel == Builtin::BI__fence);
+      return RValue::get(EmitScalarExpr(E->getArg(0)));
+    }
+#endif // INTEL_CUSTOMIZATION
     // Create the builtin call if FastMath is selected, and the target
     // supports the builtin, otherwise just return the argument.
     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(*this, E);

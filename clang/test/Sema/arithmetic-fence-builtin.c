@@ -2,14 +2,25 @@
 // RUN: %clang_cc1 -triple ppc64le -DPPC     -emit-llvm -o - -verify -x c++ %s
 // RUN: not %clang_cc1 -triple ppc64le -DPPC     -emit-llvm -o - -x c++ %s \
 // RUN:            -fprotect-parens 2>&1 | FileCheck -check-prefix=PPC %s
+//
+// INTEL_CUSTOMIZATION
+// RUN: %clang_cc1 -D__arithmetic_fence=__fence -triple i386-pc-linux-gnu -emit-llvm -o - -verify -x c++ %s
+// RUN: %clang_cc1 -D__arithmetic_fence=__fence -triple ppc64le -DPPC     -emit-llvm -o - -verify -x c++ %s
+// RUN: not %clang_cc1 -D__arithmetic_fence=__fence -triple ppc64le -DPPC     -emit-llvm -o - -x c++ %s \
+// RUN:            -fprotect-parens 2>&1 | FileCheck -check-prefix=PPC %s
+// end INTEL_CUSTOMIZATION
 #ifndef PPC
 int v;
 template <typename T> T addT(T a, T b) {
   T *q = __arithmetic_fence(&a);
-  // expected-error@-1 {{invalid operand of type 'float *' where floating, complex or a vector of such types is required}}
-  // expected-error@-2 {{invalid operand of type 'int *' where floating, complex or a vector of such types is required}}
+#ifndef __arithmetic_fence
+  // expected-error@-2 {{invalid operand of type 'float *' where floating, complex or a vector of such types is required}}
+  // expected-error@-3 {{invalid operand of type 'int *' where floating, complex or a vector of such types is required}}
+#endif
   return __arithmetic_fence(a + b);
-  // expected-error@-1 {{invalid operand of type 'int' where floating, complex or a vector of such types is required}}
+#ifndef __arithmetic_fence
+  // expected-error@-2 {{invalid operand of type 'int' where floating, complex or a vector of such types is required}}
+#endif
 }
 int addit(int a, int b) {
   float x, y;
@@ -17,7 +28,14 @@ int addit(int a, int b) {
     int a, b;
   } stype;
   stype s;
+// INTEL_CUSTOMIZATION
+#ifdef __arithmetic_fence
+  // icc allows int or pointer, although it only has an effect for float etc.
+  s = __arithmetic_fence(s);    // expected-error {{operand of type 'stype' where arithmetic or pointer type is required}}
+#else
+// end INTEL_CUSTOMIZATION
   s = __arithmetic_fence(s);    // expected-error {{invalid operand of type 'stype' where floating, complex or a vector of such types is required}}
+#endif // INTEL
   x = __arithmetic_fence();     // expected-error {{too few arguments to function call, expected 1, have 0}}
   x = __arithmetic_fence(x, y); // expected-error {{too many arguments to function call, expected 1, have 2}}
   // Complex is supported.
@@ -28,9 +46,17 @@ int addit(int a, int b) {
   __v4hi vec1, vec2;
   vec1 = __arithmetic_fence(vec2);
 
+// INTEL_CUSTOMIZATION
+#ifdef __arithmetic_fence
+  v = __arithmetic_fence(a + b);
+  float f = addT<float>(a, b);
+  int i = addT<int>(1, 2);
+#else
+// end INTEL_CUSTOMIZATION
   v = __arithmetic_fence(a + b); // expected-error {{invalid operand of type 'int' where floating, complex or a vector of such types is required}}
   float f = addT<float>(a, b);   // expected-note {{in instantiation of function template specialization 'addT<float>' requested here}}
   int i = addT<int>(1, 2);       // expected-note {{in instantiation of function template specialization 'addT<int>' requested here}}
+#endif // INTEL
   constexpr float d = 1.0 + 2.0;
   constexpr float c = __arithmetic_fence(1.0 + 2.0);
   constexpr float e = __arithmetic_fence(d);
@@ -39,6 +65,15 @@ int addit(int a, int b) {
 bool func(float f1, float f2, float f3) {
   return (f1 == f2 && f1 == f3) || f2 == f3; // Should not warn here
 }
+// INTEL_CUSTOMIZATION
+int nfunc(int i) { // expected-note {{declared here}}
+  constexpr int j = 1;
+  constexpr int k = __fence(j+1);
+  constexpr int m = __fence(j+i); // expected-note {{function parameter 'i' with unknown value cannot be used in a constant expression}}
+// expected-error@-1 {{constexpr variable 'm' must be initialized by a constant expression}}
+  return i;
+}
+// end INTEL_CUSTOMIZATION
 static_assert( __arithmetic_fence(1.0 + 2.0), "message" );
 #else
 float addit(float a, float b) {

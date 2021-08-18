@@ -8998,6 +8998,8 @@ static bool isOneByteCharacterType(QualType T) {
 bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
                                                 unsigned BuiltinOp) {
   switch (BuiltinOp) {
+  case Builtin::BI__fence: // INTEL
+    return !evaluatePointer(E->getArg(0), Result); // INTEL
   case Builtin::BI__builtin_addressof:
     return evaluateLValue(E->getArg(0), Result);
   case Builtin::BI__builtin_assume_aligned: {
@@ -11551,6 +11553,16 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   default:
     return ExprEvaluatorBaseTy::VisitCallExpr(E);
 
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__fence: {
+    APSInt Val;
+    if (!EvaluateInteger(E->getArg(0), Val, Info))
+      return false;
+
+    return Success(Val, E);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case Builtin::BI__builtin_dynamic_object_size:
   case Builtin::BI__builtin_object_size: {
     // The type was checked when we built the expression.
@@ -13707,6 +13719,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
       Result.changeSign();
     return true;
 
+  case Builtin::BI__fence: // INTEL
   case Builtin::BI__arithmetic_fence:
     return EvaluateFloat(E->getArg(0), Result, Info);
 
