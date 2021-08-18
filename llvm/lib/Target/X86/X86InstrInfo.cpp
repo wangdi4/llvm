@@ -5347,7 +5347,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SDZrr_Int:
   case X86::VCVTUSI642SDZrrb_Int:
   case X86::VCVTUSI642SDZrm_Int:
-#if INTEL_CUSTOMIZATION
   case X86::VCVTSI2SHZrr:
   case X86::VCVTSI2SHZrm:
   case X86::VCVTSI2SHZrr_Int:
@@ -5368,7 +5367,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SHZrr_Int:
   case X86::VCVTUSI642SHZrrb_Int:
   case X86::VCVTUSI642SHZrm_Int:
-#endif // INTEL_CUSTOMIZATION
     // Load folding won't effect the undef register update since the input is
     // a GPR.
     return OpNum == 1 && !ForLoadFold;
@@ -5499,7 +5497,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSDZrb_Int:
   case X86::VSQRTSDZm:
   case X86::VSQRTSDZm_Int:
-#if INTEL_CUSTOMIZATION
   case X86::VCVTSD2SHZrr:
   case X86::VCVTSD2SHZrr_Int:
   case X86::VCVTSD2SHZrrb_Int:
@@ -5520,7 +5517,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTSH2SSZrrb_Int:
   case X86::VCVTSH2SSZrm:
   case X86::VCVTSH2SSZrm_Int:
-#endif // INTEL_CUSTOMIZATION
     return OpNum == 1;
   case X86::VMOVSSZrrk:
   case X86::VMOVSDZrrk:

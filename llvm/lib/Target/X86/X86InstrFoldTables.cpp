@@ -5186,17 +5186,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VCVTNE2PS2PHZ256rrk,       X86::VCVTNE2PS2PHZ256rmk,       0 },
   { X86::VCVTNE2PS2PHZrrk,          X86::VCVTNE2PS2PHZrmk,          0 },
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-  { X86::VCVTSD2SHZrr_Intk,         X86::VCVTSD2SHZrm_Intk,         TB_NO_REVERSE },
 #endif // INTEL_CUSTOMIZATION
+  { X86::VCVTSD2SHZrr_Intk,         X86::VCVTSD2SHZrm_Intk,         TB_NO_REVERSE },
   { X86::VCVTSD2SSZrr_Intk,         X86::VCVTSD2SSZrm_Intk,         TB_NO_REVERSE },
-#if INTEL_CUSTOMIZATION
   { X86::VCVTSH2SDZrr_Intk,         X86::VCVTSH2SDZrm_Intk,         TB_NO_REVERSE },
   { X86::VCVTSH2SSZrr_Intk,         X86::VCVTSH2SSZrm_Intk,         TB_NO_REVERSE },
-#endif // INTEL_CUSTOMIZATION
   { X86::VCVTSS2SDZrr_Intk,         X86::VCVTSS2SDZrm_Intk,         TB_NO_REVERSE },
-#if INTEL_CUSTOMIZATION
   { X86::VCVTSS2SHZrr_Intk,         X86::VCVTSS2SHZrm_Intk,         TB_NO_REVERSE },
-#endif // INTEL_CUSTOMIZATION
   { X86::VDBPSADBWZ128rrik,         X86::VDBPSADBWZ128rmik,         0 },
   { X86::VDBPSADBWZ256rrik,         X86::VDBPSADBWZ256rmik,         0 },
   { X86::VDBPSADBWZrrik,            X86::VDBPSADBWZrmik,            0 },

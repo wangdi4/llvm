@@ -154,6 +154,11 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512(<32 x half> %arg0, <
 }
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvtph2w_512_b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %esi, %k1
+; CHECK-NEXT:    vcvtph2w (%rdi){1to32}, %zmm0 {%k1}
+; CHECK-NEXT:    retq
   %scalar = load half, half* %arg0
   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
@@ -356,6 +361,11 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512(<32 x half> %arg0, 
 }
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvtph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvtph2uw_512_b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %esi, %k1
+; CHECK-NEXT:    vcvtph2uw (%rdi){1to32}, %zmm0 {%k1}
+; CHECK-NEXT:    retq
   %scalar = load half, half* %arg0
   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
@@ -418,6 +428,11 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512(<32 x half> %arg0, 
 }
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2w_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvttph2w_512_b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %esi, %k1
+; CHECK-NEXT:    vcvttph2w (%rdi){1to32}, %zmm0 {%k1}
+; CHECK-NEXT:    retq
   %scalar = load half, half* %arg0
   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer
@@ -480,6 +495,11 @@ define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512(<32 x half> %arg0,
 }
 
 define <32 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_512_b(half* %arg0, <32 x i16> %arg1, i32 %mask) {
+; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvttph2uw_512_b:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    kmovd %esi, %k1
+; CHECK-NEXT:    vcvttph2uw (%rdi){1to32}, %zmm0 {%k1}
+; CHECK-NEXT:    retq
   %scalar = load half, half* %arg0
   %scalar_in_vector = insertelement <32 x half> undef, half %scalar, i32 0
   %val = shufflevector <32 x half> %scalar_in_vector, <32 x half> undef, <32 x i32> zeroinitializer

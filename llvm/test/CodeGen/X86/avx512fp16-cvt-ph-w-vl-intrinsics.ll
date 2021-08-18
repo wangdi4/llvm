@@ -119,7 +119,6 @@ define <16 x i16> @test_int_x86_avx512fp16_mask_cvtph2w_256_load(<16 x half>* %a
   ret <16 x i16> %res
 }
 
-
 define <16 x half> @test_int_x86_avx512fp16_mask_cvtuw2ph_256(<16 x i16> %arg0, <16 x half> %arg1, i16 %mask) {
 ; CHECK-LABEL: test_int_x86_avx512fp16_mask_cvtuw2ph_256:
 ; CHECK:       # %bb.0:
@@ -742,7 +741,7 @@ define <2 x half> @test_u1tofp2(<2 x i1> %arg0) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,2,2,3]
 ; CHECK-NEXT:    vpshuflw {{.*#+}} xmm0 = xmm0[0,2,2,3,4,5,6,7]
-; CHECK-NEXT:    vpand {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vpand {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
 ; CHECK-NEXT:    vcvtuw2ph %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %res = uitofp <2 x i1> %arg0 to <2 x half>
@@ -763,7 +762,7 @@ define <4 x half> @test_s17tofp4(<4 x i17> %arg0) {
 define <2 x half> @test_u33tofp2(<2 x i33> %arg0) {
 ; CHECK-LABEL: test_u33tofp2:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vandps {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
 ; CHECK-NEXT:    vcvtuqq2ph %xmm0, %xmm0
 ; CHECK-NEXT:    retq
   %res = uitofp <2 x i33> %arg0 to <2 x half>
