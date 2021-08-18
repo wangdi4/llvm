@@ -45,17 +45,17 @@
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-distribute-loopnest,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -force-hir-cg -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 1>
-;OPTREPORT:     remark #25574: Loop distributed (2 way)
+;OPTREPORT: <Distributed chunk1>
+;OPTREPORT:     remark #25426: Loop distributed (2 way)
 ;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Distributed chunk 1>
-;OPTREPORT:         remark #25574: Loop distributed (2 way)
+;OPTREPORT:     <Distributed chunk1>
+;OPTREPORT:         remark #25426: Loop distributed (2 way)
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 2>
+;OPTREPORT: <Distributed chunk2>
 ;OPTREPORT:     LOOP BEGIN
-;OPTREPORT:     <Distributed chunk 2>
+;OPTREPORT:     <Distributed chunk2>
 ;OPTREPORT:         LOOP BEGIN
 ;OPTREPORT:         LOOP END
 ;OPTREPORT:     LOOP END

@@ -10,12 +10,12 @@
 ;    a3[i] += b2   + i; }
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 1>
-;OPTREPORT:    remark #25570: Distribute point pragma processed
-;OPTREPORT:    remark #25574: Loop distributed (2 way)
+;OPTREPORT: <Distributed chunk1>
+;OPTREPORT:    remark #25483: Distribute point pragma processed
+;OPTREPORT:    remark #25426: Loop distributed (2 way)
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT: <Distributed chunk 2>
+;OPTREPORT: <Distributed chunk2>
 ;OPTREPORT: LOOP END
 
 ;Module Before HIR; ModuleID = 'distpoint4.c'
