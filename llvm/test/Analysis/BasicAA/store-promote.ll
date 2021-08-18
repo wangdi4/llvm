@@ -5,8 +5,10 @@
 ; RUN: opt < %s -basic-aa -licm -enable-new-pm=0 -S | FileCheck %s -check-prefixes=CHECK,MSSA
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes='loop(licm)' -S | FileCheck %s -check-prefixes=CHECK,AST
 ; RUN: opt < %s -aa-pipeline=basic-aa -passes='loop-mssa(licm)' -S | FileCheck %s -check-prefixes=CHECK,MSSA
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -enable-mssa-loop-dependency=false -enable-new-pm=0 -S | FileCheck %s -check-prefixes=CHECK,AST
+; INTEL_CUSTOMIZATION
+; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -passes='loop(licm)' -S | FileCheck %s -check-prefixes=CHECK,AST
+; RUN: opt -convert-to-subscript -S < %s | opt -aa-pipeline=basic-aa -passes='loop-mssa(licm)' -S | FileCheck %s -check-prefixes=CHECK,MSSA
+; end INTEL_CUSTOMIZATION
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
 @A = global i32 7               ; <i32*> [#uses=3]
