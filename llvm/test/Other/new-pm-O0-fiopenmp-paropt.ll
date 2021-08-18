@@ -138,7 +138,6 @@
 ;CHECK-NEXT: Running analysis: BlockFrequencyAnalysis on foo
 ;CHECK-NEXT: Running analysis: BranchProbabilityAnalysis on foo
 ;CHECK-NEXT: Running analysis: PostDominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: MemorySSAAnalysis on foo
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*Loop.*}}, llvm::Function> on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
