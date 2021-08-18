@@ -411,6 +411,7 @@
 #include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
 #include "llvm/Transforms/VPO/Utils/CFGRestructuring.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
+#include "llvm/Transforms/VPO/Utils/CFGSimplify.h"
 #endif // INTEL_COLLAB
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
 
@@ -1983,7 +1984,10 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
 
     MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
   }
-
+#endif // INTEL_CUSTOMIZATION
+  // Clean-up empty blocks after OpenMP directives handling.
+  FPM.addPass(VPOCFGSimplifyPass());
+#if INTEL_CUSTOMIZATION
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.
   if (RunVPOOpt == InvokeParoptAfterInliner) {

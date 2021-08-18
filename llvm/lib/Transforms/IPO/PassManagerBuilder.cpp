@@ -2138,41 +2138,40 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 #if INTEL_COLLAB
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
                                       bool Simplify) {
-  if (RunVPOParopt) {
-    if (Simplify) {
-      // Inlining may introduce BasicBlocks without predecessors into an OpenMP
-      // region. This breaks CodeExtractor when outlining the region because it
-      // expects a single-entry-single-exit region. Calling CFG simplification
-      // to remove unreachable BasicBlocks fixes this problem.
+  if (!RunVPOParopt)
+    return;
+
+  if (Simplify) {
+    // Inlining may introduce BasicBlocks without predecessors into an OpenMP
+    // region. This breaks CodeExtractor when outlining the region because it
+    // expects a single-entry-single-exit region. Calling CFG simplification
+    // to remove unreachable BasicBlocks fixes this problem.
 #if INTEL_CUSTOMIZATION
-      // The inlining issue is documented in CMPLRLLVM-7516. It affects these
-      // tests: ompo_kernelsCpp/aobenchan*,ribbon*,terrain*
+    // The inlining issue is documented in CMPLRLLVM-7516. It affects these
+    // tests: ompo_kernelsCpp/aobenchan*,ribbon*,terrain*
 #endif // INTEL_CUSTOMIZATION
-      PM.add(createCFGSimplificationPass());
-    }
-    PM.add(createVPORestoreOperandsPass());
-    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createCFGSimplificationPass());
+  }
+  PM.add(createVPORestoreOperandsPass());
+  PM.add(createVPOCFGRestructuringPass());
 #if INTEL_CUSTOMIZATION
-    if (OptLevel > 2 && EnableVPOParoptSharedPrivatization)
-      // Shared privatization pass should be combined with the argument
-      // promotion pass (to do a cleanup) which currently runs only at O3,
-      // therefore it is limited to O3 as well.
-      PM.add(createVPOParoptSharedPrivatizationPass(RunVPOParopt));
-    PM.add(createVPOParoptOptimizeDataSharingPass());
-    // No need to rerun VPO CFG restructuring, since
-    // VPOParoptOptimizeDataSharing does not modify CFG,
-    // and keeps the basic blocks with directive calls
-    // consistent.
+  if (OptLevel > 2 && EnableVPOParoptSharedPrivatization)
+    // Shared privatization pass should be combined with the argument
+    // promotion pass (to do a cleanup) which currently runs only at O3,
+    // therefore it is limited to O3 as well.
+    PM.add(createVPOParoptSharedPrivatizationPass(RunVPOParopt));
+  PM.add(createVPOParoptOptimizeDataSharingPass());
+  // No need to rerun VPO CFG restructuring, since
+  // VPOParoptOptimizeDataSharing does not modify CFG,
+  // and keeps the basic blocks with directive calls
+  // consistent.
 #endif  // INTEL_CUSTOMIZATION
-    PM.add(createVPOParoptPass(RunVPOParopt));
+  PM.add(createVPOParoptPass(RunVPOParopt));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-    if (RunCSAGraphSplitter)
-      PM.add(createCSAGraphSplitterPass());
+  if (RunCSAGraphSplitter)
+    PM.add(createCSAGraphSplitterPass());
 #endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-  }
-#if INTEL_CUSTOMIZATION
   // If vectorizer was required to run then cleanup any remaining directives
   // that were not removed by vectorizer. This applies to all optimization
   // levels since this function is called with RunVec=true in both pass
@@ -2180,7 +2179,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
   //
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
-  if (RunVPOParopt && (RunVec || EnableDeviceSimd)) {
+  if (RunVec || EnableDeviceSimd) {
     if (EnableDeviceSimd || (OptLevel == 0 && RunVPOVecopt)) {
       if (OptLevel > 0) {
         addFunctionSimplificationPasses(PM);
@@ -2204,10 +2203,13 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 
     PM.add(createVPODirectiveCleanupPass());
   }
-
+#endif // INTEL_CUSTOMIZATION
+  // Clean-up empty blocks after OpenMP directives handling.
+  PM.add(createVPOCFGSimplifyPass());
+#if INTEL_CUSTOMIZATION
   // Paropt transformation pass may produce new AlwaysInline functions.
   // Force inlining for them, if paropt pass runs after the normal inliner.
-  if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {
+  if (RunVPOOpt == InvokeParoptAfterInliner) {
     // Run it even at -O0, because the only AlwaysInline functions
     // after paropt are the ones that it artificially created.
     // There is some interference with coroutines passes, which

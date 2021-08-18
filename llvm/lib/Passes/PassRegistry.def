@@ -622,6 +622,7 @@ FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
 FUNCTION_PASS("print<vpo-wrncollection>",
               WRegionCollectionAnalysisPrinterPass(dbgs()))
 FUNCTION_PASS("vpo-cfg-restructuring", VPOCFGRestructuringPass())
+FUNCTION_PASS("vpo-cfg-simplify", VPOCFGSimplifyPass())
 FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
 FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())

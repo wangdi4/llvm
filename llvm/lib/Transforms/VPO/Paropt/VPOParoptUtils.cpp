@@ -5840,6 +5840,7 @@ Function *VPOParoptUtils::genOutlineFunction(
 
   // Set up the calling convention used by OpenMP runtime library.
   setFuncCallingConv(CallSite, CallSite->getModule());
+  NewFunction->addFnAttr("processed-by-vpo");
 
   return NewFunction;
 }
