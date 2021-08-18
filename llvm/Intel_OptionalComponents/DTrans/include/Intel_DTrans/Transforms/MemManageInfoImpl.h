@@ -43,6 +43,44 @@ inline bool isVFTablePointer(Type *Ty) {
   return true;
 }
 
+// Returns 'Ty' if 'Ty' is valid struct type to consider for the
+// transformation.
+inline StructType *getValidStructTy(Type *Ty) {
+  StructType *STy = dyn_cast<StructType>(Ty);
+  if (!STy || STy->isLiteral() || !STy->isSized())
+    return nullptr;
+  return STy;
+}
+
+// Returns type of pointee if 'Ty' is pointer.
+inline Type *getPointeeType(Type *Ty) {
+  if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
+    return PTy->getElementType();
+  return nullptr;
+}
+
+// Returns true if 'Ty' is potential padding field that
+// is created to fill gaps in structs.
+inline bool isPotentialPaddingField(Type *Ty) {
+  ArrayType *ATy = dyn_cast<ArrayType>(Ty);
+  if (!ATy || !ATy->getElementType()->isIntegerTy(8))
+    return false;
+  return true;
+}
+
+// Get class type of the given function if there is one.
+inline StructType *getThisClassType(const Function *F) {
+  FunctionType *FunTy = F->getFunctionType();
+  if (FunTy->getNumParams() == 0)
+    return nullptr;
+  // Get class type from "this" pointer that is passed as 1st
+  // argument.
+  if (auto *PTy = dyn_cast<PointerType>(FunTy->getParamType(0)))
+    if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
+      return STy;
+  return nullptr;
+}
+
 // This is used to collect candidate for MemManageTrans and
 // maintain information related to the candidate.
 class MemManageCandidateInfo {
@@ -295,7 +333,6 @@ private:
   // Index of NodeNextIndex in ListNode
   int32_t NodeNextIndex = -1;
 
-  inline StructType *getClassType(const Function *F);
   inline bool isBasicAllocatorType(Type *Ty);
   inline bool isBlockBaseType(Type *Ty);
   inline bool isReusableArenaBlockType(Type *Ty);
@@ -304,37 +341,9 @@ private:
   inline bool isArenaAllocatorType(Type *Ty);
   inline bool isReusableArenaAllocatorType(Type *Ty);
   inline bool isStringAllocatorType(Type *Ty);
-  inline bool isPotentialPaddingField(Type *);
   inline bool isStructWithNoRealData(Type *);
   inline bool isStringObjectType(Type *);
-  inline StructType *getValidStructTy(Type *);
-  inline Type *getPointeeType(Type *);
 };
-
-// Returns 'Ty' if 'Ty' is valid struct type to consider for the
-// transformation.
-StructType *MemManageCandidateInfo::getValidStructTy(Type *Ty) {
-  StructType *STy = dyn_cast<StructType>(Ty);
-  if (!STy || STy->isLiteral() || !STy->isSized())
-    return nullptr;
-  return STy;
-}
-
-// Returns type of pointee if 'Ty' is pointer.
-Type *MemManageCandidateInfo::getPointeeType(Type *Ty) {
-  if (auto *PTy = dyn_cast_or_null<PointerType>(Ty))
-    return PTy->getElementType();
-  return nullptr;
-}
-
-// Returns true if 'Ty' is potential padding field that
-// is created to fill gaps in structs.
-bool MemManageCandidateInfo::isPotentialPaddingField(Type *Ty) {
-  ArrayType *ATy = dyn_cast<ArrayType>(Ty);
-  if (!ATy || !ATy->getElementType()->isIntegerTy(8))
-    return false;
-  return true;
-}
 
 // Returns true if 'Ty' is a struct that doesn't have any real data
 // except vftable.
@@ -352,19 +361,6 @@ bool MemManageCandidateInfo::isStructWithNoRealData(Type *Ty) {
   else if (MemInterfaceType != STy)
     return false;
   return true;
-}
-
-// Get class type of the given function if there is one.
-StructType *MemManageCandidateInfo::getClassType(const Function *F) {
-  FunctionType *FunTy = F->getFunctionType();
-  if (FunTy->getNumParams() == 0)
-    return nullptr;
-  // Get class type from "this" pointer that is passed as 1st
-  // argument.
-  if (auto *PTy = dyn_cast<PointerType>(FunTy->getParamType(0)))
-    if (auto *STy = dyn_cast<StructType>(PTy->getPointerElementType()))
-      return STy;
-  return nullptr;
 }
 
 // Returns true if 'Ty' is a struct that looks like format below.
@@ -785,7 +781,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
 
   // Collect member functions of StringAllocatorType.
   for (auto &F : M) {
-    auto *ThisTy = getClassType(&F);
+    auto *ThisTy = getThisClassType(&F);
     if (!ThisTy)
       continue;
     if (StringAllocatorType == ThisTy)
@@ -810,7 +806,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
         auto *Callee = dtrans::getCalledFunction(*CB);
         if (!Callee)
           return false;
-        auto *ThisTy = getClassType(Callee);
+        auto *ThisTy = getThisClassType(Callee);
         if (!ThisTy)
           return false;
         if (ThisTy == ReusableArenaAllocatorType ||
@@ -854,7 +850,7 @@ bool MemManageCandidateInfo::collectMemberFunctions(bool AtLTO) {
         auto *Callee = dtrans::getCalledFunction(*CB);
         if (!Callee)
           continue;
-        auto *ThisTy = getClassType(Callee);
+        auto *ThisTy = getThisClassType(Callee);
         if (!ThisTy)
           continue;
         if (ThisTy == StringObjectType)

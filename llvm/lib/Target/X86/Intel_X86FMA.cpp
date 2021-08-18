@@ -1481,7 +1481,9 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
       for (unsigned i = 1; i < MI->getNumOperands(); i++)
         MOs.push_back(MI->getOperand(i));
       MachineInstr *NewMI = genInstruction(MI->getOpcode(), MOs, DL);
-      MBB.insert(MI, NewMI);
+      // FIXME: This DBG_VALUE should actually be set to noreg in the pass
+      // which do the optimization.
+      MI->getParent()->insert(MI, NewMI);
     }
     DeleteMI(MI);
   }

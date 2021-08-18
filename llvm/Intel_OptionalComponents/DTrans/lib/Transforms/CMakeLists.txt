@@ -15,6 +15,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   AOSToSOA.cpp
   AOSToSOAOP.cpp
   AnnotatorCleaner.cpp
+  CodeAlign.cpp
   CommuteCond.cpp
   DeleteField.cpp
   DeleteFieldOP.cpp

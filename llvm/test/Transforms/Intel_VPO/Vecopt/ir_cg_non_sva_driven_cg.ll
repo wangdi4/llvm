@@ -4,7 +4,7 @@
 ; RUN: opt -vplan-vec -vplan-force-vf=2 -vplan-print-scalvec-results -disable-output < %s | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 < %s | FileCheck %s --check-prefix=LLVM-IR
 
-define void @foo(float* nocapture %arr, i32* %dest, i32 %uni) {
+define void @test1(float* nocapture %arr, i32* %dest, i32 %uni) {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %header
@@ -34,6 +34,45 @@ header:
 ; VPLAN-IR:        [DA: Div, SVA: (  L)] store i32 [[VP_RES]] i32* [[DEST0:%.*]] (SVAOpBits 0->L 1->F )
 ; LLVM-IR-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP2]], i32 1
 ; LLVM-IR-NEXT:    store i32 [[DOTEXTRACT_1_]], i32* [[DEST:%.*]], align 4
+  store i32 %res, i32* %dest
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 300
+  br i1 %exitcond, label %loop.exit, label %header
+
+loop.exit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
+define void @test2(i32* nocapture %arr, i32* %dest, i32 %uni) {
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %header
+
+header:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %merge ]
+  %idx = getelementptr inbounds i32, i32* %arr, i64 %iv
+  %ld = load i32, i32* %idx
+  %cmp = icmp eq i32 %uni, 42
+  br i1 %cmp, label %if.then, label %merge
+
+if.then:
+  %v1 = add i32 %uni, 1
+  br label %merge
+
+merge:
+  ; CG for phi is not SVA-driven.
+  %phi.v = phi i32 [ %v1, %if.then ], [ 0, %header ]
+; VPLAN-IR:        [DA: Uni, SVA: (F  )] i32 [[PHI:%.*]] = phi  [ i32 {{%.*}}, {{BB.*}} ],  [ i32 0, {{BB.*}} ] (SVAOpBits 0->F 1->F )
+; LLVM-IR:         [[SCAL_PHI:%.*]] = phi i32 [ [[TMP2:%.*]], %VPlannedBB3 ], [ 0, %vector.body ]
+
+  ; While getting vector value of %phi.v do not rely on its SVA results.
+  %res = add i32 %phi.v, %ld
+; VPLAN-IR:        [DA: Div, SVA: (  L)] i32 [[ADD:%.*]] = add i32 [[PHI]] i32 [[VP_LOAD:%.*]] (SVAOpBits 0->L 1->L )
+; LLVM-IR:         [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[SCAL_PHI]], i32 0
+; LLVM-IR-NEXT:    [[BROADCAST_SPLAT]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
+; LLVM-IR-NEXT:    [[VEC_ADD:%.*]] = add <2 x i32> [[BROADCAST_SPLAT]], [[WIDE_LOAD:%.*]]
+
   store i32 %res, i32* %dest
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %iv.next, 300
