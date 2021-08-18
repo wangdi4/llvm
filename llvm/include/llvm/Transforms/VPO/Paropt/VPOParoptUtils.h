@@ -1757,8 +1757,14 @@ public:
   /// using the same arguments from \p BaseCall. Both functions are expected
   /// to have identical signatures.
   /// \p W is a TargetVariant WRN.
+  /// If \p InteropPosition is 0, then the InteropObj is appended as the last
+  /// argument in the argument list of the variant call. Otherwise, the
+  /// InteropObj is inserted in the argument list in the position indicated
+  /// by \p InteropPosition. (First argument is position 1.)
   static CallInst *genVariantCall(CallInst *BaseCall, StringRef VariantName,
-                                  Value *InteropObj, Instruction *InsertPt,
+                                  Value *InteropObj,
+                                  llvm::Optional<uint64_t> InteropPosition,
+                                  Instruction *InsertPt,
                                   WRegionNode *W = nullptr,
                                   bool IsTail = false);
 

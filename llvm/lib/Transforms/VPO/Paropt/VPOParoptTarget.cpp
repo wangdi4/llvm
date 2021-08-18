@@ -3573,11 +3573,11 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 #if INTEL_CUSTOMIZATION
 //       This support is currently not needed by MKL.
 #endif // INTEL_CUSTOMIZATION
-StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
-                                             StringRef &MatchConstruct,
-                                             uint64_t &DeviceArchs,
-                                             StringRef &NeedDevicePtrStr,
-                                             StringRef &InteropStr) {
+StringRef VPOParoptTransform::getVariantInfo(
+    WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
+    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut,
+    StringRef &NeedDevicePtrStr, StringRef &InteropStr) {
+
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
   if (!BaseFunc) {
@@ -3716,6 +3716,24 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
       else if (FV[0] == "interop") {
         InteropStr = FV[1];
       }
+      else if (FV[0] == "interop_position") {
+        uint64_t Position = 0u;
+        if (FV[1].getAsInteger(10, Position)) {
+          // getAsInteger() returns true on error
+          llvm_unreachable("Interop position must be an unsigned integer");
+        } else if (Position > 0) {
+          InteropPositionOut.emplace(Position);
+        } else {
+          llvm_unreachable("Interop position must be positive");
+        }
+      }
+      else {
+        F->getContext().diagnose(DiagnosticInfoUnsupported(
+            *F, "Found unsupported field in the openmp-variant attribute.",
+            W->getEntryDirective()->getDebugLoc()));
+        llvm_unreachable(
+            "Found unsupported field in the openmp-variant attribute.");
+      }
     } // for (StringRef &Field : Fields)
 
     if (FoundConstruct) {
@@ -3749,13 +3767,14 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
 
 // This interface is for target variant dispatch, which does not need
 // NeedDevicePtrStr and InteropStr
-StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
-                                             StringRef &MatchConstruct,
-                                             uint64_t &DeviceArchs) {
+StringRef VPOParoptTransform::getVariantInfo(
+    WRegionNode *W, CallInst *BaseCall, StringRef &MatchConstruct,
+    uint64_t &DeviceArchs, llvm::Optional<uint64_t> &InteropPositionOut) {
+
   StringRef NeedDevicePtrStr; // unused
-  StringRef InteropStr; // unused
-  return getVariantName(W, BaseCall, MatchConstruct, DeviceArchs,
-                        NeedDevicePtrStr, InteropStr);
+  StringRef InteropStr;       // unused
+  return getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs,
+                        InteropPositionOut, NeedDevicePtrStr, InteropStr);
 }
 
 static Value *genDeviceNum(WRegionNode *W, Instruction *InsertPt) {
@@ -4212,12 +4231,15 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   StringRef MatchConstruct("target_variant_dispatch");
   StringRef VariantName;
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
+  llvm::Optional<uint64_t> InteropPosition =
+      llvm::None;            // position of interop arg in variant call
   CallInst *BaseCall = nullptr;
   for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
       if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
         BaseCall = TempCallInst;
-        VariantName = getVariantName(W, BaseCall, MatchConstruct, DeviceArchs);
+        VariantName = getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs,
+                                     InteropPosition);
         if (!VariantName.empty()) {
           break;
         }
@@ -4294,7 +4316,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
-      BaseCall, VariantName, InteropObj, BaseCall, W); //                   (8)
+      BaseCall, VariantName, InteropObj, InteropPosition, BaseCall, W); //  (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
@@ -4457,10 +4479,13 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 
   StringRef MatchConstruct("dispatch");
   uint64_t DeviceArchs = 0u; // bit vector of device architectures
+  llvm::Optional<uint64_t> InteropPosition =
+      llvm::None;            // position of interop arg in variant call
   StringRef NeedDevicePtrStr;
   StringRef InteropStr;
-  StringRef VariantName = getVariantName(
-      W, BaseCall, MatchConstruct, DeviceArchs, NeedDevicePtrStr, InteropStr);
+  StringRef VariantName =
+      getVariantInfo(W, BaseCall, MatchConstruct, DeviceArchs, InteropPosition,
+                     NeedDevicePtrStr, InteropStr);
 
   auto emitRemark = [&](const StringRef &Message) {
     OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
@@ -4529,7 +4554,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   // Create and insert Variant call before ThenTerm
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
   CallInst *VariantCall = VPOParoptUtils::genVariantCall(
-      BaseCall, VariantName, InteropObj, ThenTerm, W); //                   (8)
+      BaseCall, VariantName, InteropObj, InteropPosition, ThenTerm, W); //  (8)
   if (!IsVoidType)
     VariantCall->setName("variant");
 

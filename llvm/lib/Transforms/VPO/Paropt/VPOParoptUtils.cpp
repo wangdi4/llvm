@@ -3957,6 +3957,7 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
+                                         llvm::Optional<uint64_t> InteropPosition,
                                          Instruction *InsertPt, WRegionNode *W,
                                          bool IsTail) {
   assert(BaseCall && "BaseCall is null");
@@ -3983,12 +3984,26 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   }
 
   if (InteropObj != nullptr) {
-    FnArgs.push_back(InteropObj);
-    if (!IsVarArg)
-      // If not VarArg, then the signature of the variant function has one
-      // more parameter (for void *interopObj) than the base function, so
-      // we need to update FnArgTypes accordingly.
-      FnArgTypes.push_back(Int8PtrTy);
+    // If !InteropPosition, then InteropObj is appended as the last arg.
+    // Otherwise, InteropPosition.getValue() is the position of the InteropObj
+    // in the arg list. The position is 1-based (ie, first arg is position 1,
+    // not 0).
+    if (InteropPosition) {
+      assert(!IsVarArg &&
+             "Unexpected VarArg variant function when InteropPosition is used");
+      uint64_t Position = InteropPosition.getValue();
+      auto ArgsIter = FnArgs.begin() + Position - 1;
+      FnArgs.insert(ArgsIter, InteropObj);
+      auto ArgTypesIter = FnArgTypes.begin() + Position - 1;
+      FnArgTypes.insert(ArgTypesIter, Int8PtrTy);
+    } else {
+      FnArgs.push_back(InteropObj);
+      if (!IsVarArg)
+        // If not VarArg, then the signature of the variant function has one
+        // more parameter (for void *interopObj) than the base function, so
+        // we need to update FnArgTypes accordingly.
+        FnArgTypes.push_back(Int8PtrTy);
+    }
   }
 
   return genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
