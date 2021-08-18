@@ -1099,7 +1099,7 @@ static bool addNonNullAttrs(const SCCNodeSet &SCCNodes) {
         // which prevents us from speculating about the entire SCC
         LLVM_DEBUG(dbgs() << "Eagerly marking " << F->getName()
                           << " as nonnull\n");
-        F->addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
+        F->addRetAttr(Attribute::NonNull);
         ++NumNonNullReturn;
         MadeChange = true;
       }
@@ -1117,7 +1117,7 @@ static bool addNonNullAttrs(const SCCNodeSet &SCCNodes) {
         continue;
 
       LLVM_DEBUG(dbgs() << "SCC marking " << F->getName() << " as nonnull\n");
-      F->addAttribute(AttributeList::ReturnIndex, Attribute::NonNull);
+      F->addRetAttr(Attribute::NonNull);
       ++NumNonNullReturn;
       MadeChange = true;
     }
