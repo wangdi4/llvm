@@ -1586,7 +1586,7 @@ public:
         Flags.LinkLibDevice = 1;
     }
 #endif // ENABLE_LIBDEVICE_LINKING
-    if (char *env = readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS")) {
+    if (readEnvVar("INTEL_ENABLE_OFFLOAD_ANNOTATIONS")) {
       // To match SYCL RT behavior, we just need to check whether
       // INTEL_ENABLE_OFFLOAD_ANNOTATIONS is set. The actual value
       // does not matter.
