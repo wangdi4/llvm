@@ -1413,7 +1413,7 @@ public:
         assert(CloneRetTy == getPeeledIndexType() &&
                "Expected clone return type to be peeling index type");
 
-        Func->removeAttributes(0, IncompatiblePeelTypeAttrs);
+        Func->removeFnAttrs(IncompatiblePeelTypeAttrs);
       }
 
       assert(OrigFunc.arg_size() == Func->arg_size() &&
