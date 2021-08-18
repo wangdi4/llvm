@@ -36,10 +36,10 @@
   __builtin_ia32_tcmmimfp16ps(tdst, tsrc1, tsrc2)
 #define _tile_tcmmrlfp16ps(tdst, tsrc1, tsrc2) \
   __builtin_ia32_tcmmrlfp16ps(tdst, tsrc1, tsrc2)
-#define _tile_tconjcmmimfp16ps(tdst, tsrc1, tsrc2) \
-  __builtin_ia32_tconjcmmimfp16ps(tdst, tsrc1, tsrc2)
-#define _tile_tconjfp16(tdst, tsrc1) \
-  __builtin_ia32_tconjfp16(tdst, tsrc1)
+#define _tile_tconjtcmmimfp16ps(tdst, tsrc1, tsrc2) \
+  __builtin_ia32_tconjtcmmimfp16ps(tdst, tsrc1, tsrc2)
+#define _tile_tconjtfp16(tdst, tsrc1) \
+  __builtin_ia32_tconjtfp16(tdst, tsrc1)
 #define _tile_ttcmmimfp16ps(tdst, tsrc1, tsrc2) \
   __builtin_ia32_ttcmmimfp16ps(tdst, tsrc1, tsrc2)
 #define _tile_ttcmmrlfp16ps(tdst, tsrc1, tsrc2) \
@@ -58,14 +58,14 @@ _tile_tcmmrlfp16ps_internal(unsigned short m, unsigned short n, unsigned short k
 }
 
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_COMPLEX
-_tile_tconjcmmimfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
+_tile_tconjtcmmimfp16ps_internal(unsigned short m, unsigned short n, unsigned short k,
                           _tile1024i dst, _tile1024i src1, _tile1024i src2) {
-  return __builtin_ia32_tconjcmmimfp16ps_internal(m, n, k, dst, src1, src2);
+  return __builtin_ia32_tconjtcmmimfp16ps_internal(m, n, k, dst, src1, src2);
 }
 
 static __inline__ _tile1024i __DEFAULT_FN_ATTRS_COMPLEX
-_tile_tconjfp16_internal(unsigned short m, unsigned short n, _tile1024i src) {
-  return __builtin_ia32_tconjfp16_internal(m, n, src);
+_tile_tconjtfp16_internal(unsigned short m, unsigned short n, _tile1024i src) {
+  return __builtin_ia32_tconjtfp16_internal(m, n, src);
 }
 
 // dst = m x n (srcdest), src1 = k x m, src2 = k x n
@@ -144,7 +144,7 @@ static void __tile_tcmmrlfp16ps(__tile1024i *dst, __tile1024i src0,
 ///
 /// \headerfile <immintrin.h>
 ///
-/// This intrinsic corresponds to the <c> TCONJCMMIMFP16PS </c> instruction.
+/// This intrinsic corresponds to the <c> tconjtcmmimfp16ps </c> instruction.
 ///
 /// \param dst
 ///    The destination tile. Max size is 1024 Bytes.
@@ -153,9 +153,9 @@ static void __tile_tcmmrlfp16ps(__tile1024i *dst, __tile1024i src0,
 /// \param src1
 ///    The 2nd source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_COMPLEX
-static void __tile_tconjcmmimfp16ps(__tile1024i *dst, __tile1024i src0,
+static void __tile_tconjtcmmimfp16ps(__tile1024i *dst, __tile1024i src0,
                                     __tile1024i src1) {
-  dst->tile = _tile_tconjcmmimfp16ps_internal(src0.col / 4, src1.col,
+  dst->tile = _tile_tconjtcmmimfp16ps_internal(src0.col / 4, src1.col,
                            src0.row * 4, dst->tile, src0.tile, src1.tile);
 }
 
@@ -164,15 +164,15 @@ static void __tile_tconjcmmimfp16ps(__tile1024i *dst, __tile1024i src0,
 ///
 /// \headerfile <immintrin.h>
 ///
-/// This intrinsic corresponds to the <c> tconjfp16 </c> instruction.
+/// This intrinsic corresponds to the <c> tconjtfp16 </c> instruction.
 ///
 /// \param dst
 ///    The destination tile. Max size is 1024 Bytes.
 /// \param src
 ///    The 1st source tile. Max size is 1024 Bytes.
 __DEFAULT_FN_ATTRS_COMPLEX
-static void __tile_tconjfp16(__tile1024i *dst, __tile1024i src) {
-  dst->tile = _tile_tconjfp16_internal(src.row, src.col, src.tile);
+static void __tile_tconjtfp16(__tile1024i *dst, __tile1024i src) {
+  dst->tile = _tile_tconjtfp16_internal(src.row, src.col, src.tile);
 }
 
 /// Perform matrix transpsoe and multiplication of two tiles containing complex

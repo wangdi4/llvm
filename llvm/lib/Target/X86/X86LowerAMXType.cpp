@@ -191,7 +191,7 @@ std::pair<Value *, Value *> X86LowerAMXType::getShape(IntrinsicInst *II,
   case Intrinsic::x86_ttmmulfp19ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_FP19
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case Intrinsic::x86_tconjcmmimfp16ps_internal:
+  case Intrinsic::x86_tconjtcmmimfp16ps_internal:
   case Intrinsic::x86_ttcmmimfp16ps_internal:
   case Intrinsic::x86_ttcmmrlfp16ps_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
@@ -224,7 +224,7 @@ std::pair<Value *, Value *> X86LowerAMXType::getShape(IntrinsicInst *II,
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case Intrinsic::x86_tconjfp16_internal:
+  case Intrinsic::x86_tconjtfp16_internal:
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX
 #if INTEL_FEATURE_ISA_AMX_LNC
   case Intrinsic::x86_ttransposed_internal:

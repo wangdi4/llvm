@@ -25,8 +25,8 @@ define void @test_amx(i8* %pointer, i8* %base, i64 %stride) {
 ; CHECK-NEXT:    tcmmrlfp16ps %tmm1, %tmm0, %tmm2
 ; CHECK-NEXT:    ttcmmimfp16ps %tmm1, %tmm0, %tmm2
 ; CHECK-NEXT:    ttcmmrlfp16ps %tmm1, %tmm0, %tmm2
-; CHECK-NEXT:    tconjcmmimfp16ps %tmm1, %tmm0, %tmm2
-; CHECK-NEXT:    tconjfp16 %tmm2, %tmm0
+; CHECK-NEXT:    tconjtcmmimfp16ps %tmm1, %tmm0, %tmm2
+; CHECK-NEXT:    tconjtfp16 %tmm2, %tmm0
 ; CHECK-NEXT:    tilestored %tmm2, (%rdi,%rdx)
 ; CHECK-NEXT:    tilerelease
 ; CHECK-NEXT:    vzeroupper
@@ -40,8 +40,8 @@ define void @test_amx(i8* %pointer, i8* %base, i64 %stride) {
   %c2 = call x86_amx @llvm.x86.tcmmrlfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c1, x86_amx %a, x86_amx %b)
   %c3 = call x86_amx @llvm.x86.ttcmmimfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c2, x86_amx %a, x86_amx %b)
   %c4 = call x86_amx @llvm.x86.ttcmmrlfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c3, x86_amx %a, x86_amx %b)
-  %c5 = call x86_amx @llvm.x86.tconjcmmimfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c4, x86_amx %a, x86_amx %b)
-  %c6 = call x86_amx @llvm.x86.tconjfp16.internal(i16 8, i16 8, x86_amx %c5)
+  %c5 = call x86_amx @llvm.x86.tconjtcmmimfp16ps.internal(i16 8, i16 8, i16 8, x86_amx %c4, x86_amx %a, x86_amx %b)
+  %c6 = call x86_amx @llvm.x86.tconjtfp16.internal(i16 8, i16 8, x86_amx %c5)
 
   call void @llvm.x86.tilestored64.internal(i16 8, i16 8, i8* %pointer, i64 %stride, x86_amx %c5)
   ret void
@@ -54,7 +54,7 @@ declare void @llvm.x86.tilestored64.internal(i16, i16, i8*, i64, x86_amx)
 
 declare x86_amx @llvm.x86.tcmmimfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
 declare x86_amx @llvm.x86.tcmmrlfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
-declare x86_amx @llvm.x86.tconjcmmimfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
-declare x86_amx @llvm.x86.tconjfp16.internal(i16, i16, x86_amx)
+declare x86_amx @llvm.x86.tconjtcmmimfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
+declare x86_amx @llvm.x86.tconjtfp16.internal(i16, i16, x86_amx)
 declare x86_amx @llvm.x86.ttcmmimfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)
 declare x86_amx @llvm.x86.ttcmmrlfp16ps.internal(i16, i16, i16, x86_amx, x86_amx, x86_amx)

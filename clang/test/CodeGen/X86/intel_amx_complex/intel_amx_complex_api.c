@@ -38,16 +38,16 @@ void test_tile_ttcmmrlfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
   __tile_ttcmmrlfp16ps(&c, a, b);
 }
 
-void test_tile_tconjcmmimfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
-  //CHECK-LABEL: @test_tile_tconjcmmimfp16ps
-  //CHECK: call x86_amx @llvm.x86.tconjcmmimfp16ps.internal
+void test_tile_tconjtcmmimfp16ps(__tile1024i a, __tile1024i b, __tile1024i c) {
+  //CHECK-LABEL: @test_tile_tconjtcmmimfp16ps
+  //CHECK: call x86_amx @llvm.x86.tconjtcmmimfp16ps.internal
   //CHECK-NEXT: {{%.*}} = bitcast x86_amx {{%.*}} to <256 x i32>
-  __tile_tconjcmmimfp16ps(&c, a, b);
+  __tile_tconjtcmmimfp16ps(&c, a, b);
 }
 
-void test_tile_tconjfp16(__tile1024i dst, __tile1024i src) {
-  //CHECK-LABEL: @test_tile_tconjfp16
-  //CHECK: call x86_amx @llvm.x86.tconjfp16.internal
+void test_tile_tconjtfp16(__tile1024i dst, __tile1024i src) {
+  //CHECK-LABEL: @test_tile_tconjtfp16
+  //CHECK: call x86_amx @llvm.x86.tconjtfp16.internal
   //CHECK-NEXT: {{%.*}} = bitcast x86_amx {{%.*}} to <256 x i32>
-  __tile_tconjfp16(&dst, src);
+  __tile_tconjtfp16(&dst, src);
 }

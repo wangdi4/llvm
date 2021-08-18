@@ -363,18 +363,16 @@ TARGET_BUILTIN(__builtin_ia32_tilemov, "vIUcIUc", "n", "amx-tile2")
 TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 
-// TODO rename tconjcmmimfp16ps --> tconjtcmmimfp16ps according to LNC-EAS-06-29-2021-SPEC
-TARGET_BUILTIN(__builtin_ia32_tconjcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjtcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmrlfp16ps_internal, "V256iUsUsUsV256iV256iV256i", "n", "amx-complex")
 
-// TODO rename tconjfp16 --> tcontjfp16 according to LNC-EAS-06-29-2021-SPEC
-TARGET_BUILTIN(__builtin_ia32_tconjfp16_internal, "V256iUsUsV256i", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjtfp16_internal, "V256iUsUsV256i", "n", "amx-complex")
 
 TARGET_BUILTIN(__builtin_ia32_tcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_tcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tconjcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
-TARGET_BUILTIN(__builtin_ia32_tconjfp16, "vIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjtcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
+TARGET_BUILTIN(__builtin_ia32_tconjtfp16, "vIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmimfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 TARGET_BUILTIN(__builtin_ia32_ttcmmrlfp16ps, "vIUcIUcIUc", "n", "amx-complex")
 #endif // INTEL_FEATURE_ISA_AMX_COMPLEX

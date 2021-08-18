@@ -25,27 +25,27 @@ define void @test_tcmmrlfp16ps() {
 }
 declare void @llvm.x86.tcmmrlfp16ps(i8 %A, i8 %B, i8 %C)
 
-define void @test_tconjcmmimfp16ps() {
-; CHECK-LABEL: test_tconjcmmimfp16ps:
+define void @test_tconjtcmmimfp16ps() {
+; CHECK-LABEL: test_tconjtcmmimfp16ps:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tconjcmmimfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6b,0xc9]
+; CHECK-NEXT:    tconjtcmmimfp16ps %tmm3, %tmm1, %tmm1 # encoding: [0xc4,0xe2,0x60,0x6b,0xc9]
 ; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
-  call void @llvm.x86.tconjcmmimfp16ps(i8 1, i8 2, i8 3)
+  call void @llvm.x86.tconjtcmmimfp16ps(i8 1, i8 2, i8 3)
   ret void
 }
-declare void @llvm.x86.tconjcmmimfp16ps(i8 %A, i8 %B, i8 %C)
+declare void @llvm.x86.tconjtcmmimfp16ps(i8 %A, i8 %B, i8 %C)
 
-define void @test_tconjfp16() {
-; CHECK-LABEL: test_tconjfp16:
+define void @test_tconjtfp16() {
+; CHECK-LABEL: test_tconjtfp16:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    tconjfp16 %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x79,0x6b,0xca]
+; CHECK-NEXT:    tconjtfp16 %tmm2, %tmm1 # encoding: [0xc4,0xe2,0x79,0x6b,0xca]
 ; CHECK-NEXT:    tilerelease # encoding: [0xc4,0xe2,0x78,0x49,0xc0]
 ; CHECK-NEXT:    retq # encoding: [0xc3]
-  call void @llvm.x86.tconjfp16(i8 1, i8 2)
+  call void @llvm.x86.tconjtfp16(i8 1, i8 2)
   ret void
 }
-declare void @llvm.x86.tconjfp16(i8 %A, i8 %B)
+declare void @llvm.x86.tconjtfp16(i8 %A, i8 %B)
 
 define void @test_ttcmmimfp16ps() {
 ; CHECK-LABEL: test_ttcmmimfp16ps:
