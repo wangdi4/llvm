@@ -101,7 +101,7 @@ static bool setDoesNotThrow(Function &F) {
 }
 
 static bool setRetDoesNotAlias(Function &F) {
-  if (F.hasAttribute(AttributeList::ReturnIndex, Attribute::NoAlias))
+  if (F.hasRetAttribute(Attribute::NoAlias))
     return false;
   F.addAttribute(AttributeList::ReturnIndex, Attribute::NoAlias);
   ++NumNoAlias;
@@ -150,7 +150,7 @@ static bool setSignExtendedArg(Function &F, unsigned ArgNo) {
 
 static bool setRetNoUndef(Function &F) {
   if (!F.getReturnType()->isVoidTy() &&
-      !F.hasAttribute(AttributeList::ReturnIndex, Attribute::NoUndef)) {
+      !F.hasRetAttribute(Attribute::NoUndef)) {
     F.addAttribute(AttributeList::ReturnIndex, Attribute::NoUndef);
     ++NumNoUndef;
     return true;
