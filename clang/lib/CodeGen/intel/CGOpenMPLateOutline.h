@@ -213,6 +213,7 @@ class OpenMPLateOutliner {
         O.emitClause(CK, ImplicitClause);
     }
     ClauseStringBuilder &getBuilder() { return CSB; }
+    void setClauseKind(OpenMPClauseKind K) {CK = K; }
     void setImplicitClause(ImplicitClauseKind ICK) {ImplicitClause = ICK; }
   };
   const OMPExecutableDirective &Directive;

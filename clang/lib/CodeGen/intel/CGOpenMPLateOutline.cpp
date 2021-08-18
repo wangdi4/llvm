@@ -669,6 +669,8 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
   bool IsRef = false;
   switch (K) {
   case ICK_private:
+    CEH.setClauseKind(OMPC_private);
+    LLVM_FALLTHROUGH;
   case ICK_linear_private:
     CSB.add("QUAL.OMP.PRIVATE");
     break;
@@ -677,6 +679,8 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     CSB.add("QUAL.OMP.FIRSTPRIVATE");
     break;
   case ICK_lastprivate:
+    CEH.setClauseKind(OMPC_lastprivate);
+    LLVM_FALLTHROUGH;
   case ICK_linear_lastprivate:
     CSB.add("QUAL.OMP.LASTPRIVATE");
     break;
