@@ -7,7 +7,7 @@
 ; CHECK-NEXT: Property Message Map:
 ; CHECK-DAG:    C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
 ; CHECK-DAG:    C_LOOP_VEC_VL --> vectorization support: vector length %s
-; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; CHECK-NEXT: Number of reports: 7
 
 ; CHECK-DAG:  === Loop Begin ===
@@ -20,7 +20,7 @@
 ; CHECK-DAG:  === Loop Begin ===
 ; CHECK-DAG:  Anchor ID: 95a7a6a55e83231e8462f39c030e1f79
 ; CHECK-DAG:  Number of remarks: 1
-; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
@@ -338,7 +338,7 @@ attributes #1 = { nounwind readnone speculatable }
 !33 = !{!"intel.optreport.debug_location", !34}
 !34 = !DILocation(line: 21, column: 3, scope: !27)
 !35 = !{!"intel.optreport.remarks", !36}
-!36 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!36 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
 !37 = !DILocation(line: 3, column: 20, scope: !13)
 !38 = !DILocation(line: 3, column: 27, scope: !13)
 !39 = !DILocation(line: 10, column: 12, scope: !21)

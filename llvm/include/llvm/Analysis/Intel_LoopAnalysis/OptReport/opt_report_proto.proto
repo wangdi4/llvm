@@ -81,7 +81,8 @@ message BinOptReport {
     C_LOOP_VECTORIZED = 0;
     C_LOOP_VEC_VL = 1;
     C_LOOP_COMPLETE_UNROLL = 2;
-    C_LAST_OPT_RPT_PROPERTY = 3;
+    C_LOOP_COMPLETE_UNROLL_FACTOR = 3;
+    C_LAST_OPT_RPT_PROPERTY = 4;
   }
 
   // NOTE: Enums cannot be used as map key in proto3. Hence we use int32 here;
@@ -89,10 +90,28 @@ message BinOptReport {
   // implementations.
   map<int32, string> property_msg_map = 3;
 
+  // Use one-of composition to represent different types of arguments to
+  // remarks.
+  message Arg {
+    oneof arg_type {
+      StringArg str_arg = 1;
+      Int32Arg int32_arg = 2;
+      // TODO: float args
+    }
+  }
+
+  message StringArg {
+    string value = 1;
+  }
+
+  message Int32Arg {
+    int32 value = 1;
+  }
+
   message Remark {
     Property prop_id = 1;
     uint32 remark_id = 2;
-    repeated string args = 3; // TODO: int args, float args
+    repeated Arg args = 3;
   }
 
   message LoopOptReport {

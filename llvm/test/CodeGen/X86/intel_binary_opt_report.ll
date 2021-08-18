@@ -25,8 +25,9 @@
 ; PROTO-BOR-NEXT:     Version: 1.5
 ; PROTO-BOR-NEXT:     Property Message Map:
 ; PROTO-BOR-DAG:        C_LOOP_VEC_VL --> vectorization support: vector length %s
-; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; PROTO-BOR-DAG:        C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
+; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
 ; PROTO-BOR-NEXT:     Number of reports: 7
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -36,7 +37,8 @@
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
 ; PROTO-BOR-DAG:      Anchor ID: fa1bbf46649ed0a2ce779d054e268257
-; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      Number of remarks: 1
+; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25508, Remark Args:
 ; PROTO-BOR-DAG:      ==== Loop End ====
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -49,7 +51,7 @@
 ; PROTO-BOR-DAG:      === Loop Begin ===
 ; PROTO-BOR-DAG:      Anchor ID: 7570d5ba2a865bcde3ab13af9e215a98
 ; PROTO-BOR-DAG:      Number of remarks: 1
-; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 8
 ; PROTO-BOR-DAG:      ==== Loop End ====
 
 ; PROTO-BOR-DAG:      === Loop Begin ===
@@ -356,7 +358,7 @@ attributes #1 = { nounwind readnone speculatable }
 !33 = !{!"intel.optreport.debug_location", !34}
 !34 = !DILocation(line: 21, column: 3, scope: !27)
 !35 = !{!"intel.optreport.remarks", !36}
-!36 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!36 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 8}
 !37 = !DILocation(line: 3, column: 20, scope: !13)
 !38 = !DILocation(line: 3, column: 27, scope: !13)
 !39 = !DILocation(line: 10, column: 12, scope: !21)
@@ -426,7 +428,7 @@ attributes #1 = { nounwind readnone speculatable }
 !103 = !{!"intel.optreport.next_sibling", !104}
 !104 = distinct !{!"intel.optreport.rootnode", !105}
 !105 = distinct !{!"intel.optreport", !102, !75, !106}
-!106 = !{!"intel.optreport.remarks", !78, !107}
+!106 = !{!"intel.optreport.remarks", !78, !107, !130}
 !107 = !{!"intel.optreport.remark", i32 0, !"LLorg: Loop has been completely unrolled"}
 !108 = !DILocation(line: 18, column: 20, scope: !95)
 !109 = !DILocation(line: 18, column: 27, scope: !95)
@@ -450,3 +452,4 @@ attributes #1 = { nounwind readnone speculatable }
 !127 = !DILocation(line: 24, column: 16, scope: !13)
 !128 = !DILocation(line: 24, column: 10, scope: !13)
 !129 = !DILocation(line: 24, column: 3, scope: !13)
+!130 = !{!"intel.optreport.remark", i32 25508, !"Loop completely unrolled"}

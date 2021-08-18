@@ -18,13 +18,13 @@
 ; CHECK:      --- Start Intel Binary Optimization Report ---
 ; CHECK-NEXT: Version: 1.5
 ; CHECK-NEXT: Property Message Map:
-; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; CHECK-DAG:    C_LOOP_COMPLETE_UNROLL_FACTOR --> Loop completely unrolled by %d
 ; CHECK-NEXT: Number of reports: 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT: === Loop Begin ===
 ; CHECK-NEXT: Anchor ID: b872981369bec6a71028b6890b9ca9a6
 ; CHECK-NEXT: Number of remarks: 1
-; CHECK-NEXT:   Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; CHECK-NEXT:   Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-NEXT: ==== Loop End ====
 ; CHECK-EMPTY:
 ; CHECK-NEXT: --- End Intel Binary Optimization Report ---
@@ -146,7 +146,7 @@ attributes #3 = { nounwind }
 !13 = !{!"intel.optreport.debug_location", !14}
 !14 = !DILocation(line: 5, column: 3, scope: !6)
 !15 = !{!"intel.optreport.remarks", !16}
-!16 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
+!16 = !{!"intel.optreport.remark", i32 25436, !"Loop completely unrolled by %d", i32 4}
 !17 = !DILocation(line: 6, column: 19, scope: !6)
 !18 = !{!19, !19, i64 0}
 !19 = !{!"float", !20, i64 0}

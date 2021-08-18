@@ -66,8 +66,13 @@ static void printProtoLoopOptReport(
                << opt_report_proto::BinOptReport::Property_Name(R.prop_id()));
     LLVM_DEBUG(dbgs() << ", Remark ID: " << R.remark_id());
     LLVM_DEBUG(dbgs() << ", Remark Args: ");
-    for (auto J = 0; J < R.args_size(); ++J)
-      LLVM_DEBUG(dbgs() << R.args(J) << " ");
+    for (auto J = 0; J < R.args_size(); ++J) {
+      const opt_report_proto::BinOptReport::Arg &Arg = R.args(J);
+      if (Arg.has_str_arg())
+        LLVM_DEBUG(dbgs() << Arg.str_arg().value() << " ");
+      else if (Arg.has_int32_arg())
+        LLVM_DEBUG(dbgs() << Arg.int32_arg().value() << " ");
+    }
     LLVM_DEBUG(dbgs() << "\n");
   }
   LLVM_DEBUG(dbgs() << "==== Loop End ====\n");
@@ -264,7 +269,8 @@ static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
     DiagPropertyMap = {
         {15300, opt_report_proto::BinOptReport::C_LOOP_VECTORIZED},
         {15305, opt_report_proto::BinOptReport::C_LOOP_VEC_VL},
-        {25532, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
+        {25508, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
+        {25436, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL_FACTOR},
 };
 #endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
@@ -313,9 +319,9 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
     LOR->set_anchor_id(AnchorID.str());
     // Translate diagnostic remarks to properties.
     for (const OptRemark Remark : OR.remarks()) {
-      // TODO: Promote interface to OptRemark::getRemarkID.
-      const auto *RID = cast<ConstantAsMetadata>(Remark.getOperand(0));
-      unsigned RemarkID = getMDNodeAsUnsigned(RID);
+      // TODO: Promote interface to LoopOptRemark::getRemarkID.
+      unsigned RemarkID =
+          mdconst::extract<ConstantInt>(Remark.getOperand(0))->getZExtValue();
 
       // Ignore remark if it doesn't have an equivalent property in binary
       // opt-report.
@@ -330,12 +336,23 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
       EmittedRemarkIDs.insert(RemarkID);
 
       for (unsigned Op = 2; Op < Remark.getNumOperands(); ++Op) {
-        const auto *RemarkOp = dyn_cast<MDString>(Remark.getOperand(Op));
-        // TODO: Add support for int args, float args
-        if (!RemarkOp)
-          continue;
-        std::string ArgString = std::string(RemarkOp->getString());
-        BinRemark->add_args(ArgString);
+        // Create and add remark argument based on its type.
+        if (auto *RemarkOp = dyn_cast<MDString>(Remark.getOperand(Op))) {
+          std::string ArgString = std::string(RemarkOp->getString());
+          opt_report_proto::BinOptReport::Arg *RemarkArg =
+              BinRemark->add_args();
+          auto *StrArg = RemarkArg->mutable_str_arg();
+          StrArg->set_value(ArgString);
+        }
+
+        if (auto *RemarkOp =
+                mdconst::dyn_extract<ConstantInt>(Remark.getOperand(Op))) {
+          unsigned ArgInt = RemarkOp->getZExtValue();
+          opt_report_proto::BinOptReport::Arg *RemarkArg =
+              BinRemark->add_args();
+          auto *IntArg = RemarkArg->mutable_int32_arg();
+          IntArg->set_value(ArgInt);
+        }
       }
     }
   }
