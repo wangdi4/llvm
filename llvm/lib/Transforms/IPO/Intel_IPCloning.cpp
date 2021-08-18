@@ -3263,7 +3263,7 @@ static void changeCPUAttributes(Module &M) {
     F.removeFnAttr("target-features");
     Attrs.addAttribute("target-cpu", "core-avx2");
     Attrs.addAttribute("target-features", AVX2Attributes);
-    F.addAttributes(FI, Attrs);
+    F.addFnAttrs(Attrs);
   }
   LLVM_DEBUG(dbgs() << "AVX512->AVX2 conversion: Conversion complete\n");
 }
