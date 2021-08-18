@@ -4028,13 +4028,9 @@ static void GenerateLangOptRequirements(const Record &R,
     return;
 
   OS << "bool acceptsLangOpts(const LangOptions &LangOpts) const override {\n";
-#if INTEL_CUSTOMIZATION
   OS << "  if (" << GenerateTestExpression(LangOpts, true) << ")\n";
   OS << "    return true;\n\n";
   OS << "  return !" << GenerateTestExpression(LangOpts, false) << ";\n";
-#else
-  OS << "  return " << GenerateTestExpression(LangOpts, true) << ";\n";
-#endif // INTEL_CUSTOMIZATION
   OS << "}\n\n";
 }
 
