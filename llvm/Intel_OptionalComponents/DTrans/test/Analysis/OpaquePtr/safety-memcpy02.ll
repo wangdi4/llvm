@@ -153,7 +153,7 @@ define void @test06(%struct.test06c* "intel_dtrans_func_index"="1" %pStruct1, %s
 ; CHECK: Safety data: No issues found
 
 ; Not including the actual types of the pointer fields in check lines, because
-; with opaque pointers they will just be 'p0'
+; with opaque pointers they will just be 'ptr'
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test06c
 ; CHECK: 0)Field LLVM Type:
@@ -174,9 +174,9 @@ define void @test07(%struct.test07* "intel_dtrans_func_index"="1" %pStruct1, %st
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test07
 ; CHECK: 0)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 3)Field LLVM Type: i32

@@ -4362,6 +4362,12 @@ private:
     MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
     MCI->addElemType(ElemTy);
+
+    // Some transformations may only support memset calls that do not cover all
+    // the fields of the structure on the fields not touched by the partial
+    // memset.
+    if (!RegionDesc.IsCompleteAggregate)
+      markFieldsComplexUse(ElemTy, RegionDesc.FirstField, RegionDesc.LastField);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
@@ -4377,6 +4383,22 @@ private:
     MCI->setAliasesToAggregateType(true);
     MCI->setAnalyzed(true);
     MCI->addElemType(ElemTy);
+
+    // Some transformations may only support memcpy/memmove calls that do not
+    // cover all the fields of the structure on the fields not touched by the
+    // partial memory write.
+    if (!RegionDescDest.IsCompleteAggregate)
+      markFieldsComplexUse(ElemTy, RegionDescDest.FirstField,
+                           RegionDescDest.LastField);
+  }
+
+  // Set the ComplexUse member for the fields from 'First' to 'Last' inclusive
+  // on 'AggType' if it is a structure type.
+  void markFieldsComplexUse(DTransType *AggType, unsigned First, unsigned Last) {
+    if (auto *StInfo =
+            dyn_cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(AggType)))
+      for (auto I = First, E = Last + 1; I != E; ++I)
+        StInfo->getField(I).setComplexUse(true);
   }
 
   // Return 'true' if the DTransType is something that may require safety data

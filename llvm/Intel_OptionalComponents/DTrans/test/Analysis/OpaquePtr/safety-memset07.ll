@@ -20,13 +20,13 @@ define "intel_dtrans_func_index"="1" %struct.test01* @test01() !intel.dtrans.fun
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i64
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 2)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 3)Field LLVM Type: i16
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 4)Field LLVM Type: i16
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
 
 
@@ -44,13 +44,13 @@ define "intel_dtrans_func_index"="1" %struct.test02* @test02() !intel.dtrans.fun
 ; CHECK: 0)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i64
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 2)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 3)Field LLVM Type: i16
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 4)Field LLVM Type: i16
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
 
 
