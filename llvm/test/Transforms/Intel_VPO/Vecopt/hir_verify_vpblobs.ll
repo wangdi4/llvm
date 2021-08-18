@@ -52,17 +52,12 @@
 ; for this while checking for unique entries in VPExternalDefsHIR.
 
 
-; REQUIRES: asserts
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -debug-only=LoopVectorizationPlanner -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" -S -vplan-force-vf=4  < %s 2>&1 | FileCheck %s
 
 
-; CHECK:      Selecting VF for VPlan #1
-; CHECK-NEXT: Cost of Scalar VPlan: 92
-; CHECK-NEXT: '#pragma vector always'/ '#pragma omp simd' is used for the given loop
-; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 2 x 112063 + 0 = 224126
-; CHECK:      Scalar Cost = 4 x 23000 = 92000 < VectorCost = 0 + 1 x 491188 + 0 = 491188
-; CHECK:      Selecting VPlan with VF=2
+; Check for v4i8 gather to present as an sufficient check for successful vectorization.
+; CHECK:      llvm.masked.gather.v4i8.v4p0i8
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
