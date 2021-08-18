@@ -1,7 +1,7 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -vpo-paropt-parameter-homing=false -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload  -vpo-paropt-parameter-homing=false -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-emit-target-fp-ctor-dtor=true -vpo-paropt-parameter-homing=false -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-emit-target-fp-ctor-dtor=true -vpo-paropt-parameter-homing=false -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt  -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload  -S | FileCheck %s -check-prefix=NOCTORDTOR -check-prefix=ALL
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-emit-target-fp-ctor-dtor=true -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-emit-target-fp-ctor-dtor=true -S | FileCheck %s -check-prefix=CTORDTOR -check-prefix=ALL
 
 ; Test src:
 

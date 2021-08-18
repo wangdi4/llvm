@@ -34,9 +34,9 @@ target device_triples = "spir64"
 ; CHECK: br i1 %[[CMP1]], label %fast.red.gpu.update.body, label %fast.red.gpu.update.latch
 ; CHECK-LABEL: fast.red.gpu.update.body:
 ; CHECK: %[[LOCAL_SUM_VAL:[^,]+]] = load
-; CHECK: %[[GLOBAL_SUM_VAL:[^,]+]] = load i32, i32 addrspace(4)* %[[GLOBAL_SUM:[^,]+]]
+; CHECK: %[[GLOBAL_SUM_VAL:[^,]+]] = load i32, i32 addrspace(1)* %[[GLOBAL_SUM:[^,]+]]
 ; CHECK: %[[RED_VALUE:[^,]+]] = add i32 %[[GLOBAL_SUM_VAL]], %[[LOCAL_SUM_VAL]]
-; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(4)* %[[GLOBAL_SUM]]
+; CHECK: store i32 %[[RED_VALUE]], i32 addrspace(1)* %[[GLOBAL_SUM]]
 ; CHECK: br label %fast.red.gpu.update.latch
 ; CHECK-LABEL: fast.red.gpu.update.latch:
 ; CHECK: call spir_func void @_Z22__spirv_ControlBarrieriii(i32 2, i32 2, i32 272)
