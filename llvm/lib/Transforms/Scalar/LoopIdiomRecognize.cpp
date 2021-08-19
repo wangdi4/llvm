@@ -949,7 +949,7 @@ bool LoopIdiomRecognize::processLoopMemCpy(MemCpyInst *MCI,
       return OptimizationRemarkMissed(DEBUG_TYPE, "SizeStrideUnequal", MCI)
              << ore::NV("Inst", "memcpy") << " in "
              << ore::NV("Function", MCI->getFunction())
-             << " function will not be hoised: "
+             << " function will not be hoisted: "
              << ore::NV("Reason", "memcpy size is not equal to stride");
     });
     return false;
@@ -1071,8 +1071,8 @@ static bool
 mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
                       const SCEV *BECount, const SCEV *StoreSizeSCEV,
                       AliasAnalysis &AA,
-                      SmallPtrSetImpl<Instruction *> &IgnoredStores, // INTEL
-                      const AAMDNodes *AATags) {                     // INTEL
+                      SmallPtrSetImpl<Instruction *> &IgnoredInsts, // INTEL
+                      const AAMDNodes *AATags) {                    // INTEL
   // Get the location that may be stored across the loop.  Since the access is
   // strided positively through memory, we say that the modified location starts
   // at the pointer and has infinite size.
@@ -1100,7 +1100,7 @@ mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
   for (Loop::block_iterator BI = L->block_begin(), E = L->block_end(); BI != E;
        ++BI)
     for (Instruction &I : **BI)
-      if (IgnoredStores.count(&I) == 0 &&
+      if (IgnoredInsts.count(&I) == 0 &&
           isModOrRefSet(
               intersectModRef(AA.getModRefInfo(&I, StoreLoc), Access)))
         return true;
@@ -1391,19 +1391,19 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
   // the return value will read this comment, and leave them alone.
   Changed = true;
 
-  SmallPtrSet<Instruction *, 2> Stores;
-  Stores.insert(TheStore);
+  SmallPtrSet<Instruction *, 2> IgnoredInsts;
+  IgnoredInsts.insert(TheStore);
 
   bool IsMemCpy = isa<MemCpyInst>(TheStore);
   const StringRef InstRemark = IsMemCpy ? "memcpy" : "load and store";
 
   bool UseMemMove =
       mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-                            StoreSizeSCEV, *AA, Stores, &AAInfo);  // INTEL
+                            StoreSizeSCEV, *AA, IgnoredInsts, &AAInfo);  // INTEL
   if (UseMemMove) {
-    Stores.insert(TheLoad);
+    IgnoredInsts.insert(TheLoad);
     if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop,
-                              BECount, StoreSizeSCEV, *AA, Stores, // INTEL
+                              BECount, StoreSizeSCEV, *AA, IgnoredInsts, // INTEL
                               &AAInfo)) {                          // INTEL
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessStore",
@@ -1415,7 +1415,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
       });
       return Changed;
     }
-    Stores.erase(TheLoad);
+    IgnoredInsts.erase(TheLoad);
   }
 
   const SCEV *LdStart = LoadEv->getStart();
@@ -1434,9 +1434,9 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
   // If the store is a memcpy instruction, we must check if it will write to
   // the load memory locations. So remove it from the ignored stores.
   if (IsMemCpy)
-    Stores.erase(TheStore);
+    IgnoredInsts.erase(TheStore);
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-                            StoreSizeSCEV, *AA, Stores, nullptr)) { // INTEL
+                            StoreSizeSCEV, *AA, IgnoredInsts, nullptr)) { // INTEL
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessLoad", TheLoad)
              << ore::NV("Inst", InstRemark) << " in "
@@ -1534,8 +1534,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
            << " function";
   });
 
-  // Okay, the memcpy has been formed.  Zap the original store and anything that
-  // feeds into it.
+  // Okay, a new call to memcpy/memmove has been formed.  Zap the original store
+  // and anything that feeds into it.
   if (MSSAU)
     MSSAU->removeMemoryAccess(TheStore, true);
   deleteDeadInstruction(TheStore);
