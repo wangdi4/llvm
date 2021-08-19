@@ -66,7 +66,6 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
-#include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
