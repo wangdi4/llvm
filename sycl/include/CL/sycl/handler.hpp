@@ -554,10 +554,12 @@ private:
       MArgs = std::move(MAssociatedAccesors);
     }
 
+/* INTEL_CUSTOMIZATION */
     // If the kernel lambda is callable with a kernel_handler argument, manifest
     // the associated kernel handler.
-    if (detail::isKernelLambdaCallableWithKernelHandlerImpl<KernelType,
-                                                        LambdaArgType>()) {
+    if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
+                                                        LambdaArgType>::value) {
+/* end INTEL_CUSTOMIZATION */
       getOrInsertHandlerKernelBundle(/*Insert=*/true);
     }
   }
