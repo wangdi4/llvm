@@ -6908,11 +6908,13 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // targeted environment and Intel's libirc can be used and opt
   // level is higher than O1.
   RTLIB::Libcall libcall = RTLIB::MEMCPY;
+#if INTEL_FEATURE_SW_ADVANCED
   if (LibInfo->has(LibFunc_memcpy) &&
       OptLevel > CodeGenOpt::Less &&
       MF->getTarget().Options.IntelLibIRCAllowed) {
     libcall = RTLIB::INTEL_MEMCPY;
   }
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
   TargetLowering::CallLoweringInfo CLI(*this);
@@ -7126,11 +7128,13 @@ SDValue SelectionDAG::getMemset(SDValue Chain, const SDLoc &dl, SDValue Dst,
   // targeted environment and Intel's libirc can be used and opt
   // level is higher than O1.
   RTLIB::Libcall libcall = RTLIB::MEMSET;
+#if INTEL_FEATURE_SW_ADVANCED
   if (LibInfo->has(LibFunc_memset) &&
       OptLevel > CodeGenOpt::Less &&
       MF->getTarget().Options.IntelLibIRCAllowed) {
     libcall = RTLIB::INTEL_MEMSET;
   }
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
 
   TargetLowering::CallLoweringInfo CLI(*this);

@@ -2747,6 +2747,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       return false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
     // targeted environment and Intel's libirc can be used and opt
@@ -2760,8 +2761,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     }
     const char *libFn = TLI.getLibcallName(libcall);
     return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
-#else
+#else // INTEL_FEATURE_SW_ADVANCED
     return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 1);
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::memset: {
@@ -2778,6 +2780,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       return false;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
     // Determine the function name to use based upon whether or not
     // the corresponding standard library function is available in the
     // targeted environment and Intel's libirc can be used and opt
@@ -2791,8 +2794,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     }
     const char *libFn = TLI.getLibcallName(libcall);
     return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
-#else
+#else // INTEL_FEATURE_SW_ADVANCED
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 1);
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::stackprotector: {

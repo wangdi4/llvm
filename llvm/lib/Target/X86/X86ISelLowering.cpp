@@ -2337,12 +2337,14 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setLibcallCallingConv(RTLIB::ATAN_F32, CallingConv::X86_AVX2_C);
     setLibcallCallingConv(RTLIB::ATAN2_F32, CallingConv::X86_AVX2_C);
 
+#if INTEL_FEATURE_SW_ADVANCED
     // libirc
     setLibcallName(RTLIB::INTEL_MEMCPY, "__intel_avx_rep_memcpy");
     setLibcallName(RTLIB::INTEL_MEMSET, "__intel_avx_rep_memset");
 
     setLibcallCallingConv(RTLIB::INTEL_MEMCPY, CallingConv::X86_AVX2_C);
     setLibcallCallingConv(RTLIB::INTEL_MEMSET, CallingConv::X86_AVX2_C);
+#endif // INTEL_FEATURE_SW_ADVANCED
   }
 #endif // INTEL_CUSTOMIZATION
 

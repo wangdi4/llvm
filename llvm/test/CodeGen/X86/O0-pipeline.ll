@@ -34,7 +34,12 @@
 ; CHECK-NEXT:       Expand complex intrinsics ;INTEL
 ; CHECK-NEXT:       Expand indirectbr instructions
 ; CHECK-NEXT:       Exception handling preparation
-; CHECK-NEXT:       X86 runtime feature initialization pass ;INTEL
+; INTEL_CUSTOMIZATION
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+; CHECK-NEXT:       X86 runtime feature initialization pass
+; end INTEL_FEATURE_SW_ADVANCED
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:       Safe Stack instrumentation pass
 ; CHECK-NEXT:       Insert stack protectors
 ; CHECK-NEXT:       Module Verifier

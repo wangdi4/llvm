@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; REQUIRES: asserts
 ; RUN: opt %s -o %t.bc
 ; RUN: not ld.lld --lto-O2 -e main \
@@ -42,3 +44,4 @@ attributes #1 = { "target-features"="+avx,+avx2,+sse4.2" }
 ; CHECK: Target has Intel AVX
 ; CHECK: Target has Intel AVX2
 ; CHECK-NOT: Target has Intel AVX512
+; end INTEL_FEATURE_SW_ADVANCED
