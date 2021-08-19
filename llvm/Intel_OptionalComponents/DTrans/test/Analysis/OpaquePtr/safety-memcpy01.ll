@@ -41,9 +41,9 @@ define void @test02(%struct.test02* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02
 ; CHECK: 0)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 1)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 2)Field LLVM Type: i32
 ; CHECK: Field info:{{ *}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}
@@ -81,9 +81,9 @@ define void @test04(%struct.test04* "intel_dtrans_func_index"="1" %pStructA, %st
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 2)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 3)Field LLVM Type: i32
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 4)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Memfunc partial write{{ *$}}

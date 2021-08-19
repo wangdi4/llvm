@@ -21,15 +21,15 @@ define void @test01(%struct.test01a* "intel_dtrans_func_index"="1" %pStructA, %s
   ret void
 }
 ; Not including the actual types of the pointer fields in check lines, because
-; with opaque pointers they will just be 'p0'
+; with opaque pointers they will just be 'ptr'
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
 ; CHECK: 0)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type:
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 2)Field LLVM Type:
-; CHECK: Field info: Written
+; CHECK: Field info: Written ComplexUse
 ; CHECK: 3)Field LLVM Type: i64
 ; CHECK: Field info:{{ *$}}
 ; CHECK: 4)Field LLVM Type: i64
