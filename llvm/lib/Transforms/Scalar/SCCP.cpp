@@ -532,8 +532,7 @@ bool llvm::runIPSCCP(
           if (!CB || CB->getCalledFunction() != &F)
             continue;
 
-          CB->removeAttributes(AttributeList::FunctionIndex,
-                               AttributesToRemove);
+          CB->removeFnAttrs(AttributesToRemove);
         }
       }
     }

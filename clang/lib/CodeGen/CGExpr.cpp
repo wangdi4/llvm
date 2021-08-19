@@ -3643,7 +3643,7 @@ void CodeGenFunction::EmitTrapCheck(llvm::Value *Checked,
     if (!CGM.getCodeGenOpts().TrapFuncName.empty()) {
       auto A = llvm::Attribute::get(getLLVMContext(), "trap-func-name",
                                     CGM.getCodeGenOpts().TrapFuncName);
-      TrapCall->addAttribute(llvm::AttributeList::FunctionIndex, A);
+      TrapCall->addFnAttr(A);
     }
     TrapCall->setDoesNotReturn();
     TrapCall->setDoesNotThrow();
@@ -3667,7 +3667,7 @@ llvm::CallInst *CodeGenFunction::EmitTrapCall(llvm::Intrinsic::ID IntrID) {
   if (!CGM.getCodeGenOpts().TrapFuncName.empty()) {
     auto A = llvm::Attribute::get(getLLVMContext(), "trap-func-name",
                                   CGM.getCodeGenOpts().TrapFuncName);
-    TrapCall->addAttribute(llvm::AttributeList::FunctionIndex, A);
+    TrapCall->addFnAttr(A);
   }
 
   return TrapCall;
