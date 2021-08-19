@@ -26,4 +26,4 @@ define internal void @test02() {
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02
-; CHECK: Safety data: Local instance | Unhandled use{{ *}}
+; CHECK: Safety data: Bad casting | Unsafe pointer store | Local instance{{ *}}

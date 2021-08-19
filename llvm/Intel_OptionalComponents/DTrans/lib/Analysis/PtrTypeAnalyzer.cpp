@@ -1237,6 +1237,16 @@ private:
         return;
       }
 
+      if (auto *CE = dyn_cast<ConstantExpr>(V))
+        if (CE->isCast()) {
+          // Try to infer the type of something of the form:
+          //   inttoptr i64 128 to i32*
+          inferTypeFromUse(CE, Info);
+          if (Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
+            Info->setUnhandled();
+          return;
+        }
+
       Info->setUnhandled();
       LLVM_DEBUG({
         dbgs() << "analyzeValueImpl not implemented for:";
@@ -2967,31 +2977,27 @@ private:
     if (!SrcInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
 
-    // Currently, this only supports converting an integer that is the
-    // result of a PtrToInt instruction,
+    // If the source operand was evaluated as having been converted from a
+    // pointer type, that type will have been propagated as the result type of
+    // this inttoptr conversion. Also look at the users to try to infer a type
+    // for the pointer.
+    // For example:
     //   %i = ptrtoint %struct.foo* to i64
-    //   %p = inttoptr i64 %i to %struct.foo*
+    //   %p = inttoptr i64 %i to %struct.foobar*
     //
-    // All other uses will be set to unhandled because it would require
-    // analyzing all the integer arithmetic operations that may be modifying the
-    // pointer. Special cases that need to analyze patterns of this sort
-    // for memory allocation buffers should be processed prior to calling
-    // analyzeValue and marked as completely analyzed to avoid being flagged as
-    // unhandled here.
-    //   For example:
-    //     %alloc = call %struct.foo* @foo_allocator()
-    //     %i = ptrtoint %struct.foo* %alloc to i64
-    //     %r2 = shr i64 %i, 2
-    //     %l8 = shl i64 %r2, 2
-    //     %a8 = add i64 %l8, 8
-    //     %p = inttoptr i64 %a8 to %struct.foo*
-    Value *PTI = dyn_cast<PtrToIntInst>(Src);
-    if (PTI)
-      return;
-
-    ResultInfo->setUnhandled();
-    LLVM_DEBUG(dbgs() << "IntToPtr not tracked to source type: " << *ITP
-                      << "\n");
+    // Or:
+    //   %alloc = call %struct.foo* @foo_allocator()
+    //   %i = ptrtoint %struct.foo* %alloc to i64
+    //   %r2 = ashr i64 %i, 2
+    //   %l8 = shl i64 %r2, 2
+    //   %a8 = add i64 %l8, 8
+    //   %p = inttoptr i64 %a8 to %struct.foo*
+    //
+    // These cases may result in the DTransSafetyAnalyzer marking the type as
+    // unhandled use or bad casting when it processes the IR.
+    inferTypeFromUse(ITP, ResultInfo);
+    if (ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use).empty())
+      ResultInfo->setUnhandled();
   }
 
   void analyzeExtractValueInst(ExtractValueInst *EV,

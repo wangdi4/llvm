@@ -15,7 +15,7 @@
 
 ; Simple test of type propagation tracking through "ptrtoint" and "inttoptr"
 ; instructions.
-%struct.test01 = type { i32, i32}
+%struct.test01 = type { i32, i32 }
 define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !3 {
   %i = ptrtoint %struct.test01* %in to i64
   %p = inttoptr i64 %i to %struct.test01*
@@ -39,7 +39,7 @@ define internal void @test01(%struct.test01* "intel_dtrans_func_index"="1" %in) 
 
 ; Test of type propagation for a case that safety analysis will later
 ; need to detect as unsafe.
-%struct.test02 = type { i32, i32}
+%struct.test02 = type { i32, i32 }
 define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !5 {
   ; The Conversion results in truncation of value. For the purpose of type
   ; recovery, we will track it as the original pointer type, and leave it
@@ -64,20 +64,15 @@ define internal void @test02(%struct.test02* "intel_dtrans_func_index"="1" %in) 
 ; CHECK-NEXT: No element pointees.
 
 
-; Test a case that should be detected as UNHANDLED with the current
-; analysis because only simple backtracking is done for the integer
-; value of an "inttoptr" instruction.
-%struct.test03 = type { i32, i32}
+%struct.test03 = type { i32, i32 }
 define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) !intel.dtrans.func.type !7 {
   %i = ptrtoint %struct.test03* %in to i64
   %r8 = ashr i64 %i, 8
   %l8 = shl i64 %r8, 8
   %a8 = add i64 %l8, 8
 
-  ; For this case, we mark the result as unhandled. More tracking of the
-  ; source of %a8 would be needed to handle it.
   %p = inttoptr i64 %a8 to %struct.test03*
-
+  %gep = getelementptr %struct.test03, %struct.test03* %p, i64 0, i32 1
   ret void
 }
 ; CHECK-LABEL: void @test03
@@ -91,7 +86,9 @@ define internal void @test03(%struct.test03* "intel_dtrans_func_index"="1" %in) 
 ; CHECK-NONOPAQUE:  %p = inttoptr i64 %a8 to %struct.test03*
 ; CHECK-OPAQUE:  %p = inttoptr i64 %a8 to ptr
 ; CHECK-NEXT: LocalPointerInfo:
-; CHECK-SAME: <UNHANDLED>
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03*{{ *$}}
+; CHEKC-NEXT: No Element pointees
 
 
 !1 = !{i32 0, i32 0}  ; i32
