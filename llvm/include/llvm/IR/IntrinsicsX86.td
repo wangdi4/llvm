@@ -6598,10 +6598,10 @@ let TargetPrefix = "x86" in {
   def int_x86_tcmmrlfp16ps : GCCBuiltin<"__builtin_ia32_tcmmrlfp16ps">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-  def int_x86_tconjcmmimfp16ps : GCCBuiltin<"__builtin_ia32_tconjcmmimfp16ps">,
+  def int_x86_tconjtcmmimfp16ps : GCCBuiltin<"__builtin_ia32_tconjtcmmimfp16ps">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>, ImmArg<ArgIndex<2>>]>;
-  def int_x86_tconjfp16 : GCCBuiltin<"__builtin_ia32_tconjfp16">,
+  def int_x86_tconjtfp16 : GCCBuiltin<"__builtin_ia32_tconjtfp16">,
         Intrinsic<[], [llvm_i8_ty, llvm_i8_ty],
         [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
   def int_x86_ttcmmimfp16ps : GCCBuiltin<"__builtin_ia32_ttcmmimfp16ps">,
@@ -6623,14 +6623,14 @@ let TargetPrefix = "x86" in {
                         [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
                          llvm_x86amx_ty, llvm_x86amx_ty,
                          llvm_x86amx_ty], []>;
-  def int_x86_tconjcmmimfp16ps_internal :
-              GCCBuiltin<"__builtin_ia32_tconjcmmimfp16ps_internal">,
+  def int_x86_tconjtcmmimfp16ps_internal :
+              GCCBuiltin<"__builtin_ia32_tconjtcmmimfp16ps_internal">,
               Intrinsic<[llvm_x86amx_ty],
                         [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty,
                          llvm_x86amx_ty, llvm_x86amx_ty,
                          llvm_x86amx_ty], []>;
-  def int_x86_tconjfp16_internal :
-              GCCBuiltin<"__builtin_ia32_tconjfp16_internal">,
+  def int_x86_tconjtfp16_internal :
+              GCCBuiltin<"__builtin_ia32_tconjtfp16_internal">,
               Intrinsic<[llvm_x86amx_ty],
                         [llvm_i16_ty, llvm_i16_ty, llvm_x86amx_ty], []>;
   def int_x86_ttcmmimfp16ps_internal :

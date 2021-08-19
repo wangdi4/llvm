@@ -17,21 +17,21 @@
 // CHECK: encoding: [0xc4,0xe2,0x70,0x6c,0xda]
                tcmmrlfp16ps %tmm1, %tmm2, %tmm3
 
-// CHECK:      tconjcmmimfp16ps %tmm4, %tmm5, %tmm6
+// CHECK:      tconjtcmmimfp16ps %tmm4, %tmm5, %tmm6
 // CHECK: encoding: [0xc4,0xe2,0x58,0x6b,0xf5]
-               tconjcmmimfp16ps %tmm4, %tmm5, %tmm6
+               tconjtcmmimfp16ps %tmm4, %tmm5, %tmm6
 
-// CHECK:      tconjcmmimfp16ps %tmm1, %tmm2, %tmm3
+// CHECK:      tconjtcmmimfp16ps %tmm1, %tmm2, %tmm3
 // CHECK: encoding: [0xc4,0xe2,0x70,0x6b,0xda]
-               tconjcmmimfp16ps %tmm1, %tmm2, %tmm3
+               tconjtcmmimfp16ps %tmm1, %tmm2, %tmm3
 
-// CHECK:      tconjfp16 %tmm5, %tmm6
+// CHECK:      tconjtfp16 %tmm5, %tmm6
 // CHECK: encoding: [0xc4,0xe2,0x79,0x6b,0xf5]
-               tconjfp16 %tmm5, %tmm6
+               tconjtfp16 %tmm5, %tmm6
 
-// CHECK:      tconjfp16 %tmm2, %tmm3
+// CHECK:      tconjtfp16 %tmm2, %tmm3
 // CHECK: encoding: [0xc4,0xe2,0x79,0x6b,0xda]
-               tconjfp16 %tmm2, %tmm3
+               tconjtfp16 %tmm2, %tmm3
 
 // CHECK:      ttcmmimfp16ps %tmm4, %tmm5, %tmm6
 // CHECK: encoding: [0xc4,0xe2,0x5b,0x6b,0xf5]

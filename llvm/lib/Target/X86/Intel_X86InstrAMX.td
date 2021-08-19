@@ -1414,9 +1414,9 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
                             (ins TILE:$src1, TILE:$src2, TILE:$src3),
                             "tcmmrlfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                             []>, VEX_4V, VEX_WIG, T8PS;
-      def TCONJCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
+      def TCONJTCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
                             (ins TILE:$src1, TILE:$src2, TILE:$src3),
-                            "tconjcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
+                            "tconjtcmmimfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                             []>, VEX_4V, VEX_WIG, T8PS;
       def TTCMMIMFP16PS : I<0x6b, MRMSrcReg4VOp3, (outs TILE:$dst),
                             (ins TILE:$src1, TILE:$src2, TILE:$src3),
@@ -1442,11 +1442,11 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
                                   [(set TILE: $dst,
                                   (int_x86_tcmmrlfp16ps_internal GR16:$src1, GR16:$src2,
                                    GR16:$src3, TILE:$src4, TILE:$src5, TILE:$src6))]>;
-      def PTCONJCMMIMFP16PSV : PseudoI<(outs TILE:$dst), (ins GR16:$src1,
+      def PTCONJTCMMIMFP16PSV : PseudoI<(outs TILE:$dst), (ins GR16:$src1,
                                   GR16:$src2, GR16:$src3, TILE:$src4,
                                   TILE:$src5, TILE:$src6),
                                   [(set TILE: $dst,
-                                  (int_x86_tconjcmmimfp16ps_internal GR16:$src1, GR16:$src2,
+                                  (int_x86_tconjtcmmimfp16ps_internal GR16:$src1, GR16:$src2,
                                    GR16:$src3, TILE:$src4, TILE:$src5, TILE:$src6))]>;
       def PTTCMMIMFP16PSV : PseudoI<(outs TILE:$dst), (ins GR16:$src1,
                                   GR16:$src2, GR16:$src3, TILE:$src4,
@@ -1461,14 +1461,14 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
                                   (int_x86_ttcmmrlfp16ps_internal GR16:$src1, GR16:$src2,
                                    GR16:$src3, TILE:$src4, TILE:$src5, TILE:$src6))]>;
     }
-    def PTCONJFP16V : PseudoI<(outs TILE:$dst),
+    def PTCONJTFP16V : PseudoI<(outs TILE:$dst),
                                 (ins GR16:$src1, GR16:$src2, TILE:$src3),
                                 [(set TILE: $dst,
-                                 (int_x86_tconjfp16_internal GR16:$src1, GR16:$src2,
+                                 (int_x86_tconjtfp16_internal GR16:$src1, GR16:$src2,
                                   TILE:$src3))]>;
 
-    def TCONJFP16   : I<0x6b, MRMSrcReg, (outs TILE:$dst), (ins TILE:$src),
-                        "tconjfp16\t{$src, $dst|$dst, $src}",
+    def TCONJTFP16   : I<0x6b, MRMSrcReg, (outs TILE:$dst), (ins TILE:$src),
+                        "tconjtfp16\t{$src, $dst|$dst, $src}",
                         []>, VEX, T8PD;
 
     let usesCustomInserter = 1 in {
@@ -1480,12 +1480,12 @@ let Predicates = [HasAMXCOMPLEX, In64BitMode] in {
                                 u8imm:$src2, u8imm:$src3),
                                 [(int_x86_tcmmrlfp16ps timm:$src1,
                                   timm:$src2, timm:$src3)]>;
-      def PTCONJCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
+      def PTCONJTCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
                                 u8imm:$src2, u8imm:$src3),
-                                [(int_x86_tconjcmmimfp16ps timm:$src1,
+                                [(int_x86_tconjtcmmimfp16ps timm:$src1,
                                   timm:$src2, timm:$src3)]>;
-      def PTCONJFP16 : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
-                              [(int_x86_tconjfp16 timm:$dst, timm:$src)]>;
+      def PTCONJTFP16 : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
+                              [(int_x86_tconjtfp16 timm:$dst, timm:$src)]>;
       def PTTCMMIMFP16PS : PseudoI<(outs), (ins u8imm:$src1,
                                 u8imm:$src2, u8imm:$src3),
                                 [(int_x86_ttcmmimfp16ps timm:$src1,

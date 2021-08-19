@@ -13,16 +13,16 @@
 # CHECK:      tcmmrlfp16ps %tmm1, %tmm2, %tmm3
 0xc4,0xe2,0x70,0x6c,0xda
 
-# CHECK:      tconjcmmimfp16ps %tmm4, %tmm5, %tmm6
+# CHECK:      tconjtcmmimfp16ps %tmm4, %tmm5, %tmm6
 0xc4,0xe2,0x58,0x6b,0xf5
 
-# CHECK:      tconjcmmimfp16ps %tmm1, %tmm2, %tmm3
+# CHECK:      tconjtcmmimfp16ps %tmm1, %tmm2, %tmm3
 0xc4,0xe2,0x70,0x6b,0xda
 
-# CHECK:      tconjfp16 %tmm5, %tmm6
+# CHECK:      tconjtfp16 %tmm5, %tmm6
 0xc4,0xe2,0x79,0x6b,0xf5
 
-# CHECK:      tconjfp16 %tmm2, %tmm3
+# CHECK:      tconjtfp16 %tmm2, %tmm3
 0xc4,0xe2,0x79,0x6b,0xda
 
 # CHECK:      ttcmmimfp16ps %tmm4, %tmm5, %tmm6

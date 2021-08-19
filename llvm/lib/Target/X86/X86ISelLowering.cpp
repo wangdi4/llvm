@@ -36997,10 +36997,10 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 #if INTEL_FEATURE_ISA_AMX_COMPLEX
-  case X86::PTCONJFP16:
+  case X86::PTCONJTFP16:
   case X86::PTCMMIMFP16PS:
   case X86::PTCMMRLFP16PS:
-  case X86::PTCONJCMMIMFP16PS:
+  case X86::PTCONJTCMMIMFP16PS:
   case X86::PTTCMMIMFP16PS:
   case X86::PTTCMMRLFP16PS: {
     const DebugLoc &DL = MI.getDebugLoc();
@@ -37009,15 +37009,15 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     default: llvm_unreachable("Unexpected instruction!");
     case X86::PTCMMIMFP16PS:     Opc = X86::TCMMIMFP16PS;     break;
     case X86::PTCMMRLFP16PS:     Opc = X86::TCMMRLFP16PS;     break;
-    case X86::PTCONJCMMIMFP16PS: Opc = X86::TCONJCMMIMFP16PS; break;
+    case X86::PTCONJTCMMIMFP16PS: Opc = X86::TCONJTCMMIMFP16PS; break;
     case X86::PTTCMMIMFP16PS:    Opc = X86::TTCMMIMFP16PS;    break;
     case X86::PTTCMMRLFP16PS:    Opc = X86::TTCMMRLFP16PS;    break;
-    case X86::PTCONJFP16:        Opc = X86::TCONJFP16;        break;
+    case X86::PTCONJTFP16:        Opc = X86::TCONJTFP16;        break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
     MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
-    if (Opc != X86::TCONJFP16) {
+    if (Opc != X86::TCONJTFP16) {
       MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
       MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
     }
