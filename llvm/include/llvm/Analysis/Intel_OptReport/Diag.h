@@ -19,33 +19,12 @@
 #ifndef LLVM_ANALYSIS_INTEL_OPTREPORT_DIAG_H
 #define LLVM_ANALYSIS_INTEL_OPTREPORT_DIAG_H
 
+#include "llvm/ADT/DenseMap.h"
+
 namespace llvm {
 
 class OptReportDiag {
-  unsigned Id;
-  const char *Msg;
-  OptReportDiag(unsigned Id, const char *Msg) : Id(Id), Msg(Msg) {}
-  const char *getMsg() { return Msg; }
-  unsigned getMsgId() { return Id; }
-  /// Array of actual diagnistics IDs and messages.
-  static OptReportDiag Diags[];
-  /// Size of Diags[] array.
-  static unsigned DiagsMax;
-  /// Vec-report ID starts at 15300.
-  static const unsigned VecBegin = 15300;
-  /// Vec-report ID ends at 15553. "Not vectorized message" has to be
-  /// below 15555 (15555 - 15300 = 255) in order to fit within 8 bits for
-  /// VectorAdvisor communication.
-  ///
-  /// The issue with VectorAdvisor communication has to be addressed after
-  /// optimization reports high level design for xmain is approved.
-  ///
-  /// 15552 and below from ICC, the rest is xmain-specific.
-  static const unsigned VecEnd = 15569;
-  /// Loop-report ID used in ASM/OBJ starts at 25045.
-  static const unsigned LoopBegin = 25045;
-  /// Loop-report ID used in ASM/OBJ ends at 25584.
-  static const unsigned LoopEnd = 25584;
+  static const DenseMap<unsigned, const char *> Diags;
 
 public:
   /// Retrieve message string from the diagnostic ID.
