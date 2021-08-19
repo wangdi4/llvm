@@ -349,7 +349,7 @@ private:
   // A stack of IV memory slots for current loop nest. Creating a load
   // of value at CurIVValues[1] will return the IV for loop level 1 of
   // current loop nest
-  SmallVector<Value *, MaxLoopNestLevel + 1> CurIVValues;
+  SmallVector<AllocaInst *, MaxLoopNestLevel + 1> CurIVValues;
 
   // Maps the old region exiting edges to a vector of new ones. We can have
   // multiple new exits for one original exit due to replication (unrolling,
@@ -1905,8 +1905,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (auto Cast = dyn_cast<CastInst>(Inst)) {
     assert(Ops.size() == 2 && "invalid cast");
 
-    StoreVal = Builder.CreateCast(Cast->getOpcode(), Ops[1],
-                                  Ops[0]->getType()->getPointerElementType());
+    StoreVal = Builder.CreateCast(Cast->getOpcode(), Ops[1], Cast->getType());
 
   } else if (isa<SelectInst>(Inst)) {
     Value *CmpLHS = Ops[1];
@@ -1935,10 +1934,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
     StoreVal = Ops[1];
 
   } else if (auto *Alloca = dyn_cast<AllocaInst>(Inst)) {
-    // Lval type is a pointer to type returned by alloca inst. We need to
-    // dereference twice to get to element type
-    Type *ElementType =
-        Ops[0]->getType()->getPointerElementType()->getPointerElementType();
+    Type *ElementType = Alloca->getAllocatedType();
 
     auto *NewAlloca = Builder.CreateAlloca(
         ElementType, Ops[1],
@@ -2089,9 +2085,9 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
                            Type *Ty) {
 
   // Load IV at given level from this loop nest
-  Value *CurIVValue = CurIVValues[CE->getLevel(IVIt)];
-  auto *CurIVValueTy = CurIVValue->getType()->getPointerElementType();
-  Value *IV = Builder.CreateLoad(CurIVValueTy, CurIVValue);
+  AllocaInst *CurIVAlloca = CurIVValues[CE->getLevel(IVIt)];
+  auto *CurIVValueTy = CurIVAlloca->getAllocatedType();
+  Value *IV = Builder.CreateLoad(CurIVValueTy, CurIVAlloca);
 
   // If IV type and Ty(CE src type) do not match, convert as needed.
   if (IV->getType() != Ty) {

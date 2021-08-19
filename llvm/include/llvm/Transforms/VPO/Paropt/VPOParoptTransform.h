@@ -2111,13 +2111,16 @@ private:
 
   /// Get substrings from the "openmp-variant" string attribute. Supports the
   /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
-  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+  StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
                            StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           llvm::Optional<uint64_t> &InteropPositionOut,
                            StringRef &NeedDevicePtrStr, StringRef &InteropStr);
 
-  /// Get substrings from the "openmp-variant" string attribute
-  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
-                           StringRef &MatchConstruct, uint64_t &DeviceArchs);
+  /// Get substrings from the "openmp-variant" string attribute to support
+  /// the TARGET VARIANT DISPATCH construct
+  StringRef getVariantInfo(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           llvm::Optional<uint64_t> &InteropPositionOut);
 
   /// Emit code to get device pointers for variant dispatch
   void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
