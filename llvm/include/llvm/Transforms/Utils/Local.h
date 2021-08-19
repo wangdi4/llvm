@@ -57,7 +57,6 @@ class MDNode;
 class MemorySSAUpdater;
 class PHINode;
 class StoreInst;
-class SwitchInst;
 class TargetLibraryInfo;
 class TargetTransformInfo;
 
@@ -432,11 +431,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
                        true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
-
-/// This function removes the default destination from the specified switch.
-void createUnreachableSwitchDefault(SwitchInst *Switch,
-                                    DomTreeUpdater *DTU = nullptr);
-
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///
