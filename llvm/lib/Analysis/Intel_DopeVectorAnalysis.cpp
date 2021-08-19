@@ -28,7 +28,7 @@ using namespace llvm;
 
 #if INTEL_FEATURE_SW_ADVANCED
 static cl::opt<bool> CheckOutOfBoundsOK("dva-check-dtrans-outofboundsok",
-                                        cl::init(false),
+                                        cl::init(true),
                                         cl::ReallyHidden);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
@@ -1799,7 +1799,7 @@ void DopeVectorInfo::validateSingleNonNullValue(DopeVectorFieldType DVFT) {
 // found is treated as an ilegal access and the function will return false.
 static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     Value *V, std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-    SetVector<Value *> &ValueChecked, const DataLayout &DL,
+    SetVector<Value *> &ValueChecked, const DataLayout &DL, bool ForDVCP,
     bool AllowCheckForAllocSite) {
 
   // Return true if the users of the input GEP are subscript instructions.
@@ -1902,6 +1902,29 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     return true;
   };
 
+  //
+  // Return 'true' if 'F' which is called from 'CB' passing down a dope vector
+  // argument 'ArgNo' is also called from other callsites which could pass
+  // down a different dope vector at that argument. In this case, we cannot
+  // use this dope vector analysis to determine constants that argument
+  // within 'F', but the escape analysis for transpose is still valid.
+  //
+  auto HasBadSideCalls = [](CallBase *CB, Function *F,
+                            uint64_t ArgNo) -> bool {
+    for (User *U : F->users()) {
+      if (auto LCB = dyn_cast<CallBase>(U)) {
+        if (LCB == CB)
+          continue;
+        if (LCB->getArgOperand(ArgNo) == CB->getArgOperand(ArgNo))
+          continue;
+        return true;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Return true if we can collect the dope vector field accesses
   // in the input call. This function will find which argument is
   // Val in the input Call, check that the argument attributes are
@@ -1912,9 +1935,10 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // NOTE: AllowCheckForAllocSite will be false in this case since
   // a function should not allocate a dope vector that is passed as
   // pointer. This conservative, we may want to relax this in the future.
-  auto CollectAccessFromCall = [NestedDV](CallBase *Call, Value *Val,
+  auto CollectAccessFromCall = [&HasBadSideCalls](CallBase *Call, Value *Val,
       std::function<const TargetLibraryInfo &(Function &F)> &GetTLI,
-      const DataLayout &DL, SetVector<Value *> &ValueChecked) -> bool {
+      const DataLayout &DL, NestedDopeVectorInfo *NestedDV, bool ForDVCP,
+      SetVector<Value *> &ValueChecked) -> bool {
 
     // Indirect calls or declarations aren't allowed
     // NOTE: In case of declarations, we may be able to mark the
@@ -1958,9 +1982,13 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
         !Arg->hasNoAliasAttr())
       return false;
 
+    if (ForDVCP && !NestedDV->getNotForDVCP() &&
+        HasBadSideCalls(Call, F, ArgNo))
+      NestedDV->setNotForDVCP();
+
     // Recurse, arg represents now the pointer to the nested dope vector
     if (!collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
-        ValueChecked, DL, false))
+        ValueChecked, DL, ForDVCP, false))
       return false;
 
     return true;
@@ -2135,10 +2163,10 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   // a Value that has already been analyzed.
   //
   std::function<bool(Value *V, User *U, const DataLayout &DL,
-                NestedDopeVectorInfo *NestedDV,
+                NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                 SetVector<Value *> &ValueChecked)>
       GoodDVPUser = [&](Value *V, User *U, const DataLayout &DL,
-                        NestedDopeVectorInfo *NestedDV,
+                        NestedDopeVectorInfo *NestedDV, bool ForDVCP,
                         SetVector<Value *> &ValueChecked) -> bool {
     // GEP should be accessing dope vector fields
     if (auto *GEP = dyn_cast<GEPOperator>(U)) {
@@ -2148,7 +2176,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       // BitCast should be only used for allocating data
       if (IsNullDVBitCast(BC, DL)) {
          for (User *UU : BC->users())
-           if (!GoodDVPUser(BC, UU, DL, NestedDV, ValueChecked))
+           if (!GoodDVPUser(BC, UU, DL, NestedDV, ForDVCP, ValueChecked))
              return false;
          return true;
       }
@@ -2160,7 +2188,8 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       NestedDV->addAllocSite(Call);
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
       // Calls should only load data
-      if (!CollectAccessFromCall(Call, V, GetTLI, DL, ValueChecked))
+      if (!CollectAccessFromCall(Call, V, GetTLI, DL, NestedDV, ForDVCP,
+                                 ValueChecked))
         return false;
     } else {
       return false;
@@ -2190,7 +2219,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
   for (auto *U : V->users()) {
     if (ValueChecked.contains(U))
       continue;
-    if (!GoodDVPUser(V, U, DL, NestedDV, ValueChecked))
+    if (!GoodDVPUser(V, U, DL, NestedDV, ForDVCP, ValueChecked))
       return false;
   }
 
@@ -2368,7 +2397,7 @@ extern Argument *isIPOPropagatable(const Value *V, const User *U) {
 // Collect the nested dope vectors and store the access to them. Return false
 // if there is any illegal access, else return true.
 bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
-    SubscriptInst *SI, const DataLayout &DL) {
+    SubscriptInst *SI, const DataLayout &DL, bool ForDVCP) {
 
   // Given a Value that is a GetElementPointerInst or a BitCastInst,
   // then find if it is accessing a structure, if so collect the field
@@ -2672,10 +2701,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // 'get_hygro_rad_props'.
   //
   std::function<bool(Argument *A, const DataLayout &DL,
-                     NestedDopeVectorInfo *NDVInfo,
+                     NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                      SetVector<Value *> &ValueChecked)>
       CanPropUp = [&](Argument *A, const DataLayout &DL,
-                      NestedDopeVectorInfo *NDVInfo,
+                      NestedDopeVectorInfo *NDVInfo, bool ForDVCP,
                       SetVector<Value *> &ValueChecked) -> bool {
     Function *F = A->getParent();
     unsigned FArgNo = A->getArgNo();
@@ -2697,13 +2726,14 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         AA = BC->getOperand(0);
       }
       if (auto FA = dyn_cast<Argument>(AA)) {
-        if (!CanPropUp(FA, DL, NDVInfo, ValueChecked))
+        if (!CanPropUp(FA, DL, NDVInfo, ForDVCP, ValueChecked))
           return false;
         continue;
       }
       if (auto AI = dyn_cast<AllocaInst>(AA)) {
        if (!collectNestedDopeVectorFieldAddress(NDVInfo, AI, GetTLI,
-                                                ValueChecked, DL, true))
+                                                ValueChecked, DL, ForDVCP,
+                                                true))
           return false;
         continue;
       }
@@ -2835,13 +2865,13 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // to 'h_ext' in 'bigloop' and then propagated back down to 'ext' in
   // 'get_hygro_rad_props'.
   //
-  auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL,
+  auto CanPropThruPtrAssn = [&](User *U, const DataLayout &DL, bool ForDVCP,
                                 NestedDopeVectorInfo *NDVInfo) -> bool {
     Argument *A = PropPtrAssignToArgument(U, DL);
     if (!A)
       return false;
     SetVector<Value *> ValueChecked;
-    if (!CanPropUp(A, DL, NDVInfo, ValueChecked))
+    if (!CanPropUp(A, DL, NDVInfo, ForDVCP, ValueChecked))
       return false;
     return true;
   };
@@ -3161,7 +3191,8 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   auto CanCollectNDVSubscriptUser = [&, this](Value *V, User *U,
                                               const DataLayout &DL,
                                               NestedDopeVectorInfo *NDVInfo,
-                                              bool &AllocSiteFound) -> bool {
+                                              bool &AllocSiteFound,
+                                              bool ForDVCP) -> bool {
     if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
       // A BitCast can used for allocating the array for the
       // nested dope vector at field 0. It represents a field 0 access.
@@ -3203,9 +3234,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
 
         // Nested dope vector found, now collect the fields access
         if (collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
-                                                ValueChecked, DL, true))
+                                                ValueChecked, DL,
+                                                ForDVCP, true))
           return true;
-        if (CanPropThruPtrAssn(U, DL, NestedDVInfo))
+        if (CanPropThruPtrAssn(U, DL, ForDVCP, NestedDVInfo))
           return true;
         return false;
       } else {
@@ -3228,16 +3260,16 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // for the dope vector is found.
   //
   std::function<bool(Argument *, const DataLayout &,
-                NestedDopeVectorInfo *, bool &)>
+                NestedDopeVectorInfo *, bool, bool &)>
       PropagateArgument = [&](Argument *A, const DataLayout &DL,
                               NestedDopeVectorInfo *NDVInfo,
-                              bool &AllocSiteFound) -> bool {
+                              bool ForDVCP, bool &AllocSiteFound) -> bool {
     for (User *U : A->users()) {
       if (Argument *NewA = isIPOPropagatable(A, U)) {
-        if (!PropagateArgument(NewA, DL, NDVInfo, AllocSiteFound))
+        if (!PropagateArgument(NewA, DL, NDVInfo, ForDVCP, AllocSiteFound))
           return false;
       } else if (!CanCollectNDVSubscriptUser(A, U, DL, NDVInfo,
-                                             AllocSiteFound)) {
+                                             AllocSiteFound, ForDVCP)) {
         return false;
       }
     }
@@ -3263,10 +3295,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // related to the nested dope vectors
   for (User *U : SI->users()) {
     if (Argument *A = isIPOPropagatable(SI, U)) {
-      if (!PropagateArgument(A, DL, nullptr, AllocSiteFound))
+      if (!PropagateArgument(A, DL, nullptr, ForDVCP, AllocSiteFound))
         return false;
     } else if (!CanCollectNDVSubscriptUser(SI, U, DL, nullptr,
-                                           AllocSiteFound)) {
+                                           AllocSiteFound, ForDVCP)) {
       return false;
     }
   }
@@ -3410,7 +3442,7 @@ GlobalDopeVector::mergeNestedDopeVectors() {
 // to find these copy dope vectors and prove that the fields won't change
 // in order to propagate the constants collected for them too.
 void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
-    const DataLayout &DL) {
+    const DataLayout &DL, bool ForDVCP) {
 
   // Collect the copy dope vector from the store instruction. From the
   // example above, assume that we are analyzing the store instruction,
@@ -3511,7 +3543,7 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
     for (auto *LocalDV : CopyNestedDopeVectors) {
       SetVector<Value *> ValueChecked;
       if (collectNestedDopeVectorFieldAddress(LocalDV, LocalDV->getDVObject(),
-          GetTLI, ValueChecked, DL, true)) {
+          GetTLI, ValueChecked, DL, ForDVCP, true)) {
         LocalDV->analyzeNestedDopeVector();
         NestedDV->collectFromCopy(*LocalDV);
       }
@@ -3526,7 +3558,8 @@ void GlobalDopeVector::collectAndAnalyzeCopyNestedDopeVectors(
 // dope vector, collect the information and analyze if there is any illegal
 // access that could invalidate the data.
 void
-GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
+GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL,
+                                                     bool ForDVCP) {
 
   // NOTE: This needs to be updated for opaque pointers
   auto GetResultTypeFromSubscript = [](SubscriptInst *SI) {
@@ -3588,7 +3621,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
 
         // Collect the possible nested dope vectors that the subscript
         // could be accessing
-        if (!collectNestedDopeVectorFromSubscript(SI, DL)) {
+        if (!collectNestedDopeVectorFromSubscript(SI, DL, ForDVCP)) {
           NestedDVDataValid = false;
           break;
         }
@@ -3614,7 +3647,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
 
   // Collect any information from the copy dope vectors to check if we
   // can also propagate the constants to it.
-  collectAndAnalyzeCopyNestedDopeVectors(DL);
+  collectAndAnalyzeCopyNestedDopeVectors(DL, ForDVCP);
 }
 
 // Validate that the data was collected correctly for the global dope vector
@@ -3648,7 +3681,8 @@ void GlobalDopeVector::validateGlobalDopeVector() {
   AnalysisRes = GlobalDopeVector::AnalysisResult::AR_Pass;
 }
 
-void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
+void GlobalDopeVector::collectAndValidate(const DataLayout &DL,
+                                          bool ForDVCP) {
   for (auto *U : Glob->users()) {
     if (auto *BC = dyn_cast<BitCastOperator>(U)) {
       // The BitCast should only be used for data allocation and
@@ -3678,7 +3712,7 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
   getGlobalDopeVectorInfo()->validateAllocSite();
 
   // Collect any information related to the nested dope vectors
-  collectAndAnalyzeNestedDopeVectors(DL);
+  collectAndAnalyzeNestedDopeVectors(DL, ForDVCP);
 
   // Validate that the data was collected correctly
   validateGlobalDopeVector();

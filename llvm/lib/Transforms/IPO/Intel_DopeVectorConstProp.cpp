@@ -294,11 +294,18 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
       return false;
 
     bool Change = false;
+    unsigned LoadCount = 0;
     for(auto *LI : DVField->loads()) {
+      LoadCount++;
       LI->replaceAllUsesWith(CI);
       Change = true;
     }
-
+    LLVM_DEBUG({
+      if (Change)
+        dbgs() << "REPLACING " << LoadCount << " LOAD"
+               << (LoadCount > 1 ? "S " : " ") << "WITH "
+               << CI->getZExtValue() << "\n";
+    });
     return Change;
   };
 
@@ -353,7 +360,14 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
 
   // Propagate the constants
   for (auto *NestedDV : GlobDV.getAllNestedDopeVectors()) {
-    if(PropagateDVConstant(NestedDV)) {
+    if (NestedDV->getNotForDVCP()) {
+      LLVM_DEBUG({
+        dbgs() << "NOTFORDVCP: FIELD " << NestedDV->getFieldNum() << " ";
+        NestedDV->getDVObject()->dump();
+      });
+      continue;
+    }
+    if (PropagateDVConstant(NestedDV)) {
       Change = true;
       NumNestedDVConstProp++;
     }
@@ -380,7 +394,7 @@ static bool collectAndTransformDopeVectorGlobals(Module &M,
       continue;
 
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
-    GlobDV.collectAndValidate(DL);
+    GlobDV.collectAndValidate(DL, /*ForDVCP=*/true);
 
     // Propagate the constants
     Change |= propagateGlobalDopeVectorConstants(GlobDV);

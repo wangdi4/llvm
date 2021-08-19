@@ -894,11 +894,18 @@ public:
       Value *VBase, bool AllowMultipleFieldAddresses = false,
       bool IsCopyDopeVector = false) :
       DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses,
-                     IsCopyDopeVector), FieldNum(FieldNum), VBase(VBase) { }
+                     IsCopyDopeVector), FieldNum(FieldNum), VBase(VBase),
+                     NotForDVCP(false) { }
 
   Value *getVBase() { return VBase; }
   void nullifyVBase() { VBase = nullptr; }
   uint64_t getFieldNum() { return FieldNum; }
+
+  // Indicate whether the dope vector constant propagation can be done
+  // on this nested dope vector.  If not, the information stored is valuable
+  // only for escapse analysis.
+  bool getNotForDVCP() const { return NotForDVCP; }
+  void setNotForDVCP() { NotForDVCP = true; }
 
   // Analyze the fields of the nested dope vector
   void analyzeNestedDopeVector();
@@ -911,12 +918,15 @@ public:
 
   // Merge relevant info from 'Other' into '*this'
   void merge(const NestedDopeVectorInfo &Other) {
+    if (Other.getNotForDVCP())
+      setNotForDVCP();
     DopeVectorInfo::merge(Other);
   }
 
 private:
   uint64_t FieldNum;
   Value *VBase;
+  bool NotForDVCP;
 };
 
 // Helper class to handle a dope vector that is a global variable. A global
@@ -986,7 +996,7 @@ public:
   uint64_t getNumNestedDopeVector() { return NestedDopeVectors.size(); }
 
   // Collect and validate the global variable and all nested dope vectors
-  void collectAndValidate(const DataLayout &DL);
+  void collectAndValidate(const DataLayout &DL, bool ForDVCP);
 
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
 
@@ -1018,7 +1028,7 @@ private:
   // Traverse through the users of the subscript instruction to identify
   // the nested dope vectors and analyze the use
   bool collectNestedDopeVectorFromSubscript(SubscriptInst *SI,
-      const DataLayout &DL);
+      const DataLayout &DL, bool ForDVCP);
 
   // Given a GEP operator, check which dope vector field is being accessed,
   // collect the data and analyze it.
@@ -1031,7 +1041,7 @@ private:
   void mergeNestedDopeVectors();
 
   // Collect the nested dope vectors for the global variable
-  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
+  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
 
   // Validate that all the data was collected correctly
   void validateGlobalDopeVector();
@@ -1041,7 +1051,7 @@ private:
   // so, then generate a list of new nested dope vectors to be analyzed. The
   // information of those local dope vectors that pass the analysis will
   // be merged with the nested dope vectors.
-  void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL);
+  void collectAndAnalyzeCopyNestedDopeVectors(const DataLayout &DL, bool ForDVCP);
 };
 
 // If 'Val' is a unique actual argument of 'CI', return its position,

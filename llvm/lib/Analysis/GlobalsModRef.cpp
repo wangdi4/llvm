@@ -21,6 +21,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -417,6 +418,10 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
             return true;
           continue;
         }
+        // Check if it is a callback call.
+        AbstractCallSite ACS(&U);
+        if (ACS && ACS.isCallbackCall() && ACS.isCallee(&U))
+          continue;
 #endif // INTEL_CUSTOMIZATION
         // Detect calls to free.
         if (Call->isArgOperand(&U) &&

@@ -1247,7 +1247,7 @@ private:
       // dope vectors, but not all. For now, the GlobalDopeVector analysis
       // is all or nothing, so return immediately if it does not pass.
       GlobalDopeVector GlobDV(GV, GV->getValueType(), GetTLI);
-      GlobDV.collectAndValidate(DL);
+      GlobDV.collectAndValidate(DL, /*ForDVCP=*/false);
       auto GAR = GlobDV.getAnalysisResult();
       if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
         return true;
