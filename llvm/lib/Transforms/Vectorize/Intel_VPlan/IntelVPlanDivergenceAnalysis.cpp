@@ -1587,6 +1587,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getRandomVectorShape();
   else if (Opcode == VPInstruction::ConflictInsn)
     NewShape = getUniformVectorShape();
+  else if (Opcode == VPInstruction::TreeConflict)
+    NewShape = getRandomVectorShape();
   else {
     LLVM_DEBUG(dbgs() << "Instruction not supported: " << *I);
     NewShape = getRandomVectorShape();

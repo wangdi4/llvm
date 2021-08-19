@@ -843,6 +843,7 @@ public:
     VPBlendInst *Blend = Builder.create<VPBlendInst>(
         Phis[Idx]->getName() + ".blend." + From->getName(),
         Phis[Idx]->getType());
+    Plan->getVPlanDA()->markDivergent(*Blend);
 
     for (int ValNumber = 0; ValNumber < NumBlendVals; ++ValNumber) {
       VPValue *Predicate = BlendOps[NumBlendVals * 2 - ValNumber * 2 - 2];

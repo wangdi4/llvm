@@ -38,26 +38,16 @@ namespace vpo {
 //     A[index] = A[index] + 100;
 //   }
 //
-// the code after Decomposer will be:
+// the code after processVConflictIdiom will be:
 //
 // i64 %vp.vconflict.index = sext i32 %vp.load.B to i64
 // i32* %A.subscript = subscript inbounds i32* %A i64 %vp.vconflict.index
 // i32 %vp.load.A = load i32* %A.subscript
 // i64 %B.sext = sext i32 %vp.load.B to i64
 // i32* %A.subscript = subscript inbounds i32* %A i64 %B.sext
-// i32 %vp.general.mem.opt.conflict = vp-general-mem-opt-conflict i64
-// %vp.vconflict.index void %vp.conflict.region i32 %vp.load.A i32 100 ->
-// VConflictRegion (i32 %vp.live.in0 i32 %vp.live.in1 ) {
-//  value : none
-//  mask : none
-//  live-in : i32 %vp.live.in0
-//  live-in : i32 %vp.live.in1
-//  Region:
-//  VConflictBB
-//  i32 %vp3660 = add i32 %vp.live.in0 i32 %vp.live.in1
-//  live-out : i32 %vp3660 = add i32 %vp.live.in0 i32 %vp.live.in1
-//  }
-// store i32 %vp.general.mem.opt.conflict i32* %A.subscript
+// i32 %vp.tree.conflict = tree-conflict i64 %vp.vconflict.index i32 %vp.load.A
+//                          i32 100 { Redux Opcode: add }
+// store i32 %vp.tree.conflict i32* %A.subscript
 //
 // and the code after optimizing VConflict idiom will be:
 //
@@ -81,18 +71,19 @@ namespace vpo {
 // Store the result:
 // store i32 %res i32* %A.subscript
 //
-static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
+static bool lowerHistogram(VPTreeConflict *TreeConflict, Function &Fn) {
+  VPlan *Plan = TreeConflict->getParent()->getParent();
+
   VPBuilder VPBldr;
-  VPBldr.setInsertPoint(VPConflict);
+  VPBldr.setInsertPoint(TreeConflict);
   VPInstruction *ConflictIndex =
-      cast<VPInstruction>(VPConflict->getConflictIndex());
+      cast<VPInstruction>(TreeConflict->getConflictIndex());
 
   SmallVector<VPValue *, 2> EmittedInsns;
   auto *ConflictInst = VPBldr.create<VPConflictInsn>(
       "vpconfict.intrinsic", ConflictIndex->getType(), ConflictIndex);
   EmittedInsns.push_back(ConflictInst);
   // Emit pop count intrinsic.
-  VPlan *Plan = VPConflict->getParent()->getParent();
   auto *PopCountCall = VPBldr.create<VPCallInstruction, const Twine &,
                                      FunctionCallee, ArrayRef<VPValue *>>(
       "vp.pop.count",
@@ -103,33 +94,11 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   PopCountCall->setVectorizeWithIntrinsic(Intrinsic::ctpop);
   EmittedInsns.push_back(PopCountCall);
 
-  // Get the value that we need to multiply.
-  // Historgram has only one instruction in its region.
-  VPRegion *ConflictRegion = VPConflict->getRegion();
-  auto ConflictRegionBBs = ConflictRegion->getBBs();
-  assert(ConflictRegion->getSize() == 1 &&
-         "Histogram region should have only 1 basic block.");
-  assert((*ConflictRegionBBs.begin())->size() == 1 &&
-         "Histogram region should have only 1 instruction.");
-  VPInstruction *InsnInVConflictRegion =
-      &*(*ConflictRegionBBs.begin())->begin();
-
-  VPValue *MulVal = nullptr;
-  if (VPConflict->getNumOperands() > 3)
-    // Histogram has minimum three operands(conflict index, conflict region,
-    // conflict load) and it might have one live-in value which is the value
-    // that we want to multiply with pop count intrinsic.
-    MulVal = VPConflict->getOperand(3);
-  else {
-    // If there is not any live-in value, then we have a constant or external
-    // def.
-    VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
-    VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
-    MulVal = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
-    assert(isa<VPConstant>(MulVal) ||
-           isa<VPExternalDef>(MulVal) &&
-               "Constant or external definition is expected.");
-  }
+  // Get the value that we need to multiply. For histogram this will be the
+  // uniform reduction update value.
+  VPValue *MulVal = TreeConflict->getRednUpdateOp();
+  assert(Plan->getVPlanDA()->isUniform(*MulVal) &&
+         "Live-in value for histogram expected to be uniform.");
 
   auto CalcTy = MulVal->getType();
   VPValue *PopCountCallCast = nullptr;
@@ -158,15 +127,15 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
 
   // Multiply the Add with the uniform value(MulVal).
   VPValue *Mul = nullptr;
-  unsigned Opcode = InsnInVConflictRegion->getOpcode();
+  unsigned Opcode = TreeConflict->getRednOpcode();
   if (Opcode == Instruction::FAdd)
     Mul = VPBldr.createFMul(Add, MulVal);
   else
     Mul = VPBldr.createMul(Add, MulVal);
   EmittedInsns.push_back(Mul);
 
-  // Add the result to VConflictLoad.
-  auto *VConflictLoad = VPConflict->getOperand(2);
+  // Update VConflictLoad with the result using RednOpcode operation.
+  auto *VConflictLoad = TreeConflict->getConflictLoad();
   VPValue *Res = nullptr;
   if (Opcode == Instruction::FAdd)
     Res = VPBldr.createFAdd(VConflictLoad, Mul);
@@ -174,14 +143,15 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
     Res = VPBldr.createAdd(VConflictLoad, Mul);
   EmittedInsns.push_back(Res);
 
-  // Update VConflictStore with the outcome of VConflict pattern.
-  auto *VConflictStore = *VPConflict->users().begin();
-  assert(VPConflict->getNumUsers() == 1 &&
-         "VPConflict can have only one user.");
+  // Update VConflictStore with the outcome of VConflict pattern. TODO: Can we
+  // use RAUW instead?
+  auto *VConflictStore = *TreeConflict->users().begin();
+  assert(TreeConflict->getNumUsers() == 1 &&
+         "VPTreeConflict can have only one user.");
   VConflictStore->setOperand(0, Res);
-  // Remove VPConflict instruction.
-  auto *CurrentBB = VPConflict->getParent();
-  CurrentBB->eraseInstruction(VPConflict);
+  // Remove VPTreeConflict instruction.
+  auto *CurrentBB = TreeConflict->getParent();
+  CurrentBB->eraseInstruction(TreeConflict);
   // Update DA of the new instructions.
   for (auto &VPI : EmittedInsns)
     Plan->getVPlanDA()->markDivergent(*VPI);
@@ -189,21 +159,25 @@ static bool lowerHistogram(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
   return true;
 }
 
-// Checks what kind of VConflict type we have and it lowers it accordingly.
-// TODO: Add support for all kinds of general conflict, general conflict
-// optimized, tree-conflict, multiple histograms and histogram with loop.
-bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
-  // Check if the opcode of the instrution in Histogram is a reduction
-  // operation. This is a requirement for both tree-conflict and histogram.
-  SmallVector<VPInstruction *, 1> RgnInsns;
-  for (auto *VPBB : VPConflict->getRegion()->getBBs())
-    for (auto &VPI : *VPBB)
-      RgnInsns.push_back(&VPI);
+VPTreeConflict *
+tryReplaceWithTreeConflict(VPGeneralMemOptConflict *VPConflict) {
+  VPRegion *ConflictRegion = VPConflict->getRegion();
 
-  if (RgnInsns.size() != 1)
-    return false;
+  // Tree-conflict idiom is expected to have only one BB in conflict region.
+  if (ConflictRegion->getSize() != 1)
+    return nullptr;
 
-  bool HasReductionOpcode = llvm::any_of(RgnInsns, [](VPInstruction *I) {
+  auto *VPBB = *(ConflictRegion->getBBs().begin());
+  // Tree-conflict idiom is expected to have only one instruction in conflict
+  // region.
+  if (VPBB->size() != 1)
+    return nullptr;
+  VPInstruction *InsnInVConflictRegion = &*VPBB->begin();
+
+  // Check if the opcode of the single instruction in VConflict region is a
+  // reduction operation. This is a requirement for both tree-conflict and
+  // histogram.
+  auto HasReductionOpcode = [](VPInstruction *I) -> bool {
     switch (I->getOpcode()) {
     case Instruction::Add:
       return true;
@@ -216,25 +190,66 @@ bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
     default:
       return false;
     }
-    return false;
-  });
+  };
 
-  if (!HasReductionOpcode) {
-    LLVM_DEBUG(dbgs() << "VConflict idiom has unsupported opcode.\n");
-    return false;
+  if (!HasReductionOpcode(InsnInVConflictRegion)) {
+    LLVM_DEBUG(dbgs() << "Tree-conflict idiom has unsupported opcode.\n");
+    return nullptr;
   }
 
+  unsigned RednOpcode = InsnInVConflictRegion->getOpcode();
+  VPValue *RednUpdateOp = nullptr;
+  if (VPConflict->getNumOperands() == 3) {
+    // If there is no live-in value, then we have a constant or external def
+    // updating value.
+    VPValue *Op0 = InsnInVConflictRegion->getOperand(0);
+    VPValue *Op1 = InsnInVConflictRegion->getOperand(1);
+    RednUpdateOp = Op0 == *ConflictRegion->getLiveIns().begin() ? Op1 : Op0;
+    assert(isa<VPConstant>(RednUpdateOp) ||
+           isa<VPExternalDef>(RednUpdateOp) &&
+               "Constant or external definition is expected.");
+  } else {
+    assert(VPConflict->getNumOperands() == 4 &&
+           "Unexpected number of operands for tree-conflict.");
+    // If the conflict instruction has a live-in value, then it is the operand
+    // updating the reduction.
+    RednUpdateOp = *VPConflict->getLiveIns().begin();
+  }
+
+  // Create VPTreeConflict instruction.
   VPlan *Plan = VPConflict->getParent()->getParent();
   auto *DA = Plan->getVPlanDA();
-  bool HasUniformValue =
-      llvm::all_of(VPConflict->getLiveIns(),
-                   [DA](VPValue *Val) { return DA->isUniform(*Val); });
+  auto *TreeConflict =
+      VPBuilder()
+          .setInsertPoint(VPConflict)
+          .create<VPTreeConflict>(
+              "vp.tree.conflict", VPConflict->getConflictIndex(),
+              VPConflict->getConflictLoad(), RednUpdateOp, RednOpcode);
+  VPConflict->replaceAllUsesWith(TreeConflict);
+  // Update DA for the new tree-conflict instruction.
+  DA->updateDivergence(*TreeConflict);
 
-  // The VConflict idiom is histogram when its region has only live-in which is
-  // uniform.
-  if (HasUniformValue)
-    return lowerHistogram(VPConflict, Fn);
+  // Remove VPConflict instruction.
+  auto *CurrentBB = VPConflict->getParent();
+  CurrentBB->eraseInstruction(VPConflict);
 
+  return TreeConflict;
+}
+
+// Checks what kind of VConflict type we have and it lowers it accordingly.
+bool processVConflictIdiom(VPGeneralMemOptConflict *VPConflict, Function &Fn) {
+  auto *DA = VPConflict->getParent()->getParent()->getVPlanDA();
+  if (auto *TreeConflict = tryReplaceWithTreeConflict(VPConflict)) {
+    // Try to lower optimized tree-conflict idioms to histogram. This is
+    // feasible only if the reduction updating operand is uniform.
+    if (DA->isUniform(*TreeConflict->getRednUpdateOp()))
+      return lowerHistogram(TreeConflict, Fn);
+
+    return true;
+  }
+
+  // TODO: Add support for all kinds of general conflict, general conflict
+  // optimized, multiple histograms (via CSE) and histogram with loop.
   return false;
 }
 
@@ -245,6 +260,13 @@ bool processVConflictIdiom(VPlan &Plan, Function &Fn) {
         return false;
 
   VPLAN_DUMP(VPlanLowerVConflictIdiomControl, Plan);
+
+  // TODO: Remove below loop after adding lowering and CG support for
+  // VPTreeConflict.
+  for (auto &VPInst : make_early_inc_range(vpinstructions(&Plan)))
+    if (auto *TreeConflict = dyn_cast<VPTreeConflict>(&VPInst))
+      return false;
+
   return true;
 }
 } // namespace vpo

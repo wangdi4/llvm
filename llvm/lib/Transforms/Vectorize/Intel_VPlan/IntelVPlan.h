@@ -569,6 +569,7 @@ public:
     PrivateLastValueNonPOD,
     GeneralMemOptConflict,
     ConflictInsn,
+    TreeConflict,
   };
 
 private:
@@ -3755,6 +3756,63 @@ public:
 private:
   std::unique_ptr<VPRegion> Region;
   LLVMContext *Context;
+};
+
+// Represents simple tree-conflict idioms which contain a single reduction
+// operation in the conflicting region. It tracks 3 operands -
+// i. conflicting index
+// ii. conflict load
+// iii. value used to update reduction (will be region live-in)
+//
+// If the live-in value is uniform, then this tree-conflict idiom can be
+// optimized as Histogram.
+class VPTreeConflict final : public VPInstruction {
+public:
+  VPTreeConflict(VPValue *ConflictIdx, VPValue *ConflictLd,
+                 VPValue *RednUpdateOp, unsigned RednOpcode)
+      : VPInstruction(VPInstruction::TreeConflict, RednUpdateOp->getType(),
+                      {ConflictIdx, ConflictLd, RednUpdateOp}),
+        RednOpcode(RednOpcode) {
+    assert(RednUpdateOp->getType() == ConflictLd->getType() &&
+           "Mismatch in type for tree-conflict operands.");
+    assert(isSupportedRednOpcode(RednOpcode) &&
+           "Unsupported redution opcode for tree-conflict.");
+  }
+
+  VPValue *getConflictIndex() const { return getOperand(0); }
+
+  VPValue *getConflictLoad() const { return getOperand(1); }
+
+  VPValue *getRednUpdateOp() const { return getOperand(2); }
+
+  unsigned getRednOpcode() const { return RednOpcode; }
+
+  static bool isSupportedRednOpcode(unsigned Opcode) {
+    switch (Opcode) {
+    case Instruction::Add:
+    case Instruction::FAdd:
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  // Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::TreeConflict;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPTreeConflict *cloneImpl() const override {
+    return new VPTreeConflict(getConflictIndex(), getConflictLoad(),
+                              getRednUpdateOp(), getRednOpcode());
+  }
+
+private:
+  unsigned RednOpcode;
 };
 
 class VPConflictInsn final : public VPInstruction {
