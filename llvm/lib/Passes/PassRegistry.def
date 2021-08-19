@@ -153,8 +153,6 @@ MODULE_PASS("globaldce", GlobalDCEPass())
 MODULE_PASS("globalopt", GlobalOptPass())
 MODULE_PASS("globalsplit", GlobalSplitPass())
 MODULE_PASS("hotcoldsplit", HotColdSplittingPass())
-MODULE_PASS("hwasan", HWAddressSanitizerPass(false, false))
-MODULE_PASS("khwasan", HWAddressSanitizerPass(true, true))
 MODULE_PASS("inferattrs", InferFunctionAttrsPass())
 MODULE_PASS("inliner-wrapper", ModuleInlinerWrapperPass())
 MODULE_PASS("inliner-wrapper-no-mandatory-first", ModuleInlinerWrapperPass(
@@ -264,6 +262,18 @@ MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
 #endif // INTEL_COLLAB
 #undef MODULE_PASS
+
+#ifndef MODULE_PASS_WITH_PARAMS
+#define MODULE_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)
+#endif
+MODULE_PASS_WITH_PARAMS("hwasan",
+                        "HWAddressSanitizerPass",
+                        [](HWAddressSanitizerOptions Opts) {
+                          return HWAddressSanitizerPass(Opts);
+                        },
+                        parseHWASanPassOptions,
+                        "kernel;recover")
+#undef MODULE_PASS_WITH_PARAMS
 
 #ifndef CGSCC_ANALYSIS
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)
@@ -518,8 +528,6 @@ FUNCTION_PASS("verify<scalar-evolution>", ScalarEvolutionVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
-FUNCTION_PASS("asan", AddressSanitizerPass(false, false, false))
-FUNCTION_PASS("kasan", AddressSanitizerPass(true, false, false))
 FUNCTION_PASS("msan", MemorySanitizerPass({}))
 
 #if INTEL_CUSTOMIZATION
@@ -626,7 +634,6 @@ FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
 FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
-FUNCTION_PASS("kmsan", MemorySanitizerPass({0, false, /*Kernel=*/true}))
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 FUNCTION_PASS("memprof", MemProfilerPass())
 FUNCTION_PASS("LowerWGScope", SYCLLowerWGScopePass())
@@ -656,6 +663,13 @@ FUNCTION_PASS_WITH_PARAMS("loop-unroll",
                           "no-profile-peeling;profile-peeling;"
                           "no-runtime;runtime;"
                           "no-upperbound;upperbound")
+FUNCTION_PASS_WITH_PARAMS("asan",
+                          "AddressSanitizerPass",
+                           [](AddressSanitizerOptions Opts) {
+                             return AddressSanitizerPass(Opts);
+                           },
+                          parseASanPassOptions,
+                          "kernel")
 FUNCTION_PASS_WITH_PARAMS("msan",
                           "MemorySanitizerPass",
                            [](MemorySanitizerOptions Opts) {
