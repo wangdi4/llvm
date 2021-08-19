@@ -3545,7 +3545,7 @@ private:
   Function *F2;
   // BasicBlocks which will be moved to 'F1'. Those not in this set will be
   // moved to 'F2'.
-  SmallPtrSet<BasicBlock *, 10> Visited;
+  SetVector<BasicBlock *> Visited;
   // The join point through which 'F' will be split. Predecessors of 'BBSplit'
   // will go into 'F1', while successors will go into 'F2'.
   BasicBlock *BBSplit;
@@ -3554,7 +3554,7 @@ private:
   // Instructions which are defined in the 'Visited' blocks, but used in the
   // non-'Visited' blocks. We must resolve each of these in order to split
   // 'F' into 'F1' and 'F2'
-  SmallPtrSet<Instruction *, 10> SplitInsts;
+  SetVector<Instruction *> SplitInsts;
   // A list of LoadInsts in the SplitInsts for which a resolution has been
   // determined. These can feed GEPs that also must be resolved, so it is
   // important resolve the LoasInsts before resolving the GEPs on which they
@@ -3659,7 +3659,7 @@ bool Splitter::canSplitBlocks() {
     }
     Visited.insert(BB);
     for (auto S : successors(BB))
-      if (Visited.insert(S).second)
+      if (Visited.insert(S))
         Worklist.insert(S);
   }
   if (!BBSwitch0 || !BBReturn0) {
@@ -3679,7 +3679,7 @@ bool Splitter::canSplitBlocks() {
                       << "Switch block without unique predecessor\n");
     return false;
   }
-  Visited.erase(BBSwitch0);
+  Visited.remove(BBSwitch0);
   auto BI = dyn_cast<BranchInst>(BBSplit0->getTerminator());
   if (!BI) {
     LLVM_DEBUG(dbgs() << "MRCS: EXIT: canSplitBlocks: "
@@ -3696,11 +3696,11 @@ bool Splitter::canSplitBlocks() {
                         << "Unexpected successor of split block\n");
       return false;
     }
-    Visited.erase(BB);
+    Visited.remove(BB);
   }
-  Visited.erase(BBSplit0);
+  Visited.remove(BBSplit0);
   BBSplit = BBSplit0;
-  Visited.erase(BBReturn0);
+  Visited.remove(BBReturn0);
   BBReturn = BBReturn0;
   LLVM_DEBUG({
     unsigned VisitedCount = 0;
