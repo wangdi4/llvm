@@ -138,33 +138,31 @@ public:
   void print(raw_ostream &OS, bool PrintDetail) const {
     // Non-GEP RefVec:
     unsigned const RefVecSize = RefVec.size();
-    OS << "RefVec: " << RefVecSize << "\n";
+    OS << "Non-GEP RefVec: " << RefVecSize << "\n";
     if (RefVecSize) {
       unsigned Count = 0;
       for (auto &Ref : RefVec) {
-        OS << Count++ << "  ";
+        OS << Count++ << " : ";
         StringRef RW = (Ref->isLval()) ? " W " : " R ";
         OS << RW;
         Ref->dump(PrintDetail);
-        OS << "\t";
+        OS << "\n";
       }
     }
-    OS << "\n";
 
     // GEPRef Vec:
     unsigned const GEPRefVecSize = GEPRefVec.size();
-    OS << "RefVec: " << GEPRefVecSize << "\n";
+    OS << "GEP RefVec: " << GEPRefVecSize << "\n";
     if (GEPRefVecSize) {
       unsigned Count = 0;
       for (auto &Ref : GEPRefVec) {
-        OS << Count++ << "  ";
+        OS << Count++ << " : ";
         StringRef RW = (Ref->isLval()) ? " W " : " R ";
         OS << RW;
         Ref->dump(PrintDetail);
-        OS << "\t";
+        OS << "\n";
       }
     }
-    OS << "\n";
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -438,24 +436,24 @@ bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
 
     // Multi-dim array:
     if (NumDims > 1) {
-      // Try: match GEPRef with special pattern
-      if (unsigned DynShapeArrayCollapseLevel =
-              matchMultiDimDynShapeArray(GEPRef, InnerLpLevel)) {
-        NumCollapsableLoops =
-            std::min(NumCollapsableLoops, DynShapeArrayCollapseLevel);
-      } else {
-        // Otherwise, count collapsable levels on Ref.
-        // E.g.
-        // -----------------------------
-        // GEPRef        |CollapseLevel |
-        // -----------------------------
-        // A[ 0][ 0][i1] |  1           |
-        // A[ 0][i1][i2] |  2           |
-        // A[i1][i2][i3] |  3           |
-        // -----------------------------
+      // Try: match GEPRef with dynamic-shape pattern
+      CollapseLevel = matchMultiDimDynShapeArray(GEPRef, InnerLpLevel);
+
+      // If matchMultiDimDynShapeArray() returns 0 or 1, the dyn match failed.
+      // Need to count collapsable levels on Ref as a normal ref.
+      // E.g.
+      // -----------------------------
+      // GEPRef        |CollapseLevel |
+      // -----------------------------
+      // A[ 0][ 0][i1] |  1           |
+      // A[ 0][i1][i2] |  2           |
+      // A[i1][i2][i3] |  3           |
+      // -----------------------------
+      if (CollapseLevel < 2) {
         CollapseLevel = getNumCollapsableLevels(GEPRef);
-        NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
       }
+
+      NumCollapsableLoops = std::min(NumCollapsableLoops, CollapseLevel);
     }
   }
 
@@ -853,7 +851,7 @@ unsigned HIRLoopCollapse::matchSingleDimDynShapeArray(RegDDRef *Ref) {
 //
 // Return:
 // - a positive integer: the number of matched dimensions
-// - 0: match failure
+// - 0: match failure, nothing matched
 //
 unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
                                                      unsigned Level) {
@@ -889,6 +887,14 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
     return 0;
   }
 
+  // Expect: Index is a standlone IV on Level:
+  CanonExpr *IndexCE = Ref->getDimensionIndex(Dim);
+  LLVM_DEBUG(dbgs() << "IndexCE: "; IndexCE->dump(); dbgs() << "\n";);
+  unsigned CurLevel = 0;
+  if (!IndexCE->isStandAloneIV(false, &CurLevel) || (Level != CurLevel)) {
+    return 0;
+  }
+
   // Initialize the CarryBlob:
   unsigned CarryBlob = -1;
   BU->createBlob(SrcTypeSize, Ref->getDimensionStride(Dim)->getDestType(),
@@ -905,9 +911,17 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
   // - Stride: stride_i = stride_(i+1) * TripCount(i+1)
   //
   const unsigned DimMax = Ref->getNumDimensions();
-  unsigned CurLevel = Level;
+  CurLevel = Level;
   for (Dim = 2; Dim <= DimMax; ++Dim) {
     --CurLevel;
+
+    // Expect: Index is a standlone IV on CurLevel
+    IndexCE = Ref->getDimensionIndex(Dim);
+    LLVM_DEBUG(dbgs() << "IndexCE: "; IndexCE->dump(); dbgs() << "\n";);
+    unsigned TheLevel = 0;
+    if (!IndexCE->isStandAloneIV(false, &TheLevel) || (TheLevel != CurLevel)) {
+      break;
+    }
 
     // Expect: Stride not be a constant
     CanonExpr *Stride = Ref->getDimensionStride(Dim);
@@ -915,7 +929,7 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
     if (Stride->isConstant()) {
       LLVM_DEBUG(dbgs() << "Not expect Stride be a constant for dimension "
                         << Dim << "\n";);
-      return 0;
+      break;
     }
 
     // Expect: Stride can convert into a single stand-alone blob
@@ -961,14 +975,14 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
     // Verify: the computed stride equals to the stride fetched from Dim
     if (NewBlobIndex != StrideBlobIndex) {
       LLVM_DEBUG(dbgs() << "Stride Mismatch in dimension " << Dim << "\n";);
-      return 0;
+      break;
     }
 
     // Match in Dim, save the Blob Index into CarryBlob, and continue
     CarryBlob = NewBlobIndex;
   }
 
-  return Dim;
+  return Dim - 1;
 }
 
 unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {

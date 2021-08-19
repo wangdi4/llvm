@@ -279,6 +279,7 @@ private:
   // |||  A[ 0][i2][i3] = ..  ; <- matched dim is 2
   // |||  A[i1][i2][ 0] = ..  ; <- matched dim is 0
   // |||  A[i2][0][i3]  = ..  ; <- matched dim is 1
+  // |||  B[i1][i3]     = ..  ; <- matched dim is 1
   //
   // [Note]
   // - It is also possible that the entire ref is flattened with all information
