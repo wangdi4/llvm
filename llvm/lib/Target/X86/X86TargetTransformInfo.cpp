@@ -2323,7 +2323,10 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::UINT_TO_FP,  MVT::f64,    MVT::i64,    4 },
     { ISD::UINT_TO_FP,  MVT::v4f32,  MVT::v16i8,  1 },
     { ISD::UINT_TO_FP,  MVT::v2f64,  MVT::v16i8,  1 },
-    { ISD::UINT_TO_FP,  MVT::v4f32,  MVT::v8i16,  1 },
+#if INTEL_CUSTOMIZATION
+    // Ugly workaround for CMPLRLLVM-30191,29843
+    { ISD::UINT_TO_FP,  MVT::v4f32,  MVT::v8i16,  4 },
+#endif // INTEL_CUSTOMIZATION
     { ISD::UINT_TO_FP,  MVT::v2f64,  MVT::v8i16,  1 },
     { ISD::UINT_TO_FP,  MVT::v2f32,  MVT::v2i32,  3 },
     { ISD::UINT_TO_FP,  MVT::v4f32,  MVT::v4i32,  3 },
