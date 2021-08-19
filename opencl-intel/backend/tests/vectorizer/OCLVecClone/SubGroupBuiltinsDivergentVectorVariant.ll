@@ -1,5 +1,5 @@
-; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vecclone -vplan-vec --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --ocl-vecclone -vplan-vec --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

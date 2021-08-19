@@ -1,6 +1,6 @@
 ; Check that Vec Clone works with required sub group size
-; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
+; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

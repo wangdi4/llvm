@@ -75,7 +75,6 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
   OCLBranchProbability/OCLBranchProbability.h
-  OCLVecClone/OCLPrepareKernelForVecClone.h
   OCLVecClone/OCLVecClone.h
   OCLVecClone/OCLPostVect.h
   OCLVPOCheckVF/OCLVPOCheckVF.h
@@ -115,7 +114,6 @@ set(TARGET_SOURCE_FILES
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
-  OCLVecClone/OCLPrepareKernelForVecClone.cpp
   OCLVecClone/OCLVecClone.cpp
   OCLVecClone/OCLPostVect.cpp
   OCLVPOCheckVF/OCLVPOCheckVF.cpp
