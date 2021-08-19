@@ -16,11 +16,11 @@
 #define __PATCH_CALLBACKS_H__
 
 #include "ImplicitArgsUtils.h"
-#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 
 using namespace llvm;
 
@@ -47,7 +47,7 @@ public:
   }
   bool runOnModule(Module &M) override;
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ImplicitArgsAnalysis>();
+    AU.addRequired<ImplicitArgsAnalysisLegacy>();
   }
 };
 }

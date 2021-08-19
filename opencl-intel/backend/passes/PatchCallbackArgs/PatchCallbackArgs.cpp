@@ -56,9 +56,8 @@ ImplicitArgAccessorFunc ImplicitArgAccessorFuncList[] = {
 };
 
 bool PatchCallbackArgs::runOnModule(Module &M) {
-  ImplicitArgsAnalysis &IAA = getAnalysis<ImplicitArgsAnalysis>();
-  unsigned PointerSize = M.getDataLayout().getPointerSizeInBits(0);
-  IAA.initDuringRun(PointerSize);
+  ImplicitArgsAnalysisLegacy &IAA = getAnalysis<ImplicitArgsAnalysisLegacy>();
+  ImplicitArgsInfo &IAInfo = IAA.getResult();
   bool Changed = false;
   SmallVector<CallInst*, 16> ToErase;
   for (unsigned I = 0, E = sizeof(ImplicitArgAccessorFuncList) /
@@ -122,8 +121,8 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
           Builder.SetInsertPoint(
               dyn_cast<Instruction>(ImplicitArgs.first)->getNextNode());
         }
-        Val =
-            IAA.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first, Builder);
+        Val = IAInfo.GenerateGetFromWorkInfo(NDInfoId, ImplicitArgs.first,
+                                             Builder);
       } break;
       }
       if (Val->getType() != CI->getType())

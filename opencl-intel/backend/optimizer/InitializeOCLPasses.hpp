@@ -79,7 +79,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeInfiniteLoopCreatorPass(Registry);
     intel::initializeAutorunReplicatorPass(Registry);
     intel::initializeImplicitGlobalIdPassPass(Registry);
-    intel::initializeImplicitArgsAnalysisPass(Registry);
     intel::initializeStripIntelIPPass(Registry);
     intel::initializeOCLReqdSubGroupSizePass(Registry);
     intel::initializeOCLVecClonePass(Registry);

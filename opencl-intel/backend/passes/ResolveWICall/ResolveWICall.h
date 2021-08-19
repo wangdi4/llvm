@@ -16,11 +16,11 @@
 #define __RESOLVE_WI_CALL_H__
 
 #include "ImplicitArgsUtils.h"
-#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 
 #include <set>
 
@@ -49,7 +49,7 @@ namespace intel {
     bool runOnModule(Module &M) override;
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<ImplicitArgsAnalysis>();
+      AU.addRequired<ImplicitArgsAnalysisLegacy>();
     }
 
   protected:
@@ -142,7 +142,8 @@ namespace intel {
     Module      *m_pModule;
     /// @brief The llvm context
     LLVMContext *m_pLLVMContext;
-    ImplicitArgsAnalysis *m_IAA;
+    ImplicitArgsAnalysisLegacy *m_IAA;
+    ImplicitArgsInfo *IAInfo;
     IntegerType *m_sizeTTy;
 
     /// This holds the Runtime Handle implicit argument of current handled function

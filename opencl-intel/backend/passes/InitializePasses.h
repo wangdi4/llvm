@@ -79,7 +79,6 @@ void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
 void initializeResolveBlockToStaticCallPass(llvm::PassRegistry&);
 void initializeDetectRecursionPass(llvm::PassRegistry&);
 void initializeDebugInfoPassPass(llvm::PassRegistry&);
-void initializeImplicitArgsAnalysisPass(llvm::PassRegistry&);
 void initializeSmartGVNPass(llvm::PassRegistry&);
 void initializeDeduceMaxWGDimPass(llvm::PassRegistry&);
 void initializeRenderscriptVectorizerPass(llvm::PassRegistry&);

@@ -124,7 +124,6 @@ llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createHandleVPlanMaskPass();
-llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
@@ -462,7 +461,7 @@ static void populatePassesPostFailCheck(
   }
 
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
-  PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
+  PM.add(createImplicitArgsAnalysisLegacyPass());
 
   if (isOcl20) {
     // Repeat resolution of generic address space pointers after LLVM
