@@ -2461,7 +2461,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
         if (EnableVPlanDriverHIR) {
           // Enable VPlan HIR Vectorizer
-          PM.add(createVPlanDriverHIRPass());
+          PM.add(createVPlanDriverHIRPass(
+            RunLoopOpts == LoopOptMode::LightWeight));
         }
       }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel, DisableUnrollLoops));

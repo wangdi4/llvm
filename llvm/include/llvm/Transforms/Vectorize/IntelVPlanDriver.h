@@ -164,6 +164,7 @@ private:
   loopopt::HIRDDAnalysis *DDA;
   loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis;
   OptReportBuilder ORBuilder;
+  bool LightWeightMode;
 
   bool processLoop(loopopt::HLLoop *Lp, Function &Fn, WRNVecLoopNode *WRLp);
   bool isSupported(loopopt::HLLoop *Lp);
@@ -181,6 +182,9 @@ public:
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                AssumptionCache *AC, DominatorTree *DT,
                FatalErrorHandlerTy FatalErrorHandler);
+
+  VPlanDriverHIRImpl(bool LightWeightMode) :
+    VPlanDriverImpl(), LightWeightMode(LightWeightMode) {};
 };
 
 class VPlanDriverHIRPass
@@ -191,6 +195,7 @@ public:
   static constexpr auto PassName = "hir-vplan-vec";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             loopopt::HIRFramework &);
+  VPlanDriverHIRPass(bool LightWeightMode) : Impl(LightWeightMode) {};
 };
 
 class VPlanDriverHIR : public FunctionPass {
@@ -199,7 +204,7 @@ class VPlanDriverHIR : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  VPlanDriverHIR();
+  VPlanDriverHIR(bool LightWeightMode = false);
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 

@@ -299,7 +299,7 @@ namespace {
 #if INTEL_CUSTOMIZATION
       (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
       (void) llvm::createVPlanDriverPass();
-      (void) llvm::createVPlanDriverHIRPass();
+      (void) llvm::createVPlanDriverHIRPass(false);
       (void) llvm::createVPlanFunctionVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
       (void) llvm::createVectorCombinePass();

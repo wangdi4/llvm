@@ -3,8 +3,8 @@
 ; NOTE: CM dump goes to stdout and HIR dump goes to stderr. Trying to use one
 ; RUN command line garbles up output causing checks to fail.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -vplan-cost-model-print-analysis-for-vf=4 -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=CMCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -disable-output -print-after=hir-vplan-vec -mattr=+sse4.2 < %s 2>&1 | FileCheck %s --check-prefix=HIRCHECK
 ;
 ; Test to demonstrate GatherScatter(GS) penalty being applied to memory
 ; access that are VLS optimized. Subsequent changes will update the
@@ -21,39 +21,39 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB1]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP4:%.*]] = hir-copy i64 [[VP0]] , OriginPhiId: -1
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 20000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*(-2000) AdjCost: 18000
-; CMCHECK-NEXT:    Cost 16000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*(+6000) AdjCost: 18000
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 20000 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*(-20000) AdjCost: 0
+; CMCHECK-NEXT:    Cost 12000 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*(-12000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP8]] i64 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CMCHECK-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CMCHECK-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  [[BB2]]: base cost: 74000
+; CMCHECK-NEXT:  [[BB2]]: base cost: 52000
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB3]]: base cost: 0
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ; CMCHECK-NEXT:  [[BB4]]: base cost: 0
-; CMCHECK-NEXT:  Base Cost: 74000
+; CMCHECK-NEXT:  Base Cost: 52000
 ;
-; HIRCHECK:       IR Dump After VPlan HIR Vectorizer
+; HIRCHECK-LABEL:  *** IR Dump After VPlan HIR Vectorizer (hir-vplan-vec) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:            BEGIN REGION { modified }
@@ -62,10 +62,10 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; HIRCHECK:                      + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; HIRCHECK-NEXT:                 |   [[DOTCOPY0:%.*]] = [[RED_VAR0]]
 ; HIRCHECK-NEXT:                 |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)([[LP0:%.*]])[2 * i1]
-; HIRCHECK-NEXT:                 |   [[VLS_SHUF0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
-; HIRCHECK-NEXT:                 |   [[VLS_SHUF10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
-; HIRCHECK-NEXT:                 |   [[DOTVEC0:%.*]] = [[VLS_SHUF0]]  +  [[DOTCOPY0]]
-; HIRCHECK-NEXT:                 |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_SHUF10]]
+; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
+; HIRCHECK-NEXT:                 |   [[VLS_EXTRACT10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
+; HIRCHECK-NEXT:                 |   [[DOTVEC0:%.*]] = [[VLS_EXTRACT0]]  +  [[DOTCOPY0]]
+; HIRCHECK-NEXT:                 |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_EXTRACT10]]
 ; HIRCHECK-NEXT:                 + END LOOP
 ; HIRCHECK:                      [[SUM_0130]] = @llvm.vector.reduce.add.v4i64([[RED_VAR0]])
 ; HIRCHECK-NEXT:            END REGION

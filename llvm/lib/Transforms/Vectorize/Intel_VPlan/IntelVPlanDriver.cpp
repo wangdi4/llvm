@@ -1066,11 +1066,14 @@ INITIALIZE_PASS_END(VPlanDriverHIR, "hir-vplan-vec",
 
 char VPlanDriverHIR::ID = 0;
 
-VPlanDriverHIR::VPlanDriverHIR() : FunctionPass(ID) {
+VPlanDriverHIR::VPlanDriverHIR(bool LightWeightMode) :
+  FunctionPass(ID), Impl(LightWeightMode) {
   initializeVPlanDriverHIRPass(*PassRegistry::getPassRegistry());
 }
 
-Pass *llvm::createVPlanDriverHIRPass() { return new VPlanDriverHIR(); }
+Pass *llvm::createVPlanDriverHIRPass(bool LightWeightMode) {
+  return new VPlanDriverHIR(LightWeightMode);
+}
 
 void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
