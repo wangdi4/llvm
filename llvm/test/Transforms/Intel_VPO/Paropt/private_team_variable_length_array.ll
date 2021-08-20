@@ -77,27 +77,27 @@ arrayctor.cont:                                   ; preds = %entry, %arrayctor.l
 ; CHECK-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[CONSTR_BEGIN]], i64 %[[VLA_LEN:[^,]+]]
 ; CHECK-NEXT:  %priv.constr.isempty{{.*}} = icmp eq %class.A* %[[CONSTR_BEGIN]], %[[END]]
 ; CHECK-NEXT:  br i1 %priv.constr.isempty{{.*}}, label %priv.constr.done{{.*}}, label %priv.constr.body{{.*}}
-; CHECK-LABEL: priv.constr.done{{.*}}:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.constr.body{{.*}}:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr{{.*}} = phi %class.A* [ %[[CONSTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc{{.*}}, %{{.*}} ]
 ; CHECK:  call spir_func %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
 ; CHECK:  %priv.cpy.dest.inc{{.*}} = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr{{.*}}, i32 1
 ; CHECK-NEXT:  %priv.cpy.done{{.*}} = icmp eq %class.A* %priv.cpy.dest.inc{{.*}}, %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done{{.*}}, label %priv.constr.done{{.*}}, label %priv.constr.body{{.*}}
+; CHECK-LABEL: priv.constr.done{{.*}}:
+; CHECK-NEXT:  br label %{{.*}}
 
 ; CHECK:  %[[CONSTR_BEGIN2:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.ascast.priv, i32 0
 ; CHECK-NEXT:  %[[END2:[^,]+]] = getelementptr %class.A, %class.A* %[[CONSTR_BEGIN2]], i64 %[[VLA_LEN:[^,]+]]
 ; CHECK-NEXT:  %priv.constr.isempty = icmp eq %class.A* %[[CONSTR_BEGIN2]], %[[END2]]
 ; CHECK-NEXT:  br i1 %priv.constr.isempty, label %priv.constr.done, label %priv.constr.body
-; CHECK-LABEL: priv.constr.done:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.constr.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[CONSTR_BEGIN2]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
 ; CHECK:  call spir_func %class.A addrspace(4)* @_ZTS1A.omp.def_constr(%class.A addrspace(4)* %{{.*}})
 ; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END2]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body
+; CHECK-LABEL: priv.constr.done:
+; CHECK-NEXT:  br label %{{.*}}
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont
   %6 = load i32, i32 addrspace(4)* %d.ascast, align 4

@@ -120,6 +120,9 @@ static cl::opt<bool> EnableAsyncHelperThread(
     "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(false),
     cl::desc("Enable hidden helper threads for async offloading execution"));
 
+static cl::opt<bool> KeepBlocksOrder(
+    "vpo-paropt-keep-blocks-order", cl::Hidden, cl::init(true),
+    cl::desc("Keep the order of blocks during function outlining."));
 
 // Get the TidPtrHolder global variable @tid.addr.
 // Assert if the variable is not found or is not i32.
@@ -5667,6 +5670,43 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
   }
 }
 
+// For the given array of blocks collected for code extraction
+// create new vector, where the blocks are ordered the same way
+// they are ordered originally within their function.
+static SmallVector<BasicBlock *>
+orderBlocksForOutlining(ArrayRef<BasicBlock *> Blocks) {
+  SmallVector<BasicBlock *> OrderedBlocks;
+  SmallPtrSet<BasicBlock *, 16> BlocksSet;
+
+  if (Blocks.empty())
+    return SmallVector<BasicBlock *>();
+
+  // CodeExtractor verifies that only the first block in the array
+  // of blocks may have entries from outside. Usually it is true
+  // that the region entry is the first block in the array of blocks
+  // collected for the code extraction, but if it is not true,
+  // then we have to make sure that we preserve the first block's position
+  // in the resulting vector.
+  OrderedBlocks.push_back(Blocks.front());
+  Blocks = Blocks.drop_front();
+
+  if (Blocks.empty())
+    return OrderedBlocks;
+
+  for (auto *BB : Blocks)
+    BlocksSet.insert(BB);
+
+  // Walk all blocks in the function in their original order
+  // and collect the blocks that are in BlocksSet into OrderedBlocks vector.
+  Function *F = Blocks.front()->getParent();
+  Function::BasicBlockListType &BlocksList = F->getBasicBlockList();
+  for (BasicBlock &BB : BlocksList)
+    if (BlocksSet.count(&BB))
+      OrderedBlocks.push_back(&BB);
+
+  return OrderedBlocks;
+}
+
 Function *VPOParoptUtils::genOutlineFunction(
     const WRegionNode &W, DominatorTree *DT, AssumptionCache *AC,
     llvm::Optional<ArrayRef<BasicBlock *>> BBsToExtractIn, std::string Suffix) {
@@ -5741,6 +5781,16 @@ Function *VPOParoptUtils::genOutlineFunction(
   FixEHEscapesAndDeadPredecessors(ExtractArray, FixedBlocks, DT);
   if (!FixedBlocks.empty())
     ExtractArray = makeArrayRef(FixedBlocks);
+
+  // Order the blocks being extracted the same way they are originally ordered,
+  // otherwise, CodeExtractor will change the blocks layout, which may
+  // affect the final program's debuggability.
+  SmallVector<BasicBlock *> OrderedBlocks;
+
+  if (KeepBlocksOrder) {
+    OrderedBlocks = orderBlocksForOutlining(ExtractArray);
+    ExtractArray = makeArrayRef(OrderedBlocks);
+  }
 
   CodeExtractor CE(ExtractArray, DT,
                    /* AggregateArgs */ false,

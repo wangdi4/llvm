@@ -32,17 +32,17 @@
 ; CHECK: %[[TEAMMINP:.+]] = icmp sle i32 %[[TEAMUBTMP]], %[[ORIGUB:[^,]+]]
 ; CHECK: br i1 %[[TEAMMINP]], label %[[TEAMDISPB:[^,]+]], label %[[TEAMDISPMINUB:[^,]+]]
 
+; TEAMDISPMINUB:
+; CHECK: [[TEAMDISPMINUB]]:
+; CHECK: store i32 %[[ORIGUB]], i32* %[[PTEAMUB]]
+; CHECK: br label %[[TEAMDISPB]]
+
 ; TEAMDISPB:
 ; CHECK: [[TEAMDISPB]]:
 ; CHECK: %[[TEAMLBNEW:.+]] = load i32, i32* %[[PTEAMLB]]
 ; CHECK: %[[TEAMUBNEW:.+]] = load i32, i32* %[[PTEAMUB]]
 ; CHECK: %[[TEAMZTT:.+]] = icmp sle i32 %[[TEAMLBNEW]], %[[TEAMUBNEW]]
 ; CHECK: br i1 %[[TEAMZTT]], label %[[TEAMDISPIB:[^,]+]], label %[[EXIT:[^,]+]]
-
-; TEAMDISPMINUB:
-; CHECK: [[TEAMDISPMINUB]]:
-; CHECK: store i32 %[[ORIGUB]], i32* %[[PTEAMUB]]
-; CHECK: br label %[[TEAMDISPB]]
 
 ; TEAMDISPIB:
 ; CHECK: [[TEAMDISPIB]]:

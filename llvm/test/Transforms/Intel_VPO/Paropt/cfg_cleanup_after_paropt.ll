@@ -41,20 +41,10 @@
 ; CHECK-NOT: br i1
 ; CHECK: br i1{{.*}}label %[[FORBODY:[A-Za-z0-9._]+]], label %[[REGEXIT:[A-Za-z0-9._]+]],
 ; CHECK-EMPTY:
-; CHECK-NEXT: [[FOREND]]:
-; CHECK-NOT: br label %
-; CHECK-NOT: br i1
-; CHECK: br label %[[BBRET]],
-; CHECK-EMPTY:
 ; CHECK-NEXT: [[FORBODY]]:
 ; CHECK-NOT: br label %
 ; CHECK-NOT: br i1
 ; CHECK: br label %[[BODYCONT:[A-Za-z0-9._]+]],
-; CHECK-EMPTY:
-; CHECK-NEXT: [[REGEXIT]]:
-; CHECK-NOT: br label %
-; CHECK-NOT: br i1
-; CHECK: br label %[[FOREND]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT: [[BODYCONT]]:
 ; CHECK-NOT: br label %
@@ -70,6 +60,16 @@
 ; CHECK-NOT: br label %
 ; CHECK-NOT: br i1
 ; CHECK-NEXT: br label %[[REGEXIT]]
+; CHECK-EMPTY:
+; CHECK-NEXT: [[REGEXIT]]:
+; CHECK-NOT: br label %
+; CHECK-NOT: br i1
+; CHECK: br label %[[FOREND]],
+; CHECK-EMPTY:
+; CHECK-NEXT: [[FOREND]]:
+; CHECK-NOT: br label %
+; CHECK-NOT: br i1
+; CHECK: br label %[[BBRET]],
 
 
 

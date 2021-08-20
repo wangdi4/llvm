@@ -32,14 +32,16 @@
 ; CHECK: %[[UD:.+]] = load i32, i32* %[[PUD]]
 ; CHECK: br label %[[DISPH:[^,]+]]
 
-; EXIT:
-; CHECK: [[EXIT]]:
-
 ; DISPH:
 ; CHECK: [[DISPH]]:
 ; CHECK: %[[UBTMP:.+]] = load i32, i32* %[[PUB]]
 ; CHECK: %[[MINP:.+]] = icmp sle i32 %[[UBTMP]], %[[UD]]
 ; CHECK: br i1 %[[MINP]], label %[[DISPB:[^,]+]], label %[[DISPMINUB:[^,]+]]
+
+; DISPMINUB:
+; CHECK: [[DISPMINUB]]:
+; CHECK: store i32 %[[UD]], i32* %[[PUB]]
+; CHECK: br label %[[DISPB]]
 
 ; DISPB:
 ; CHECK: [[DISPB]]:
@@ -48,27 +50,13 @@
 ; CHECK: %[[ZTT2:.+]] = icmp sle i32 %[[LBNEW]], %[[UBNEW]]
 ; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[DISPLATCH:[^,]+]]
 
-; DISPMINUB:
-; CHECK: [[DISPMINUB]]:
-; CHECK: store i32 %[[UD]], i32* %[[PUB]]
-; CHECK: br label %[[DISPB]]
-
 ; LOOPBODY:
 ; CHECK: [[LOOPBODY]]:
 ; CHECK: br label %[[BODYCONT:[^,]+]]
 
-; DISPLATCH:
-; CHECK: [[DISPLATCH]]:
-; CHECK: br label %[[LOOPREGIONEXIT:[^,]+]]
-
 ; BODYCONT:
 ; CHECK: [[BODYCONT]]:
 ; CHECK: br label %[[LOOPINC:[^,]+]]
-
-; LOOPREGIONEXIT:
-; CHECK: [[LOOPREGIONEXIT]]:
-; CHECK: call void @__kmpc_for_static_fini({{.*}}, i32 %[[TID]])
-; CHECK: br label %[[EXIT]]
 
 ; LOOPINC:
 ; CHECK: [[LOOPINC]]:
@@ -77,6 +65,18 @@
 ; DISPINC:
 ; CHECK: [[DISPINC]]:
 ; CHECK: br label %[[DISPH]]
+
+; DISPLATCH:
+; CHECK: [[DISPLATCH]]:
+; CHECK: br label %[[LOOPREGIONEXIT:[^,]+]]
+
+; LOOPREGIONEXIT:
+; CHECK: [[LOOPREGIONEXIT]]:
+; CHECK: call void @__kmpc_for_static_fini({{.*}}, i32 %[[TID]])
+; CHECK: br label %[[EXIT]]
+
+; EXIT:
+; CHECK: [[EXIT]]:
 
 ; ModuleID = 'dist_cases.cpp'
 source_filename = "dist_cases.cpp"

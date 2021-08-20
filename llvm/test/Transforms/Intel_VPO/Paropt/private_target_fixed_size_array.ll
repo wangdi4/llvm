@@ -55,8 +55,6 @@ arrayctor.cont:                                   ; preds = %arrayctor.loop
 ; CHECK-NEXT:  %[[CONSTR_END:[^,]+]] = getelementptr %class.A, %class.A* %[[CONSTR_BEGIN]], i32 100
 ; CHECK-NEXT:  %priv.constr.isempty = icmp eq %class.A* %[[CONSTR_BEGIN]], %[[CONSTR_END]]
 ; CHECK-NEXT:  br i1 %priv.constr.isempty, label %priv.constr.done, label %priv.constr.body
-; CHECK-LABEL: priv.constr.done:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.constr.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[CONSTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc, %{{.*}} ]
 ; CHECK-NEXT:  %[[DEST_ASCAST:[^,]+]] = addrspacecast %class.A* %priv.cpy.dest.ptr to %class.A addrspace(4)*
@@ -64,6 +62,8 @@ arrayctor.cont:                                   ; preds = %arrayctor.loop
 ; CHECK:  %priv.cpy.dest.inc = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[CONSTR_END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.constr.done, label %priv.constr.body
+; CHECK-LABEL: priv.constr.done:
+; CHECK-NEXT:  br label %{{.*}}
 
 for.cond:                                         ; preds = %for.inc, %arrayctor.cont
   %1 = load i32, i32 addrspace(4)* %d.ascast, align 4

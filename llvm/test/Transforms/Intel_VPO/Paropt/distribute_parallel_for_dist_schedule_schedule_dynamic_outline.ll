@@ -32,17 +32,17 @@
 ; CHECK: %[[TEAMMINP:.+]] = icmp sle i32 %[[TEAMUBTMP]], %[[ORIGUB:[^,]+]]
 ; CHECK: br i1 %[[TEAMMINP]], label %[[TEAMDISPB:[^,]+]], label %[[TEAMDISPMINUB:[^,]+]]
 
+; TEAMDISPMINUB:
+; CHECK: [[TEAMDISPMINUB]]:
+; CHECK: store i32 %[[ORIGUB]], i32* %[[PTEAMUB]]
+; CHECK: br label %[[TEAMDISPB]]
+
 ; TEAMDISPB:
 ; CHECK: [[TEAMDISPB]]:
 ; CHECK: %[[TEAMLBNEW:.+]] = load i32, i32* %[[PTEAMLB]]
 ; CHECK: %[[TEAMUBNEW:.+]] = load i32, i32* %[[PTEAMUB]]
 ; CHECK: %[[TEAMZTT:.+]] = icmp sle i32 %[[TEAMLBNEW]], %[[TEAMUBNEW]]
 ; CHECK: br i1 %[[TEAMZTT]], label %[[TEAMDISPIB:[^,]+]], label %[[EXIT:[^,]+]]
-
-; TEAMDISPMINUB:
-; CHECK: [[TEAMDISPMINUB]]:
-; CHECK: store i32 %[[ORIGUB]], i32* %[[PTEAMUB]]
-; CHECK: br label %[[TEAMDISPB]]
 
 ; TEAMDISPIB:
 ; CHECK: [[TEAMDISPIB]]:
@@ -67,13 +67,13 @@
 ; CHECK: %[[ZTT2:.+]] = icmp sle i32 %[[LBNEW]], %[[UBNEW]]
 ; CHECK: br i1 %[[ZTT2]], label %[[LOOPBODY:[^,]+]], label %[[TEAMINC:[^,]+]]
 
-; TEAMINC:
-; CHECK: [[TEAMINC]]:
-; CHECK: br label %[[TEAMDISPH]]
-
 ; LOOPBODY:
 ; CHECK: [[LOOPBODY]]:
 ; CHECK: br i1 {{.*}}, label %[[LOOPBODY]], label %[[DISPNEXT:[^,]+]]
+
+; TEAMINC:
+; CHECK: [[TEAMINC]]:
+; CHECK: br label %[[TEAMDISPH]]
 
 ; EXIT:
 ; CHECK: [[EXIT]]:
