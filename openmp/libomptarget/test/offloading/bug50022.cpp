@@ -6,6 +6,8 @@
 // RUN: %libomptarget-compilexx-generic
 // end INTEL_CUSTOMIZATION
 
+// UNSUPPORTED: amdgcn-amd-amdhsa
+
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
