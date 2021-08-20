@@ -41,4 +41,11 @@ void zoo()
 #pragma vector nodynamic_align // expected-error {{duplicate directives '#pragma vector dynamic_align' and '#pragma vector nodynamic_align'}}
   for(int j=1; j<10; j++) { a[j]=1; }
 
+#pragma vector vecremainder
+#pragma vector vecremainder // expected-error {{duplicate directives '#pragma vector vecremainder' and '#pragma vector vecremainder'}}
+  for(int j=1; j<10; j++) { a[j]=1; }
+
+#pragma vector vecremainder
+#pragma vector novecremainder // expected-error {{duplicate directives '#pragma vector vecremainder' and '#pragma vector novecremainder'}}
+  for(int j=1; j<10; j++) { a[j]=1; }
 }

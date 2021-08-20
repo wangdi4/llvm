@@ -699,13 +699,14 @@ Syntax:
 
 .. code-block:: text
 
-  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align}
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align
 
 ``pragma vector`` with no other keyword will do nothing.
 
 Currently we only support ``pragma vector``, ``pragma vector always``,
-``pragma vector aligned`` ,``pragma vector dynamic_align`` and
-``prgama vector nodynamic_align``.
+``pragma vector aligned``, ``pragma vector dynamic_align``,
+``pragma vector nodynamic_align``, ``pragma vector vecremainder`` and
+``pragma vector novecremainder``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -724,6 +725,10 @@ Example:
     #pragma vector dynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector nodynamic_align
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector vecremainder
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector novecremainder
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -762,6 +767,15 @@ AST:
   |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeNoDynamicAlign Enable
   | |-<<<NULL>>>
   | `-<<<NULL>>>
+  AttributedStmt 0x2d888a37748 <line:8:11, line:9:46>
+  |-LoopHintAttr 0x2d888a37708 <line:8:11> Implicit vector VectorizeVecremainder Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+  AttributedStmt 0x2d888a37748 <line:10:11, line:11:46>
+  |-LoopHintAttr 0x2d888a37708 <line:10:11> Implicit vector VectorizeNoVecremainder Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
 
@@ -779,6 +793,8 @@ IR:
   br label %for.cond20, !llvm.loop !7
   br label %for.cond34, !llvm.loop !9
   br label %for.cond48, !llvm.loop !11
+  br label %for.cond62, !llvm.loop !13
+  br label %for.cond76, !llvm.loop !15
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.mustprogress"}
@@ -791,6 +807,10 @@ IR:
   !10 = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
   !11 = distinct !{!11, !3, !12}
   !12 = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
+  !13 = distinct !{!13, !3, !14}
+  !14 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
+  !15 = distinct !{!15, !3, !16}
+  !16 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
 
   }];
   let UserContent = [{

@@ -4318,6 +4318,7 @@ def LoopHint : Attr {
                            "distribute_point", "fusion",
                            "novector", "always", "aligned",
                            "dynamic_align","nodynamic_align",
+                           "vecremainder","novecremainder",
                            "loop_count", "max", "min", "avg"],
 // end INTEL_CUSTOMIZATION
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
@@ -4332,6 +4333,7 @@ def LoopHint : Attr {
                            "ForceHyperopt", "Distribute", "Fusion", "Vectorize",
                            "VectorizeAlways", "VectorizeAligned",
                            "VectorizeDynamicAlign", "VectorizeNoDynamicAlign",
+                           "VectorizeVecremainder", "VectorizeNoVecremainder",
                            "LoopCount",
                            "LoopCountMax", "LoopCountMin","LoopCountAvg"]>,
 // end INTEL_CUSTOMIZATION
@@ -4366,6 +4368,8 @@ def LoopHint : Attr {
     case VectorizeAligned: return "aligned";
     case VectorizeDynamicAlign: return "dynamic_align";
     case VectorizeNoDynamicAlign: return "nodynamic_align";
+    case VectorizeVecremainder: return "vecremainder";
+    case VectorizeNoVecremainder: return "novecremainder";
     case LoopCount: return "loop_count";
     case LoopCountMin: return "loop_count min";
     case LoopCountMax: return "loop_count max";
