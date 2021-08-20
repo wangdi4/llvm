@@ -1030,6 +1030,11 @@ namespace llvm {
     /// legal as the hook is used before type legalization.
     bool isSafeMemOpType(MVT VT) const override;
 
+
+#if INTEL_CUSTOMIZATION
+    ComplexABI getComplexReturnABI(Type* ScalarFloatTy) const override;
+#endif // INTEL_CUSTOMIZATION
+
     /// Returns true if the target allows unaligned memory accesses of the
     /// specified type. Returns whether it is "fast" in the last argument.
     bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, Align Alignment,

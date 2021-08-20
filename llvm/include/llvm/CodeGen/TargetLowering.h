@@ -638,6 +638,27 @@ public:
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Enum that specifies how a C complex type is lowered (in LLVM type terms).
+  enum class ComplexABI {
+    Memory, ///< Indicates that a pointer to the struct is passed.
+    Vector, ///< Indicates that T _Complex can be passed as <2 x T>.
+    Struct, ///< Indicates that T _Complex can be passed as {T, T}.
+  };
+
+  /// Returns how a C complex type is lowered when used as the return value.
+  virtual ComplexABI getComplexReturnABI(Type *ScalarFloatTy) const {
+    return ComplexABI::Struct;
+  }
+
+  /// Returns true if the target can match the @llvm.intel.complex.fmul
+  /// intrinsic with the given type. Such an intrinsic is assumed will only be
+  /// matched when "complex-limited-range" is in effect.
+  virtual bool hasComplexMultiply(Type *FloatTy) const {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return if the target supports combining a
   /// chain like:
   /// \code
