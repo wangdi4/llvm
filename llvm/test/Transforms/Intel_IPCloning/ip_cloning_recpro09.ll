@@ -6,7 +6,7 @@
 ; Test that the function @good is recognized as a recursive progression clone
 ; and eight clones of it are created. Also that it is a candidate for creating
 ; an extra clone, and that inner loop trip counts can be simplified. Finally,
-; check that  AVX512 has been transformed to AVX2.
+; check that AVX512 has been transformed to AVX2.
 
 ; CHECK: Enter IP cloning: (Before inlining)
 ; CHECK: Cloning Analysis for:  good
