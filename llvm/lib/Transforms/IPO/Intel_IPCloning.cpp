@@ -415,11 +415,12 @@ static void GetPointerToArrayDims(Argument *Arg, unsigned &SizeInBytes,
   SizeInBytes = DL.getTypeSizeInBits(ATy);
 }
 
-// Return a StoreInst (like StInst in the example below) if 'V' is the address
-// of packed array (i.e int64 value) on stack.
+// Return a StoreInst (like StInst in the example below) if 'AI' is the address
+// of packed array (i.e int64 value) on stack. (Here 'PV' is the previous Value
+// encountered when tracing up to 'AI' from the PHINode.)
 //
 //  Ex:
-//   AInst:        %6 = alloca i64, align 8
+//   AI:           %6 = alloca i64, align 8
 //
 //   U:            %10 = bitcast i64* %6 to i8*
 //
@@ -431,19 +432,15 @@ static void GetPointerToArrayDims(Argument *Arg, unsigned &SizeInBytes,
 //
 //   Callee:       call void @llvm.lifetime.end(i64 8, i8* %10) #9
 //
+// We also handle the opaque pointer case where there are no bitcasts.
 //
-static StoreInst *isStartAddressOfPackedArrayOnStack(Value *V) {
-  Instruction *I = cast<Instruction>(V);
-  Value *AInst = I->getOperand(0);
-  if (!isa<AllocaInst>(AInst))
-    return nullptr;
-  AllocaInst *AllocaI = cast<AllocaInst>(AInst);
-
+static StoreInst *isStartAddressOfPackedArrayOnStack(AllocaInst *AI,
+                                                     Value *PV) {
   StoreInst *StInst = nullptr;
-  for (User *U : AInst->users()) {
+  for (User *U : AI->users()) {
 
     // Ignore if it is the arg that is passed to call.
-    if (U == V)
+    if (U == PV)
       continue;
 
     if (isa<BitCastInst>(U)) {
@@ -456,6 +453,14 @@ static StoreInst *isStartAddressOfPackedArrayOnStack(Value *V) {
           return nullptr;
       }
       continue;
+    }
+
+    // For opaque pointers, handle the case where there is no bitcast
+    // to the lifetime intrinsics.
+    if (auto II = dyn_cast<IntrinsicInst>(U)) {
+      if (II->getIntrinsicID() == Intrinsic::lifetime_start ||
+          II->getIntrinsicID() == Intrinsic::lifetime_end)
+       continue;
     }
 
     auto SI = dyn_cast<StoreInst>(U);
@@ -474,7 +479,7 @@ static StoreInst *isStartAddressOfPackedArrayOnStack(Value *V) {
   if (!isa<Constant>(ValOp))
     return nullptr;
 
-  if (ValOp->getType() != AllocaI->getAllocatedType())
+  if (ValOp->getType() != AI->getAllocatedType())
     return nullptr;
 
   return StInst;
@@ -518,7 +523,7 @@ static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
   return GV;
 }
 
-// Return a GlobalVariable (like GlobAddr in th example below) if 'V' is
+// Return a GlobalVariable (like GlobAddr in th example below) if 'GEPI' is
 // the address of stack location where Global array is copied completely.
 //
 // Ex:
@@ -534,7 +539,7 @@ static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
 //                 getelementptr inbounds ([5 x [2 x i8]],
 //                 [5 x [2 x i8]]* @t.CM_THREE, i64 0, i64 0, i64 0), i64 1
 //
-//  V (GEP):   %43 = getelementptr inbounds [5 x [2 x i8]],
+//  GEPI:      %43 = getelementptr inbounds [5 x [2 x i8]],
 //                   [5 x [2 x i8]]* %7, i64 0, i64 0
 //
 //  Callee:    call void @llvm.lifetime.start(i64 10, i8* %11) #9
@@ -544,38 +549,33 @@ static GlobalVariable *isSpecializationGVCandidate(Value *V, Instruction *I) {
 //
 //  GlobAddr:     @t.CM_THREE
 //
-static GlobalVariable *isStartAddressOfGlobalArrayCopyOnStack(Value *V) {
-  GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(V);
-  if (!GEP)
-    return nullptr;
+static GlobalVariable *
+    isStartAddressOfGlobalArrayCopyOnStack(GetElementPtrInst *GEPI) {
   // First, check it is starting array address on stack
-  Value *AInst = GEP->getOperand(0);
-  if (!isa<AllocaInst>(AInst))
+  auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+  if (!AI)
     return nullptr;
-
-  AllocaInst *AllocaI = cast<AllocaInst>(AInst);
-  if (!GEP->hasAllZeroIndices())
+  if (!GEPI->hasAllZeroIndices())
     return nullptr;
 
   const Value *AUse = nullptr;
-  Type *GEPType = GEP->getSourceElementType();
-  if (GEPType != AllocaI->getAllocatedType())
+  Type *GEPType = GEPI->getSourceElementType();
+  if (GEPType != AI->getAllocatedType())
     return nullptr;
 
   // Get another use of AllocaInst other than the one that
   // is passed to Call
   AUse = nullptr;
-  for (const User *U : AInst->users()) {
+  for (const User *U : AI->users()) {
     // Ignore if it is the arg that is passed to call.
-    if (U == V)
+    if (U == GEPI)
       continue;
     // More than one use is noticed
-    if (AUse != nullptr)
+    if (AUse)
       return nullptr;
     AUse = U;
   }
-
-  if (AUse == nullptr)
+  if (!AUse)
     return nullptr;
   const GetElementPtrInst *MemCpySrc = dyn_cast<GetElementPtrInst>(AUse);
   if (!MemCpySrc)
@@ -615,14 +615,14 @@ static GlobalVariable *isStartAddressOfGlobalArrayCopyOnStack(Value *V) {
     Value *MemCpySize = User->getArgOperand(2);
 
     // Make sure there is only one memcpy
-    if (GlobAddr != nullptr)
+    if (GlobAddr)
       return nullptr;
 
-    GlobAddr = isSpecializationGVCandidate(MemCpyDst->getOperand(0), GEP);
+    GlobAddr = isSpecializationGVCandidate(MemCpyDst->getOperand(0), GEPI);
     if (!GlobAddr)
       return nullptr;
 
-    const DataLayout &DL = GEP->getModule()->getDataLayout();
+    const DataLayout &DL = GEPI->getModule()->getDataLayout();
     unsigned ArraySize = DL.getTypeSizeInBits(GEPType) / 8;
     ConstantInt *CI = dyn_cast<ConstantInt>(MemCpySize);
     if (!CI)
@@ -642,21 +642,25 @@ static GlobalVariable *isStartAddressOfGlobalArrayCopyOnStack(Value *V) {
 //
 static bool isSpecializationCloningSpecialConst(Value *V, PHINode *Arg) {
   Value *PropVal = nullptr;
-
-  if (isa<GetElementPtrInst>(V)) {
-    PropVal = isStartAddressOfGlobalArrayCopyOnStack(V);
-  } else if (isa<BitCastInst>(V)) {
-    PropVal = isStartAddressOfPackedArrayOnStack(V);
+  if (auto GEPI = dyn_cast<GetElementPtrInst>(V)) {
+    PropVal = isStartAddressOfGlobalArrayCopyOnStack(GEPI);
   } else {
-    return false;
+    Value *PV = Arg;
+    Value *W = V;
+    if (auto BCI = dyn_cast<BitCastInst>(V)) {
+      PV = BCI;
+      W = BCI->getOperand(0);
+    }
+    if (auto AI = dyn_cast<AllocaInst>(W))
+      PropVal = isStartAddressOfPackedArrayOnStack(AI, PV);
+    else
+      return false;
   }
-  if (PropVal == nullptr)
+  if (!PropVal)
     return false;
-
   SpecialConstPropagatedValueMap[V] = PropVal;
   if (!SpecialConstGEPMap[V])
     SpecialConstGEPMap[V] = getAnyGEPAsIncomingValueForPhi(Arg);
-
   return true;
 }
 
@@ -3758,24 +3762,33 @@ bool Splitter::findSplitInsts() {
 
 bool Splitter::canSinkAllocaInst(AllocaInst *AI, DominatorTree *DT) {
 
-  auto IsBitCastToLifetime = [this](Instruction *I, BasicBlock *BB) -> bool {
-    auto BC = dyn_cast<BitCastInst>(I);
-    if (!BC || BC->getParent() != BB)
+  auto IsToLifetime = [this](User *U, BasicBlock *BB) -> bool {
+    auto II = dyn_cast<Instruction>(U);
+    if (!II)
       return false;
-    for (User *U : BC->users()) {
-      auto II = dyn_cast<Instruction>(U);
-      if (!II)
+    if (!Visited.count(II->getParent()))
+      return true;
+    if (II->getParent() != BB)
+      return false;
+    auto CI = dyn_cast<CallInst>(II);
+    if (!CI)
+      return false;
+    Function *F = CI->getCalledFunction();
+    if (!F || F->getIntrinsicID() != Intrinsic::lifetime_start)
+      return false;
+    return true;
+  };
+
+  auto IsBitCastToLifetime = [&IsToLifetime](Instruction *I,
+                                             BasicBlock *BB) -> bool {
+    if (auto BC = dyn_cast<BitCastInst>(I)) {
+      if (BC->getParent() != BB)
         return false;
-      if (!Visited.count(II->getParent()))
-        continue;
-      if (II->getParent() != BB)
-        return false;
-      auto CI = dyn_cast<CallInst>(II);
-      if (!CI)
-        return false;
-      Function *F = CI->getCalledFunction();
-      if (!F || F->getIntrinsicID() != Intrinsic::lifetime_start)
-        return false;
+      for (User *U : BC->users())
+        if (!IsToLifetime(U, BB))
+          return false;
+    } else if (!IsToLifetime(I, BB)) {
+      return false;
     }
     return true;
   };
@@ -4345,10 +4358,17 @@ void Splitter::sinkAllocaInst(AllocaInst *AI) {
   for (User *U : AI->users()) {
     auto I = cast<Instruction>(U);
     if (I->getParent() == BB) {
-      auto BC = cast<BitCastInst>(I);
-      MoveSet.push_back(BC);
-      for (User *V : BC->users()) {
-        auto J = cast<Instruction>(V);
+      if (auto BC = dyn_cast<BitCastInst>(I)) {
+        MoveSet.push_back(BC);
+        for (User *V : BC->users()) {
+          auto J = cast<Instruction>(V);
+          if (J->getParent() != BB)
+            continue;
+          auto CI = cast<CallInst>(J);
+          MoveSet.push_back(CI);
+        }
+      } else {
+        auto J = cast<Instruction>(I);
         if (J->getParent() != BB)
           continue;
         auto CI = cast<CallInst>(J);
