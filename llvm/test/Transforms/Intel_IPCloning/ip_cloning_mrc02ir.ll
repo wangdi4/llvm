@@ -9,6 +9,7 @@
 ; requiring asserts.
 
 ; Check that no recursive clone of foo is made.
+; CHECK: define internal i32 @foo
 ; CHECK-NOT: define internal i32 @foo.1
 ; Check that no call is made to a recursive clone of foo.
 ; CHECK-NOT: {{.*}}call @foo.1

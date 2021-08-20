@@ -8,6 +8,7 @@
 ; This is the same test as ip_cloning_mrc06.ll, but checks for IR without
 ; requiring asserts.
 
+; CHECK: define internal i32 @foo
 ; Check that no recursive clone of foo is made.
 ; CHECK-NOT: define internal i32 @foo.1
 ; Check that no call is made to a recursive clone of foo.
