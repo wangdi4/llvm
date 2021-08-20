@@ -1472,6 +1472,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_end_single:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_kmpc_masked:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_end_masked:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_kmpc_master:
     Changed |= setDoesNotThrow(F);
     return Changed;

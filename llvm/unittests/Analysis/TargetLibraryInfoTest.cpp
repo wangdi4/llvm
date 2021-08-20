@@ -871,6 +871,8 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @__kmpc_serialized_parallel(i8*, i32)\n"
       "declare i32 @__kmpc_single(i8*, i32)\n"
       "declare void @__kmpc_end_single(i8*, i32)\n"
+      "declare i32 @__kmpc_masked(i8*, i32, i32)\n"
+      "declare void @__kmpc_end_masked(i8*, i32)\n"
       "declare i32 @__kmpc_master(i8*, i32)\n"
       "declare void @__kmpc_end_master(i8*, i32)\n"
       "declare i8* @__kmpc_threadprivate_cached(i8*, i32, i8*, i64, i8*)\n"
