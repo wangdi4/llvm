@@ -18,6 +18,7 @@ namespace llvm {
 /// Preprocess the input SPIRV-Friendly-IR (AKA. SPV-IR) before translating it
 /// into OCL-IR.
 /// - Add "opencl.ocl.version" metadata.
+/// - Materialize "spirv.SampleImage." opaque type name postfix.
 class DPCPPPreprocessSPIRVFriendlyIRPass
     : public PassInfoMixin<DPCPPPreprocessSPIRVFriendlyIRPass> {
 public:
