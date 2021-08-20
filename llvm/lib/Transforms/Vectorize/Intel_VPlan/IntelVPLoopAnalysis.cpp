@@ -1282,6 +1282,9 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         continue;
       }
 
+      assert((PrivateMem || !Private->getIsMemOnly()) &&
+             "MemOnly private is expected to have PrivateMem.");
+
       VPBuilder::InsertPointGuard Guard(Builder);
       Builder.setInsertPoint(PostExit);
       VPValue *Exit =
