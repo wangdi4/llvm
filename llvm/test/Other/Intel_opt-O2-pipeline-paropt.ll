@@ -100,6 +100,8 @@
 ;                  Remove unused exception handling info
 ;                  Function Integration/Inlining
 ;CHECK:             FunctionPass Manager
+;CHECK-NEXT:         Dominator Tree Construction
+;CHECK-NEXT:         SROA
 ;CHECK-NEXT:         Simplify the CFG
 ;CHECK-NEXT:         VPO Restore Operands
 ; INTEL_CUSTOMIZATION
