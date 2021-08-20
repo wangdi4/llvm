@@ -1587,13 +1587,13 @@ static void UpdateCallGraphAfterInlining(CallBase &CB,
   CallerNode->removeCallEdgeFor(*cast<CallBase>(&CB));
 }
 
-static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
-                                    BasicBlock *InsertBlock,
+static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
+                                    Module *M, BasicBlock *InsertBlock,
                                     InlineFunctionInfo &IFI) {
-  Type *AggTy = cast<PointerType>(Src->getType())->getElementType();
   IRBuilder<> Builder(InsertBlock, InsertBlock->begin());
 
-  Value *Size = Builder.getInt64(M->getDataLayout().getTypeStoreSize(AggTy));
+  Value *Size =
+      Builder.getInt64(M->getDataLayout().getTypeStoreSize(ByValType));
 
   // Always generate a memcpy of alignment 1 here because we don't know
   // the alignment of the src pointer.  Other optimizations can infer
@@ -1604,13 +1604,13 @@ static void HandleByValArgumentInit(Value *Dst, Value *Src, Module *M,
 
 /// When inlining a call site that has a byval argument,
 /// we have to make the implicit memcpy explicit by adding it.
-static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
+static Value *HandleByValArgument(Type *ByValType, Value *Arg,
+                                  Instruction *TheCall,
                                   const Function *CalledFunc,
                                   InlineFunctionInfo &IFI,
                                   unsigned ByValAlignment) {
-  PointerType *ArgTy = cast<PointerType>(Arg->getType());
-  Type *AggTy = ArgTy->getElementType();
-
+  assert(cast<PointerType>(Arg->getType())
+             ->isOpaqueOrPointeeTypeMatches(ByValType));
   Function *Caller = TheCall->getFunction();
   const DataLayout &DL = Caller->getParent()->getDataLayout();
 
@@ -1638,7 +1638,7 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
   }
 
   // Create the alloca.  If we have DataLayout, use nice alignment.
-  Align Alignment(DL.getPrefTypeAlignment(AggTy));
+  Align Alignment(DL.getPrefTypeAlignment(ByValType));
 
   // If the byval had an alignment specified, we *must* use at least that
   // alignment, as it is required by the byval argument (and uses of the
@@ -1647,18 +1647,19 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
 
 #if INTEL_COLLAB
   Value *NewAlloca = new AllocaInst(
-      AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
+      ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment, Arg->getName(),
       VPOAnalysisUtils::mayHaveOpenmpDirective(*Caller) ? TheCall :
                                                &*Caller->begin()->begin());
 #else //INTEL_COLLAB
   Value *NewAlloca =
-      new AllocaInst(AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
+      new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment,
                      Arg->getName(), &*Caller->begin()->begin());
 #endif // INTEL_COLLAB
   IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
 
 #if INTEL_COLLAB
   // If the byval was in a different address space, add a cast.
+  PointerType *ArgTy = cast<PointerType>(Arg->getType());
   if (DL.getAllocaAddrSpace() != ArgTy->getAddressSpace()) {
     NewAlloca = new AddrSpaceCastInst(
         NewAlloca, ArgTy, "",
@@ -2373,8 +2374,13 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
   { // Scope to destroy VMap after cloning.
     ValueToValueMapTy VMap;
+    struct ByValInit {
+      Value *Dst;
+      Value *Src;
+      Type *Ty;
+    };
     // Keep a list of pair (dst, src) to emit byval initializations.
-    SmallVector<std::pair<Value*, Value*>, 4> ByValInit;
+    SmallVector<ByValInit, 4> ByValInits;
 
     // When inlining a function that contains noalias scope metadata,
     // this metadata needs to be cloned so that the inlined blocks
@@ -2399,10 +2405,12 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       // or readnone, because the copy would be unneeded: the callee doesn't
       // modify the struct.
       if (CB.isByValArgument(ArgNo)) {
-        ActualArg = HandleByValArgument(ActualArg, &CB, CalledFunc, IFI,
+        ActualArg = HandleByValArgument(CB.getParamByValType(ArgNo), ActualArg,
+                                        &CB, CalledFunc, IFI,
                                         CalledFunc->getParamAlignment(ArgNo));
         if (ActualArg != *AI)
-          ByValInit.push_back(std::make_pair(ActualArg, (Value*) *AI));
+          ByValInits.push_back(
+              {ActualArg, (Value *)*AI, CB.getParamByValType(ArgNo)});
       }
 
       VMap[&*I] = ActualArg;
@@ -2454,8 +2462,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     }
 
     // Inject byval arguments initialization.
-    for (std::pair<Value*, Value*> &Init : ByValInit)
-      HandleByValArgumentInit(Init.first, Init.second, Caller->getParent(),
+    for (ByValInit &Init : ByValInits)
+      HandleByValArgumentInit(Init.Ty, Init.Dst, Init.Src, Caller->getParent(),
                               &*FirstNewBlock, IFI);
 
     Optional<OperandBundleUse> ParentDeopt =
