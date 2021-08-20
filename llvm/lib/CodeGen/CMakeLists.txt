@@ -7,6 +7,7 @@ intel_add_file(INTEL_SOURCE_FILES_TO_BUILD
   Intel_FMACGCommon.cpp
   Intel_FMACommon.cpp
   Intel_Float128ExpandPass.cpp
+  Intel_FoldLoadsToGather.cpp
   Intel_MIRMatcher.cpp
   Intel_MachineOptReportEmitter.cpp
   Intel_RAReportEmitter.cpp

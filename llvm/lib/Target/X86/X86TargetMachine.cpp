@@ -442,6 +442,8 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
+  if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
+    addPass(createFoldLoadsToGatherPass()); // INTEL
 
   // We add both pass anyway and when these two passes run, we skip the pass
   // based on the option level and option attribute.

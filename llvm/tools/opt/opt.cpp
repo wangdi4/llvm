@@ -636,6 +636,7 @@ int main(int argc, char **argv) {
   initializeVecClonePass(Registry);
   initializeMapIntrinToImlPass(Registry);
   initializeFloat128ExpandPass(Registry);
+  initializeFoldLoadsToGatherPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
   initializeSYCLLowerESIMDLegacyPassPass(Registry);
