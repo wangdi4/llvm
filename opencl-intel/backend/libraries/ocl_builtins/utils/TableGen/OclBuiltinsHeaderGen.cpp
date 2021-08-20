@@ -85,10 +85,11 @@ virtual ~MangledNameEmmiter() {
       typedbiList.push_back(typedBi);
     }
   }
-  // enable 64-bit atomic extentions in clang
+  // enable 64-bit atomic extentions and half floating-point support in clang
   std::string code =
       "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable\n"
-      "#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable\n";
+      "#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable\n"
+      "#pragma OPENCL EXTENSION cl_khr_fp16: enable\n";
   typedbiList.sort(isLess);
   TypedBiIter typeit, typee = typedbiList.end();
   OclBuiltinAttr IA = OclBuiltinAttr::CreateInilineAttribute();

@@ -39,18 +39,6 @@ let Types = [intptr_t],
     def ocl20_min_intptr : OclBuiltin<"__ocl20_min", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
     def ocl20_max_intptr : OclBuiltin<"__ocl20_max", (outs gentype:$res), (ins gentype:$lhs, uintptr_t:$rhs), [], [], 1, 0>;
 }
-let Types = [uintptr_t],
-    Attrs = [OVERLOADABLE, INLINE],
-    NeedForwardDecl = 1  in {
-    def as_uintptr_t : OclBuiltin<"as_uintptr_t", (outs gentype:$res), (ins v1i32:$x), [], [], 1, 0>;
-    def as_uintptr_t_64 : OclBuiltin<"as_uintptr_t", (outs gentype:$res), (ins v1i64:$x), [], [], 1, 0>;
-}
-let Types = [intptr_t],
-    Attrs = [OVERLOADABLE, INLINE],
-    NeedForwardDecl = 1  in {
-    def as_intptr_t : OclBuiltin<"as_intptr_t", (outs gentype:$res), (ins v1u32:$x), [], [], 1, 0>;
-    def as_intptr_t_64 : OclBuiltin<"as_intptr_t", (outs gentype:$res), (ins v1u64:$x), [], [], 1, 0>;
-}
 
 class SSSE3 : Generic {
 // Native types for SSSE3. Used in "Promote" calls
