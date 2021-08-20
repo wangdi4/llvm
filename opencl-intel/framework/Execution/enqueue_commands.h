@@ -123,7 +123,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void            SetDevice(const SharedPtr<FissionableDevice>& pDevice)               { m_pDevice = pDevice; }
         const SharedPtr<FissionableDevice>& GetDevice() const                                { return m_pDevice; }
 
-        void SetUsmPtrList(const std::vector<const void *> &usmPtrs) { m_UsmPtrs = usmPtrs; }
+        void SetUsmPtrList(const std::vector<const void *> &usmPtrs) {
+            std::lock_guard<std::mutex> lock(m_UsmPtrsMutex);
+            m_UsmPtrs = usmPtrs;
+        }
 
         cl_dev_cmd_desc* GetDeviceCommandDescriptor();
 
@@ -232,6 +235,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ContextModule*                  m_pContextModule;
         // A list of pointers to USM whose free may be blocked by this command.
         std::vector<const void *>       m_UsmPtrs;
+        std::mutex m_UsmPtrsMutex;
 
         DECLARE_LOGGER_CLIENT;
     private:
