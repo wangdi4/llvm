@@ -1,10 +1,4 @@
-// INTEL_CUSTOMIZATION
-// CMPLRLIBS-33452: This test which was recently added along with a host OpenMP
-// runtime change in https://reviews.llvm.org/D106519. Alloy testing uses
-// pre-built libomp, so it will keep failing until the updated libomp gets
-// propagated to rdrive. Changing it into a compile only test until then.
-// RUN: %libomptarget-compilexx-generic
-// end INTEL_CUSTOMIZATION
+// RUN: %libomptarget-compilexx-and-run-generic
 
 #include <cassert>
 #include <iostream>
