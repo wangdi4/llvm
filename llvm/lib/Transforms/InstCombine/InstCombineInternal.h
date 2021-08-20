@@ -820,6 +820,10 @@ public:
   // whether or not a value can be descaled.
   Value *Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
                  bool TestOnly = false);
+
+  /// Try to match a complex intrinsic that produces the given real/imaginary
+  /// pair. Returns whether or not it was successful.
+  bool createComplexMathInstruction(Value *Real, Value *Imag);
 #endif // INTEL_CUSTOMIZATION
 };
 
