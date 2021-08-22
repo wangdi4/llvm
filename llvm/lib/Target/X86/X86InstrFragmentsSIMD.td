@@ -822,11 +822,6 @@ def X86dpbf16ps :      SDNode<"X86ISD::DPBF16PS",
 def X86GF2P8affineinvqb : SDNode<"X86ISD::GF2P8AFFINEINVQB", SDTBlend>;
 def X86GF2P8affineqb    : SDNode<"X86ISD::GF2P8AFFINEQB", SDTBlend>;
 def X86GF2P8mulb        : SDNode<"X86ISD::GF2P8MULB", SDTIntBinOp>;
-#if INTEL_CUSTOMIZATION
-// FP16 specific
-def X86frcps    : SDNode<"X86ISD::FRCPS",      SDTFPBinOp>;
-def X86frsqrts  : SDNode<"X86ISD::FRSQRTS",    SDTFPBinOp>;
-#endif // INTEL_CUSTOMIZATION
 
 def SDTX86MaskedStore: SDTypeProfile<0, 3, [       // masked store
   SDTCisVec<0>, SDTCisPtrTy<1>, SDTCisVec<2>, SDTCisSameNumEltsAs<0, 2>

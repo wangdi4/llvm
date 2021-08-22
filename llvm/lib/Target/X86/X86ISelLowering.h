@@ -287,12 +287,6 @@ namespace llvm {
     RCP14,
     RCP14S,
 
-#if INTEL_CUSTOMIZATION
-    // AVX-512-FP16 scalar reciprocal approximations
-    FRSQRTS,
-    FRCPS,
-#endif // INTEL_CUSTOMIZATION
-
     // Thread Local Storage.
     TLSADDR,
 
