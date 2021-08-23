@@ -2179,7 +2179,11 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
   const char *buildLog = buffer.data() ? buffer.data() : "empty";
-  DP("%s\n", buildLog);
+  DP("Target build log:\n");
+  std::stringstream Str(buildLog);
+  std::string Line;
+  while(std::getline(Str, Line, '\n'))
+    DP("  %s\n", Line.c_str());
 #endif // INTEL_CUSTOMIZATION
 }
 

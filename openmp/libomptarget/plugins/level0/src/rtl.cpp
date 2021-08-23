@@ -2024,15 +2024,22 @@ static ze_module_handle_t createModule(
   CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
              &buildLog);
   if (rc != ZE_RESULT_SUCCESS) {
-    DP("Warning: module creation failed "
-       "(use DebugLevel > 1 to see details below).\n");
-    if (DebugLevel > 1) {
-      size_t logSize;
+    DP("Warning: module creation failed\n");
+    if (DebugLevel > 0) {
+      size_t logSize = 0;
       CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
-      std::vector<char> logString(logSize);
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
-                       logString.data());
-      fprintf(stderr, "%s\n", logString.data());
+      DP("Target build log:\n");
+      if (logSize > 0) {
+        std::vector<char> logString(logSize);
+        CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
+                         logString.data());
+        std::stringstream Str(logString.data());
+        std::string Line;
+        while (std::getline(Str, Line, '\n'))
+          DP("  %s\n", Line.c_str());
+      } else {
+        DP("  empty\n");
+      }
     }
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
     return nullptr;

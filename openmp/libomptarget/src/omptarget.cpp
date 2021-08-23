@@ -225,9 +225,20 @@ void handleTargetOutcome(bool Success, ident_t *Loc) {
         for (auto &Device : PM->Devices)
           dumpTargetPointerMappings(Loc, Device);
       else
+#if INTEL_COLLAB
+        FAILURE_MESSAGE("Run with\n");
+        FAILURE_MESSAGE(
+            "LIBOMPTARGET_DEBUG=1 to display basic debug information.\n");
+        FAILURE_MESSAGE(
+            "LIBOMPTARGET_DEBUG=2 to display calls to the compute runtime.\n");
+        FAILURE_MESSAGE(
+            "LIBOMPTARGET_INFO=%d to dump host-target pointer mappings.\n",
+            OMP_INFOTYPE_DUMP_TABLE);
+#else // INTEL_COLLAB
         FAILURE_MESSAGE("Run with LIBOMPTARGET_INFO=%d to dump host-target "
                         "pointer mappings.\n",
                         OMP_INFOTYPE_DUMP_TABLE);
+#endif // INTEL_COLLAB
 
       SourceInfo info(Loc);
       if (info.isAvailible())
