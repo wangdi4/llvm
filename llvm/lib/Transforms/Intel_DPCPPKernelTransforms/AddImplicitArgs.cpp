@@ -23,6 +23,14 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-implicit-args"
 
+// TODO This command line option indicates if the AddTLSGlobals pass is enabled
+// by "-use-tls-globals" so that DPCPPKernelTransforms passes can behave
+// accordingly. It should be removed when porting AddTLSGlobals pass.
+bool EnableTLSGlobals;
+static cl::opt<bool, true> OptEnableTLSGlobals(
+    "dpcpp-kernel-enable-tls-globals", cl::desc("Enable TLS globals"),
+    cl::location(EnableTLSGlobals), cl::init(false), cl::Hidden);
+
 namespace {
 
 /// Legacy AddImplicitArgs pass.

@@ -796,6 +796,8 @@ public:
     Value *TaskRedInitOrigArg =
         nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
                  // reduction init callback function.
+    Value *ArraySectionOffset = nullptr;
+
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
@@ -919,6 +921,9 @@ public:
       return !ArrSecInfo.getArraySectionDims().empty();
     };
 
+    void setArraySectionOffset(Value *Offset) { ArraySectionOffset = Offset; }
+    Value *getArraySectionOffset() { return ArraySectionOffset; }
+
     // Return a string for the reduction operation, such as "ADD" and "MUL"
     StringRef getOpName() const {
       int ClauseId = getClauseIdFromKind(Ty);
@@ -930,6 +935,7 @@ public:
     void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
       if (getIsArraySection()) {
         OS << " ";
         ArrSecInfo.print(OS, PrintType);
@@ -953,6 +959,11 @@ class CopyinItem : public Item
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyin; }
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
 };
 
 
@@ -969,6 +980,11 @@ class CopyprivateItem : public Item
     void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
     static bool classof(const Item *I) { return I->getKind() == IK_Copyprivate; }
+    void print(formatted_raw_ostream &OS,
+               bool PrintType = true) const override {
+      printOrig(OS, PrintType);
+      printIfTyped(OS, PrintType);
+    }
 };
 
 //
