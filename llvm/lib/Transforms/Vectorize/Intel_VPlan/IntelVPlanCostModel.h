@@ -482,11 +482,8 @@ using VPlanCostModelBase = VPlanCostModelWithHeuristics<
 
 // TODO: lightweight mode CostModel heuristics set to be tuned yet.
 using VPlanCostModelLite = VPlanCostModelWithHeuristics<
-  HeuristicsList<
-    const VPInstruction,
-    VPlanCostModelHeuristics::HeuristicOVLSMember,
-    VPlanCostModelHeuristics::HeuristicSVMLIDivIRem>,
-  HeuristicsList<const VPBasicBlock>, // emptry list
+  HeuristicsList<const VPInstruction>, // empty list
+  HeuristicsList<const VPBasicBlock>,  // empty list
   HeuristicsList<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicSearchLoop,
@@ -500,7 +497,7 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
     const VPInstruction,
     VPlanCostModelHeuristics::HeuristicOVLSMember,
     VPlanCostModelHeuristics::HeuristicSVMLIDivIRem>,
-  HeuristicsList<const VPBasicBlock>, // emptry list
+  HeuristicsList<const VPBasicBlock>, // empty list
   HeuristicsList<
     const VPlanVector,
     VPlanCostModelHeuristics::HeuristicSearchLoop,
