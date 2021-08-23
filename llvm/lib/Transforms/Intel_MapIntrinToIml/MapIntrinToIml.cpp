@@ -82,6 +82,7 @@ MapIntrinToIml::MapIntrinToIml() : FunctionPass(ID) {
 // "domain-exclusion"
 // "max-error"
 // "precision"
+// "use-svml"
 // "valid-status-bits"
 
 void MapIntrinToImlImpl::addAttributeToList(ImfAttr **List, ImfAttr **Tail,
@@ -115,7 +116,7 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
       AttrName == "arch-consistency" || AttrName == "configuration" ||
       AttrName == "domain-exclusion" || AttrName == "force-dynamic" ||
       AttrName == "max-error" || AttrName == "precision" ||
-      AttrName == "valid-status-bits")
+      AttrName == "use-svml" || AttrName == "valid-status-bits")
     return true;
 
   return false;
@@ -1349,6 +1350,8 @@ bool MapIntrinToImlImpl::runImpl() {
       // Don't perform replacement if variant is same as scalar function
       if (VariantFuncName.equals(ScalarFuncName))
         continue;
+      if (VariantFuncName.startswith("__svml"))
+        ScalarCI->setCallingConv(CallingConv::SVML);
 
       LLVM_DEBUG(dbgs() << "Input Scalar Math Function: " << ScalarFuncName
                         << "\n");
