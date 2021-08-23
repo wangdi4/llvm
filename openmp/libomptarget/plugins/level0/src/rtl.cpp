@@ -138,6 +138,9 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
     DeviceArch_XeHP, {
       0x0200, // ATS
+      // Putting PVC here for now.
+      // We may decide to add another arch type if needed in the future.
+      0x0b00, // PVC
     }
   }
 };
@@ -338,14 +341,20 @@ class TLSTy {
   /// Command list for each device
   std::map<int32_t, ze_command_list_handle_t> CmdLists;
 
-  /// Copy command list for each device
+  /// Main copy command list for each device
   std::map<int32_t, ze_command_list_handle_t> CopyCmdLists;
+
+  /// Link copy command list for each device
+  std::map<int32_t, ze_command_list_handle_t> LinkCopyCmdLists;
 
   /// Command queue for each device
   std::map<int32_t, ze_command_queue_handle_t> CmdQueues;
 
-  /// Copy command queue for each device
+  /// Main copy command queue for each device
   std::map<int32_t, ze_command_queue_handle_t> CopyCmdQueues;
+
+  /// Link copy command queues for each device
+  std::map<int32_t, ze_command_queue_handle_t> LinkCopyCmdQueues;
 
   /// Run profile for each device
   std::map<int32_t, RTLProfileTy *> Profiles;
@@ -370,12 +379,21 @@ public:
     return (CopyCmdLists.count(ID) > 0) ? CopyCmdLists.at(ID) : nullptr;
   }
 
+  ze_command_list_handle_t getLinkCopyCmdList(int32_t ID) {
+    return (LinkCopyCmdLists.count(ID) > 0) ? LinkCopyCmdLists.at(ID): nullptr;
+  }
+
   ze_command_queue_handle_t getCmdQueue(int32_t ID) {
     return (CmdQueues.count(ID) > 0) ? CmdQueues.at(ID) : nullptr;
   }
 
   ze_command_queue_handle_t getCopyCmdQueue(int32_t ID) {
     return (CopyCmdQueues.count(ID) > 0) ? CopyCmdQueues.at(ID) : nullptr;
+  }
+
+  ze_command_queue_handle_t getLinkCopyCmdQueue(int32_t ID) {
+    return
+        (LinkCopyCmdQueues.count(ID) > 0) ? LinkCopyCmdQueues.at(ID) : nullptr;
   }
 
   RTLProfileTy *getProfile(int32_t ID) {
@@ -396,12 +414,20 @@ public:
     CopyCmdLists[ID] = CmdList;
   }
 
+  void setLinkCopyCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    LinkCopyCmdLists[ID] = CmdList;
+  }
+
   void setCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
     CmdQueues[ID] = CmdQueue;
   }
 
   void setCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
     CopyCmdQueues[ID] = CmdQueue;
+  }
+
+  void setLinkCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
+    LinkCopyCmdQueues[ID] = CmdQueue;
   }
 
   void setProfile(int32_t ID, RTLProfileTy *Profile) {
@@ -948,27 +974,39 @@ static uint32_t getCmdQueueGroupOrdinalCCS(ze_device_handle_t Device,
 }
 
 /// Get copy command queue group ordinal
-static uint32_t getCmdQueueGroupOrdinalCopy(ze_device_handle_t Device) {
+static std::pair<uint32_t, uint32_t> getCopyCmdQueueGroupOrdinal(
+    ze_device_handle_t Device, bool LinkCopy = false) {
   uint32_t groupCount = 0;
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+  std::pair<uint32_t, uint32_t> Ordinal(UINT32_MAX, 0);
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, nullptr);
   std::vector<ze_command_queue_group_properties_t> groupProperties(
       groupCount, CommandQueueGroupPropertiesInit);
-  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+  CALL_ZE_RET(Ordinal, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
-  uint32_t groupOrdinal = UINT32_MAX;
+
+
   for (uint32_t i = 0; i < groupCount; i++) {
     auto &flags = groupProperties[i].flags;
     if ((flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) &&
         (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0) {
-      groupOrdinal = i;
-      DP("Found copy command queue for device " DPxMOD ", ordinal = %" PRIu32
-         "\n", DPxPTR(Device), groupOrdinal);
-      break;
+      auto NumQueues = groupProperties[i].numQueues;
+      if (LinkCopy && NumQueues > 1) {
+        Ordinal = {i, NumQueues};
+        DP("Found link copy command queue for device " DPxMOD ", ordinal = %"
+           PRIu32 ", number of queues = %" PRIu32 "\n", DPxPTR(Device),
+           Ordinal.first, Ordinal.second);
+        break;
+      } else if (!LinkCopy && NumQueues == 1) {
+        Ordinal = {i, NumQueues};
+        DP("Found copy command queue for device " DPxMOD ", ordinal = %" PRIu32
+           "\n", DPxPTR(Device), Ordinal.first);
+        break;
+      }
     }
   }
 
-  return groupOrdinal;
+  return Ordinal;
 }
 
 /// Create a command list with given ordinal and flags
@@ -987,8 +1025,8 @@ static ze_command_list_handle_t createCmdList(
   ze_command_list_handle_t cmdList;
   CALL_ZE_RET_NULL(zeCommandListCreate, Context, Device, &cmdListDesc,
                    &cmdList);
-  DP("Created a command list " DPxMOD " for device %s.\n", DPxPTR(cmdList),
-     DeviceIdStr.c_str());
+  DP("Created a command list " DPxMOD " (Ordinal: %" PRIu32
+     ") for device %s.\n", DPxPTR(cmdList), Ordinal, DeviceIdStr.c_str());
   return cmdList;
 }
 
@@ -1021,7 +1059,8 @@ static ze_command_queue_handle_t createCmdQueue(
   ze_command_queue_handle_t cmdQueue;
   CALL_ZE_RET_NULL(zeCommandQueueCreate, Context, Device, &cmdQueueDesc,
                    &cmdQueue);
-  DP("Created a command queue " DPxMOD " for device %s.\n", DPxPTR(cmdQueue),
+  DP("Created a command queue " DPxMOD " (Ordinal: %" PRIu32 ", Index: %" PRIu32
+     ") for device %s.\n", DPxPTR(cmdQueue), Ordinal, Index,
      DeviceIdStr.c_str());
   return cmdQueue;
 }
@@ -1342,17 +1381,14 @@ public:
   // User-friendly form of device ID string
   std::vector<std::string> DeviceIdStr;
 
-  // Use per-thread command list/queue
-  std::vector<std::vector<ze_command_list_handle_t>> CmdLists;
-  std::vector<std::vector<ze_command_queue_handle_t>> CmdQueues;
-  std::vector<std::vector<ze_command_list_handle_t>> CopyCmdLists;
-  std::vector<std::vector<ze_command_queue_handle_t>> CopyCmdQueues;
-
   // Command queue group ordinals for each device
   std::vector<uint32_t> CmdQueueGroupOrdinals;
 
   // Command queue group ordinals for copying
   std::vector<uint32_t> CopyCmdQueueGroupOrdinals;
+
+  // Command queue group ordinals and number of queues for link copy engines
+  std::vector<std::pair<uint32_t, uint32_t>> LinkCopyCmdQueueGroupOrdinals;
 
   // Command queue index for each device
   std::vector<uint32_t> CmdQueueIndices;
@@ -1840,9 +1876,18 @@ public:
   }
 
   ze_command_list_handle_t getCopyCmdList(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine ||
-        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+    if (!Flags.UseCopyEngine)
       return getCmdList(DeviceId);
+
+    if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX) {
+      // TODO: Current PVC's second tile does not report main copy engine, so
+      // use link copy engine instead. Remove this after the issue is fixed.
+      if (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0)
+        return getLinkCopyCmdList(DeviceId);
+
+      return getCmdList(DeviceId);
+    }
+
     // Use copy engine
     auto TLS = getTLS();
     auto CmdList = TLS->getCopyCmdList(DeviceId);
@@ -1862,9 +1907,18 @@ public:
   }
 
   ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine ||
-        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+    if (!Flags.UseCopyEngine)
       return getCmdQueue(DeviceId);
+
+    if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX) {
+      // TODO: Current PVC's second tile does not report main copy engine, so
+      // use link copy engine instead. Remove this after the issue is fixed.
+      if (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0)
+        return getLinkCopyCmdQueue(DeviceId);
+
+      return getCmdQueue(DeviceId);
+    }
+
     // Use copy engine
     auto TLS = getTLS();
     auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
@@ -1872,6 +1926,46 @@ public:
       CmdQueue = createCmdQueue(Context, Devices[DeviceId],
           CopyCmdQueueGroupOrdinals[DeviceId], 0, DeviceIdStr[DeviceId]);
       TLS->setCopyCmdQueue(DeviceId, CmdQueue);
+    }
+    return CmdQueue;
+  }
+
+  ze_command_list_handle_t getLinkCopyCmdList(int32_t DeviceId) {
+    if (!Flags.UseCopyEngine)
+      return getCmdList(DeviceId);
+
+    // Ordinal.first is ordinal, Ordinal.second is number of queues
+    auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
+    if (Ordinal.second == 0)
+      return getCopyCmdList(DeviceId); // No link copy engine
+
+    auto TLS = getTLS();
+    auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createCmdList(Context, Devices[DeviceId], Ordinal.first,
+          ZE_COMMAND_LIST_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
+      TLS->setLinkCopyCmdList(DeviceId, CmdList);
+    }
+    return CmdList;
+  }
+
+  ze_command_queue_handle_t getLinkCopyCmdQueue(int32_t DeviceId) {
+    if (!Flags.UseCopyEngine)
+      return getCmdQueue(DeviceId);
+
+    // Ordinal.first is ordinal, Ordinal.second is number of queues
+    auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
+    if (Ordinal.second == 0)
+      return getCopyCmdQueue(DeviceId); // No link copy engine
+
+    auto TLS = getTLS();
+    auto CmdQueue = TLS->getLinkCopyCmdQueue(DeviceId);
+    if (!CmdQueue) {
+      // Try to use different copy engines for multiple threads
+      uint32_t Index = __kmpc_global_thread_num(nullptr) % Ordinal.second;
+      CmdQueue = createCmdQueue(Context, Devices[DeviceId], Ordinal.first,
+          Index, ZE_COMMAND_QUEUE_FLAG_EXPLICIT_ONLY, DeviceIdStr[DeviceId]);
+      TLS->setLinkCopyCmdQueue(DeviceId, CmdQueue);
     }
     return CmdQueue;
   }
@@ -2358,8 +2452,8 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
       destType == ZE_MEMORY_TYPE_DEVICE || srcType == ZE_MEMORY_TYPE_DEVICE ||
       (destType == ZE_MEMORY_TYPE_UNKNOWN &&
           srcType == ZE_MEMORY_TYPE_UNKNOWN)) {
-    auto cmdList = DeviceInfo->getCopyCmdList(DeviceId);
-    auto cmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
+    auto cmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+    auto cmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
     bool ownsLock = false;
     if (!copyLock.owns_lock()) {
       copyLock.lock();
@@ -2450,9 +2544,13 @@ TLSTy::~TLSTy() {
     CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
   for (auto CmdList : CopyCmdLists)
     CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
+  for (auto CmdList : LinkCopyCmdLists)
+    CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
   for (auto CmdQueue : CmdQueues)
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
   for (auto CmdQueue : CopyCmdQueues)
+    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+  for (auto CmdQueue : LinkCopyCmdQueues)
     CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
   for (auto Profile : Profiles)
     delete Profile.second;
@@ -2470,8 +2568,8 @@ int32_t CommandBatchTy::begin(int32_t ID) {
       CmdList = DeviceInfo->getCmdList(DeviceId);
       CmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     } else {
-      CmdList = DeviceInfo->getCopyCmdList(DeviceId);
-      CmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
+      CmdList = DeviceInfo->getLinkCopyCmdList(DeviceId);
+      CmdQueue = DeviceInfo->getLinkCopyCmdQueue(DeviceId);
     }
   }
   State++;
@@ -2790,8 +2888,8 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
     int32_t DeviceId, void *Dst, void *Src, size_t Size) {
-  auto cmdList = getCopyCmdList(DeviceId);
-  auto cmdQueue = getCopyCmdQueue(DeviceId);
+  auto cmdList = getLinkCopyCmdList(DeviceId);
+  auto cmdQueue = getLinkCopyCmdQueue(DeviceId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
                    nullptr, 0, nullptr);
@@ -3260,7 +3358,9 @@ static int32_t appendDeviceProperties(
   DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
   DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
   DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
-      getCmdQueueGroupOrdinalCopy(Device));
+      getCopyCmdQueueGroupOrdinal(Device).first);
+  DeviceInfo->LinkCopyCmdQueueGroupOrdinals.push_back(
+      getCopyCmdQueueGroupOrdinal(Device, true));
 
   DP("Found a GPU device, Name = %s\n", properties.name);
 
@@ -3414,10 +3514,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
   L0Interop::printInteropProperties();
 
-  DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
-  DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);
-  DeviceInfo->CopyCmdLists.resize(DeviceInfo->NumDevices);
-  DeviceInfo->CopyCmdQueues.resize(DeviceInfo->NumDevices);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
@@ -4269,6 +4365,7 @@ EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 EXTERN int32_t __tgt_rtl_data_exchange(
     int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
+  // This is D2D copy, so prefer main copy engine
   auto cmdList = DeviceInfo->getCopyCmdList(DstId);
   auto cmdQueue = DeviceInfo->getCopyCmdQueue(DstId);
 

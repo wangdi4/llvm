@@ -106,6 +106,9 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
     DeviceArch_XeHP, {
 #if INTEL_CUSTOMIZATION
       0x0200, // ATS
+      // Putting PVC here for now.
+      // We may decide to add another arch type if needed in the future.
+      0x0b00, // PVC
 #endif // INTEL_CUSTOMIZATION
     }
   }
