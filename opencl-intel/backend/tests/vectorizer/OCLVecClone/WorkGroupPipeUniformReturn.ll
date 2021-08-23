@@ -1,5 +1,5 @@
-; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt --ocl-vecclone --ocl-vector-variant-isa-encoding-override=AVX512Core -verify -S < %s | FileCheck %s
+; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt --ocl-vecclone --dpcpp-vector-variant-isa-encoding-override=AVX512Core -verify -S < %s | FileCheck %s
 %opencl.reserve_id_t.5 = type opaque
 %opencl.pipe_wo_t.6 = type opaque
 %opencl.pipe_ro_t.7 = type opaque

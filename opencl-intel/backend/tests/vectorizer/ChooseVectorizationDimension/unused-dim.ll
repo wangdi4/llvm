@@ -1,4 +1,4 @@
-; RUN: %oclopt -ChooseVectorizationDimensionModulePass -ocl-vecclone -ocl-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
+; RUN: %oclopt -ChooseVectorizationDimensionModulePass -ocl-vecclone -dpcpp-vector-variant-isa-encoding-override=AVX512Core -S %s | FileCheck %s
 
 ; The test checks that vec dim won't be set to 1 or 2 even if there is
 ; get_global_id(1 or 2) but it's not used.

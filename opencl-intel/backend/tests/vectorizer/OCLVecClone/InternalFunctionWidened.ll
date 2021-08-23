@@ -1,5 +1,5 @@
-; RUN: %oclopt -ocl-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -ocl-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone < %s -S -o - | FileCheck %s
+; RUN: %oclopt -dpcpp-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-vector-variant-isa-encoding-override=SSE42 -ocl-vecclone < %s -S -o - | FileCheck %s
 
 ;; Widened inner functions must have "widened-size" attribute so Barrier inserts
 ;; correct loop increments.
