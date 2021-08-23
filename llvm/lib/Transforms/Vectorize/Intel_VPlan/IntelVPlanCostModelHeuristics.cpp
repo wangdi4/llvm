@@ -724,7 +724,6 @@ void HeuristicPsadbw::initForVPlan() {
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
-    assert(VPL->getLoopDepth() == 1 && "Innermost loop only is expected.");
     if (VPL->getLoopDepth() != 1)
       continue;
 

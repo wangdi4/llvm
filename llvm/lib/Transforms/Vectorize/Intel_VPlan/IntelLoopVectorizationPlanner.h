@@ -294,8 +294,8 @@ public:
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA)
-      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), DT(DT), VLSA(VLSA) {}
+      : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), VLSA(VLSA),
+        TheLoop(Lp), LI(LI), DT(DT) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -317,6 +317,11 @@ public:
 
   /// Select the best peeling variant for every VPlan.
   void selectBestPeelingVariants();
+
+  /// Create and return Plan/VF specific CostModel object based on global
+  /// compilation settings such as presence of -x knob in command line.
+  virtual std::unique_ptr<VPlanCostModelInterface> createCostModel(
+    const VPlanVector *Plan, unsigned VF) const;
 
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
@@ -348,7 +353,6 @@ public:
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
-  template <typename CostModelTy>
   std::pair<unsigned, VPlanVector *> selectBestPlan();
 
   /// \Returns the VPlan for selected best vectorization factor.
@@ -397,7 +401,6 @@ public:
   /// Perform VPlan loop unrolling if needed
   virtual bool unroll(VPlanVector &Plan);
 
-  template <typename CostModelTy>
   void printCostModelAnalysisIfRequested(const std::string &Header);
 
   virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
@@ -570,6 +573,11 @@ protected:
   // Storage for VPInstructions that have been removed from VPlan and unlinked.
   std::unique_ptr<VPUnlinkedInstructions> UnlinkedVPInsts;
 
+#if INTEL_CUSTOMIZATION
+  /// VPlan VLS Analysis.
+  VPlanVLSAnalysis *VLSA;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p
@@ -620,11 +628,6 @@ private:
 
   /// The dominators tree.
   class DominatorTree *DT;
-
-#if INTEL_CUSTOMIZATION
-  /// VPlan VLS Analysis.
-  VPlanVLSAnalysis *VLSA;
-#endif // INTEL_CUSTOMIZATION
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

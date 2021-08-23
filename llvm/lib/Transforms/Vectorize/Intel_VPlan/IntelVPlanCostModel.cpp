@@ -264,13 +264,13 @@ unsigned VPlanTTICostModel::getArithmeticInstructionCost(const unsigned Opcode,
 }
 
 unsigned VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
-                                             unsigned VF) {
+                                             unsigned VF) const {
   unsigned Alignment = getMemInstAlignment(LoadStore);
   return getLoadStoreCost(LoadStore, Align(Alignment), VF);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreCost(
-  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) {
+  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) const {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as

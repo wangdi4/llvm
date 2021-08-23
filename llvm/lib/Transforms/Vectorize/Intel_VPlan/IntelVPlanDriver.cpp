@@ -342,7 +342,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string HeaderStr =
     std::string(Fn.getName()) + "." + std::string(Lp->getName());
-  LVP.printCostModelAnalysisIfRequested<VPlanCostModel>(HeaderStr);
+  LVP.printCostModelAnalysisIfRequested(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
@@ -353,7 +353,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   unsigned VF;
   VPlanVector *Plan;
-  std::tie(VF, Plan) = LVP.selectBestPlan<VPlanCostModel>();
+  std::tie(VF, Plan) = LVP.selectBestPlan();
   assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
@@ -1203,7 +1203,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
-                                  &VLSA);
+                                  &VLSA, LightWeightMode);
 
   // Send explicit data from WRLoop to the Legality.
   LVP.EnterExplicitData(WRLp, HIRVecLegal);
@@ -1266,13 +1266,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string HeaderStr =
     std::string(Fn.getName()) + "." + std::to_string(Lp->getNumber());
-  LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
+  LVP.printCostModelAnalysisIfRequested(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;
   VPlanVector *Plan;
-  std::tie(VF, Plan) = LVP.selectBestPlan<VPlanCostModelProprietary>();
+  std::tie(VF, Plan) = LVP.selectBestPlan();
   assert(Plan && "Unexpected null VPlan");
 
   // Set the final name for this initial VPlan.

@@ -1,6 +1,6 @@
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg --S < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" --S < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg --S -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,hir-cg" --S -vplan-force-vf=4 < %s | FileCheck %s
 
 
 ; CMPLRLLVM-7224: WRN support in HIR for SIMD with OperandBundle representation
@@ -23,7 +23,7 @@
 ;
 ;   call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %t25., <4 x float>* %19, i32 4, <4 x i1> %t23.6)
 ;
-; CHECK: call void @llvm.masked.store.v{{4|8|16}}f32.p0v{{4|8|16}}f32({{.*}})
+; CHECK: call void @llvm.masked.store.v4f32.p0v4f32({{.*}})
 ;
 
 source_filename = "test2.c"
