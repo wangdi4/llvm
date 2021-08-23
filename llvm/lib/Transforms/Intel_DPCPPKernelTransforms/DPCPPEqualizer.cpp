@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -18,8 +19,17 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
+using namespace llvm::DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-equalizer"
+
+static cl::opt<bool>
+    RemoveFPGAReg("dpcpp-remove-fpga-reg", cl::init(false), cl::Hidden,
+                  cl::desc("Remove __builtin_fpga_reg built-in calls."));
+
+static cl::opt<bool>
+    DemangleFPGAPipes("dpcpp-demangle-fpga-pipes", cl::init(false), cl::Hidden,
+                      cl::desc("Remove custom mangling from pipe built-ins"));
 
 namespace {
 
@@ -49,14 +59,32 @@ public:
 // Basic block functors, to be applied on each block in the module.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
+  MaterializeBlockFunctor(ArrayRef<Module *> BuiltinModules,
+                          SmallPtrSetImpl<Function *> &FuncDeclToRemove)
+      : BuiltinModules(BuiltinModules), FuncDeclToRemove(FuncDeclToRemove) {}
+
   void operator()(BasicBlock &BB) override {
+    SmallVector<Instruction *, 4> InstToRemove;
+
     for (auto &I : BB) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         IsChanged |= changeCallingConv(CI);
+
+        if (RemoveFPGAReg)
+          IsChanged |= removeFPGARegInst(CI, InstToRemove, FuncDeclToRemove);
+
+        if (DemangleFPGAPipes)
+          IsChanged |=
+              demangleFPGAPipeBICall(CI, InstToRemove, FuncDeclToRemove);
       }
     }
+
+    // Remove unused instructions.
+    for (auto *I : InstToRemove)
+      I->eraseFromParent();
   }
 
+private:
   bool changeCallingConv(CallInst *CI) {
     if ((CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
         (CallingConv::SPIR_KERNEL == CI->getCallingConv())) {
@@ -66,22 +94,175 @@ public:
 
     return false;
   }
+
+  bool demangleFPGAPipeBICall(CallInst *CI,
+                              SmallVectorImpl<Instruction *> &InstToRemove,
+                              SmallPtrSetImpl<Function *> &FuncDeclToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+    bool PipeBI = StringSwitch<bool>(FName)
+                      .Case("__read_pipe_2", true)
+                      .Case("__write_pipe_2", true)
+                      .Case("__read_pipe_2_bl", true)
+                      .Case("__write_pipe_2_bl", true)
+                      .Case("__read_pipe_2_AS0", true)
+                      .Case("__read_pipe_2_AS1", true)
+                      .Case("__read_pipe_2_AS3", true)
+                      .Case("__read_pipe_2_bl_AS0", true)
+                      .Case("__read_pipe_2_bl_AS1", true)
+                      .Case("__read_pipe_2_bl_AS3", true)
+                      .Case("__write_pipe_2_AS0", true)
+                      .Case("__write_pipe_2_AS1", true)
+                      .Case("__write_pipe_2_AS2", true)
+                      .Case("__write_pipe_2_AS3", true)
+                      .Case("__write_pipe_2_bl_AS0", true)
+                      .Case("__write_pipe_2_bl_AS1", true)
+                      .Case("__write_pipe_2_bl_AS2", true)
+                      .Case("__write_pipe_2_bl_AS3", true)
+                      .Default(false);
+
+    if (!PipeBI)
+      return false;
+
+    Module *PipesModule = nullptr;
+    for (auto *M : BuiltinModules) {
+      if (StructType::getTypeByName(M->getContext(), "struct.__pipe_t")) {
+        PipesModule = M;
+        break;
+      }
+    }
+    assert(PipesModule && "Module containing pipe built-ins not found");
+
+    assert(CI->getNumArgOperands() == 4 && "Unexpected number of arguments");
+    SmallVector<Value *, 4> NewArgs;
+    NewArgs.push_back(CI->getArgOperand(0));
+
+    IRBuilder<> Builder(CI);
+
+    if (FName.contains("_AS")) {
+      FName = FName.drop_back(4);
+      auto *Int8Ty = IntegerType::getInt8Ty(PipesModule->getContext());
+      // We need to do a cast from global/local/private address spaces to
+      // generic due to in backend we have pipe built-ins only with generic
+      // address space.
+      auto *I8PTy = PointerType::get(Int8Ty, ADDRESS_SPACE_GENERIC);
+      auto *ResArg = Builder.CreatePointerBitCastOrAddrSpaceCast(
+          CI->getArgOperand(1), I8PTy);
+      NewArgs.push_back(ResArg);
+    } else {
+      // Copy packet argument as-is.
+      NewArgs.push_back(CI->getArgOperand(1));
+    }
+
+    // Copy rest arguments.
+    for (size_t I = 2; I < CI->getNumArgOperands(); ++I)
+      NewArgs.push_back(CI->getArgOperand(I));
+
+    // Add _fpga suffix to pipe built-ins.
+    PipeKind Kind = getPipeKind(FName.str());
+    Kind.FPGA = true;
+    auto NewFName = getPipeName(Kind);
+
+    Module *M = CI->getModule();
+    Function *NewF = M->getFunction(NewFName);
+    if (!NewF) {
+      if (Kind.Blocking) {
+        // Blocking built-ins are not declared in RTL, they are resolved in
+        // PipeSupport instead.
+        PipeKind NonBlockingKind = Kind;
+        NonBlockingKind.Blocking = false;
+
+        // Blocking built-ins differ from non-blocking only by name, so we
+        // import a non-blocking function to get a declaration ...
+        NewF = importFunctionDecl(
+            M, PipesModule->getFunction(getPipeName(NonBlockingKind)),
+            /*DuplicateIfExists*/ true);
+        NewF->setName(getPipeName(Kind));
+      } else {
+        NewF = importFunctionDecl(M, PipesModule->getFunction(NewFName));
+      }
+    }
+
+    // With materialization of fpga pipe built-in calls, we import new
+    // declarations for them, leaving old declarations unused. Add these unused
+    // declarations with avoiding of duplications to the list of functions to
+    // remove.
+    FuncDeclToRemove.insert(F);
+
+    auto *NewCI = Builder.CreateCall(NewF, NewArgs);
+    NewCI->setCallingConv(CI->getCallingConv());
+    NewCI->setAttributes(CI->getAttributes());
+    if (CI->isTailCall())
+      NewCI->setTailCall();
+
+    // Replace old call instruction with updated one.
+    InstToRemove.push_back(CI);
+    if (CI->getType()->isVoidTy()) {
+      // SYCL blocking pipe built-ins unlike OpenCL have no return type, so
+      // instead of replacing uses of the old instruction - just create a new
+      // one.
+      assert(Kind.Blocking && "Only blocking pipes can have void return type!");
+      return true;
+    }
+    CI->replaceAllUsesWith(NewCI);
+
+    return true;
+  }
+
+  bool removeFPGARegInst(CallInst *CI,
+                         SmallVectorImpl<Instruction *> &InstToRemove,
+                         SmallPtrSetImpl<Function *> &FuncDeclToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+    if (!FName.startswith("llvm.fpga.reg"))
+      return false;
+
+    if (!FName.startswith("llvm.fpga.reg.struct."))
+      CI->replaceAllUsesWith(CI->getArgOperand(0));
+    else {
+      Value *Dst = CI->getArgOperand(0);
+      Value *Src = CI->getArgOperand(1);
+      Dst->replaceAllUsesWith(Src);
+    }
+
+    FuncDeclToRemove.insert(F);
+    InstToRemove.push_back(CI);
+    return true;
+  }
+
+private:
+  ArrayRef<Module *> BuiltinModules;
+  SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
 // Function functor, to be applied for every function in the module.
 // Delegates call to basic-block functors.
 class MaterializeFunctionFunctor : public FunctionFunctor {
 public:
+  MaterializeFunctionFunctor(ArrayRef<Module *> BuiltinModules,
+                             SmallPtrSetImpl<Function *> &FuncDeclToRemove)
+      : BuiltinModules(BuiltinModules), FuncDeclToRemove(FuncDeclToRemove) {}
+
   void operator()(Function &F) override {
     CallingConv::ID CConv = F.getCallingConv();
     if (CallingConv::SPIR_FUNC == CConv || CallingConv::SPIR_KERNEL == CConv) {
       F.setCallingConv(CallingConv::C);
       IsChanged = true;
     }
-    MaterializeBlockFunctor BBMaterializer;
+    MaterializeBlockFunctor BBMaterializer(BuiltinModules, FuncDeclToRemove);
     std::for_each(F.begin(), F.end(), BBMaterializer);
     IsChanged |= BBMaterializer.isChanged();
   }
+
+private:
+  ArrayRef<Module *> BuiltinModules;
+  SmallPtrSetImpl<Function *> &FuncDeclToRemove;
 };
 
 /// Legacy DPCPPEqualizer pass.
@@ -91,7 +272,8 @@ class DPCPPEqualizerLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPEqualizerLegacy() : ModulePass(ID) {
+  DPCPPEqualizerLegacy(ArrayRef<Module *> BuiltinModules = {})
+      : ModulePass(ID), Impl(BuiltinModules) {
     initializeDPCPPEqualizerLegacyPass(*PassRegistry::getPassRegistry());
   }
 
@@ -114,8 +296,9 @@ char DPCPPEqualizerLegacy::ID = 0;
 INITIALIZE_PASS(DPCPPEqualizerLegacy, DEBUG_TYPE,
                 "Setup kernel attribute and metadata", false, false)
 
-ModulePass *llvm::createDPCPPEqualizerLegacyPass() {
-  return new DPCPPEqualizerLegacy();
+ModulePass *
+llvm::createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules) {
+  return new DPCPPEqualizerLegacy(BuiltinModules);
 }
 
 void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
@@ -126,7 +309,7 @@ void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
       continue;
 
     StringRef EEFName = EEF.getName();
-    if (!(DPCPPKernelCompilationUtils::isEnqueueKernel(EEFName.str()) ||
+    if (!(isEnqueueKernel(EEFName.str()) ||
           EEFName.equals("__get_kernel_work_group_size_impl") ||
           EEFName.equals(
               "__get_kernel_preferred_work_group_size_multiple_impl")))
@@ -166,7 +349,11 @@ void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
 }
 
 void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
+  assert(!M.getNamedMetadata("sycl.kernels") &&
+         "Do not expect sycl.kernels Metadata");
+
   using namespace DPCPPKernelMetadataAPI;
+
   KernelList::KernelVectorTy Kernels;
 
   for (auto &F : M) {
@@ -191,12 +378,28 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
 }
 
 bool DPCPPEqualizerPass::runImpl(Module &M) {
+  // If BuiltinModules is empty, try to load from CommandLine.
+  SmallVector<std::unique_ptr<Module>, 2> BIModuleList;
+  SmallVector<Module *, 2> BIModuleRawPtrs;
+  if (BuiltinModules.empty()) {
+    BIModuleList = loadBuiltinModulesFromCommandLine(M.getContext());
+    transform(BIModuleList, std::back_inserter(BIModuleRawPtrs),
+              [](auto &BIModule) { return BIModule.get(); });
+    BuiltinModules = BIModuleRawPtrs;
+  }
+
   // form kernel list in the module.
   formKernelsMetadata(M);
 
-  MaterializeFunctionFunctor FuncMaterializer;
-  // Take care of calling conventions
+  SmallPtrSet<Function *, 4> FuncDeclToRemove;
+  MaterializeFunctionFunctor FuncMaterializer(BuiltinModules, FuncDeclToRemove);
+
+  // Take care of calling conventions.
   std::for_each(M.begin(), M.end(), FuncMaterializer);
+
+  // Remove unused declarations.
+  for (auto *FDecl : FuncDeclToRemove)
+    FDecl->eraseFromParent();
 
   return FuncMaterializer.isChanged();
 }

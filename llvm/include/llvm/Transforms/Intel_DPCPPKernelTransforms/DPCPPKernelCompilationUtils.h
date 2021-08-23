@@ -79,24 +79,24 @@ enum AddressSpace {
 enum class BarrierType { NoScope, WithScope };
 
 struct PipeKind {
-  enum ScopeKind { SK_WorkItem, SK_WorkGroup, SK_SubGroup };
+  enum class ScopeKind { WorkItem, WorkGroup, SubGroup };
 
   /// Access direction: read or write. Note that this direction also applies
   /// to 'commit' and 'reserve' operations.
-  enum AccessKind { AK_Read, AK_Write };
+  enum class AccessKind { Read, Write };
 
   /// Operation which is performed on a pipe object.
-  enum OpKind {
-    OK_None,             ///< not a pipe built-in
-    OK_ReadWrite,        ///< actual read or write
-    OK_ReadWriteReserve, ///< read or write with reserve_id
-    OK_Reserve,          ///< reserve operation
-    OK_Commit            ///< commit operation
+  enum class OpKind {
+    None,             ///< not a pipe built-in
+    ReadWrite,        ///< actual read or write
+    ReadWriteReserve, ///< read or write with reserve_id
+    Reserve,          ///< reserve operation
+    Commit            ///< commit operation
   };
 
   ScopeKind Scope;
   AccessKind Access;
-  OpKind Op = OK_None;
+  OpKind Op = OpKind::None;
   bool Blocking = false;
   bool IO = false;
   bool FPGA = false;
@@ -108,7 +108,7 @@ struct PipeKind {
            SimdSuffix == LHS.SimdSuffix && FPGA == LHS.FPGA;
   }
 
-  operator bool() const { return Op != OK_None; }
+  operator bool() const { return Op != OpKind::None; }
 };
 
 namespace OclVersion {
@@ -203,8 +203,11 @@ bool isGetSpecialBuffer(StringRef S);
 /// Return true if string is printf.
 bool isPrintf(StringRef S);
 
-/// Return pipe kind for S.
-PipeKind getPipeKind(StringRef S);
+/// Return pipe kind from builtin name.
+PipeKind getPipeKind(StringRef Name);
+
+/// Returns pipe builtin name of a kind.
+std::string getPipeName(PipeKind);
 
 /// Return true if string is name of work-item pipe builtin.
 bool isWorkItemPipeBuiltin(StringRef S);
@@ -354,7 +357,7 @@ bool isSubGroupUniform(StringRef S);
 /// (divergent) inside a subgroup.
 bool isSubGroupDivergent(StringRef S);
 
-// Returns true if \p S is a name of subgroup builtin.
+/// Returns true if \p S is a name of subgroup builtin.
 bool isSubGroupBuiltin(StringRef S);
 
 /// Collect all kernel functions.

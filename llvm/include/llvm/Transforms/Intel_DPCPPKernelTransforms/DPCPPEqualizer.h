@@ -20,7 +20,8 @@ namespace llvm {
 /// - updates LLVM IR to version supported by back-end compiler
 class DPCPPEqualizerPass : public PassInfoMixin<DPCPPEqualizerPass> {
 public:
-  explicit DPCPPEqualizerPass() {}
+  explicit DPCPPEqualizerPass(ArrayRef<Module *> BuiltinModules = {})
+      : BuiltinModules(BuiltinModules) {}
 
   static StringRef name() { return "DPCPPEqualizerPass"; }
 
@@ -35,6 +36,8 @@ private:
 
   /// Add sycl_kernel attribute and set C calling conventions for kernels.
   void formKernelsMetadata(Module &M);
+
+  ArrayRef<Module *> BuiltinModules;
 };
 
 } // namespace llvm
