@@ -96,13 +96,6 @@
 ; CHECK-NOT: call{{.*}}@fun01_({{.*}}) #1{{ *$}}
 ; CHECK-NOT: attributes #1 = { "prefer-inline-tile-choice" }
 
-; Check that there is no assertion for opaque pointer
-;
-; RUN: opt < %s -S -force-opaque-pointers 2>&1 | FileCheck %s -check-prefix=OPAQUE
-;
-; OPAQUE: tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64
-; OPAQUE-NOT: tail call ptr @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64
-;
 @anon.0 = internal unnamed_addr constant i32 2
 @"main_$A" = internal global [100 x [100 x double]] zeroinitializer, align 16
 @"main_$B" = internal global [100 x [100 x double]] zeroinitializer, align 16
