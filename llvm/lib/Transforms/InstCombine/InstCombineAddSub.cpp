@@ -1839,12 +1839,8 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
   if (match(Op0, m_AllOnes()))
     return BinaryOperator::CreateNot(Op1);
 
-  // (~X) - (~Y) --> Y - X
-  Value *X, *Y;
-  if (match(Op0, m_Not(m_Value(X))) && match(Op1, m_Not(m_Value(Y))))
-    return BinaryOperator::CreateSub(Y, X);
-
   // (X + -1) - Y --> ~Y + X
+  Value *X, *Y;
   if (match(Op0, m_OneUse(m_Add(m_Value(X), m_AllOnes()))))
     return BinaryOperator::CreateAdd(Builder.CreateNot(Op1), X);
 
@@ -1906,6 +1902,17 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     }
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // (~X) - (~Y) --> Y - X
+  // This is placed after the other reassociations and explicitly excludes a
+  // sub-of-sub pattern to avoid infinite looping.
+  if (isFreeToInvert(Op0, Op0->hasOneUse()) &&
+      isFreeToInvert(Op1, Op1->hasOneUse()) &&
+      !match(Op0, m_Sub(m_ImmConstant(), m_Value()))) {
+    Value *NotOp0 = Builder.CreateNot(Op0);
+    Value *NotOp1 = Builder.CreateNot(Op1);
+    return BinaryOperator::CreateSub(NotOp1, NotOp0);
+  }
 
   auto m_AddRdx = [](Value *&Vec) {
     return m_OneUse(m_Intrinsic<Intrinsic::vector_reduce_add>(m_Value(Vec)));
