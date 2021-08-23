@@ -1995,6 +1995,10 @@ cl_err_code NDRangeKernelCommand::CommandDone()
     for (auto &obj : m_argDevDescMemObjects)
         delete obj;
 
+    // Invoke callback function when command is complete.
+    if (FPGASerializeCompleteCallBackFunc)
+      FPGASerializeCompleteCallBackFunc(m_Event->GetHandle());
+
     return CL_SUCCESS;
 }
 

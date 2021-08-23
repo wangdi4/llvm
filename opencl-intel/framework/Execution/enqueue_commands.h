@@ -1104,6 +1104,19 @@ namespace Intel { namespace OpenCL { namespace Framework {
         }
         virtual void GPA_WriteCommandMetadata() override;
 
+        using CommandCallBackFn = std::function<void(cl_event)>;
+
+        /// Set a callback function which will be called when FPGA pipe kernel
+        /// command (requires kernel serialization) is done.
+        void SetFPGASerializeCompleteCallBack(CommandCallBackFn F) {
+          FPGASerializeCompleteCallBackFunc = F;
+        }
+
+        /// Return true if FPGA pipe kernel command complete callback is set.
+        bool HasFPGASerializeCompleteCallBack() const {
+          return (bool)FPGASerializeCompleteCallBackFunc;
+        }
+
       protected:
         cl_dev_cmd_param_kernel m_kernelParams;
         // Private members
@@ -1121,6 +1134,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
 #if defined (USE_ITT)
         void GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __itt_string_handle* keyStrHandle) const;
 #endif
+
+        // Callback function that will be called when this command is done and
+        // this command is restricted by kernel serialization due to FPGA pipe.
+        // Refer to ExecutionModule::EnqueueNDRangeKernel for details.
+        CommandCallBackFn FPGASerializeCompleteCallBackFunc;
     };
     
     /******************************************************************
