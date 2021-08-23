@@ -395,11 +395,6 @@ class HIRParser {
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType,
                              const Loop *Lp);
 
-  /// Returns the size of the contained type in bytes. Incoming type is expected
-  /// to be a pointer type. May return zero if the pointer element type is
-  /// not-sized.
-  unsigned getPointerElementSize(Type *Ty) const;
-
   /// Traces \p Val through a chain of single operand phis and returns the
   /// resulting value.
   const Value *traceSingleOperandPhis(const Value *Val) const;
@@ -420,8 +415,10 @@ class HIRParser {
   /// Returns the pointer operand of the base GEP.
   const Value *getBaseGEPPointerOperand(const GEPOrSubsOperator *GEPOp) const;
 
-  /// Creates a canon expr which represents the index of header phi.
-  CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
+  /// Creates a canon expr which represents the index of ptr header phi.
+  /// Returns the element type of pointer phi in \p ElemTy if successful.
+  CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
+                                    Type **ElemTy);
 
   /// Wrapper for merging IndexCE2 into IndexCE1.
   static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
@@ -448,7 +445,7 @@ class HIRParser {
                                const GEPOrSubsOperator *InitGEPOp,
                                RegDDRef *Ref, CanonExpr *IndexCE,
                                CanonExpr *StrideCE, Type *DimType,
-                               unsigned Level);
+                               Type *DimElemType, unsigned Level);
 
   /// Given the initial value of a header phi, it returns a value which can act
   /// as the base of the Ref formed using the header phi. A null value indicates
