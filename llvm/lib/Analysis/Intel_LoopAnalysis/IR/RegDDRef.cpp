@@ -630,8 +630,8 @@ GetElementPtrInst *RegDDRef::getOrCreateLocationGEP() const {
   auto *RegEntryInsertPt = &*Reg->getEntryBBlock()->getFirstInsertionPt();
 
   auto *Ty = BaseVal->getType()->getScalarType()->getPointerElementType();
-  auto *GepLoc = GetElementPtrInst::Create(Ty, BaseVal, IdxList,
-                                           "dummygep", RegEntryInsertPt);
+  auto *GepLoc = GetElementPtrInst::Create(Ty, BaseVal, IdxList, "dummygep",
+                                           RegEntryInsertPt);
 
   GepLoc->setIsInBounds(IsInBounds);
 
@@ -2111,6 +2111,15 @@ unsigned RegDDRef::getBasePtrSymbase() const {
   }
 
   return getBlobUtils().getTempBlobSymbase(Index);
+}
+
+Type *RegDDRef::getDereferencedType() const {
+  assert(isAddressOf() && "Address of Ref is expected");
+  auto *NonConst = const_cast<RegDDRef *>(this);
+  NonConst->setAddressOf(false);
+  Type *ElemTy = NonConst->getDestType();
+  NonConst->setAddressOf(true);
+  return ElemTy;
 }
 
 void RegDDRef::clear(bool AssumeLvalIfDetached) {

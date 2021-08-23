@@ -94,7 +94,7 @@ public:
 
     bool operator==(const const_all_ddref_iterator &It) const {
       return RegIt == It.RegIt && IsRegDDRef == It.IsRegDDRef &&
-          BlobIt == It.BlobIt;
+             BlobIt == It.BlobIt;
     }
 
     bool operator!=(const const_all_ddref_iterator &It) const {
@@ -584,6 +584,10 @@ public:
   /// Returns the symbase of the base pointer.
   /// ConstantSymbase is returned if base pointer is undef or null.
   unsigned getBasePtrSymbase() const;
+
+  /// Returns the dereferenced type of the address of Ref.
+  /// For example, it will return i32 for a ref like &(p)[5] where p is i32*.
+  Type *getDereferencedType() const;
 
   /// Sets the canonical form of the subscript base.
   void setBaseCE(CanonExpr *BaseCE) {
@@ -1085,9 +1089,8 @@ public:
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
       bool AssumeLvalIfDetached = false);
 
-  bool replaceTempBlobs(
-      const DenseMap<unsigned, unsigned> &BlobMap,
-      bool AssumeLvalIfDetached = false);
+  bool replaceTempBlobs(const DenseMap<unsigned, unsigned> &BlobMap,
+                        bool AssumeLvalIfDetached = false);
 
   /// Replaces temp blob with int constant
   bool replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant);
@@ -1229,7 +1232,6 @@ public:
   /// - its baseCE (if available) is nonlinear
   /// - any CE is nonlinear
   bool isNonLinear(void) const { return getDefinedAtLevel() == NonLinearLevel; }
-
 
   /// Shift all CE(s) in the RegDDRef* by a given Amount.
   /// E.g.
