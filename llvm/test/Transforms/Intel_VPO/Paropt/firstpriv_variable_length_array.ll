@@ -89,8 +89,6 @@ omp.precond.then:                                 ; preds = %arrayctor.cont
 ; CHECK-NEXT:  %[[END:[^,]+]] = getelementptr %class.A, %class.A* %[[TO]], i64 %[[VLA_LEN:[^,]+]]
 ; CHECK-NEXT:  %priv.cpyctor.isempty = icmp eq %class.A* %[[TO]], %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpyctor.isempty, label %priv.cpyctor.done, label %priv.cpyctor.body
-; CHECK-LABEL: priv.cpyctor.done:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.cpyctor.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr = phi %class.A* [ %[[TO]], %{{.*}} ], [ %priv.cpy.dest.inc, %priv.cpyctor.body ]
 ; CHECK-NEXT:  %priv.cpy.src.ptr = phi %class.A* [ %[[FROM]], %{{.*}} ], [ %priv.cpy.src.inc, %priv.cpyctor.body ]
@@ -99,20 +97,22 @@ omp.precond.then:                                 ; preds = %arrayctor.cont
 ; CHECK-NEXT:  %priv.cpy.src.inc = getelementptr %class.A, %class.A* %priv.cpy.src.ptr, i32 1
 ; CHECK-NEXT:  %priv.cpy.done = icmp eq %class.A* %priv.cpy.dest.inc, %[[END]]
 ; CHECK-NEXT:  br i1 %priv.cpy.done, label %priv.cpyctor.done, label %priv.cpyctor.body
+; CHECK-LABEL: priv.cpyctor.done:
+; CHECK-NEXT:  br label %{{.*}}
 
 ; Destructor
 ; CHECK:  %[[DESTR_BEGIN:[^,]+]] = getelementptr inbounds %class.A, %class.A* %vla.fpriv, i32 0
 ; CHECK-NEXT:  %[[DESTR_END:[^,]+]] = getelementptr %class.A, %class.A* %[[DESTR_BEGIN]], i64 %[[VLA_LEN]]
 ; CHECK-NEXT:  %priv.destr.isempty = icmp eq %class.A* %[[DESTR_BEGIN]], %[[DESTR_END]]
 ; CHECK-NEXT:  br i1 %priv.destr.isempty, label %priv.destr.done, label %priv.destr.body
-; CHECK-LABEL: priv.destr.done:
-; CHECK-NEXT:  br label %{{.*}}
 ; CHECK-LABEL: priv.destr.body:
 ; CHECK-NEXT:  %priv.cpy.dest.ptr{{.*}} = phi %class.A* [ %[[DESTR_BEGIN]], %{{.*}} ], [ %priv.cpy.dest.inc{{.*}}, %priv.destr.body ]
 ; CHECK:  call void @_ZTS1A.omp.destr(%class.A* %priv.cpy.dest.ptr{{.*}})
 ; CHECK:  %priv.cpy.dest.inc{{.*}} = getelementptr %class.A, %class.A* %priv.cpy.dest.ptr{{.*}}, i32 1
 ; CHECK:  %priv.cpy.done{{.*}} = icmp eq %class.A* %priv.cpy.dest.inc{{.*}}, %[[DESTR_END]]
 ; CHECK:  br i1 %priv.cpy.done{{.*}}, label %priv.destr.done, label %priv.destr.body
+; CHECK-LABEL: priv.destr.done:
+; CHECK-NEXT:  br label %{{.*}}
 
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %omp.precond.then

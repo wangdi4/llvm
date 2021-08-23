@@ -61,13 +61,13 @@
 ; CHECK:   [[BAR_CMP:%.+]] = icmp sle i32 [[BAR_ADD]], [[BAR_UB]]
 ; CHECK:   br i1 [[BAR_CMP]], label %[[BAR_LOOP_BODY]], label %[[BAR_DISPATCH_INC:.+]], !llvm.loop [[BAR_LOOP_MD:![0-9]+]]
 ;
-; CHECK: [[BAR_LOOP_EXIT]]:
-; CHECK:   call void @__kmpc_for_static_fini(%struct.ident_t* {{.+}}, i32 %{{.+}})
-;
 ; CHECK: [[BAR_DISPATCH_INC]]:
 ; CHECK:   br label %[[BAR_DISPATCH_HEADER]]
-; CHECK: }
 
+; CHECK: [[BAR_LOOP_EXIT]]:
+; CHECK:   call void @__kmpc_for_static_fini(%struct.ident_t* {{.+}}, i32 %{{.+}})
+; CHECK: }
+;
 ; CHECK-DAG: [[FOO_LOOP_CM:![0-9]+]] = !{!"llvm.loop.intel.loopcount_maximum", i32 1000}
 ; CHECK-DAG: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]]{{.*}}, [[FOO_LOOP_CM]]{{[,\}]}}
 ;
