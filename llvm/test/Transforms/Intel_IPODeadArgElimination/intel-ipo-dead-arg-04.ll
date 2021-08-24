@@ -37,12 +37,12 @@
 
 ; CHECK-IR: COMPILE FUNC: foo
 
-; Verify that the result for the inline report with metadata is correct.
-; NOTE: There are issues with the metadata based inline report. It isn't
-; preserving the inline message correctly when copying the information.
-; For now, we are going to make sure that the metadata was set in the
-; new function and the call instruction.
+; Check that the inline report with metadata was produced correctly.
+; CHECK-IR-MD: COMPILE FUNC: bas
+; CHECK-IR-MD:    INLINE: bar {{.*}}Callee has single callsite and local linkage
+; CHECK-IR-MD:       foo{{.*}}Callee has noinline attribute
 
+; Verify the IR
 ; CHECK-IR-MD: ; Function Attrs: noinline
 ; CHECK-IR-MD: define internal float @foo(float* %0, i64 %1, i64 %2) #1 !intel.function.inlining.report !8 {
 
@@ -78,14 +78,13 @@
 ; CHECK-IR-MD: !24 = distinct !{!"intel.function.inlining.report", !25, !26, !2, !3, !10, !5, !6, !7}
 ; CHECK-IR-MD: !25 = !{!"name: bas"}
 ; CHECK-IR-MD: !26 = distinct !{!"intel.callsites.inlining.report", !27}
-; CHECK-IR-MD: !27 = distinct !{!"intel.callsite.inlining.report", !13, !28, !31, !32, !33, !19, !34, !21, !22, !"line: 0 col: 0", !2, !7}
+; CHECK-IR-MD: !27 = distinct !{!"intel.callsite.inlining.report", !13, !28, !30, !31, !32, !19, !33, !21, !22, !"line: 0 col: 0", !2, !7}
 ; CHECK-IR-MD: !28 = distinct !{!"intel.callsites.inlining.report", !29}
-; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !9, null, !16, !30, !18, !19, !20, !21, !22, !"line: 0 col: 0", !2, !7}
-; CHECK-IR-MD: !30 = !{!"reason: 36"}
-; CHECK-IR-MD: !31 = !{!"isInlined: 1"}
-; CHECK-IR-MD: !32 = !{!"reason: 8"}
-; CHECK-IR-MD: !33 = !{!"inlineCost: -15000"}
-; CHECK-IR-MD: !34 = !{!"inlineThreshold: 337"}
+; CHECK-IR-MD: !29 = distinct !{!"intel.callsite.inlining.report", !9, null, !16, !17, !18, !19, !20, !21, !22, !"line: 0 col: 0", !2, !7}
+; CHECK-IR-MD: !30 = !{!"isInlined: 1"}
+; CHECK-IR-MD: !31 = !{!"reason: 8"}
+; CHECK-IR-MD: !32 = !{!"inlineCost: -15000"}
+; CHECK-IR-MD: !33 = !{!"inlineThreshold: 337"}
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
