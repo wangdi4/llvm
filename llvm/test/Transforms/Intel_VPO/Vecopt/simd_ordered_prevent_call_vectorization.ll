@@ -899,9 +899,6 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20:%.*]]
@@ -909,15 +906,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_1() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -925,15 +922,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_2() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -941,15 +938,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_3() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -957,15 +954,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_4() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -973,15 +970,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_5() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -989,15 +986,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_6() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -1005,15 +1002,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_7() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -1021,15 +1018,15 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 ; CHECK:  define internal void @_Z3fooi.ordered.simd.region_8() #2 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
-; CHECK-NEXT:    ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.ORDERED.1:
 ; CHECK-NEXT:    [[TMP0]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_20]]
@@ -1037,6 +1034,9 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:  DIR.OMP.ORDERED.2:
 ; CHECK-NEXT:    call void @llvm.directive.region.exit(token [[TMP0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_ORDERED_3_EXITSTUB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  DIR.OMP.END.ORDERED.3.exitStub:
+; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
 DIR.OMP.END.ORDERED.4:

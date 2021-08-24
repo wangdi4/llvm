@@ -39,13 +39,13 @@
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %r0.addr = alloca i32*, align 8
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  store i32* %r0, i32** %r0.addr, align 8
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %r0.value = load i32*, i32** %r0.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  ret void
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid15 = load i32, i32* %tid, align 4
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid16 = load i32, i32* %tid, align 4
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.10.29.8, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid14 = load i32, i32* %tid, align 4
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid19 = load i32, i32* %tid, align 4
 ; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.10.29.10, i32 %my.tid19, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)
+; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  ret void
 ; PAROPT: WARNING: Missing line 12
 ; PAROPT: WARNING: Missing line 13
 ; PAROPT: WARNING: Missing line 14
