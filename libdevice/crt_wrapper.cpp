@@ -73,6 +73,15 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
+extern "C" {
+  typedef void * omp_allocator_handle_t;
+  void *__kmpc_alloc(int, size_t, omp_allocator_handle_t);
+  void __kmpc_free(int, void *, omp_allocator_handle_t);
+}
+void operator delete(void *ptr) { __kmpc_free(0, ptr, nullptr); }
+void operator delete[](void *ptr) { __kmpc_free(0, ptr, nullptr); }
+void *operator new(size_t size) { return __kmpc_alloc(0, size, nullptr); }
+void *operator new[](size_t size) { return __kmpc_alloc(0, size, nullptr); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
