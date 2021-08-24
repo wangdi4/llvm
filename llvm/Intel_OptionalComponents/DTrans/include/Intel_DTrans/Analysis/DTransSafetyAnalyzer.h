@@ -188,6 +188,9 @@ public:
     return CIM.call_info_entries();
   }
 
+  uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
+  void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();
@@ -195,6 +198,7 @@ public:
 
 private:
   void PostProcessFieldValueInfo();
+  void computeStructFrequency(dtrans::StructInfo *StInfo);
 
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
@@ -213,6 +217,9 @@ private:
   // aliased by the operands.
   using PtrSubInfoMapType = ValueMap<Value *, DTransType *>;
   PtrSubInfoMapType PtrSubInfoMap;
+
+  // Maximum of TotalFrequency from all structures.
+  uint64_t MaxTotalFrequency = 0;
 
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect

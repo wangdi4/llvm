@@ -41,6 +41,14 @@
 using namespace llvm;
 using namespace dtransOP;
 
+// Control whether field frequency info should use the BlockFrequencyInfo class
+// to estimate access frequencies for the structure fields. When false, a simple
+// static instruction count is used instead.
+static cl::opt<bool> DTransUseBlockFreq(
+    "dtrans-use-block-freq", cl::init(true), cl::ReallyHidden,
+    cl::desc("Use BlockFrequencyInfo counters instead of static instruction "
+             "counts for field frequency info"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Comma separated list of function names that the verbose debug output should
@@ -214,14 +222,15 @@ public:
   // TODO: Making this public temporarily to avoid an unused variable warning
   // because the variable is not used yet. Change to private when it is used.
   dtrans::DTransAllocAnalyzer &DTAA;
-  DTransSafetyInstVisitor(LLVMContext &Ctx, const DataLayout &DL,
-                          DTransSafetyInfo::GetTLIFnType GetTLI,
-                          DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA,
-                          DTransTypeManager &TM, TypeMetadataReader &MDReader,
-                          dtrans::DTransAllocAnalyzer &DTAA,
-                          DTransSafetyLogger &Log)
-      : DTAA(DTAA), DL(DL), GetTLI(GetTLI), DTInfo(DTInfo), PTA(PTA),
-        MDReader(MDReader), TM(TM), Log(Log) {
+  DTransSafetyInstVisitor(
+      LLVMContext &Ctx, const DataLayout &DL,
+      DTransSafetyInfo::GetTLIFnType GetTLI,
+      function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
+      DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA, DTransTypeManager &TM,
+      TypeMetadataReader &MDReader, dtrans::DTransAllocAnalyzer &DTAA,
+      DTransSafetyLogger &Log)
+      : DTAA(DTAA), DL(DL), GetTLI(GetTLI), GetBFI(GetBFI), DTInfo(DTInfo),
+        PTA(PTA), MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -579,6 +588,9 @@ public:
 
   void visitFunction(Function &F) {
     LLVM_DEBUG(dbgs() << "visitFunction: " << F.getName() << "\n");
+
+    // Get BFI if available.
+    BFI = (!F.isDeclaration()) ? &(GetBFI(F)) : nullptr;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // Enable verbose trace filter predicate, if necessary.
@@ -1113,6 +1125,7 @@ public:
             for (auto &FI : SI->getFields()) {
               FI.setRead(I);
               FI.setValueUnused(false);
+              updateFieldFrequency(FI, I);
             }
           }
         }
@@ -1364,6 +1377,7 @@ public:
             for (auto &Field : enumerate(SI->getFields())) {
               dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
+              updateFieldFrequency(FI, I);
               if (!FI.isMultipleValue()) {
                 FI.setMultipleValue();
                 DEBUG_WITH_TYPE(SAFETY_VALUES, {
@@ -1442,13 +1456,15 @@ public:
         // because we do not have any transforms that can handle them.
         dtrans::StructInfo *IndexedStTI =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(IndexedType));
-        for (auto &FI : IndexedStTI->getFields())
+        for (auto &FI : IndexedStTI->getFields()) {
           if (IsLoad) {
             FI.setRead(I);
             FI.setValueUnused(false);
           } else {
             FI.setWritten(I);
           }
+          updateFieldFrequency(FI, I);
+        }
       }
 
       if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
@@ -1862,6 +1878,7 @@ public:
                             &Descended);
       dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
+      updateFieldFrequency(FI, I);
       if (Descended || ForElementZeroAccess)
         FI.setNonGEPAccess();
       if (!dtrans::isLoadedValueUnused(&I,
@@ -1871,8 +1888,8 @@ public:
       dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
       FI.setRead(I);
       FI.setValueUnused(false);
+      updateFieldFrequency(FI, I);
     }
-    // TODO: set other attributes like usage frequency, etc.
   }
 
   void collectWriteInfo(Instruction &I, dtrans::StructInfo *StInfo,
@@ -1893,6 +1910,7 @@ public:
                             dtrans::FieldInfo &FI, size_t FieldNum,
                             Value *WriteVal) {
       FI.setWritten(I);
+      updateFieldFrequency(FI, I);
 
       // For simple cases where the stored value is the result of select
       // instruction that always produces a constant result, save both
@@ -1906,6 +1924,7 @@ public:
                                  cast<Constant>(SelInst->getTrueValue()), &I);
         updateFieldValueTracking(StInfo, FI, FieldNum,
                                  cast<Constant>(SelInst->getFalseValue()), &I);
+        updateFieldFrequency(FI, I);
         return;
       }
 
@@ -1920,6 +1939,7 @@ public:
       for (auto &Field : enumerate(StInfo->getFields())) {
         dtrans::FieldInfo &FI = Field.value();
         FI.setWritten(I);
+        updateFieldFrequency(FI, I);
         if (!FI.isMultipleValue()) {
           FI.setMultipleValue();
           DEBUG_WITH_TYPE(SAFETY_VALUES, {
@@ -1945,8 +1965,7 @@ public:
     if (Descended || ForElementZeroAccess)
       FI.setNonGEPAccess();
 
-    // TODO: Update field usage frequency, field single allocation functions
-    // fields
+    // TODO: Update field single allocation function info, if needed
   }
 
   // If C is a Constant, add it to the list of values tracked for a field.
@@ -1981,6 +2000,17 @@ public:
         printValue(dbgs(), Consumer);
         dbgs() << "\n";
       });
+  }
+
+  void updateFieldFrequency(dtrans::FieldInfo &FI, Instruction &I) {
+    assert(BFI && "BFI should be set when visitFunction begins");
+    uint64_t InstFreq = DTransUseBlockFreq
+                            ? BFI->getBlockFreq(I.getParent()).getFrequency()
+                            : 1;
+    uint64_t TFreq = InstFreq + FI.getFrequency();
+    // Set it to 64-bit unsigned Max value if there is overflow.
+    TFreq = TFreq < InstFreq ? std::numeric_limits<uint64_t>::max() : TFreq;
+    FI.setFrequency(TFreq);
   }
 
   // When the pointer type analyzer detects an inner element of a nested type
@@ -4289,6 +4319,7 @@ private:
         dtrans::FieldInfo &FI = Field.value();
         size_t Idx = Field.index();
         FI.setWritten(I);
+        updateFieldFrequency(FI, I);
         if (WriteType != FWT_ExistingValue) {
           Constant *C = (WriteType == FWT_ZeroValue)
                             ? Constant::getNullValue(FI.getLLVMType())
@@ -4338,6 +4369,7 @@ private:
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
       FI.setWritten(I);
+      updateFieldFrequency(FI, I);
       if (WriteType != FWT_ExistingValue) {
         Constant *C = (WriteType == FWT_ZeroValue)
                           ? Constant::getNullValue(FI.getLLVMType())
@@ -4426,11 +4458,15 @@ private:
   // private data members
   const DataLayout &DL;
   DTransSafetyInfo::GetTLIFnType GetTLI;
+  function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
   DTransSafetyInfo &DTInfo;
   PtrTypeAnalyzer &PTA;
   TypeMetadataReader &MDReader;
   DTransTypeManager &TM;
   DTransSafetyLogger &Log;
+
+  // Set at the start of each visitFunction call.
+  BlockFrequencyInfo *BFI;
 
   // Types that are frequently needed for comparing type aliases against
   // known types.
@@ -4445,6 +4481,7 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
     : TM(std::move(Other.TM)), MDReader(std::move(Other.MDReader)),
       PtrAnalyzer(std::move(Other.PtrAnalyzer)),
       TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
+      MaxTotalFrequency(Other.MaxTotalFrequency),
       UnhandledPtrType(Other.UnhandledPtrType),
       DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -4462,6 +4499,7 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
+  MaxTotalFrequency = Other.MaxTotalFrequency;
   UnhandledPtrType = Other.UnhandledPtrType;
   DTransSafetyAnalysisRan = Other.DTransSafetyAnalysisRan;
 
@@ -4510,11 +4548,21 @@ void DTransSafetyInfo::analyzeModule(
   // pointers:
   // DTAA.populateAllocDeallocTable(M);
   DTransSafetyLogger Log;
-  DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
-                                  *MDReader, DTAA, Log);
+  DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
+                                  *TM, *MDReader, DTAA, Log);
   Visitor.visit(M);
   PostProcessFieldValueInfo();
   DTransSafetyAnalysisRan = true;
+
+  // Computes TotalFrequency for each StructInfo and MaxTotalFrequency.
+  uint64_t MaxTFrequency = 0;
+  for (auto *TI : type_info_entries()) {
+    if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      computeStructFrequency(StInfo);
+      MaxTFrequency = std::max(MaxTFrequency, StInfo->getTotalFrequency());
+    }
+  }
+  setMaxTotalFrequency(MaxTFrequency);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintSafetyAnalyzerIR) {
@@ -4711,6 +4759,7 @@ void DTransSafetyInfo::printAnalyzedTypes() {
     else if (auto *SI = dyn_cast<dtrans::StructInfo>(TI))
       SI->print(dbgs());
 
+  dbgs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
   dbgs().flush();
 }
 
@@ -4775,6 +4824,23 @@ void DTransSafetyInfo::PostProcessFieldValueInfo() {
         StInfo->getField(I).setMultipleValue();
   }
 }
+
+// Computes total frequency of all fields and sets TotalFrequency of
+// 'StInfo'.
+void DTransSafetyInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
+  uint64_t StructFreq = 0;
+  for (dtrans::FieldInfo &FI : StInfo->getFields()) {
+    uint64_t TFreq = StructFreq + FI.getFrequency();
+    // Check for overflow.
+    if (TFreq < StructFreq) {
+      StructFreq = std::numeric_limits<uint64_t>::max();
+      break;
+    }
+    StructFreq = TFreq;
+  }
+  StInfo->setTotalFrequency(StructFreq);
+}
+
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransSafetyAnalyzer::Key;

@@ -8,10 +8,6 @@
 ; Test the PtrTypeAnalyzer handling of a store instruction that uses an
 ; inttoptr operator as the pointer operand that is not from a variable.
 
-; These cases currently result in the pointer operand being marked as
-; UNHANDLED which will disqualify types associated with the value
-; operand by the safety analyzer.
-
 ; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
 ; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
 ;   changed when the future opaque pointer form of IR is used.
@@ -29,7 +25,9 @@ define internal void @test01() {
 ; CHECK-OPAQUE: store i32 1, ptr inttoptr (i64 120 to ptr)
 ; CHECK-OPAQUE-NEXT: ptr inttoptr (i64 120 to ptr)
 ; CHECK-NEXT: LocalPointerInfo:
-; CHECK-SAME: <UNHANDLED>
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32*{{ *$}}
+; CHEKC-NEXT: No Element pointees
 
 %struct.test02 = type { i64, i64, i64 }
 define internal void @test02() {
@@ -45,7 +43,9 @@ define internal void @test02() {
 ; CHECK-OPAQUE: store i64 %pti, ptr inttoptr (i64 1024 to ptr), align 4
 ; CHECK-OPAQUE-NEXT: ptr inttoptr (i64 1024 to ptr)
 ; CHECK-NEXT: LocalPointerInfo:
-; CHECK-SAME: <UNHANDLED>
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
+; CHEKC-NEXT: No Element pointees
 
 !intel.dtrans.types = !{!2}
 
