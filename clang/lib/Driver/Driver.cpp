@@ -606,8 +606,24 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         !Args.hasArg(options::OPT_c, options::OPT_S))
       addClaim(options::OPT_fuse_ld_EQ, "lld");
     // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib))
-      addClaim(options::OPT_fveclib, "SVML");
+    if (!Args.hasArg(options::OPT_fveclib)) {
+      bool HasDefaultVeclib = true;
+      const Arg *A =
+          Args.getLastArg(options::OPT_no_intel_lib, options::OPT_no_intel_lib_EQ);
+      if (A) {
+        if (A->getOption().matches(options::OPT_no_intel_lib))
+          HasDefaultVeclib = false;
+        else
+          for (StringRef Val : A->getValues()) {
+            if (Val.equals_insensitive("libsvml")) {
+              HasDefaultVeclib = false;
+              break;
+            }
+          }
+      }
+      if (HasDefaultVeclib)
+        addClaim(options::OPT_fveclib, "SVML");
+    }
     // -Wno-c++11-narrowing is default for Windows
     if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
                                    options::OPT_Wno_cxx11_narrowing))

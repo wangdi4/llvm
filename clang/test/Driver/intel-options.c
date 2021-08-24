@@ -223,10 +223,13 @@
 // RUN: %clangxx -### --intel -no-intel-lib=libimf -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIMF %s
 // RUN: %clangxx -### --intel -no-intel-lib=libsvml -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOSVML %s
 // RUN: %clangxx -### --intel -no-intel-lib=libirng -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_INTEL_LIB_NOIRNG %s
+// RUN: %clangxx -### --intel -no-intel-lib -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_NOVECLIB %s
+// RUN: %clangxx -### --intel -no-intel-lib=libsvml -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK_NOVECLIB %s
 // CHECK_INTEL_LIB_NOSVML-NOT: "-lsvml"
 // CHECK_INTEL_LIB_NOIMF-NOT: "-limf"
 // CHECK_INTEL_LIB_NOIRNG-NOT: "-lirng"
 // CHECK_INTEL_LIB_NOIRC-NOT: "-lirc"
+// CHECK_NOVECLIB-NOT: "-fveclib=SVML"
 
 // -Qno-intel-lib
 // RUN: %clang_cl -### --intel -Qno-intel-lib --target=x86_64-unknown-windows-msvc %s 2>&1 | FileCheck -check-prefixes=CHECK_INTEL_LIB_WIN_NOIRC,CHECK_INTEL_LIB_WIN_NOSVML %s
