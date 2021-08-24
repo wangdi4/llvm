@@ -65,9 +65,9 @@ namespace intel {
     bool ResolveWICall::runOnModule(Module &M) {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
-      m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
+      m_IAA = &getAnalysis<ImplicitArgsAnalysisLegacy>();
       unsigned PointerSize = M.getDataLayout().getPointerSizeInBits(0);
-      m_IAA->initDuringRun(PointerSize);
+      IAInfo = &(m_IAA->getResult());
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
       m_bPrefetchDecl = false;
@@ -236,7 +236,7 @@ namespace intel {
     assert(pCall && "Invalid CallInst");
     if (type == ICT_GET_WORK_DIM) {
       IRBuilder<> B(pCall);
-      return m_IAA->GenerateGetFromWorkInfo(NDInfo::WORK_DIM, m_pWorkInfo, B);
+      return IAInfo->GenerateGetFromWorkInfo(NDInfo::WORK_DIM, m_pWorkInfo, B);
     }
     BasicBlock *pBlock = pCall->getParent();
     Value *pResult = nullptr;  // Object that holds the resolved value
@@ -345,22 +345,22 @@ namespace intel {
     case ICT_GET_GLOBAL_OFFSET:
     case ICT_GET_GLOBAL_SIZE:
     case ICT_GET_NUM_GROUPS:
-      return m_IAA->GenerateGetFromWorkInfo(InternalCall2NDInfo(type),
-                                            m_pWorkInfo,
-                                            pCall->getArgOperand(0), Builder);
+      return IAInfo->GenerateGetFromWorkInfo(InternalCall2NDInfo(type),
+                                             m_pWorkInfo,
+                                             pCall->getArgOperand(0), Builder);
     case ICT_GET_LOCAL_SIZE:
-      return m_IAA->GenerateGetLocalSize(m_uniformLocalSize,
-                                         m_pWorkInfo, m_pWGId, pCall->getArgOperand(0),
-                                         Builder);
+      return IAInfo->GenerateGetLocalSize(m_uniformLocalSize, m_pWorkInfo,
+                                          m_pWGId, pCall->getArgOperand(0),
+                                          Builder);
     case ICT_GET_ENQUEUED_LOCAL_SIZE:
-      return m_IAA->GenerateGetEnqueuedLocalSize(m_pWorkInfo, pCall->getArgOperand(0),
-                                                 Builder);
+      return IAInfo->GenerateGetEnqueuedLocalSize(
+          m_pWorkInfo, pCall->getArgOperand(0), Builder);
     case ICT_GET_BASE_GLOBAL_ID:
-      return m_IAA->GenerateGetBaseGlobalID(m_pBaseGlbId,
-                                            pCall->getArgOperand(0), Builder);
+      return IAInfo->GenerateGetBaseGlobalID(m_pBaseGlbId,
+                                             pCall->getArgOperand(0), Builder);
     case ICT_GET_GROUP_ID:
-      return m_IAA->GenerateGetGroupID(m_pWGId, pCall->getArgOperand(0),
-                                       Builder);
+      return IAInfo->GenerateGetGroupID(m_pWGId, pCall->getArgOperand(0),
+                                        Builder);
     default:
       break;
     }
@@ -507,7 +507,8 @@ namespace intel {
     // The 'format' string is in constant address space (address space 2)
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 2));
     params.push_back(PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0));
-    params.push_back(m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
+    params.push_back(
+        IAInfo->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
     params.push_back(m_pRuntimeHandle->getType());
 
     return FunctionType::get(Type::getInt32Ty(*m_pLLVMContext), params, false);
@@ -700,7 +701,7 @@ Value *ResolveWICall::getOrCreateBlock2KernelMapper() {
   if (m_useTLSGlobals)
     Builder.SetInsertPoint(dyn_cast<Instruction>(m_pWorkInfo)->getNextNode());
   if (!m_Block2KernelMapper)
-    m_Block2KernelMapper = m_IAA->GenerateGetFromWorkInfo(
+    m_Block2KernelMapper = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::BLOCK2KERNEL_MAPPER, m_pWorkInfo, Builder);
   return m_Block2KernelMapper;
 }
@@ -710,7 +711,7 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
   if (m_useTLSGlobals)
     Builder.SetInsertPoint(dyn_cast<Instruction>(m_pWorkInfo)->getNextNode());
   if (!m_RuntimeInterface)
-    m_RuntimeInterface = m_IAA->GenerateGetFromWorkInfo(
+    m_RuntimeInterface = IAInfo->GenerateGetFromWorkInfo(
         NDInfo::RUNTIME_INTERFACE, m_pWorkInfo, Builder);
   return m_RuntimeInterface;
 }
@@ -755,9 +756,9 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     // uint * localbuf_size
     params.push_back(PointerType::get(getLocalMemBufType(), 0));
     params.push_back(
-        m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
+        IAInfo->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
     params.push_back(
-        m_IAA->getWorkGroupInfoMemberType(NDInfo::BLOCK2KERNEL_MAPPER));
+        IAInfo->getWorkGroupInfoMemberType(NDInfo::BLOCK2KERNEL_MAPPER));
     params.push_back(m_pRuntimeHandle->getType());
     // create function type
     return FunctionType::get(getEnqueueKernelRetType(), params, false);

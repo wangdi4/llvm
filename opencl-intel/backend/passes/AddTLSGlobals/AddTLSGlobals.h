@@ -14,10 +14,11 @@
 
 #ifndef __ADD_TLS_GLOBALS_H__
 #define __ADD_TLS_GLOBALS_H__
-#include "ImplicitArgsAnalysis/ImplicitArgsAnalysis.h"
 #include "LocalBuffAnalysis/LocalBuffAnalysis.h"
-#include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ImplicitArgsAnalysis.h"
 
 namespace intel {
 
@@ -49,7 +50,7 @@ public:
     // Depends on LocalBuffAnalysis for finding all local buffers each function
     // uses directly
     AU.addRequired<LocalBuffAnalysis>();
-    AU.addRequired<ImplicitArgsAnalysis>();
+    AU.addRequired<ImplicitArgsAnalysisLegacy>();
   }
 
 private:
@@ -62,8 +63,9 @@ private:
   Module *m_pModule;
   /// @brief The LocalBuffAnalysis pass, on which the current pass depends
   LocalBuffAnalysis *m_localBuffersAnalysis;
-  /// @brief The ImplicitArgsAnalysis pass, on which the current pass depends
-  ImplicitArgsAnalysis *m_IAA;
+  /// @brief The ImplicitArgsAnalysisLegacy pass, on which the current pass
+  /// depends
+  ImplicitArgsAnalysisLegacy *m_IAA;
   /// @brief The llvm context
   LLVMContext *m_pLLVMContext;
   /// @brief Local memory pointer TLS global

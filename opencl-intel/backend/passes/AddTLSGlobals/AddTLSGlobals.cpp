@@ -42,28 +42,32 @@ namespace intel {
 
 char AddTLSGlobals::ID = 0;
 
-OCL_INITIALIZE_PASS(AddTLSGlobals, "add-tls-globals",
-                    "Adds TLS global variables to the module", false, false)
+OCL_INITIALIZE_PASS_BEGIN(AddTLSGlobals, "add-tls-globals",
+                          "Adds TLS global variables to the module", false,
+                          false)
+OCL_INITIALIZE_PASS_DEPENDENCY(LocalBuffAnalysis)
+OCL_INITIALIZE_PASS_DEPENDENCY(ImplicitArgsAnalysisLegacy)
+OCL_INITIALIZE_PASS_END(AddTLSGlobals, "add-tls-globals",
+                        "Adds TLS global variables to the module", false, false)
 
 AddTLSGlobals::AddTLSGlobals()
     : ModulePass(ID), m_pModule(nullptr), m_localBuffersAnalysis(nullptr),
       m_IAA(nullptr), m_pLLVMContext(nullptr) {
-  initializeLocalBuffAnalysisPass(*llvm::PassRegistry::getPassRegistry());
-  initializeImplicitArgsAnalysisPass(*llvm::PassRegistry::getPassRegistry());
+  initializeAddTLSGlobalsPass(*llvm::PassRegistry::getPassRegistry());
 }
 
 bool AddTLSGlobals::runOnModule(Module &M) {
   m_pModule = &M;
   m_pLLVMContext = &M.getContext();
   m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
-  m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-  m_IAA->initDuringRun(M.getDataLayout().getPointerSizeInBits(0));
+  m_IAA = &getAnalysis<ImplicitArgsAnalysisLegacy>();
+  ImplicitArgsInfo &IAInfo = m_IAA->getResult();
 
   // Create TLS globals
   for (unsigned i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
     // TODO handle name conflicts
     assert(!M.getGlobalVariable(ImplicitArgsUtils::getArgName(i)));
-    Type *ArgType = m_IAA->getArgType(i);
+    Type *ArgType = IAInfo.getArgType(i);
     GlobalVariable *GV = new GlobalVariable(
         M, ArgType, false, GlobalValue::LinkOnceODRLinkage,
         UndefValue::get(ArgType), ImplicitArgsUtils::getArgName(i), nullptr,

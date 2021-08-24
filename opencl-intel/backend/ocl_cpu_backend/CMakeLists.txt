@@ -215,7 +215,6 @@ endif( WIN32 )
 set( BACKEND_PASSES
     LLVMBarrier
     SGEmulation
-    ImplicitArgsAnalysis
     LLVMVectorizer
     AddFastMath
     AddTLSGlobals

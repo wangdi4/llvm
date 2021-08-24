@@ -19,7 +19,6 @@ set(OCL_BE_PASSES
     DetectRecursion
     ExternalizeGlobalVariables
     HandleVPlanMask
-    ImplicitArgsAnalysis
     InfiniteLoopCreator
     InstToFuncCall
     InternalizeGlobalVariables

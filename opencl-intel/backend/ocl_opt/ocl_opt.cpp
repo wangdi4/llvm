@@ -36,13 +36,13 @@
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSummaryIndex.h" // INTEL
-#include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Coroutines.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Debugify.h"
 
@@ -291,7 +292,6 @@ RuntimeServices("runtime",
 
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
-extern "C" llvm::ImmutablePass * createImplicitArgsAnalysisPass(LLVMContext *C);
 
 static void addMustHaveOCLPasses(llvm::LLVMContext& context,
                                  llvm::legacy::PassManager& passMgr) {
@@ -324,7 +324,7 @@ static void addMustHaveOCLPasses(llvm::LLVMContext& context,
 
   // Always add the BuiltinLibInfo Pass to the Pass Manager
   passMgr.add(createBuiltinLibInfoPass(runtimeModuleList, RuntimeServices));
-  passMgr.add(createImplicitArgsAnalysisPass(&context));
+  passMgr.add(createImplicitArgsAnalysisLegacyPass());
 }
 
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
