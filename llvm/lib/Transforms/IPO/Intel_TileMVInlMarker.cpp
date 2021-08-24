@@ -1241,7 +1241,7 @@ bool TileMVInlMarker::validateGVM() {
               return false;
             AS.insert(SI->getFunction());
           }
-          if (SI->getPointerOperand() != GV)
+          else if (SI->getPointerOperand() != GV)
             return false;
           AS.insert(SI->getFunction());
         } else if (auto BC = dyn_cast<BitCastOperator>(V)) {
