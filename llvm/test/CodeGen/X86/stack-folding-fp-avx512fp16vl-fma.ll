@@ -9,8 +9,8 @@ target triple = "x86_64-unknown-unknown"
 ; relevant registers and check that the reload is correctly folded into the instruction.
 
 define <8 x half> @stack_fold_fmadd123ph(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2) {
-  ;check-label: stack_fold_fmadd123ph:
-  ;check:       vfmadd213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte folded reload
+  ;CHECK-LABEL: stack_fold_fmadd123ph:
+  ;CHECK:       vfmadd213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <8 x half> @llvm.fma.v8f16(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2)
   ret <8 x half> %2
@@ -190,8 +190,8 @@ define <8 x half> @stack_fold_fmadd312ph_maskz(<8 x half> %a0, <8 x half> %a1, <
 }
 
 define <8 x half> @stack_fold_fmsub123ph(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2) {
-  ;check-label: stack_fold_fmsub123ph:
-  ;check:       vfmsub213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte folded reload
+  ;CHECK-LABEL: stack_fold_fmsub123ph:
+  ;CHECK:       vfmsub213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <8 x half> %a2
   %3 = call <8 x half> @llvm.fma.v8f16(<8 x half> %a0, <8 x half> %a1, <8 x half> %2)
@@ -388,8 +388,8 @@ define <8 x half> @stack_fold_fmsub312ph_maskz(<8 x half> %a0, <8 x half> %a1, <
 }
 
 define <8 x half> @stack_fold_fnmadd123ph(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2) {
-  ;check-label: stack_fold_fnmadd123ph:
-  ;check:       vfnmadd213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte folded reload
+  ;CHECK-LABEL: stack_fold_fnmadd123ph:
+  ;CHECK:       vfnmadd213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <8 x half> %a0
   %3 = call <8 x half> @llvm.fma.v8f16(<8 x half> %2, <8 x half> %a1, <8 x half> %a2)
@@ -586,8 +586,8 @@ define <8 x half> @stack_fold_fnmadd312ph_maskz(<8 x half> %a0, <8 x half> %a1, 
 }
 
 define <8 x half> @stack_fold_fnmsub123ph(<8 x half> %a0, <8 x half> %a1, <8 x half> %a2) {
-  ;check-label: stack_fold_fnmsub123ph:
-  ;check:       vfnmsub213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte folded reload
+  ;CHECK-LABEL: stack_fold_fnmsub123ph:
+  ;CHECK:       vfnmsub213ph {{-?[0-9]*}}(%rsp), {{%xmm[0-9][0-9]*}}, {{%xmm[0-9][0-9]*}} {{.*#+}} 16-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <8 x half> %a0
   %3 = fneg <8 x half> %a2
@@ -802,8 +802,8 @@ define <8 x half> @stack_fold_fnmsub312ph_maskz(<8 x half> %a0, <8 x half> %a1, 
 }
 
 define <16 x half> @stack_fold_fmadd123ph_ymm(<16 x half> %a0, <16 x half> %a1, <16 x half> %a2) {
-  ;check-label: stack_fold_fmadd123ph_ymm:
-  ;check:       vfmadd213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte folded reload
+  ;CHECK-LABEL: stack_fold_fmadd123ph_ymm:
+  ;CHECK:       vfmadd213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = call <16 x half> @llvm.fma.v16f16(<16 x half> %a0, <16 x half> %a1, <16 x half> %a2)
   ret <16 x half> %2
@@ -983,8 +983,8 @@ define <16 x half> @stack_fold_fmadd312ph_maskz_ymm(<16 x half> %a0, <16 x half>
 }
 
 define <16 x half> @stack_fold_fmsub123ph_ymm(<16 x half> %a0, <16 x half> %a1, <16 x half> %a2) {
-  ;check-label: stack_fold_fmsub123ph_ymm:
-  ;check:       vfmsub213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte folded reload
+  ;CHECK-LABEL: stack_fold_fmsub123ph_ymm:
+  ;CHECK:       vfmsub213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <16 x half> %a2
   %3 = call <16 x half> @llvm.fma.v16f16(<16 x half> %a0, <16 x half> %a1, <16 x half> %2)
@@ -1181,8 +1181,8 @@ define <16 x half> @stack_fold_fmsub312ph_maskz_ymm(<16 x half> %a0, <16 x half>
 }
 
 define <16 x half> @stack_fold_fnmadd123ph_ymm(<16 x half> %a0, <16 x half> %a1, <16 x half> %a2) {
-  ;check-label: stack_fold_fnmadd123ph_ymm:
-  ;check:       vfnmadd213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte folded reload
+  ;CHECK-LABEL: stack_fold_fnmadd123ph_ymm:
+  ;CHECK:       vfnmadd213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <16 x half> %a0
   %3 = call <16 x half> @llvm.fma.v16f16(<16 x half> %2, <16 x half> %a1, <16 x half> %a2)
@@ -1379,8 +1379,8 @@ define <16 x half> @stack_fold_fnmadd312ph_maskz_ymm(<16 x half> %a0, <16 x half
 }
 
 define <16 x half> @stack_fold_fnmsub123ph_ymm(<16 x half> %a0, <16 x half> %a1, <16 x half> %a2) {
-  ;check-label: stack_fold_fnmsub123ph_ymm:
-  ;check:       vfnmsub213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte folded reload
+  ;CHECK-LABEL: stack_fold_fnmsub123ph_ymm:
+  ;CHECK:       vfnmsub213ph {{-?[0-9]*}}(%rsp), {{%ymm[0-9][0-9]*}}, {{%ymm[0-9][0-9]*}} {{.*#+}} 32-byte Folded Reload
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
   %2 = fneg <16 x half> %a0
   %3 = fneg <16 x half> %a2

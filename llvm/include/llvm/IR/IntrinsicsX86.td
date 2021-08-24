@@ -5367,29 +5367,6 @@ let TargetPrefix = "x86" in {
 
 #if INTEL_CUSTOMIZATION
 let TargetPrefix = "x86" in {
-  def int_x86_avx512fp16_vfmadd_ph_512
-      : Intrinsic<[ llvm_v32f16_ty ],
-                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
-  def int_x86_avx512fp16_vfmaddsub_ph_128
-      : GCCBuiltin<"__builtin_ia32_vfmaddsubph">,
-        Intrinsic<[ llvm_v8f16_ty ],
-                  [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_v8f16_ty ],
-                  [ IntrNoMem ]>;
-  def int_x86_avx512fp16_vfmaddsub_ph_256
-      : GCCBuiltin<"__builtin_ia32_vfmaddsubph256">,
-        Intrinsic<[ llvm_v16f16_ty ],
-                  [ llvm_v16f16_ty, llvm_v16f16_ty, llvm_v16f16_ty ],
-                  [ IntrNoMem ]>;
-  def int_x86_avx512fp16_vfmaddsub_ph_512
-      : Intrinsic<[ llvm_v32f16_ty ],
-                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
-  def int_x86_avx512fp16_vfmadd_f16
-      : Intrinsic<[ llvm_half_ty ],
-                  [ llvm_half_ty, llvm_half_ty, llvm_half_ty, llvm_i32_ty ],
-                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
-
   def int_x86_avx512fp16_mask_vfcmaddc_ph_128
       : GCCBuiltin<"__builtin_ia32_vfcmaddcph128_mask">,
         Intrinsic<[ llvm_v4f32_ty ],
@@ -7957,4 +7934,27 @@ let TargetPrefix = "x86" in {
                   [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_v8f16_ty, llvm_i8_ty,
                     llvm_i32_ty ],
                   [ IntrNoMem, ImmArg<ArgIndex<4>> ]>;
+
+  def int_x86_avx512fp16_vfmadd_ph_512
+      : Intrinsic<[ llvm_v32f16_ty ],
+                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
+  def int_x86_avx512fp16_vfmaddsub_ph_128
+      : GCCBuiltin<"__builtin_ia32_vfmaddsubph">,
+        Intrinsic<[ llvm_v8f16_ty ],
+                  [ llvm_v8f16_ty, llvm_v8f16_ty, llvm_v8f16_ty ],
+                  [ IntrNoMem ]>;
+  def int_x86_avx512fp16_vfmaddsub_ph_256
+      : GCCBuiltin<"__builtin_ia32_vfmaddsubph256">,
+        Intrinsic<[ llvm_v16f16_ty ],
+                  [ llvm_v16f16_ty, llvm_v16f16_ty, llvm_v16f16_ty ],
+                  [ IntrNoMem ]>;
+  def int_x86_avx512fp16_vfmaddsub_ph_512
+      : Intrinsic<[ llvm_v32f16_ty ],
+                  [ llvm_v32f16_ty, llvm_v32f16_ty, llvm_v32f16_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
+  def int_x86_avx512fp16_vfmadd_f16
+      : Intrinsic<[ llvm_half_ty ],
+                  [ llvm_half_ty, llvm_half_ty, llvm_half_ty, llvm_i32_ty ],
+                  [ IntrNoMem, ImmArg<ArgIndex<3>> ]>;
 }

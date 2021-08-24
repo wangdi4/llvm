@@ -33625,10 +33625,8 @@ bool X86TargetLowering::isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
     return false;
 
   switch (VT.getSimpleVT().SimpleTy) {
-#if INTEL_CUSTOMIZATION
   case MVT::f16:
     return Subtarget.hasFP16();
-#endif // INTEL_CUSTOMIZATION
   case MVT::f32:
   case MVT::f64:
     return true;
@@ -51743,10 +51741,9 @@ static SDValue combineFMA(SDNode *N, SelectionDAG &DAG,
   }
 
   EVT ScalarVT = VT.getScalarType();
-#if INTEL_CUSTOMIZATION
-  if (((ScalarVT != MVT::f32 && ScalarVT != MVT::f64) || !Subtarget.hasAnyFMA()) &&
+  if (((ScalarVT != MVT::f32 && ScalarVT != MVT::f64) ||
+       !Subtarget.hasAnyFMA()) &&
       !(ScalarVT == MVT::f16 && Subtarget.hasFP16()))
-#endif // INTEL_CUSTOMIZATION
     return SDValue();
 
   auto invertIfNegative = [&DAG, &TLI, &DCI](SDValue &V) {
