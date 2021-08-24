@@ -19,17 +19,12 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
-
-static std::string AppendWithDimension(const Twine &S, const Value *Dimension) {
-  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
-    return (S + Twine(C->getZExtValue())).str();
-  else
-    return (S + Twine("var")).str();
-}
+using namespace llvm::DPCPPKernelCompilationUtils;
 
 ImplicitArgsInfo::ImplicitArgsInfo(Module &M)
     : ArgTypes(ImplicitArgsUtils::IA_NUMBER, 0),
