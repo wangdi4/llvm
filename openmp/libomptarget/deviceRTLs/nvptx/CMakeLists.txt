@@ -11,8 +11,12 @@
 ##===----------------------------------------------------------------------===##
 
 # By default we will build NVPTX deviceRTL on a CUDA free system
-set(LIBOMPTARGET_BUILD_NVPTX_BCLIB TRUE CACHE BOOL
+if(INTEL_CUSTOMIZATION)
+# Do not try to build unless native CUDA compiler exists.
+# Our build compiler or in-tree compiler does not allow emitting bitcode.
+set(LIBOMPTARGET_BUILD_NVPTX_BCLIB FALSE CACHE BOOL
   "Whether build NVPTX deviceRTL on CUDA free system.")
+endif(INTEL_CUSTOMIZATION)
 
 if (NOT (LIBOMPTARGET_DEP_CUDA_FOUND OR LIBOMPTARGET_BUILD_NVPTX_BCLIB))
   libomptarget_say("Not building NVPTX deviceRTL by default on CUDA free system.")
