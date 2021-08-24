@@ -959,6 +959,12 @@ void TargetPassConfig::addIRPasses() {
   // Allow disabling it for testing purposes.
   if (!DisableExpandReductions)
     addPass(createExpandReductionsPass());
+
+#if INTEL_CUSTOMIZATION
+  // If the target doesn't support complex intrinsics, or if they need to be
+  // expanded into more complex calls, generate the expansion to complex calls.
+  addPass(createExpandComplexPass());
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Turn exception handling constructs into something the code generators can

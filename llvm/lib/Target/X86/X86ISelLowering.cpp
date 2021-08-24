@@ -2629,6 +2629,34 @@ EVT X86TargetLowering::getOptimalMemOpType(
   return MVT::i32;
 }
 
+#if INTEL_CUSTOMIZATION
+TargetLoweringBase::ComplexABI
+X86TargetLowering::getComplexReturnABI(Type* ScalarFloatTy) const {
+  if (Subtarget.is32Bit()) {
+    if (ScalarFloatTy->isFloatTy()) {
+      report_fatal_error("Cannot compile complex return ABI for i386 ABI");
+    } else if (ScalarFloatTy->isHalfTy()) {
+      return ComplexABI::Vector;
+    } else {
+      return ComplexABI::Memory;
+    }
+  } else {
+    // The x86-64 ABI specifies that (save for x86-fp80), this is handled as a
+    // regular C struct. This means that float and smaller get packed into a
+    // single vector in xmm0; double and x86-fp80 (by special case) return two
+    // values; and larger types than x86-fp80 (i.e., fp128) returns via memory.
+    unsigned FloatSize = ScalarFloatTy->getPrimitiveSizeInBits().getFixedSize();
+    if (FloatSize <= 32) {
+      return ComplexABI::Vector;
+    } else if (FloatSize <= 80) {
+      return ComplexABI::Struct;
+    } else {
+      return ComplexABI::Memory;
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool X86TargetLowering::isSafeMemOpType(MVT VT) const {
   if (VT == MVT::f32)
     return X86ScalarSSEf32;

@@ -83,5 +83,37 @@ loop.exit:
   ret void
 }
 
+define void @test3(i64* nocapture %arr, i64* %dest) {
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %header
+
+header:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %header ]
+  ; GEP will be needed in both first and last scalar context. This is
+  ; unsupported in getVectorValue, so emit vector version too.
+  %idx = getelementptr inbounds i64, i64* %arr, i64 %iv
+; VPLAN-IR:         [DA: Div, SVA: (F L)] i64* [[GEP:%.*]] = getelementptr inbounds i64* %arr i64 [[IV:%.*]] (SVAOpBits 0->FL 1->FL )
+; LLVM-IR:          [[SCAL_GEP_FSCAL:%.*]] = getelementptr inbounds i64, i64* %arr, i64 {{%.*}}
+; LLVM-IR-NEXT:     [[SCAL_GEP_LSCAL:%.*]] = getelementptr inbounds i64, i64* %arr, i64 {{%.*}}
+; LLVM-IR-NEXT:     [[VEC_GEP:%.*]] = getelementptr inbounds i64, i64* %arr, <2 x i64> {{%.*}}
+
+  store i64 %iv, i64* %idx
+
+  ; ptrtoint is not uplifted yet, so we need GEP in vector context here.
+  %pti = ptrtoint i64* %idx to i64
+; VPLAN-IR:         [DA: Div, SVA: (  L)] i64 [[PTRTOINT:%.*]] = ptrtoint i64* [[GEP]] to i64 (SVAOpBits 0->L )
+; LLVM-IR:          [[VEC_PTI:%.*]] = ptrtoint <2 x i64*> [[VEC_GEP:%.*]] to <2 x i64>
+
+  store i64 %pti, i64* %dest
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 300
+  br i1 %exitcond, label %loop.exit, label %header
+
+loop.exit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)

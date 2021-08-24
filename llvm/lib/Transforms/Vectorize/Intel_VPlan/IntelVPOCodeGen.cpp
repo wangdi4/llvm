@@ -140,6 +140,15 @@ static bool isOnlyUsedInLifetimeIntrinsics(const VPValue *Val) {
   });
 }
 
+static bool requiresUnsupportedSVAFeatures(const VPInstruction *VInst,
+                                           const VPlanVector *Plan) {
+  auto DA = Plan->getVPlanDA();
+  auto SVA = Plan->getVPlanSVA();
+  return !DA->isUniform(*VInst) && !SVA->instNeedsVectorCode(VInst) &&
+         SVA->instNeedsFirstScalarCode(VInst) &&
+         SVA->instNeedsLastScalarCode(VInst);
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
@@ -927,12 +936,6 @@ void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
   OrigLoopUsed = true;
 }
 
-void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
-  setBuilderDebugLoc(VPInst->getDebugLocation());
-  generateScalarCode(VPInst);
-  generateVectorCode(VPInst);
-}
-
 static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
   // TODO: Temporary switch to track list of opcodes that have been uplifted to
   // do SVA-driven scalarization. This will be used as staging area until all
@@ -946,6 +949,20 @@ static bool isOpcodeCGSVADriven(VPInstruction *VPInst) {
   case Instruction::BitCast:
   case Instruction::AddrSpaceCast:
     return true;
+  }
+}
+
+void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
+  setBuilderDebugLoc(VPInst->getDebugLocation());
+  generateScalarCode(VPInst);
+  if (isOpcodeCGSVADriven(VPInst)) {
+    // TODO: Drop this check when needVectorCode is updated to use SVA.
+    if (Plan->getVPlanSVA()->instNeedsVectorCode(VPInst) ||
+        requiresUnsupportedSVAFeatures(VPInst, Plan))
+      generateVectorCode(VPInst);
+  } else {
+    // Opcode not uplifted - perform ad-hoc checks before code generation.
+    generateVectorCode(VPInst);
   }
 }
 
@@ -1022,11 +1039,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case Instruction::GetElementPtr: {
     VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
 
-    // Nothing more to do for fully scalarized GEPs.
-    // TODO: Drop this check when needVectorCode is updated to use SVA.
-    if (!SVA->instNeedsVectorCode(GEP))
-      return;
-
     auto GetOrigVL = [](Type *Type) -> unsigned {
       auto *VecType = dyn_cast<VectorType>(Type);
       if (!VecType)
@@ -1060,11 +1072,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
 
     // Widen the indices.
-    assert(all_of(GEP->indices(),
-                  [GEP, SVA](VPValue *Idx) {
-                    return SVA->operandNeedsVectorCode(
-                        GEP, GEP->getOperandIndex(Idx));
-                  }) &&
+    assert((requiresUnsupportedSVAFeatures(GEP, Plan) ||
+            all_of(GEP->indices(),
+                   [GEP, SVA](VPValue *Idx) {
+                     return SVA->operandNeedsVectorCode(
+                         GEP, GEP->getOperandIndex(Idx));
+                   })) &&
            "Trying to vectorize a strictly scalar index.");
     SmallVector<Value *, 4> OpsV;
     llvm::transform(GEP->indices(), std::back_inserter(OpsV),
@@ -2191,12 +2204,6 @@ void VPOCodeGen::vectorizeCast(
         std::is_same<CastInstTy, BitCastInst>::value ||
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
-
-  // Nothing more to do for fully scalarized casts.
-  // TODO: Drop this check when needVectorCode is updated to use SVA.
-  if (!Plan->getVPlanSVA()->instNeedsVectorCode(VPInst))
-    return;
-
   auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
   bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
   bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
@@ -3328,12 +3335,8 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
         InstCGIsSVADriven && SVA->instNeedsLastScalarCode(VInst) &&
         !SVA->instNeedsFirstScalarCode(VInst) &&
         !SVA->instNeedsVectorCode(VInst);
-    bool UnsupportedSVABits = !IsUniform && !SVA->instNeedsVectorCode(VInst) &&
-                              SVA->instNeedsFirstScalarCode(VInst) &&
-                              SVA->instNeedsLastScalarCode(VInst);
-    assert(!UnsupportedSVABits &&
+    assert(!requiresUnsupportedSVAFeatures(VInst, Plan) &&
            "Bcast of (F L) sequence of SVA bits is not supported.");
-    (void)UnsupportedSVABits;
     if (IsUniform || NeedsFirstLaneBcastForNonSVADrivenCG ||
         NeedsLastLaneBcastForNonSVADrivenCG) {
       unsigned Lane = NeedsLastLaneBcastForNonSVADrivenCG ? VF - 1 : 0;

@@ -31,6 +31,7 @@
 ; CHECK-NEXT:       Expand vector predication intrinsics
 ; CHECK-NEXT:       Scalarize Masked Memory Intrinsics
 ; CHECK-NEXT:       Expand reduction intrinsics
+; CHECK-NEXT:       Expand complex intrinsics ;INTEL
 ; CHECK-NEXT:       Expand indirectbr instructions
 ; CHECK-NEXT:       Exception handling preparation
 ; CHECK-NEXT:       X86 runtime feature initialization pass ;INTEL

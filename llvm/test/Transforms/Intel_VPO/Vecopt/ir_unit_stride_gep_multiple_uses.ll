@@ -15,6 +15,7 @@ define i32 @multiple_uses(i32* %src, i32** %dest) {
 ; CHECK-NEXT:    [[VEC_PHI_EXTRACT_3_:%.*]] = extractelement <4 x i64> [[VEC_PHI]], i32 3
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC:%.*]], i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[SCALAR_GEP1:%.*]] = getelementptr inbounds i32, i32* [[SRC]], i64 [[VEC_PHI_EXTRACT_3_]]
+; CHECK-NEXT:    [[MM_VECTOR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC]], <4 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    store i32* [[SCALAR_GEP1]], i32** [[DEST:%.*]], align 8
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
