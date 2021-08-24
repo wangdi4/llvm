@@ -35,9 +35,7 @@ define spir_func void @test2(i32* %p, i32 %index) {
 
 define spir_kernel void @test3(i32* %p) {
 ; CHECK-LABEL: @test3
-; CHECK:        shl
-; CHECK-NEXT:   ashr
-; CHECK-NEXT:   add
+; CHECK-NOT: zext
 %addr_begin = getelementptr i32, i32* %p, i64 40
 %addr_fixed = getelementptr i32, i32* %addr_begin, i64 48
 %addr_cast = bitcast i32* %addr_fixed to i64*
@@ -52,9 +50,7 @@ ret void
 
 define spir_func void @test4(i32* %p) {
 ; CHECK-LABEL: @test4
-; CHECK:        shl
-; CHECK-NEXT:   ashr
-; CHECK-NEXT:   add
+; CHECK-NOT: zext
 %addr_begin = getelementptr i32, i32* %p, i64 40
 %addr_fixed = getelementptr i32, i32* %addr_begin, i64 48
 %addr_cast = bitcast i32* %addr_fixed to i64*
