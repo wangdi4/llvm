@@ -156,7 +156,6 @@ public:
   /// tests.
   const ModuleSummaryIndex *ImportSummary = nullptr;
 
-  bool DisableTailCalls;
   bool DisableUnrollLoops;
   bool CallGraphProfile;
   bool SLPVectorize;
