@@ -111,6 +111,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -465,7 +466,10 @@ public:
 private:
   bool runOnModule(Module &M) override {
     createProfileFileNameVar(M, InstrProfileOutput);
-    createIRLevelProfileFlagVar(M, /* IsCS */ true, PGOInstrumentEntry);
+    // The variable in a comdat may be discarded by LTO. Ensure the
+    // declaration will be retained.
+    appendToCompilerUsed(
+        M, createIRLevelProfileFlagVar(M, /*IsCS=*/true, PGOInstrumentEntry));
     return false;
   }
   std::string InstrProfileOutput;
@@ -1635,7 +1639,7 @@ static bool InstrumentAllFunctions(
   // For the context-sensitve instrumentation, we should have a separated pass
   // (before LTO/ThinLTO linking) to create these variables.
   if (!IsCS)
-    createIRLevelProfileFlagVar(M, /* IsCS */ false, PGOInstrumentEntry);
+    createIRLevelProfileFlagVar(M, /*IsCS=*/false, PGOInstrumentEntry);
   std::unordered_multimap<Comdat *, GlobalValue *> ComdatMembers;
   collectComdatMembers(M, ComdatMembers);
 
@@ -1655,7 +1659,10 @@ static bool InstrumentAllFunctions(
 PreservedAnalyses
 PGOInstrumentationGenCreateVar::run(Module &M, ModuleAnalysisManager &AM) {
   createProfileFileNameVar(M, CSInstrName);
-  createIRLevelProfileFlagVar(M, /* IsCS */ true, PGOInstrumentEntry);
+  // The variable in a comdat may be discarded by LTO. Ensure the declaration
+  // will be retained.
+  appendToCompilerUsed(
+      M, createIRLevelProfileFlagVar(M, /*IsCS=*/true, PGOInstrumentEntry));
   return PreservedAnalyses::all();
 }
 
