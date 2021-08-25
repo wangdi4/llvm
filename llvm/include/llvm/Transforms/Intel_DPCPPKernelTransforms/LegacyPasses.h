@@ -64,6 +64,8 @@ ModulePass *createVectorVariantFillInLegacyPass();
 ModulePass *createVectorVariantLoweringLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSGSizeCollectorLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
+FunctionPass *createSetVectorizationFactorLegacyPass(
+    VectorVariant::ISAClass ISA = VectorVariant::XMM);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
