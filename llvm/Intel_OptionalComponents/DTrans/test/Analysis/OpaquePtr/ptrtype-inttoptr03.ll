@@ -5,8 +5,8 @@
 ; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 ; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -dtrans-print-pta-results < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
-; Test the PtrTypeAnalyzer handling of a load instruction that uses an inttoptr
-; constant expression as the pointer operand that is not from a variable.
+; Test the PtrTypeAnalyzer type collection for inttoptr instructions that get
+; inferred based on users of the instruction result.
 
 ; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.
 ; Lines marked with CHECK-OPAQUE are placeholders for check lines that will
