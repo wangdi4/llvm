@@ -73,13 +73,11 @@ cl_int checkMapFlagsMutex(const cl_map_flags clMapFlags) {
   return CL_SUCCESS;
 }
 
-/// Callback for pEvent status change. if it's changed to CL_COMPLETE, we need
-/// to remove it from kernel-event map.
-void callbackForKernelEventMap(cl_event Evt, cl_int /*ReturnStatus*/,
-                               void *Data) {
+/// Callback for Evt status change. if it's changed to CL_COMPLETE, we need to
+/// remove it from kernel-event map.
+void callbackForKernelEventMap(cl_event Evt, ExecutionModule *EM) {
   OclAutoMutex Mu(&KernelEventMutex);
 
-  ExecutionModule *EM = (ExecutionModule *)Data;
   assert(EM && "expect valid ExecutionModule instance");
   OclKernelEventMapTy &KernelEvents = EM->getKernelEventMap();
   auto It = std::find_if(KernelEvents.begin(), KernelEvents.end(),
@@ -87,7 +85,7 @@ void callbackForKernelEventMap(cl_event Evt, cl_int /*ReturnStatus*/,
   if (It != KernelEvents.end())
     KernelEvents.erase(It);
 
-  EM->ReleaseEvent(Evt);
+  (void)EM->ReleaseEvent(Evt);
 }
 
 } //anonymous namespace
@@ -115,14 +113,6 @@ ExecutionModule::ExecutionModule( PlatformModule *pPlatformModule, ContextModule
  ******************************************************************/
 ExecutionModule::~ExecutionModule()
 {
-    for (auto e : m_OclKernelEventMap)
-    {
-        if (e.second)
-        {
-            delete e.second;
-        }
-    }
-    m_OclKernelEventMap.clear();
     RELEASE_LOGGER_CLIENT;
 }
 
@@ -2208,11 +2198,10 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 
     // TODO: create buffer resources in advance, if they are not exists,
     //      On error return: CL_OUT_OF_RESOURCES
-    Command* pNDRangeKernelCmd = new NDRangeKernelCommand(pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim, cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize);
-    if ( NULL == pNDRangeKernelCmd )
-    {
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+    auto pNDRangeKernelCmd = std::make_unique<NDRangeKernelCommand>(
+        pCommandQueue, m_pOclEntryPoints, pKernel, uiWorkDim,
+        cpszGlobalWorkOffset, cpszGlobalWorkSize, cpszLocalWorkSize);
+
     // Must set device Id before init for buffer resource allocation.
     pNDRangeKernelCmd->SetDevice(pDevice);
     errVal = pNDRangeKernelCmd->Init();
@@ -2224,7 +2213,6 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
 #endif
     if ( CL_FAILED(errVal) )
     {
-        delete pNDRangeKernelCmd;
         return  errVal;
     }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -2271,79 +2259,69 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         pKernel->GetDeviceKernel(pDevice.GetPtr())->NeedSerializeWGs() &&
         pCommandQueue->IsOutOfOrderExecModeEnabled())
     {
+      // Don't try to serialize autorun kernels - they are running from a
+      // start of a program till its termination.
+      std::vector<SharedPtr<Kernel>> autoKernels;
+      errVal = program->GetAutorunKernels(autoKernels);
+      if (CL_FAILED(errVal))
+        return errVal;
+
+      bool isAutorunKernel = (std::find(autoKernels.begin(), autoKernels.end(),
+                                        pKernel) != autoKernels.end());
+      if (!isAutorunKernel) {
         std::vector<cl_event> EventListToWait;
-        std::copy(cpEventWaitList,
-                  cpEventWaitList + uNumEventsInWaitList,
+        std::copy(cpEventWaitList, cpEventWaitList + uNumEventsInWaitList,
                   back_inserter(EventListToWait));
 
-        // Don't try to serialize autorun kernels - they are running from a
-        // start of a program till its termination.
-        std::vector<SharedPtr<Kernel>> autoKernels;
-        errVal = program->GetAutorunKernels(autoKernels);
+        // Query for kernel name to use in the map. With that approach a
+        // case when kernel is created with clCreateKernel is also handled.
+        size_t kernelNameLen = 0;
+        errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, 0, nullptr,
+                                  &kernelNameLen);
         if (CL_FAILED(errVal))
+          return errVal;
+        std::string kernelName(kernelNameLen, '\0');
+        errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, kernelNameLen,
+                                  &kernelName[0], nullptr);
+        if (CL_FAILED(errVal))
+          return errVal;
+
         {
-            return errVal;
+          OclAutoMutex mu(&KernelEventMutex);
+          auto it = m_OclKernelEventMap.find(kernelName);
+          if (it != m_OclKernelEventMap.end()) {
+            cl_event prevClEvent = it->second;
+            SharedPtr<OclEvent> prevEvent =
+                m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
+            if (prevEvent && CL_COMPLETE != prevEvent->GetEventExecState()) {
+              EventListToWait.push_back(prevClEvent);
+            }
+          }
+
+          // Set call back which will erase this tracker kernel-event pair
+          // from this map when the command is done.
+          // We can't use SetEventCallback due to cyclic dependency between
+          // KernelEventMutex and OclEvent::m_ObserversListGuard.
+          // We have to set the callback before calling EnqueueSelf.
+          pNDRangeKernelCmd->SetFPGASerializeCompleteCallBack(
+              [this](cl_event Evt) { callbackForKernelEventMap(Evt, this); });
+
+          // EnqueueSelf must also be guarded by KernelEventMutex,
+          // otherwise prevClEvent's status could change during
+          // EnqueueSelf call, causing callbackForKernelEventMap to
+          // decrement reference count.
+          errVal = pNDRangeKernelCmd->EnqueueSelf(
+              false /*never blocking*/, EventListToWait.size(),
+              EventListToWait.empty() ? nullptr : &EventListToWait[0],
+              &trackerEvent, apiLogger);
+
+          // Update the map replacing old with a newer one.
+          if (CL_SUCCEEDED(errVal))
+            m_OclKernelEventMap[kernelName] = trackerEvent;
         }
-        bool isAutorunKernel =
-            (std::find(autoKernels.begin(), autoKernels.end(), pKernel) !=
-             autoKernels.end());
-        if (!isAutorunKernel)
-        {
-            // Query for kernel name to use in the map. With that approach a
-            // case when kernel is created with clCreateKernel is also handled.
-            size_t kernelNameLen = 0;
-            errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, 0, nullptr,
-                                      &kernelNameLen);
-            if (CL_FAILED(errVal))
-            {
-                return errVal;
-            }
-            std::string kernelName(kernelNameLen, '\0');
-            errVal = pKernel->GetInfo(CL_KERNEL_FUNCTION_NAME, kernelNameLen,
-                                      &kernelName[0], nullptr);
-            if (CL_FAILED(errVal))
-            {
-                return errVal;
-            }
 
-            {
-                OclAutoMutex mu(&KernelEventMutex);
-                auto it = m_OclKernelEventMap.find(kernelName);
-                if (it != m_OclKernelEventMap.end())
-                {
-                    cl_event prevClEvent = it->second;
-                    SharedPtr<OclEvent> prevEvent =
-                        m_pEventsManager->GetEventClass<OclEvent>(prevClEvent);
-                    if (prevEvent &&
-                        CL_COMPLETE != prevEvent->GetEventExecState())
-                    {
-                        EventListToWait.push_back(prevClEvent);
-                    }
-                }
-            }
-
-            errVal = pNDRangeKernelCmd->EnqueueSelf(
-                false /*never blocking*/, EventListToWait.size(),
-                EventListToWait.empty() ? nullptr : &EventListToWait[0],
-                &trackerEvent, apiLogger);
-
-            // Update the map replacing old with a newer one.
-            {
-                OclAutoMutex mu(&KernelEventMutex);
-                m_OclKernelEventMap[kernelName] = trackerEvent;
-                // TODO CMPLRLLVM-30536 There is race condition if trackerEvent
-                // is released by users. Workaround is to increment reference
-                // count. It will be decremented in callbackForKernelEventMap.
-                RetainEvent(trackerEvent);
-            }
-
-            // Set call back which will erase this tracker kernel-event pair
-            // from this map when the event status is changed to CL_COMPLETE.
-            SetEventCallback(trackerEvent, CL_COMPLETE,
-                             (eventCallbackFn)callbackForKernelEventMap,
-                             (void *)this);
-            updatedEventList = true;
-        }
+        updatedEventList = true;
+      }
     }
 
     if (!updatedEventList)
@@ -2360,37 +2338,35 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     }
 #endif
 
+    if (CL_FAILED(errVal)) {
+      // Enqueue failed, free resources
+      pNDRangeKernelCmd->CommandDone();
+      return errVal;
+    }
+
     // Return tracker event to user.
     if (pEvent != nullptr)
-        *pEvent = trackerEvent;
+      *pEvent = trackerEvent;
 
-    if(CL_FAILED(errVal))
-    {
-        // Enqueue failed, free resources
-        pNDRangeKernelCmd->CommandDone();
-        delete pNDRangeKernelCmd;
+    // Register tracker event for wait list of USM buffers to free.
+    // For USM buffers passed as kernel argument.
+    std::vector<const void *> usmPtrList;
+    for (auto IndexUSMBuffer : pKernel->GetUsmArgs()) {
+      USMBuffer *buf = IndexUSMBuffer.second;
+      if (nullptr != buf)
+        usmPtrList.push_back(buf->GetAddr());
     }
-    else
-    {
-        std::vector<const void *> usmPtrList;
-        // Register tracker event for wait list of USM buffers to free.
-        // For USM buffers passed as kernel argument.
-        for (auto IndexUSMBuffer : pKernel->GetUsmArgs()) {
-            USMBuffer *buf = IndexUSMBuffer.second;
-            if (nullptr != buf)
-                usmPtrList.push_back(buf->GetAddr());
-        }
-        // For USM buffers that kernel may access indirectly.
-        std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
-        pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
-        for (auto buf : nonArgUsmBufs)
-            usmPtrList.push_back(buf->GetAddr());
+    // For USM buffers that kernel may access indirectly.
+    std::vector<SharedPtr<USMBuffer>> nonArgUsmBufs;
+    pKernel->GetNonArgUsmBuffers(nonArgUsmBufs);
+    for (auto buf : nonArgUsmBufs)
+      usmPtrList.push_back(buf->GetAddr());
+    SetTrackerForUSM(pNDRangeKernelCmd.get(), usmPtrList, trackerEvent,
+                     pEvent != nullptr);
 
-        SetTrackerForUSM(pNDRangeKernelCmd, usmPtrList, trackerEvent,
-                         pEvent != nullptr);
-    }
+    (void)pNDRangeKernelCmd.release();
 
-    return  errVal;
+    return CL_SUCCESS;
 }
 
 

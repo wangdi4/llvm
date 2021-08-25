@@ -88,6 +88,24 @@ cl_err_code IOclCommandQueueBase::EnqueueCommand(Command* pCommand, cl_bool bBlo
         return errVal;
     }
 
+    if (auto *Cmd = dynamic_cast<NDRangeKernelCommand *>(pCommand)) {
+      if (Cmd->HasFPGASerializeCompleteCallBack()) {
+        // This is for special handling of trackerEvent from
+        // ExecutionModule::EnqueueNDRangeKernel. trackerEvent could be released
+        // by users right after clEnqueueNDRange call. This is legal since pipe
+        // object isn't kernel argument and SYCL runtime won't be able to track
+        // dependencies of pipe objects.
+        // In this case, OclEvent object will be erased from m_mapObjects in
+        // OCLObjectsMap::ReleaseObject, causing prevEvent to be assocated
+        // with a NULL OclEvent object and not been pushed into EventListToWait.
+        // However, the command of prevEvent may not finish yet. Therefore,
+        // dependency (EventListToWait) may be broken.
+        // Solution is to increment trackerEvent's reference count. It will be
+        // decremented in callbackForKernelEventMap.
+        m_pEventsManager->RetainEvent(pEventHandle);
+      }
+    }
+
     errVal = Enqueue(pCommand);
 
     // RemoveFloatingDependence() must to be after Enqueue; this prevents a situation where the current
