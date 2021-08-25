@@ -2618,6 +2618,13 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
   }
 #endif //INTEL_CUSTOMIZATION
 
+  // <0,+,nonnegative><nw> is also nuw
+  // TODO: Add corresponding nsw case
+  if (Type == scAddRecExpr && ScalarEvolution::hasFlags(Flags, SCEV::FlagNW) &&
+      !ScalarEvolution::hasFlags(Flags, SCEV::FlagNUW) && Ops.size() == 2 &&
+      Ops[0]->isZero() && SE->isKnownNonNegative(Ops[1])) // INTEL
+    Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
+
   return Flags;
 }
 
