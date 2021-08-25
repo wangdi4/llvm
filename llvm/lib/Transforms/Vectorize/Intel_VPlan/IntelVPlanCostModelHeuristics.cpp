@@ -24,6 +24,8 @@
 
 #define DEBUG_TYPE "vplan-cost-model-heuristics"
 
+#if INTEL_FEATURE_SW_ADVANCED
+
 using namespace loopopt;
 using namespace llvm::PatternMatch;
 
@@ -1162,3 +1164,5 @@ void HeuristicOVLSMember::apply(
 } // namespace vpo
 
 } // namespace llvm
+
+#endif // INTEL_FEATURE_SW_ADVANCED
