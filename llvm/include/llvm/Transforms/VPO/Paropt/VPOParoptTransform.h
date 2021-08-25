@@ -65,6 +65,7 @@
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
 #endif  // INTEL_CUSTOMIZATION
 
+#include <map>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -276,6 +277,9 @@ private:
   ///              char   depend_type;
   ///           };
   StructType *KmpTaskDependInfoTy;
+
+  /// BBs that perform local updates within the fast GPU reduction loop.
+  std::map<WRegionNode *, BasicBlock *> GPURedUpdateBBs;
 
   /// Struct that keeps all the information needed to pass to
   /// the runtime library.
@@ -675,6 +679,10 @@ private:
   void genFastReduceBB(WRegionNode *W, FastReductionMode Mode,
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
+
+  /// Generate local update loop for fast GPU reduction
+  bool genFastGPUReductionScalarFini(WRegionNode *W, StoreInst *RedStore,
+                                     IRBuilder<> &Builder, DominatorTree *DT);
 
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);
