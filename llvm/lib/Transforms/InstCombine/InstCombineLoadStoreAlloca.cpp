@@ -1738,6 +1738,35 @@ Instruction *InstCombinerImpl::visitStoreInst(StoreInst &SI) {
         eraseInstFromFunction(*PrevSI);
         return nullptr;
       }
+
+#if INTEL_CUSTOMIZATION
+      // Is this potentially a complex instruction?
+      auto OurGEP = dyn_cast<GetElementPtrInst>(Ptr);
+      auto TheirGEP = dyn_cast<GetElementPtrInst>(PrevSI->getOperand(1));
+      if (PrevSI->isUnordered() && OurGEP && TheirGEP &&
+          OurGEP->getOperand(0) == TheirGEP->getOperand(0) &&
+          OurGEP->getNumIndices() == TheirGEP->getNumIndices() &&
+          OurGEP->getType() == TheirGEP->getType()) {
+        bool AllMatch = true;
+        unsigned LastIndex = OurGEP->getNumIndices();
+        for (unsigned Index = 1; Index < LastIndex; Index++) {
+          if (OurGEP->getOperand(Index) != TheirGEP->getOperand(Index)) {
+            AllMatch = false;
+            break;
+          }
+        }
+        if (!AllMatch)
+          break;
+        if (match(OurGEP->getOperand(LastIndex), m_ConstantInt<1>()) &&
+            match(TheirGEP->getOperand(LastIndex), m_ConstantInt<0>())) {
+          IRBuilderBase::InsertPointGuard Guard(Builder);
+          Builder.SetInsertPoint(PrevSI);
+          if (createComplexMathInstruction(PrevSI->getOperand(0), Val))
+            return &SI;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
+
       break;
     }
 

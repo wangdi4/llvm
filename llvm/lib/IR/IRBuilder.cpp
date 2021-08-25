@@ -1097,6 +1097,31 @@ CallInst *IRBuilderBase::CreateConstrainedFPCall(
   return C;
 }
 
+#if INTEL_CUSTOMIZATION
+Value *IRBuilderBase::CreateComplexMul(Value *L, Value *R, bool CxLimitedRange,
+    const Twine &Name) {
+  CallInst *Result = CreateBinaryIntrinsic(Intrinsic::intel_complex_fmul, L, R,
+      nullptr, Name);
+  Result->setFastMathFlags(FMF);
+  if (CxLimitedRange)
+    Result->addAttribute(AttributeList::FunctionIndex, "complex-limited-range");
+  return Result;
+}
+
+Value *IRBuilderBase::CreateComplexDiv(Value *L, Value *R, bool CxLimitedRange,
+    bool CxNoScale, const Twine &Name) {
+  CallInst *Result = CreateBinaryIntrinsic(Intrinsic::intel_complex_fdiv, L, R,
+      nullptr, Name);
+  Result->setFastMathFlags(FMF);
+  if (CxLimitedRange)
+    Result->addAttribute(AttributeList::FunctionIndex, "complex-limited-range");
+  // complex-limited-range implies complex-no-scale
+  if (CxNoScale || CxLimitedRange)
+    Result->addAttribute(AttributeList::FunctionIndex, "complex-no-scale");
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Value *IRBuilderBase::CreateSelect(Value *C, Value *True, Value *False,
                                    const Twine &Name, Instruction *MDFrom) {
   if (auto *CC = dyn_cast<Constant>(C))

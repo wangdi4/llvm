@@ -1088,6 +1088,23 @@ Instruction *InstCombinerImpl::visitInsertValueInst(InsertValueInst &I) {
   if (Instruction *NewI = foldAggregateConstructionIntoAggregateReuse(I))
     return NewI;
 
+#if INTEL_CUSTOMIZATION
+  // Check if this is potentially a complex instruction that has been manually
+  // expanded.
+  ArrayRef<Type*> Fields = I.getType()->subtypes();
+  if (Fields.size() == 2 && Fields[0] == Fields[1] &&
+      Fields[0]->isFloatingPointTy()) {
+    Value *RealV, *ImgV;
+    if (match(&I, m_InsertValue<1>(m_InsertValue<0>(m_Value(), m_Value(RealV)),
+                                   m_Value(ImgV)))) {
+      IRBuilderBase::InsertPointGuard Guard(Builder);
+      Builder.SetInsertPoint(cast<Instruction>(I.getOperand(0)));
+      if (createComplexMathInstruction(RealV, ImgV))
+        return &I;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return nullptr;
 }
 
@@ -1525,6 +1542,19 @@ Instruction *InstCombinerImpl::visitInsertElementInst(InsertElementInst &IE) {
 
   if (Instruction *IdentityShuf = foldInsEltIntoIdentityShuffle(IE))
     return IdentityShuf;
+
+#if INTEL_CUSTOMIZATION
+  // Check for a potential computation of a complex instruction.
+  ElementCount Count = IE.getType()->getElementCount();
+  Value *RealV, *ImagV;
+  if (!Count.isScalable() && Count.getFixedValue() == 2 &&
+      match(&IE, m_InsertElt(
+          m_InsertElt(m_Value(), m_Value(RealV), m_ConstantInt<0>()),
+          m_Value(ImagV), m_ConstantInt<1>()))) {
+    if (createComplexMathInstruction(RealV, ImagV))
+      return &IE;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return nullptr;
 }
@@ -2738,3 +2768,114 @@ Instruction *InstCombinerImpl::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
 
   return MadeChange ? &SVI : nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> InstCombineComplex("inst-combine-complex",
+    cl::desc("Enable pattern match to llvm.complex.* intrinsics"));
+
+bool InstCombinerImpl::createComplexMathInstruction(Value *Real, Value *Imag) {
+  if (!InstCombineComplex)
+    return false;
+
+  Instruction *RealI = dyn_cast<Instruction>(Real);
+  Instruction *ImagI = dyn_cast<Instruction>(Imag);
+  if (!RealI || !ImagI)
+    return false;
+
+  // Don't try to handle vector instructions for now.
+  if (RealI->getType()->isVectorTy())
+    return false;
+
+  Value *Op0R, *Op0I, *Op1R, *Op1I, *Scale, *Numerator;
+  // Compute the intersection of all the fast math flags of the entire tree up
+  // to the point that the input complex numbers are specified.
+  auto computeFMF = [&]() {
+    SmallVector<Instruction *, 8> Worklist = { RealI, ImagI };
+    FastMathFlags Flags;
+    Flags.set();
+    while (!Worklist.empty()) {
+      Instruction *I = Worklist.back();
+      Worklist.pop_back();
+      Flags &= I->getFastMathFlags();
+      for (Use &U : I->operands()) {
+        Value *V = U.get();
+        if (V == Op0R || V == Op0I || V == Op1R || V == Op1I)
+          continue;
+        Worklist.push_back(cast<Instruction>(V));
+      }
+    }
+    return Flags;
+  };
+
+  Intrinsic::ID NewIntrinsic = Intrinsic::not_intrinsic;
+  // Check for complex multiply:
+  // real = op0.real * op1.real - op0.imag * op1.imag
+  // imag = op0.real * op1.imag + op1.imag * op0.real
+  if (match(Real, m_FSub(m_OneUse(m_FMul(m_Value(Op0R), m_Value(Op1R))),
+                         m_OneUse(m_FMul(m_Value(Op0I), m_Value(Op1I)))))) {
+    if (match(Imag, m_c_FAdd(
+            m_OneUse(m_c_FMul(m_Specific(Op0R), m_Specific(Op1I))),
+            m_OneUse(m_c_FMul(m_Specific(Op1R), m_Specific(Op0I)))))) {
+      NewIntrinsic = Intrinsic::intel_complex_fmul;
+    }
+  }
+  // Check for complex div:
+  // real = (op0.real * op1.real + op0.imag * op1.imag) / scale
+  // imag = (op0.imag * op1.real - op0.real * op1.imag) / scale
+  // where scale = op1.real * op1.real + op1.imag * op1.imag
+  else if (match(Imag, m_FDiv(m_Value(Numerator), m_Value(Scale)))) {
+    if (match(Scale, m_FAdd(m_OneUse(m_FMul(m_Value(Op1R), m_Deferred(Op1R))),
+                            m_OneUse(m_FMul(m_Value(Op1I), m_Deferred(Op1I)))))) {
+      // The matching of Op1R and Op1I are temporary, we may need to reverse the
+      // assignments.
+      auto checkNumerator = [&]() {
+        return match(Numerator, m_OneUse(
+            m_FSub(m_OneUse(m_c_FMul(m_Value(Op0I), m_Specific(Op1R))),
+                   m_OneUse(m_c_FMul(m_Value(Op0R), m_Specific(Op1I))))));
+      };
+      bool ImagMatches = checkNumerator();
+      if (!ImagMatches) {
+        std::swap(Op1R, Op1I);
+        ImagMatches = checkNumerator();
+      }
+      if (ImagMatches && match(Real,
+              m_FDiv(m_OneUse(m_c_FAdd(
+                       m_OneUse(m_c_FMul(m_Specific(Op0R), m_Specific(Op1R))),
+                       m_OneUse(m_c_FMul(m_Specific(Op0I), m_Specific(Op1I))))),
+                     m_Specific(Scale)))) {
+        NewIntrinsic = Intrinsic::intel_complex_fdiv;
+      }
+    }
+  }
+
+  // Make sure we matched an intrinsic.
+  if (NewIntrinsic == Intrinsic::not_intrinsic)
+    return false;
+
+  // Use the computation tree to capture all of the fast-math flags.
+  IRBuilderBase::FastMathFlagGuard FMFGuard(Builder);
+  Builder.setFastMathFlags(computeFMF());
+
+  Value *Op0 = Builder.CreateComplexValue(Op0R, Op0I);
+  Value *Op1 = Builder.CreateComplexValue(Op1R, Op1I);
+
+  // Create new intrinsics. From our pattern matching of only the direct
+  // arithmetic formulas, we have to create them with the complex-limited-range.
+  Value *Result;
+  switch (NewIntrinsic) {
+  case Intrinsic::intel_complex_fmul:
+    Result = Builder.CreateComplexMul(Op0, Op1, true);
+    break;
+  case Intrinsic::intel_complex_fdiv:
+    Result = Builder.CreateComplexDiv(Op0, Op1, true);
+    break;
+  default:
+    llvm_unreachable("Unexpected complex intrinsic");
+  }
+
+  replaceInstUsesWith(*RealI, Builder.CreateExtractElement(Result, uint64_t(0)));
+  replaceInstUsesWith(*ImagI, Builder.CreateExtractElement(Result, uint64_t(1)));
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION

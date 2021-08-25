@@ -101,6 +101,15 @@ public:
   ComplexPairTy EmitScalarToComplexCast(llvm::Value *Val, QualType SrcType,
                                         QualType DestType, SourceLocation Loc);
 
+#if INTEL_CUSTOMIZATION
+  /// Convert a LLVM complex type representation into a pair of values
+  ComplexPairTy BreakLLVMComplexType(llvm::Value *Val) {
+    llvm::Value *Real = Builder.CreateExtractElement(Val, uint64_t(0));
+    llvm::Value *Imag = Builder.CreateExtractElement(Val, uint64_t(1));
+    return ComplexPairTy(Real, Imag);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   //===--------------------------------------------------------------------===//
   //                            Visitor Methods
   //===--------------------------------------------------------------------===//
@@ -800,6 +809,16 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
     // still more of this within the type system.
 
     if (Op.LHS.second && Op.RHS.second) {
+#if INTEL_CUSTOMIZATION
+      if (CGF.CGM.getCodeGenOpts().UseComplexIntrinsics) {
+        Value *Op0 = Builder.CreateComplexValue(Op.LHS.first, Op.LHS.second);
+        Value *Op1 = Builder.CreateComplexValue(Op.RHS.first, Op.RHS.second);
+        // TODO: Support STDC CX_LIMITED_RANGE here.
+        Value *Result = Builder.CreateComplexMul(Op0, Op1, false);
+        return BreakLLVMComplexType(Result);
+      }
+#endif // INTEL_CUSTOMIZATION
+
       // If both operands are complex, emit the core math directly, and then
       // test for NaNs. If we find NaNs in the result, we delegate to a libcall
       // to carefully re-compute the correct infinity representation if
@@ -893,6 +912,19 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
 
   llvm::Value *DSTr, *DSTi;
   if (LHSr->getType()->isFloatingPointTy()) {
+#if INTEL_CUSTOMIZATION
+    // If we are using complex intrinsics, do so whenever the right-hand side
+    // is complex, since no major simplification is possible in this scenario.
+    // (Simplifications are possible if the LHS is real or pure imaginary).
+    if (CGF.CGM.getCodeGenOpts().UseComplexIntrinsics && RHSi) {
+      llvm::Value *Op0 = Builder.CreateComplexValue(Op.LHS.first, Op.LHS.second);
+      llvm::Value *Op1 = Builder.CreateComplexValue(Op.RHS.first, Op.RHS.second);
+        // TODO: Support STDC CX_LIMITED_RANGE here.
+      llvm::Value *Result = Builder.CreateComplexDiv(Op0, Op1, false);
+      return BreakLLVMComplexType(Result);
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // If we have a complex operand on the RHS and FastMath is not allowed, we
     // delegate to a libcall to handle all of the complexities and minimize
     // underflow/overflow cases. When FastMath is allowed we construct the
