@@ -3427,6 +3427,12 @@ include "X86InstrFMA.td"
 // XOP
 include "X86InstrXOP.td"
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+include "Intel_X86InstrDSP.td"
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
+
 // SSE, MMX and 3DNow! vector support.
 include "X86InstrSSE.td"
 include "X86InstrAVX512.td"
@@ -3466,9 +3472,6 @@ include "Intel_X86InstrMOVGET.td"
 #if INTEL_FEATURE_ISA_RAO_INT
 include "Intel_X86InstrRAOINT.td"
 #endif // INTEL_FEATURE_ISA_RAO_INT
-#if INTEL_FEATURE_ISA_DSPV1
-include "Intel_X86InstrDSP.td"
-#endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
 
 // System instructions.
