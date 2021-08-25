@@ -51,7 +51,15 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
-
+; RUN: opt -hir-ssa-deconstruction -hir-dead-store-elimination -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -aa-pipeline="basic-aa" -passes="hir-ssa-deconstruction,hir-dead-store-elimination,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+;
+; OPTREPORT:  LOOP BEGIN
+; OPTREPORT:    remark #25529: Dead stores eliminated in loop
+; OPTREPORT:    LOOP BEGIN
+; OPTREPORT:    LOOP END
+; OPTREPORT:  LOOP END
+;
 ;Module Before HIR; ModuleID = 'simple.c'
 source_filename = "simple.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -757,7 +757,7 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   }
 
   bool Result = false;
-  SmallPtrSet<const HLLoop *, 8> OptimizedLoops;
+  SmallPtrSet<HLLoop *, 8> OptimizedLoops;
 
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
@@ -898,7 +898,12 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     return false;
   }
 
+  OptReportBuilder &ORBuilder = HNU.getHIRFramework().getORBuilder();
+
   for (auto *Lp : OptimizedLoops) {
+    // remark: Dead stores eliminated in loop
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25529u);
+
     if (Lp->isAttached()) {
       HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
     }
