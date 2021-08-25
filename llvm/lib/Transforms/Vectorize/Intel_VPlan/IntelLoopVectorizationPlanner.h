@@ -401,8 +401,6 @@ public:
   /// Perform VPlan loop unrolling if needed
   virtual bool unroll(VPlanVector &Plan);
 
-  void printCostModelAnalysisIfRequested(const std::string &Header);
-
   virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
 
   /// Generate the IR code for the body of the vectorized loop according to the

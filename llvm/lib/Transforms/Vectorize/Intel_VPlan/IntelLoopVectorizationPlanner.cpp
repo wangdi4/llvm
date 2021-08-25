@@ -699,7 +699,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                       << ", selecting it.\n");
   }
 
-  unsigned ScalarIterationCost = createCostModel(ScalarPlan, 1)->getCost();
+  raw_ostream *OS = nullptr;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  OS = is_contained(VPlanCostModelPrintAnalysisForVF, 1) ? &outs() : nullptr;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  unsigned ScalarIterationCost = createCostModel(ScalarPlan, 1)->getCost(
+    nullptr /* PeelingVariant */, OS);
+
   ScalarIterationCost = ScalarIterationCost == VPlanTTICostModel::UnknownCost ?
     0 : ScalarIterationCost;
   // FIXME: that multiplication should be the part of CostModel - see below.
@@ -754,7 +761,14 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (!L->hasNormalizedInduction())
       PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
 
-    const unsigned MainLoopIterationCost = MainLoopCM->getCost(PeelingVariant);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    OS = is_contained(VPlanCostModelPrintAnalysisForVF, VF) ?
+      &outs() : nullptr;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    const unsigned MainLoopIterationCost = MainLoopCM->getCost(
+      PeelingVariant, OS);
+
     if (MainLoopIterationCost == VPlanTTICostModel::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF) {
@@ -796,14 +810,20 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           MainLoopIterationCost * MainLoopTripCount +
                           RemainderEvaluator.getLoopCost();
 
-    // Calculate cost of one iteration of the main loop without preferred alignment.
+    // Calculate cost of one iteration of the main loop without preferred
+    // alignment.
+    // This getCost() call leaves no traces in CM dumps enabled by
+    // VPlanCostModelPrintAnalysisForVF for now. May want to reconsider in
+    // future.
     const unsigned MainLoopIterationCostWithoutPeel = MainLoopCM->getCost();
     if (MainLoopIterationCostWithoutPeel == VPlanTTICostModel::UnknownCost) {
-      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " without peel is unknown. Skip it.\n");
+      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF <<
+                 " without peel is unknown. Skip it.\n");
       continue;
     }
 
-    // Calculate the total cost of remainder loop having no peeling, if there is one.
+    // Calculate the total cost of remainder loop having no peeling, if there
+    // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
         0 /*Peel trip count */, VF, BestUF);
@@ -1092,29 +1112,6 @@ bool LoopVectorizationPlanner::unroll(VPlanVector &Plan) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
-  const std::string &Header) {
-  for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
-    if (!hasVPlanForVF(VFRequested)) {
-      errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
-      continue;
-    }
-    VPlanVector *Plan = getVPlanForVF(VFRequested);
-    assert(Plan && "Unexpected null VPlan");
-
-    // If different stages in VPlanDriver were proper passes under pass manager
-    // control it would have been opt's output stream (via "-o" switch). As it
-    // is not so, just pass stdout so that we would not be required to redirect
-    // stderr to Filecheck.
-    //
-    // Issue getCost() method of CM with specified OS argument. Eventually we
-    // want to delete this method and allow normal call to CM.getCost() during
-    // VF selection to dump.
-    createCostModel(Plan, VFRequested)->getCost(nullptr /* PeelingVariant */,
-                                                &outs());
-  }
-}
-
 void SingleLoopVecScenario::fromString(StringRef S) {
   // The supported string format is:
   //  Spec:= <Peel>;<Main>;<Remainder>

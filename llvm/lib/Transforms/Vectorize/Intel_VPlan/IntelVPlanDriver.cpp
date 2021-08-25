@@ -339,12 +339,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // VPlan Predicator
   LVP.predicate();
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string HeaderStr =
-    std::string(Fn.getName()) + "." + std::string(Lp->getName());
-  LVP.printCostModelAnalysisIfRequested(HeaderStr);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
   // VPlan construction stress test ends here.
   if (VPlanConstrStressTest)
     return false;
@@ -1262,12 +1256,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VConflict idiom is not supported.\n");
     return false;
   }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string HeaderStr =
-    std::string(Fn.getName()) + "." + std::to_string(Lp->getNumber());
-  LVP.printCostModelAnalysisIfRequested(HeaderStr);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;
