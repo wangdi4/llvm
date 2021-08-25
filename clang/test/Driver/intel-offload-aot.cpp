@@ -62,15 +62,24 @@
 /// ###########################################################################
 
 /// Check -Xopenmp-target-backend option passing
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen,spir64_x86_64 -Xopenmp-target-backend=spir64_gen "-DFOO1 -DFOO2" -Xopenmp-target-backend=spir64_x86_64 "-DFOO3 -DFOO4" %s 2>&1 \
+// RUN:   | FileCheck -check-prefixes=CHK-TOOLS-GEN-OPTS,CHK-TOOLS-CPU-OPTS %s
+
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TOOLS-GEN-OPTS %s
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-backend=spir64_gen "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-GEN-OPTS %s
 // CHK-TOOLS-GEN-OPTS: ocloc{{.*}} "-output" {{.*}} "-output_no_suffix" {{.*}} "-DFOO1" "-DFOO2"
 
-// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-backend "-DFOO3 -DFOO4" %s 2>&1 \
   // RUN:   | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS %s
-// CHK-TOOLS-CPU-OPTS: opencl-aot{{.*}} "-DFOO1" "-DFOO2"
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-backend=spir64_x86_64 "-DFOO3 -DFOO4" %s 2>&1 \
+  // RUN:   | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS %s
+// CHK-TOOLS-CPU-OPTS: opencl-aot{{.*}} "-DFOO3" "-DFOO4"
 
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-backend "--bo='\"-DFOO1 -DFOO2\"'" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS3 %s
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-backend=spir64_x86_64 "--bo='\"-DFOO1 -DFOO2\"'" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS3 %s
 // CHK-TOOLS-CPU-OPTS3: opencl-aot{{.*}} "--bo=\"-DFOO1 -DFOO2\""
 

@@ -807,7 +807,10 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     OptNoTriple = A->getOption().matches(Opt);
     if (A->getOption().matches(Opt_EQ)) {
       // Passing device args: -X<Opt>=<triple> -opt=val.
-      if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple())
+#if INTEL_CUSTOMIZATION
+      if (getDriver().MakeSYCLDeviceTriple(A->getValue()) != getTriple() &&
+          A->getValue() != getTripleString())
+#endif // INTEL_CUSTOMIZATION
         // Provided triple does not match current tool chain.
         continue;
     } else if (!OptNoTriple)
