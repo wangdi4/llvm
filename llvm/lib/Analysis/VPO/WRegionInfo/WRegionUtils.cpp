@@ -1054,31 +1054,46 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
     }
   };
 
+  auto collectNumElementsIfTyped = [&](Item *I) {
+    if (I->getIsTyped())
+      collectIfNonPointerNonConstant(I->getNumElements());
+  };
+
   if (W->canHavePrivate()) {
     PrivateClause &PrivClause = W->getPriv();
-    for (PrivateItem *PrivI : PrivClause.items())
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      collectNumElementsIfTyped(PrivI);
       collectSizeIfVLA(PrivI->getOrig());
+    }
   }
 
   if (W->canHaveFirstprivate()) {
     FirstprivateClause &FprivClause = W->getFpriv();
-    for (FirstprivateItem *FprivI : FprivClause.items())
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      collectNumElementsIfTyped(FprivI);
       collectSizeIfVLA(FprivI->getOrig());
+    }
   }
 
   if (W->canHaveReduction()) {
     ReductionClause &RedClause = W->getRed();
-    for (ReductionItem *RedI : RedClause.items())
+    for (ReductionItem *RedI : RedClause.items()) {
+      collectNumElementsIfTyped(RedI);
       if (RedI->getIsArraySection())
         collectArraySectionBounds(RedI->getArraySectionInfo());
+      else if (RedI->getIsTyped())
+        collectIfNonPointerNonConstant(RedI->getArraySectionOffset());
       else
         collectSizeIfVLA(RedI->getOrig());
+    }
   }
 
   if (W->canHaveLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
-    for (LastprivateItem *LprivI : LprivClause.items())
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      collectNumElementsIfTyped(LprivI);
       collectSizeIfVLA(LprivI->getOrig());
+    }
   }
 
   if (W->canHaveLinear()) {
