@@ -150,6 +150,9 @@ static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                                     "default on): similar with"
                                                     " bit 0, but for array "
                                                     "reduction."));
+cl::opt<bool> FastReductionGPULocalUpdate(
+    "vpo-paropt-fast-reduction-gpu-local-update", cl::Hidden, cl::init(false),
+    cl::desc("Enable local updating loop for GPU reduction"));
 
 static cl::opt<bool> EmitTargetFPCtorDtors(
     "vpo-paropt-emit-target-fp-ctor-dtor", cl::Hidden, cl::init(false),
@@ -2765,11 +2768,111 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
   return minmax;
 }
 
+// Generate local update loop for fast GPU reduction.
+// NOTE: Current compiler & RT implementation supports LWS with
+// only 1 dimension > 1 that's why we're only iterating over
+// 0th dimension here. Once that changes the loop nest for all the
+// 3 dimensions will be required.
+//
+// for (int i = 0; i < get_local_size(0); ++i) {
+//   if (get_local_id(0) == i) {
+//     // perform non-atomic updates of the local reduction value
+//   }
+//   workgroup_barrier();
+// }
+// workgroup_barrier();
+bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
+                                                       StoreInst *RedStore,
+                                                       IRBuilder<> &Builder,
+                                                       DominatorTree *DT) {
+  // do not generate another loop if we already have one
+  // for the same WRegion
+  if (GPURedUpdateBBs.count(W))
+    return false;
+  auto *SizeTy = cast<IntegerType>(GeneralUtils::getSizeTTy(F));
+  auto *UpdateBB = RedStore->getParent();
+  // assert(UpdateBB->getFirstInsertionPt() == UpdateBB->begin());
+  GPURedUpdateBBs[W] = UpdateBB;
+  auto *ExitBB = UpdateBB->getSingleSuccessor();
+  ExitBB->setName("fast.red.gpu.update.exit");
+  assert(ExitBB);
+  Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
+  auto *LocalSize = VPOParoptUtils::genOCLGenericCall(
+      "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
+      UpdateBB->getFirstNonPHI());
+  auto *HeaderBB =
+      SplitBlock(UpdateBB, LocalSize->getNextNode(), DT, LI, nullptr, "", true);
+  HeaderBB->setName("fast.red.gpu.update.header");
+  Builder.SetInsertPoint(HeaderBB, HeaderBB->begin());
+  auto *IVPhi = Builder.CreatePHI(SizeTy, 0);
+  for (const auto &Pred : predecessors(HeaderBB))
+    IVPhi->addIncoming(ConstantInt::getNullValue(SizeTy), Pred);
+
+  Builder.SetInsertPoint(UpdateBB);
+  UpdateBB->getTerminator()->eraseFromParent();
+  UpdateBB->setName("fast.red.gpu.update.body");
+  auto *IVNext = cast<BinaryOperator>(
+      Builder.CreateAdd(IVPhi, ConstantInt::get(SizeTy, 1)));
+  CallInst *BarrierCI = VPOParoptUtils::genCall(
+      "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
+      {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+       ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+       ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
+                                                  spirv::WorkgroupMemory)},
+      IVNext);
+  BarrierCI->getCalledFunction()->setConvergent();
+
+  Builder.CreateBr(HeaderBB);
+  // NOTE: consider using SplitBlockAndInsertIfThenElse
+  auto *LatchBB = SplitBlock(UpdateBB, BarrierCI, DT, LI);
+  LatchBB->setName("fast.red.gpu.update.latch");
+  IVPhi->addIncoming(IVNext, LatchBB);
+
+  Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
+  auto *ShouldUpdate =
+      cast<CmpInst>(Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, IVPhi,
+                                      // this is a fake value since we have to
+                                      // insert a call to get_local_id before
+                                      // some existing instruction in this BB
+                                      ConstantInt::getAllOnesValue(SizeTy)));
+  auto *LocalId = VPOParoptUtils::genOCLGenericCall(
+      "_Z12get_local_idj", SizeTy, Builder.getInt32(0), ShouldUpdate);
+  ShouldUpdate->setOperand(1, LocalId);
+  auto *IdCheckBB = SplitBlock(UpdateBB, ShouldUpdate->getNextNode(), DT, LI,
+                               nullptr, "", true);
+  IdCheckBB->getTerminator()->eraseFromParent();
+  IdCheckBB->setName("fast.red.gpu.update.idcheck");
+  Builder.SetInsertPoint(IdCheckBB);
+  Builder.CreateCondBr(ShouldUpdate, UpdateBB, LatchBB);
+
+  Builder.SetInsertPoint(HeaderBB);
+  HeaderBB->getTerminator()->eraseFromParent();
+  auto *ExitCond = cast<CmpInst>(
+      Builder.CreateCmp(CmpInst::Predicate::ICMP_UGE, IVPhi, LocalSize));
+  Builder.CreateCondBr(ExitCond, ExitBB, IdCheckBB);
+
+  CallInst *ExitBarrierCI = VPOParoptUtils::genCall(
+      "_Z22__spirv_ControlBarrieriii", Builder.getVoidTy(),
+      {ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+       ConstantInt::get(Builder.getInt32Ty(), spirv::Workgroup),
+       ConstantInt::get(Builder.getInt32Ty(), spirv::SequentiallyConsistent |
+                                                  spirv::WorkgroupMemory)},
+      ExitBB->getFirstNonPHI());
+  ExitBarrierCI->getCalledFunction()->setConvergent();
+  // no kmpc_critical required
+  return false;
+}
+
 // Generate the reduction update instructions.
 bool VPOParoptTransform::genReductionScalarFini(
     WRegionNode *W, ReductionItem *RedI, Value *ReductionVar,
     Value *ReductionValueLoc, Type *ScalarTy, IRBuilder<> &Builder,
     DominatorTree *DT) {
+  // the local update loop is already emitted, reuse its body
+  // for another reduction items' updates
+  if (isTargetSPIRV() && FastReductionGPULocalUpdate && W->getIsParLoop() &&
+      GPURedUpdateBBs.count(W))
+    Builder.SetInsertPoint(GPURedUpdateBBs[W]->getTerminator());
   Value *Res = nullptr;
   auto *Rhs2 = Builder.CreateLoad(
       ReductionValueLoc->getType()->getPointerElementType(), ReductionValueLoc);
@@ -2849,8 +2952,7 @@ bool VPOParoptTransform::genReductionScalarFini(
   default:
     llvm_unreachable("Reduction operator not yet supported!");
   }
-
-  Instruction *Tmp0 = Builder.CreateStore(Res, ReductionVar);
+  auto *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
   if (isa<WRNVecLoopNode>(W))
     // Reduction update does not have to be atomic for SIMD loop.
@@ -2860,13 +2962,23 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
+    if (FastReductionGPULocalUpdate && W->getIsParLoop()) {
+      if (RedI->getIsArraySection()) {
+        DiagnosticInfoOptimizationFailure DI(
+            "openmp", "implementation-warning",
+            W->getEntryDirective()->getDebugLoc(), W->getEntryBBlock());
+        DI << "Fast GPU reduction for array section is not supported yet!";
+        F->getContext().diagnose(DI);
+      } else
+        return genFastGPUReductionScalarFini(W, Tmp0, Builder, DT);
+    }
     Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
         W, Tmp0->getParent(), nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
-      R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
-        ore::NV("Type", ScalarTy) << " made atomic";
+      R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+        << ore::NV("Type", ScalarTy) << " made atomic";
       ORE.emit(R);
       return false;
     }
