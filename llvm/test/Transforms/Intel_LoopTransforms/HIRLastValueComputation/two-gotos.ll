@@ -37,6 +37,13 @@
 ; CHECK:    %indvars.iv.out = 39;
 ; CHECK:  END REGION
 ;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -print-after=hir-last-value-computation -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-cg,simplifycfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+;
+; OPTREPORT:  LOOP BEGIN
+; OPTREPORT:     remark #25530: Stmt at line 0 sinked after loop using last value computation
+; OPTREPORT:  LOOP END
+;
 ;Module Before HIR; ModuleID = 't.c'
 source_filename = "t.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

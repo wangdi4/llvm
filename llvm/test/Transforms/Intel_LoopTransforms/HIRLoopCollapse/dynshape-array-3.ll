@@ -26,17 +26,15 @@
 ;CHECK:            + END LOOP
 ;CHECK:      END REGION
 
-;HIRLoopCollapse on Function : sub_()
-;HIRLoopCollapse::doPreliminaryChecks() failed
-
 ;*** IR Dump After HIR Loop Collapse (hir-loop-collapse) ***
 
-;CHECK:      BEGIN REGION { }
+; [Note]
+; Partial i1-i2 loops of the loopnest are not collapsed due to complicated stride expression. Refer to detailed dump below.
+
+;CHECK:      BEGIN REGION { modified }
 ;CHECK:            + DO i1 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;CHECK:            |   + DO i2 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;CHECK:            |   |   + DO i3 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;CHECK:            |   |   |   (%"sub_$A")[i1][i2][i3] = 1.000000e+00;
-;CHECK:            |   |   + END LOOP
+;CHECK:            |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
+;CHECK:            |   |   (%"sub_$A")[i1][0][i2] = 1.000000e+00;
 ;CHECK:            |   + END LOOP
 ;CHECK:            + END LOOP
 ;CHECK:      END REGION
@@ -60,13 +58,11 @@
 ;*** IR Dump After HIR Loop Collapse (hir-loop-collapse) ***
 ;Function: sub_
 
-;<0>          BEGIN REGION { }
+;<0>          BEGIN REGION { modified }
 ;<32>               + DO i1 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;<33>               |   + DO i2 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;<34>               |   |   + DO i3 = 0, sext.i32.i64(%"(i32)var$2_fetch.2$"), 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
-;<11>               |   |   |   (%"sub_$A")[0:i1:4 * ((1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")))(float*:0)][0:i2:4 * sext.i32.i64(%"(i32)var$2_fetch.2$") + 4(float*:0)][0:i3:4(float*:0)] = 1.000000e+00;
-;<34>               |   |   + END LOOP
-;<33>               |   + END LOOP
+;<34>               |   + DO i2 = 0, (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) + (sext.i32.i64(%"(i32)var$2_fetch.2$") * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$"))) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483648>
+;<11>               |   |   (%"sub_$A")[0:i1:4 * ((1 + sext.i32.i64(%"(i32)var$2_fetch.2$")) * (1 + sext.i32.i64(%"(i32)var$2_fetch.2$")))(float*:0)][0:0:4 * sext.i32.i64(%"(i32)var$2_fetch.2$") + 4(float*:0)][0:i2:4(float*:0)] = 1.000000e+00;
+;<34>               |   + END LOOP
 ;<32>               + END LOOP
 ;<0>          END REGION
 

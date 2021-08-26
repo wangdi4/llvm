@@ -131,9 +131,11 @@ struct PragmaInfo {
   unsigned BasePtrSB;
   int Hint;
   int Dist;
+  bool IsPragmaBased;
 
-  PragmaInfo(unsigned BasePtrSB, int Hint, int Dist)
-      : BasePtrSB(BasePtrSB), Hint(Hint), Dist(Dist) {}
+  PragmaInfo(unsigned BasePtrSB, int Hint, int Dist, bool IsPragmaBased)
+      : BasePtrSB(BasePtrSB), Hint(Hint), Dist(Dist),
+        IsPragmaBased(IsPragmaBased) {}
 };
 
 struct PrefetchCandidateInfo {
@@ -142,12 +144,14 @@ struct PrefetchCandidateInfo {
   int Dist;
   int Hint;
   bool IsWrite;
+  bool IsPragmaBased;
 
   PrefetchCandidateInfo(const RegDDRef *CandidateRef,
                         RegDDRef *OrigIndexLoadRef, int Dist, int Hint,
-                        bool IsWrite)
+                        bool IsWrite, bool IsPragmaBased)
       : CandidateRef(CandidateRef), OrigIndexLoadRef(OrigIndexLoadRef),
-        Dist(Dist), Hint(Hint), IsWrite(IsWrite) {}
+        Dist(Dist), Hint(Hint), IsWrite(IsWrite), IsPragmaBased(IsPragmaBased) {
+  }
 };
 
 class HIRPrefetching {
@@ -182,20 +186,21 @@ private:
 
   void collectPrefetchCandidates(
       RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
-      int Distance, int Hint,
+      int Distance, int Hint, bool IsPragmaBased,
       SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates);
 
   void collectPrefetchPragmaInfo(
       HLLoop *Lp,
-      DenseMap<unsigned, std::pair<int, int>> &CandidateVarSBsDistsHints,
-      int &PrefetchDist, int &PrefetchHint);
+      DenseMap<unsigned, std::tuple<int, int, bool>> &CandidateVarSBsDistsHints,
+      int &PrefetchDist, int &PrefetchHint, bool &DefaultIsPragmaBased);
 
   void collectIndirectPrefetchingCandidates(
       HLLoop *Lp, const RegDDRef *FirstRef, int Dist, int Hint,
+      bool IsPragmaBased,
       SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 
   void processIndirectPrefetching(
-      HLLoop *Lp, unsigned &NumIndirectPrefetches,
+      HLLoop *Lp, int64_t Stride,
       const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 };
 } // namespace
@@ -280,7 +285,7 @@ unsigned HIRPrefetching::getPrefetchingDist(HLLoop *Lp) {
 // MemRefs
 void HIRPrefetching::collectPrefetchCandidates(
     RefGroupTy &RefGroup, uint64_t TripCount, uint64_t Stride, unsigned Level,
-    int Distance, int Hint,
+    int Distance, int Hint, bool IsPragmaBased,
     SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates) {
   if (!Distance) {
     return;
@@ -297,7 +302,7 @@ void HIRPrefetching::collectPrefetchCandidates(
 
   bool IsLval = FirstRef->isLval();
   SpatialPrefetchCandidates.emplace_back(ScalarRef, nullptr, Distance, Hint,
-                                         IsLval);
+                                         IsLval, IsPragmaBased);
 
   unsigned ScalarRefSize = ScalarRef->getDestTypeSizeInBytes();
 
@@ -308,7 +313,7 @@ void HIRPrefetching::collectPrefetchCandidates(
       RegDDRef *StrideRef = ScalarRef->clone();
       StrideRef->shift(Level, I);
       SpatialPrefetchCandidates.emplace_back(StrideRef, nullptr, Distance, Hint,
-                                             IsLval);
+                                             IsLval, IsPragmaBased);
     }
   }
 
@@ -333,7 +338,7 @@ void HIRPrefetching::collectPrefetchCandidates(
     if (Dist / Stride >= TripCount) {
       IsLval = CurRef->isLval();
       SpatialPrefetchCandidates.emplace_back(CurRef, nullptr, Distance, Hint,
-                                             IsLval);
+                                             IsLval, IsPragmaBased);
       PrevRef = CurRef;
     } else if (CurRef->isLval() && !IsLval) {
       SpatialPrefetchCandidates.back().IsWrite = true;
@@ -343,9 +348,8 @@ void HIRPrefetching::collectPrefetchCandidates(
 }
 
 static void collectLoadLvalSB(
-    HLInst *HInst, int PrefetchDist, int PrefetchHint,
-    SmallVectorImpl<PragmaInfo> &PragmaVarsDistsHints,
-    DenseMap<unsigned, std::pair<int, int>> &CandidateVarSBsDistsHints) {
+    HLInst *HInst, SmallVectorImpl<PragmaInfo> &PragmaVarsDistsHints,
+    DenseMap<unsigned, std::tuple<int, int, bool>> &CandidateVarSBsDistsHints) {
   assert(HInst && "Expect HLInst* only\n");
 
   if (!isa<LoadInst>(HInst->getLLVMInstruction())) {
@@ -359,7 +363,7 @@ static void collectLoadLvalSB(
     // BlobIndex are equal
     if (It->BasePtrSB == RvalBasePtrSB) {
       CandidateVarSBsDistsHints[HInst->getLvalDDRef()->getSymbase()] =
-          std::make_pair(It->Dist, It->Hint);
+          std::make_tuple(It->Dist, It->Hint, It->IsPragmaBased);
       return;
     }
   }
@@ -374,8 +378,9 @@ static void collectLoadLvalSB(
 // all vars
 void HIRPrefetching::collectPrefetchPragmaInfo(
     HLLoop *Lp,
-    DenseMap<unsigned, std::pair<int, int>> &CandidateVarSBsDistsHints,
-    int &DefaultPrefetchDist, int &DefaultPrefetchHint) {
+    DenseMap<unsigned, std::tuple<int, int, bool>> &CandidateVarSBsDistsHints,
+    int &DefaultPrefetchDist, int &DefaultPrefetchHint,
+    bool &DefaultIsPragmaBased) {
   auto Info = Lp->getPrefetchingPragmaInfo();
   unsigned Size = Info.size();
   SmallVector<PragmaInfo, 16> PragmaVarsDistsHints;
@@ -387,11 +392,13 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
     const RegDDRef *Var = Info[I].Var;
     int Dist = Info[I].Dist;
     int Hint = Info[I].Hint;
+    bool IsPragmaBased = false;
 
     if (Dist == -1) {
       Dist = DefaultPrefetchDist;
     } else {
       Dist *= LpStride;
+      IsPragmaBased = true;
     }
 
     // Prefetch pragma hint is ranging from 0 - 3, while
@@ -403,17 +410,20 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
       Hint = DefaultPrefetchHint;
     } else {
       Hint = 3 - Hint;
+      IsPragmaBased = true;
     }
 
     if (Var->isNull()) {
       DefaultPrefetchDist = Dist;
       DefaultPrefetchHint = Hint;
+      DefaultIsPragmaBased = IsPragmaBased;
       continue;
     }
 
-    PragmaVarsDistsHints.emplace_back(Var->getBasePtrSymbase(), Hint, Dist);
+    PragmaVarsDistsHints.emplace_back(Var->getBasePtrSymbase(), Hint, Dist,
+                                      IsPragmaBased);
     CandidateVarSBsDistsHints[Var->getBasePtrSymbase()] =
-        std::make_pair(Dist, Hint);
+        std::make_tuple(Dist, Hint, IsPragmaBased);
   }
 
   if (PragmaVarsDistsHints.empty()) {
@@ -424,8 +434,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
   // corresponding lval with the rval in the pragma vars
   for (auto II = Lp->pre_begin(), EE = Lp->pre_end(); II != EE; ++II) {
     HLInst *HInst = cast<HLInst>(&*II);
-    collectLoadLvalSB(HInst, DefaultPrefetchDist, DefaultPrefetchHint,
-                      PragmaVarsDistsHints, CandidateVarSBsDistsHints);
+    collectLoadLvalSB(HInst, PragmaVarsDistsHints, CandidateVarSBsDistsHints);
   }
 
   // Go through the insts before the current loop and collect the
@@ -436,8 +445,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
     if (isa<HLLoop>(Node)) {
       break;
     } else if (auto *Inst = dyn_cast<HLInst>(Node)) {
-      collectLoadLvalSB(Inst, DefaultPrefetchDist, DefaultPrefetchHint,
-                        PragmaVarsDistsHints, CandidateVarSBsDistsHints);
+      collectLoadLvalSB(Inst, PragmaVarsDistsHints, CandidateVarSBsDistsHints);
     } else {
       break;
     }
@@ -453,6 +461,7 @@ static bool hasPrefetchingPragma(HLLoop *Lp) {
 
 void HIRPrefetching::collectIndirectPrefetchingCandidates(
     HLLoop *Lp, const RegDDRef *CandidateRef, int Dist, int Hint,
+    bool IsPragmaBased,
     SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
   const BlobDDRef *NonLinearBlobRef = CandidateRef->getSingleNonLinearBlobRef();
 
@@ -503,7 +512,8 @@ void HIRPrefetching::collectIndirectPrefetchingCandidates(
 
   // Record the indirect prefetch info for the transformation
   IndirectPrefetchCandidates.emplace_back(CandidateRef, IndexRef, Dist, Hint,
-                                          CandidateRef->isLval());
+                                          CandidateRef->isLval(),
+                                          IsPragmaBased);
 
   return;
 }
@@ -553,12 +563,13 @@ bool HIRPrefetching::doAnalysis(
     return false;
   }
 
-  DenseMap<unsigned, std::pair<int, int>> CandidateVarSBsDistsHints;
+  DenseMap<unsigned, std::tuple<int, int, bool>> CandidateVarSBsDistsHints;
   int DefaultPrefetchDist = getPrefetchingDist(Lp);
   int DefaultPrefetchHint = 3 - ForceHint;
+  bool DefaultIsPragmaBased = false;
 
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
-                            DefaultPrefetchHint);
+                            DefaultPrefetchHint, DefaultIsPragmaBased);
 
   unsigned Level = Lp->getNestingLevel();
   int64_t ConstStride;
@@ -571,11 +582,13 @@ bool HIRPrefetching::doAnalysis(
 
     int Dist = DefaultPrefetchDist;
     int Hint = DefaultPrefetchHint;
+    int IsPragmaBased = DefaultIsPragmaBased;
 
     // Prefetch candidate is either the lval in the load inst in the preheader
     // or before loop or the pragma var in the loop
     if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
-      std::tie(Dist, Hint) = CandidateVarSBsDistsHints[FirstRefBasePtrSB];
+      std::tie(Dist, Hint, IsPragmaBased) =
+          CandidateVarSBsDistsHints[FirstRefBasePtrSB];
     }
 
     if (!FirstRef->getConstStrideAtLevel(Level, &ConstStride) ||
@@ -586,10 +599,9 @@ bool HIRPrefetching::doAnalysis(
       if (!FirstRef->isLinearAtLevel(Level)) {
         NumNonLinearStreams++;
 
-        if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
-          collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
-                                               IndirectPrefetchCandidates);
-        }
+        collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
+                                             IsPragmaBased,
+                                             IndirectPrefetchCandidates);
       }
 
       continue;
@@ -603,7 +615,7 @@ bool HIRPrefetching::doAnalysis(
     // loop stride and loop trip count, we need to create more scalar refs,
     // such as A[i] and A[i + 10000]
     collectPrefetchCandidates(RefGroup, TripCount, Stride, Level, Dist, Hint,
-                              SpatialPrefetchCandidates);
+                              IsPragmaBased, SpatialPrefetchCandidates);
   }
 
   if (SpatialPrefetchCandidates.empty()) {
@@ -639,13 +651,16 @@ HLInst *HIRPrefetching::generatePrefetchingInst(HLLoop *Lp,
 }
 
 void HIRPrefetching::processIndirectPrefetching(
-    HLLoop *Lp, unsigned &NumIndirectPrefetches,
+    HLLoop *Lp, int64_t Stride,
     const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
   auto &HNU = Lp->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
   unsigned Level = Lp->getNestingLevel();
   CanonExpr *LoopUpperCE = Lp->getUpperCanonExpr();
   RegDDRef *LoopUpperRef = Lp->getUpperDDRef();
+
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
   // Record the CE that is compared with loop trip count in HLIf predicate
   CanonExpr *CompareCE = nullptr;
@@ -659,6 +674,7 @@ void HIRPrefetching::processIndirectPrefetching(
     int Dist = PrefCand.Dist;
     int Hint = PrefCand.Hint;
     bool IsWrite = PrefCand.IsWrite;
+    bool IsPragmaBased = PrefCand.IsPragmaBased;
 
     const BlobDDRef *NonLinearBlobRef =
         CandidateRef->getSingleNonLinearBlobRef();
@@ -775,7 +791,15 @@ void HIRPrefetching::processIndirectPrefetching(
       HLNodeUtils::insertAsLastChild(Lp, CheckIf);
     }
 
-    ++NumIndirectPrefetches;
+    if (IsPragmaBased) {
+      int PragmaDist = Dist / Stride;
+      int PragmaHint = 3 - Hint;
+
+      // Using directive-based hint=%d, distance=%d for indirect memory
+      // reference
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25150u, PragmaHint,
+                               PragmaDist);
+    }
   }
 }
 
@@ -783,23 +807,52 @@ bool HIRPrefetching::doPrefetching(
     HLLoop *Lp, bool HasPragmaInfo,
     const SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
     const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
-  unsigned NumIndirectPrefetches = 0;
-  unsigned NumSpatialPrefetches = 0;
+  unsigned NumIndirectPrefetches = IndirectPrefetchCandidates.size();
+  unsigned NumSpatialPrefetches = SpatialPrefetchCandidates.size();
+  RegDDRef *StrideRef = Lp->getStrideDDRef();
+  int64_t Stride;
+  StrideRef->isIntConstant(&Stride);
 
-  if (!IndirectPrefetchCandidates.empty()) {
-    processIndirectPrefetching(Lp, NumIndirectPrefetches,
-                               IndirectPrefetchCandidates);
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
+
+  // Total number of lines prefetched=%d
+  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25018u,
+                           NumSpatialPrefetches + NumIndirectPrefetches);
+  if (HasPragmaInfo) {
+    Lp->getParentRegion()->setGenCode();
+    // Number of spatial prefetches=%d
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25020u,
+                             NumSpatialPrefetches);
+    // Number of indirect prefetches=%d
+    if (NumIndirectPrefetches) {
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25033u,
+                               NumIndirectPrefetches);
+    }
   }
 
-  int PrefetchDist = 0;
+  if (!IndirectPrefetchCandidates.empty()) {
+    processIndirectPrefetching(Lp, Stride, IndirectPrefetchCandidates);
+  }
+
+  bool HasAddOptReport = false;
 
   for (auto It = SpatialPrefetchCandidates.begin(),
             E = SpatialPrefetchCandidates.end();
        It != E; ++It) {
     const RegDDRef *Ref = It->CandidateRef;
-    PrefetchDist = It->Dist;
+    int PrefetchDist = It->Dist;
     int PrefetchHint = It->Hint;
     bool IsWrite = It->IsWrite;
+    bool IsPragmaBased = It->IsPragmaBased;
+
+    if (!HasAddOptReport && !HasPragmaInfo) {
+      int PragmaDist = PrefetchDist / Stride;
+      // Number of spatial prefetches=%d, dist=%d
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25019u,
+                               NumSpatialPrefetches, PragmaDist);
+      HasAddOptReport = true;
+    }
 
     RegDDRef *PrefetchRef = Ref->clone();
 
@@ -816,34 +869,14 @@ bool HIRPrefetching::doPrefetching(
         generatePrefetchingInst(Lp, PrefetchRef, PrefetchHint, IsWrite);
     HLNodeUtils::insertAsLastChild(Lp, PrefetchInst);
 
-    ++NumSpatialPrefetches;
-  }
-
-  OptReportBuilder &ORBuilder =
-      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
-
-  // Number of spatial prefetches=%d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
-                           NumSpatialPrefetches);
-  if (HasPragmaInfo) {
-    Lp->getParentRegion()->setGenCode();
-    // Number of spatial prefetches=%d
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
-                             NumSpatialPrefetches);
-    // Number of indirect prefetches=%d
-    if (NumIndirectPrefetches) {
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25421u,
-                               NumIndirectPrefetches);
+    if (IsPragmaBased) {
+      int PragmaHint = 3 - PrefetchHint;
+      int PragmaDist = PrefetchDist / Stride;
+      // Using directive-based hint=%d, distance=%d for prefetching spatial
+      // memory reference
+      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25147u, PragmaHint,
+                               PragmaDist);
     }
-  } else {
-    RegDDRef *StrideRef = Lp->getStrideDDRef();
-    int64_t Stride;
-    StrideRef->isIntConstant(&Stride);
-    int Distance = PrefetchDist / Stride;
-
-    // Number of spatial prefetches=%d, dist=%d
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25419u,
-                             NumSpatialPrefetches, Distance);
   }
 
   HIRInvalidationUtils::invalidateBody(Lp);

@@ -292,6 +292,9 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     UBCE->convertToStandAloneBlobOrConstant();
   }
 
+  OptReportBuilder &ORBuilder =
+      Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
+
   for (auto *HInst : CandidateInsts) {
 
     unsigned LvalSymbase = HInst->getLvalDDRef()->getSymbase();
@@ -319,6 +322,15 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
       OpRef->makeConsistent(Aux, LoopLevel - 1);
     }
 
+    unsigned HInstLineNum = 0;
+
+    if (HInst->getDebugLoc()) {
+      HInstLineNum = HInst->getDebugLoc().getLine();
+    }
+
+    // remark: Stmt at line %d sinked after loop using last value computation
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25530u, HInstLineNum);
+
     HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
   }
 
@@ -330,6 +342,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(Lp);
   HLNodeUtils::removeEmptyNodes(Lp);
+
   return true;
 }
 

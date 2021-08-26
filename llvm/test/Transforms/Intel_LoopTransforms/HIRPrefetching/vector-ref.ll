@@ -3,6 +3,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -print-after=hir-prefetching < %s 2>&1 | FileCheck %s
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -hir-vplan-vec -hir-prefetching -hir-prefetching-num-cachelines-threshold=64 -hir-prefetching-skip-non-modified-regions=false -hir-prefetching-skip-num-memory-streams-check=true -hir-prefetching-skip-AVX2-check=true -vplan-force-vf=4 -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+;
 ;*** IR Dump Before HIR Prefetching ***
 ;
 ;<0>          BEGIN REGION { modified }
@@ -44,7 +45,8 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT:     remark #15305: vectorization support: vector length 4
-; OPTREPORT:     remark #25419: Number of spatial prefetches=4, dist=64
+; OPTREPORT:     remark #25018: Total number of lines prefetched=4
+; OPTREPORT:     remark #25019: Number of spatial prefetches=4, dist=64
 ; OPTREPORT: LOOP END
 ;
 ; OPTREPORT: LOOP BEGIN

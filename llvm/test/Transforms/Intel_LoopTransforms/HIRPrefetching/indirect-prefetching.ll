@@ -43,6 +43,16 @@
 ; CHECK:           ret &((undef)[0]);
 ; CHECK:     END REGION
 ;
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+;
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT:    remark #25018: Total number of lines prefetched=4
+; OPTREPORT:    remark #25020: Number of spatial prefetches=3
+; OPTREPORT:    remark #25033: Number of indirect prefetches=1
+; OPTREPORT:    remark #25147: Using directive-based hint=1, distance=40 for prefetching spatial memory reference
+; OPTREPORT: LOOP END
+;
 ;Module Before HIR
 ; ModuleID = 't.c'
 source_filename = "t.c"
