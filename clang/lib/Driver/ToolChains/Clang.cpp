@@ -5879,12 +5879,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
                    options::OPT__SLASH_Qlong_double_, false)) {
-    if (TC.getTriple().getArch() == llvm::Triple::x86) {
-      D.Diag(diag::err_drv_unsupported_opt_for_target)
-          << Args.getLastArg(options::OPT__SLASH_Qlong_double)
-                 ->getAsString(Args)
-          << TripleStr;
-    } else
       CmdArgs.push_back("-fintel-long-double-size=80");
   }
 
