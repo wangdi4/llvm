@@ -2622,7 +2622,7 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
   // TODO: Add corresponding nsw case
   if (Type == scAddRecExpr && ScalarEvolution::hasFlags(Flags, SCEV::FlagNW) &&
       !ScalarEvolution::hasFlags(Flags, SCEV::FlagNUW) && Ops.size() == 2 &&
-      Ops[0]->isZero() && SE->isKnownNonNegative(Ops[1])) // INTEL
+      Ops[0]->isZero() && IsKnownNonNegativeOrGlobalPtr(Ops[1])) // INTEL
     Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNUW);
 
   return Flags;

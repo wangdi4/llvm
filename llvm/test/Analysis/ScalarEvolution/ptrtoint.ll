@@ -478,10 +478,10 @@ define void @pr46786_c26_int(i32* %arg, i32* %arg1, i32* %arg2) {
 ; X64-NEXT:    %i11 = ashr exact i64 %i10, 2
 ; INTEL_CUSTOMIZATION
 ; use signum expansion for ashr
-; X64-NEXT:    --> ((({0,+,4}<nw><%bb6> smax {0,+,-4}<nw><%bb6>) /u 4) * (1 smin (-1 smax {0,+,4}<nw><%bb6>)))<nsw> U: [-4611686018427387903,4611686018427387904) S: [-4611686018427387903,4611686018427387904) Exits: ((((4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw> smax (-4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))) /u 4) * (1 smin (-1 smax (4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw>)))<nsw> LoopDispositions: { %bb6: Computable }
+; X64-NEXT:    --> ((({0,+,4}<nuw><%bb6> smax {0,+,-4}<nw><%bb6>) /u 4) * (1 smin (-1 smax {0,+,4}<nuw><%bb6>)))<nsw> U: [-4611686018427387903,4611686018427387904) S: [-4611686018427387903,4611686018427387904) Exits: ((((4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw> smax (-4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))) /u 4) * (1 smin (-1 smax (4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw>)))<nsw> LoopDispositions: { %bb6: Computable }
 ; X64-NEXT:    %i12 = getelementptr inbounds i32, i32* %arg2, i64 %i11
 ; use signum expansion for ashr
-; X64-NEXT:    --> ((4 * (({0,+,4}<nw><%bb6> smax {0,+,-4}<nw><%bb6>) /u 4) * (1 smin (-1 smax {0,+,4}<nw><%bb6>))) + %arg2) U: full-set S: full-set Exits: ((4 * (((4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw> smax (-4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))) /u 4) * (1 smin (-1 smax (4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw>))) + %arg2) LoopDispositions: { %bb6: Computable }
+; X64-NEXT:    --> ((4 * (({0,+,4}<nuw><%bb6> smax {0,+,-4}<nw><%bb6>) /u 4) * (1 smin (-1 smax {0,+,4}<nuw><%bb6>))) + %arg2) U: full-set S: full-set Exits: ((4 * (((4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw> smax (-4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))) /u 4) * (1 smin (-1 smax (4 * ((-4 + (-1 * (ptrtoint i32* %arg to i64)) + (ptrtoint i32* %arg1 to i64)) /u 4))<nuw>))) + %arg2) LoopDispositions: { %bb6: Computable }
 ; END INTEL_CUSTOMIZATION
 ; X64-NEXT:    %i13 = load i32, i32* %i12, align 4
 ; X64-NEXT:    --> %i13 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
@@ -514,10 +514,10 @@ define void @pr46786_c26_int(i32* %arg, i32* %arg1, i32* %arg2) {
 ; X32-NEXT:    %i11 = ashr exact i64 %i10, 2
 ; INTEL_CUSTOMIZATION
 ; use signum expansion for ashr
-; X32-NEXT:    --> ({0,+,1}<nw><%bb6> * (1 smin {0,+,4}<nuw><nsw><%bb6>))<nuw><nsw> U: [0,1073741824) S: [0,1073741824) Exits: (((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4) * (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4))<nuw><nsw>))<nuw><nsw> LoopDispositions: { %bb6: Computable }
+; X32-NEXT:    --> ({0,+,1}<nuw><%bb6> * (1 smin {0,+,4}<nuw><%bb6>))<nuw><nsw> U: [0,1073741824) S: [0,1073741824) Exits: (((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4) * (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4))<nuw><nsw>))<nuw><nsw> LoopDispositions: { %bb6: Computable }
 ; X32-NEXT:    %i12 = getelementptr inbounds i32, i32* %arg2, i64 %i11
 ; use signum expansion for ashr
-; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><nsw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2) U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) /u 4))<nuw> + %arg2) LoopDispositions: { %bb6: Computable }
+; X32-NEXT:    --> (((trunc i64 (1 smin {0,+,4}<nuw><%bb6>) to i32) * {0,+,4}<%bb6>) + %arg2) U: full-set S: full-set Exits: ((4 * (trunc i64 (1 smin (4 * ((zext i32 (-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) to i64) /u 4))<nuw><nsw>) to i32) * ((-4 + (-1 * (ptrtoint i32* %arg to i32)) + (ptrtoint i32* %arg1 to i32)) /u 4))<nuw> + %arg2) LoopDispositions: { %bb6: Computable }
 ; END INTEL_CUSTOMIZATION
 ; X32-NEXT:    %i13 = load i32, i32* %i12, align 4
 ; X32-NEXT:    --> %i13 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %bb6: Variant }
