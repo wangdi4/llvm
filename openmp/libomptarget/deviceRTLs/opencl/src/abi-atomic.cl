@@ -249,6 +249,12 @@ KMPC_ATOMIC_IMPL_FALLBACK_CPT(fixed4u, uint, shr, >>)
 
 /// 4-byte emulated float atomics
 #if KMP_ATOMIC_FIXED4_SUPPORTED
+#ifndef ENABLE_FP32_ATOMIC_ADD_EXT
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, add, OP_ADD)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, sub, OP_SUB)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, add, OP_ADD)
+KMPC_ATOMIC_IMPL_CMPXCHG_CAST_CPT(float4, float, int, sub, OP_SUB)
+#endif
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, mul, OP_MUL)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, div, OP_DIV)
 KMPC_ATOMIC_IMPL_CMPXCHG_CAST(float4, float, int, orl, OP_OR)
