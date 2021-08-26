@@ -1091,10 +1091,10 @@ bool MapIntrinToImlImpl::runImpl() {
 
   // Keep track of calls that have already been translated so we don't consider
   // them again.
-  SmallPtrSet<CallInst*, 4> InstToTranslate;
+  SmallVector<CallInst *, 4> InstToTranslate;
 
   // Keep track of scalar math function calls to translate
-  SmallPtrSet<CallInst *, 4> ScalarCallsToTranslate;
+  SmallVector<CallInst *, 4> ScalarCallsToTranslate;
 
   // Dirty becomes true (LLVM IR is modified) under two circumstances:
   // 1) A candidate vector math call is found and is replaced with an svml
@@ -1127,18 +1127,14 @@ bool MapIntrinToImlImpl::runImpl() {
       if (FuncName.startswith("__svml")) {
         if (TLI->isSVMLEnabled() &&
             getVectorTypeForSVMLFunction(CI->getFunctionType()))
-          InstToTranslate.insert(CI);
+          InstToTranslate.push_back(CI);
       } else if (is_libm_function(FuncName.str().c_str())) {
-        ScalarCallsToTranslate.insert(CI);
+        ScalarCallsToTranslate.push_back(CI);
       }
     }
   }
 
-  SmallPtrSet<CallInst*, 4>::iterator CallInstIt = InstToTranslate.begin();
-  SmallPtrSet<CallInst*, 4>::iterator CallInstEnd = InstToTranslate.end();
-  for (; CallInstIt != CallInstEnd; ++CallInstIt) {
-
-    CallInst *CI = cast<CallInst>(*CallInstIt);
+  for (auto *CI : InstToTranslate) {
     LLVM_DEBUG(dbgs() << "Call Inst: " << *CI << "\n");
     Builder.SetInsertPoint(CI);
 
@@ -1324,9 +1320,7 @@ bool MapIntrinToImlImpl::runImpl() {
   }
 
   // Legalize scalar math function calls
-  for (auto ScalarCallsIt = ScalarCallsToTranslate.begin();
-       ScalarCallsIt != ScalarCallsToTranslate.end(); ++ScalarCallsIt) {
-    CallInst *ScalarCI = cast<CallInst>(*ScalarCallsIt);
+  for (auto *ScalarCI : ScalarCallsToTranslate) {
     LLVM_DEBUG(dbgs() << "ScalarCI: "; ScalarCI->dump());
     if (X86Target) {
       // TODO: Can scalar math functions have any prefixes/suffixes?
