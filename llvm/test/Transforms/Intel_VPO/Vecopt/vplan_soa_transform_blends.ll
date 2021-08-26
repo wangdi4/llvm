@@ -52,17 +52,14 @@ define void @uniform_with_undef(i64 *%p, i1 %uniform) #0 {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_IF:%.*]] = load i32* [[VP_UNI_IF]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP_3:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_STR_IF:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 [[VP_IV]] i64 [[VP_CONST_STEP_3]]
-; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]].active.lane
+; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]].active.lane: # preds: [[BB7]]
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i64 2, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i64 1, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRUNI_BLEND_BB5:%.*]] = blend [ i32* [[VP2]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP4]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_BLENDPTRRND_BLEND_BB5:%.*]] = blend [ i32* [[VP_RND_ELSE]], i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i32* [[VP_STR_IF]], i1 [[VP_BB3_BR_VP_UNIFORM]] ]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND_ACTIVE:%.*]] = active-lane i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i64 [[VP_BLEND_BLEND_BB5]] i1 [[VP_COND_ACTIVE]]
-; CHECK-NEXT:     [DA: Uni] br [[BB8]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: [[BB8]].active.lane
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_COND]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_UNI:%.*]] = load i32* [[VP_BLENDPTRUNI_BLEND_BB5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LD_RND:%.*]] = load i32* [[VP_BLENDPTRRND_BLEND_BB5]]

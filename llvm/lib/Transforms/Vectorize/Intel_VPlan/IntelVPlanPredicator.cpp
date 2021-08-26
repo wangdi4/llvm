@@ -93,8 +93,18 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
 
   VPBuilder Builder;
   if (auto *Inst = dyn_cast<VPInstruction>(Cond))
-    if (isa<VPPHINode>(Inst))
-      Builder.setInsertPointFirstNonPhi(Inst->getParent());
+    if (isa<VPPHINode>(Inst)) {
+      auto BB = Inst->getParent();
+      if (auto *BlockPredicate = BB->getBlockPredicate())
+        // Cond might be a phi/blend that needs active lane extraction. Such
+        // extraction uses block's predicate and must happen before its
+        // VPBlockPredicate instruction. We insert VPActiveLane right after the
+        // predicate calculation (if it happens in that block) and this NOT
+        // right before the VPBlockPredicate.
+        Builder.setInsertPoint(BlockPredicate);
+      else
+        Builder.setInsertPointFirstNonPhi(BB);
+    }
     else
       Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
   else
@@ -121,6 +131,31 @@ static void getPostDomFrontier(VPBasicBlock *Block, VPPostDominatorTree &PDT,
     for (VPBasicBlock *Pred : B->getPredecessors())
       if (!PDT.dominates(Block, Pred))
         Frontier.insert(Pred);
+}
+
+static void updateInsertPointForVPActiveLane(VPBuilder &Builder, VPBasicBlock *BB) {
+  auto PredicateInst = dyn_cast_or_null<VPInstruction>(BB->getPredicate());
+  // Note this special scenario:
+  //   bb0
+  //     %pred = or %term1, %term2  ; <- Out Predicated
+  //     block-predicate %pred
+  //     br i1 %cond, %bb1, %bb2
+  //
+  //   bb1:
+  //     br %bb3
+  //
+  //   bb2:
+  //     br %bb3
+  //
+  //   bb3:
+  //     %blend
+  //     ; <- We set InsertPoint to here.
+  //     %not = not %blend
+  //     %block-predicate %pred
+  if (PredicateInst && PredicateInst->getParent() == BB)
+    Builder.setInsertPoint(PredicateInst->getNextNode());
+  else
+    Builder.setInsertPointAfterBlends(BB);
 }
 
 void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
@@ -900,12 +935,8 @@ public:
         return;
 
       VPActiveLane *ActiveLane = nullptr;
-      auto *BlockPredicate = Block->getBlockPredicate();
       VPBuilder Builder;
-      if (BlockPredicate)
-        Builder.setInsertPoint(BlockPredicate);
-      else
-        Builder.setInsertPointFirstNonPhi(Block);
+      updateInsertPointForVPActiveLane(Builder, Block);
 
       for (auto *Phi : Phis) {
         if (DA->isDivergent(*Phi))
@@ -967,19 +998,11 @@ public:
     if (VecVPlan->areActiveLaneInstructionsDisabled())
       return;
 
-    auto SplitIt = Block->getBlockPredicate()
-                       ? Block->getBlockPredicate()->getIterator()
-                       : Block->begin(); // splitBlockHead will adjust it to
-                                         // point after blends.
-
-    VPBasicBlock *ActiveLaneExtractBB = VPBlockUtils::splitBlockHead(
-        Block, SplitIt, VPLI,
-        Block->getName() + ".active.lane", &VPDomTree, &VPPostDomTree);
+    updateInsertPointForVPActiveLane(Builder, Block);
     VPValue *Mask = Block->getPredicate();
     if (!Mask)
       Mask = Block->getParent()->getVPConstant(
           ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
-    Builder.setInsertPoint(ActiveLaneExtractBB);
     VPActiveLane *ActiveLane =
         Builder.create<VPActiveLane>(Mask->getName() + ".active", Mask);
     DA->markUniform(*ActiveLane);

@@ -223,17 +223,13 @@ define void @active_lane_as_branch_cond(i32 *%a, i32 %b) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_UNIFORM]]
-; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]].active.lane
+; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]].active.lane: # preds: [[BB5]]
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BLEND_BLEND_BB5:%.*]] = blend [ i1 false, i1 [[VP_BB3_BR_VP_UNIFORM_NOT]] ], [ i1 true, i1 [[VP_BB3_BR_VP_UNIFORM]] ]
-; FIXME: Broken SSA (use before def).
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_NOT:%.*]] = not i1 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VARYING_ACTIVE:%.*]] = active-lane i1 [[VP_VARYING]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_BLEND_BB5_ACTIVE]] = lane-extract i1 [[VP_BLEND_BLEND_BB5]] i1 [[VP_VARYING_ACTIVE]]
-; CHECK-NEXT:     [DA: Uni] br [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB6]].active.lane
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_BLEND_BB5_ACTIVE:%.*]] = lane-extract i1 [[VP_BLEND_BLEND_BB5]] i1 [[VP_VARYING_ACTIVE]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BLEND_NOT:%.*]] = not i1 [[VP_BLEND_BLEND_BB5_ACTIVE]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -328,12 +324,11 @@ define void @active_lane_as_branch_cond2(i32 *%a, i32 %b) {
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB5_BR_VP_VARYING_NOT]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING_NOT]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_UNI_PHI:%.*]] = phi  [ i1 undef, [[BB1]] ],  [ i1 [[VP_UNI_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
-; FIXME: Broken SSA (use before def).
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_NOT:%.*]] = not i1 [[VP_UNI_PHI_ACTIVE:%.*]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB5_BR_VP_VARYING_NOT_PHI_BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = or i1 [[VP_BB1_VARYING_NOT_PHI_BB4]] i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ACTIVE_LANE:%.*]] = active-lane i1 [[VP3]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_ACTIVE]] = lane-extract i1 [[VP_UNI_PHI]] i1 [[VP_ACTIVE_LANE]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_ACTIVE:%.*]] = lane-extract i1 [[VP_UNI_PHI]] i1 [[VP_ACTIVE_LANE]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNI_PHI_NOT:%.*]] = not i1 [[VP_UNI_PHI_ACTIVE]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
