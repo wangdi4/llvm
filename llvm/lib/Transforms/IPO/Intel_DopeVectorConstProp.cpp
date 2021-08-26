@@ -284,7 +284,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
 // Return true if the constants collected for the input GlobDV were propagated
 static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
 
-  // Actual function that propagates the constants for the input dope vector field
+  // Actual function that propagates the constants for the input dope
+  // vector field
   auto PropagateFieldConstant = [](DopeVectorFieldUse *DVField) -> bool {
     if (DVField->getIsBottom())
       return false;
@@ -296,6 +297,14 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
     bool Change = false;
     unsigned LoadCount = 0;
     for(auto *LI : DVField->loads()) {
+      if (DVField->isNotForDVCPLoad(LI)) {
+        LLVM_DEBUG({
+          dbgs() << "NOT REPLACING LOAD IN FXN "
+                 << LI->getFunction()->getName() << " ";
+          LI->dump();
+        });
+        continue;
+      }
       LoadCount++;
       LI->replaceAllUsesWith(CI);
       Change = true;
@@ -359,20 +368,11 @@ static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
     NumGlobalDVConstProp++;
 
   // Propagate the constants
-  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors()) {
-    if (NestedDV->getNotForDVCP()) {
-      LLVM_DEBUG({
-        dbgs() << "NOTFORDVCP: FIELD " << NestedDV->getFieldNum() << " ";
-        NestedDV->getDVObject()->dump();
-      });
-      continue;
-    }
+  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors())
     if (PropagateDVConstant(NestedDV)) {
       Change = true;
       NumNestedDVConstProp++;
     }
-  }
-
   return Change;
 }
 

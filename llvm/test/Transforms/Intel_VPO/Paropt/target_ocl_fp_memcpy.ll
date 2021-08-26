@@ -13,7 +13,7 @@
 ; variable uses proper memcpy call. We used to cast argument to 'i8 addrpspace(0)*',
 ; which was illegal for 'i32 addrpspace(1)*' pointer.
 
-; CHECK: call void @llvm.memcpy.p0i8.p0i8.i64
+; CHECK: call void @llvm.memcpy.p0i8.p1i8.i64
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32:64"
 target triple = "spir64"

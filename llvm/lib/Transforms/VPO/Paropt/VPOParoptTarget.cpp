@@ -288,6 +288,9 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
 Function *VPOParoptTransform::finalizeKernelFunction(
     WRegionNode *W, Function *Fn, CallInst *&Call,
     const SmallVectorImpl<uint64_t> &MapTypes,
+#if INTEL_CUSTOMIZATION
+    const SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
     const SmallVectorImpl<Constant *> &ConstSizes) {
 
   assert(isTargetSPIRV() &&
@@ -439,17 +442,22 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         ArgSize = DL.getTypeStoreSize(ArgTy).getFixedSize();
         KernelArgInfo.emplace_back(false, ArgSize);
       } else {
+#if INTEL_CUSTOMIZATION
         // Check if we can pass this argument "by value". We have to be sure
         // that libomptarget will be actually able to pass it by value,
         // so we have to do the same checks as in libomptarget (e.g. see
         // the member-of check below).
         ConstantInt *MapSize = cast<ConstantInt>(ConstSizes[MapIdx]);
         uint64_t MapType = MapTypes[MapIdx];
+        // We can only apply the optimization to WILOCAL variables.
+        // If the whole variable needs to be "visible" by all threads,
+        // then making it a kernel argument will not work correctly.
+        bool IsWILocal = IsWILocalFirstprivate[MapIdx];
         uint64_t MapSizeVal = MapSize->getLimitedValue(ByValLimit);
         const auto MapMask =
             TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_PRIVATE;
         if (MapSizeVal != 0 && MapSizeVal < ByValLimit &&
-            (MapType & MapMask) == MapMask &&
+            IsWILocal &&(MapType & MapMask) == MapMask &&
             (MapIdx + 1 >= MapTypes.size() ||
              (MapTypes[MapIdx + 1] & TGT_MAP_MEMBER_OF) == 0)) {
           // We can pass it by value, but we have to adjust the data type.
@@ -461,12 +469,15 @@ Function *VPOParoptTransform::finalizeKernelFunction(
           KernelArgInfo.emplace_back(true, MapSizeVal, AggrTy);
           ArgSize = MapSizeVal;
         } else {
+#endif // INTEL_CUSTOMIZATION
           // This is a pointer argument.
           ArgSize = DL.getPointerSize(AddrSpaceGlobal);
           KernelArgInfo.emplace_back(false, ArgSize);
           ParamsTy.push_back(
               PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
+#if INTEL_CUSTOMIZATION
         }
+#endif // INTEL_CUSTOMIZATION
       }
     } else {
       // A non-pointer argument may appear as a result of scalar
@@ -565,25 +576,6 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
-
-  if (VPOParoptUtils::enableDeviceSimdCodeGen() &&
-      WRegionUtils::containsWRNsWith(
-          W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); }))
-    // When W contains a SIMD directive (and SIMD device codegen is enabled),
-    // we don't run InferAddrSpaces as it can cause mismatches in the Values
-    // on the clause list, and those used in the region. e.g.
-    //    Before                           |        After
-    // ------------------------------------+------------------------------
-    //  %x1 = addrspacecast i32* %x        | %x1 = addrspacecast i32* %x
-    //            to i32 addrspace(4)*     |          to i32 addrspace(4)*
-    //                                     |
-    //  ...["SIMD",...,"PRIVATE"(%x1)      | ...["SIMD",...,"PRIVATE"(%x1)
-    //                                     |
-    //  store i32 0, i32 addrspace(4)* %x1 | store i32 0, i32* %x
-    //                                     |
-    return NFn;
-
-  InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NFn);
   return NFn;
 }
 
@@ -1408,27 +1400,65 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // Please note that the name of NewF is updated in the
     // function registerTargetRegion.
     if (isTargetSPIRV()) {
-      LLVM_DEBUG(dbgs() << "\nBefore guardSideEffectStatements the function ::"
-                        << *NewF);
-      guardSideEffectStatements(W, NewF);
-      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
-                        << *NewF);
-
-      // Make sure to run kernel finalization after guardSideEffectStatements(),
-      // which is responsible for cleaning up all directive calls that
-      // were left until this point for guardSideEffectStatements() to work.
-      // The extra directive call may prevent address space inferring.
       SmallVector<Constant *, 16> ConstSizes;
       SmallVector<uint64_t, 16> MapTypes;
       SmallVector<GlobalVariable *, 16> Names;
       SmallVector<Value *, 16> Mappers;
+#if INTEL_CUSTOMIZATION
+      SmallVector<bool> IsWILocalFirstprivate;
+#endif // INTEL_CUSTOMIZATION
       bool HasRuntimeEvaluationCaptureSize = false;
       (void)getTargetDataInfo(W, NewCall, ConstSizes, MapTypes,
-                              Names, Mappers, HasRuntimeEvaluationCaptureSize);
-      NewF = finalizeKernelFunction(W, NewF, NewCall, MapTypes, ConstSizes);
+                              Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                              IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                              HasRuntimeEvaluationCaptureSize);
+      NewF = finalizeKernelFunction(W, NewF, NewCall, MapTypes,
+#if INTEL_CUSTOMIZATION
+                                    IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+                                    ConstSizes);
 
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
+
+      // Run guardSideEffectStatements() after finalizeKernelFunction(),
+      // because the latter may modify some of the kernel arguments,
+      // e.g. change arguments that were originally outlined as addrspace(1)
+      // pointer argument into byval arguments from addrspace(0).
+      // We must not guard accesses through such pointer arguments with
+      // the master-thread checks, otherwise, the code may produce
+      // wrong results.
+      guardSideEffectStatements(W, NewF);
+      LLVM_DEBUG(dbgs() << "\nAfter guardSideEffectStatements the function ::"
+                        << *NewF);
+
+      // Finally, run address space inference optimization to get rid
+      // of addrspace(4) accesses, which result in run-time dispatches.
+      // We have to run it after guardSideEffectStatements(), which
+      // removes OpenMP directives that may be considered as pointer
+      // escapes, thus, may block the address space inference.
+      if (!VPOParoptUtils::enableDeviceSimdCodeGen() ||
+          !WRegionUtils::containsWRNsWith(
+               W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); })) {
+        // When W contains a SIMD directive (and SIMD device codegen
+        // is enabled), we don't run InferAddrSpaces as it can cause
+        // mismatches in the Values on the clause list, and those used
+        // in the region. e.g.
+        //    Before                           |        After
+        // ------------------------------------+------------------------------
+        //  %x1 = addrspacecast i32* %x        | %x1 = addrspacecast i32* %x
+        //            to i32 addrspace(4)*     |          to i32 addrspace(4)*
+        //                                     |
+        //  ...["SIMD",...,"PRIVATE"(%x1)      | ...["SIMD",...,"PRIVATE"(%x1)
+        //                                     |
+        //  store i32 0, i32 addrspace(4)* %x1 | store i32 0, i32* %x
+        //                                     |
+        InferAddrSpaces(*TTI, vpo::ADDRESS_SPACE_GENERIC, *NewF);
+        LLVM_DEBUG(dbgs() << "\nAfter InferAddrSpaces the function ::"
+                   << *NewF);
+      }
     }
   }
 
@@ -1685,6 +1715,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
     SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
     bool &hasRuntimeEvaluationCaptureSize, bool VIsTargetKernelArg) const {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
@@ -1737,6 +1770,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       int CurrentIndexForBaseOfChain = MapTypes.size() + 1;
       int InitialIndexForBaseOfChain =
           AggrHead->hasInitialAggrIndex() ? AggrHead->getInitialAggrIndex() : 0;
+#if INTEL_CUSTOMIZATION
+      bool IsWILocal = false;
+      if (FirstprivateItem *FprivI = MapI->getInFirstprivate())
+        if (FprivI->getIsWILocal())
+          IsWILocal = true;
+#endif // INTEL_CUSTOMIZATION
 
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
@@ -1830,7 +1869,13 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         } else
           MapTypes.push_back(getMapTypeFlag(MapI, MapChain.size() <= 1, I == 0,
                                             VIsTargetKernelArg));
-
+#if INTEL_CUSTOMIZATION
+        if (I == 0 && IsWILocal &&
+            (MapTypes.back() & TGT_MAP_TARGET_PARAM))
+          IsWILocalFirstprivate.push_back(true);
+        else
+          IsWILocalFirstprivate.push_back(false);
+#endif // INTEL_CUSTOMIZATION
         // MapName looks like:
         //  @0 = private unnamed_addr constant [40 x i8]
         //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
@@ -1880,6 +1925,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                                               DL.getTypeAllocSize(ObjectTy)));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
       }
+#if INTEL_CUSTOMIZATION
+      IsWILocalFirstprivate.push_back(FprivI->getIsWILocal());
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -1890,6 +1938,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     MapTypes.push_back(TGT_MAP_ND_DESC);
     Names.push_back(getMapNameForVar(V));
     Mappers.push_back(nullptr);
+#if INTEL_CUSTOMIZATION
+    IsWILocalFirstprivate.push_back(false);
+#endif // INTEL_CUSTOMIZATION
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genTgtInformationForPtrs:"
@@ -2004,6 +2055,9 @@ unsigned VPOParoptTransform::getTargetDataInfo(
     SmallVectorImpl<uint64_t> &MapTypes,
     SmallVectorImpl<GlobalVariable *> &Names,
     SmallVectorImpl<Value *> &Mappers,
+#if INTEL_CUSTOMIZATION
+    SmallVectorImpl<bool> &IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
     bool &HasRuntimeEvaluationCaptureSize) const {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
   unsigned NumberOfPtrs = Call->getNumArgOperands();
@@ -2020,17 +2074,26 @@ unsigned VPOParoptTransform::getTargetDataInfo(
   if (NumberOfPtrs || ForceMapping) {
     if (ForceMapping) {
       genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                               IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                                HasRuntimeEvaluationCaptureSize);
     } else {
       for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
         Value *BPVal = Call->getArgOperand(II);
         genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                                 IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                                  HasRuntimeEvaluationCaptureSize,
                                  /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
       }
       if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
         genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
                                  MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                                 IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                                  HasRuntimeEvaluationCaptureSize,
                                  /*VIsTargetKernelArg=*/true);
     }
@@ -2091,9 +2154,16 @@ CallInst *VPOParoptTransform::genTargetInitCode(
   SmallVector<uint64_t, 16> MapTypes;
   SmallVector<GlobalVariable *, 16> Names;
   SmallVector<Value *, 16> Mappers;
+#if INTEL_CUSTOMIZATION
+  SmallVector<bool, 16> IsWILocalFirstprivate;
+#endif // INTEL_CUSTOMIZATION
   bool HasRuntimeEvaluationCaptureSize = false;
   Info.NumberOfPtrs = getTargetDataInfo(W, Call,
-      ConstSizes, MapTypes, Names, Mappers, HasRuntimeEvaluationCaptureSize);
+      ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+      IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
+      HasRuntimeEvaluationCaptureSize);
 
   if (Info.NumberOfPtrs)
     genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes, MapTypes, Names,
@@ -4096,10 +4166,16 @@ void VPOParoptTransform::getAndReplaceDevicePtrs(WRegionNode *W,
   SmallVector<uint64_t, 16> MapTypes;
   SmallVector<GlobalVariable *, 16> Names;
   SmallVector<Value *, 16> Mappers;
+#if INTEL_CUSTOMIZATION
+  SmallVector<bool, 16> IsWILocalFirstprivate;
+#endif // INTEL_CUSTOMIZATION
 
   (void)addMapForUseDevicePtr(W, VariantCall);
 
   genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+#if INTEL_CUSTOMIZATION
+                           IsWILocalFirstprivate,
+#endif // INTEL_CUSTOMIZATION
                            hasRuntimeEvaluationCaptureSize);
 
   CallInst *DummyCall = nullptr;

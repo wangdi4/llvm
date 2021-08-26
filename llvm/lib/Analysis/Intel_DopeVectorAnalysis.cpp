@@ -287,7 +287,8 @@ static bool IsCopyFromDVField(StoreInst *SI, Value *SrcPtr) {
 // Else return false. This function also updates if the dope vector field has
 // been read or written.
 bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
-                                                       Value *Pointer) {
+                                                       Value *Pointer,
+                                                       bool IsNotForDVCP) {
   if (!V)
     return false;
 
@@ -311,6 +312,8 @@ bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
     }
   } else if (auto *LI = dyn_cast<LoadInst>(V)) {
     Loads.insert(LI);
+    if (IsNotForDVCP)
+      NotForDVCPLoads.insert(LI);
     IsRead = true;
   } else {
     return false;
@@ -329,12 +332,12 @@ void DopeVectorFieldUse::analyzeUses() {
     return;
 
   for (auto *FAddr : FieldAddr) {
-    for (auto *U : FAddr->users()) {
-      if (!analyzeLoadOrStoreInstruction(U, FAddr)) {
+    bool IsNotForDVCP = NotForDVCPFieldAddr.contains(FAddr);
+    for (auto *U : FAddr->users())
+      if (!analyzeLoadOrStoreInstruction(U, FAddr, IsNotForDVCP)) {
           IsBottom = true;
           break;
       }
-    }
   }
 }
 
@@ -433,13 +436,13 @@ void DopeVectorFieldUse::analyzeSubscriptsUses() {
       IsBottom = true;
       return;
     }
-
+    bool IsNotForDVCP = NotForDVCPFieldAddr.count(SI->getPointerOperand());
     // Traverse through the users of the subscript instruction and check for
     // Load, Store and PHINodes.
     for (auto *U : SI->users()) {
       if (isa<StoreInst>(U) || isa<LoadInst>(U)) {
         // The subscript should be used for load or store
-        if(!analyzeLoadOrStoreInstruction(U, SI)) {
+        if(!analyzeLoadOrStoreInstruction(U, SI, IsNotForDVCP)) {
           IsBottom = true;
           break;
         }
@@ -547,6 +550,8 @@ bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
 void DopeVectorFieldUse::merge(const DopeVectorFieldUse& Other) {
   FieldAddr.insert(Other.FieldAddr.begin(), Other.FieldAddr.end());
   Loads.insert(Other.Loads.begin(), Other.Loads.end());
+  NotForDVCPLoads.insert(Other.NotForDVCPLoads.begin(),
+    Other.NotForDVCPLoads.end());
   Stores.insert(Other.Stores.begin(), Other.Stores.end());
   Subscripts.insert(Other.Subscripts.begin(), Other.Subscripts.end());
   if (Other.getIsRead())
@@ -1838,7 +1843,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       if (DVField->getIsBottom())
         return false;
 
-      DVField->addFieldAddr(SI);
+      DVField->addFieldAddr(SI, NestedDV->getNotForDVCP());
     }
     return true;
   };
@@ -1982,16 +1987,14 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
         !Arg->hasNoAliasAttr())
       return false;
 
-    if (ForDVCP && !NestedDV->getNotForDVCP() &&
-        HasBadSideCalls(Call, F, ArgNo))
-      NestedDV->setNotForDVCP();
-
-    // Recurse, arg represents now the pointer to the nested dope vector
-    if (!collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
-        ValueChecked, DL, ForDVCP, false))
-      return false;
-
-    return true;
+    bool RestoreValue = NestedDV->getNotForDVCP();
+    bool NewValue = RestoreValue || ForDVCP && !NestedDV->getNotForDVCP() &&
+        HasBadSideCalls(Call, F, ArgNo);
+    NestedDV->setNotForDVCP(NewValue);
+    bool RV = collectNestedDopeVectorFieldAddress(NestedDV, Arg, GetTLI,
+        ValueChecked, DL, ForDVCP, false);
+    NestedDV->setNotForDVCP(RestoreValue);
+    return RV;
   };
 
   // Return true if the input GEP is used only by a BitCast for
@@ -2053,7 +2056,7 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
       auto *DVField = NestedDV->getDopeVectorField(DVFieldType);
       if (DVField->getIsBottom())
         return false;
-     DVField->addFieldAddr(cast<Value>(GEP));
+     DVField->addFieldAddr(cast<Value>(GEP), NestedDV->getNotForDVCP());
     } else if (DVFieldType == DopeVectorFieldType::DV_PerDimensionArray) {
       // Check the accesses through the per dimension array
       if(!CollectAccessForPerDimensionArray(GEP))

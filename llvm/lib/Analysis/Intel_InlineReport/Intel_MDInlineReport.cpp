@@ -655,6 +655,33 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   addCallback(NewFunction, OldFIR);
 }
 
+// Copy the call metadata from 'OldCall' to 'NewCall' and update the callbacks
+void InlineReportBuilder::replaceCallBaseWithCallBase(CallBase *OldCall,
+                                                      CallBase *NewCall) {
+  if (!isMDIREnabled())
+    return;
+  if (OldCall == NewCall)
+    return;
+  Metadata *OldCallMD = OldCall->getMetadata(MDInliningReport::CallSiteTag);
+  if (!OldCallMD)
+    return;
+  auto *OldCallMDIR = dyn_cast<MDTuple>(OldCallMD);
+  if (!OldCallMDIR)
+    return;
+
+  NewCall->setMetadata(MDInliningReport::CallSiteTag, OldCallMDIR);
+
+  // Create the new callback information
+  addCallback(NewCall, OldCallMDIR);
+
+  // Move the inline report builder from the old to the new callback
+  // information if it is available
+  copyAndUpdateIRBuilder(OldCall, NewCall);
+
+  // Remove the old call from the map
+  removeCallback(OldCall);
+}
+
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
 InlineReportBuilder *llvm::getMDInlineReport() {

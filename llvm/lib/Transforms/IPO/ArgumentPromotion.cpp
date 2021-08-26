@@ -429,7 +429,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     MDNode *MD = CB.getMetadata(LLVMContext::MD_intel_profx);
     if (MD)
       NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
+
     getInlineReport()->replaceCallBaseWithCallBase(&CB, NewCS);
+    getMDInlineReport()->replaceCallBaseWithCallBase(&CB, NewCS);
 #endif // INTEL_CUSTOMIZATION
     Args.clear();
     ArgAttrVec.clear();

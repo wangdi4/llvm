@@ -627,6 +627,7 @@ bool IPDeadArgElimination::removeDeadArgs(Function *F,
       NewCall->setMetadata(MD.first, MD.second);
 
     getInlineReport()->replaceCallBaseWithCallBase(&Call, NewCall);
+    getMDInlineReport()->replaceCallBaseWithCallBase(&Call, NewCall);
 
     // Replace the users if needed and take the name
     if (!Call.use_empty() || Call.isUsedByMetadata())

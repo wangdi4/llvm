@@ -183,13 +183,15 @@ public:
     return SIV.hasValue();
   }
 
-  void addFieldAddr(Value *V) {
+  void addFieldAddr(Value *V, bool IsNotForDVCP = false) {
     // If AllowMultipleFieldAddresses is disabled then only one
     // value should access the current field.
     if (!AllowMultipleFieldAddresses &&
         !FieldAddr.empty() && FieldAddr[0] != V)
         IsBottom = true;
     FieldAddr.insert(V);
+    if (IsNotForDVCP)
+      NotForDVCPFieldAddr.insert(V);
   }
 
   // Check if the field address has been set.
@@ -251,6 +253,8 @@ public:
 
   void collectFromCopy(const DopeVectorFieldUse& CopyDVField);
 
+  bool isNotForDVCPLoad(LoadInst *LI) { return NotForDVCPLoads.contains(LI); }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -266,6 +270,10 @@ private:
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;
 
+  // SetVector that contains the addresses for the field that should not
+  // be used for dope vector constant propagation.
+  SetVector<Value *> NotForDVCPFieldAddr;
+
   // Set of locations the field is written to. Used to check what
   // value(s) is stored.
   StoreInstSet Stores;
@@ -273,6 +281,9 @@ private:
   // Set of locations the field is loaded. This will be used for examining the
   // usage for profitability heuristics and safety checks.
   LoadInstSet Loads;
+
+  // Loads in 'Loads' above that should not be dope vector constant propagated.
+  LoadInstSet NotForDVCPLoads;
 
   // Store the subscripts that access the extent, stride or lower bound
   SubscriptInstSet Subscripts;
@@ -293,7 +304,7 @@ private:
 
   // Return true if the input value V is a load instruction, or a store
   // instruction where the pointer operand is Pointer.
-  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer);
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer, bool IsNotForDVCP);
 };
 
 // This class is for analyzing the uses of all the fields that make up a dope
@@ -905,7 +916,7 @@ public:
   // on this nested dope vector.  If not, the information stored is valuable
   // only for escapse analysis.
   bool getNotForDVCP() const { return NotForDVCP; }
-  void setNotForDVCP() { NotForDVCP = true; }
+  void setNotForDVCP(bool Value) { NotForDVCP = Value; }
 
   // Analyze the fields of the nested dope vector
   void analyzeNestedDopeVector();
@@ -918,8 +929,6 @@ public:
 
   // Merge relevant info from 'Other' into '*this'
   void merge(const NestedDopeVectorInfo &Other) {
-    if (Other.getNotForDVCP())
-      setNotForDVCP();
     DopeVectorInfo::merge(Other);
   }
 
