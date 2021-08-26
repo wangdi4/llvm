@@ -28,15 +28,19 @@
 //  return atoi(envVar);
 //}
 
+#define DEBUG_TYPE "cl-loop-stride"
+
 namespace intel {
 
 
 char LoopStridedCodeMotion::ID = 0;
 
-OCL_INITIALIZE_PASS_BEGIN(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
+OCL_INITIALIZE_PASS_BEGIN(LoopStridedCodeMotion, DEBUG_TYPE,
+                          "move strided values out of loops", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
-OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
+OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, DEBUG_TYPE,
+                        "move strided values out of loops", false, false)
 
 LoopStridedCodeMotion::LoopStridedCodeMotion() : LoopPass(ID) {
   initializeLoopStridedCodeMotionPass(*PassRegistry::getPassRegistry());
@@ -147,6 +151,10 @@ bool LoopStridedCodeMotion::canHoistInstruction(Instruction *I) {
     return false;
   }
 
+  // To avoid accuracy loss, don't hoist fmul instruction without fast flag.
+  if (I->getOpcode() == Instruction::FMul && !I->isFast())
+    return false;
+
   // I can be moved to the pre-header only if all it's operands will be valid
   // in the pre-header. This means that they are either invariant, or they are
   // strided values that were marked for removal before, or they are header phi
@@ -159,7 +167,7 @@ bool LoopStridedCodeMotion::canHoistInstruction(Instruction *I) {
       return false;
     }
   }
-  //errs () << "can be moved: " << I << "   " <<  *I << "\n";
+  LLVM_DEBUG(dbgs() << "can be moved: " << I << "   " << *I << "\n");
   return true;
 }
 

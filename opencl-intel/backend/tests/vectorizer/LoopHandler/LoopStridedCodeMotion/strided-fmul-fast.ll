@@ -1,7 +1,7 @@
 ; RUN: %oclopt -cl-loop-stride -S %s | FileCheck %s
 ; RUN: %oclopt -cl-loop-stride -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 
-; This test checks that fmul is not hoisted.
+; This test checks that stride is computed from operands of fast fmul.
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -15,10 +15,6 @@ vect_if:
   br label %dim_0_vector_pre_head
 
 dim_0_vector_pre_head:                            ; preds = %vect_if
-
-; CHECK: dim_0_vector_pre_head:
-; CHECK: [[STRIDED:%[0-9]+]] = sitofp <8 x i32> %{{[0-9]+}} to <8 x float>
-
   br label %entryvector_func
 
 entryvector_func:                                 ; preds = %entryvector_func, %dim_0_vector_pre_head
@@ -31,13 +27,16 @@ entryvector_func:                                 ; preds = %entryvector_func, %
   %sextvector_func = shl i64 %dim0__tid, 32
   %.extract.0.vector_func = ashr exact i64 %sextvector_func, 32
   %5 = sitofp <8 x i32> %4 to <8 x float>
-  %6 = fmul <8 x float> %5, <float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000>
-  %7 = fadd <8 x float> %6, <float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00>
+  %6 = fmul fast <8 x float> %5, <float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000, float 0x3F35D867C0000000>
+  %7 = fadd fast <8 x float> %6, <float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00, float -1.000000e+00>
 
-; CHECK: entryvector_func:
-; CHECK: [[PHI:%[0-9]+]] = phi <8 x float> [ [[STRIDED]]
-; CHECK: [[FMUL:%[0-9]+]] = fmul <8 x float> [[PHI]], <float 0x3F35D867C0000000,
-; CHECK-NEXT: %{{[0-9]+}} = fadd <8 x float> [[FMUL]], <float -1.000000e+00,
+; CHECK: [[STRIDED:%[0-9]+]] = sitofp <8 x i32> %{{[0-9]+}} to <8 x float>
+; CHECK-NEXT: [[FMUL:%[0-9]+]] = fmul fast <8 x float> [[STRIDED]], <float 0x3F35D867C0000000,
+; CHECK-NEXT: %{{[0-9]+}} = fadd fast <8 x float> [[FMUL]], <float -1.000000e+00,
+; CHECK-NEXT: %extract.0 = extractelement <8 x float> [[STRIDED]], i32 0
+; CHECK-NEXT: %extract.1 = extractelement <8 x float> [[STRIDED]], i32 1
+; CHECK-NEXT: %sub.delta = fsub float %extract.1, %extract.0
+; CHECK-NEXT: %mul.delta = fmul float %sub.delta, 0x3F65D867C0000000
 
   %scalar.gepvector_func = getelementptr inbounds float, float addrspace(1)* %kb, i64 %.extract.0.vector_func
   %8 = bitcast float addrspace(1)* %scalar.gepvector_func to <8 x float> addrspace(1)*
