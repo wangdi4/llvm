@@ -497,7 +497,7 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
     {25525, "VECTORIZATION SPEEDUP COEFFECIENT"},
     {25526, "ALTERNATE ALIGNMENT VECTOR LOOP"},
     {25527, "VECTOR TRIP COUNT IS ESTIMATED CONSTANT"},
-    {25528, "VECTOR TRIP COUNT IS KNOWN CONSTANT"},
+    {25528, "Load/Store of reduction at line %d sinked after loop"},
     {25529, "Dead stores eliminated in loop"},
     {25530, "Stmt at line %d sinked after loop using last value computation"},
     {25531, "LOOP WITH USER VECTOR INTRINSICS"},
