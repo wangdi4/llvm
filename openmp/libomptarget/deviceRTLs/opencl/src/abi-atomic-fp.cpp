@@ -80,12 +80,17 @@ EXTERN DATATYPE __kmpc_atomic_##DATANAME##_##OPTYPE##_cpt                      \
 
 #pragma omp declare target
 /// 4-byte float atomics
+#ifdef ENABLE_FP32_ATOMIC_ADD_EXT
+#if INTEL_CUSTOMIZATION
+// Disabling Add extension since it is unstable on ATS. MinMax is OK.
+#endif // INTEL_CUSTOMIZATION
 KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, add, Add)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_BASE(float4, float, sub, Add, -)
-KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, min, Min)
-KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, max, Max)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT(float4, float, add, Add, OP_ADD)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT_BASE(float4, float, sub, Add, OP_SUB, -)
+#endif
+KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, min, Min)
+KMPC_ATOMIC_IMPL_FLOAT_EXT(float4, float, max, Max)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT(float4, float, min, Min, OP_MIN)
 KMPC_ATOMIC_IMPL_FLOAT_EXT_CPT(float4, float, max, Max, OP_MAX)
 
