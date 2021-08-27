@@ -504,6 +504,14 @@ void PrepareKernelArgsPass::replaceFunctionPointers(Function *Wrapper,
       }
     }
   }
+
+  // Replace bitcast operator user, e.g. in global value.
+  for (User *U : WrappedKernel->users()) {
+    if (auto *Op = dyn_cast<BitCastOperator>(U)) {
+      auto *WrapperOp = ConstantExpr::getBitCast(Wrapper, Op->getDestTy());
+      Op->replaceAllUsesWith(WrapperOp);
+    }
+  }
 }
 
 void PrepareKernelArgsPass::emptifyWrappedKernel(Function *F) {
@@ -552,6 +560,10 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F) {
   // wrapped kernel for now, to avoid its declaration being removed by
   // StripDeadPrototypes or GlobalDCE.
   emptifyWrappedKernel(F);
+
+  // Add comdat to wrapper function and drop from F.
+  Wrapper->setComdat(F->getComdat());
+  F->setComdat(nullptr);
 
   return true;
 }

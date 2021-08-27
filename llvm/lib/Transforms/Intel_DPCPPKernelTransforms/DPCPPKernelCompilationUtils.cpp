@@ -1020,6 +1020,10 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   // since DISubprogram will be deleted too.
   NewF->setSubprogram(F->getSubprogram());
 
+  // Add comdat to newF and drop from F.
+  NewF->setComdat(F->getComdat());
+  F->setComdat(nullptr);
+
   // Delete original function body - this is needed to remove linkage (if
   // exists).
   F->deleteBody();
