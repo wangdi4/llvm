@@ -1365,7 +1365,7 @@ void PassManagerBuilder::populateModulePassManager(
   // Additionally adding SROA after the argument promotion to cleanup allocas
   // allows to get more accurate attributes for the promoted arguments.
   if (OptLevel > 2) {
-    MPM.add(createArgumentPromotionPass()); // Scalarize uninlined fn args
+    MPM.add(createArgumentPromotionPass(true)); // Scalarize uninlined fn args
     MPM.add(createSROALegacyCGSCCAdaptorPass());
   }
 #endif // INTEL_CUSTOMIZATION

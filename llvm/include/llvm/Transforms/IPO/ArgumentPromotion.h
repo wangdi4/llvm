@@ -22,10 +22,16 @@ class TargetTransformInfo;
 /// transform it and all of its callers to replace indirect arguments with
 /// direct (by-value) arguments.
 class ArgumentPromotionPass : public PassInfoMixin<ArgumentPromotionPass> {
+  bool RemoveHomedArguments; // INTEL
   unsigned MaxElements;
 
 public:
-  ArgumentPromotionPass(unsigned MaxElements = 3u) : MaxElements(MaxElements) {}
+#if INTEL_CUSTOMIZATION
+  ArgumentPromotionPass(bool RemoveHomedArguments = false,
+                        unsigned MaxElements = 3u) :
+                        RemoveHomedArguments(RemoveHomedArguments),
+                        MaxElements(MaxElements) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// Check if callers and the callee \p F agree how promoted arguments would be
   /// passed. The ones that they do not agree on are eliminated from the sets but

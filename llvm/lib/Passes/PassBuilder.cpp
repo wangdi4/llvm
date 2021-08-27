@@ -1482,7 +1482,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // When at O3 add argument promotion to the pass pipeline.
   // FIXME: It isn't at all clear why this should be limited to O3.
   if (Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(ArgumentPromotionPass());
+    MainCGPipeline.addPass(ArgumentPromotionPass(true)); // INTEL
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
