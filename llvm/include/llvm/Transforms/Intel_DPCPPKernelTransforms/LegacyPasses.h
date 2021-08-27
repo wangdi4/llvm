@@ -27,7 +27,8 @@ ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");
 ModulePass *createCreateSimdVariantPropagationLegacyPass();
-ModulePass *createDPCPPEqualizerLegacyPass();
+ModulePass *
+createDPCPPEqualizerLegacyPass(ArrayRef<Module *> BuiltinModules = {});
 ModulePass *createDPCPPKernelVecClonePass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {},

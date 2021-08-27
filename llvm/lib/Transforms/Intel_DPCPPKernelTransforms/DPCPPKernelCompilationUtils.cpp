@@ -368,48 +368,50 @@ static bool isKMPAcquireReleaseLock(StringRef S) {
   return (S == NAME_IB_KMP_ACQUIRE_LOCK) || (S == NAME_IB_KMP_RELEASE_LOCK);
 }
 
-PipeKind getPipeKind(StringRef S) {
+PipeKind getPipeKind(StringRef Name) {
   PipeKind Kind;
-  Kind.Op = PipeKind::OK_None;
+  Kind.Op = PipeKind::OpKind::None;
 
+  StringRef S(Name);
   if (!S.consume_front("__"))
     return Kind;
 
   if (S.consume_front("sub_group_"))
-    Kind.Scope = PipeKind::SK_SubGroup;
+    Kind.Scope = PipeKind::ScopeKind::SubGroup;
   else if (S.consume_front("work_group_"))
-    Kind.Scope = PipeKind::SK_WorkGroup;
+    Kind.Scope = PipeKind::ScopeKind::WorkGroup;
   else
-    Kind.Scope = PipeKind::SK_WorkItem;
+    Kind.Scope = PipeKind::ScopeKind::WorkItem;
 
   if (S.consume_front("commit_"))
-    Kind.Op = PipeKind::OK_Commit;
+    Kind.Op = PipeKind::OpKind::Commit;
   else if (S.consume_front("reserve_"))
-    Kind.Op = PipeKind::OK_Reserve;
+    Kind.Op = PipeKind::OpKind::Reserve;
 
   if (S.consume_front("read_"))
-    Kind.Access = PipeKind::AK_Read;
+    Kind.Access = PipeKind::AccessKind::Read;
   else if (S.consume_front("write_"))
-    Kind.Access = PipeKind::AK_Write;
+    Kind.Access = PipeKind::AccessKind::Write;
   else {
-    Kind.Op = PipeKind::OK_None;
+    Kind.Op = PipeKind::OpKind::None;
     return Kind; // not a pipe built-in
   }
 
   if (!S.consume_front("pipe")) {
-    Kind.Op = PipeKind::OK_None;
+    Kind.Op = PipeKind::OpKind::None;
     return Kind; // not a pipe built-in
   }
 
-  if (Kind.Op == PipeKind::OK_Commit || Kind.Op == PipeKind::OK_Reserve) {
+  if (Kind.Op == PipeKind::OpKind::Commit ||
+      Kind.Op == PipeKind::OpKind::Reserve) {
     // rest for the modifiers only appliy to read/write built-ins
     return Kind;
   }
 
   if (S.consume_front("_2"))
-    Kind.Op = PipeKind::OK_ReadWrite;
+    Kind.Op = PipeKind::OpKind::ReadWrite;
   else if (S.consume_front("_4"))
-    Kind.Op = PipeKind::OK_ReadWriteReserve;
+    Kind.Op = PipeKind::OpKind::ReadWriteReserve;
 
   // FPGA extension.
   if (S.consume_front("_bl"))
@@ -428,12 +430,81 @@ PipeKind getPipeKind(StringRef S) {
   if (S.consume_front("_") && S.startswith("v"))
     Kind.SimdSuffix = std::string(S);
 
+  assert(Name == getPipeName(Kind) &&
+         "getPipeKind() and getPipeName() are not aligned!");
+
   return Kind;
+}
+
+std::string getPipeName(PipeKind Kind) {
+  assert(Kind.Op != PipeKind::OpKind::None && "Invalid pipe kind");
+
+  std::string Name("__");
+
+  switch (Kind.Scope) {
+  case PipeKind::ScopeKind::WorkGroup:
+    Name += "work_group_";
+    break;
+  case PipeKind::ScopeKind::SubGroup:
+    Name += "sub_group_";
+    break;
+  case PipeKind::ScopeKind::WorkItem:
+    break;
+  }
+
+  switch (Kind.Op) {
+  case PipeKind::OpKind::Commit:
+    Name += "commit_";
+    break;
+  case PipeKind::OpKind::Reserve:
+    Name += "reserve_";
+    break;
+  default:
+    break;
+  }
+
+  switch (Kind.Access) {
+  case PipeKind::AccessKind::Read:
+    Name += "read_";
+    break;
+  case PipeKind::AccessKind::Write:
+    Name += "write_";
+    break;
+  }
+  Name += "pipe";
+
+  switch (Kind.Op) {
+  case PipeKind::OpKind::ReadWrite:
+    Name += "_2";
+    break;
+  case PipeKind::OpKind::ReadWriteReserve:
+    Name += "_4";
+    break;
+  default:
+    // Rest of the modifiers only apply to read/write built-ins.
+    return Name;
+  }
+
+  if (Kind.Blocking)
+    Name += "_bl";
+
+  if (Kind.IO)
+    Name += "_io";
+
+  if (Kind.FPGA)
+    Name += "_fpga";
+
+  if (!Kind.SimdSuffix.empty()) {
+    Name += "_";
+    Name += Kind.SimdSuffix;
+  }
+
+  return Name;
 }
 
 bool isWorkItemPipeBuiltin(StringRef S) {
   auto Kind = getPipeKind(S);
-  return Kind && Kind.Scope == PipeKind::SK_WorkItem;
+  return Kind && Kind.Scope == PipeKind::ScopeKind::WorkItem;
 }
 
 bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
