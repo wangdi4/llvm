@@ -723,6 +723,7 @@ void initializeSplitBBonBarrierLegacyPass(PassRegistry &);
 void initializeUpdateCallAttrsLegacyPass(PassRegistry &);
 void initializeVectorVariantFillInLegacyPass(PassRegistry &);
 void initializeVectorVariantLoweringLegacyPass(PassRegistry &);
+void initializeVFAnalysisLegacyPass(PassRegistry &);
 void initializeWIRelatedValueWrapperPass(PassRegistry &);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);

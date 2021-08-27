@@ -41,7 +41,8 @@ using namespace llvm;
 #define DEBUG_TYPE "dpcpp-prepare-kernel-for-vec-clone"
 
 cl::opt<VectorVariant::ISAClass> IsaEncodingOverride(
-    "dpcpp-vector-variant-isa-encoding-override", cl::Hidden,
+    "dpcpp-vector-variant-isa-encoding-override", cl::init(VectorVariant::XMM),
+    cl::Hidden,
     cl::desc("Override target CPU ISA encoding for Vector Variant passes."),
     cl::values(clEnumValN(VectorVariant::ZMM, "AVX512Core", "AVX512Core"),
                clEnumValN(VectorVariant::YMM2, "AVX2", "AVX2"),

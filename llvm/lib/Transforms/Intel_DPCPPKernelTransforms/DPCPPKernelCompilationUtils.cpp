@@ -9,7 +9,10 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/ADT/DepthFirstIterator.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -31,6 +34,7 @@ namespace llvm {
 const StringRef KernelAttribute::CallOnce = "kernel-call-once";
 const StringRef KernelAttribute::CallParamNum = "call-params-num";
 const StringRef KernelAttribute::ConvergentCall = "kernel-convergent-call";
+const StringRef KernelAttribute::HasSubGroups = "has-sub-groups";
 const StringRef KernelAttribute::HasVPlanMask = "has-vplan-mask";
 const StringRef KernelAttribute::RecursionWithBarrier =
     "barrier_with_recursion";
@@ -1494,6 +1498,19 @@ void updateMetadataTreeWithNewFuncs(
       }
     }
   }
+}
+
+bool hasFunctionCallInCGNodeSatisfiedWith(
+    CallGraphNode *Node, function_ref<bool(Function *)> Condition) {
+  for (auto It = df_begin(Node); It != df_end(Node); ++It) {
+    Function *CalledFunc = It->getFunction();
+    // Always skips the root node.
+    if (CalledFunc == Node->getFunction())
+      continue;
+    if (Condition(CalledFunc))
+      return true;
+  }
+  return false;
 }
 
 } // end namespace DPCPPKernelCompilationUtils
