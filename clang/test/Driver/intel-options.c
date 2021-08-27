@@ -266,11 +266,8 @@
 // CHECK-FAST: "-ffp-contract=fast"
 
 // RUN: %clang_cl -### -Qlong-double --target=x86_64-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
+// RUN: %clang_cl -### -Qlong-double --target=i386-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE %s
 // LONG_DOUBLE: clang{{.*}} "-fintel-long-double-size=80"
-
-// RUN: %clang_cl -### -Qlong-double --target=i386-pc-windows-msvc -c %s 2>&1 | FileCheck --check-prefix=LONG_DOUBLE_ERROR %s
-// LONG_DOUBLE_ERROR: unsupported option
-// LONG_DOUBLE_ERROR-NOT: clang{{.*}} "-fintel-long-double-size=80"
 
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s

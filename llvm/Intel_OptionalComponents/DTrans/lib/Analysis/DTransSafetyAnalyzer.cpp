@@ -359,45 +359,82 @@ public:
     // based on the DTrans type information for a structure field or array
     // element. If so, set a safety flag.
     //
-    // Note: This uses an exact match of the type, however it may need to be
-    // more flexible for function pointer types used in virtual function tables
-    // in the future.
-    auto CheckInitializerCompatibility =
-        [this](GlobalVariable &GV, DTransType *DType, Constant *ConstVal) {
-          assert(DType && "Expected valid DTransType object");
-          assert(ConstVal && "Expected valid Constant object");
+    auto CheckInitializerCompatibility = [this](GlobalVariable &GV,
+                                                DTransType *DType,
+                                                Constant *ConstVal) {
+      assert(DType && "Expected valid DTransType object");
+      assert(ConstVal && "Expected valid Constant object");
 
-          // Removing pointer casts should only be relevant when using typed
-          // pointers. When opaque pointers are in use, the Constant can be
-          // used without the intervening bitcasts.
-          if (ConstVal->getType()->isPointerTy())
-            ConstVal = ConstVal->stripPointerCasts();
+      // No need to check 'zeroinitializer' for compatibility.
+      if (ConstVal->isZeroValue())
+        return;
 
-          if (auto *InitializerGlobObj = dyn_cast<GlobalObject>(ConstVal)) {
-            ValueTypeInfo *Info = PTA.getValueTypeInfo(InitializerGlobObj);
-            assert(Info && "Expected pointer type analyzer to collect type "
-                           "for GlobalObject");
-            DTransType *InitializerType =
-                PTA.getDominantAggregateType(*Info, ValueTypeInfo::VAT_Decl);
-            if (InitializerType != DType) {
-              // Mark the value being stored and the global variable that was
-              // being initialized with an appropriate safety flag.
-              setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
-                                          "Object used to initialize an "
-                                          "incompatible structure field",
-                                          &GV);
+      // When opaque pointers are in use, the Constant can be used without the
+      // intervening bitcasts, but there still may be a getelementptr operator
+      // that converts from an address of a variable that is an array to an
+      // address of the first element of the array, so strip these away.
+      if (ConstVal->getType()->isPointerTy())
+        ConstVal = ConstVal->stripPointerCasts();
 
-              ValueTypeInfo *InitializeeInfo = PTA.getValueTypeInfo(&GV);
-              assert(InitializeeInfo && "Expected pointer type analyzer to "
-                                        "collect type for GlobalVariable");
-              setAllAliasedTypeSafetyData(InitializeeInfo,
-                                          dtrans::UnsafePointerStore,
-                                          "Object used to initialize an "
-                                          "incompatible structure field",
-                                          &GV);
-            }
+      if (auto *InitializerGlobObj = dyn_cast<GlobalObject>(ConstVal)) {
+        ValueTypeInfo *Info = PTA.getValueTypeInfo(InitializerGlobObj);
+        assert(Info && "Expected pointer type analyzer to collect type "
+                       "for GlobalObject");
+        if (!Info->canAliasToAggregatePointer()) {
+          DTransType *BaseType = DType;
+          while (BaseType->isPointerTy() || BaseType->isArrayTy())
+            if (BaseType->isPointerTy())
+              BaseType = BaseType->getPointerElementType();
+            else
+              BaseType = BaseType->getArrayElementType();
+
+          bool ExpectStructPtr = BaseType->isStructTy();
+          if (ExpectStructPtr) {
+            ValueTypeInfo *InitializeeInfo = PTA.getValueTypeInfo(&GV);
+            assert(InitializeeInfo && "Expected pointer type analyzer to "
+                                      "collect type for GlobalVariable");
+            setAllAliasedTypeSafetyData(InitializeeInfo,
+                                        dtrans::UnsafePointerStore,
+                                        "Object used to initialize an "
+                                        "incompatible structure field",
+                                        &GV);
           }
-        };
+          return;
+        }
+
+        DTransType *InitializerType =
+            PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl);
+        if (InitializerType) {
+          if (InitializerType == DType)
+            return;
+
+          // Allow a pointer type to be initialized with a pointer to an array
+          // of the type. For example: An i8* structure field can be initialized
+          // with
+          //   i8* getelementptr ([4 x i8], [4 x i8]* @.str.27.213, i32 0, i32 0
+          if (DType->isPointerTy() && InitializerType->isPointerTy() &&
+              InitializerType->getPointerElementType()->isArrayTy() &&
+              InitializerType->getPointerElementType()->getArrayElementType() ==
+                  DType->getPointerElementType())
+            return;
+        }
+
+        // Mark the value being stored and the global variable that was
+        // being initialized with an appropriate safety flag.
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "Object used to initialize an "
+                                    "incompatible structure field",
+                                    &GV);
+
+        ValueTypeInfo *InitializeeInfo = PTA.getValueTypeInfo(&GV);
+        assert(InitializeeInfo && "Expected pointer type analyzer to "
+                                  "collect type for GlobalVariable");
+        setAllAliasedTypeSafetyData(InitializeeInfo, dtrans::UnsafePointerStore,
+                                    "Object used to initialize an "
+                                    "incompatible structure field",
+                                    &GV);
+      }
+    };
 
     // Analyze the initializer of a global variable, updating the field value
     // analysis and safety data. Return 'false' if the initializer cannot be

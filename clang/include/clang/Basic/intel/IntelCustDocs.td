@@ -3419,7 +3419,8 @@ results in the x87 implementation, consistent with the behavior on Linux,
 which is 96-bit width and 32 bit alignment on x86 and 128 bit width and
 alignment on x86_64. This differs from the ICC documented behavior (which states
 128 bit for both with no special consideration for x86), since it would result
-in significant changes to how Clang/LLVM handles x87 doubles.
+in significant changes to how Clang/LLVM handles x87 doubles. On Windows, 80
+results in 128 bit width and alignment on x86 and x86_64.
 
 Finally, when set to 128, the long double type will be a 128 bit size and
 alignment, consistent with the IEEE quad-double implementation.

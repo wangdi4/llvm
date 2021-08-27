@@ -1501,9 +1501,13 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
   OptReportBuilder &ORBuilder =
       NoAliasLoop->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  ORBuilder(*NoAliasLoop).addOrigin("Multiversioned loop");
-  // The loop has been multiversioned
-  ORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low, 25582u);
+  // Remark: Loop multiversioned for Data Dependence
+  ORBuilder(*NoAliasLoop)
+      .addOrigin(25474u, 1)
+      .addRemark(OptReportVerbosity::Low, 25228u);
+
+  // Remark: Multiversioned Loop 2
+  ORBuilder(*ClonedLoop).addOrigin(25474u, 2);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;

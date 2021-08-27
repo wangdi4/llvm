@@ -126,9 +126,9 @@ private:
   // a special VPActiveLane handling for uniform ones.
   DenseMap<VPBasicBlock *, SmallVector<VPPHINode *, 8>> PhisToBlendProcess;
 
-  /// Returns the negation of the \p Cond inserted at the end of the block
-  /// defining it or at VPlan's entry. Avoids creating duplicates by caching
-  /// created NOTs.
+  /// Returns the negation of the \p Cond inserted at a place consistent with
+  /// other predicator-generation instructions. Avoids creating duplicates by
+  /// caching created NOTs.
   VPValue *getOrCreateNot(VPValue *Cond);
 
   // Fill in the information about PredicateTerms of the predicate of the

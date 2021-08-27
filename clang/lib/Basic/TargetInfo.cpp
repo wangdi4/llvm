@@ -443,14 +443,18 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       LongDoubleFormat = &llvm::APFloat::IEEEquad();
 #if INTEL_CUSTOMIZATION
     } else if (Opts.LongDoubleSize == 80) {
-      if (getTriple().getArch() == llvm::Triple::x86_64) {
+      LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      if (getTriple().isWindowsMSVCEnvironment()) {
         LongDoubleWidth = 128;
         LongDoubleAlign = 128;
-        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
-      } else if (getTriple().getArch() == llvm::Triple::x86) {
-        LongDoubleWidth = 96;
-        LongDoubleAlign = 32;
-        LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
+      } else { // Linux
+        if (getTriple().getArch() == llvm::Triple::x86) {
+          LongDoubleWidth = 96;
+          LongDoubleAlign = 32;
+        } else {
+          LongDoubleWidth = 128;
+          LongDoubleAlign = 128;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
     }
