@@ -136,6 +136,7 @@ public:
 };
 
 enum PassManagerType {
+  PM_NONE,       // Pass pipeline is not specified.
   PM_OCL,        // OpenCL pass pipeline.
   PM_LTO_LEGACY, // llvm legacy pass pipeline.
   PM_LTO_NEW     // llvm new pass pipeline.
