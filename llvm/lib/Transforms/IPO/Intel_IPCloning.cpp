@@ -3202,16 +3202,15 @@ static bool canChangeCPUAttributes(Module &M) {
       "+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,"
       "+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves");
   LLVM_DEBUG(dbgs() << "Begin test for AVX512->AVX2 conversion\n");
-  unsigned FI = llvm::AttributeList::FunctionIndex;
   for (auto &F : M.getFunctionList()) {
     if (!F.hasFnAttribute("target-cpu"))
       continue;
-    StringRef TCA = F.getAttribute(FI, "target-cpu").getValueAsString();
+    StringRef TCA = F.getFnAttribute("target-cpu").getValueAsString();
     if (TCA != "skylake-avx512") {
       LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512\n");
       return false;
     }
-    StringRef TFA = F.getAttribute(FI, "target-features").getValueAsString();
+    StringRef TFA = F.getFnAttribute("target-features").getValueAsString();
     if (TFA != SKLAttributes) {
       LLVM_DEBUG(dbgs() << "No AVX512->AVX2 conversion: Not skylake-avx512 "
                            "attributes\n");
@@ -3255,11 +3254,10 @@ static void changeCPUAttributes(Module &M) {
       "+rdrnd,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,"
       "+xsaveopt");
 
-  unsigned FI = llvm::AttributeList::FunctionIndex;
   for (auto &F : M.getFunctionList()) {
     if (!F.hasFnAttribute("target-cpu"))
       continue;
-    assert(F.getAttribute(FI, "target-cpu").getValueAsString() ==
+    assert(F.getFnAttribute("target-cpu").getValueAsString() ==
                "skylake-avx512" &&
            "Expecting skylake-avx512");
     llvm::AttrBuilder Attrs;
