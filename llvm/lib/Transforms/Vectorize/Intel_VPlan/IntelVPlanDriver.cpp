@@ -305,15 +305,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     return false;
   }
 
-  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL, true);
+  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL);
+  populateVPlanAnalyses(LVP, VPAF);
 
-  for (auto &Pair : LVP.getAllVPlans()) {
-    auto &Plan = *Pair.second.MainPlan;
-    if (!Plan.getVPSE())
-      Plan.setVPSE(VPAF.createVPSE());
-    if (!Plan.getVPVT())
-      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
-  }
 #else
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
@@ -820,6 +814,17 @@ void VPlanDriverImpl::addOptReportRemarks(WRNVecLoopNode *WRLp,
   }
 }
 
+void VPlanDriverImpl::populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
+                                            VPAnalysesFactoryBase &VPAF) {
+  for (auto &Pair : LVP.getAllVPlans()) {
+    auto &Plan = *Pair.second.MainPlan;
+    if (!Plan.getVPSE())
+      Plan.setVPSE(VPAF.createVPSE());
+    if (!Plan.getVPVT())
+      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
+  }
+}
+
 // Definitions of addRemark functions in VPlanOptReportBuilder
 template <typename... Args>
 void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
@@ -1228,14 +1233,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
   }
 
-  for (auto &Pair : LVP.getAllVPlans()) {
-    auto &Plan = *Pair.second.MainPlan;
-    if (!Plan.getVPSE())
-      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
-    if (!Plan.getVPVT())
-      Plan.setVPVT(
-          std::make_unique<VPlanValueTrackingHIR>(Lp, *DL, getAC(), getDT()));
-  }
+  VPAnalysesFactoryHIR VPAF(Lp, getDT(), getAC(), DL);
+  populateVPlanAnalyses(LVP, VPAF);
 
   // VPlan construction stress test ends here.
   // TODO: Move after predication.

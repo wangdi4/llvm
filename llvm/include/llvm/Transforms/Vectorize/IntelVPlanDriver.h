@@ -26,6 +26,8 @@ namespace vpo {
 
 class WRegionInfo;
 class VPlanOptReportBuilder;
+class VPAnalysesFactoryBase;
+class LoopVectorizationPlanner;
 class WRNVecLoopNode;
 
 class VPlanDriverImpl {
@@ -112,6 +114,11 @@ protected:
   void addOptReportRemarks(WRNVecLoopNode *WRLp,
                            VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
+
+  // Helper utility to populate all needed analyses in VPlans using the provided
+  // factory object.
+  void populateVPlanAnalyses(LoopVectorizationPlanner &LVP,
+                             VPAnalysesFactoryBase &VPAF);
 
 protected:
   AssumptionCache *getAC() const { return AC; }

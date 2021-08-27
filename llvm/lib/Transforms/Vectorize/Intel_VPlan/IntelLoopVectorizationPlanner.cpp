@@ -1662,7 +1662,7 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 
-void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactory &VPAF) {
+void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
   if (EnableNewCFGMerge) {
     assert(getBestVF() > 1 && "Unexpected VF");
