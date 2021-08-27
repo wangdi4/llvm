@@ -1,6 +1,6 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -vpo-paropt-parameter-homing=false -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-mapper-api=false  -vpo-paropt-parameter-homing=false -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-mapper-api=false  -S | FileCheck %s
 
 ; Test src:
 

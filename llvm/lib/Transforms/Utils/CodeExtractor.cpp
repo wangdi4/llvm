@@ -301,7 +301,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
                                      AllowEHTypeID, AllowUnreachableBlocks)),
       TgtClauseArgs(TgtClauseArgs),
-      RewrittenValues(), DeclLoc(), WriteArgumentsToHomeLocations(false),
+      RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca)),
 #endif // INTEL_COLLAB
@@ -319,7 +319,7 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                                      /* AllowAlloca */ false,
                                      /* AllowEHTypeID */ false,
                                      /* AllowUnreachableBlocks */false)),
-      RewrittenValues(), DeclLoc(), WriteArgumentsToHomeLocations(false),
+      RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
 #endif // INTEL_COLLAB
@@ -1096,29 +1096,8 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       RewriteVal = &*AI++;
 
 #if INTEL_COLLAB
-    // Input values to the routine need to be stored to the stack. The stack
-    // location is referenced by the debug information. This is necessary to
-    // have access to the value throughout the routine in unoptimized code.
     unsigned ArgNo = i + 1;
-    if (WriteArgumentsToHomeLocations) {
-      const DataLayout &DL = M->getDataLayout();
-      const StringRef Name = inputs[i]->getName();
-      AllocaInst *AI = new AllocaInst(
-          RewriteVal->getType(),
-          DL.getAllocaAddrSpace(),
-          Name + ".addr",
-          TI);
-      // AI->setAlignment();
-      (void) new StoreInst(RewriteVal, AI, TI);
-      LoadInst *LI = new LoadInst(
-          RewriteVal->getType(),
-          AI,
-          Name + ".value",
-          TI);
-      RewriteVal = LI;
-      RewrittenValues[inputs[i]] = {AI, ArgNo, {dwarf::DW_OP_deref}};
-    } else
-      RewrittenValues[inputs[i]] = {RewriteVal, ArgNo, {}};
+    RewrittenValues[inputs[i]] = {RewriteVal, ArgNo};
 #endif // INTEL_COLLAB
 
     std::vector<User *> Users(inputs[i]->user_begin(), inputs[i]->user_end());
@@ -1796,22 +1775,6 @@ static DISubprogram *constructArtificialSubprogram(
   return NewSP;
 }
 
-static DILocalVariable *createAutoVariableForGlobal(
-    DIBuilder& DIB,
-    DIGlobalVariable *DIGV,
-    DILocalScope *LocalScope) {
-  assert(DIGV && "Expected valid global variable!");
-  return DIB.createAutoVariable(
-        LocalScope, // Cannot use DIGV->getScope() global scope!
-        DIGV->getName(),
-        DIGV->getFile(),
-        DIGV->getLine(),
-        DIGV->getType(),
-        false,
-        DINode::FlagZero,
-        DIGV->getAlignInBits());
-}
-
 static DILocalVariable *createAutoVariableForParam(
     DIBuilder& DIB,
     DILocalVariable *DILV) {
@@ -1825,52 +1788,6 @@ static DILocalVariable *createAutoVariableForParam(
         false,
         DILV->getFlags(),
         DILV->getAlignInBits());
-}
-
-// Employ heuristics for some known cases to help locate debug information
-// metadata for an input value to a code extracted region. This is not a
-// general solution.
-static std::tuple<Value *, DIExpression *> FindValueWithDebug(Value *V) {
-  Value *DV = V;
-  DIExpression *DE = nullptr;
-  TinyPtrVector<DbgVariableIntrinsic *> DVIs;
-
-  while (DV) {
-    // Constants/Globals
-    if (isa<Constant>(DV))
-      break;
-
-    // If the current value has any debug information available then use it.
-    DVIs = FindDbgAddrUses(DV);
-    if (!DVIs.empty())
-      break;
-
-    if (CastInst *CI = dyn_cast_or_null<CastInst>(DV)) {
-      Module *M = CI->getModule();
-      if (CI->isNoopCast(M->getDataLayout()))
-        DV = CI->getOperand(0);
-      else if (auto *ASCI = dyn_cast_or_null<AddrSpaceCastInst>(CI))
-        // NOTE: This should probably append an address space cast expression.
-        DV = ASCI->getPointerOperand();
-      else
-        DV = nullptr;
-    } else if (CallInst *CI = dyn_cast_or_null<CallInst>(DV)) {
-      // Skip launder intrinsics inserted during vpo-paropt-prepare.
-      // These intrinsics are later removed by vpo-paropt.
-      if (CI->isLaunderOrStripInvariantGroup())
-        DV = CI->getOperand(0)->stripPointerCasts();
-      else
-        DV = nullptr;
-    } else {
-      // No support for handling this instruction type yet.
-      DV = nullptr;
-    }
-    if (DV) {
-      LLVM_DEBUG(dbgs() << "  Tracking Debug Value: " << *DV << "\n");
-    }
-  }
-
-  return std::make_tuple(DV, DE);
 }
 
 void CodeExtractor::updateDebugInfo(
@@ -1902,75 +1819,49 @@ void CodeExtractor::updateDebugInfo(
       DebugVariableIntrinsics.push_back(DVI);
   }
 
-  // Process each input/output value to the routine.
-  for (Value *OV : inputs) {
-    LLVM_DEBUG(dbgs() << "\nInput Value: [" << OV << "] " << *OV << "\n");
+  for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
+    Value *Storage = DVI->getVariableLocationOp(0);
+    DIExpression *Expression = DVI->getExpression();
+    DILocalVariable *Variable = DVI->getVariable();
+    DILocation *Location = DVI->getDebugLoc().get();
 
-    auto RI = RewrittenValues.find(OV); // "Rewritten Iterator"
-    if (RI == RewrittenValues.end())
+    LLVM_DEBUG(dbgs() << "\nProcessing: [" << DVI << "] " << *DVI << "\n");
+    LLVM_DEBUG(dbgs() << "  Storage:  <" << Storage << ">" << *Storage << "\n");
+    LLVM_DEBUG(dbgs() << "  Expression: " << *Expression << "\n");
+    LLVM_DEBUG(dbgs() << "  Variable: " << *Variable << "\n");
+    LLVM_DEBUG(dbgs() << "  Location: " << *Location << "\n");
+
+    if (Storage == nullptr) {
+      // Errors in passes may result in DVI's with a NULL storage location.
+      // We can't even fix these up by making them UndefValue because we don't
+      // know the value type. We should fix these but guard against them here.
+      LLVM_DEBUG(dbgs() << "  Removing DVI with NULL storage!\n");
+      DVI->eraseFromParent();
       continue;
-    Value *NV = RI->second.Storage; // New function Value
+    }
 
-    // Add expression opcodes to map the New Value back to the Old Value.
-    SmallVector<uint64_t, 1> NVE; // New Value Expression
-    NVE.append(RI->second.Expression);
+    if (inputs.count(Storage)) {
+      LLVM_DEBUG(dbgs() << "  Storage is input to new routine.\n");
 
-    Value *DV;
-    DIExpression *DVE;
-    std::tie(DV, DVE) = FindValueWithDebug(OV);
-    if (!DV)
-      DV = OV;
-    if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(DV)) {
-      SmallVector<DIGlobalVariableExpression *, 1> GVEs;
-      GV->getDebugInfo(GVEs);
-      for (auto *GVE : GVEs) {
-        LLVM_DEBUG(dbgs() << "  Handling GVE:    " << *GVE << "\n");
-        DIGlobalVariable *DIGV = GVE->getVariable();
-        LLVM_DEBUG(dbgs() << "  Global Variable: " << *DIGV << "\n");
-        DIExpression *DIGE = GVE->getExpression();
-        if (DIGE)
-          NVE.append(DIGE->elements_begin(), DIGE->elements_end());
-        if (DVE)
-          NVE.append(DVE->elements_begin(), DVE->elements_end());
-        DILocalVariable *DILV = createAutoVariableForGlobal(DIB, DIGV, OSP);
-        LLVM_DEBUG(dbgs() << "  + [" << DILV << "]: " << *DILV << "\n");
-        Instruction *IB = NewF->begin()->getTerminator();
-        LLVMContext &Ctx = M->getContext();
-        DILocation *DIL = DeclLoc
-          ? DILocation::get(Ctx, DeclLoc->getLine(), DeclLoc->getColumn(), OSP)
-          : DILocation::get(Ctx, DIGV->getLine(), 0, OSP);
-        DIExpression *DIE = DIExpression::get(NewF->getContext(), NVE);
-        Instruction *DDI = DIB.insertDeclare(NV, DILV, DIE, DIL, IB);
-        (void) DDI;
-        LLVM_DEBUG(dbgs() << "  + [" << DDI << "]: " << *DDI << "\n");
-      }
-    } else {
-      SmallVector<DbgVariableIntrinsic *, 4> DVIs;
-      findDbgUsers(DVIs, DV);
-      LLVM_DEBUG(dbgs() << "  Number of debug users: " << DVIs.size() << "\n");
-      for (DbgVariableIntrinsic *ODVI : DVIs) {
-        LLVM_DEBUG(dbgs() << "  DVI: [" << ODVI << "] " << *ODVI << "\n");
-        if (isa<DbgValueInst>(ODVI) && DVIs.size() > 1) {
-          LLVM_DEBUG(dbgs() << "  Skipping DVI... multiple values defined.\n");
-          continue;
-        }
-        if (ODVI->getNumVariableLocationOps() > 1) {
-          LLVM_DEBUG(dbgs() << "  Skipping DVI... multiple location opts.\n");
-          continue;
-        }
-        DILocalVariable *Variable = ODVI->getVariable();
-        DIExpression *Expression = ODVI->getExpression();
-        DILocation *Location = ODVI->getDebugLoc().get();
+      // This DVI describes a value passed _into_ the new routine.
+      auto RI = RewrittenValues.find(Storage); // "Rewritten Iterator"
+      if (RI != RewrittenValues.end()) {
+        Value *AStorage = RI->second.Storage;
 
         // Non-aggregate parameters are passed by reference.
-        if (!AggregateArgs && isa<DbgValueInst>(ODVI))
-          NVE.push_back(dwarf::DW_OP_deref);
-        if (Expression)
-          NVE.append(Expression->elements_begin(), Expression->elements_end());
-        Expression = DIExpression::get(NewF->getContext(), NVE);
+        DIExpression *AExpression = Expression;
+        if (!AggregateArgs)
+          AExpression = DIExpression::append(AExpression, dwarf::DW_OP_deref);
 
         // Preserve the source correlation from the original DVI.
         DILocation *ALocation = Location;
+
+        // Insert the llvm.dbg.declare after the alloca instruction.
+        Instruction *AInsertBefore;
+        if (Instruction *I = dyn_cast_or_null<Instruction>(AStorage))
+          AInsertBefore = I->getNextNode();
+        else
+          AInsertBefore = NewF->begin()->getTerminator();
 
         // If this variable was a parameter in the original routine then we
         // need to convert it to an auto variable in the code extracted
@@ -1982,106 +1873,71 @@ void CodeExtractor::updateDebugInfo(
           AVar = createAutoVariableForParam(DIB, Variable);
         LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
 
-        // Choose where the llvm.dbg instrinsic will be inserted.
-        Instruction *Before;
-        if (Instruction *I = dyn_cast_or_null<Instruction>(NV))
-          Before = I->getNextNode();
-        else
-          Before = NewF->begin()->getTerminator();
-
-        Instruction *NDVI;
-        if (isa<DbgDeclareInst>(ODVI) || isa<DbgAddrIntrinsic>(ODVI))
-          NDVI = DIB.insertDeclare(NV, AVar, Expression, ALocation, Before);
-        else if (isa<DbgValueInst>(ODVI))
-          NDVI = DIB.insertDbgValueIntrinsic(NV, AVar, Expression, ALocation,
-                                             Before);
-        else
-          NDVI = nullptr;
-        if (NDVI)
-          LLVM_DEBUG(dbgs() << "  + [" << NDVI << "]: " << *NDVI << "\n");
+        Instruction *ADVI = DIB.insertDbgValueIntrinsic(
+            AStorage, AVar, AExpression, ALocation, AInsertBefore);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
       }
-    }
-  }
-  for (Value *V : outputs) {
-    // Output values are not currently implemented.
-    LLVM_DEBUG(dbgs() << "\nOutput Value: [" << V << "] " << *V << "\n");
-    LLVM_DEBUG(dbgs() << "  Not currently implemented.\n");
-    (void)V;
-  }
-
-  // Process each llvm.dbg intrinsic and update it appropriately or delete it.
-  for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
-    DILocalVariable *Variable = DVI->getVariable();
-    DIExpression *Expression = DVI->getExpression();
-    DILocation *Location = DVI->getDebugLoc().get();
-
-    LLVM_DEBUG(dbgs() << "\nProcessing: [" << DVI << "] " << *DVI << "\n");
-    for (const Value *Storage : DVI->location_ops()) {
-      LLVM_DEBUG(dbgs() << " Storage: " << *Storage << "\n");
-      (void)Storage;
-    }
-    LLVM_DEBUG(dbgs() << "  Expression: " << *Expression << "\n");
-    LLVM_DEBUG(dbgs() << "  Variable: " << *Variable << "\n");
-    LLVM_DEBUG(dbgs() << "  Location: " << *Location << "\n");
-    (void)Location;     // Used for debug printing only.
-    (void)Expression;   // Used for debug printing only.
-
-    // Errors in passes may result in DVI's with a NULL storage location.
-    // We can't even fix these up by making them UndefValue because we don't
-    // know the value type. We should fix these but guard against them here.
-    if (any_of(DVI->location_ops(),
-               [](const Value* V) -> bool { return V == nullptr; })) {
-      LLVM_DEBUG(dbgs() << "  Removing DVI with NULL storage!\n");
-      DVI->eraseFromParent();
-      continue;
+    } else if (outputs.count(Storage)) {
+      // This DVI describes a value passed _out_ of the new routine.
+      // Not yet supported.
     }
 
     // Handle cases where the DVI and storage end up in different functions.
     if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
-      Function *MoveTo = DVI->getFunction() == OldF ? NewF : OldF;
-      for (const Value *Storage : DVI->location_ops()) {
-        const Function *SF;
-        if (auto *SI = dyn_cast_or_null<Instruction>(Storage))
-          SF = SI->getFunction();
-        else if (auto *SA = dyn_cast_or_null<Argument>(Storage))
-          SF = SA->getParent();
-        else
-          SF = nullptr;
-        if (SF != MoveTo)
-          MoveTo = nullptr;
-      }
-      if (MoveTo) {
-        DVI->moveBefore(MoveTo->begin()->getTerminator());
-        LLVM_DEBUG(dbgs() << "  Moved DVI to entry block.\n");
+      if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
+        Function *SF = SI->getFunction();
+        if (SF != DVI->getFunction()) {
+          DVI->moveAfter(SI);
+          LLVM_DEBUG(dbgs() << "  Moved DVI after storage instruction.\n");
+        }
+      } else if (auto *SA = dyn_cast_or_null<Argument>(Storage)) {
+        Function *SF = SA->getParent();
+        if (SF != DVI->getFunction()) {
+          DVI->moveBefore(SF->begin()->getTerminator());
+          LLVM_DEBUG(dbgs() << "  Moved DVI to entry block.\n");
+        }
       }
     } else if (isa<DbgValueInst>(DVI)) {
-      bool DeleteDVI = false;
-      for (const Value *Storage : DVI->location_ops()) {
-        const Function *SF;
-        if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
-          SF = SI->getFunction();
-        } else if (auto *SA = dyn_cast_or_null<Argument>(Storage)) {
-          SF = SA->getParent();
-        } else {
-          SF = nullptr;
+      if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
+        Function *SF = SI->getFunction();
+        if (SF != DVI->getFunction()) {
+          DVI->eraseFromParent();
+          LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
+          continue;
         }
-        if (SF && SF != DVI->getFunction()) {
-          DeleteDVI = true;
-          break;
+      } else if (auto *SA = dyn_cast_or_null<Argument>(Storage)) {
+        Function *SF = SA->getParent();
+        if (SF != DVI->getFunction()) {
+          DVI->eraseFromParent();
+          LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
+          continue;
         }
-      }
-      if (DeleteDVI) {
-        DVI->eraseFromParent();
-        LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
-        continue;
       }
     }
 
     // Handle DVI's describing parameters which end up in the new function.
     if (DVI->getFunction() == NewF && Variable->isParameter()) {
-      DILocalVariable *AVar = createAutoVariableForParam(DIB, Variable);
-      DVI->setVariable(AVar);
-      LLVM_DEBUG(dbgs() << "  Created new auto variable for parameter.\n");
+      LLVM_DEBUG(dbgs() << "  DVI is parameter in NEW function." << ".\n");
+
+      if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
+        DILocalVariable *AVar = createAutoVariableForParam(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
+        Instruction *ADVI = DIB.insertDeclare(
+            Storage, AVar, Expression, Location, DVI);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
+      } else if (isa<DbgValueInst>(DVI)) {
+        DILocalVariable *AVar = createAutoVariableForParam(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
+        Instruction *ADVI = DIB.insertDbgValueIntrinsic(
+            Storage, AVar, Expression, Location, DVI);
+        LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
+        (void)ADVI;
+      }
+
+      DVI->eraseFromParent();
+      LLVM_DEBUG(dbgs() << "  Erased DVI.\n");
       continue;
     }
   }

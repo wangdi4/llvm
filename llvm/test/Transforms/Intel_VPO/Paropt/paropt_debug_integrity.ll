@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
-; RUN: opt -debugify -vpo-cfg-restructuring -check-debugify -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring),module(check-debugify)' -S < %s 2>&1 | FileCheck %s
-; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -check-debugify -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring),vpo-paropt-prepare,check-debugify' -S < %s 2>&1 | FileCheck %s
-; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -check-debugify -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,PAROPT
-; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt,module(check-debugify)' -S < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,PAROPT
+; RUN: opt -debugify -vpo-cfg-restructuring -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)' -S < %s | FileCheck %s --check-prefix=CFGRES --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring)',vpo-paropt-prepare -S < %s | FileCheck %s --check-prefix=PREP --check-prefix=CFGRES-PREP --check-prefix=ALL
+; RUN: opt -debugify -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s --check-prefix=PAROPT --check-prefix=ALL
+; RUN: opt -passes='module(debugify),function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s | FileCheck %s  --check-prefix=PAROPT --check-prefix=ALL
 ;
 ; Test src:
 ; int test_add()
@@ -15,50 +15,6 @@
 ;   return r0;
 ; }
 ;
-;
-; -----------------------------------------------------------------------------
-; The warnings below are introduced by vpo-paropt. They should eventually be
-; fixed. For now, just make sure more don't get added.
-;
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add --  br label %DIR.OMP.END.PARALLEL.LOOP.4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %dst.cast = bitcast i8* %dst to %struct.fast_red_t*
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %src.cast = bitcast i8* %src to %struct.fast_red_t*
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %dst.r0 = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %dst.cast, i32 0, i32 0
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %src.r0 = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %src.cast, i32 0, i32 0
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %0 = load i32, i32* %src.r0, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %1 = load i32, i32* %dst.r0, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  %2 = add i32 %1, %0
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  store i32 %2, i32* %dst.r0, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add_tree_reduce_2 --  ret void
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %.omp.lb.val.zext.addr = alloca i64, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  store i64 %.omp.lb.val.zext, i64* %.omp.lb.val.zext.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %.omp.lb.val.zext.value = load i64, i64* %.omp.lb.val.zext.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %.omp.ub.addr = alloca i32*, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  store i32* %.omp.ub, i32** %.omp.ub.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %.omp.ub.value = load i32*, i32** %.omp.ub.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %r0.addr = alloca i32*, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  store i32* %r0, i32** %r0.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %r0.value = load i32*, i32** %r0.addr, align 8
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid15 = load i32, i32* %tid, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid16 = load i32, i32* %tid, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.10.29.8, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid14 = load i32, i32* %tid, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  %my.tid19 = load i32, i32* %tid, align 4
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.10.29.10, i32 %my.tid19, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)
-; PAROPT: WARNING: Instruction with empty DebugLoc in function test_add.DIR.OMP.PARALLEL.LOOP.25.split10 --  ret void
-; PAROPT: WARNING: Missing line 12
-; PAROPT: WARNING: Missing line 13
-; PAROPT: WARNING: Missing line 14
-; PAROPT: WARNING: Missing line 15
-; PAROPT: WARNING: Missing line 18
-; PAROPT: WARNING: Missing line 24
-; PAROPT: WARNING: Missing line 26
-; PAROPT: WARNING: Missing line 27
-; -----------------------------------------------------------------------------
-;
-; CHECK-NOT: WARNING
-; CHECK: CheckModuleDebugify: PASS
-;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -68,39 +24,78 @@ entry:
   %r0 = alloca i32, align 4
 ; Check that alloca instructions result in call to @llvm.dbg.value, example:
 ; call void @llvm.dbg.value(metadata i32* %r0, metadata !11, metadata !DIExpression()), !dbg !32
+; ALL:  [[R0:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[R0DBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[R0]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[R0DBG]]
   %tmp = alloca i32, align 4
+; ALL:  [[TMP:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[TMPDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[TMP]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[TMPDBG]]
   %.omp.iv = alloca i32, align 4
+; ALL:  [[IV:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[IVDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[IV]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVDBG]]
   %.omp.lb = alloca i32, align 4
+; ALL:  [[LB:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[LBDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[LB]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[LBDBG]]
   %.omp.ub = alloca i32, align 4
+; ALL:  [[UB:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[UBDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[UB]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[UBDBG]]
   %i = alloca i32, align 4
+; ALL:  [[I:%[a-zA-Z._0-9]+]] = alloca i32, align 4, !dbg [[IDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32* [[I]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IDBG]]
   store i32 0, i32* %r0, align 4
   store i32 0, i32* %.omp.lb, align 4
   store i32 127, i32* %.omp.ub, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+; PAROPT: [[RESULT:%[a-zA-Z._0-9]+]] = load i32, i32* %r0, align 4, !dbg [[RESULTDBG:![0-9]+]]
+; PAROPT: call void @llvm.dbg.value(metadata i32 [[RESULT]], metadata !31, metadata !DIExpression()), !dbg [[RESULTDBG]]
+; PAROPT:  declare void @llvm.dbg.value(metadata, metadata, metadata) #2
+; PAROPT:  call void @llvm.dbg.value(metadata i32* [[R0]], metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i32* [[UB]], metadata !{{.*}}, metadata !DIExpression(DW_OP_deref)), !dbg !{{.*}}
+; PAROPT: call void @llvm.dbg.value(metadata token undef, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
 ; PREP:   [[ENTRY:%[a-zA-Z._0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.OPERAND.ADDR"(i32* %i, i32** %i.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %.omp.lb, i32** %.omp.lb.addr), "QUAL.OMP.OPERAND.ADDR"(i32* %r0, i32** %r0.addr), "QUAL.OMP.JUMP.TO.END.IF"(i1* %end.dir.temp) ], !dbg [[ENTRYDBG:![0-9]+]]
+; CFGRES: [[ENTRY:%[a-zA-Z._0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %r0), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ], !dbg [[ENTRYDBG:![0-9]+]]
+; CFGRES-PREP: call void @llvm.dbg.value(metadata token [[ENTRY]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ENTRYDBG]]
+; CFGRES-PREP: [[LBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.lb{{.*}}, align 4, !dbg [[LBLOADDBG:![0-9]+]]
+; PAROPT: [[LBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.lb{{.*}}, align 4, !dbg [[LBLOADDBG:![0-9]+]], !{{.*}}
 ; ALL-NEXT:call void @llvm.dbg.value(metadata i32 [[LBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[LBLOADDBG]]
+; PAROPT:call void @llvm.dbg.value(metadata i32 [[LBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT: call void @llvm.dbg.value(metadata i32 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
 omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %entry
 ; checking the loaded value in %2
+; CFGRES: [[IVLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOADDBG:![0-9]+]]
 ; PREP: [[IVLOAD:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOADDBG:![0-9]+]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOADDBG]]
   %2 = load i32, i32* %.omp.iv, align 4
+; CFGRES: [[UBLOAD:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.ub, align 4, !dbg [[UBLOADDBG:![0-9]+]]
 ; PREP:  [[UBLOAD:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.ub, align 4, !dbg [[UBLOADDBG:![0-9]+]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[UBLOAD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[UBLOADDBG]]
   %3 = load i32, i32* %.omp.ub, align 4
   %cmp = icmp sle i32 %2, %3
+; ALL:  [[CMP:%[a-zA-Z._0-9]+]] = icmp sle i32 {{.*}}, {{.*}}, !dbg [[CMPDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i1 [[CMP]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[CMPDBG]]
   br i1 %cmp, label %omp.inner.for.body, label %omp.inner.for.end
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.cond
 ; checking the loaded value in %4
+; PAROPT:  [[LOCALIV:%[a-zA-Z._0-9]+]] = phi i32 [ %add1, %omp.inner.for.inc ], [ %lb.new, %omp.inner.for.body.lr.ph ]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT-NEXT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; CFGRES: [[IVLOAD2:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD2DBG:![0-9]+]]
 ; PREP: [[IVLOAD2:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD2DBG:![0-9]+]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD2]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD2DBG]]
   %4 = load i32, i32* %.omp.iv, align 4
 ; checking the result of multiply in %mul
   %mul = mul nsw i32 %4, 1
+; ALL:  [[MUL:%[a-zA-Z._0-9]+]] = mul nsw i32 {{.*}}, 1, !dbg [[MULDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32 [[MUL]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[MULDBG]]
 
 ; checking the result of add in %add
   %add = add nsw i32 0, %mul
+; ALL:  [[ADD:%[a-zA-Z._0-9]+]] = add nsw i32 0, %mul, !dbg [[ADDDBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32 [[ADD]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ADDDBG]]
   store i32 %add, i32* %i, align 4
   br label %omp.body.continue
 
@@ -108,10 +103,18 @@ omp.body.continue:                                ; preds = %omp.inner.for.body
   br label %omp.inner.for.inc
 
 omp.inner.for.inc:                                ; preds = %omp.body.continue
+; CFGRES: [[IVLOAD3:%[a-zA-Z._0-9]+]] = load i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD3DBG:![0-9]+]]
 ; PREP: [[IVLOAD3:%[a-zA-Z._0-9]+]] = load volatile i32, i32* %.omp.iv, align 4, !dbg [[IVLOAD3DBG:![0-9]+]]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[LOCALIV]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[IVLOAD3]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[IVLOAD3DBG]]
   %5 = load i32, i32* %.omp.iv, align 4
 ; checking the result of add in %add1
   %add1 = add nsw i32 %5, 1
+; ALL:  [[ADD1:%[a-zA-Z._0-9]+]] = add nsw i32 {{.*}}, 1, !dbg [[ADD1DBG:![0-9]+]]
+; ALL:  call void @llvm.dbg.value(metadata i32 [[ADD1]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[ADD1DBG]]
+; PAROPT:  call void @llvm.dbg.value(metadata i32 [[ADD1]], metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i32 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
+; PAROPT:  call void @llvm.dbg.value(metadata i1 %{{.*}}, metadata !{{.*}}, metadata !DIExpression()), !dbg !{{.*}}
   store i32 %add1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
 
@@ -121,9 +124,13 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
 ; checking the loaded value in %6
+; CFGRES-PREP:  [[RESULT:%[a-zA-Z._0-9]+]] = load i32, i32* %r0, align 4, !dbg [[RESULTDBG:![0-9]+]]
+; CFGRES-PREP-NEXT:  call void @llvm.dbg.value(metadata i32 [[RESULT]], metadata !{{.*}}, metadata !DIExpression()), !dbg [[RESULTDBG]]
   %6 = load i32, i32* %r0, align 4
   ret i32 %6
 }
+
+; CFGRES-PREP:  declare void @llvm.dbg.value(metadata, metadata, metadata) #2
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #1

@@ -5513,8 +5513,7 @@ static void genPrivatizationDebug(WRegionNode *W,
 
   // Local variables which are privatized into constant or global values are
   // not currently supported.
-  if (isa<Constant>(NewPrivValue) &&
-      !isa<GlobalVariable>(NewPrivValue->stripPointerCasts()))
+  if (isa<Constant>(NewPrivValue))
     return;
 
   DIScope *RegionScope = FindDebugScopeForRegion(W);
@@ -5563,39 +5562,6 @@ static void genPrivatizationDebug(WRegionNode *W,
     DILocation *Location = ODVI->getDebugLoc().get();
     DIExpression *Expression = ODVI->getExpression();
 
-    if (auto *GV = dyn_cast_or_null<GlobalVariable>(
-          NewPrivValue->stripPointerCasts())) {
-      auto *NewGVE = DIB.createGlobalVariableExpression(
-          RegionScope->getFile(),
-          Variable->getName(),
-          NewPrivValue->getName(),
-          Variable->getFile(),
-          Variable->getLine(),
-          Variable->getType(),
-          /* IsLocalToUnit = */ true,
-          /* IsDefined = */ true,
-          Expression,
-          /* Decl = */ nullptr,
-          /* TemplateParams = */ nullptr,
-          /* AlignInBits = */ 0);
-      LLVM_DEBUG(dbgs() << "[DEBUG] Created Expression: " << *NewGVE<< "\n");
-      LLVM_DEBUG(dbgs() << "[DEBUG] Created Global:     "
-                        << *(NewGVE->getVariable())
-                        << "\n");
-      GV->addDebugInfo(NewGVE);
-      LLVM_DEBUG(dbgs() << "[DEBUG]   Assigned To:      " << *GV << "\n");
-      CU = Variable->getScope()->getSubprogram()->getUnit();
-      DIGlobalVariableExpressionArray OldGVEs = CU->getGlobalVariables();
-      SmallVector<Metadata *, 4> NewGVEs;
-      NewGVEs.append(OldGVEs.begin(), OldGVEs.end());
-      NewGVEs.push_back(NewGVE);
-      CU->replaceGlobalVariables(MDTuple::get(CU->getContext(), NewGVEs));
-
-      // There may have been several intrinsics describing the location of this
-      // variable, but now it is global so we only need one location.
-      break;
-    }
-
     // Create a new variable for the privatized value. This differs from the
     // original variable in these ways:
     //   1. The privatized variable is not a parameter.
@@ -5632,7 +5598,7 @@ static void genPrivatizationDebug(WRegionNode *W,
     // privatized value into the parallel region.
     Instruction *Before;
     if (Instruction *I = dyn_cast_or_null<Instruction>(NewPrivValue))
-      Before = I->getNextNode();
+      Before = I->getNextNonDebugInstruction();
     else
       Before = W->getEntryBBlock()->getTerminator();
 
