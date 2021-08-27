@@ -15,8 +15,13 @@
 #include "IntelVPlan.h"
 #include "llvm/ADT/SmallSet.h"
 
+#define DEBUG_TYPE "VPlanExternals"
+
 using namespace llvm;
 using namespace llvm::vpo;
+
+static LoopVPlanDumpControl
+    LiveInOutListsDumpControl("live-inout-list", "live in/out lists creation");
 
 void VPExternalValues::verifyVPConstants() const {
   SmallPtrSet<const Constant *, 16> ConstantSet;
@@ -137,9 +142,6 @@ void VPLiveInOutCreator::addInOutValues(InitTy *Init, FinalTy *Final,
 void VPLiveInOutCreator::addOriginalLiveInOut(
     const VPLoopEntityList *VPLEntityList, Loop *OrigLoop, VPLoopEntity *E,
     VPExternalUse *ExtUse, ScalarInOutList &ScalarInOuts) {
-  if (!OrigLoop)
-    // TODO: implement for HIR input
-    return;
   VPPHINode *VPPhi = VPLEntityList->getRecurrentVPHINode(*E);
   PHINode *Phi = nullptr;
   if (VPPhi) {
@@ -163,11 +165,33 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
   ScalarInOuts.add(Phi, StartValOpNum, LiveOut, ExtUse->getMergeId());
 }
 
+void VPLiveInOutCreator::addOriginalLiveInOut(
+    const VPLoopEntityList *, loopopt::HLLoop *OrigLoop, VPLoopEntity *,
+    VPExternalUse *ExtUse, ScalarInOutListHIR &ScalarInOuts) {
+  // External use w/o underlying operand is created only for main loop IV.
+  // TODO: Is this valid?
+  bool IsMainLoopIV = !ExtUse->hasUnderlying();
+  // For a given VPEntity a single temp is expected to be live-in, live-out or
+  // both. We rely purely on VPExternalUse here to capture the temp associated
+  // with current loop entity. For main loop IV we track only the final value of
+  // IV as liveout which should be loop's UB.
+  auto *HIROperand = ExtUse->getOperandHIR();
+  const loopopt::DDRef *HIRTemp = !IsMainLoopIV
+                                      ? cast<VPBlob>(HIROperand)->getBlob()
+                                      : OrigLoop->getUpperDDRef();
+  LLVM_DEBUG(dbgs() << "HIR addOriginalLiveInOut: "
+                    << "HIRTemp: ";
+             HIRTemp->dump();
+             dbgs() << ", MainLoopIV: " << IsMainLoopIV << "\n");
+  ScalarInOuts.add(HIRTemp, IsMainLoopIV, ExtUse->getMergeId());
+}
+
+template <class LoopTy>
 void VPLiveInOutCreator::createInOutsInductions(
-    const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
+    const VPLoopEntityList *VPLEntityList, LoopTy *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Ind : VPLEntityList->vpinductions()) {
     if (Ind->getIsMemOnly())
@@ -191,12 +215,18 @@ void VPLiveInOutCreator::createInOutsInductions(
   }
 }
 
+template void
+VPLiveInOutCreator::createInOutsInductions<Loop>(const VPLoopEntityList *,
+                                                 Loop *);
+template void VPLiveInOutCreator::createInOutsInductions<loopopt::HLLoop>(
+    const VPLoopEntityList *, loopopt::HLLoop *);
+
+template <class LoopTy>
 void VPLiveInOutCreator::createInOutsReductions(
-    const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
+    const VPLoopEntityList *VPLEntityList, LoopTy *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts =
-      *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
     VPReductionInit *RedInit = nullptr;
@@ -243,8 +273,15 @@ void VPLiveInOutCreator::createInOutsReductions(
   }
 }
 
+template void
+VPLiveInOutCreator::createInOutsReductions<Loop>(const VPLoopEntityList *,
+                                                 Loop *);
+template void VPLiveInOutCreator::createInOutsReductions<loopopt::HLLoop>(
+    const VPLoopEntityList *, loopopt::HLLoop *);
+
+template <class LoopTy>
 void VPLiveInOutCreator::createInOutsPrivates(
-  const  VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
+    const VPLoopEntityList *VPLEntityList, LoopTy *OrigLoop) {
 
   auto findExtUser = [](VPInstruction *I) -> VPExternalUse * {
     auto Iter = llvm::find_if(
@@ -256,7 +293,7 @@ void VPLiveInOutCreator::createInOutsPrivates(
   };
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  auto &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
   for (auto *Priv : VPLEntityList->vpprivates()) {
     if (Priv->getIsMemOnly())
       continue;
@@ -297,16 +334,23 @@ void VPLiveInOutCreator::createInOutsPrivates(
   }
 }
 
-void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
+template void
+VPLiveInOutCreator::createInOutsPrivates<Loop>(const VPLoopEntityList *,
+                                               Loop *);
+template void VPLiveInOutCreator::createInOutsPrivates<loopopt::HLLoop>(
+    const VPLoopEntityList *, loopopt::HLLoop *);
+
+template <class LoopTy>
+void VPLiveInOutCreator::createInOutValues(LoopTy *OrigLoop) {
   VPlanVector &VecPlan = cast<VPlanVector>(Plan);
-  const VPLoop *Loop = *VecPlan.getVPLoopInfo()->begin();
-  if (!Loop->getUniqueExitBlock())
+  const VPLoop *VLoop = *VecPlan.getVPLoopInfo()->begin();
+  if (!VLoop->getUniqueExitBlock())
     return;
 
   VPExternalValues &ExtVals = Plan.getExternals();
   unsigned ExtUseCount = ExtVals.getLastMergeId();
 
-  const VPLoopEntityList *VPLEntityList = VecPlan.getLoopEntities(Loop);
+  const VPLoopEntityList *VPLEntityList = VecPlan.getLoopEntities(VLoop);
   assert(VPLEntityList && "VPLEntityList is expected to be non-null here.");
 
   // We need to allocate LiveIn/LiveOut lists here, along with
@@ -320,7 +364,18 @@ void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
   createInOutsInductions(VPLEntityList, OrigLoop);
   createInOutsReductions(VPLEntityList, OrigLoop);
   createInOutsPrivates(VPLEntityList, OrigLoop);
+
+  VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (LiveInOutListsDumpControl.dumpPlain())
+    Plan.getExternals().dumpScalarInOuts(outs(), OrigLoop);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
+
+template void VPLiveInOutCreator::createInOutValues<Loop>(Loop *);
+template void
+VPLiveInOutCreator::createInOutValues<loopopt::HLLoop>(loopopt::HLLoop *);
 
 void VPLiveInOutCreator::restoreLiveIns() {
   VPExternalValues &ExtVals = Plan.getExternals();
@@ -383,11 +438,18 @@ void VPExternalValues::dumpExternalUses(raw_ostream &FOS,
   }
 }
 
-void VPExternalValues::dumpScalarInOuts(raw_ostream &FOS, const Loop *L) const {
-  const ScalarInOutList* ScalarLoopInOuts = getScalarLoopInOuts(L);
+template <class LoopTy>
+void VPExternalValues::dumpScalarInOuts(raw_ostream &FOS,
+                                        const LoopTy *L) const {
+  auto *ScalarLoopInOuts = getScalarLoopInOuts(L);
   if (ScalarLoopInOuts)
      ScalarLoopInOuts->dump(FOS);
 }
+
+template void VPExternalValues::dumpScalarInOuts<Loop>(raw_ostream &,
+                                                       const Loop *) const;
+template void VPExternalValues::dumpScalarInOuts<loopopt::HLLoop>(
+    raw_ostream &, const loopopt::HLLoop *) const;
 
 void ScalarInOutDescr::dump(raw_ostream &OS) const {
   OS.indent(2) << "Id: " << MergeId << "\n";
@@ -397,6 +459,14 @@ void ScalarInOutDescr::dump(raw_ostream &OS) const {
     OS.indent(4) << "Phi: " << "nullptr";
   OS.indent(4) << "Start op: " << StartValOpNum << "\n";
   OS.indent(4) << "Live-Out: " << *LiveOut;
+}
+
+void ScalarInOutDescrHIR::print(raw_ostream &OS) const {
+  formatted_raw_ostream FOS(OS);
+  FOS.indent(2) << "Id: " << MergeId << "\n";
+  FOS.indent(4) << "HIR Temp: ";
+  HIRRef->print(FOS);
+  FOS.indent(4) << "IsMainLoopIV: " << IsMainLoopIV;
 }
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
