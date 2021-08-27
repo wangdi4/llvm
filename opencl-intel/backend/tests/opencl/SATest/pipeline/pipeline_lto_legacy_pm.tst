@@ -26,7 +26,8 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
-; CHECK:          DPCPPKernelVecCloneLegacy
+; CHECK:          SetVectorizationFactorLegacy
+; CHECK-NEXT:     DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK-NEXT:     Fill-in addresses of vector variants
 ; CHECK-NEXT:     UpdateCallAttrs

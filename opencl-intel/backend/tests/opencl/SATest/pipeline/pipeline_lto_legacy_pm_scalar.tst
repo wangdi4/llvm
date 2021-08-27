@@ -25,6 +25,7 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK-NOT:      SetVectorizationFactorLegacy
 ; CHECK-NOT:      DPCPPKernelVecClone pass
 ; CHECK-NOT:      VPlan Vectorization Driver
 ; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
