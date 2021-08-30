@@ -3029,6 +3029,61 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                 DT, LI, IsTargetSPIRV, LockNameSuffix, Hint);
 }
 
+// This function generates a call as follows.
+// void @__kmpc_scope(%ident_t* %loc.addr.11.12, i32 %my.tid, void* %reserved)
+CallInst *VPOParoptUtils::genKmpcScopeCall(WRegionNode *W,
+                                           StructType *IdentTy, Value *Tid,
+                                           Instruction *InsertPt) {
+  return genKmpcScopeOrEndScopeCall(W, IdentTy, Tid, InsertPt, true);
+}
+
+// This function generates a call as follows.
+// void @__kmpc_end_scope(%ident_t* %loc, i32 %tid, void *reserved)
+CallInst *VPOParoptUtils::genKmpcEndScopeCall(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid,
+                                              Instruction *InsertPt) {
+  return genKmpcScopeOrEndScopeCall(W, IdentTy, Tid, InsertPt, false);
+}
+
+// This function generates calls for the scope region.
+//
+//   call void @__kmpc_scope(%ident_t* %loc, i32 %tid, void *reserved)
+//      or
+//   call void @__kmpc_end_scope(%ident_t* %loc, i32 %tid, void *reserved)
+CallInst *VPOParoptUtils::genKmpcScopeOrEndScopeCall(
+    WRegionNode *W, StructType *IdentTy, Value *Tid, Instruction *InsertPt,
+    bool IsScopeStart) {
+
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+
+  Type *RetTy = nullptr;
+  StringRef FnName;
+
+  if (IsScopeStart)
+    FnName = "__kmpc_scope";
+  else
+    FnName = "__kmpc_end_scope";
+
+  RetTy = Type::getVoidTy(C);
+  Type *I32Ty = Type::getInt32Ty(C);
+
+  LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(Align(4));
+
+  // Now bundle all the function arguments together.
+  SmallVector<Value *, 4> FnArgs = {LoadTid};
+  // push: void *reserved
+  FnArgs.push_back(ConstantPointerNull::get(Int8PtrTy));
+
+  CallInst *BeginOrEndScopeCall =
+      VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, RetTy, FnArgs);
+  return BeginOrEndScopeCall;
+}
+
 // Generates tree reduce block around Instructions `BeginInst` and `EndInst` and
 // atomic reduce block around Instructions `AtomicBeginInst` and
 // `AtomicEndInst`.

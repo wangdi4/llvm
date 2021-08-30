@@ -1631,6 +1631,33 @@ public:
                                       Value *IsSingleThread,
                                       Instruction *InsertPt);
 
+  /// Generate a call to `__kmpc_scope`. Example:
+  /// \code
+  ///   void @__kmpc_scope(%ident_t* %loc.addr.11.12, i32 %my.tid,
+  ///                      void* reserved)
+  /// \endcode
+  static CallInst *genKmpcScopeCall(WRegionNode *W, StructType *IdentTy,
+                                        Value *Tid, Instruction *InsertPt);
+
+  /// Generate a call to `__kmpc_end_scope`. Example:
+  /// \code
+  ///   void @__kmpc_end_scope(%ident_t* %loc.addr.11.12, i32 %my.tid,
+  ///                              void* reserved)
+  /// \endcode
+  static CallInst *genKmpcEndScopeCall(WRegionNode *W, StructType *IdentTy,
+                                           Value *Tid, Instruction *InsertPt);
+
+  // This function generates calls for the scope region.
+  //
+  //   call void @__kmpc_scope(%ident_t* %loc, i32 %tid, void *reserved)
+  //      or
+  //   call void @__kmpc_end_scope(%ident_t* %loc, i32 %tid, void *reserved)
+  static CallInst *genKmpcScopeOrEndScopeCall(WRegionNode *W,
+                                              StructType *IdentTy,
+                                              Value *Tid,
+                                              Instruction *InsertPt,
+                                              bool IsScopeStart);
+
   /// Generate a call to `__kmpc_taskgroup`. Example:
   /// \code
   ///   void @__kmpc_taskgroup(%ident_t* %loc.addr.11.12, i32 %my.tid)
