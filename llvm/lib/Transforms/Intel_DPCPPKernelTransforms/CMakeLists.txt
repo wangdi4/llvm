@@ -34,6 +34,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
+  SetVectorizationFactor.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/SGSizeCollector.cpp
   VectorVariant/SGSizeCollectorIndirect.cpp

@@ -625,6 +625,7 @@ FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
 FUNCTION_PASS("dpcpp-kernel-phi-canonicalization", PhiCanonicalization())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
+FUNCTION_PASS("dpcpp-kernel-set-vf", SetVectorizationFactorPass())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_PASS("print<vpo-wrncollection>",
