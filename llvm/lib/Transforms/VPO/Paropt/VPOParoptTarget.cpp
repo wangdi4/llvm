@@ -1923,7 +1923,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         Type *ObjectTy = ItemTy->getPointerElementType();
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                               DL.getTypeAllocSize(ObjectTy)));
-        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
+        MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO | TGT_MAP_PRIVATE);
       }
 #if INTEL_CUSTOMIZATION
       IsWILocalFirstprivate.push_back(FprivI->getIsWILocal());
