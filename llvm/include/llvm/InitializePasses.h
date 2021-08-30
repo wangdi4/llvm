@@ -716,6 +716,7 @@ void initializePhiCanonicalizationLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
+void initializeSetVectorizationFactorLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorIndirectLegacyPass(PassRegistry &);
 void initializeSplitBBonBarrierLegacyPass(PassRegistry &);

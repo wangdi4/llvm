@@ -424,6 +424,7 @@ namespace {
       (void)llvm::createPhiCanonicalizationLegacyPass();
       (void)llvm::createRedundantPhiNodeLegacyPass();
       (void)llvm::createGroupBuiltinLegacyPass();
+      (void)llvm::createSetVectorizationFactorLegacyPass();
       (void)llvm::createSplitBBonBarrierLegacyPass();
       (void)llvm::createWIRelatedValueWrapperPass();
       (void)llvm::createDataPerBarrierWrapperPass();
