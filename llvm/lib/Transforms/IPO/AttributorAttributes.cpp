@@ -6732,7 +6732,9 @@ void AAMemoryLocationImpl::categorizePtrValue(
     assert(!isa<GEPOperator>(V) && "GEPs should have been stripped.");
     if (isa<UndefValue>(V))
       return true;
-    if (auto *Arg = dyn_cast<Argument>(&V)) {
+#if INTEL_CUSTOMIZATION
+    if (isa<Argument>(&V)) {
+#endif // INTEL_CUSTOMIZATION
       // TODO: For now we do not treat byval arguments as local copies performed
       // on the call edge, though, we should. To make that happen we need to
       // teach various passes, e.g., DSE, about the copy effect of a byval. That
