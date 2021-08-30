@@ -102,6 +102,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
+  initializeX86LowerMatrixIntrinsicsPassPass(PR);
   initializeX86FeatureInitPassPass(PR);
 #endif // INTEL_CUSTOMIZATION
 }
@@ -445,6 +446,7 @@ void X86PassConfig::addIRPasses() {
   if (TM->getOptLevel() != CodeGenOpt::None) // INTEL
     addPass(createFoldLoadsToGatherPass()); // INTEL
 
+  addPass(createX86LowerMatrixIntrinsicsPass()); // INTEL
   // We add both pass anyway and when these two passes run, we skip the pass
   // based on the option level and option attribute.
   addPass(createX86LowerAMXIntrinsicsPass());

@@ -158,6 +158,9 @@ FunctionPass *createX86GenerateLEAs();
 /// Return a pass that generate load + permute for gather instruciton.
 FunctionPass *createX86Gather2LoadPermutePass();
 
+/// Return a pass that generate amx intrinsics for matrix intrinsics.
+FunctionPass *createX86LowerMatrixIntrinsicsPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 /// This pass insert wait instruction after X87 instructions which could raise
@@ -208,6 +211,7 @@ void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
+void initializeX86LowerMatrixIntrinsicsPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
 void initializeX86FastTileConfigPass(PassRegistry &);
