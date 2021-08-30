@@ -161,8 +161,23 @@ ModulePass *createDeadArgEliminationSYCLPass();
 /// createArgumentPromotionPass - This pass promotes "by reference" arguments to
 /// be passed by value if the number of elements passed is smaller or
 /// equal to maxElements (maxElements == 0 means always promote).
+#if INTEL_CUSTOMIZATION
+/// removeHomedArguments == true indicates that homed arguments, which
+/// are introduced for debugging, should be removed to enable argument
+/// promotion. For example, here is a homed argument sequence:
+///    define void foo(double** %grid.addr) {
+///      ...
+///      %grid.addr.addr = alloca double**, align 8
+///      store double** %grid.addr, double*** %grid.addr.addr, align 8
+///      %grid.addr.value = load double**, double*** %grid.addr.addr, align 8
+///      ...
+/// to enable argument promotion of '%grid.addr', we would replace all
+/// references to %grid.addr.value with %grid.addr and remove the alloca,
+/// store, and load.
 ///
-Pass *createArgumentPromotionPass(unsigned maxElements = 3);
+Pass *createArgumentPromotionPass(bool removeHomedArguments = false,
+                                  unsigned maxElements = 3);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 /// createOpenMPOptLegacyPass - OpenMP specific optimizations.

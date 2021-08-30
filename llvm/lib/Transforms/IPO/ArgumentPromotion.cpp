@@ -98,7 +98,13 @@ STATISTIC(NumArgumentsPromoted, "Number of pointer arguments promoted");
 STATISTIC(NumAggregatesPromoted, "Number of aggregate arguments promoted");
 STATISTIC(NumByValArgsPromoted, "Number of byval arguments promoted");
 STATISTIC(NumArgumentsDead, "Number of dead pointer args eliminated");
-
+#if INTEL_CUSTOMIZATION
+// Force removal of homed arguments. Primarily intended for LIT tests.
+// Would not normally be enabled.
+static cl::opt<bool>
+  ForceRemoveHomedArguments("argpro-force-remove-homed-arguments",
+    cl::init(false), cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
 /// A vector used to hold the indices of a single GEP instruction
 using IndicesVector = std::vector<uint64_t>;
 
@@ -691,9 +697,51 @@ static void markIndicesSafe(const IndicesVector &ToMark,
 /// elements of the aggregate in order to avoid exploding the number of
 /// arguments passed in.
 static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR,
-                                    bool isCallback, // INTEL
+                                    bool isCallback,             // INTEL
+                                    bool RemoveHomedArguments,   // INTEL
                                     unsigned MaxElements) {
   using GEPIndicesSet = std::set<IndicesVector>;
+#if INTEL_CUSTOMIZATION
+  //
+  // Return the unique LoadInst, if it exists, which retrieves the
+  // Argument 'A' that is homed by the StoreInst 'U'.
+  //
+  auto UniqueLoadInst = [](Argument *A, User *U) -> LoadInst * {
+    StoreInst *SI = dyn_cast<StoreInst>(U);
+    if (!SI || SI->getValueOperand() != A)
+      return nullptr;
+    auto AI = dyn_cast<AllocaInst>(SI->getPointerOperand());
+    if (!AI)
+      return nullptr;
+    LoadInst *ULI = nullptr;
+    for (User *UU : AI->users()) {
+      if (UU == SI)
+        continue;
+      auto LI = dyn_cast<LoadInst>(UU);
+      if (!LI || ULI)
+        return nullptr;
+      ULI = LI;
+    }
+    return ULI;
+  };
+
+  //
+  // Remove the homed store 'SI' and its unique load 'LI' and corresponding
+  // AllocaInst to enable argument promotion and update 'TestUsers' with new
+  // Users that now have 'Arg' as their pointer operand.
+  //
+  auto RemoveHomedStore = [](SmallVectorImpl<User *> &TestUsers,
+                             LoadInst *LI, StoreInst *SI) {
+      auto Arg = cast<Argument>(SI->getValueOperand());
+      auto AI = cast<AllocaInst>(SI->getPointerOperand());
+      for (User *U : LI->users())
+        TestUsers.push_back(U);
+      LI->replaceAllUsesWith(Arg);
+      LI->eraseFromParent();
+      SI->eraseFromParent();
+      AI->eraseFromParent();
+  };
+#endif // INTEL_CUSTOMIZATION
 
   // Quick exit for unused arguments
   if (Arg->use_empty())
@@ -786,8 +834,13 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   // not (GEP+)loads, or any (GEP+)loads that are not safe to promote.
   SmallVector<LoadInst *, 16> Loads;
   IndicesVector Operands;
-  for (Use &U : Arg->uses()) {
-    User *UR = U.getUser();
+#if INTEL_CUSTOMIZATION
+  SmallVector<User *, 16> TestUsers;
+  TestUsers.append(Arg->users().begin(), Arg->users().end());
+  while (!TestUsers.empty()) {
+    User *UR = TestUsers.back();
+    TestUsers.pop_back();
+#endif // INTEL_CUSTOMIZATION
     Operands.clear();
     if (LoadInst *LI = dyn_cast<LoadInst>(UR)) {
       // Don't hack volatile/atomic loads
@@ -827,6 +880,14 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
           // Other uses than load?
           return false;
         }
+#if INTEL_CUSTOMIZATION
+    } else if (RemoveHomedArguments) {
+      if (auto LI = UniqueLoadInst(Arg, UR)) {
+        RemoveHomedStore(TestUsers, LI, cast<StoreInst>(UR));
+        continue;
+      }
+      return false;
+#endif // INTEL_CUSTOMIZATION
     } else {
       return false; // Not a load or a GEP.
     }
@@ -875,7 +936,6 @@ static bool isSafeToPromoteArgument(Argument *Arg, Type *ByValTy, AAResults &AAR
   // assume that the argument pointer is not modified in the current routine.
   if (isNoAliasOrByValArgument(Arg))
     return true;
-
 #endif // INTEL_CUSTOMIZATION
 
   // Okay, now we know that the argument is only used by load instructions and
@@ -1007,10 +1067,11 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
 /// calls the DoPromotion method.
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
-                 unsigned MaxElements,
+                 bool RemoveHomedArguments, unsigned MaxElements, // INTEL
                  Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI) {
+  RemoveHomedArguments |= ForceRemoveHomedArguments; // INTEL
   // Don't perform argument promotion for naked functions; otherwise we can end
   // up removing parameters that are seemingly 'not used' as they are referred
   // to in the assembly.
@@ -1194,8 +1255,10 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
     // Otherwise, see if we can promote the pointer to its value.
     Type *ByValTy =
         PtrArg->hasByValAttr() ? PtrArg->getParamByValType() : nullptr;
-    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, isCallback, // INTEL
-                                MaxElements))                     // INTEL
+#if INTEL_CUSTOMIZATION
+    if (isSafeToPromoteArgument(PtrArg, ByValTy, AAR, isCallback,
+                                RemoveHomedArguments, MaxElements))
+#endif // INTEL_CUSTOMIZATION
       ArgsToPromote.insert(PtrArg);
   }
 
@@ -1233,8 +1296,11 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       };
 
       const TargetTransformInfo &TTI = FAM.getResult<TargetIRAnalysis>(OldF);
+#if INTEL_CUSTOMIZATION
       Function *NewF =
-          promoteArguments(&OldF, AARGetter, MaxElements, None, TTI);
+          promoteArguments(&OldF, AARGetter, RemoveHomedArguments, MaxElements,
+                           None, TTI);
+#endif // INTEL_CUSTOMIZATION
       if (!NewF)
         continue;
       LocalChange = true;
@@ -1275,8 +1341,12 @@ struct ArgPromotion : public CallGraphSCCPass {
   // Pass identification, replacement for typeid
   static char ID;
 
-  explicit ArgPromotion(unsigned MaxElements = 3)
-      : CallGraphSCCPass(ID), MaxElements(MaxElements) {
+#if INTEL_CUSTOMIZATION
+  explicit ArgPromotion(bool RemoveHomedArguments = false,
+                        unsigned MaxElements = 3)
+      : CallGraphSCCPass(ID), RemoveHomedArguments(RemoveHomedArguments),
+        MaxElements(MaxElements) {
+#endif // INTEL_CUSTOMIZATION
     initializeArgPromotionPass(*PassRegistry::getPassRegistry());
   }
 
@@ -1297,6 +1367,11 @@ private:
 
   bool doInitialization(CallGraph &CG) override;
 
+#if INTEL_CUSTOMIZATION
+  /// True if we should remove homed parameters before attempting
+  /// argument promotion.
+  bool RemoveHomedArguments;
+#endif // INTEL_CUSTOMIZATION
   /// The maximum number of elements to expand, or 0 for unlimited.
   unsigned MaxElements;
 };
@@ -1315,9 +1390,12 @@ INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(ArgPromotion, "argpromotion",
                     "Promote 'by reference' arguments to scalars", false, false)
 
-Pass *llvm::createArgumentPromotionPass(unsigned MaxElements) {
-  return new ArgPromotion(MaxElements);
+#if INTEL_CUSTOMIZATION
+Pass *llvm::createArgumentPromotionPass(bool RemoveHomedArguments,
+                                        unsigned MaxElements) {
+  return new ArgPromotion(RemoveHomedArguments, MaxElements);
 }
+#endif // INTEL_CUSTOMIZATION
 
 bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
   if (skipSCC(SCC))
@@ -1351,8 +1429,12 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
 
       const TargetTransformInfo &TTI =
           getAnalysis<TargetTransformInfoWrapperPass>().getTTI(*OldF);
-      if (Function *NewF = promoteArguments(OldF, AARGetter, MaxElements,
-                                            {ReplaceCallSite}, TTI)) {
+#if INTEL_CUSTOMIZATION
+      if (Function *NewF = promoteArguments(OldF, AARGetter,
+                                            RemoveHomedArguments,
+                                            MaxElements,
+                                           {ReplaceCallSite}, TTI)) {
+#endif // INTEL_CUSTOMIZATION
         LocalChange = true;
 
         // INTEL Argument promotion is replacing F with NF.
