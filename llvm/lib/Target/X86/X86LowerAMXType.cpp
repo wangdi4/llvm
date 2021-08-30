@@ -95,8 +95,60 @@ static Instruction *getFirstNonAllocaInTheEntryBlock(Function &F) {
 }
 
 #if INTEL_CUSTOMIZATION
-static std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo,
-                                            TargetMachine *TM) {
+class ShapeCalculator {
+private:
+  TargetMachine *TM = nullptr; // INTEL
+
+  // In AMX intrinsics we let Shape = {Row, Col}, but the
+  // RealCol = Col / ElementSize. We may use the RealCol
+  // as a new Row for other new created AMX intrinsics.
+  std::map<Value *, Value *> Col2Row, Row2Col; // INTEL
+public:
+  ShapeCalculator(TargetMachine *TargetM) : TM(TargetM) {}
+  std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo);
+  Value *getRowFromCol(Instruction *II, Value *V, unsigned Granularity);
+  Value *getColFromRow(Instruction *II, Value *V, unsigned Granularity);
+};
+
+Value *ShapeCalculator::getRowFromCol(Instruction *II, Value *V,
+                                      unsigned Granularity) {
+  if (Col2Row.count(V))
+    return Col2Row[V];
+  IRBuilder<> Builder(&*II->getParent()->getFirstInsertionPt());
+  if (auto *I = dyn_cast<Instruction>(V)) {
+    BasicBlock::iterator Iter = I->getIterator();
+    ++Iter;
+    Builder.SetInsertPoint(&*Iter);
+  }
+  ConstantInt *Gran = Builder.getInt16(Granularity);
+  Value *RealRow = Builder.CreateUDiv(V, Gran);
+  Col2Row[V] = RealRow;
+  return RealRow;
+}
+
+Value *ShapeCalculator::getColFromRow(Instruction *II, Value *V,
+                                      unsigned Granularity) {
+  if (Row2Col.count(V))
+    return Row2Col[V];
+  IRBuilder<> Builder(&*II->getParent()->getFirstInsertionPt());
+  if (auto *I = dyn_cast<Instruction>(V)) {
+    BasicBlock::iterator Iter = I->getIterator();
+    ++Iter;
+    Builder.SetInsertPoint(&*Iter);
+  }
+  ConstantInt *Gran = Builder.getInt16(Granularity);
+  Value *RealCol = Builder.CreateNSWMul(V, Gran);
+  Row2Col[V] = RealCol;
+  return RealCol;
+}
+
+// TODO: Refine the row and col-in-bytes of tile to row and col of matrix.
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+std::pair<Value *, Value *> ShapeCalculator::getShape(IntrinsicInst *II,
+                                                      unsigned OpNo) {
+  (void)TM;
 #endif // INTEL_CUSTOMIZATION
   IRBuilder<> Builder(II);
   Value *Row = nullptr, *Col = nullptr;
@@ -254,7 +306,7 @@ static std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo,
 namespace {
 class X86LowerAMXType {
   Function &Func;
-  TargetMachine *TM = nullptr; // INTEL
+  ShapeCalculator *SC; // INTEL
 
   // In AMX intrinsics we let Shape = {Row, Col}, but the
   // RealCol = Col / ElementSize. We may use the RealCol
@@ -263,53 +315,13 @@ class X86LowerAMXType {
 
 public:
 #if INTEL_CUSTOMIZATION
-  X86LowerAMXType(Function &F, TargetMachine *TargetM) : Func(F), TM(TargetM) {}
+  X86LowerAMXType(Function &F, ShapeCalculator *ShapeC) : Func(F), SC(ShapeC) {}
 #endif // INTEL_CUSTOMIZATION
   bool visit();
   void combineLoadBitcast(LoadInst *LD, BitCastInst *Bitcast);
   void combineBitcastStore(BitCastInst *Bitcast, StoreInst *ST);
   bool transformBitcast(BitCastInst *Bitcast);
-  Value *getRowFromCol(Instruction *II, Value *V, unsigned Granularity);
-#if INTEL_CUSTOMIZATION
-  Value *getColFromRow(Instruction *II, Value *V, unsigned Granularity);
-#endif // INTEL_CUSTOMIZATION
 };
-
-Value *X86LowerAMXType::getRowFromCol(Instruction *II, Value *V,
-                                      unsigned Granularity) {
-  if (Col2Row.count(V))
-    return Col2Row[V];
-  IRBuilder<> Builder(&*II->getParent()->getFirstInsertionPt());
-  if (auto *I = dyn_cast<Instruction>(V)) {
-    BasicBlock::iterator Iter = I->getIterator();
-    ++Iter;
-    Builder.SetInsertPoint(&*Iter);
-  }
-  ConstantInt *Gran = Builder.getInt16(Granularity);
-  Value *RealRow = Builder.CreateUDiv(V, Gran);
-  Col2Row[V] = RealRow;
-  return RealRow;
-}
-
-#if INTEL_CUSTOMIZATION
-Value *X86LowerAMXType::getColFromRow(Instruction *II, Value *V,
-                                      unsigned Granularity) {
-  if (Row2Col.count(V))
-    return Row2Col[V];
-  IRBuilder<> Builder(&*II->getParent()->getFirstInsertionPt());
-  if (auto *I = dyn_cast<Instruction>(V)) {
-    BasicBlock::iterator Iter = I->getIterator();
-    ++Iter;
-    Builder.SetInsertPoint(&*Iter);
-  }
-  ConstantInt *Gran = Builder.getInt16(Granularity);
-  Value *RealCol = Builder.CreateNSWMul(V, Gran);
-  Row2Col[V] = RealCol;
-  return RealCol;
-}
-
-// TODO: Refine the row and col-in-bytes of tile to row and col of matrix.
-#endif // INTEL_CUSTOMIZATION
 
 // %src = load <256 x i32>, <256 x i32>* %addr, align 64
 // %2 = bitcast <256 x i32> %src to x86_amx
@@ -321,7 +333,7 @@ void X86LowerAMXType::combineLoadBitcast(LoadInst *LD, BitCastInst *Bitcast) {
   Use &U = *(Bitcast->use_begin());
   unsigned OpNo = U.getOperandNo();
   auto *II = cast<IntrinsicInst>(U.getUser());
-  std::tie(Row, Col) = getShape(II, OpNo, TM); // INTEL
+  std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
   IRBuilder<> Builder(Bitcast);
   // Use the maximun column as stride.
   Value *Stride = Builder.getInt64(64);
@@ -403,7 +415,7 @@ bool X86LowerAMXType::transformBitcast(BitCastInst *Bitcast) {
     Builder.CreateStore(Src, AllocaAddr);
     // TODO we can pick an constant operand for the shape.
     Value *Row = nullptr, *Col = nullptr;
-    std::tie(Row, Col) = getShape(II, OpNo, TM); // INTEL
+    std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
     std::array<Value *, 4> Args = {Row, Col, I8Ptr, Stride};
     Value *NewInst = Builder.CreateIntrinsic(
         Intrinsic::x86_tileloadd64_internal, None, Args);
@@ -788,11 +800,11 @@ namespace {
 
 class X86LowerAMXCast {
   Function &Func;
-  TargetMachine *TM = nullptr; // INTEL
+  ShapeCalculator *SC; // INTEL
 
 public:
 #if INTEL_CUSTOMIZATION
-  X86LowerAMXCast(Function &F, TargetMachine *TargetM) : Func(F), TM(TargetM) {}
+  X86LowerAMXCast(Function &F, ShapeCalculator *ShapeC) : Func(F), SC(ShapeC) {}
 #endif // INTEL_CUSTOMIZATION
   bool combineAMXcast(TargetLibraryInfo *TLI);
   bool transformAMXCast(IntrinsicInst *AMXCast);
@@ -1095,7 +1107,7 @@ bool X86LowerAMXCast::transformAMXCast(IntrinsicInst *AMXCast) {
     Builder.CreateStore(Src, AllocaAddr);
     // TODO we can pick an constant operand for the shape.
     Value *Row = nullptr, *Col = nullptr;
-    std::tie(Row, Col) = getShape(II, OpNo, TM); // INTEL
+    std::tie(Row, Col) = SC->getShape(II, OpNo); // INTEL
     std::array<Value *, 4> Args = {
         Row, Col, I8Ptr, Builder.CreateSExt(Col, Builder.getInt64Ty())};
     Value *NewInst = Builder.CreateIntrinsic(
@@ -1162,13 +1174,14 @@ public:
     TargetMachine *TM = &getAnalysis<TargetPassConfig>().getTM<TargetMachine>();
     TargetLibraryInfo *TLI =
         &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-    X86LowerAMXCast LAC(F, TM); // INTEL
+    ShapeCalculator SC(TM);      // INTEL
+    X86LowerAMXCast LAC(F, &SC); // INTEL
     C |= LAC.combineAMXcast(TLI);
     // There might be remaining AMXcast after combineAMXcast and they should be
     // handled elegantly.
     C |= LAC.transformAllAMXCast();
 
-    X86LowerAMXType LAT(F, TM); // INTEL
+    X86LowerAMXType LAT(F, &SC); // INTEL
     C |= LAT.visit();
 
     // Prepare for fast register allocation at O0.
