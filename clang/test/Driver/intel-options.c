@@ -746,3 +746,6 @@
 // TARGET-CPU-FILE-TYPE-C: "corei7-avx" {{.*}}"-x" "c"
 // TARGET-CPU-FILE-TYPE-CPP: "corei7-avx" {{.*}}"-x" "c++"
 
+// -align
+// RUN: %clang -### -align -c %s 2>&1 | FileCheck -check-prefix=ALIGN %s
+// ALIGN: "-malign-double"
