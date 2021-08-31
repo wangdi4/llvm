@@ -1,0 +1,32 @@
+diff --git a/build/bin/do_build.pl b/build/bin/do_build.pl
+index 244304bd..c5eb1006 100755
+--- a/build/bin/do_build.pl
++++ b/build/bin/do_build.pl
+@@ -577,6 +577,7 @@ sub main
+     my @opt_extraopts;
+     my $opt_opencl = 0;
+     my $opt_opencl_intree = 0;
++    my $opt_cpu_l0_intree = 0;
+     my $opt_cmake_deploy = 0;
+     my $opt_libbuild = "";
+     my $opt_san = "";
+@@ -692,6 +693,7 @@ sub main
+ 
+         if ($sw =~ /^-(no-?|)bldfort/i)   { $opt_bldfort       = $1 ? 0 : 1; next; };
+         if ($sw =~ /^-(no-?|)bldocl$/i)   { $opt_opencl_intree = $1 ? 0 : 1; next; };
++	if ($sw =~ /^-(no-?|)bldcpul0/i)  { $opt_cpu_l0_intree = $1 ? 0 : 1; next; };
+         if ($sw =~ /^-(no-?|)sycl/i)      { $opt_sycl          = $1 ? 0 : 1; next; };
+         if ($sw =~ /^-(no-?|)bldcom/i)    { $opt_bldcrt        = $1 ? 0 : 1; next; };
+         if ($sw =~ /^-(no-?|)bldlibcxx/i) { $opt_bldlibcxx     = $1 ? 0 : 1; next; };
+@@ -1725,6 +1727,11 @@ sub main
+                   push @extprojs, "opencl";
+                   push @enprojs, "opencl";
+                 }
++		if ($opt_cpu_l0_intree) {
++		    push @enprojs, "level-zero-cpu-rt";
++		    push @extprojs, "level-zero-cpu-rt";
++		    $cmdl .= " -DLLVM_EXTERNAL_LEVEL_ZERO_CPU_INTEL_SOURCE_DIR=\"$ws_dir/llvm/level-zero-cpu-rt\"";
++                }
+                 if ($opt_opencl_intree) {
+                     push @extprojs, "ocl-cclang";
+                     $cmdl .= " -DLLVM_EXTERNAL_OCL_CCLANG_SOURCE_DIR=\"$ws_dir/llvm/ocl-cclang\"";
