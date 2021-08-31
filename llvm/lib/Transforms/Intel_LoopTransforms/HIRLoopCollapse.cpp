@@ -492,7 +492,13 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
 
     bool OuterDimCollapsible = !GEPRef->hasTrailingStructOffsets(Idx) &&
                                IVBlob == InvalidBlobIndex && IVCoeff == 1 &&
-                               OuterIdxCE->getDenominator() == 1;
+                               OuterIdxCE->getDenominator() == 1 &&
+                               OuterIdxCE->isInvariantAtLevel(InnerLoopLevel);
+
+    if (!OuterDimCollapsible) {
+      LLVM_DEBUG(dbgs() << "Dimension number " << Idx
+                        << " is illegal to collapse\n";);
+    }
 
     unsigned InnerDimIVLevel = UINT_MAX;
     bool InnerDimCollapsible =
