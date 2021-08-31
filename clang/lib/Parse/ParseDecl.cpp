@@ -4111,8 +4111,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     case tok::kw_pipe:
 #if INTEL_CUSTOMIZATION
-      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200 &&
-                                    !getLangOpts().OpenCLCPlusPlus &&
+      if (!getLangOpts().OpenCL || (getLangOpts().getOpenCLCompatibleVersion() < 200 &&
           !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
 #endif // INTEL_CUSTOMIZATION
         // OpenCL 2.0 and later define this keyword. OpenCL 1.2 and earlier
@@ -5326,8 +5325,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   // OpenCL 2.0 and later define this keyword.
   case tok::kw_pipe:
-    return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-           getLangOpts().OpenCLCPlusPlus;
+    return getLangOpts().OpenCL &&
+           getLangOpts().getOpenCLCompatibleVersion() >= 200;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
@@ -5878,8 +5877,8 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 
   // OpenCL 2.0 and later define this keyword.
-  if (Kind == tok::kw_pipe &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
+  if (Kind == tok::kw_pipe && Lang.OpenCL &&
+      Lang.getOpenCLCompatibleVersion() >= 200)
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&

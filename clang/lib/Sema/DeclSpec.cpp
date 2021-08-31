@@ -638,8 +638,7 @@ bool DeclSpec::SetStorageClassSpec(Sema &S, SCS SC, SourceLocation Loc,
       // CQ381345: OpenCL is not supported in Intel compatibility mode.
       if (!S.getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
-      if (S.getLangOpts().OpenCLVersion < 120 &&
-          !S.getLangOpts().OpenCLCPlusPlus) {
+      if (S.getLangOpts().getOpenCLCompatibleVersion() < 120) {
         DiagID = diag::err_opencl_unknown_type_specifier;
         PrevSpec = getSpecifierName(SC);
         return true;
