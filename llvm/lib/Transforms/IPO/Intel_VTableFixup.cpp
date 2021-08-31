@@ -49,9 +49,19 @@ static Constant *processInitializer(Constant *Init) {
     unsigned Opcode = CEInit->getOpcode();
     if (Opcode == Instruction::AddrSpaceCast ||
         Opcode == Instruction::BitCast ||
-        Opcode == Instruction::GetElementPtr)
-      if (auto *NewOp = processInitializer(CEInit->getOperand(0)))
-        return CEInit->getWithOperandReplaced(0, NewOp);
+        Opcode == Instruction::GetElementPtr) {
+      auto *Op0 = CEInit->getOperand(0);
+      if (auto *NewOp = processInitializer(Op0)) {
+        if (NewOp == Op0)
+          return CEInit;
+
+        SmallVector<Constant *, 8> Ops;
+        Ops.push_back(NewOp);
+        for (unsigned i = 1, e = CEInit->getNumOperands(); i != e; i++)
+          Ops.push_back(CEInit->getOperand(i));
+        return CEInit->getWithOperands(Ops);
+      }
+    }
 
     return nullptr;
   }
