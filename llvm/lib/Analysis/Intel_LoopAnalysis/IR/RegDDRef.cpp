@@ -64,16 +64,16 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 }
 
 RegDDRef::GEPInfo::GEPInfo()
-    : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), IsCollapsed(false), Alignment(0), DummyGepLoc(nullptr) {
-}
+    : BaseCE(nullptr), BasePtrElementTy(nullptr), BitCastDestTy(nullptr),
+      InBounds(false), AddressOf(false), IsCollapsed(false), Alignment(0),
+      DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
-    : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
-      InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
-      DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+    : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
+      BitCastDestTy(Info.BitCastDestTy), InBounds(Info.InBounds),
+      AddressOf(Info.AddressOf), IsCollapsed(Info.IsCollapsed),
+      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
+      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
       MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
@@ -1715,6 +1715,7 @@ void RegDDRef::verify() const {
   auto NodeLevel = getNodeLevel();
 
   bool HasGEPInfo = hasGEPInfo();
+  bool IsSelfAddressOf = isSelfAddressOf();
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     auto *IndexCE = getDimensionIndex(I);
 
@@ -1737,6 +1738,16 @@ void RegDDRef::verify() const {
              "Lower is not integer type!");
       assert(StrideCE->getSrcType()->isIntOrIntVectorTy() &&
              "Stride is not integer type!");
+
+      // Self-address of refs like &(p)[0] may not have any type information
+      // when we transition to opaque ptrs.
+      if (!IsSelfAddressOf) {
+        auto *DimTy = getDimensionType(I);
+        (void)DimTy;
+        assert((DimTy && (DimTy->isArrayTy() || DimTy->isPointerTy())) &&
+               "Dimension type should be either a pointer or an array type!");
+        assert(getDimensionElementType(I) && "DimElemTy may not be unknown");
+      }
     }
   }
 
@@ -1833,9 +1844,6 @@ void RegDDRef::addDimensionHighest(CanonExpr *IndexCE,
   assert(StrideCE && "Stride may not be unknown");
   GepInfo->Strides.push_back(StrideCE);
 
-  assert(DimTy && "DimTy may not be unknown");
-  assert((DimTy->isArrayTy() || DimTy->isPointerTy()) &&
-         "Dimension type should be either array or pointer");
   GepInfo->DimTypes.push_back(DimTy);
 }
 

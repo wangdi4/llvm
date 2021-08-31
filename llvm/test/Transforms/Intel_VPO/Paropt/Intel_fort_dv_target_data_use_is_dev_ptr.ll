@@ -32,7 +32,7 @@
 
 ; Check for the map sizes/type structs for target/target data regions
 ; CHECK: [[SIZES_TGT:@.offload_sizes[^ ]*]] = private unnamed_addr constant [1 x i64] [i64 72]
-; CHECK: [[MAP_TYS_TGT:@.offload_maptypes[^ ]*]] = private unnamed_addr constant [1 x i64] [i64 33]
+; CHECK: [[MAP_TYS_TGT:@.offload_maptypes[^ ]*]] = private unnamed_addr constant [1 x i64] [i64 161]
 
 ; CHECK: [[SIZES_TGT_DATA:@.offload_sizes[^ ]*]] = private unnamed_addr constant [1 x i64] zeroinitializer
 ; CHECK: [[MAP_TYS_TGT_DATA:@.offload_maptypes[^ ]*]] = private unnamed_addr constant [1 x i64] [i64 64]
