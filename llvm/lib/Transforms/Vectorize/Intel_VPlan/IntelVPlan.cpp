@@ -375,6 +375,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-array";
   case VPInstruction::GeneralMemOptConflict:
     return "vp-general-mem-opt-conflict";
+  case VPInstruction::TreeConflict:
+    return "tree-conflict";
   case VPInstruction::ConflictInsn:
     return "vpconflict-insn";
   case VPInstruction::PrivateLastValueNonPOD:
@@ -705,6 +707,13 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       O << "    mask : none \n";
       Conflict->getRegion()->dump(O);
       O << "   }";
+      break;
+    }
+    case VPInstruction::TreeConflict: {
+      auto *TreeConf = cast<VPTreeConflict>(this);
+      O << " { Redux Opcode: ";
+      O << getOpcodeName(TreeConf->getRednOpcode());
+      O << " }";
       break;
     }
     }
