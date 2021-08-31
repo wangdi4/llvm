@@ -3923,6 +3923,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#endif // INTEL_CUSTOMIZATION
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:
   case X86::VFCMADDCPHZm:
@@ -4093,7 +4094,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
