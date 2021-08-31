@@ -2337,6 +2337,44 @@ void OpenMPLateOutliner::HandleImplicitVar(const Expr *E,
   ImplicitMap.insert(std::make_pair(VD, ICK));
 }
 
+/// If in a target or teams construct and there is a loop inside
+/// without any other statements between, return it.
+static const OMPLoopDirective *
+GetCloselyNestedLoop(const OMPExecutableDirective &S) {
+  OpenMPDirectiveKind Kind = S.getDirectiveKind();
+
+  if (isOpenMPLoopDirective(Kind) && isOpenMPTargetExecutionDirective(Kind))
+    return cast<OMPLoopDirective>(&S);
+
+  if (isOpenMPLoopDirective(Kind) && isOpenMPTeamsDirective(Kind))
+    return cast<OMPLoopDirective>(&S);
+
+  const Stmt *CS = nullptr;
+  if (Kind == OMPD_target || Kind == OMPD_teams || Kind == OMPD_target_teams) {
+    if ((CS = S.getInnermostCapturedStmt()->getCapturedStmt())) {
+      if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+        if (CompStmt->body_front() &&
+            CompStmt->body_front() == CompStmt->body_back())
+          CS = CompStmt->body_front();
+      }
+    }
+    if (CS && Kind == OMPD_target) {
+      if (auto *TeamsDir = dyn_cast<OMPTeamsDirective>(CS)) {
+        if ((CS = TeamsDir->getInnermostCapturedStmt()->getCapturedStmt())) {
+          if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+            if (CompStmt->body_front() &&
+                CompStmt->body_front() == CompStmt->body_back())
+              CS = CompStmt->body_front();
+          }
+        }
+      }
+    }
+    if (auto *LD = dyn_cast_or_null<OMPLoopDirective>(CS))
+      return LD;
+  }
+  return nullptr;
+}
+
 OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
                                        const OMPExecutableDirective &D,
                                        OpenMPDirectiveKind Kind)
@@ -2416,6 +2454,23 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
         isOpenMPTaskLoopDirective(CurrentDirectiveKind) ||
         isOpenMPDistributeDirective(CurrentDirectiveKind)) {
       HandleImplicitVar(LoopDir->getLowerBoundVariable(), ICK_firstprivate);
+    }
+  } else {
+    // CurrentDirectiveKind is not a loop, but there could be a nested loop.
+    // Add implicit private clauses to the surrounding target/teams.
+    if (const OMPLoopDirective *LD = GetCloselyNestedLoop(D)) {
+      for (auto *E : LD->counters()) {
+        auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+        ImplicitMap.insert(std::make_pair(VD, ICK_private));
+      }
+      for (const auto *C : LD->getClausesOfKind<OMPPrivateClause>()) {
+        for (const auto *Ref : C->varlists()) {
+          if (const auto *DRE = dyn_cast<DeclRefExpr>(Ref)) {
+            auto *VD = cast<VarDecl>(DRE->getDecl());
+            ImplicitMap.insert(std::make_pair(VD, ICK_private));
+          }
+        }
+      }
     }
   }
 }

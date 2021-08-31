@@ -519,8 +519,8 @@ void foo5(double *qq, int nq) {
 
   // ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // ALL-SAME: "DIR.OMP.TARGET"()
-  // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[K]]),
-  // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[K_CAST]]),
+  // HOST-SAME: "QUAL.OMP.PRIVATE"(i32* [[K]]),
+  // TARG-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[K_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // TARG-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
   // HOST-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_UB]])
