@@ -128,6 +128,7 @@
 ; CHECK-O23SZ: Running pass: PartialInlinerPass
 ; CHECK-O23SZ: Running pass: GlobalDCEPass
 ; END INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: ArgumentPromotionPass
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ: Running pass: InstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
