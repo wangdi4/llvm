@@ -67,8 +67,10 @@ class X86TTIImpl : public BasicTTIImplBase<X86TTIImpl> {
       X86::TuningBranchFusion,
       X86::TuningMacroFusion,
 #if INTEL_CUSTOMIZATION
-      X86::FeatureHasDSB,
-      X86::FeatureCMULFalseDeps,
+      X86::TuningDSB,
+      X86::Tuning2KDSB,
+      X86::Tuning4KDSB,
+      X86::TuningCMULFalseDeps,
 #endif // INTEL_CUSTOMIZATION
       X86::TuningPadShortFunctions,
       X86::TuningPOPCNTFalseDeps,

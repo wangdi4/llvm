@@ -58,56 +58,44 @@ body:             |
     ; ICL: liveins: $rdi
     ; ICL: [[COPY:%[0-9]+]]:gr64 = COPY $rdi, debug-location !19
     ; ICL: DBG_VALUE [[COPY]], $noreg, !11, !DIExpression(), debug-location !19
-    ; ICL: [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2412, $noreg, debug-location !20
-    ; ICL: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
+    ; ICL: MOV32mi [[COPY]], 1, $noreg, @block_ + 2412, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
     ; ICL: DBG_VALUE 0, $noreg, !13, !DIExpression(), debug-location !20
-    ; ICL: [[LEA64r1:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 12, $noreg, debug-location !21
-    ; ICL: MOV32mi [[LEA64r1]], 1, $noreg, 0, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
+    ; ICL: MOV32mi [[COPY]], 1, $noreg, @block_ + 12, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
     ; ICL: DBG_VALUE 1, $noreg, !14, !DIExpression(), debug-location !21
-    ; ICL: [[LEA64r2:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2062, $noreg, debug-location !22
-    ; ICL: MOV32mi [[LEA64r2]], 1, $noreg, 0, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
+    ; ICL: MOV32mi [[COPY]], 1, $noreg, @block_ + 2062, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
     ; ICL: DBG_VALUE 2, $noreg, !11, !DIExpression(), debug-location !22
     ; ICL: RET 0, debug-location !23
     ; ICX-LABEL: name: lea_opt
     ; ICX: liveins: $rdi
     ; ICX: [[COPY:%[0-9]+]]:gr64 = COPY $rdi, debug-location !19
     ; ICX: DBG_VALUE [[COPY]], $noreg, !11, !DIExpression(), debug-location !19
-    ; ICX: [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2412, $noreg, debug-location !20
-    ; ICX: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
+    ; ICX: MOV32mi [[COPY]], 1, $noreg, @block_ + 2412, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
     ; ICX: DBG_VALUE 0, $noreg, !13, !DIExpression(), debug-location !20
-    ; ICX: [[LEA64r1:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 12, $noreg, debug-location !21
-    ; ICX: MOV32mi [[LEA64r1]], 1, $noreg, 0, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
+    ; ICX: MOV32mi [[COPY]], 1, $noreg, @block_ + 12, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
     ; ICX: DBG_VALUE 1, $noreg, !14, !DIExpression(), debug-location !21
-    ; ICX: [[LEA64r2:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2062, $noreg, debug-location !22
-    ; ICX: MOV32mi [[LEA64r2]], 1, $noreg, 0, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
+    ; ICX: MOV32mi [[COPY]], 1, $noreg, @block_ + 2062, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
     ; ICX: DBG_VALUE 2, $noreg, !11, !DIExpression(), debug-location !22
     ; ICX: RET 0, debug-location !23
     ; ADL-LABEL: name: lea_opt
     ; ADL: liveins: $rdi
     ; ADL: [[COPY:%[0-9]+]]:gr64 = COPY $rdi, debug-location !19
     ; ADL: DBG_VALUE [[COPY]], $noreg, !11, !DIExpression(), debug-location !19
-    ; ADL: [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2412, $noreg, debug-location !20
-    ; ADL: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
+    ; ADL: MOV32mi [[COPY]], 1, $noreg, @block_ + 2412, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
     ; ADL: DBG_VALUE 0, $noreg, !13, !DIExpression(), debug-location !20
-    ; ADL: [[LEA64r1:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 12, $noreg, debug-location !21
-    ; ADL: MOV32mi [[LEA64r1]], 1, $noreg, 0, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
+    ; ADL: MOV32mi [[COPY]], 1, $noreg, @block_ + 12, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
     ; ADL: DBG_VALUE 1, $noreg, !14, !DIExpression(), debug-location !21
-    ; ADL: [[LEA64r2:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2062, $noreg, debug-location !22
-    ; ADL: MOV32mi [[LEA64r2]], 1, $noreg, 0, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
+    ; ADL: MOV32mi [[COPY]], 1, $noreg, @block_ + 2062, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
     ; ADL: DBG_VALUE 2, $noreg, !11, !DIExpression(), debug-location !22
     ; ADL: RET 0, debug-location !23
     ; SPR-LABEL: name: lea_opt
     ; SPR: liveins: $rdi
     ; SPR: [[COPY:%[0-9]+]]:gr64 = COPY $rdi, debug-location !19
     ; SPR: DBG_VALUE [[COPY]], $noreg, !11, !DIExpression(), debug-location !19
-    ; SPR: [[LEA64r:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2412, $noreg, debug-location !20
-    ; SPR: MOV32mi [[LEA64r]], 1, $noreg, 0, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
+    ; SPR: MOV32mi [[COPY]], 1, $noreg, @block_ + 2412, $noreg, 10, debug-location !20 :: (store (s32) into %ir.val_0)
     ; SPR: DBG_VALUE 0, $noreg, !13, !DIExpression(), debug-location !20
-    ; SPR: [[LEA64r1:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 12, $noreg, debug-location !21
-    ; SPR: MOV32mi [[LEA64r1]], 1, $noreg, 0, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
+    ; SPR: MOV32mi [[COPY]], 1, $noreg, @block_ + 12, $noreg, 10, debug-location !21 :: (store (s32) into %ir.val_1)
     ; SPR: DBG_VALUE 1, $noreg, !14, !DIExpression(), debug-location !21
-    ; SPR: [[LEA64r2:%[0-9]+]]:gr64 = LEA64r [[COPY]], 1, $noreg, @block_ + 2062, $noreg, debug-location !22
-    ; SPR: MOV32mi [[LEA64r2]], 1, $noreg, 0, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
+    ; SPR: MOV32mi [[COPY]], 1, $noreg, @block_ + 2062, $noreg, 10, debug-location !22 :: (store (s32) into %ir.val_2)
     ; SPR: DBG_VALUE 2, $noreg, !11, !DIExpression(), debug-location !22
     ; SPR: RET 0, debug-location !23
     %0:gr64 = COPY $rdi

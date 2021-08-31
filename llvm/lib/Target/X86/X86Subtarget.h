@@ -62,6 +62,12 @@ class X86Subtarget final : public X86GenSubtargetInfo {
     NoSSE, SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, AVX, AVX2, AVX512F
   };
 
+#if INTEL_CUSTOMIZATION
+  enum X86DSBEnum {
+    NoDSB, DSB1500, DSB2K, DSB4K
+  };
+#endif // INTEL_CUSTOMIZATION
+
   enum X863DNowEnum {
     NoThreeDNow, MMX, ThreeDNow, ThreeDNowA
   };
@@ -694,7 +700,7 @@ class X86Subtarget final : public X86GenSubtargetInfo {
 
 #if INTEL_CUSTOMIZATION
   /// Processor supports Decoded Stream Buffer.
-  bool HasDSB = false;
+  X86DSBEnum DSBSize = NoDSB;
 #endif // INTEL_CUSTOMIZATION
 
   /// Use Goldmont specific floating point div/sqrt costs.
@@ -996,7 +1002,9 @@ public:
   bool hasPCONFIG() const { return HasPCONFIG; }
   bool hasSGX() const { return HasSGX; }
 #if INTEL_CUSTOMIZATION
-  bool hasDSB() const override { return HasDSB; }
+  bool hasDSB() const override { return DSBSize > NoDSB; }
+  bool has2KDSB() const override { return DSBSize >= DSB2K; }
+  bool has4KDSB() const override { return DSBSize >= DSB4K; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
   unsigned getDSBWindowSize() const override { return 32; }
