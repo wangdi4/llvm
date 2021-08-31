@@ -37,6 +37,7 @@
 ; CHECK-NEXT: Running pass: dtransOP::DeleteFieldOPPass
 ; CHECK-NEXT: Running analysis: dtransOP::DTransSafetyAnalyzer
 ; CHECK-NEXT: Running pass: dtransOP::AOSToSOAOPPass
+; CHECK-NEXT: Running pass: dtransOP::DynClonePass on
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleanerPass
 
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
