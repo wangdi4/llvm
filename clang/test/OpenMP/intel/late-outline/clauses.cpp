@@ -207,7 +207,7 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[i3] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J1]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J1]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
   //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J1]])
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
@@ -218,7 +218,7 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[j1] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J2]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J2]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
   //CHECK: "DIR.OMP.END.SIMD"
   //CHECK: "DIR.OMP.END.TARGET"
@@ -228,7 +228,7 @@ void bar4(float c0, float *Anext, const int nx)
     Anext[j2] = c0;
   }
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
-  //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J3]])
+  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
   //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()

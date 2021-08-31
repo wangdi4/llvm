@@ -180,6 +180,11 @@ private:
   /// at code generation.
   struct GEPInfo {
     CanonExpr *BaseCE;
+    // Base ptr element type is needed to be stored explicitly in the presence
+    // of opaque ptrs. For example, when parsing this opaque ptr GEP, we will
+    // store [20 x i32] as BasePtrElementTy- %gep = getelementptr [20 x i32],
+    // ptr @p, i64 0, i64 1 This will let us recreate the GEP during CodeGen.
+    Type *BasePtrElementTy;
     // If there is a bitcast on the GEP before its use (in load/store
     // instruction etc), we store the destination type of the bitcast here.
     // Otherwise it is set to null. For example-
@@ -396,6 +401,11 @@ public:
   /// non-GEP DDRefs.
   Type *getBaseType() const { return getBaseCE()->getSrcType(); }
 
+  /// Returns the element type of base ptr GEP DDRefs.
+  /// For example, will return [10 x i32] for a base ptr type of [10 x i32]*.
+  Type *getBasePtrElementType() const { return getGEPInfo()->BasePtrElementTy; }
+  void setBasePtrElementType(Type *Ty) { getGEPInfo()->BasePtrElementTy = Ty; }
+
   /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
@@ -471,12 +481,24 @@ public:
     return StructElemTy && StructElemTy->isOpaque();
   }
 
-  // Returns true if the reference really represents a pointer value equal
-  // to the BaseCE: &((%b)[0]).
-  bool isSelfAddressOf() const {
-    return isAddressOf() && isSingleDimension() &&
+  // Returns true if this is either isSelfAddressOf() or isSelfMemRef().
+  bool isSelfGEPRef(bool IgnoreBitCast = false) const {
+    return hasGEPInfo() && isSingleDimension() &&
            getSingleCanonExpr()->isZero() && getDimensionLower(1)->isZero() &&
-           getTrailingStructOffsets(1).empty() && !getBitCastDestType();
+           getTrailingStructOffsets(1).empty() &&
+           (IgnoreBitCast || !getBitCastDestType());
+  }
+
+  /// Returns true if the reference represents a pointer value equal to the
+  /// BaseCE: &((%b)[0]).
+  bool isSelfAddressOf(bool IgnoreBitCast = false) const {
+    return isAddressOf() && isSelfGEPRef(IgnoreBitCast);
+  }
+
+  /// Returns true if the reference represents a load/store of a pointer value
+  /// equal to the BaseCE: ((%b)[0]).
+  bool isSelfMemRef(bool IgnoreBitCast = false) const {
+    return isMemRef() && isSelfGEPRef(IgnoreBitCast);
   }
 
   /// Returns the dest type of the bitcast applied to GEP DDRefs, asserts
