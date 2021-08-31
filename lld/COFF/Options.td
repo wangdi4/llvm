@@ -268,9 +268,9 @@ def wrap : P_priv<"wrap">;
 
 // Flags for debugging
 def lldmap : F<"lldmap">;
-def lldmap_file : Joined<["/", "-", "/?", "-?"], "lldmap:">;
+def lldmap_file : P_priv<"lldmap">;
 def map : F<"map">;
-def map_file : Joined<["/", "-", "/?", "-?"], "map:">;
+def map_file : P_priv<"map">;
 def show_timing : F<"time">;
 def summary : F<"summary">;
 
@@ -288,8 +288,6 @@ def intel_embedded_linker : F<"intel-embedded-linker">;
 // The flags below do nothing. They are defined only for link.exe compatibility.
 //==============================================================================
 
-class QF<string name> : Joined<["/", "-", "/?", "-?"], name#":">;
-
 def ignoreidl : F<"ignoreidl">;
 def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
@@ -297,15 +295,15 @@ def editandcontinue : F<"editandcontinue">;
 def fastfail : F<"fastfail">;
 def ltcg : F<"ltcg">;  // INTEL
 
-def delay : QF<"delay">;
-def errorreport : QF<"errorreport">;
-def idlout : QF<"idlout">;
-def ltcg_opt : QF<"ltcg">;  // INTEL
-def maxilksize : QF<"maxilksize">;
-def tlbid : QF<"tlbid">;
-def tlbout : QF<"tlbout">;
-def verbose_all : QF<"verbose">;
-def guardsym : QF<"guardsym">;
+def delay : P_priv<"delay">;
+def errorreport : P_priv<"errorreport">;
+def idlout : P_priv<"idlout">;
+def ltcg_opt : P_priv<"ltcg">;  // INTEL
+def maxilksize : P_priv<"maxilksize">;
+def tlbid : P_priv<"tlbid">;
+def tlbout : P_priv<"tlbout">;
+def verbose_all : P_priv<"verbose">;
+def guardsym : P_priv<"guardsym">;
 
 #if INTEL_CUSTOMIZATION
 //=============================================================================
@@ -336,7 +334,7 @@ class IntelLLDWarnMessage<string name> : F<name> {
 }
 
 // Class for options that require an extra argument
-class IntelLLDWarnMessageArgs<string name> : QF<name> {
+class IntelLLDWarnMessageArgs<string name> : P_priv<name> {
   OptionGroup Group = intelLLDWarnMessageGroup;
 }
 
