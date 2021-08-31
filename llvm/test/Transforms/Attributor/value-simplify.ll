@@ -511,6 +511,7 @@ define internal void @test_sret(%struct.X* sret(%struct.X) %a, %struct.X** %b) {
 ; FIXME: Alignment and dereferenceability are not propagated to the argument
 define void @complicated_args_sret(%struct.X** %b) {
 ;
+;
 ; IS__TUNIT____: Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 ; IS__TUNIT____-LABEL: define {{[^@]+}}@complicated_args_sret
 ; IS__TUNIT____-SAME: (%struct.X** nocapture nofree writeonly [[B:%.*]]) #[[ATTR2]] {
