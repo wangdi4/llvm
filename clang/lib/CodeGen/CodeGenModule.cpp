@@ -72,6 +72,7 @@
 #include "llvm/Support/ScopedPrinter.h"
 #endif  // INTEL_CUSTOMIZATION
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Support/X86TargetParser.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -3998,8 +3999,8 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     llvm::stable_sort(
         Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
                     const CodeGenFunction::MultiVersionResolverOption &RHS) {
-          return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
-                 CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
+          return llvm::X86::getCpuSupportsMask(LHS.Conditions.Features) >
+                 llvm::X86::getCpuSupportsMask(RHS.Conditions.Features);
         });
   }
 #endif // INTEL_CUSTOMIZATION
@@ -4015,7 +4016,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
          ((UseLibIrc && CodeGenFunction::GetCpuFeatureBitmap(
                           (Options.end() - 2)->Conditions.Features) ==
                           std::array<uint64_t, 2>{0, 0}) ||
-         (!UseLibIrc && CodeGenFunction::GetX86CpuSupportsMask(
+         (!UseLibIrc && llvm::X86::getCpuSupportsMask(
                             (Options.end() - 2)->Conditions.Features) == 0))) {
 #endif // INTEL_CUSTOMIZATION
     StringRef LHSName = (Options.end() - 2)->Function->getName();

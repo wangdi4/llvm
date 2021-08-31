@@ -5286,8 +5286,6 @@ public:
 
 #endif // INTEL_CUSTOMIZATION
 
-  static uint64_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);
-
 private:
   QualType getVarArgType(const Expr *Arg);
 
