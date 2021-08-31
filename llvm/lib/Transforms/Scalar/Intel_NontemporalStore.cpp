@@ -50,6 +50,8 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
+#include <algorithm>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "unaligned-nontemporal"
@@ -58,9 +60,12 @@ static cl::opt<bool> DisableUnalignedNontemporal(
     "disable-" DEBUG_TYPE, cl::init(false), cl::Hidden,
     cl::desc("Disable handling of unaligned nontemporal stores"));
 
-// XXX: choose number better
-static cl::opt<uint64_t> NumBufferElements(DEBUG_TYPE "-buffer-elements",
-                                           cl::Hidden, cl::init(128));
+// XXX: Currently chosen empirically for LBM, but could be tuned further. Making
+// this value larger reduces the compute overhead of this transform but
+// increases the cache overhead; making it smaller has the opposite effect.
+static cl::opt<uint64_t>
+    BufferSize(DEBUG_TYPE "-buffer-size", cl::Hidden, cl::init(4096),
+               cl::desc("Unaligned nontemporal buffer size (in bytes)"));
 
 namespace {
 
@@ -91,6 +96,10 @@ struct StoreBlock {
   /// This should be dominated by all of the other stores in this StoreBlock.
   StoreInst *LastExecuted;
 
+  /// Whether to drop the nontemporal metadata on these stores if they can't be
+  /// converted.
+  bool DropNontemporalIfNotConverted;
+
   /// The stores that make up this block, ordered by store address.
   ///
   /// This should be an array with the same element count as \ref BlockType. The
@@ -113,12 +122,13 @@ class NontemporalStore {
   ScalarEvolution &SE;
   const DataLayout &DL;
   bool HasLibFunc;
+  TypeSize LargestVector = TypeSize::Fixed(0);
 
 public:
   NontemporalStore(Function &F, AAResults &AA, DominatorTree &DT, LoopInfo &LI,
-      ScalarEvolution &SE, TargetTransformInfo &TTI)
-    : F(F), AA(AA), DT(DT), LI(LI), SE(SE),
-      DL(F.getParent()->getDataLayout()) {
+                   ScalarEvolution &SE, TargetTransformInfo &TTI)
+      : F(F), AA(AA), DT(DT), LI(LI), SE(SE),
+        DL(F.getParent()->getDataLayout()) {
     // The library function we use requires AVX-512 or AVX-2 to work correctly.
     // If we're not optimizing for either, then don't try to use it.
     HasLibFunc =
@@ -131,6 +141,12 @@ public:
     // function for now.
     if (DL.getPointerSizeInBits(0) != 64)
       HasLibFunc = false;
+
+    // Determine the largest vector size available on this platform, which
+    // should be a decent proxy for the size of the stores used in the library
+    // function.
+    LargestVector = TypeSize::Fixed(
+        TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8);
   }
   void run();
 
@@ -147,7 +163,8 @@ public:
   /// \p InitialStore. \p StoreStride should be the stride of \p InitialStore in
   /// bytes.
   StoreBlock createStoreBlock(Loop *ContiguousLoop, StoreInst *InitialStore,
-                              int64_t StoreStride);
+                              int64_t StoreStride,
+                              bool DropNontemporalIfNotConverted);
 
   /// Attempts to add \p NewStore within \p ContiguousLoop to one of the
   /// existing store blocks in \p Blocks. If it is part of one of them, it is
@@ -175,24 +192,35 @@ void NontemporalStore::run() {
         Align DesiredAlignment(DL.getABITypeAlignment(StoreType));
         Align ActualAlignment = DL.getValueOrABITypeAlignment(SI->getAlign(),
             StoreType);
-        if (ActualAlignment >= DesiredAlignment)
+        const bool IsUnaligned = (ActualAlignment < DesiredAlignment);
+
+        // This transform is beneficial for unaligned vectors and also for
+        // type-aligned scalar/vector types as long as they're smaller than the
+        // ones used in the library routine. The library routine stores should
+        // match the target's largest vector register size.
+        const TypeSize StoreSize = DL.getTypeStoreSize(StoreType);
+        if (!(IsUnaligned || StoreSize < LargestVector))
           continue;
 
-        // Check for scalar movnt instructions: these don't have misalignment
-        // issues.
-        if (DL.getTypeStoreSizeInBits(StoreType).getFixedSize() < 128)
-          continue;
+        // Determine whether to drop the nontemporal metadata if the store can't
+        // be converted. It should still be helpful for scalar stores and
+        // aligned vector stores, so only drop it for unaligned vector stores.
+        const bool IsScalar =
+            (DL.getTypeStoreSizeInBits(StoreType).getFixedSize() < 128);
+        const bool DropNontemporalIfNotConverted = IsUnaligned && !IsScalar;
 
-        LLVM_DEBUG(dbgs() << "Found unaligned nontemporal store: " <<
-            *SI << "\n");
+        LLVM_DEBUG(dbgs() << "Found nontemporal store: " << *SI << "\n");
         const auto LoopAndStride = getStaticStrideInLoop(*SI);
         if (HasLibFunc && LoopAndStride) {
           if (!collectStore(Worklist, LoopAndStride->first, SI,
                             LoopAndStride->second))
             Worklist.push_back(createStoreBlock(LoopAndStride->first, SI,
-                                                LoopAndStride->second));
-        } else {
-          LLVM_DEBUG(dbgs() << "Dropping nontemporal annotation\n");
+                                                LoopAndStride->second,
+                                                DropNontemporalIfNotConverted));
+        } else if (DropNontemporalIfNotConverted) {
+          LLVM_DEBUG(
+              dbgs()
+              << "Dropping nontemporal annotation on unaligned vector store\n");
           SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
         }
       }
@@ -212,7 +240,9 @@ void NontemporalStore::run() {
                   for (StoreInst *const Store : Block.Stores) {
                     if (Store) {
                       LLVM_DEBUG(dbgs() << *Store << "\n");
-                      Store->setMetadata(LLVMContext::MD_nontemporal, nullptr);
+                      if (Block.DropNontemporalIfNotConverted)
+                        Store->setMetadata(LLVMContext::MD_nontemporal,
+                                           nullptr);
                     } else {
                       LLVM_DEBUG(dbgs() << "  <Not found>\n");
                     }
@@ -280,13 +310,23 @@ void NontemporalStore::run() {
     if (!ExitBB || !PreheaderBB || !DT.dominates(PreheaderBB, ExitBB)) {
       LLVM_DEBUG(dbgs() << "Unable to convert, as the exit and preheader blocks"
           " are not in the right configuration\n");
-      for (StoreInst *const SI : Block.Stores)
-        SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
+      if (Block.DropNontemporalIfNotConverted)
+        for (StoreInst *const SI : Block.Stores)
+          SI->setMetadata(LLVMContext::MD_nontemporal, nullptr);
       continue;
     }
 
+    // Determine the type and length of the buffer array. The number of elements
+    // is chosen so that the total size matches BufferSize as closely as
+    // possible, rounding down if the target size is exactly halfway between two
+    // possible buffer sizes. There should always be at least one buffer
+    // element.
     StringRef Name = FirstStore->getPointerOperand()->getName();
     uint64_t StoreSize = DL.getTypeStoreSize(Block.BlockType).getFixedSize();
+    const uint64_t NumBufferElements = std::max<uint64_t>(
+        (BufferSize % StoreSize <= StoreSize / 2) ? BufferSize / StoreSize
+                                                  : BufferSize / StoreSize + 1,
+        1);
     uint64_t BufferCount = StoreSize * NumBufferElements;
     Type *StoreArrayTy = PointerType::getUnqual(Block.BlockType);
     Builder.SetInstDebugLocation(FirstStore);
@@ -638,9 +678,10 @@ bool StoreBlock::isComplete() const {
                  [](const StoreInst *Store) { return Store == nullptr; });
 }
 
-StoreBlock NontemporalStore::createStoreBlock(Loop *ContiguousLoop,
-                                              StoreInst *InitialStore,
-                                              int64_t StoreStride) {
+StoreBlock
+NontemporalStore::createStoreBlock(Loop *ContiguousLoop,
+                                   StoreInst *InitialStore, int64_t StoreStride,
+                                   bool DropNontemporalIfNotConverted) {
 
   // Determine the BlockType, which should be an array of StoreStride/StoreSize
   // elements of the store's type.
@@ -656,7 +697,8 @@ StoreBlock NontemporalStore::createStoreBlock(Loop *ContiguousLoop,
   SmallVector<StoreInst *, 1> Stores(StoreCount, nullptr);
   Stores.front() = InitialStore;
 
-  return {ContiguousLoop, BlockType, InitialStore, std::move(Stores)};
+  return {ContiguousLoop, BlockType, InitialStore,
+          DropNontemporalIfNotConverted, std::move(Stores)};
 }
 
 bool NontemporalStore::collectStore(SmallVectorImpl<StoreBlock> &Blocks,
