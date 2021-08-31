@@ -1076,10 +1076,15 @@ private:
   IntelGenFnMap IntelSimdVariantFnMap;
   StringRef GetIntelGeneratedFnName(llvm::FunctionType *, IntelGenFnMap &Map,
                                     StringRef Prefix);
+  StringRef SIMDTableNameSuffix = "$SIMDTable";
 public:
   StringRef GetIntelIndirectFnName(llvm::FunctionType *FTy);
   StringRef GetIntelSimdVariantFnName(llvm::FunctionType *FTy);
   llvm::GlobalVariable *CreateSIMDFnTableVar(llvm::Constant *Init);
+  bool isSIMDTable(llvm::Value *FnPtr) {
+    return FnPtr->stripPointerCasts()->getName().find(SIMDTableNameSuffix) !=
+           StringRef::npos;
+  }
 
   // StdContainerOptKind describes the type of Intel intrinsic we want to
   // insert into the code to help the back end with memory disambiguation for

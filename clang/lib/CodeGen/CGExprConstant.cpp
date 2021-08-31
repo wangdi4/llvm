@@ -1847,6 +1847,14 @@ llvm::Constant *ConstantLValueEmitter::tryEmit() {
     value = applyOffset(value);
   }
 
+#if INTEL_CUSTOMIZATION
+  if (CGM.getLangOpts().SYCLIsDevice &&
+      CGM.getLangOpts().EnableVariantFunctionPointers &&
+      isa<llvm::Function>(value->stripPointerCasts()))
+    value = llvm::ConstantExpr::getBitCast(CGM.CreateSIMDFnTableVar(value),
+                                           value->getType());
+#endif  // INTEL_CUSTOMIZATION
+
   // Convert to the appropriate type; this could be an lvalue for
   // an integer.  FIXME: performAddrSpaceCast
   if (isa<llvm::PointerType>(destTy))
