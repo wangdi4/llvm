@@ -1,5 +1,6 @@
-// RUN: %clang_cc1 %s -triple=x86_64-unknow-unknow -S -ffreestanding -o - | FileCheck %s
-// RUN: %clang_cc1 %s -triple=i386-unknow-unknow -S -ffreestanding -o - | FileCheck %s
+// REQUIRES: x86-registered-target
+// RUN: %clang_cc1 %s -triple=x86_64-unknown-unknown -S -ffreestanding -o - | FileCheck %s
+// RUN: %clang_cc1 %s -triple=i386-unknown-unknown -S -ffreestanding -o - | FileCheck %s
 
 #include <immintrin.h>
 
