@@ -495,6 +495,16 @@ public:
   bool skipRecursion(const HLNode *Node) const { return Node == SkipNode; }
 
   void visit(HLLoop *Loop) {
+
+    if (!Loop->isInnermost() &&
+        HLNodeUtils::hasManyLifeTimeIntrinsics(Loop)) {
+      LLVM_DEBUG(dbgs() << "Avoiding Fusion due to LifeTime\n");
+      LLVM_DEBUG(Loop->dump());
+
+      SkipNode = Loop;
+      return;
+    }
+
     if (Loop->isInnermost()) {
       // Do not recurse into innermost loops.
       SkipNode = Loop;

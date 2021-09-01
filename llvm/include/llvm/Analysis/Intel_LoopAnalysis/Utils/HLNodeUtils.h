@@ -1749,6 +1749,10 @@ public:
                                       RequiredLabelsTy &RequiredLabels);
   /// Returns true if "IF/SWITCH" never falls through.
   static bool hasGotoOnAllBranches(HLNode *Node);
+
+  /// Returns true if \p Loop has many lifetime.begin intrinsics
+  /// in the beginning.
+  static bool hasManyLifeTimeIntrinsics(const HLLoop *Loop);
 };
 
 } // End namespace loopopt
