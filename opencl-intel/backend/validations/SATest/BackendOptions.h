@@ -40,8 +40,8 @@ public:
           runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
         m_enableSubgroupEmulation = runConfig.GetValue<bool>(RC_BR_ENABLE_SUBGROUP_EMULATION, true);
-        m_passManagerType =
-            runConfig.GetValue<PassManagerType>(RC_BR_PASS_MANAGER_TYPE, PM_OCL);
+        m_passManagerType = runConfig.GetValue<PassManagerType>(
+            RC_BR_PASS_MANAGER_TYPE, PM_NONE);
         m_debugPassManager =
             runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
     }
@@ -134,7 +134,7 @@ public:
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
         m_expensiveMemOpts = runConfig.GetValue<unsigned>(RC_BR_EXPENSIVE_MEM_OPT, false);
         m_passManagerType = runConfig.GetValue<PassManagerType>(
-            RC_BR_PASS_MANAGER_TYPE, PM_OCL);
+            RC_BR_PASS_MANAGER_TYPE, PM_NONE);
         m_debugPassManager =
             runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
     }

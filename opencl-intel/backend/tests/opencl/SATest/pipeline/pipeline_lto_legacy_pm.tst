@@ -1,4 +1,5 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
 ; CHECK:        ModulePass Manager
 ; CHECK-NEXT:     DPCPPPreprocessSPIRVFriendlyIRLegacy

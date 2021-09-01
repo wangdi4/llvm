@@ -280,10 +280,11 @@ llvm::cl::opt<PassManagerType> OptPassManagerType(
     llvm::cl::desc("Specify pass manager type. "
                    "Default value - ocl."),
     llvm::cl::values(
+        clEnumValN(PM_NONE, "none", "pass pipeline is not specified"),
         clEnumValN(PM_OCL, "ocl", "OpenCL pass pipeline"),
         clEnumValN(PM_LTO_LEGACY, "lto-legacy", "llvm legacy pass pipeline"),
         clEnumValN(PM_LTO_NEW, "lto-new", "llvm new pass pipeline")),
-    llvm::cl::init(PM_OCL));
+    llvm::cl::init(PM_NONE));
 
 // Command line example:
 // SATest.exe -config=test.cfg

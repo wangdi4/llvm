@@ -118,7 +118,9 @@ PassManagerType CPUDeviceConfig::GetPassManagerType() const {
     return PM_LTO_LEGACY;
   else if ("new" == PMType)
     return PM_LTO_NEW;
-  return PM_OCL;
+  else if ("ocl" == PMType)
+    return PM_OCL;
+  return PM_NONE;
 }
 
 bool CPUDeviceConfig::GetUseNativeSubgroups() const {
