@@ -550,7 +550,7 @@ CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string
   assert(isa<Function>(new_f.getCallee()) && "mismatch function type");
   Function *F = cast<Function>(new_f.getCallee());
   for (unsigned i=0; i < attrs.size(); ++i)
-    F->addAttribute(~0, attrs[i]);
+    F->addFnAttr(attrs[i]);
   CallInst *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
   for (unsigned i=0; i < attrs.size(); ++i)
     newCall->addAttribute(~0, attrs[i]);
