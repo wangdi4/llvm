@@ -8,6 +8,12 @@ bb
 cc
 //--- end
 
+# INTEL_CUSTOMIZATION
+# CMPLRTOOLS-24710: There's a trailing '\r' in the output of the split-file
+# running w/ alloy on Windows. Disable the test on Windows temporarily.
+# UNSUPPORTED: windows
+# end INTEL_CUSTOMIZATION
+
 # RUN: rm -rf %t
 # RUN: split-file --leading-lines %s %t
 # RUN: diff %S/Inputs/basic-aa.txt %t/aa
