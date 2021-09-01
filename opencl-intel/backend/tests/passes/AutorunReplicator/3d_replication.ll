@@ -22,7 +22,7 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -cl-std=CL2.0
 ; ----------------------------------------------------
-; Opt passes: -llvm-equalizer
+; Opt passes: -dpcpp-kernel-equalizer
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator -verify %s -S | FileCheck %s --implicit-check-not get_compute_id
