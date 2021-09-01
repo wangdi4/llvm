@@ -15,7 +15,7 @@
     call void @llvm.dbg.value(metadata i64 0, metadata !32, metadata !DIExpression()), !dbg !36
     %0 = load <16 x float>, <16 x float>* %x0, align 64, !dbg !37, !tbaa !40
     %1 = load <16 x float>, <16 x float>* %x1, align 64, !dbg !43, !tbaa !40
-    %2 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.ph.512(<16 x float> zeroinitializer, <16 x float> %0, <16 x float> %1, i16 -1, i32 4) #3, !dbg !44
+    %2 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float> zeroinitializer, <16 x float> %0, <16 x float> %1, i16 -1, i32 4) #3, !dbg !44
     call void @llvm.dbg.value(metadata <16 x float> %2, metadata !31, metadata !DIExpression()), !dbg !35
     call void @llvm.dbg.value(metadata i64 1, metadata !32, metadata !DIExpression()), !dbg !36
     call void @llvm.dbg.value(metadata <32 x half> undef, metadata !31, metadata !DIExpression()), !dbg !35
@@ -24,7 +24,7 @@
     %3 = load <16 x float>, <16 x float>* %arrayidx.1, align 64, !dbg !37, !tbaa !40
     %arrayidx2.1 = getelementptr inbounds <16 x float>, <16 x float>* %x1, i64 1, !dbg !43
     %4 = load <16 x float>, <16 x float>* %arrayidx2.1, align 64, !dbg !43, !tbaa !40
-    %5 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.ph.512(<16 x float> %2, <16 x float> %3, <16 x float> %4, i16 -1, i32 4) #3, !dbg !44
+    %5 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float> %2, <16 x float> %3, <16 x float> %4, i16 -1, i32 4) #3, !dbg !44
     call void @llvm.dbg.value(metadata <16 x float> %5, metadata !31, metadata !DIExpression()), !dbg !35
     call void @llvm.dbg.value(metadata i64 2, metadata !32, metadata !DIExpression()), !dbg !36
     call void @llvm.dbg.value(metadata <32 x half> undef, metadata !31, metadata !DIExpression()), !dbg !35
@@ -33,7 +33,7 @@
     %6 = load <16 x float>, <16 x float>* %arrayidx.2, align 64, !dbg !37, !tbaa !40
     %arrayidx2.2 = getelementptr inbounds <16 x float>, <16 x float>* %x1, i64 2, !dbg !43
     %7 = load <16 x float>, <16 x float>* %arrayidx2.2, align 64, !dbg !43, !tbaa !40
-    %8 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.ph.512(<16 x float> %5, <16 x float> %6, <16 x float> %7, i16 -1, i32 4) #3, !dbg !44
+    %8 = tail call fast <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float> %5, <16 x float> %6, <16 x float> %7, i16 -1, i32 4) #3, !dbg !44
     call void @llvm.dbg.value(metadata <16 x float> %8, metadata !31, metadata !DIExpression()), !dbg !35
     call void @llvm.dbg.value(metadata i64 3, metadata !32, metadata !DIExpression()), !dbg !36
     call void @llvm.dbg.value(metadata <32 x half> undef, metadata !31, metadata !DIExpression()), !dbg !35
@@ -41,7 +41,7 @@
   }
 
   ; Function Attrs: nounwind readnone
-  declare <16 x float> @llvm.x86.avx512fp16.mask.vfcmaddc.ph.512(<16 x float>, <16 x float>, <16 x float>, i16, i32 immarg) #1
+  declare <16 x float> @llvm.x86.avx512fp16.mask.vfcmadd.cph.512(<16 x float>, <16 x float>, <16 x float>, i16, i32 immarg) #1
 
   ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
   declare void @llvm.dbg.value(metadata, metadata, metadata) #2
