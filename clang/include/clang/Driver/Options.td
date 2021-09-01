@@ -4210,8 +4210,10 @@ def ansi_alias : Flag<["-"], "ansi-alias">, Alias<fstrict_aliasing>,
 def no_ansi_alias : Flag<["-"], "no-ansi-alias">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
 #endif //INTEL_CUSTOMIZATION
+def canonical_prefixes : Flag<["-"], "canonical-prefixes">, Flags<[HelpHidden, CoreOption]>,
+  HelpText<"Use absolute paths for invoking subcommands (default)">;
 def no_canonical_prefixes : Flag<["-"], "no-canonical-prefixes">, Flags<[HelpHidden, CoreOption]>,
-  HelpText<"Use relative instead of canonical paths">;
+  HelpText<"Use relative paths for invoking subcommands">;
 def no_cpp_precomp : Flag<["-"], "no-cpp-precomp">, Group<clang_ignored_f_Group>;
 def no_integrated_cpp : Flag<["-", "--"], "no-integrated-cpp">, Flags<[NoXarchOption]>;
 def no_pedantic : Flag<["-", "--"], "no-pedantic">, Group<pedantic_Group>;

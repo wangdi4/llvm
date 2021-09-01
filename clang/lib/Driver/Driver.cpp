@@ -1736,7 +1736,8 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
-  // -no-canonical-prefixes is used very early in main.
+  // -canonical-prefixes, -no-canonical-prefixes are used very early in main.
+  Args.ClaimAllArgs(options::OPT_canonical_prefixes);
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);
 
   // f(no-)integated-cc1 is also used very early in main.
