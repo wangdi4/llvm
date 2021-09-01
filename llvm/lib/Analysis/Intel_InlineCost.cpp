@@ -208,6 +208,16 @@ static cl::opt<unsigned> MaxBBInnerDoubleExternalFxn(
 static cl::opt<unsigned> MaxBBOuterDoubleExternalFxn(
     "max-bb-outer-double-external-fxn", cl::init(30), cl::ReallyHidden);
 
+// Minimum number of arguments in a callee candidate for inlining in one
+// double callsite external Functions heuristic.
+static cl::opt<unsigned> MinCalleeArgsDoubleExternal(
+    "min-callee-args-double-external", cl::init(14), cl::ReallyHidden);
+
+// Minimum number of IVDEP loops in a callee candidate for inlining in one
+// double callsite external Functions heuristic.
+static cl::opt<unsigned> MinCalleeIVDEPLoopsDoubleExternal(
+    "min-callee-ivdep-loops-double-external", cl::init(21), cl::ReallyHidden);
+
 // worthInliningForFusion()
 
 // Options for early fusion heuristic
@@ -1873,7 +1883,7 @@ extern Optional<InlineResult> intelWorthNotInlining(
 // a worthy double callsite while testing another callsite.
 //
 static bool hasWorthyDoubleCallSiteAttribute(CallBase &CB) {
-  return CB.hasFnAttr("inline-doubleext2");
+  return CB.hasFnAttr("inline-doubleext2") || CB.hasFnAttr("inline-doubleext3");
 }
 
 //
@@ -2318,6 +2328,54 @@ static bool worthyDoubleExternalCallSite2(CallBase &CB) {
 
 //
 // Return 'true' if 'CB' worth inlining, given that it is a double callsite
+// with external linkage.
+//
+// The criteria for this heuristic are:
+//   (1) Is a 'PrepareForLTO' compilation.
+//   (2) The callee is Fortran.
+//   (3) The callee has many arguments.
+//   (3) Both callsites are in the same caller.
+//   (4) The callee has many loops with IVDEP directive.
+//
+static bool worthyDoubleExternalCallSite3(CallBase &CB,
+                                          bool PrepareForLTO,
+                                          InliningLoopInfoCache &ILIC) {
+  static Function *WorthyCallee = nullptr;
+  if (CB.hasFnAttr("inline-doubleext3"))
+    return true;
+  if (WorthyCallee)
+    return false;
+  Function *Callee = CB.getCalledFunction();
+  if (!PrepareForLTO || !Callee->isFortran())
+     return false;
+  if (Callee->arg_size() < MinCalleeArgsDoubleExternal)
+    return false;
+  CallBase *CB0 = nullptr;
+  CallBase *CB1 = nullptr;
+  if (!hasTwoCallSitesInSameCaller(CB, &CB0, &CB1))
+    return false;
+  LoopInfo *LI = ILIC.getLI(Callee);
+  if (!LI || LI->empty())
+    return false;
+  bool PassedIVDEPTest = false;
+  unsigned Count = 0;
+  auto Loops = LI->getLoopsInPreorder();
+  for (auto L : Loops)
+    if (findOptionMDForLoop(L, "llvm.loop.vectorize.ivdep_back"))
+      if (++Count >= MinCalleeIVDEPLoopsDoubleExternal) {
+        PassedIVDEPTest = true;
+        break;
+      }
+  if (!PassedIVDEPTest)
+    return false;
+  CB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext3");
+  CB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext3");
+  WorthyCallee = Callee;
+  return true;
+}
+
+//
+// Return 'true' if 'CB' worth inlining, given that it is a double callsite
 // with external linkage. If we need to use the big bonus to actually get
 // the callsites to inline, set '*UseBigBonus'. (NOTE: It might be useful
 // to use a single big bonus consistently, but that should be tested in
@@ -2325,6 +2383,7 @@ static bool worthyDoubleExternalCallSite2(CallBase &CB) {
 //
 static bool worthyDoubleExternalCallSite(CallBase &CB,
                                          bool PrepareForLTO,
+                                         InliningLoopInfoCache &ILIC,
                                          bool *UseBigBonus) {
   if (worthyDoubleExternalCallSite1(CB, PrepareForLTO)) {
     *UseBigBonus = true;
@@ -2332,6 +2391,10 @@ static bool worthyDoubleExternalCallSite(CallBase &CB,
   }
   if (worthyDoubleExternalCallSite2(CB)) {
     *UseBigBonus = false;
+    return true;
+  }
+  if (worthyDoubleExternalCallSite3(CB, PrepareForLTO, ILIC)) {
+    *UseBigBonus = true;
     return true;
   }
   return false;
@@ -3830,7 +3893,8 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
       }
     }
     bool UseBigBonus = false;
-    if (worthyDoubleExternalCallSite(CB, PrepareForLTO, &UseBigBonus)) {
+    if (worthyDoubleExternalCallSite(CB, PrepareForLTO, *ILIC,
+                                     &UseBigBonus)) {
       YesReasonVector.push_back(InlrDoubleNonLocalCall);
       if (UseBigBonus)
         return -InlineConstants::InliningHeuristicBonus;
