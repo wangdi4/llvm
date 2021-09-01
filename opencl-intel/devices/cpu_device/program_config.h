@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
             m_streamingAlways(false),
             m_expensiveMemOpts(0),
-            m_passManagerType(PM_OCL)
+            m_passManagerType(PM_NONE)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);

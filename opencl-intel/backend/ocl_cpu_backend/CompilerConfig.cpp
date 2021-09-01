@@ -104,10 +104,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
     PassManagerType passManagerType =
         static_cast<PassManagerType>(pBackendOptions->GetIntValue(
-            CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
+            CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
       m_LLVMOptions += " -debug-pass=" + debugPassManager;
-    if (PM_OCL != passManagerType) {
+    if (PM_LTO_LEGACY == passManagerType || PM_LTO_NEW == passManagerType) {
       m_LLVMOptions += " -enable-vec-clone=false";
       ETransposeSize TransposeSize =
           (ETransposeSize)pBackendOptions->GetIntValue(
@@ -181,7 +181,7 @@ void CompilerConfig::LoadDefaults()
     m_targetDevice = CPU_DEVICE;
     m_forcedPrivateMemorySize = 0;
     m_useAutoMemory = false;
-    m_passManagerType = PM_OCL;
+    m_passManagerType = PM_NONE;
 }
 
 void CompilerConfig::LoadConfig()
@@ -254,8 +254,9 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_expensiveMemOpts = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS, m_expensiveMemOpts);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
-    m_passManagerType = static_cast<PassManagerType>(pBackendOptions->GetIntValue(
-        CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
+    m_passManagerType =
+        static_cast<PassManagerType>(pBackendOptions->GetIntValue(
+            CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_NONE));
     m_debugPassManager = pBackendOptions->GetStringValue(
         (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
 }
