@@ -1,4 +1,5 @@
-//=- llvm/unittest/Transforms/Vectorize/IntelVPlanCheckPsadbwHeuristic.cpp -=//
+#if INTEL_FEATURE_SW_ADVANCED
+//===-- llvm/unittest/Transforms/Vectorize/IntelVPlanCheckHeuristics.cpp --===//
 //
 //   Copyright (C) Intel Corporation. All rights reserved.
 //
@@ -117,3 +118,4 @@ declare i32 @llvm.abs.i32(i32, i1))";
   EXPECT_LT(FullCost, BaseCost);
 }
 } // namespace
+#endif // INTEL_FEATURE_SW_ADVANCED

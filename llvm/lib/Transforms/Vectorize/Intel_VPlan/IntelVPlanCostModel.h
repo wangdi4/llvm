@@ -473,6 +473,7 @@ public:
   }
 };
 
+#if INTEL_FEATURE_SW_ADVANCED
 using VPlanCostModelBase = VPlanCostModelWithHeuristics<
   HeuristicsList<const VPInstruction>, // empty list
   HeuristicsList<const VPBasicBlock>,  // empty list
@@ -505,6 +506,18 @@ using VPlanCostModelFull = VPlanCostModelWithHeuristics<
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
     VPlanCostModelHeuristics::HeuristicPsadbw>>;
+
+#else // INTEL_FEATURE_SW_ADVANCED
+
+using VPlanCostModelBase = VPlanCostModelWithHeuristics<
+  HeuristicsList<const VPInstruction>, // empty list
+  HeuristicsList<const VPBasicBlock>,  // empty list
+  HeuristicsList<const VPlanVector>>;  // empty list
+
+using VPlanCostModelLite = VPlanCostModelBase;
+using VPlanCostModelFull = VPlanCostModelLite;
+
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 } // namespace vpo
 
