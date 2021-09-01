@@ -440,17 +440,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 }
 
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size,
-                            bool HasCloseModifier, bool HasHoldModifier) {
-#if INTEL_COLLAB
-  if (((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-        !managed_memory_supported()) ||
-       is_device_accessible_ptr(HstPtrBegin)) &&
-      !HasCloseModifier)
-#else  // INTEL_COLLAB
-  if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-      !HasCloseModifier)
-#endif // INTEL_COLLAB
-    return OFFLOAD_SUCCESS;
+                            bool HasHoldModifier) {
   // Check if the pointer is contained in any sub-nodes.
   int rc;
   DataMapMtx.lock();
