@@ -116,6 +116,10 @@ public:
   // If there is no entry for the specified type, return nullptr.
   dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
 
+  // Retrieve the DTrans StructInfo entry for the specified structure.
+  // Note: Only named structures are permitted, not literal structures.
+  dtrans::StructInfo *getStructInfo(llvm::StructType *STy) const;
+
   // Add an entry to the 'PtrSubInfoMap'
   void addPtrSubMapping(llvm::BinaryOperator *BinOp, DTransType *Ty);
 
@@ -131,6 +135,50 @@ public:
   // a GEPOperator.
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GetElementPtrInst *GEP);
+
+  // Update the mapping from LoadInst instructions that have been identified as
+  // being structure element reads to a type-index pair for the element being
+  // read. If the instruction is already tracked, update the
+  // MultiElemLoadStoreInfo set.
+  void addLoadMapping(LoadInst *LdInst,
+    std::pair<llvm::Type *, size_t> Pointee);
+
+  // Update the mapping from StoreInst instructions that have been identified as
+  // being structure element writes to a type-index pair for the element being
+  // written. If the instruction is already tracked, update the
+  // MultiElemLoadStoreInfo set.
+  void addStoreMapping(StoreInst *StInst,
+    std::pair<llvm::Type *, size_t> Pointee);
+
+  // If the specified 'LdInst' was identified as structure element read, return
+  // the type-index pair for the element read. Otherwise, return <nullptr, 0>.
+  std::pair<llvm::Type *, size_t> getLoadElement(LoadInst *LdInst);
+
+  // If the specified 'StInst' was identified as structure element written,
+  // return the type-index pair for the element read. Otherwise,
+  // return <nullptr, 0>.
+  std::pair<llvm::Type *, size_t> getStoreElement(StoreInst *StInst);
+
+  // Update the set of Load/Store instructions that are accessing more than one
+  // structure field.
+  void addMultiElemLoadStore(Instruction *I);
+
+  // Returns true if 'I' was identified as Load/Store instruction
+  // that is accessing more than one structure field.
+  bool isMultiElemLoadStore(Instruction *I);
+
+  // A helper routine to get a DTrans structure type and field index from the
+  // GEP instruction which is a pointer argument of 'Load'.
+  // :
+  //  %b = getelementptr inbounds %struct.s, %struct.s* %a, i64 x, i32 y
+  //  %c = load i8* (i8*, i64, i64)*, i8* (i8*, i64, i64)** %b, align 8
+  //
+  // Given load instruction returns dtrans::StructInfo for %struct.s and y.
+  std::pair<dtrans::StructInfo *, uint64_t> getInfoFromLoad(LoadInst *Load);
+
+  // A helper routine to retrieve structure type - field index pair from a
+// GEPOperator.
+  std::pair<llvm::StructType *, uint64_t> getStructField(GEPOperator *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
@@ -217,6 +265,22 @@ private:
   // aliased by the operands.
   using PtrSubInfoMapType = ValueMap<Value *, DTransType *>;
   PtrSubInfoMapType PtrSubInfoMap;
+
+  // A mapping from LoadInst instructions that have been identified as being
+  // structure element reads to a type-index pair for the element being read.
+  using LoadInfoMapType = DenseMap<Value *, std::pair<llvm::Type *, size_t>>;
+  LoadInfoMapType LoadInfoMap;
+
+  // A mapping from StoreInst instructions that have been identified as being
+  // structure element writes to a type-index pair for the element being
+  // written.
+  using StoreInfoMapType = DenseMap<Value *, std::pair<llvm::Type *, size_t>>;
+  StoreInfoMapType StoreInfoMap;
+
+  // Set of Load/Store instructions that are accessing more than one structure
+  // field.
+  using MultiElemLoadStoreSetType = SmallPtrSet<Instruction *, 32>;
+  MultiElemLoadStoreSetType MultiElemLoadStoreInfo;
 
   // Maximum of TotalFrequency from all structures.
   uint64_t MaxTotalFrequency = 0;

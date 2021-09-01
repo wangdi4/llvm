@@ -48,6 +48,7 @@ void initializeDTransResolveTypesWrapperPass(PassRegistry&);
 void initializeDTransEliminateROFieldAccessWrapperPass(PassRegistry&);
 void initializePaddedPtrPropWrapperPass(PassRegistry&);
 void initializeDTransDynCloneWrapperPass(PassRegistry&);
+void initializeDTransDynCloneOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSOPWrapperPass(PassRegistry&);
 void initializeDTransSOAToAOSPrepareWrapperPass(PassRegistry&);

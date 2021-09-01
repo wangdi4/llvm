@@ -45,7 +45,7 @@ using namespace dtransOP;
 // to estimate access frequencies for the structure fields. When false, a simple
 // static instruction count is used instead.
 static cl::opt<bool> DTransUseBlockFreq(
-    "dtrans-use-block-freq", cl::init(true), cl::ReallyHidden,
+    "dtrans-use-block-freq", cl::init(false), cl::ReallyHidden,
     cl::desc("Use BlockFrequencyInfo counters instead of static instruction "
              "counts for field frequency info"));
 
@@ -1512,10 +1512,12 @@ public:
         // otherwise walk the nested types to find the actual field being
         // accessed..
         if (IsLoad)
-          collectReadInfo(I, ParentStInfo, ElementNum, IsWholeStructure,
+          collectReadInfo(*cast<LoadInst>(&I), ParentStInfo, ElementNum,
+                          IsWholeStructure,
                           /*ForElementZeroAccess=*/false);
         else
-          collectWriteInfo(I, ParentStInfo, ElementNum, ValOp, IsWholeStructure,
+          collectWriteInfo(*cast<StoreInst>(&I), ParentStInfo, ElementNum,
+                           ValOp, IsWholeStructure,
                            /*ForElementZeroAccess=*/false);
       }
 
@@ -1900,7 +1902,7 @@ public:
     }
   }
 
-  void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
+  void collectReadInfo(LoadInst &I, dtrans::StructInfo *StInfo,
                        size_t FieldNum, bool IsWholeStructure,
                        bool ForElementZeroAccess) {
     if (!IsWholeStructure) {
@@ -1916,6 +1918,7 @@ public:
       dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
       updateFieldFrequency(FI, I);
+      DTInfo.addLoadMapping(&I, { ReadStInfo->getLLVMType(), ReadFieldNum });
       if (Descended || ForElementZeroAccess)
         FI.setNonGEPAccess();
       if (!dtrans::isLoadedValueUnused(&I,
@@ -1929,7 +1932,7 @@ public:
     }
   }
 
-  void collectWriteInfo(Instruction &I, dtrans::StructInfo *StInfo,
+  void collectWriteInfo(StoreInst &I, dtrans::StructInfo *StInfo,
                         size_t FieldNum, Value *WriteVal, bool IsWholeStructure,
                         bool ForElementZeroAccess) {
 
@@ -1943,11 +1946,12 @@ public:
     };
 
     auto SetFieldInfo = [this, &IsConstantResultSelectInst](
-                            Instruction &I, dtrans::StructInfo &StInfo,
+                            StoreInst &I, dtrans::StructInfo &StInfo,
                             dtrans::FieldInfo &FI, size_t FieldNum,
                             Value *WriteVal) {
       FI.setWritten(I);
       updateFieldFrequency(FI, I);
+      DTInfo.addStoreMapping(&I, { StInfo.getLLVMType(), FieldNum });
 
       // For simple cases where the stored value is the result of select
       // instruction that always produces a constant result, save both
@@ -4523,6 +4527,13 @@ DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
       DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  Other.LoadInfoMap.clear();
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  Other.StoreInfoMap.clear();
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+                                Other.MultiElemLoadStoreInfo.end());
+  Other.MultiElemLoadStoreInfo.clear();
 }
 
 DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
@@ -4536,6 +4547,13 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   Other.PtrSubInfoMap.clear();
+  LoadInfoMap.insert(Other.LoadInfoMap.begin(), Other.LoadInfoMap.end());
+  Other.LoadInfoMap.clear();
+  StoreInfoMap.insert(Other.StoreInfoMap.begin(), Other.StoreInfoMap.end());
+  Other.StoreInfoMap.clear();
+  MultiElemLoadStoreInfo.insert(Other.MultiElemLoadStoreInfo.begin(),
+    Other.MultiElemLoadStoreInfo.end());
+  Other.MultiElemLoadStoreInfo.clear();
   MaxTotalFrequency = Other.MaxTotalFrequency;
   UnhandledPtrType = Other.UnhandledPtrType;
   DTransSafetyAnalysisRan = Other.DTransSafetyAnalysisRan;
@@ -4743,6 +4761,16 @@ dtrans::TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
   return nullptr;
 }
 
+dtrans::StructInfo *
+DTransSafetyInfo::getStructInfo(llvm::StructType *STy) const {
+  assert(!STy->isLiteral() && "Literal types not supported");
+  dtransOP::DTransStructType *DTy = TM->getStructType(STy->getName());
+  assert(DTy && "Expected existing structure type");
+  auto *StInfo = cast<dtrans::StructInfo>(getTypeInfo(DTy));
+  assert(StInfo && "Expected safety analyzer to create TypeInfo");
+  return StInfo;
+}
+
 void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
                                         DTransType *Ty) {
   DEBUG_WITH_TYPE(SAFETY_VERBOSE, {
@@ -4766,6 +4794,141 @@ DTransSafetyInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
 std::pair<DTransType *, size_t>
 DTransSafetyInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   return getByteFlattenedGEPElement(cast<GEPOperator>(GEP));
+}
+
+void DTransSafetyInfo::addLoadMapping(LoadInst *LdInst,
+                                      std::pair<llvm::Type *, size_t> Pointee) {
+  if (LoadInfoMap.count(LdInst)) {
+    // If the load is already being tracked for a structure field being
+    // accessed, then move it to the MultiElemLoadStoreInfo mapping, as the
+    // instruction will require special processing during the transformation
+    // analysis.
+    DEBUG_WITH_TYPE_P(FNFilter, DEBUG_TYPE,
+                      dbgs() << "Moved to MultiElemLoadStore: ["
+                             << LdInst->getFunction()->getName() << "] "
+                             << *LdInst << ": " << *Pointee.first << "@"
+                             << Pointee.second << "\n");
+
+    LoadInfoMap.erase(LdInst);
+    addMultiElemLoadStore(LdInst);
+    return;
+  }
+  DEBUG_WITH_TYPE_P(FNFilter, DEBUG_TYPE,
+                    dbgs() << "Added to LoadInfoMapping: ["
+                           << LdInst->getFunction()->getName() << "] "
+                           << *LdInst << ": " << *Pointee.first << "@"
+                           << Pointee.second << "\n");
+  LoadInfoMap[LdInst] = Pointee;
+}
+
+void DTransSafetyInfo::addStoreMapping(
+    StoreInst *StInst, std::pair<llvm::Type *, size_t> Pointee) {
+  if (StoreInfoMap.count(StInst)) {
+    // If the store is already being tracked for a structure field being
+    // accessed, then move it to the MultiElemLoadStoreInfo mapping, as the
+    // instruction will require special processing during the transformation
+    // analysis.
+    DEBUG_WITH_TYPE_P(FNFilter, DEBUG_TYPE,
+                      dbgs() << "Moved to MultiElemLoadStore: ["
+                             << StInst->getFunction()->getName() << "] "
+                             << *StInst << ": " << *Pointee.first << "@"
+                             << Pointee.second << "\n");
+
+    StoreInfoMap.erase(StInst);
+    addMultiElemLoadStore(StInst);
+    return;
+  }
+  DEBUG_WITH_TYPE_P(FNFilter, DEBUG_TYPE,
+                    dbgs() << "Added to StoreInfoMapping: ["
+                           << StInst->getFunction()->getName() << "] "
+                           << *StInst << ": " << *Pointee.first << "@"
+                           << Pointee.second << "\n");
+  StoreInfoMap[StInst] = Pointee;
+}
+
+std::pair<llvm::Type *, size_t>
+DTransSafetyInfo::getStoreElement(StoreInst *StInst) {
+  auto It = StoreInfoMap.find(StInst);
+  if (It == StoreInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
+void DTransSafetyInfo::addMultiElemLoadStore(Instruction *I) {
+  DEBUG_WITH_TYPE_P(FNFilter, DEBUG_TYPE,
+                    dbgs() << "Multi-load-store: "
+                           << "[" << I->getFunction()->getName() << "] " << *I
+                           << "\n";);
+  MultiElemLoadStoreInfo.insert(I);
+}
+
+std::pair<llvm::Type *, size_t>
+DTransSafetyInfo::getLoadElement(LoadInst *LdInst) {
+  auto It = LoadInfoMap.find(LdInst);
+  if (It == LoadInfoMap.end())
+    return std::make_pair(nullptr, 0);
+  return It->second;
+}
+
+bool DTransSafetyInfo::isMultiElemLoadStore(Instruction *I) {
+  if (MultiElemLoadStoreInfo.count(I))
+    return true;
+  return false;
+}
+
+std::pair<dtrans::StructInfo *, uint64_t>
+DTransSafetyInfo::getInfoFromLoad(LoadInst *Load) {
+  if (!Load)
+    return std::make_pair(nullptr, 0);
+
+  auto GEP = dyn_cast<GEPOperator>(Load->getPointerOperand());
+  auto StructField = getStructField(GEP);
+  if (!StructField.first)
+    return std::make_pair(nullptr, 0);
+
+  dtrans::StructInfo *StInfo = getStructInfo(StructField.first);
+  if (!StInfo)
+    return std::make_pair(nullptr, 0);
+
+  return std::make_pair(StInfo, StructField.second);
+}
+
+std::pair<llvm::StructType *, uint64_t>
+DTransSafetyInfo::getStructField(GEPOperator *GEP) {
+  if (!GEP || !GEP->hasAllConstantIndices())
+    return std::make_pair(nullptr, 0);
+
+  if (GEP->getNumIndices() == 1) {
+    auto StructField = getByteFlattenedGEPElement(GEP);
+    auto StructTy = dyn_cast_or_null<DTransStructType>(StructField.first);
+    if (!StructTy)
+      return std::make_pair(nullptr, 0);
+
+    return std::make_pair(cast<llvm::StructType>(StructTy->getLLVMType()), StructField.second);
+  }
+
+  auto StructTy = dyn_cast<StructType>(GEP->getSourceElementType());
+  if (!StructTy)
+    return std::make_pair(nullptr, 0);
+
+  if (!cast<ConstantInt>(GEP->getOperand(1))->isZeroValue())
+    return std::make_pair(nullptr, 0);
+
+  uint64_t FieldIndex = 0;
+  for (unsigned NI = 2; NI <= GEP->getNumIndices(); ++NI) {
+    auto IndexConst = cast<ConstantInt>(GEP->getOperand(NI));
+    FieldIndex = IndexConst->getLimitedValue();
+    if (FieldIndex >= StructTy->getNumElements())
+      return std::make_pair(nullptr, 0);
+    if (NI == GEP->getNumIndices())
+      break;
+    auto *Ty = StructTy->getElementType(FieldIndex);
+    auto *NewStructTy = dyn_cast<StructType>(Ty);
+    if (!NewStructTy)
+      return std::make_pair(nullptr, 0);
+    StructTy = NewStructTy;
+  }
+  return std::make_pair(StructTy, FieldIndex);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
