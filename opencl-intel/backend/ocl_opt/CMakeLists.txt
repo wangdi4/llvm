@@ -29,6 +29,7 @@ set(OCL_BE_PASSES
     SubGroupAdaptation
     LocalBuffAnalysis
     LocalBuffers
+    LLVMEqualizer
     OclFunctionAttrs
     PatchCallbackArgs
     PipeIOTransformation

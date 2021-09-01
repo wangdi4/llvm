@@ -15,7 +15,7 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer -dpcpp-kernel-analysis -cl-loop-bound -cl-loop-creator
+; Opt passes: -llvm-equalizer -dpcpp-kernel-analysis -cl-loop-bound -cl-loop-creator
 ; ----------------------------------------------------
 ; -cl-loop-creator creates early exit, we can create infinite loop inside a kernel
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
