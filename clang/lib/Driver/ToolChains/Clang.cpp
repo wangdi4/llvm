@@ -9638,7 +9638,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_COLLAB
         ",+SPV_INTEL_float_controls2,+SPV_INTEL_vector_compute"
         ",+SPV_INTEL_fast_composite,+SPV_INTEL_fpga_buffer_location"
-        ",+SPV_INTEL_matrix"
+        ",+SPV_INTEL_joint_matrix"
 #else
         ",+SPV_INTEL_optimization_hints,+SPV_INTEL_float_controls2"
         ",+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite"

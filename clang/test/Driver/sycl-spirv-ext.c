@@ -40,7 +40,7 @@
 // COM: CHECK-DEFAULT-SAME:,+SPV_INTEL_optimization_hints,+SPV_INTEL_float_controls2 ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_float_controls2 ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_buffer_location,+SPV_INTEL_matrix ;INTEL
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_buffer_location,+SPV_INTEL_joint_matrix ;INTEL
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arbitrary_precision_fixed_point
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arbitrary_precision_floating_point
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arbitrary_precision_floating_point
