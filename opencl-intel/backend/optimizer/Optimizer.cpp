@@ -143,6 +143,7 @@ llvm::ModulePass *createKernelSubGroupInfoPass();
 llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
+llvm::ModulePass *createLLVMEqualizerPass();
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
@@ -916,7 +917,7 @@ void OptimizerOCL::Optimize() {
   if (m_IsSYCL)
     materializerPM.add(createSPIRVToOCL20Legacy());
   materializerPM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
-  materializerPM.add(createDPCPPEqualizerLegacyPass(m_RtlModules));
+  materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_M->getTargetTriple());
   if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())

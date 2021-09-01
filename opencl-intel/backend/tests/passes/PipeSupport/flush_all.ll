@@ -51,7 +51,7 @@
 ; ----------------------------------------------------
 ; Compilation command:
 ;   clang -cc1 -triple spir64-unknown-unknown-intelfpga -emit-llvm -cl-std=CL1.2
-;   oclopt -dpcpp-kernel-builtin-lib=%p/../../vectorizer/Full/runtime.bc -dpcpp-demangle-fpga-pipes -dpcpp-kernel-equalizer -channel-pipe-transformation -verify %s -S
+;   oclopt -dpcpp-kernel-builtin-lib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-builtin-lib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-builtin-import -always-inline -pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-builtin-lib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-builtin-import -always-inline -pipe-support -verify %s -S | FileCheck %s

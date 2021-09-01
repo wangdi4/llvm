@@ -71,6 +71,7 @@ void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffersPass(llvm::PassRegistry &);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeHandleVPlanMaskPass(llvm::PassRegistry&);
+void initializeLLVMEqualizerPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeRemovePrefetchPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
