@@ -61,6 +61,9 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
   Ref->setBaseCE(BaseCE);
+  // TODO: Force callers to pass element type explicitly and remove this check.
+  Ref->setBasePtrElementType(
+      BaseCE->getDestType()->getScalarType()->getPointerElementType());
   Ref->setInBounds(IsInBounds);
   Ref->addBlobDDRef(BasePtrBlobIndex, Level);
 
