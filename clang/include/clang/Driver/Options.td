@@ -2685,7 +2685,15 @@ def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnu
 #if INTEL_CUSTOMIZATION
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Choose which OpenMP version to link with.">;
+#endif // INTEL_CUSTOMIZATION
+defm openmp_extensions: BoolFOption<"openmp-extensions",
+  LangOpts<"OpenMPExtensions">, DefaultTrue,
+  PosFlag<SetTrue, [CC1Option, NoArgumentUnused],
+          "Enable all Clang extensions for OpenMP directives and clauses">,
+  NegFlag<SetFalse, [CC1Option, NoArgumentUnused],
+          "Disable all Clang extensions for OpenMP directives and clauses">>;
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
 def qopenmp_threadprivate_EQ: Joined<["-"], "qopenmp-threadprivate=">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">;
 defm intel_pragma_prefetch : BoolFOption<"intel-pragma-prefetch",
