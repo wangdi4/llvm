@@ -13785,6 +13785,10 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
         Start, Stride, RHS, getTypeSizeInBits(LHS->getType()), IsSigned,
         IVMaxValIsUB);
 #endif // INTEL_CUSTOMIZATION
+    // If we prove the max count is zero, so is the symbolic bound.  This can
+    // happen due to differences in how we reason about bounds impied by UB.
+    if (MaxBECount->isZero())
+      BECount = MaxBECount;
   }
 
   if (isa<SCEVCouldNotCompute>(MaxBECount) &&
