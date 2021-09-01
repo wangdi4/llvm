@@ -16,11 +16,6 @@
 ; CHECK-NOT: br i1
 ; CHECK: br label %[[BB1:[A-Za-z0-9._]+]],
 ; CHECK-EMPTY:
-; CHECK-NEXT: [[BBRET:[A-Za-z0-9._]+]]:
-; CHECK-NOT: br label %
-; CHECK-NOT: br i1
-; CHECK: ret void
-; CHECK-EMPTY:
 ; CHECK-NEXT: [[BB1]]:
 ; CHECK-NOT: br label %
 ; CHECK-NOT: br i1
@@ -69,8 +64,12 @@
 ; CHECK-NEXT: [[FOREND]]:
 ; CHECK-NOT: br label %
 ; CHECK-NOT: br i1
-; CHECK: br label %[[BBRET]],
-
+; CHECK: br label %[[BBRET:[A-Za-z0-9._]+]],
+; CHECK-EMPTY:
+; CHECK-NEXT: [[BBRET]]:
+; CHECK-NOT: br label %
+; CHECK-NOT: br i1
+; CHECK: ret void
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

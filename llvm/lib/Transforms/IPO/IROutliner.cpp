@@ -434,7 +434,6 @@ Function *IROutliner::createFunction(Module &M, OutlinableGroup &Group,
 static BasicBlock *moveFunctionData(Function &Old, Function &New) {
   Function::iterator CurrBB, NextBB, FinalBB;
   BasicBlock *NewEnd = nullptr;
-  std::vector<Instruction *> DebugInsts;
   for (CurrBB = Old.begin(), FinalBB = Old.end(); CurrBB != FinalBB;
        CurrBB = NextBB) {
     NextBB = std::next(CurrBB);
@@ -443,6 +442,8 @@ static BasicBlock *moveFunctionData(Function &Old, Function &New) {
     Instruction *I = CurrBB->getTerminator();
     if (isa<ReturnInst>(I))
       NewEnd = &(*CurrBB);
+
+    std::vector<Instruction *> DebugInsts;
 
     for (Instruction &Val : *CurrBB) {
       // We must handle the scoping of called functions differently than
@@ -1234,8 +1235,7 @@ static void fillOverallFunction(Module &M, OutlinableGroup &CurrentGroup,
                                         *CurrentGroup.OutlinedFunction);
 
   // Transfer the attributes from the function to the new function.
-  for (Attribute A :
-       CurrentOS->ExtractedFunction->getAttributes().getFnAttributes())
+  for (Attribute A : CurrentOS->ExtractedFunction->getAttributes().getFnAttrs())
     CurrentGroup.OutlinedFunction->addFnAttr(A);
 
   // Create an output block for the first extracted function.

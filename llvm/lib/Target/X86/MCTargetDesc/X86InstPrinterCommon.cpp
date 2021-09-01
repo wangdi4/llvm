@@ -264,7 +264,6 @@ void X86InstPrinterCommon::printCMPMnemonic(const MCInst *MI, bool IsVCmp,
   case X86::VCMPSSZrrb_Int: case X86::VCMPSSZrrb_Intk:
     OS << "ss\t";
     break;
-#if INTEL_CUSTOMIZATION
   case X86::VCMPPHZ128rmi:  case X86::VCMPPHZ128rri:
   case X86::VCMPPHZ256rmi:  case X86::VCMPPHZ256rri:
   case X86::VCMPPHZrmi:     case X86::VCMPPHZrri:
@@ -283,7 +282,6 @@ void X86InstPrinterCommon::printCMPMnemonic(const MCInst *MI, bool IsVCmp,
   case X86::VCMPSHZrm_Intk: case X86::VCMPSHZrr_Intk:
     OS << "sh\t";
     break;
-#endif // INTEL_CUSTOMIZATION
   }
 }
 

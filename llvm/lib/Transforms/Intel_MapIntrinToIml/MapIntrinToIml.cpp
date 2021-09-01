@@ -189,7 +189,7 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
 
   if (AttrList.hasAttributes(AttributeList::FunctionIndex)) {
 
-    AttributeSet Attrs = AttrList.getFnAttributes();
+    AttributeSet Attrs = AttrList.getFnAttrs();
 
     AttributeSet::iterator FAIt = Attrs.begin();
     AttributeSet::iterator FAEnd = Attrs.end();

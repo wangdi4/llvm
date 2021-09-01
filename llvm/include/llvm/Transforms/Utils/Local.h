@@ -431,7 +431,6 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
                        true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
-
 ///===---------------------------------------------------------------------===//
 ///  Dbg Intrinsic utilities
 ///

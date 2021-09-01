@@ -97,7 +97,6 @@ TARGET_BUILTIN(__builtin_ia32_cvtsi2sd64, "V2dV2dOiIi", "ncV:128:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtsi2ss64, "V4fV4fOiIi", "ncV:128:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2sd64, "V2dV2dUOiIi", "ncV:128:", "avx512f")
 TARGET_BUILTIN(__builtin_ia32_cvtusi2ss64, "V4fV4fUOiIi", "ncV:128:", "avx512f")
-#if INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_vcvtsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_vcvtsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_vcvtusi642sh, "V8xV8xUOiIi", "ncV:128:", "avx512fp16")
@@ -105,6 +104,7 @@ TARGET_BUILTIN(__builtin_ia32_vcvtsi642sh, "V8xV8xOiIi", "ncV:128:", "avx512fp16
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2si64, "OiV8xIi", "ncV:128:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8xIi", "ncV:128:", "avx512fp16")
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_MEMADVISE
 // FIXME: Remove the undisclosed target feature if needed.
 TARGET_BUILTIN(__builtin_ia32_vmovadvisew_load_128, "V4iV4iC*Ic", "nV:128:", "avx512memadvise,avx512vl|avxmemadvise")

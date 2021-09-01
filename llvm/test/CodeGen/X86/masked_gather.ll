@@ -1179,11 +1179,10 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_16
 ; AVX1-NEXT:  .LBB4_15: # %cond.load19
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $3, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4,5,6],ymm3[7]
 ; AVX1-NEXT:  .LBB4_16: # %else20
-; AVX1-NEXT:    vpxor %xmm3, %xmm3, %xmm3
+; AVX1-NEXT:    vxorps %xmm3, %xmm3, %xmm3
 ; AVX1-NEXT:    vpcmpeqd %xmm3, %xmm2, %xmm4
 ; AVX1-NEXT:    vpcmpeqd %xmm3, %xmm0, %xmm3
 ; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
@@ -1213,11 +1212,10 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_32
 ; AVX1-NEXT:  .LBB4_31: # %cond.load58
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $3, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4,5,6],ymm4[7]
 ; AVX1-NEXT:  .LBB4_32: # %else61
-; AVX1-NEXT:    vpxor %xmm4, %xmm4, %xmm4
+; AVX1-NEXT:    vxorps %xmm4, %xmm4, %xmm4
 ; AVX1-NEXT:    vpcmpeqd %xmm4, %xmm2, %xmm2
 ; AVX1-NEXT:    vpcmpeqd %xmm4, %xmm0, %xmm0
 ; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
@@ -1238,9 +1236,8 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_42
 ; AVX1-NEXT:  .LBB4_41: # %cond.load84
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
-; AVX1-NEXT:    vpinsrd $0, c+28(%rip), %xmm2, %xmm2
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm2
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3],ymm2[4],ymm0[5,6,7]
 ; AVX1-NEXT:  .LBB4_42: # %else87
 ; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm2
 ; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm4
@@ -1248,25 +1245,22 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_44
 ; AVX1-NEXT:  # %bb.43: # %cond.load89
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
-; AVX1-NEXT:    vpinsrd $1, c+28(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4],ymm3[5],ymm0[6,7]
 ; AVX1-NEXT:  .LBB4_44: # %else92
 ; AVX1-NEXT:    vpaddd %xmm2, %xmm4, %xmm2
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_46
 ; AVX1-NEXT:  # %bb.45: # %cond.load94
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm3
-; AVX1-NEXT:    vpinsrd $2, c+28(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4,5],ymm3[6],ymm0[7]
 ; AVX1-NEXT:  .LBB4_46: # %else97
 ; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm1
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    je .LBB4_48
 ; AVX1-NEXT:  # %bb.47: # %cond.load99
-; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
-; AVX1-NEXT:    vpinsrd $3, c+28(%rip), %xmm2, %xmm2
-; AVX1-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm2
+; AVX1-NEXT:    vblendps {{.*#+}} ymm0 = ymm0[0,1,2,3,4,5,6],ymm2[7]
 ; AVX1-NEXT:  .LBB4_48: # %else102
 ; AVX1-NEXT:    vextractf128 $1, %ymm0, %xmm2
 ; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
@@ -1294,21 +1288,18 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_10
 ; AVX1-NEXT:  .LBB4_9: # %cond.load10
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $0, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3],ymm3[4],ymm1[5,6,7]
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_12
 ; AVX1-NEXT:  .LBB4_11: # %cond.load13
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $1, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4],ymm3[5],ymm1[6,7]
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_14
 ; AVX1-NEXT:  .LBB4_13: # %cond.load16
-; AVX1-NEXT:    vextractf128 $1, %ymm1, %xmm3
-; AVX1-NEXT:    vpinsrd $2, c+12(%rip), %xmm3, %xmm3
-; AVX1-NEXT:    vinsertf128 $1, %xmm3, %ymm1, %ymm1
+; AVX1-NEXT:    vbroadcastss c+12(%rip), %ymm3
+; AVX1-NEXT:    vblendps {{.*#+}} ymm1 = ymm1[0,1,2,3,4,5],ymm3[6],ymm1[7]
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    jne .LBB4_15
 ; AVX1-NEXT:    jmp .LBB4_16
@@ -1332,21 +1323,18 @@ define <8 x i32> @gather_v8i32_v8i32(<8 x i32> %trigger) {
 ; AVX1-NEXT:    testb $16, %al
 ; AVX1-NEXT:    je .LBB4_26
 ; AVX1-NEXT:  .LBB4_25: # %cond.load43
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $0, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3],ymm4[4],ymm3[5,6,7]
 ; AVX1-NEXT:    testb $32, %al
 ; AVX1-NEXT:    je .LBB4_28
 ; AVX1-NEXT:  .LBB4_27: # %cond.load48
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $1, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4],ymm4[5],ymm3[6,7]
 ; AVX1-NEXT:    testb $64, %al
 ; AVX1-NEXT:    je .LBB4_30
 ; AVX1-NEXT:  .LBB4_29: # %cond.load53
-; AVX1-NEXT:    vextractf128 $1, %ymm3, %xmm4
-; AVX1-NEXT:    vpinsrd $2, c+28(%rip), %xmm4, %xmm4
-; AVX1-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3
+; AVX1-NEXT:    vbroadcastss c+28(%rip), %ymm4
+; AVX1-NEXT:    vblendps {{.*#+}} ymm3 = ymm3[0,1,2,3,4,5],ymm4[6],ymm3[7]
 ; AVX1-NEXT:    testb $-128, %al
 ; AVX1-NEXT:    jne .LBB4_31
 ; AVX1-NEXT:    jmp .LBB4_32

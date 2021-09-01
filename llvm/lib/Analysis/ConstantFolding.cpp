@@ -1565,7 +1565,7 @@ llvm::ConstantFoldLoadThroughGEPIndices(Constant *C,
 #if INTEL_CUSTOMIZATION
 // FIXME: We should have a more general interface for the imf attributes.
 static bool hasAnyImfFnAttr(const CallBase *Call) {
-  for (const Attribute &Attr : Call->getAttributes().getFnAttributes()) {
+  for (const Attribute &Attr : Call->getAttributes().getFnAttrs()) {
     if (!Attr.isStringAttribute())
       continue;
     if (Attr.getKindAsString().startswith("imf-"))
@@ -2010,7 +2010,7 @@ static bool mayFoldConstrained(ConstrainedFPIntrinsic *CI,
     // know that its evaluation does not raise exceptions, so side effect
     // is absent. To allow removing the call, mark it as not accessing memory.
     if (EB && *EB != fp::ExceptionBehavior::ebIgnore)
-      CI->addAttribute(AttributeList::FunctionIndex, Attribute::ReadNone);
+      CI->addFnAttr(Attribute::ReadNone);
     return true;
   }
 

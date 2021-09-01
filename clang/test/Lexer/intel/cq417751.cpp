@@ -2,16 +2,16 @@
 // RUN: %clang_cc1 -fsyntax-only -verify -pedantic %s -fintel-compatibility -std=c++14 -triple i386-pc-linux
 // RUN: %clang_cc1 -fsyntax-only -verify -pedantic %s -fintel-compatibility -std=c++11 -triple x86_64-pc-linux
 // RUN: %clang_cc1 -fsyntax-only -verify -pedantic %s -fintel-compatibility -std=c++14 -triple x86_64-pc-linux
-constexpr char h = '\u5678'; //expected-warning {{implicit conversion from}} 
-constexpr auto a = 'Ã¼';  //expected-warning {{extraneous characters in character constant ignored}}
-   
+constexpr char h = '\u5678'; //expected-warning {{implicit conversion from}}
+constexpr auto a = 'Ã¼';  //expected-error {{wide character literals may not contain multiple characters}}
+
 void foo() {
   switch (a) {
-  case 'Ã¼':  //expected-warning {{extraneous characters in character constant ignored}}
+  case 'Ã¼':  //expected-error {{wide character literals may not contain multiple characters}}
     break;
   }
   static_assert(sizeof(a) >= 2, "sizeof(a)");
-  static_assert(a == 'Ã¼', "value of a");//expected-warning {{extraneous characters in character constant ignored}}
+  static_assert(a == 'Ã¼', "value of a");//expected-error {{wide character literals may not contain multiple characters}}
   static_assert(sizeof(h) == 1, "sizeof(h)");
 
 #define CS_ISOLatin1_atilde '\341'
@@ -55,15 +55,15 @@ void foo() {
 
 
   switch (a) {
-  case 'a': 
-  case 'e': 
-  case 'i': 
-  case 'o': 
-  case 'u': 
-  case 'Ã¼'://expected-warning {{extraneous characters in character constant ignored}}
+  case 'a':
+  case 'e':
+  case 'i':
+  case 'o':
+  case 'u':
+  case 'Ã¼'://expected-error {{wide character literals may not contain multiple characters}}
   case CS_otilde:
   case CS_utilde:
-  case CS_uuml: 
+  case CS_uuml:
   case 'v':
   case 'b':
   case 'c':

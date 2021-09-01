@@ -264,7 +264,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
     AB.addAttribute(Attr);
   }
 
-  F.removeAttributes(AttributeList::FunctionIndex, AB);
+  F.removeFnAttrs(AB);
 
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
@@ -281,7 +281,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
     AB = AttributeFuncs::typeIncompatible(ArgType);
-    Clone->removeAttributes(Idx, AB);
+    Clone->removeFnAttrs(AB);
   }
 
   ArgIt = F.arg_begin();

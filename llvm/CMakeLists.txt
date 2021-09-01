@@ -704,7 +704,12 @@ endif()
 set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environment variable to override default target. Disabled by blank.")
 mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
 
-set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+  set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default ON)
+else()
+  set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default OFF)
+endif()
+set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ${LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default} CACHE BOOL
   "Enable per-target runtimes directory")
 
 set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
@@ -751,9 +756,14 @@ option(LLVM_ENABLE_PLUGINS "Enable plugin support" ${LLVM_ENABLE_PLUGINS_default
 # INTEL_CUSTOMIZATION
 # We want to keep the legacy pass manager enabled by default even
 # after the community changes the default here.
-set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER FALSE CACHE BOOL # INTEL
-"Enable the new pass manager by default.")
+set(LLVM_ENABLE_NEW_PASS_MANAGER FALSE CACHE BOOL # INTEL
+  "Enable the new pass manager by default.")
 #end INTEL_CUSTOMIZATION
+if(NOT LLVM_ENABLE_NEW_PASS_MANAGER)
+  message(WARNING "Using the legacy pass manager for the optimization pipeline"
+                  " is deprecated. The functionality will degrade over time and"
+                  " be removed in a future release.")
+endif()
 
 include(HandleLLVMOptions)
 
@@ -1333,8 +1343,8 @@ if (TENSORFLOW_C_LIB_PATH)
   include_directories(${TENSORFLOW_C_LIB_PATH}/include)
   if (NOT TF_PROTO_HEADERS)
     message(STATUS "TF_PROTO_HEADERS not defined. Looking for tensorflow pip package.")
-    execute_process(COMMAND 
-      ${Python3_EXECUTABLE} "-m" "pip" "show" "tensorflow" 
+    execute_process(COMMAND
+      ${Python3_EXECUTABLE} "-m" "pip" "show" "tensorflow"
       OUTPUT_VARIABLE TF_PIP_OUT)
     if ("${TF_PIP_OUT}" STREQUAL "")
       message(FATAL ERROR "Tensorflow pip package is also required for 'development' mode (protobuf headers)")
@@ -1370,10 +1380,6 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
     ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT tf_xla_runtime)
   set_property(GLOBAL APPEND PROPERTY LLVM_EXPORTS tf_xla_runtime)
 endif()
-
-# Keep the legacy CMake flag ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER for
-# compatibility.
-set(LLVM_ENABLE_NEW_PASS_MANAGER ${ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER})
 
 # Configure the three LLVM configuration header files.
 configure_file(

@@ -115,7 +115,7 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   {LibFunc_reallocf,            {ReallocLike, 2, 1,  -1}},
   {LibFunc_strdup,              {StrDupLike,  1, -1, -1}},
   {LibFunc_strndup,             {StrDupLike,  2, 1,  -1}},
-  {LibFunc___kmpc_alloc_shared, {MallocLike,  1, 0,  -1}}, // INTEL
+  {LibFunc___kmpc_alloc_shared, {MallocLike,  1, 0,  -1}},
 #if INTEL_CUSTOMIZATION
   {LibFunc_free, {FreeLike, 1, 0, -1}}, // free(i8*)
 #endif //INTEL_CUSTOMIZATION

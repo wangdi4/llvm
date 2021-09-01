@@ -151,10 +151,15 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
   }
 
   bool isAmdHsaOrMesa = ST.isAmdHsaOrMesa(F);
-  if (isAmdHsaOrMesa) {
-    if (!ST.enableFlatScratch())
-      PrivateSegmentBuffer = true;
+  if (isAmdHsaOrMesa && !ST.enableFlatScratch())
+    PrivateSegmentBuffer = true;
+  else if (ST.isMesaGfxShader(F))
+    ImplicitBufferPtr = true;
 
+  if (UseFixedABI || F.hasFnAttribute("amdgpu-kernarg-segment-ptr"))
+    KernargSegmentPtr = true;
+
+  if (!AMDGPU::isGraphics(CC)) {
     if (UseFixedABI) {
       DispatchPtr = true;
       QueuePtr = true;
@@ -171,12 +176,7 @@ SIMachineFunctionInfo::SIMachineFunctionInfo(const MachineFunction &MF)
       if (F.hasFnAttribute("amdgpu-dispatch-id"))
         DispatchID = true;
     }
-  } else if (ST.isMesaGfxShader(F)) {
-    ImplicitBufferPtr = true;
   }
-
-  if (UseFixedABI || F.hasFnAttribute("amdgpu-kernarg-segment-ptr"))
-    KernargSegmentPtr = true;
 
   // TODO: This could be refined a lot. The attribute is a poor way of
   // detecting calls or stack objects that may require it before argument
@@ -426,7 +426,7 @@ bool SIMachineFunctionInfo::allocateVGPRSpillToAGPR(MachineFunction &MF,
     OtherUsedRegs.set(Reg);
 
   SmallVectorImpl<MCPhysReg>::const_iterator NextSpillReg = Regs.begin();
-  for (unsigned I = 0; I < NumLanes; ++I) {
+  for (int I = NumLanes - 1; I >= 0; --I) {
     NextSpillReg = std::find_if(
         NextSpillReg, Regs.end(), [&MRI, &OtherUsedRegs](MCPhysReg Reg) {
           return MRI.isAllocatable(Reg) && !MRI.isPhysRegUsed(Reg) &&

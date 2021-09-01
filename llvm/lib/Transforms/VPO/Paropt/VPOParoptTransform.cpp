@@ -9524,13 +9524,12 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
     // Matching formal argument and actual argument for Thread ID
     if (!IsTidArg || TidParmNo != TidArgNo) {
       Param2Attrs[ParamsTy.size()] =
-          Fn->getAttributes().getParamAttributes(FnParmNo);
+          Fn->getAttributes().getParamAttrs(FnParmNo);
       ParamsTy.push_back(*ArgTyI);
     }
 
     // Remove parameter attributes from the old function.
-    Fn->removeParamAttrs(FnParmNo,
-                         Fn->getAttributes().getParamAttributes(FnParmNo));
+    Fn->removeParamAttrs(FnParmNo, Fn->getAttributes().getParamAttrs(FnParmNo));
 
     ++TidParmNo;
     ++FnParmNo;

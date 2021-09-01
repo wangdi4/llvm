@@ -2626,7 +2626,7 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
 
       if (Attrs.hasParamAttrs(I))
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttributes(I));
+                                               Attrs.getParamAttrs(I));
       ++NumNewArgs;
     }
   }
@@ -3076,7 +3076,7 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
 
       if (Attrs.hasParamAttrs(I)) {
         NewAttrs = NewAttrs.addParamAttributes(Ctx, NumNewArgs,
-                                               Attrs.getParamAttributes(I));
+                                               Attrs.getParamAttrs(I));
       }
       ++NumNewArgs;
     }

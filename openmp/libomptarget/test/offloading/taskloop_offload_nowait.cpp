@@ -6,6 +6,8 @@
 // RUN: %libomptarget-compilexx-generic
 // end INTEL_CUSTOMIZATION
 
+// UNSUPPORTED: x86_64-pc-linux-gnu
+
 #include <cmath>
 #include <cstdlib>
 #include <iostream>

@@ -108,9 +108,6 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:  newFuncRoot:
 ; LLVMIR-NEXT:    br label [[ORDERED_ENTRY0:%.*]]
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  latch.exitStub:
-; LLVMIR-NEXT:    ret void
-; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  ordered.entry:
 ; LLVMIR-NEXT:    [[TOK_ORDERED0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; LLVMIR-NEXT:    br label [[ORDERED0:%.*]]
@@ -123,6 +120,9 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:  ordered.exit:
 ; LLVMIR-NEXT:    call void @llvm.directive.region.exit(token [[TOK_ORDERED0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; LLVMIR-NEXT:    br label [[LATCH_EXITSTUB0:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  latch.exitStub:
+; LLVMIR-NEXT:    ret void
 ; LLVMIR-NEXT:  }
 ;
 ; HIR:  define void @var_tripcount(i32* [[IP0:%.*]], i32 [[N0:%.*]], i32* [[X0:%.*]]) local_unnamed_addr {
@@ -175,9 +175,6 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; HIR-NEXT:  newFuncRoot:
 ; HIR-NEXT:    br label [[ORDERED_ENTRY0:%.*]]
 ; HIR-EMPTY:
-; HIR-NEXT:  latch.exitStub:
-; HIR-NEXT:    ret void
-; HIR-EMPTY:
 ; HIR-NEXT:  ordered.entry:
 ; HIR-NEXT:    [[TOK_ORDERED0:%.*]] = call token @llvm.directive.region.entry() [ "DIR.OMP.ORDERED"(), "QUAL.OMP.ORDERED.SIMD"() ]
 ; HIR-NEXT:    br label [[ORDERED0:%.*]]
@@ -190,6 +187,9 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; HIR-NEXT:  ordered.exit:
 ; HIR-NEXT:    call void @llvm.directive.region.exit(token [[TOK_ORDERED0]]) [ "DIR.OMP.END.ORDERED"() ]
 ; HIR-NEXT:    br label [[LATCH_EXITSTUB0:%.*]]
+; HIR-EMPTY:
+; HIR-NEXT:  latch.exitStub:
+; HIR-NEXT:    ret void
 ; HIR-NEXT:  }
 ;
 entry:

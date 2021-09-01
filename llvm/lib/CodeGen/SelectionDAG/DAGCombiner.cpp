@@ -12571,18 +12571,15 @@ SDValue DAGCombiner::CombineConsecutiveLoads(SDNode *N, EVT VT) {
       LD1->getAddressSpace() != LD2->getAddressSpace())
     return SDValue();
 
+  bool LD1Fast = false;
   EVT LD1VT = LD1->getValueType(0);
   unsigned LD1Bytes = LD1VT.getStoreSize();
-  if (DAG.areNonVolatileConsecutiveLoads(LD2, LD1, LD1Bytes, 1)) {
-    Align Alignment = LD1->getAlign();
-    Align NewAlign = DAG.getDataLayout().getABITypeAlign(
-        VT.getTypeForEVT(*DAG.getContext()));
-
-    if (NewAlign <= Alignment &&
-        (!LegalOperations || TLI.isOperationLegal(ISD::LOAD, VT)))
-      return DAG.getLoad(VT, SDLoc(N), LD1->getChain(), LD1->getBasePtr(),
-                         LD1->getPointerInfo(), Alignment);
-  }
+  if ((!LegalOperations || TLI.isOperationLegal(ISD::LOAD, VT)) &&
+      DAG.areNonVolatileConsecutiveLoads(LD2, LD1, LD1Bytes, 1) &&
+      TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), VT,
+                             *LD1->getMemOperand(), &LD1Fast) && LD1Fast)
+    return DAG.getLoad(VT, SDLoc(N), LD1->getChain(), LD1->getBasePtr(),
+                       LD1->getPointerInfo(), LD1->getAlign());
 
   return SDValue();
 }
@@ -16331,11 +16328,12 @@ struct LoadedSlice {
       return false;
 
     // Check if it will be merged with the load.
-    // 1. Check the alignment constraint.
-    Align RequiredAlignment = DAG->getDataLayout().getABITypeAlign(
-        ResVT.getTypeForEVT(*DAG->getContext()));
-
-    if (RequiredAlignment > getAlign())
+    // 1. Check the alignment / fast memory access constraint.
+    bool IsFast = false;
+    if (!TLI.allowsMemoryAccess(*DAG->getContext(), DAG->getDataLayout(), ResVT,
+                                Origin->getAddressSpace(), getAlign(),
+                                Origin->getMemOperand()->getFlags(), &IsFast) ||
+        !IsFast)
       return false;
 
     // 2. Check that the load is a legal operation for that type.
@@ -16874,27 +16872,26 @@ SDValue DAGCombiner::TransformFPLoadStorePair(SDNode *N) {
     if (VTSize.isScalable())
       return SDValue();
 
+    bool FastLD = false, FastST = false;
     EVT IntVT = EVT::getIntegerVT(*DAG.getContext(), VTSize.getFixedSize());
     if (!TLI.isOperationLegal(ISD::LOAD, IntVT) ||
         !TLI.isOperationLegal(ISD::STORE, IntVT) ||
         !TLI.isDesirableToTransformToIntegerOp(ISD::LOAD, VT) ||
-        !TLI.isDesirableToTransformToIntegerOp(ISD::STORE, VT))
-      return SDValue();
-
-    Align LDAlign = LD->getAlign();
-    Align STAlign = ST->getAlign();
-    Type *IntVTTy = IntVT.getTypeForEVT(*DAG.getContext());
-    Align ABIAlign = DAG.getDataLayout().getABITypeAlign(IntVTTy);
-    if (LDAlign < ABIAlign || STAlign < ABIAlign)
+        !TLI.isDesirableToTransformToIntegerOp(ISD::STORE, VT) ||
+        !TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), IntVT,
+                                *LD->getMemOperand(), &FastLD) ||
+        !TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), IntVT,
+                                *ST->getMemOperand(), &FastST) ||
+        !FastLD || !FastST)
       return SDValue();
 
     SDValue NewLD =
         DAG.getLoad(IntVT, SDLoc(Value), LD->getChain(), LD->getBasePtr(),
-                    LD->getPointerInfo(), LDAlign);
+                    LD->getPointerInfo(), LD->getAlign());
 
     SDValue NewST =
         DAG.getStore(ST->getChain(), SDLoc(N), NewLD, ST->getBasePtr(),
-                     ST->getPointerInfo(), STAlign);
+                     ST->getPointerInfo(), ST->getAlign());
 
     AddToWorklist(NewLD.getNode());
     AddToWorklist(NewST.getNode());
@@ -16925,8 +16922,10 @@ bool DAGCombiner::isMulAddWithConstProfitable(SDNode *MulNode,
                                               SDValue &ConstNode) {
   APInt Val;
 
-  // If the add only has one use, this would be OK to do.
-  if (AddNode.getNode()->hasOneUse())
+  // If the add only has one use, and the target thinks the folding is
+  // profitable or does not lead to worse code, this would be OK to do.
+  if (AddNode.getNode()->hasOneUse() &&
+      TLI.isMulAddWithConstProfitable(AddNode, ConstNode))
     return true;
 
   // Walk all the users of the constant with which we're multiplying.
@@ -19764,8 +19763,10 @@ SDValue DAGCombiner::convertBuildVecZextToZext(SDNode *N) {
 
   // Make sure the first element matches
   // (zext (extract_vector_elt X, C))
+  // Offset must be a constant multiple of the
+  // known-minimum vector length of the result type.
   int64_t Offset = checkElem(Op0);
-  if (Offset < 0)
+  if (Offset < 0 || (Offset % VT.getVectorNumElements()) != 0)
     return SDValue();
 
   unsigned NumElems = N->getNumOperands();
@@ -19934,6 +19935,44 @@ static SDValue combineConcatVectorOfScalars(SDNode *N, SelectionDAG &DAG) {
   EVT VecVT = EVT::getVectorVT(*DAG.getContext(), SVT,
                                VT.getSizeInBits() / SVT.getSizeInBits());
   return DAG.getBitcast(VT, DAG.getBuildVector(VecVT, DL, Ops));
+}
+
+// Attempt to merge nested concat_vectors/undefs.
+// Fold concat_vectors(concat_vectors(x,y,z,w),u,u,concat_vectors(a,b,c,d))
+//  --> concat_vectors(x,y,z,w,u,u,u,u,u,u,u,u,a,b,c,d)
+static SDValue combineConcatVectorOfConcatVectors(SDNode *N,
+                                                  SelectionDAG &DAG) {
+  EVT VT = N->getValueType(0);
+
+  // Ensure we're concatenating UNDEF and CONCAT_VECTORS nodes of similar types.
+  EVT SubVT;
+  SDValue FirstConcat;
+  for (const SDValue &Op : N->ops()) {
+    if (Op.isUndef())
+      continue;
+    if (Op.getOpcode() != ISD::CONCAT_VECTORS)
+      return SDValue();
+    if (!FirstConcat) {
+      SubVT = Op.getOperand(0).getValueType();
+      if (!DAG.getTargetLoweringInfo().isTypeLegal(SubVT))
+        return SDValue();
+      FirstConcat = Op;
+      continue;
+    }
+    if (SubVT != Op.getOperand(0).getValueType())
+      return SDValue();
+  }
+  assert(FirstConcat && "Concat of all-undefs found");
+
+  SmallVector<SDValue> ConcatOps;
+  for (const SDValue &Op : N->ops()) {
+    if (Op.isUndef()) {
+      ConcatOps.append(FirstConcat->getNumOperands(), DAG.getUNDEF(SubVT));
+      continue;
+    }
+    ConcatOps.append(Op->op_begin(), Op->op_end());
+  }
+  return DAG.getNode(ISD::CONCAT_VECTORS, SDLoc(N), VT, ConcatOps);
 }
 
 // Check to see if this is a CONCAT_VECTORS of a bunch of EXTRACT_SUBVECTOR
@@ -20195,13 +20234,19 @@ SDValue DAGCombiner::visitCONCAT_VECTORS(SDNode *N) {
   }
 
   // Fold CONCAT_VECTORS of only bitcast scalars (or undef) to BUILD_VECTOR.
+  // FIXME: Add support for concat_vectors(bitcast(vec0),bitcast(vec1),...).
   if (SDValue V = combineConcatVectorOfScalars(N, DAG))
     return V;
 
-  // Fold CONCAT_VECTORS of EXTRACT_SUBVECTOR (or undef) to VECTOR_SHUFFLE.
-  if (Level < AfterLegalizeVectorOps && TLI.isTypeLegal(VT))
+  if (Level < AfterLegalizeVectorOps && TLI.isTypeLegal(VT)) {
+    // Fold CONCAT_VECTORS of CONCAT_VECTORS (or undef) to VECTOR_SHUFFLE.
+    if (SDValue V = combineConcatVectorOfConcatVectors(N, DAG))
+      return V;
+
+    // Fold CONCAT_VECTORS of EXTRACT_SUBVECTOR (or undef) to VECTOR_SHUFFLE.
     if (SDValue V = combineConcatVectorOfExtracts(N, DAG))
       return V;
+  }
 
   if (SDValue V = combineConcatVectorOfCasts(N, DAG))
     return V;
@@ -20654,8 +20699,12 @@ SDValue DAGCombiner::visitEXTRACT_SUBVECTOR(SDNode *N) {
     //    otherwise => (extract_subvec V1, ExtIdx)
     uint64_t InsIdx = V.getConstantOperandVal(2);
     if (InsIdx * SmallVT.getScalarSizeInBits() ==
-        ExtIdx * NVT.getScalarSizeInBits())
+        ExtIdx * NVT.getScalarSizeInBits()) {
+      if (LegalOperations && !TLI.isOperationLegal(ISD::BITCAST, NVT))
+        return SDValue();
+
       return DAG.getBitcast(NVT, V.getOperand(1));
+    }
     return DAG.getNode(
         ISD::EXTRACT_SUBVECTOR, SDLoc(N), NVT,
         DAG.getBitcast(N->getOperand(0).getValueType(), V.getOperand(0)),
@@ -22587,15 +22636,23 @@ SDValue DAGCombiner::foldSelectOfBinops(SDNode *N) {
   if (!TLI.isBinOp(BinOpc) || (N2.getOpcode() != BinOpc))
     return SDValue();
 
-  if (!N->isOnlyUserOf(N0.getNode()) || !N->isOnlyUserOf(N1.getNode()))
+  // The use checks are intentionally on SDNode because we may be dealing
+  // with opcodes that produce more than one SDValue.
+  // TODO: Do we really need to check N0 (the condition operand of the select)?
+  //       But removing that clause could cause an infinite loop...
+  if (!N0->hasOneUse() || !N1->hasOneUse() || !N2->hasOneUse())
     return SDValue();
+
+  // Binops may include opcodes that return multiple values, so all values
+  // must be created/propagated from the newly created binops below.
+  SDVTList OpVTs = N1->getVTList();
 
   // Fold select(cond, binop(x, y), binop(z, y))
   //  --> binop(select(cond, x, z), y)
   if (N1.getOperand(1) == N2.getOperand(1)) {
     SDValue NewSel =
         DAG.getSelect(DL, VT, N0, N1.getOperand(0), N2.getOperand(0));
-    SDValue NewBinOp = DAG.getNode(BinOpc, DL, VT, NewSel, N1.getOperand(1));
+    SDValue NewBinOp = DAG.getNode(BinOpc, DL, OpVTs, NewSel, N1.getOperand(1));
     NewBinOp->setFlags(N1->getFlags());
     NewBinOp->intersectFlagsWith(N2->getFlags());
     return NewBinOp;
@@ -22609,7 +22666,7 @@ SDValue DAGCombiner::foldSelectOfBinops(SDNode *N) {
       VT == N2.getOperand(1).getValueType()) {
     SDValue NewSel =
         DAG.getSelect(DL, VT, N0, N1.getOperand(1), N2.getOperand(1));
-    SDValue NewBinOp = DAG.getNode(BinOpc, DL, VT, N1.getOperand(0), NewSel);
+    SDValue NewBinOp = DAG.getNode(BinOpc, DL, OpVTs, N1.getOperand(0), NewSel);
     NewBinOp->setFlags(N1->getFlags());
     NewBinOp->intersectFlagsWith(N2->getFlags());
     return NewBinOp;

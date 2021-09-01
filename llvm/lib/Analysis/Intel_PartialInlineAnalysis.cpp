@@ -281,13 +281,13 @@ static bool checkFunctionProperties(Function &F) {
   //  preferred for partial inlining         (Intel specific)
   //  outline function from partial inlining (Intel specific)
   auto CheckAttributes = [](const AttributeList &AttrList) {
-    if (AttrList.hasFnAttribute(Attribute::AlwaysInline) ||
-      AttrList.hasFnAttribute(Attribute::NoInline) ||
-      AttrList.hasFnAttribute(Attribute::InlineHint) ||
-      AttrList.hasFnAttribute(Attribute::AlwaysInlineRecursive) ||
-      AttrList.hasFnAttribute(Attribute::InlineHintRecursive) ||
-      AttrList.hasFnAttribute("prefer-partial-inline-inlined-clone") ||
-      AttrList.hasFnAttribute("prefer-partial-inline-outlined-func"))
+    if (AttrList.hasFnAttr(Attribute::AlwaysInline) ||
+      AttrList.hasFnAttr(Attribute::NoInline) ||
+      AttrList.hasFnAttr(Attribute::InlineHint) ||
+      AttrList.hasFnAttr(Attribute::AlwaysInlineRecursive) ||
+      AttrList.hasFnAttr(Attribute::InlineHintRecursive) ||
+      AttrList.hasFnAttr("prefer-partial-inline-inlined-clone") ||
+      AttrList.hasFnAttr("prefer-partial-inline-outlined-func"))
       return true;
     return false;
   };

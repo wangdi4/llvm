@@ -101,6 +101,7 @@ add_llvm_target(X86CodeGen ${sources}
   AsmPrinter
   CodeGen
   Core
+  Instrumentation
   MC
   SelectionDAG
   Support

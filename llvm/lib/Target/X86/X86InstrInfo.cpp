@@ -2268,6 +2268,10 @@ MachineInstr *X86InstrInfo::commuteInstructionImpl(MachineInstr &MI, bool NewMI,
   case X86::VCMPSSZrr:
   case X86::VCMPPDZrri:
   case X86::VCMPPSZrri:
+  case X86::VCMPSHZrr:
+  case X86::VCMPPHZrri:
+  case X86::VCMPPHZ128rri:
+  case X86::VCMPPHZ256rri:
   case X86::VCMPPDZ128rri:
   case X86::VCMPPSZ128rri:
   case X86::VCMPPDZ256rri:
@@ -2514,12 +2518,10 @@ bool X86InstrInfo::findCommutedOpIndices(const MachineInstr &MI,
   case X86::VCMPSSZrr:
   case X86::VCMPPDZrri:
   case X86::VCMPPSZrri:
-#if INTEL_CUSTOMIZATION
   case X86::VCMPSHZrr:
   case X86::VCMPPHZrri:
   case X86::VCMPPHZ128rri:
   case X86::VCMPPHZ256rri:
-#endif // INTEL_CUSTOMIZATION
   case X86::VCMPPDZ128rri:
   case X86::VCMPPSZ128rri:
   case X86::VCMPPDZ256rri:
@@ -5345,7 +5347,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SDZrr_Int:
   case X86::VCVTUSI642SDZrrb_Int:
   case X86::VCVTUSI642SDZrm_Int:
-#if INTEL_CUSTOMIZATION
   case X86::VCVTSI2SHZrr:
   case X86::VCVTSI2SHZrm:
   case X86::VCVTSI2SHZrr_Int:
@@ -5366,7 +5367,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTUSI642SHZrr_Int:
   case X86::VCVTUSI642SHZrrb_Int:
   case X86::VCVTUSI642SHZrm_Int:
-#endif // INTEL_CUSTOMIZATION
     // Load folding won't effect the undef register update since the input is
     // a GPR.
     return OpNum == 1 && !ForLoadFold;
@@ -5439,7 +5439,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VRCP14SDZrm:
   case X86::VRCP14SSZrr:
   case X86::VRCP14SSZrm:
-#if INTEL_CUSTOMIZATION
   case X86::VRCPSHZrr:
   case X86::VRCPSHZrm:
   case X86::VRSQRTSHZrr:
@@ -5463,7 +5462,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSHZrb_Int:
   case X86::VSQRTSHZm:
   case X86::VSQRTSHZm_Int:
-#endif // INTEL_CUSTOMIZATION
   case X86::VRCP28SDZr:
   case X86::VRCP28SDZrb:
   case X86::VRCP28SDZm:
@@ -5497,7 +5495,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VSQRTSDZrb_Int:
   case X86::VSQRTSDZm:
   case X86::VSQRTSDZm_Int:
-#if INTEL_CUSTOMIZATION
   case X86::VCVTSD2SHZrr:
   case X86::VCVTSD2SHZrr_Int:
   case X86::VCVTSD2SHZrrb_Int:
@@ -5518,7 +5515,6 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VCVTSH2SSZrrb_Int:
   case X86::VCVTSH2SSZrm:
   case X86::VCVTSH2SSZrm_Int:
-#endif // INTEL_CUSTOMIZATION
     return OpNum == 1;
   case X86::VMOVSSZrrk:
   case X86::VMOVSDZrrk:
@@ -6426,11 +6422,10 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
     }
   }
 
-#if INTEL_CUSTOMIZATION
   if ((Opc == X86::VMOVSHZrm || Opc == X86::VMOVSHZrm_alt) && RegSize > 16) {
     // These instructions only load 16 bits, we can't fold them if the
     // destination register is wider than 16 bits (2 bytes), and its user
-    // instruction isn't scalar (SS).
+    // instruction isn't scalar (SH).
     switch (UserOpc) {
     case X86::VADDSHZrr_Int:
     case X86::VCMPSHZrr_Int:
@@ -6469,7 +6464,6 @@ static bool isNonFoldablePartialRegisterLoad(const MachineInstr &LoadMI,
       return true;
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -8917,7 +8911,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCSSrr:
   case X86::VMINCSDZrr:
   case X86::VMINCSSZrr:
-#if INTEL_CUSTOMIZATION
   case X86::VMAXCPHZ128rr:
   case X86::VMAXCPHZ256rr:
   case X86::VMAXCPHZrr:
@@ -8926,7 +8919,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMINCPHZ256rr:
   case X86::VMINCPHZrr:
   case X86::VMINCSHZrr:
-#endif // INTEL_CUSTOMIZATION
     return true;
   case X86::ADDPDrr:
   case X86::ADDPSrr:
@@ -8964,7 +8956,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULSSrr:
   case X86::VMULSDZrr:
   case X86::VMULSSZrr:
-#if INTEL_CUSTOMIZATION
   case X86::VADDPHZ128rr:
   case X86::VADDPHZ256rr:
   case X86::VADDPHZrr:
@@ -8973,7 +8964,6 @@ bool X86InstrInfo::isAssociativeAndCommutative(const MachineInstr &Inst) const {
   case X86::VMULPHZ256rr:
   case X86::VMULPHZrr:
   case X86::VMULSHZrr:
-#endif // INTEL_CUSTOMIZATION
     return Inst.getFlag(MachineInstr::MIFlag::FmReassoc) &&
            Inst.getFlag(MachineInstr::MIFlag::FmNsz);
   default:

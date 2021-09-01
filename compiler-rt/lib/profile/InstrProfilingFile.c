@@ -109,7 +109,7 @@ intptr_t INSTR_PROF_PROFILE_COUNTER_BIAS_DEFAULT_VAR = 0;
 
 /* This variable is a weak external reference which could be used to detect
  * whether or not the compiler defined this symbol. */
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 COMPILER_RT_VISIBILITY extern intptr_t INSTR_PROF_PROFILE_COUNTER_BIAS_VAR;
 #if defined(_M_IX86) || defined(__i386__)
 #define WIN_SYM_PREFIX "_"
@@ -591,7 +591,7 @@ static void initializeProfileForContinuousMode(void) {
         return;
       }
       const uint64_t CountersOffsetInBiasMode =
-          sizeof(__llvm_profile_header) +
+          sizeof(__llvm_profile_header) + __llvm_write_binary_ids(NULL) +
           (DataSize * sizeof(__llvm_profile_data));
       /* Update the profile fields based on the current mapping. */
       INSTR_PROF_PROFILE_COUNTER_BIAS_VAR = (intptr_t)Profile -

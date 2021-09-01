@@ -2380,17 +2380,24 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
     }
   }
 
-  enum ModificationType {
-    Size,
-    ModTime,
-    Content,
-    None,
+  struct Change {
+    enum ModificationKind {
+      Size,
+      ModTime,
+      Content,
+      None,
+    } Kind;
+    llvm::Optional<int64_t> Old = llvm::None;
+    llvm::Optional<int64_t> New = llvm::None;
   };
   auto HasInputFileChanged = [&]() {
     if (StoredSize != File->getSize())
-      return ModificationType::Size;
+      return Change{Change::Size, StoredSize, File->getSize()};
     if (!shouldDisableValidationForFile(F) && StoredTime &&
         StoredTime != File->getModificationTime()) {
+      Change MTimeChange = {Change::ModTime, StoredTime,
+                            File->getModificationTime()};
+
       // In case the modification time changes but not the content,
       // accept the cached file as legit.
       if (ValidateASTInputFilesContent &&
@@ -2398,28 +2405,30 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
         auto MemBuffOrError = FileMgr.getBufferForFile(File);
         if (!MemBuffOrError) {
           if (!Complain)
-            return ModificationType::ModTime;
+            return MTimeChange;
           std::string ErrorStr = "could not get buffer for file '";
           ErrorStr += File->getName();
           ErrorStr += "'";
           Error(ErrorStr);
-          return ModificationType::ModTime;
+          return MTimeChange;
         }
 
+        // FIXME: hash_value is not guaranteed to be stable!
         auto ContentHash = hash_value(MemBuffOrError.get()->getBuffer());
         if (StoredContentHash == static_cast<uint64_t>(ContentHash))
-          return ModificationType::None;
-        return ModificationType::Content;
+          return Change{Change::None};
+
+        return Change{Change::Content};
       }
-      return ModificationType::ModTime;
+      return MTimeChange;
     }
-    return ModificationType::None;
+    return Change{Change::None};
   };
 
   bool IsOutOfDate = false;
   auto FileChange = HasInputFileChanged();
   // For an overridden file, there is nothing to validate.
-  if (!Overridden && FileChange != ModificationType::None) {
+  if (!Overridden && FileChange.Kind != Change::None) {
     if (Complain && !Diags.isDiagnosticInFlight()) {
       // Build a list of the PCH imports that got us here (in reverse).
       SmallVector<ModuleFile *, 4> ImportStack(1, &F);
@@ -2430,7 +2439,10 @@ InputFile ASTReader::getInputFile(ModuleFile &F, unsigned ID, bool Complain) {
       StringRef TopLevelPCHName(ImportStack.back()->FileName);
       Diag(diag::err_fe_ast_file_modified)
           << Filename << moduleKindForDiagnostic(ImportStack.back()->Kind)
-          << TopLevelPCHName << FileChange;
+          << TopLevelPCHName << FileChange.Kind
+          << (FileChange.Old && FileChange.New)
+          << llvm::itostr(FileChange.Old.getValueOr(0))
+          << llvm::itostr(FileChange.New.getValueOr(0));
 
       // Print the import stack.
       if (ImportStack.size() > 1) {
@@ -4240,8 +4252,11 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
     PreviousGeneration = incrementGeneration(*ContextObj);
 
   unsigned NumModules = ModuleMgr.size();
-  auto removeModulesAndReturn = [&](ASTReadResult ReadResult) {
-    assert(ReadResult && "expected to return error");
+  SmallVector<ImportedModule, 4> Loaded;
+  if (ASTReadResult ReadResult =
+          ReadASTCore(FileName, Type, ImportLoc,
+                      /*ImportedBy=*/nullptr, Loaded, 0, 0, ASTFileSignature(),
+                      ClientLoadCapabilities)) {
     ModuleMgr.removeModules(ModuleMgr.begin() + NumModules,
                             PP.getLangOpts().Modules
                                 ? &PP.getHeaderSearchInfo().getModuleMap()
@@ -4252,22 +4267,6 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
     GlobalIndex.reset();
     ModuleMgr.setGlobalIndex(nullptr);
     return ReadResult;
-  };
-
-  SmallVector<ImportedModule, 4> Loaded;
-  switch (ASTReadResult ReadResult =
-              ReadASTCore(FileName, Type, ImportLoc,
-                          /*ImportedBy=*/nullptr, Loaded, 0, 0,
-                          ASTFileSignature(), ClientLoadCapabilities)) {
-  case Failure:
-  case Missing:
-  case OutOfDate:
-  case VersionMismatch:
-  case ConfigurationMismatch:
-  case HadErrors:
-    return removeModulesAndReturn(ReadResult);
-  case Success:
-    break;
   }
 
   // Here comes stuff that we only do once the entire chain is loaded.
@@ -4279,18 +4278,18 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
 
     // Read the AST block.
     if (ASTReadResult Result = ReadASTBlock(F, ClientLoadCapabilities))
-      return removeModulesAndReturn(Result);
+      return Failure;
 
     // The AST block should always have a definition for the main module.
     if (F.isModule() && !F.DidReadTopLevelSubmodule) {
       Error(diag::err_module_file_missing_top_level_submodule, F.FileName);
-      return removeModulesAndReturn(Failure);
+      return Failure;
     }
 
     // Read the extension blocks.
     while (!SkipCursorToBlock(F.Stream, EXTENSION_BLOCK_ID)) {
       if (ASTReadResult Result = ReadExtensionBlock(F))
-        return removeModulesAndReturn(Result);
+        return Failure;
     }
 
     // Once read, set the ModuleFile bit base offset and update the size in
@@ -5605,17 +5604,20 @@ ASTReader::ReadSubmoduleBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
     }
 
     case SUBMODULE_UMBRELLA_HEADER: {
+      // FIXME: This doesn't work for framework modules as `Filename` is the
+      //        name as written in the module file and does not include
+      //        `Headers/`, so this path will never exist.
       std::string Filename = std::string(Blob);
       ResolveImportedPath(F, Filename);
       if (auto Umbrella = PP.getFileManager().getFile(Filename)) {
-        if (!CurrentModule->getUmbrellaHeader())
+        if (!CurrentModule->getUmbrellaHeader()) {
           // FIXME: NameAsWritten
           ModMap.setUmbrellaHeader(CurrentModule, *Umbrella, Blob, "");
-        else if (CurrentModule->getUmbrellaHeader().Entry != *Umbrella) {
-          if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
-            Error("mismatched umbrella headers in submodule");
-          return OutOfDate;
         }
+        // Note that it's too late at this point to return out of date if the
+        // name from the PCM doesn't match up with the one in the module map,
+        // but also quite unlikely since we will have already checked the
+        // modification time and size of the module map file itself.
       }
       break;
     }
@@ -5639,16 +5641,13 @@ ASTReader::ReadSubmoduleBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
       break;
 
     case SUBMODULE_UMBRELLA_DIR: {
+      // See comments in SUBMODULE_UMBRELLA_HEADER
       std::string Dirname = std::string(Blob);
       ResolveImportedPath(F, Dirname);
       if (auto Umbrella = PP.getFileManager().getDirectory(Dirname)) {
-        if (!CurrentModule->getUmbrellaDir())
+        if (!CurrentModule->getUmbrellaDir()) {
           // FIXME: NameAsWritten
           ModMap.setUmbrellaDir(CurrentModule, *Umbrella, Blob, "");
-        else if (CurrentModule->getUmbrellaDir().Entry != *Umbrella) {
-          if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
-            Error("mismatched umbrella directories in submodule");
-          return OutOfDate;
         }
       }
       break;

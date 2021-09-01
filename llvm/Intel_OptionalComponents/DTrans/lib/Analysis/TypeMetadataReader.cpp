@@ -794,7 +794,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
   if (!dtrans::hasPointerType(RetTy)) {
     DTransRetTy = TM.getOrCreateSimpleType(RetTy);
   } else {
-    AttributeSet RetAttrs = Attrs.getRetAttributes();
+    AttributeSet RetAttrs = Attrs.getRetAttrs();
     uint64_t Index = GetMetadataIndex(RetAttrs);
     if (Index) {
       auto It = IndexToType.find(Index);
@@ -823,7 +823,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
     if (!dtrans::hasPointerType(ParamTy)) {
       DTransParamTy = TM.getOrCreateSimpleType(ParamTy);
     } else {
-      AttributeSet ParamAttrs = Attrs.getParamAttributes(Idx);
+      AttributeSet ParamAttrs = Attrs.getParamAttrs(Idx);
       uint64_t Index = GetMetadataIndex(ParamAttrs);
       if (Index) {
         auto It = IndexToType.find(Index);
