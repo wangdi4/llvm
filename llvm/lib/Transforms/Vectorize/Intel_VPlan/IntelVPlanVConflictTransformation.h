@@ -18,14 +18,20 @@ namespace llvm {
 namespace vpo {
 
 class VPGeneralMemOptConflict;
+class VPTreeConflict;
 class VPInstruction;
 class VPlan;
 
 // Checks if the Plan has a VPConflict isntruction.
 bool processVConflictIdiom(VPlan &, Function &Fn);
 
-// Checks the type of VConflict idiom and calls the right lowering method.
+// Checks the type of VConflict idiom and tries to replace with appropriate
+// VPlan representation.
 bool processVConflictIdiom(VPGeneralMemOptConflict *, Function &Fn);
+
+// Check if given VPConflict instruction is a generic tree-conflict idiom. If
+// yes, generate a new VPTreeConflict and RUAW of VPConflict.
+VPTreeConflict *tryReplaceWithTreeConflict(VPGeneralMemOptConflict *);
 } // namespace vpo
 } // namespace llvm
 

@@ -21,6 +21,8 @@
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 
+#if INTEL_FEATURE_SW_ADVANCED
+
 namespace llvm {
 
 namespace vpo {
@@ -281,4 +283,5 @@ public:
 } // namespace vpo
 
 } // namespace llvm
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H

@@ -882,9 +882,11 @@ void SYCLToolChain::AddImpliedTargetArgs(
       BeArgs.push_back("-vc-codegen");
     if (Arg *A = Args.getLastArg(options::OPT_fopenmp_target_buffers_EQ)) {
       StringRef BufArg = A->getValue();
-      if (BufArg == "4GB")
-        BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
-      else if (BufArg != "default")
+      if (BufArg == "4GB") {
+        // spir64_x86_64 is 'accept and ignore'.
+        if (Triple.getSubArch() != llvm::Triple::SPIRSubArch_x86_64)
+          BeArgs.push_back("-cl-intel-greater-than-4GB-buffer-required");
+      } else if (BufArg != "default")
         getDriver().Diag(diag::err_drv_unsupported_option_argument)
             << A->getSpelling() << BufArg;
     }

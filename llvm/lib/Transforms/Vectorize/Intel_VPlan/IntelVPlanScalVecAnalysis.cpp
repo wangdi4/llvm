@@ -577,6 +577,16 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::TreeConflict: {
+    // Each lanes has its own value.
+    setSVAKindForReturnValue(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Each lanes has its own value.
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    return true;
+  }
+
   case VPInstruction::ConflictInsn: {
     // Wide value is shared across all lanes.
     setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
@@ -888,6 +898,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::InvSCEVWrapper:
   case VPInstruction::GeneralMemOptConflict:
   case VPInstruction::ConflictInsn:
+  case VPInstruction::TreeConflict:
     return true;
   default:
     return false;
