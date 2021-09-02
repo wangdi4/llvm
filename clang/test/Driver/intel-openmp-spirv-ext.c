@@ -29,7 +29,8 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion"
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing
 // CHECK-SIMD: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_min_max
@@ -53,4 +54,5 @@
 // CHECK-SIMD-SAME:,+SPV_INTEL_long_constant_composite
 // CHECK-SIMD-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-SIMD-SAME:,+SPV_INTEL_token_type
-// CHECK-SIMD-SAME:,+SPV_INTEL_bfloat16_conversion"
+// CHECK-SIMD-SAME:,+SPV_INTEL_bfloat16_conversion
+// CHECK-SIMD-SAME:,+SPV_INTEL_memory_access_aliasing"
