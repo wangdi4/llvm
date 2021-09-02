@@ -817,21 +817,21 @@ int targetDataEnd(ident_t *loc, DeviceTy &Device, int32_t ArgNum,
       // Move data back to the host
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_FROM) {
         bool Always = ArgTypes[I] & OMP_TGT_MAPTYPE_ALWAYS;
-        bool CopyMember = false;
 #if INTEL_COLLAB
+        bool CopyMember = false;
         if (!IsHostPtr ||
             // If the device does not support the concept of managed memory,
             // do not take into account the result of is_device_accessible_ptr().
             !(Device.is_device_accessible_ptr(HstPtrBegin) ||
               !Device.managed_memory_supported())) {
-#else // INTEL_COLLAB
-        if (!IsHostPtr) {
-#endif // INTEL_COLLAB
           if (IsLast)
             CopyMember = true;
         }
 
         if ((DelEntry || Always || CopyMember) && !IsHostPtr) {
+#else // INTEL_COLLAB
+        if ((Always || IsLast) && !IsHostPtr) {
+#endif // INTEL_COLLAB
           DP("Moving %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n",
              DataSize, DPxPTR(TgtPtrBegin), DPxPTR(HstPtrBegin));
           Ret = Device.retrieveData(HstPtrBegin, TgtPtrBegin, DataSize,
