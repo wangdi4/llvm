@@ -885,8 +885,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   }
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
-  if (TC.getDriver().IsIntelMode() &&
-      !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {
+  if (TC.getDriver().IsIntelMode()) {
     if (!Args.hasArg(options::OPT_ffreestanding,
                      options::OPT_i_no_use_libirc) &&
         TC.CheckAddIntelLib("libirc", Args))
