@@ -10582,13 +10582,18 @@ def err_omp_atomic_compare_global_register : Error<
   "global register variable not supported in 'atomic compare'">;
 def err_omp_atomic_compare_capture_bad_form : Error<
   "the statement for 'atomic compare capture' must be "
-  "'{v=x; cond-update-stmt}' or '{cond-update-stmt v = x;}'"
-  " where x is an lvalue expression with scalar type">;
+  "'{v=x; cond-update-stmt}', '{cond-update-stmt v = x;}', "
+  "'if(x==e) {x=d;} else {v=x;}', '{r=x==e; if(r) {x=d;}}' or "
+  "'{r=x==e; if(r) {x=d;} else {v=x;}}'"
+  " where x, r, and v are lvalue expressions with scalar type">;
 def note_omp_atomic_compare_capture: Note<
   "%select{expected assignment expression|expected compound statement|"
   "expected exactly two expression statements|"
   "expected if statement|"
-  "cannot match 'x' component in expression}0">;
+  "cannot match 'x' component in expression|"
+  "expected compound or if statement|expected else in if statement|"
+  "expected '==' operator|result must be of integral type|"
+  "expected an lvalue expression|cannot match 'r' component in expression}0">;
 #endif // INTEL_COLLAB
 def err_omp_atomic_several_clauses : Error<
   "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause">;

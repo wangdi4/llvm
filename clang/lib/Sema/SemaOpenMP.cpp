@@ -12211,6 +12211,12 @@ class OpenMPAtomicCompareCaptureChecker {
     NotTwoSubstatements,
     NotIfStatement,
     CannotMatchX,
+    NotACompoundOrIfStatement,
+    ExpectedElse,
+    NotAnEqualsToOp,
+    NotAnIntegralType,
+    NotAnLValue,
+    CannotMatchR,
     // No error found.
     NoError
   };
@@ -12237,6 +12243,12 @@ class OpenMPAtomicCompareCaptureChecker {
   /// True if the value captured is before the atomic operation.
   bool IsCapturedBefore = false;
 
+  bool checkCondition(Expr *Cond, unsigned DiagId, unsigned NoteId);
+  bool checkThenBlock(Stmt *S, unsigned DiagId, unsigned NoteId);
+  bool checkElseBlock(Stmt *S, unsigned DiagId, unsigned NoteId);
+  bool checkCompoundStmt(CompoundStmt *CS, unsigned DiagId, unsigned NoteId);
+  bool checkIfStmt(IfStmt *If, unsigned DiagId, unsigned NoteId);
+
 public:
   OpenMPAtomicCompareCaptureChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
   /// Checks that statement is suitable for 'atomic compare capture'
@@ -12248,6 +12260,7 @@ public:
   /// \param NoteId Diagnostic note for the main error message.
   /// \return true if statement is invalid, false otherwise.
   bool checkStatement(Stmt *S, unsigned DiagId = 0, unsigned NoteId = 0);
+
   /// Return the 'x' lvalue part of the source atomic expression.
   Expr *getX() const { return X; }
   /// Return the 'v' lvalue part of the source atomic expression.
@@ -12269,37 +12282,245 @@ public:
 };
 }
 
-bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
+/// Checks condition expected to be x == e, where 'x' is an lvalue
+/// and 'e' in the expected value.
+/// If the correct form is found, return false and set X and Expected.
+/// If incorrect form is found, return true.
+bool OpenMPAtomicCompareCaptureChecker::checkCondition(Expr *Cond,
+                                                       unsigned DiagId,
                                                        unsigned NoteId) {
-
   AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
   SourceLocation ErrorLoc, NoteLoc;
   SourceRange ErrorRange, NoteRange;
 
-  // { v = x; cond-update-stmt }
-  // { cond-update-stmt; v = x; }
+  if (auto *BO = dyn_cast<BinaryOperator>(Cond)) {
+    if (BO->getOpcode() == BO_EQ) {
+      X = BO->getLHS()->IgnoreParenImpCasts();
+      Expected = BO->getRHS()->IgnoreParenImpCasts();
+      if (!X->isLValue()) {
+        ErrorFound = NotAnLValue;
+        NoteLoc = ErrorLoc = X->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    } else {
+      ErrorFound = NotAnEqualsToOp;
+      NoteLoc = ErrorLoc = BO->getOperatorLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else {
+    ErrorFound = NotAnEqualsToOp;
+    NoteLoc = ErrorLoc = Cond->getBeginLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
 
-  if (auto *CS = dyn_cast<CompoundStmt>(S)) {
-    if (CS->size() == 2) {
-      Stmt *First = CS->body_front();
-      Stmt *Second = CS->body_back();
-      if (auto *EWC = dyn_cast<ExprWithCleanups>(First))
-        First = EWC->getSubExpr()->IgnoreParenImpCasts();
-      if (auto *EWC = dyn_cast<ExprWithCleanups>(Second))
-        Second = EWC->getSubExpr()->IgnoreParenImpCasts();
-      // One must be assignment and one an if statement.
-      auto *If1 = dyn_cast<IfStmt>(First);
-      auto *If2 = dyn_cast<IfStmt>(Second);
-      if (If1 || If2) {
-        BinaryOperator *Assign;
-        if (If1) {
-          Assign = dyn_cast<BinaryOperator>(Second);
-          IsCapturedBefore = false;
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+/// Checks the then part of the 'if' statement in an atomic compare capture.
+/// A compound statement with a single assignment is expected: { x = d; }
+/// If the correct form is found, return false and set Desired.
+/// If incorrect form is found, return true.
+bool OpenMPAtomicCompareCaptureChecker::checkThenBlock(Stmt *S, unsigned DiagId,
+                                                       unsigned NoteId) {
+  AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  // X should be determined when checking the condition.
+  assert(X && "X not determined yet");
+
+  if (auto *ThenCS = dyn_cast<CompoundStmt>(S)) {
+    if (ThenCS->size() == 1) {
+      Stmt *ThenS = ThenCS->body_front();
+      if (auto *EWC = dyn_cast<ExprWithCleanups>(ThenS))
+        ThenS = EWC->getSubExpr()->IgnoreParenImpCasts();
+      if (auto *BO = dyn_cast<BinaryOperator>(ThenS)) {
+        if (BO->getOpcode() == BO_Assign) {
+          Expr *PossibleX = BO->getLHS()->IgnoreParenImpCasts();
+          llvm::FoldingSetNodeID XId, Id;
+          X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
+          PossibleX->Profile(Id, SemaRef.getASTContext(), /*Canonical=*/true);
+          if (XId == Id) {
+            Desired = BO->getRHS()->IgnoreParenImpCasts();
+          } else {
+            ErrorFound = CannotMatchX;
+            NoteLoc = ErrorLoc = PossibleX->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
         } else {
-          Assign = dyn_cast<BinaryOperator>(First);
-          IsCapturedBefore = true;
+          ErrorFound = NotAnAssignmentOp;
+          NoteLoc = ErrorLoc = BO->getOperatorLoc();
+          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
         }
-        if (Assign && Assign->getOpcode() == BO_Assign) {
+      } else {
+        ErrorFound = NotAnAssignmentOp;
+        NoteLoc = ErrorLoc = ThenS->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    } else {
+      ErrorFound = NotAnAssignmentOp;
+      NoteLoc = ErrorLoc = ThenCS->getBeginLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else {
+    ErrorFound = NotACompoundStatement;
+    NoteLoc = ErrorLoc = S->getBeginLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+/// Checks the else part of the 'if' statement in an atomic compare capture.
+/// A compound statement with a single assignment is expected: { v = x; }
+/// If the correct form is found, return false and set V.
+/// If incorrect form is found, return true.
+bool OpenMPAtomicCompareCaptureChecker::checkElseBlock(Stmt *S, unsigned DiagId,
+                                                       unsigned NoteId) {
+  AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  // X should be determined when checking the condition.
+  assert(X && "X not determined yet");
+
+  if (auto *ElseCS = dyn_cast<CompoundStmt>(S)) {
+    if (ElseCS->size() == 1) {
+      Stmt *ElseS = ElseCS->body_front();
+      if (auto *EWC = dyn_cast<ExprWithCleanups>(ElseS))
+        ElseS = EWC->getSubExpr()->IgnoreParenImpCasts();
+      if (auto *BO = dyn_cast<BinaryOperator>(ElseS)) {
+        if (BO->getOpcode() == BO_Assign) {
+          Expr *PossibleX = BO->getRHS()->IgnoreParenImpCasts();
+          llvm::FoldingSetNodeID XId, Id;
+          X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
+          PossibleX->Profile(Id, SemaRef.getASTContext(), /*Canonical=*/true);
+          if (XId == Id) {
+            V = BO->getLHS()->IgnoreParenImpCasts();
+            if (!V->isLValue()) {
+              ErrorFound = NotAnLValue;
+              NoteLoc = ErrorLoc = V->getBeginLoc();
+              NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+            }
+          } else {
+            ErrorFound = CannotMatchX;
+            NoteLoc = ErrorLoc = PossibleX->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
+        } else {
+          ErrorFound = NotAnAssignmentOp;
+          NoteLoc = ErrorLoc = BO->getOperatorLoc();
+          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+        }
+      } else {
+        ErrorFound = NotAnAssignmentOp;
+        NoteLoc = ErrorLoc = ElseS->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    } else {
+      ErrorFound = NotAnAssignmentOp;
+      NoteLoc = ErrorLoc = ElseCS->getBeginLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else {
+    ErrorFound = ExpectedElse;
+    NoteLoc = ErrorLoc = S->getBeginLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+/// Checks the compound statment forms in an atomic compare capture.
+/// There are four different forms:
+///
+/// { v = x; cond-update-stmt }
+/// { cond-update-stmt; v = x; }
+/// { r = x == e; if (r) { x = d; } }
+/// { r = x == e; if (r) { x = d; } else { v = x; } }
+///
+/// If the correct form is found, return false and set the needed
+/// subexpressions. If incorrect form is found, return true.
+bool OpenMPAtomicCompareCaptureChecker::checkCompoundStmt(CompoundStmt *CS,
+                                                          unsigned DiagId,
+                                                          unsigned NoteId) {
+  AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  if (CS->size() == 2) {
+    Stmt *First = CS->body_front();
+    Stmt *Second = CS->body_back();
+    if (auto *EWC = dyn_cast<ExprWithCleanups>(First))
+      First = EWC->getSubExpr()->IgnoreParenImpCasts();
+    if (auto *EWC = dyn_cast<ExprWithCleanups>(Second))
+      Second = EWC->getSubExpr()->IgnoreParenImpCasts();
+    // One must be assignment and one an if statement.
+    auto *If1 = dyn_cast<IfStmt>(First);
+    auto *If2 = dyn_cast<IfStmt>(Second);
+    if (If1 || If2) {
+      BinaryOperator *Assign;
+      if (If1) {
+        Assign = dyn_cast<BinaryOperator>(Second);
+        IsCapturedBefore = false;
+      } else {
+        Assign = dyn_cast<BinaryOperator>(First);
+        IsCapturedBefore = true;
+      }
+      if (Assign && Assign->getOpcode() == BO_Assign) {
+        if (If2 && !isa<BinaryOperator>(If2->getCond())) {
+          // { r = x == e; if (r) { x = d; } }
+          // { r = x == e; if (r) { x = d; } else { v = x; } }
+          Result = Assign->getLHS()->IgnoreParenImpCasts();
+          if (Result->getType()->isIntegralType(SemaRef.getASTContext()) ||
+              Result->isInstantiationDependent()) {
+
+            if (checkCondition(Assign->getRHS()->IgnoreParenImpCasts(), DiagId,
+                               NoteId))
+              return true;
+
+            Expr *PossibleResult = If2->getCond()->IgnoreParenImpCasts();
+            llvm::FoldingSetNodeID ResultId, Id;
+            Result->Profile(ResultId, SemaRef.getASTContext(),
+                            /*Canonical=*/true);
+            PossibleResult->Profile(Id, SemaRef.getASTContext(),
+                                    /*Canonical=*/true);
+            if (ResultId == Id) {
+              if (checkThenBlock(If2->getThen(), DiagId, NoteId))
+                return true;
+              if (If2->getElse()) {
+                if (checkElseBlock(If2->getElse(), DiagId, NoteId))
+                  return true;
+              }
+            } else {
+              ErrorFound = CannotMatchR;
+              NoteLoc = ErrorLoc = PossibleResult->getBeginLoc();
+              NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+            }
+          } else {
+            ErrorFound = NotAnIntegralType;
+            NoteLoc = ErrorLoc = Result->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
+        } else {
+          // { v = x; cond-update-stmt }
+          // { cond-update-stmt; v = x; }
+          // These forms use the same form as 'compare' so use that checker.
           OpenMPAtomicCompareChecker Checker(SemaRef);
           if (Checker.checkStatement(
                   If1 ? If1 : If2,
@@ -12307,46 +12528,105 @@ bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
                   diag::note_omp_atomic_compare))
             return true;
           if (!SemaRef.CurContext->isDependentContext()) {
+            X = Checker.getX();
             Expr *PossibleX = Assign->getRHS()->IgnoreParenImpCasts();
             llvm::FoldingSetNodeID XId, PossibleXId;
-            Checker.getX()->Profile(XId, SemaRef.getASTContext(),
-                                    /*Canonical=*/true);
+            X->Profile(XId, SemaRef.getASTContext(),
+                       /*Canonical=*/true);
             PossibleX->Profile(PossibleXId, SemaRef.getASTContext(),
                                /*Canonical=*/true);
             if (XId == PossibleXId) {
               V = Assign->getLHS();
-              X = Checker.getX();
               Expected = Checker.getExpected();
               Desired = Checker.getDesired();
               E = Checker.getExpr();
               IsCompareMin = Checker.getIsCompareMin();
               IsCompareMax = Checker.getIsCompareMax();
             } else {
+              ErrorFound = CannotMatchX;
               NoteLoc = ErrorLoc = PossibleX->getBeginLoc();
               NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
-              ErrorFound = CannotMatchX;
             }
           }
-        } else {
-          Stmt *ErrS = If1 ? Second : First;
-          NoteLoc = ErrorLoc = ErrS->getBeginLoc();
-          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
-          ErrorFound = NotAnAssignmentOp;
         }
       } else {
-        NoteLoc = ErrorLoc = First->getBeginLoc();
+        ErrorFound = NotAnAssignmentOp;
+        Stmt *ErrS = If1 ? Second : First;
+        NoteLoc = ErrorLoc = ErrS->getBeginLoc();
         NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
-        ErrorFound = NotIfStatement;
       }
     } else {
-      NoteLoc = ErrorLoc = S->getBeginLoc();
+      ErrorFound = NotIfStatement;
+      NoteLoc = ErrorLoc = First->getBeginLoc();
       NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
-      ErrorFound = NotTwoSubstatements;
     }
+  } else {
+    ErrorFound = NotTwoSubstatements;
+    NoteLoc = ErrorLoc = CS->getBeginLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+/// Checks the if statment form in an atomic compare capture:
+///
+/// if (x == e) { x = d; } else { v = x; }
+///
+/// If the correct form is found, return false and set X, Expected, Desired, and
+/// V. If incorrect form is found, return true.
+bool OpenMPAtomicCompareCaptureChecker::checkIfStmt(IfStmt *If, unsigned DiagId,
+                                                    unsigned NoteId) {
+  AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  // if (x == e) { x = d; } else { v = x; }
+  if (checkCondition(If->getCond(), DiagId, NoteId))
+    return true;
+
+  if (checkThenBlock(If->getThen(), DiagId, NoteId))
+    return true;
+
+  if (If->getElse()) {
+    if (checkElseBlock(If->getElse(), DiagId, NoteId))
+      return true;
+  } else {
+    ErrorFound = ExpectedElse;
+    NoteLoc = ErrorLoc = If->getThen()->getEndLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+bool OpenMPAtomicCompareCaptureChecker::checkStatement(Stmt *S, unsigned DiagId,
+                                                       unsigned NoteId) {
+
+  AtomicCompareCaptureCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  if (auto *CS = dyn_cast<CompoundStmt>(S)) {
+    if (checkCompoundStmt(CS, DiagId, NoteId))
+      return true;
+  } else if (auto *If = dyn_cast<IfStmt>(S)) {
+    if (checkIfStmt(If, DiagId, NoteId))
+      return true;
   } else {
     NoteLoc = ErrorLoc = S->getBeginLoc();
     NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
-    ErrorFound = NotACompoundStatement;
+    ErrorFound = NotACompoundOrIfStatement;
   }
   if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
     SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
@@ -12888,8 +13168,9 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
 
   return OMPAtomicDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
 #if INTEL_COLLAB
-                                    X, V, E, Expected, UE, IsXLHSInRHSPart,
-                                    IsPostfixUpdate, IsCompareMin, IsCompareMax);
+                                    X, V, E, Expected, Result, UE,
+                                    IsXLHSInRHSPart, IsPostfixUpdate,
+                                    IsCompareMin, IsCompareMax);
 #else // INTEL_COLLAB
                                     X, V, E, UE, IsXLHSInRHSPart,
                                     IsPostfixUpdate);
