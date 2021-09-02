@@ -562,6 +562,52 @@ Instruction *IRBuilderBase::CreateFakeLoad(Value *Ptr, MDNode *TbaaTag) {
 // Intrinsic generated for structured address computations.
 Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
                                             Value *Stride, Value *Ptr,
+                                            Type *ElemTy, Value *Index,
+                                            bool IsExact) {
+
+  auto *BaseType = Ptr->getType();
+  assert(isa<PointerType>(BaseType) && "Invalid type for subscript");
+  assert(ElemTy && "Expect valid Elementtype for subscript intrinsic");
+
+  // First element is reserved for return type.
+  Type *Types[5] = {nullptr, LowerBound->getType(), Stride->getType(), BaseType,
+                    Index->getType()};
+
+  Value *Ops[] = {
+      ConstantInt::get(Context, APInt(8, static_cast<uint64_t>(Rank), false)),
+      LowerBound, Stride, Ptr, Index};
+
+  // Result's type.
+  {
+    unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Ops);
+    Type *ResTy = BaseType;
+    if (ResVNE != 0 && !isa<VectorType>(ResTy)) {
+      ResTy = FixedVectorType::get(ResTy, ResVNE);
+    }
+    Types[0] = ResTy;
+  }
+
+  Module *M = BB->getParent()->getParent();
+  Function *FnSubscript =
+      Intrinsic::getDeclaration(M,
+                                IsExact ? Intrinsic::intel_subscript
+                                        : Intrinsic::intel_subscript_nonexact,
+                                Types);
+
+  Instruction *Ret = createCallHelper(FnSubscript, Ops, this);
+
+  SubscriptInst *Call = cast<SubscriptInst>(Ret);
+
+  Call->addParamAttr(3, Attribute::get(FnSubscript->getContext(),
+                                       Attribute::ElementType, ElemTy));
+  return Ret;
+}
+
+
+// TODO: delete the old function which is deprecated
+// Intrinsic generated for structured address computations.
+Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
+                                            Value *Stride, Value *Ptr,
                                             Value *Index, bool IsExact) {
 
   // First element is reserved for return type.

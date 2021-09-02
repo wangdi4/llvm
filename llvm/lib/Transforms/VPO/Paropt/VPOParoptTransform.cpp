@@ -5371,7 +5371,6 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
 
   assert(GeneralUtils::isOMPItemLocalVAR(OrigValue) &&
          "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
-
   std::tie(ElementType, NumElements) =
       GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue,
                                                             OrigValueElemType);
@@ -5413,7 +5412,15 @@ VPOParoptTransform::getItemInfo(const Item *I) {
     return false;
   };
 
-  if (!getItemInfoIfArraySection()) {
+  auto getItemInfoIfTyped = [I, &ElementType, &NumElements]() -> bool {
+    if (!I->getIsTyped())
+      return false;
+    ElementType = I->getOrigItemElementTypeFromIR();
+    NumElements = I->getNumElements();
+    return true;
+  };
+
+  if (!getItemInfoIfTyped() && !getItemInfoIfArraySection()) {
     getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
@@ -5427,7 +5434,8 @@ VPOParoptTransform::getItemInfo(const Item *I) {
     }
   }
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Local Element Info for '";
-             Orig->printAsOperand(dbgs()); dbgs() << "':: Type: ";
+             Orig->printAsOperand(dbgs()); dbgs() << "' ";
+             if (I->getIsTyped()) dbgs() << "(Typed)"; dbgs() << ":: Type: ";
              ElementType->print(dbgs()); if (NumElements) {
                dbgs() << ", NumElements: ";
                NumElements->printAsOperand(dbgs());
