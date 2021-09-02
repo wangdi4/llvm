@@ -11,6 +11,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_KERNEL_ANALYSIS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_KERNEL_ANALYSIS_H
 
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
@@ -26,6 +27,9 @@ namespace llvm {
 // 3. does not contain call to kernel or called by another kernel.
 // 4. does not contain call to function that use get***id calls.
 // both 3,4 should be eliminated by the inliner.
+//
+// This pass also analyzes whether function/kernel contains subgroup builtin
+// calls.
 class DPCPPKernelAnalysisPass : PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
   static StringRef name() { return "DPCPPKernelAnalysisPass"; }
@@ -33,7 +37,7 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   /// Glue for old PM.
-  bool runImpl(Module &M);
+  bool runImpl(Module &M, CallGraph &CG);
 
   void print(raw_ostream &OS, const Module *M) const;
 
@@ -64,6 +68,10 @@ private:
   /// DirectTIDUsers - set of direct get***id users.
   void fillUnsupportedTIDFuncs(StringRef Name, FuncSet &DirectTIDUsers);
 
+  /// Fills the subgroup-calling function set -- functions containing subroup
+  /// builtins or subgroup barrier.
+  void fillSubgroupCallingFuncs(CallGraph &CG);
+
   /// Current module.
   Module *M;
 
@@ -72,6 +80,9 @@ private:
 
   /// Set of unsupported funcs.
   FuncSet UnsupportedFuncs;
+
+  /// Set of funcs containing subgroup builtins.
+  FuncSet SubgroupCallingFuncs;
 };
 
 } // namespace llvm

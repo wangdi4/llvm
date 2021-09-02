@@ -1,8 +1,8 @@
 ; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK: kernel_call_func_with_lid no
-; CHECK: kernel_call_func_without_tid yes
+; CHECK-DAG: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
 
 ;; CFG for call chain with TID
 

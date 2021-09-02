@@ -7,7 +7,7 @@
 ; CHECK:         ModulePass Manager
 ; CHECK:           Parse annotations and add a corresponding function attribute
 ; CHECK-NEXT:      DPCPPEqualizerLegacy
-; CHECK-NEXT:      DPCPPKernelAnalysisLegacy
+; CHECK:           DPCPPKernelAnalysisLegacy
 ; CHECK-NEXT:      VecClone
 ; CHECK-NEXT:      FunctionPass Manager
 ; CHECK:             VPlan Vectorizer

@@ -1,11 +1,11 @@
 ; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
 ; CHECK: KernelAnalysis
-; CHECK: kernel_call_func_with_gid no
-; CHECK: kernel_call_func_with_lid no
-; CHECK: kernel_call_func_call_func_with_gid no
-; CHECK: kernel_call_func_call_func_with_lid no
-; CHECK: kernel_call_func_without_tid yes
+; CHECK-DAG: Kernel <kernel_call_func_with_gid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_call_func_with_lid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_call_func_call_func_with_gid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_call_func_call_func_with_lid>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_call_func_without_tid>: NoBarrierPath=1
 
 define void @func_with_gid(i32 addrspace(1)* %out) nounwind alwaysinline {
   %id = call i32 @_Z13get_global_idj(i32 1) nounwind
