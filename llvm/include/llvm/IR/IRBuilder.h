@@ -879,9 +879,13 @@ public:
   /// to hold the tbaa informaiton for the return pointers.
   Instruction *CreateFakeLoad(Value *Ptr, MDNode *TbaaTag);
 
-  /// Create a call to llvm.intel.subscript.
+  /// Create a call to llvm.intel.subscript. // TODO: remove
   Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
                                Value *Ptr, Value *Index, bool IsExact = true);
+
+  /// Create a call to llvm.intel.subscript.
+  Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
+                               Value *Ptr, Type* ElemTy, Value *Index, bool IsExact = true);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to the experimental.gc.pointer.base intrinsic to get the
