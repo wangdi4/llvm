@@ -10,7 +10,7 @@ define void @example(<8 x i64>* %dest) #0 {
 ; CHECK-LABEL: @example(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[DEST1:%.*]] = ptrtoint <8 x i64>* [[DEST:%.*]] to i64
-; CHECK-NEXT:    [[ADDR_NT_STORE_ALLOCA:%.*]] = alloca i8, i64 32856, align 64
+; CHECK-NEXT:    [[ADDR_NT_STORE_ALLOCA:%.*]] = alloca i8, i64 4184, align 64
 ; CHECK-NEXT:    [[ADDR_NT_STORE_STRUCT:%.*]] = bitcast i8* [[ADDR_NT_STORE_ALLOCA]] to %__nontemporal_buffer_data*
 ; CHECK-NEXT:    [[TMP0:%.*]] = getelementptr inbounds [[__NONTEMPORAL_BUFFER_DATA:%.*]], %__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i32 0, i32 4
 ; CHECK-NEXT:    [[ADDR_NT_STORE_BUFFER:%.*]] = bitcast [0 x i8]* [[TMP0]] to [4 x <8 x i64>]*
@@ -33,10 +33,10 @@ define void @example(<8 x i64>* %dest) #0 {
 ; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr [4 x <8 x i64>], [4 x <8 x i64>]* [[ADDR_NT_STORE_BUFFER]], i64 [[ADDR_NT_BUF_IDX]], i64 0
 ; CHECK-NEXT:    store <8 x i64> [[SPLAT]], <8 x i64>* [[TMP6]], align 4
 ; CHECK-NEXT:    [[ADDR_NT_BUF_IDX2:%.*]] = add nuw nsw i64 [[ADDR_NT_BUF_IDX]], 1
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 128, [[ADDR_NT_BUF_IDX2]]
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 16, [[ADDR_NT_BUF_IDX2]]
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[ADDR_NT_BUF_DRAIN:%.*]], label [[LOOP_SPLIT_SPLIT:%.*]]
 ; CHECK:       addr.nt_buf_drain:
-; CHECK-NEXT:    call void @__libirc_nontemporal_store(%__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i64 32768, i32 0)
+; CHECK-NEXT:    call void @__libirc_nontemporal_store(%__nontemporal_buffer_data* [[ADDR_NT_STORE_STRUCT]], i64 4096, i32 0)
 ; CHECK-NEXT:    br label [[LOOP_SPLIT_SPLIT]]
 ; CHECK:       loop.split.split:
 ; CHECK-NEXT:    [[ADDR_NT_BUF_POST_PHI:%.*]] = phi i64 [ [[ADDR_NT_BUF_IDX2]], [[LOOP_SPLIT:%.*]] ], [ 0, [[ADDR_NT_BUF_DRAIN]] ]

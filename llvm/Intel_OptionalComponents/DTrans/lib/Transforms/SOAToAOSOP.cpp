@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
+#include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
@@ -31,6 +32,16 @@
 namespace {
 using namespace llvm;
 using namespace dtransOP;
+using namespace soatoaosOP;
+
+// This option makes populateCFGInformation ignore
+// number of uses and number of BasicBlocks in structs' and arrays' methods.
+//
+// It helps to debug issues in transformed code with debug prints, for
+// example.
+static cl::opt<bool> DTransSOAToAOSOPSizeHeuristic(
+    "dtrans-soatoaosop-size-heuristic", cl::init(true), cl::Hidden,
+    cl::desc("Respect size heuristic in DTrans SOAToAOS"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<std::string> DTransSOAToAOSOPType("dtrans-soatoaosop-typename",
@@ -52,7 +63,17 @@ private:
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
 
-  class CandidateInfo {
+  class CandidateSideEffectsInfo : public SOAToAOSOPCFGInfo {
+  protected:
+    CandidateSideEffectsInfo() {}
+
+  private:
+    CandidateSideEffectsInfo(const CandidateSideEffectsInfo &) = delete;
+    CandidateSideEffectsInfo &
+    operator=(const CandidateSideEffectsInfo &) = delete;
+  };
+
+  class CandidateInfo : public CandidateSideEffectsInfo {
   public:
     CandidateInfo() {}
 
@@ -92,6 +113,26 @@ bool SOAToAOSOPTransformImpl::prepareTypes(Module &M) {
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     std::unique_ptr<CandidateInfo> Info(new CandidateInfo());
+
+    if (!Info->populateLayoutInformation(StInfo->getDTransType(), DTInfo)) {
+      LLVM_DEBUG({
+        dbgs() << "  ; Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate structurally.\n";
+      });
+      continue;
+    }
+
+    if (!Info->populateCFGInformation(M, DTInfo, DTransSOAToAOSOPSizeHeuristic,
+                                      true)) {
+      LLVM_DEBUG({
+        dbgs() << "  ; Rejecting ";
+        TI->getLLVMType()->print(dbgs(), true, true);
+        dbgs() << " because it does not look like a candidate from CFG "
+                  "analysis.\n";
+      });
+      continue;
+    }
 
     // TODO: Add code here to identify candidates.
 
