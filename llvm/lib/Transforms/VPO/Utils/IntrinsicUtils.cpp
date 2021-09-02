@@ -215,7 +215,9 @@ CallInst *VPOUtils::genMemcpy(Value *D, Value *S, uint64_t Size,
 
   AllocaInst *AI = dyn_cast<AllocaInst>(D);
   if (AI && AI->isArrayAllocation())
-    SizeVal = MemcpyBuilder.CreateMul(SizeVal, AI->getArraySize());
+    SizeVal = MemcpyBuilder.CreateMul(
+        SizeVal, MemcpyBuilder.CreateZExtOrTrunc(AI->getArraySize(),
+                                                 SizeVal->getType()));
 
   return MemcpyBuilder.CreateMemCpy(Dest, MaybeAlign(Align), Src,
                                     MaybeAlign(Align), SizeVal);
