@@ -6366,8 +6366,12 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         if (OptimizeScalarFirstprivate &&
             // FIXME: figure out whether we can do anything
             //        for getInMap() and getIsByRef() firstprivates.
+#if INTEL_CUSTOMIZATION
+            // Pointers can be marked as F90_NONPODs. We need to generate
+            // cctor/dtor calls for them, instead of just copying their value.
+            !FprivI->getIsF90NonPod() &&
+#endif // INTEL_CUSTOMIZATION
             !FprivI->getInMap() && !FprivI->getIsByRef()) {
-
           std::tie(ValueIntTy, IntPtrTy) =
               GetPassAsScalarSizeInBits(F, NewPrivInst);
         }
@@ -6428,6 +6432,11 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         } else if (!NewPrivInst ||
             // Note that NewPrivInst will be nullptr, if the variable
             // is also lastprivate.
+#if INTEL_CUSTOMIZATION
+            // Pointers can be marked as F90_NONPODs. We need to generate
+            // cctor/dtor calls for them, instead of just copying their value.
+            FprivI->getIsF90NonPod() ||
+#endif // INTEL_CUSTOMIZATION
             FprivI->getIsByRef() || !NewPrivInst->getType()->isPointerTy() ||
             !NewPrivInst->getType()->getPointerElementType()->isPointerTy()) {
           // Copy the firstprivate data from the original version to the
