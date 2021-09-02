@@ -19,6 +19,8 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+; CHECK-NOT:      SetVectorizationFactorLegacy
+; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager

@@ -659,10 +659,6 @@ static void populatePassesPostFailCheck(
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));
-  // The ShiftZeroUpperBits pass should be added after the vectorizer because
-  // the vectorizer may transform scalar shifts into vector shifts, and we want
-  // this pass to fix all vector shift in this module.
-  PM.add(createShiftZeroUpperBitsPass());
   if (!isEyeQEmulator) {
     PM.add(createOptimizeIDivPass());
   }
