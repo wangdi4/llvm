@@ -470,18 +470,39 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
 
     for (const auto &Bundle : OpBundles) {
       StringRef ClauseString = Bundle.getTag();
-
       SmallPtrSet<Value *, 8> *OptimizableItems = nullptr;
-      switch (VPOAnalysisUtils::getClauseID(ClauseString)) {
-      case QUAL_OMP_PRIVATE:
-        OptimizableItems = &PrivOptimizableItems;
-        break;
-      case QUAL_OMP_FIRSTPRIVATE:
-        OptimizableItems = &FprivOptimizableItems;
-        break;
+      bool CheckOnlyFirstBundleOperand = false;
+
+      if (VPOAnalysisUtils::isOpenMPClause(ClauseString)) {
+        ClauseSpecifier ClauseInfo(ClauseString);
+        int ClauseId = ClauseInfo.getId();
+
+        switch (ClauseId) {
+        case QUAL_OMP_PRIVATE:
+          OptimizableItems = &PrivOptimizableItems;
+          break;
+        case QUAL_OMP_FIRSTPRIVATE:
+          OptimizableItems = &FprivOptimizableItems;
+          break;
+        }
+
+        // TODO: figure out how to optimize these cases.
+        if (ClauseInfo.getIsByRef() || ClauseInfo.getIsF90DopeVector() ||
+            ClauseInfo.getIsF90NonPod())
+          OptimizableItems = nullptr;
+
+        // NONPOD and TYPED [FIRST]PRIVATE clauses have multiple
+        // inputs in their operand bundles, but only the first
+        // input is the pointer value that we may treat as WILOCAL.
+        // The rest of the inputs are auxiliary values that do not affect
+        // WILOCAL property, so we do not need to check them agains
+        // OptimizableItems set. We just need to preserve them as-is.
+        if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsTyped())
+          CheckOnlyFirstBundleOperand = true;
       }
 
-      // If this clause is not optimizable just add it as is.
+      // If this clause is not optimizable or if this bundle is not a clause,
+      // then just add it as is.
       if (!OptimizableItems) {
         NewOpBundles.emplace_back(Bundle);
         continue;
@@ -506,6 +527,13 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
         NewModifier = nullptr;
       };
       for (Value *ClauseItem : Bundle.inputs()) {
+        if (CheckOnlyFirstBundleOperand && !NewItems.empty()) {
+          // Preserve the auxiliary inputs as-is (e.g. for NONPOD/TYPED
+          // clauses).
+          NewItems.push_back(ClauseItem);
+          continue;
+        }
+
         const char *ItemModifier = nullptr;
         if (OptimizableItems->contains(ClauseItem)) {
           LLVM_DEBUG(dbgs() << "Will transform: " << *ClauseItem << "\n");

@@ -544,11 +544,11 @@ bool RegDDRef::canCreateLocationGEP() const {
   }
 
   // getIndexedType requires element type.
-  BaseTy = BaseTy->getPointerElementType();
+  auto BaseElemTy = getBasePtrElementType();
 
-  // Check if the indexing is valid. It may be invalid for refs fromed from
+  // Check if the indexing is valid. It may be invalid for refs formed from
   // fortran subscript intrinsics.
-  if (!GetElementPtrInst::getIndexedType(BaseTy, IdxList)) {
+  if (!GetElementPtrInst::getIndexedType(BaseElemTy, IdxList)) {
     return false;
   }
 
@@ -629,9 +629,8 @@ GetElementPtrInst *RegDDRef::getOrCreateLocationGEP() const {
   auto *Reg = getHLDDNode()->getParentRegion();
   auto *RegEntryInsertPt = &*Reg->getEntryBBlock()->getFirstInsertionPt();
 
-  auto *Ty = BaseVal->getType()->getScalarType()->getPointerElementType();
-  auto *GepLoc = GetElementPtrInst::Create(Ty, BaseVal, IdxList, "dummygep",
-                                           RegEntryInsertPt);
+  auto *GepLoc = GetElementPtrInst::Create(
+      getBasePtrElementType(), BaseVal, IdxList, "dummygep", RegEntryInsertPt);
 
   GepLoc->setIsInBounds(IsInBounds);
 
@@ -1870,7 +1869,7 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
     Type *ElemTy;
     if (DimNum == 0) {
       DimTy = getBaseCE()->getSrcType()->getScalarType();
-      ElemTy = DimTy->getPointerElementType();
+      ElemTy = getBasePtrElementType();
     } else {
       // Get the lowest dimension type, then apply struct offset if present. The
       // result type will be a new dimension type. Then get the element type, it
@@ -1885,7 +1884,9 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
 
     StrideCE = getCanonExprUtils().createCanonExpr(
         ScalarIndexCETy, 0,
-        ElemTy->isSized() ? getCanonExprUtils().getTypeSizeInBytes(ElemTy) : 0);
+        (ElemTy && ElemTy->isSized())
+            ? getCanonExprUtils().getTypeSizeInBytes(ElemTy)
+            : 0);
   }
 
   // Add Index CE

@@ -4063,6 +4063,52 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOrSubsOperator *GEPOp,
   return Ref;
 }
 
+// Sets base ptr element type and dimension stride for self refs: (%p)[0].
+static void setSelfRefElementTypeAndStride(RegDDRef *Ref, Type *ElementTy) {
+  assert(Ref->isSelfGEPRef(true) && "Self GEP ref expected!");
+
+  // Consider this case-
+  // void foo(i64* %p) {
+  //  %bc = bitcast i64* %p to i32*
+  //  %ld = load i32, i32* %bc
+  //  ret void
+  // }
+  //
+  // For this case we will create a bitcasted self ref like: (i32*)(%p)[0].
+  //
+  // In opaque ptr path, we may never know the element type of %p as it will
+  // just be an opaque pointer parameter. It would be okay to use the element
+  // type passed in by the caller (i32) because any element type works with
+  // opaque ptrs.
+  //
+  // But for non opaque ptrs, we need to set matching element type (i64) to the
+  // base ptr type (i64*) otherwise some of the existing utilities will assert
+  // on mismatched type. Hence, we extract the element type from the base ptr
+  // itself.
+  //
+  // TODO: Figure out a better fix when investigating BitCastDestType.
+  if (auto *BitCastTy = Ref->getBitCastDestType()) {
+    if (auto *PtrBitCastTy = dyn_cast<PointerType>(BitCastTy)) {
+      if (!PtrBitCastTy->isOpaque()) {
+        ElementTy = Ref->getBaseCE()->getDestType()->getPointerElementType();
+      }
+    }
+  }
+
+  Ref->setBasePtrElementType(ElementTy);
+
+  // We cannot set stride for opaque structures.
+  if (auto *StructTy = dyn_cast<StructType>(ElementTy)) {
+    if (StructTy->isOpaque()) {
+      return;
+    }
+  }
+
+  // Update the stride using element type info.
+  unsigned ElementSize = Ref->getCanonExprUtils().getTypeSizeInBytes(ElementTy);
+  Ref->getDimensionStride(1)->setConstant(ElementSize);
+}
+
 RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
                                                  unsigned Level) {
 
@@ -4085,9 +4131,9 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   // Set element type when we can unambigously do so based on type of base ptr.
   if (auto *Global = dyn_cast<GlobalValue>(GEPVal)) {
-    Ref->setBasePtrElementType(Global->getValueType());
+    setSelfRefElementTypeAndStride(Ref, Global->getValueType());
   } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
-    Ref->setBasePtrElementType(Alloca->getAllocatedType());
+    setSelfRefElementTypeAndStride(Ref, Alloca->getAllocatedType());
   }
 
   return Ref;
@@ -4292,10 +4338,8 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
     if (!Ref->getBasePtrElementType()) {
-      assert(Ref->isSelfGEPRef(true) &&
-             "Base element type not assigned to ref!");
       // We can assign the load type to self-refs: (%p)[0]
-      Ref->setBasePtrElementType(LInst->getType());
+      setSelfRefElementTypeAndStride(Ref, LInst->getType());
     }
 
     Ref->setAlignment(LInst->getAlignment());
@@ -4332,10 +4376,8 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
 
     if (!Ref->getBasePtrElementType()) {
-      assert(Ref->isSelfGEPRef(true) &&
-             "Base element type not assigned to ref!");
       // We can assign the store type to self-refs: (%p)[0]
-      Ref->setBasePtrElementType(SInst->getValueOperand()->getType());
+      setSelfRefElementTypeAndStride(Ref, SInst->getValueOperand()->getType());
     }
 
     Ref->setAlignment(SInst->getAlignment());

@@ -471,16 +471,6 @@ public:
     return getBaseType()->getPointerAddressSpace();
   }
 
-  bool isOpaqueAddressOf() const {
-    if (!isAddressOf()) {
-      return false;
-    }
-
-    auto StructElemTy =
-        dyn_cast<StructType>(getBaseType()->getPointerElementType());
-    return StructElemTy && StructElemTy->isOpaque();
-  }
-
   // Returns true if this is either isSelfAddressOf() or isSelfMemRef().
   bool isSelfGEPRef(bool IgnoreBitCast = false) const {
     return hasGEPInfo() && isSingleDimension() &&

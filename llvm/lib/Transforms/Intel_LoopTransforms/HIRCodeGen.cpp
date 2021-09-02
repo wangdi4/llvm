@@ -884,7 +884,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   bool AnyVector = false;
-  unsigned DimNum = Ref->getNumDimensions();
 
   auto BitCastDestTy = Ref->getBitCastDestType();
 
@@ -913,15 +912,13 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   // Ref either looks like t[0] or &t[0]. In such cases we don't need a GEP, we
   // can simply use the base value. Also, for opaque (forward declared) struct
   // types, LLVM doesn't allow any indices even if it is just a zero.
-  if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
-      (*Ref->canon_begin())->isZero() && Ref->getDimensionLower(1)->isZero()) {
-    // GEP is not needed.
-  } else {
-    assert(DimNum && "No dimensions");
+  if (!Ref->isSelfGEPRef(true)) {
+    unsigned NumDims = Ref->getNumDimensions();
+    assert(NumDims && "No dimensions");
 
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
-    for (; DimNum > 0; --DimNum) {
+    for (unsigned DimNum = NumDims; DimNum > 0; --DimNum) {
       auto *IndexVal = visitCanonExpr(Ref->getDimensionIndex(DimNum));
       auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
       auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
