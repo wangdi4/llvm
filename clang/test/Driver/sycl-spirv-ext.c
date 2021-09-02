@@ -52,8 +52,7 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arithmetic_fence
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_runtime_aligned
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone ;INTEL
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type ;INTEL
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing" ;INTEL
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type"
 // CHECK-FPGA-HW: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-FPGA-HW-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-FPGA-HW-SAME:,+SPV_EXT_shader_atomic_float_min_max
