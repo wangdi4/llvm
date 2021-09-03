@@ -4753,6 +4753,10 @@ void EmitClangIntelCustDocs(RecordKeeper &Records, raw_ostream &OS) {
         // If not related to an option, skip Option and Default
         if (!hasOption && (FieldName == "Option" || FieldName == "Default"))
           return true;
+        // 'Content' fields are 'code' and shouldn't be in the table.
+        if (FieldName.size() >= 7 &&
+            FieldName.substr(FieldName.size() - 7, 7) == "Content")
+          return true;
         // Skip if not a string or bit.
         if (V.getType()->getRecTyKind() != RecTy::StringRecTyKind &&
             V.getType()->getRecTyKind() != RecTy::BitRecTyKind)

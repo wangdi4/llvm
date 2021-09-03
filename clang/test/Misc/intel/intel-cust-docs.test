@@ -1,0 +1,16 @@
+// RUN: clang-tblgen -gen-intel-cust-docs -I%src_include_dir \
+// RUN:  -I%src_include_dir/clang/Basic \
+// RUN:  %src_include_dir/clang/Basic/intel/IntelCustDocs.td -o - \
+// RUN:  | FileCheck %s
+
+// Verify the table is generated correctly for both Option and no Option case.
+
+// CHECK: FArgumentNoalias
+// CHECK-NEXT: ----------------
+// CHECK-NEXT: .. csv-table::
+// CHECK-NEXT:    :header: "Option","Default","BugTracker","Customer","RegressionTest","Owner","CompatVersions",
+
+// CHECK: RotateIntrinsics
+// CHECK-NEXT: ----------------
+// CHECK-NEXT: .. csv-table::
+// CHECK-NEXT:   :header: "BugTracker","Customer","RegressionTest","Owner","CompatVersions",

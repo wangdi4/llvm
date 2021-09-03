@@ -776,9 +776,9 @@ AST:
   |-LoopHintAttr 0x2d888a37708 <line:10:11> Implicit vector VectorizeNoVecremainder Enable
   | |-<<<NULL>>>
   | `-<<<NULL>>>
+
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
-
 
 IR:
 
@@ -1739,6 +1739,7 @@ AST:
       |-SYCLIntelFPGAIIAttr 0x12041430 <line:11:13, col:17>
       | `-IntegerLiteral 0x12041218 <col:16> 'int' 4
       `-ForStmt 0x120413f8 <line:12:5, col:37>
+
 IR:
 
 .. code-block:: console
