@@ -143,29 +143,64 @@ FunctionPass *llvm::createVPOParoptSharedPrivatizationPass(unsigned Mode) {
   return new VPOParoptSharedPrivatization(Mode);
 }
 
-// Returns true if all value V users in given blocks are load instructions
-// or bitcasts/GEPs that are used by the loads.
-static bool allUsersAreLoads(Value *V,
-                             const SmallPtrSetImpl<BasicBlock *> &BBs) {
-  // Predicate to check if given value is an instruction from BBs.
-  auto IsFromBBs = [&BBs](Value *V) {
-    if (auto *I = dyn_cast<Instruction>(V))
-      return BBs.contains(I->getParent());
-    return false;
+// Returns true if all users of value V and derrived bitcasts/GEPs do not
+// capture or modify the value inside BBs.
+static bool isReadonlyAndNotCaptured(Value *V,
+                                     const SmallPtrSetImpl<BasicBlock *> &BBs) {
+  SmallVector<Use *, 8u> Worklist;
+  SmallPtrSet<Use *, 8u> Visited;
+
+  auto AddUses = [&Worklist, &Visited, &BBs](Value *V) {
+    for (Use &U : V->uses()) {
+      if (Visited.contains(&U))
+        continue;
+
+      // if user is not an instruction conservatively assume that value is
+      // modified/captured.
+      auto *I = dyn_cast<Instruction>(U.getUser());
+      if (!I)
+        return false;
+
+      // Consider only those instructions that are inside BBs.
+      if (!BBs.contains(I->getParent()))
+        continue;
+
+      Worklist.push_back(&U);
+      Visited.insert(&U);
+    }
+    return true;
   };
 
-  // Verify that all users of alloca instruction in collected blocks are
-  // either loads or bitcasts/GEPs used by the loads.
-  SmallVector<Value *, 8u> Worklist;
-  copy_if(V->users(), std::back_inserter(Worklist), IsFromBBs);
+  // Verify that all users of value V or derrived bitcasts/GEPs in collected
+  // blocks are either load or function call arguments with readonly/readnone
+  // and nocapture attributes.
+  if (!AddUses(V))
+    return false;
   while (!Worklist.empty()) {
-    Value *I = Worklist.pop_back_val();
+    Use *U = Worklist.pop_back_val();
+    Value *I = U->getUser();
+
     if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
-      copy_if(I->users(), std::back_inserter(Worklist), IsFromBBs);
+      if (!AddUses(I))
+        return false;
       continue;
     }
-    if (!isa<LoadInst>(I))
-      return false;
+    if (auto *Load = dyn_cast<LoadInst>(I)) {
+      if (Load->isVolatile())
+        return false;
+      continue;
+    }
+    if (auto *Call = dyn_cast<CallBase>(I)) {
+      if (auto *MI = dyn_cast<MemIntrinsic>(Call))
+        if (MI->isVolatile())
+          return false;
+      if (!Call->isDataOperand(U) ||
+          !Call->doesNotCapture(Call->getDataOperandNo(U)) ||
+          !Call->onlyReadsMemory(Call->getDataOperandNo(U)))
+        return false;
+      continue;
+    }
+    return false;
   }
   return true;
 }
@@ -379,7 +414,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       auto BBs = findWRNBlocks(W, AI);
 
       if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
-          !allUsersAreLoads(AI, BBs))
+          !isReadonlyAndNotCaptured(AI, BBs))
         continue;
 
       ToPrivatize.push_back(AI);
@@ -404,7 +439,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         auto BBs = findWRNBlocks(W, AI);
 
         if (!isPrivatizationCandidate(AI, BBs, AA, /*AllowStructs=*/false) ||
-            !allUsersAreLoads(BCI, BBs))
+            !isReadonlyAndNotCaptured(BCI, BBs))
           continue;
 
         // Change shared value to alloca instruction.
@@ -607,7 +642,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       auto BBs = findWRNBlocks(W, AI);
 
       if (!isPrivatizationCandidate(AI, BBs, AA, CheckMapForStructs) ||
-          !allUsersAreLoads(AI, BBs))
+          !isReadonlyAndNotCaptured(AI, BBs))
         continue;
 
       LLVM_DEBUG(dbgs() << GetMapName(MI) << " clause for '" << AI->getName()
