@@ -4020,8 +4020,18 @@ private:
 
   bool isProfitableUseDefPattern(
       const SmallVectorImpl<HLLoop *> &InnermostLoops) const;
-  void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
-                          const HLRegion *Reg) const;
+  void testInnermostLoops(SmallVectorImpl<HLLoop *> &InnermostLoops,
+                          const HLRegion *Reg, const HLGoto *HGoto = nullptr,
+                          const HLInst *HCall = nullptr) const;
+
+  static void checkTargetsAndShrink(SmallVectorImpl<HLLoop *> &InnermostLoops,
+                                    SmallVectorImpl<HLNode *> &OuterNodes,
+                                    const HLGoto *HGoto);
+  static bool isCallAtValidLoc(SmallVectorImpl<HLNode *> &OuterNodes,
+                               const HLInst *HCall);
+
+  SmallVector<HLNode *, 16> static calculateOuterNodes(
+      const SmallVectorImpl<HLLoop *> &InnermostLoops, const HLNode *Limit);
 
 private:
   HIRFramework &HIRF;
@@ -4221,9 +4231,56 @@ bool testDriver::isProfitableUseDefPattern(
   return true;
 }
 
-void testDriver::testInnermostLoops(
-    const SmallVectorImpl<HLLoop *> &InnermostLoops,
-    const HLRegion *Reg) const {
+void testDriver::checkTargetsAndShrink(
+    SmallVectorImpl<HLLoop *> &InnermostLoops,
+    SmallVectorImpl<HLNode *> &OuterNodes, const HLGoto *HGoto) {
+
+  unsigned MaxNumber = OuterNodes.back()->getMaxTopSortNum();
+  unsigned GotoNumber = HGoto->getTopSortNum();
+  if (MaxNumber < GotoNumber) {
+    return;
+  }
+
+  unsigned LabelNumber = HGoto->getTargetLabel()->getTopSortNum();
+  if (MaxNumber >= LabelNumber)
+    return;
+
+  auto I = OuterNodes.size() - 1;
+  for (; I >= 0; I--) {
+    if (OuterNodes[I]->getMaxTopSortNum() < GotoNumber) {
+      // InnermostLoops only upto this OuterNode are valid
+      // All innermost loops belong to OuterNode after this OuterNode
+      // should be removed.
+      break;
+    }
+  }
+
+  // Remove InnermostLoops from I + 1 to end()
+  InnermostLoops.erase(InnermostLoops.begin() + I + 1, InnermostLoops.end());
+}
+
+bool testDriver::isCallAtValidLoc(SmallVectorImpl<HLNode *> &OuterNodes,
+                                  const HLInst *HCall) {
+  unsigned MaxNumber = OuterNodes.back()->getMaxTopSortNum();
+  unsigned CallNumber = HCall->getTopSortNum();
+  return MaxNumber < CallNumber;
+}
+
+SmallVector<HLNode *, 16>
+testDriver::calculateOuterNodes(const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                                const HLNode *Limit) {
+  SmallVector<HLNode *, 16> OuterNodes;
+  for (auto InnermostLoop : InnermostLoops) {
+    HLNode *OuterNode = findTheLowestAncestor(InnermostLoop, Limit);
+    OuterNodes.push_back(OuterNode);
+  }
+
+  return OuterNodes;
+}
+
+void testDriver::testInnermostLoops(SmallVectorImpl<HLLoop *> &InnermostLoops,
+                                    const HLRegion *Reg, const HLGoto *HGoto,
+                                    const HLInst *HCallInst) const {
 
   // Bails out for a few trivial cases.
   if (InnermostLoops.size() < 2) {
@@ -4263,6 +4320,20 @@ void testDriver::testInnermostLoops(
   }
 
   if (!hasCommonAncestorThanReg(InnermostLoops, Reg))
+    return;
+
+  SmallVector<HLNode *, 16> OuterNodes =
+      calculateOuterNodes(InnermostLoops, OuterNode);
+
+  if (HGoto)
+    checkTargetsAndShrink(InnermostLoops, OuterNodes, HGoto);
+  else if (HCallInst) {
+    if (!isCallAtValidLoc(OuterNodes, HCallInst))
+      return;
+  }
+
+  if (InnermostLoops.size() == 2 &&
+      areTwoLoopsInExclusiveFlows(InnermostLoops[0], InnermostLoops[1]))
     return;
 
   if (!isProfitableUseDefPattern(InnermostLoops))
@@ -4377,7 +4448,7 @@ bool testDriver::run() {
       LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
       LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-      testInnermostLoops(InnermostLoops, Reg);
+      testInnermostLoops(InnermostLoops, Reg, HGoto);
       InnermostLoops.clear();
 
     } else if (HLInst *HInst = dyn_cast<HLInst>(*It)) {
@@ -4387,7 +4458,7 @@ bool testDriver::run() {
         LLVM_DEBUG(dbgs() << "2. Innermost loops collected: ");
         LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-        testInnermostLoops(InnermostLoops, Reg);
+        testInnermostLoops(InnermostLoops, Reg, nullptr, HInst);
         InnermostLoops.clear();
       }
     }

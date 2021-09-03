@@ -247,7 +247,8 @@ class OpenMPLateOutliner {
   void emitOMPOrderedClause(const OMPOrderedClause *C);
   void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
                          OpenMPMapClauseKind MapType,
-                         const SmallVector<OpenMPMapModifierKind, 1> Modifiers);
+                         const SmallVector<OpenMPMapModifierKind, 1> Modifiers,
+                         const VarDecl *MapVar);
   void emitOMPAllMapClauses();
   void emitOMPMapClause(const OMPMapClause *C);
   void emitOMPScheduleClause(const OMPScheduleClause *C);

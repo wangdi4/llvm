@@ -19,6 +19,7 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
+; CHECK-NEXT:       X86 transform matrix intrinsics to amx intrinsics ;INTEL
 ; CHECK-NEXT:       Lower AMX intrinsics
 ; CHECK-NEXT:       Lower AMX type for load/store
 ; CHECK-NEXT:       Pre AMX Tile Config

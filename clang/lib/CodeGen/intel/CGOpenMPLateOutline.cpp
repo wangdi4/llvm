@@ -1082,7 +1082,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     const VarDecl *PVD = getExplicitVarDecl(E);
     auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
     assert(PVD && "expected VarDecl in reduction clause");
-    addExplicit(PVD, OMPC_reduction);
+    addExplicit(PVD, Cl->getClauseKind());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
     llvm::Value *InitFn = nullptr, *CombinerFn  = nullptr;
@@ -1745,7 +1745,8 @@ void OpenMPLateOutliner::emitOMPHintClause(const OMPHintClause *Cl) {
 void OpenMPLateOutliner::buildMapQualifier(
    ClauseStringBuilder &CSB,
    OpenMPMapClauseKind MapType,
-   const SmallVector<OpenMPMapModifierKind, 1>  Modifiers) {
+   const SmallVector<OpenMPMapModifierKind, 1>  Modifiers,
+   const VarDecl *MapVar) {
   CSB.add("QUAL.OMP.MAP.");
   switch (MapType) {
   case OMPC_MAP_alloc:
@@ -1782,6 +1783,25 @@ void OpenMPLateOutliner::buildMapQualifier(
         llvm_unreachable("Unexpected map modifier");
     }
   }
+  // OpenMP5.1 pg 254 lines 8-10
+  //   The in_reduction clause applies to the single leaf construct on which
+  //   it is permitted. If that construct is a target construct, the effect is
+  //   as if the same list item also appears in a map clause with a map-type
+  //   of tofrom and a map-type-modifier of always.
+  if (isImplicitTask(OMPD_target) && MapVar)
+    for (const auto *C : Directive.getClausesOfKind<OMPInReductionClause>()) {
+      const auto CIt = std::find_if(
+          C->varlists().begin(), C->varlists().end(),
+          [&MapVar](const Expr *E) {
+            return getExplicitVarDecl(E) == MapVar;
+          });
+      if (CIt != C->varlists().end()) {
+        assert(MapType == OMPC_MAP_tofrom &&
+               "wrong map type for target in_reduction variable");
+        CSB.setAlways();
+        break;
+      }
+    }
 }
 
 #if INTEL_CUSTOMIZATION
@@ -2013,7 +2033,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     }
     ClauseEmissionHelper CEH(*this, CK);
     ClauseStringBuilder &CSB = CEH.getBuilder();
-    buildMapQualifier(CSB, I.MapType, I.Modifiers);
+    buildMapQualifier(CSB, I.MapType, I.Modifiers, I.Var);
     if (I.IsChain)
       CSB.setChain();
     addArg(CSB.getString());
@@ -2635,7 +2655,8 @@ void OpenMPLateOutliner::emitOMPTargetExitDataDirective() {
 void OpenMPLateOutliner::emitOMPTaskDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK", OMPD_task);
   if (CodeGenFunction::requiresImplicitTask(Directive)) {
-    bool NeedIf = Directive.hasClausesOfKind<OMPDependClause>();
+    bool NeedIf = Directive.hasClausesOfKind<OMPDependClause>() ||
+                  Directive.hasClausesOfKind<OMPInReductionClause>();
     NeedIf = NeedIf && !Directive.hasClausesOfKind<OMPNowaitClause>();
     if (NeedIf) {
       ClauseEmissionHelper CEH(*this, OMPC_if);
@@ -2747,7 +2768,7 @@ void OpenMPLateOutliner::emitOMPCancellationPointDirective(
 /// return true if clause is not allowed in current pragma.
 bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
   if (isImplicitTask(OMPD_target) || isImplicitTask(OMPD_dispatch)) {
-    return Kind == OMPC_depend ||
+    return Kind == OMPC_depend || Kind == OMPC_in_reduction ||
            !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
                                         CGF.getLangOpts().OpenMP);
   }
@@ -3016,16 +3037,20 @@ bool CodeGenFunction::requiresImplicitTaskgroup(
   return false;
 }
 
-/// Return true if Directive require implicit task to be generated.
+/// Return true if Directive requires implicit task to be generated.
 bool CodeGenFunction::requiresImplicitTask(
     const OMPExecutableDirective &Directive) {
-  if ((isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) ||
-       Directive.getDirectiveKind() == OMPD_target_enter_data ||
+  bool HasDependOrNowait =
+      Directive.hasClausesOfKind<OMPDependClause>() ||
+      Directive.hasClausesOfKind<OMPNowaitClause>();
+  if (isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) &&
+      (HasDependOrNowait || Directive.hasClausesOfKind<OMPInReductionClause>()))
+    return true;
+  if ((Directive.getDirectiveKind() == OMPD_target_enter_data ||
        Directive.getDirectiveKind() == OMPD_target_exit_data ||
        Directive.getDirectiveKind() == OMPD_dispatch ||
        Directive.getDirectiveKind() == OMPD_target_update) &&
-      (Directive.hasClausesOfKind<OMPDependClause>() ||
-       Directive.hasClausesOfKind<OMPNowaitClause>()))
+       HasDependOrNowait)
     return true;
   return false;
 }
