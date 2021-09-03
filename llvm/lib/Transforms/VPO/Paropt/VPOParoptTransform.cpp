@@ -1207,8 +1207,8 @@ bool VPOParoptTransform::genOCLParallelLoop(
   // if during the search we meet a target region.
   if (W->getIsParLoop() &&
       WRegionUtils::getParentRegion(W,
-          [](WRegionNode *W) { return W->getIsParLoop(); },
-          [](WRegionNode *W) { return !isa<WRNTargetNode>(W); }))
+          [](const WRegionNode *W) { return W->getIsParLoop(); },
+          [](const WRegionNode *W) { return !isa<WRNTargetNode>(W); }))
     DoNotPartition = true;
 
   for (unsigned I = W->getWRNLoopInfo().getNormIVSize(); I > 0; --I) {
@@ -1703,6 +1703,8 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
+          if (auto *WT = dyn_cast<WRNTeamsNode>(W))
+            updateKernelHasTeamsReduction(WT);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -1722,8 +1724,7 @@ bool VPOParoptTransform::paroptTransforms() {
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
           bool SkipTargetCodeGenForParallelRegion =
-              isTargetSPIRV() && isFunctionOpenMPTargetDeclare() &&
-              !isa<WRNParallelLoopNode>(W);
+              isTargetSPIRV() && isFunctionOpenMPTargetDeclare();
           if (SkipTargetCodeGenForParallelRegion)
             emitWarning(W,
                         "'" + W->getName() +
@@ -1744,9 +1745,9 @@ bool VPOParoptTransform::paroptTransforms() {
             // TODO: enabling firstprivatization requires more optimizations
             //       to avoid performance tanking.
             // Changed |= genFirstPrivatizationCode(W);
-            if (SkipTargetCodeGenForParallelRegion)
+            if (SkipTargetCodeGenForParallelRegion) {
               RemoveDirectives = true;
-            else {
+            } else {
               Changed |= genPrivatizationCode(W);
               Changed |= genReductionCode(W);
               Changed |= genDestructorCode(W);
@@ -11324,7 +11325,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   if (!WTarget || isa<WRNVecLoopNode>(W)) {
     IsTopLevelTargetLoop = false;
   } else {
-    auto IsNotTargetRegion = [](WRegionNode *W) {
+    auto IsNotTargetRegion = [](const WRegionNode *W) {
                                return !isa<WRNTargetNode>(W);
                              };
 
@@ -11332,7 +11333,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // or up to the last one (if there is no enclosing target
     // region), and check if there is an enclosing loop region.
     if (WRegionUtils::getParentRegion(W,
-            [](WRegionNode *W) {
+            [](const WRegionNode *W) {
               return W->getIsOmpLoop();
             },
             IsNotTargetRegion))
@@ -11357,7 +11358,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // loops, we could set two NDRANGE clauses for the target region,
     // and then set the runtime ND-range to the maximum of the two.
     if (WRegionUtils::getParentRegion(W,
-            [](WRegionNode *W) {
+            [](const WRegionNode *W) {
               return W->getNumChildren() > 1;
             },
             IsNotTargetRegion))
@@ -12316,5 +12317,24 @@ bool VPOParoptTransform::addRangeMetadataToOmpCalls() const {
     Changed |= AnnotateCalls(BB, None, None);
 
   return Changed;
+}
+
+// Mark the enclosing target region, if the given teams region
+// has reduction clauses.
+void VPOParoptTransform::updateKernelHasTeamsReduction(
+    const WRNTeamsNode *WT) const {
+  auto *WTarget = cast_or_null<WRNTargetNode>(
+      WRegionUtils::getParentRegion(WT, WRegionNode::WRNTarget));
+  if (!WTarget)
+    return;
+  if (WT->getRed().empty())
+    return;
+
+  CallInst *EntryCI = cast<CallInst>(WTarget->getEntryDirective());
+  StringRef Clause =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION);
+
+  EntryCI = VPOUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
+  WTarget->setEntryDirective(EntryCI);
 }
 #endif // INTEL_COLLAB

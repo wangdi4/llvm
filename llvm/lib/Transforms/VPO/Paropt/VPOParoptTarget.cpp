@@ -286,7 +286,7 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
 }
 
 Function *VPOParoptTransform::finalizeKernelFunction(
-    WRegionNode *W, Function *Fn, CallInst *&Call,
+    WRNTargetNode *WT, Function *Fn, CallInst *&Call,
     const SmallVectorImpl<uint64_t> &MapTypes,
 #if INTEL_CUSTOMIZATION
     const SmallVectorImpl<bool> &IsWILocalFirstprivate,
@@ -347,18 +347,19 @@ Function *VPOParoptTransform::finalizeKernelFunction(
 
   // Generate '<kernel-name>_kernel_info' global variable that specifies
   // whether a kernel argument is passed by value or not.
-  // Version 1 of the data structure uses the following format:
+  // Versions 1-2 of the data structure use the following format:
   //   struct KernelInfoTy {
-  //     uint32_t Version = 1;
+  //     uint32_t Version = [1 .. 2];
   //     uint32_t ArgsNum = <number of the kernel arguments>;
   //     struct ArgDescTy {
   //       uint32_t IsByVal = 0/1;
   //       uint32_t Size = <argument size>;
   //     } ArgsDesc[ArgsNum];
+  //     uint64_t Attributes1; // Since version 2.
   //   };
   auto GenerateKernelArgInfoVar =
       [](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
-         Function *Fn) {
+         Function *Fn, bool HasTeamsReduction) {
         auto &C = Fn->getContext();
         size_t ArgsNum = KernelArgInfo.size();
         assert(ArgsNum == Fn->getFunctionType()->params().size() &&
@@ -368,10 +369,10 @@ Function *VPOParoptTransform::finalizeKernelFunction(
         SmallVector<Type *, 3> KernelInfoInitMemberTypes;
         SmallVector<Constant *, 10> KernelInfoInitBuffer;
 
-        // The current version is 1.
+        // The current version is 2.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
-            ConstantInt::get(Type::getInt32Ty(C), 1));
+            ConstantInt::get(Type::getInt32Ty(C), 2));
         // Specify the number of kernel argument.
         KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
         KernelInfoInitBuffer.push_back(
@@ -402,6 +403,14 @@ Function *VPOParoptTransform::finalizeKernelFunction(
           KernelInfoInitMemberTypes.push_back(KernelArgInfoInitArrayTy);
           KernelInfoInitBuffer.push_back(KernelArgInfoInitArray);
         }
+
+        // Init Attributes1.
+        uint64_t Attributes1 = 0;
+        Attributes1 |= (HasTeamsReduction ? 1 : 0);
+
+        KernelInfoInitMemberTypes.push_back(Type::getInt64Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt64Ty(C), Attributes1));
 
         KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
         Constant *KernelInfoInit =
@@ -489,7 +498,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     ByValLimit -= std::min(ByValLimit, ArgSize);
   }
 
-  GenerateKernelArgInfoVar(KernelArgInfo, Fn);
+  GenerateKernelArgInfoVar(KernelArgInfo, Fn, WT->getHasTeamsReduction());
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
@@ -556,7 +565,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(
     ++NewArgI;
   }
 
-  int SimdWidth = W->getSPIRVSIMDWidth();
+  int SimdWidth = WT->getSPIRVSIMDWidth();
 #if INTEL_CUSTOMIZATION
   const VPOParoptConfig *VPC = WI->getVPOParoptConfig();
   if (VPC) {
@@ -1406,7 +1415,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
 
   Constant *RegionId = nullptr;
-  if (isa<WRNTargetNode>(W)) {
+  if (auto *WT = dyn_cast<WRNTargetNode>(W)) {
     assert(MT && "target region with no module transform");
     RegionId = MT->registerTargetRegion(W, NewF);
 
@@ -1427,7 +1436,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
                               IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
                               HasRuntimeEvaluationCaptureSize);
-      NewF = finalizeKernelFunction(W, NewF, NewCall, MapTypes,
+      NewF = finalizeKernelFunction(WT, NewF, NewCall, MapTypes,
 #if INTEL_CUSTOMIZATION
                                     IsWILocalFirstprivate,
 #endif // INTEL_CUSTOMIZATION
@@ -4681,8 +4690,9 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
 // Set SIMD widening width for the target region based
 // on simdlen() clauses of the enclosed SIMD loops (if any).
 void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
-  for (auto *WT : WRegionList) {
-    if (!isa<WRNTargetNode>(WT))
+  for (auto *W : WRegionList) {
+    auto *WT = dyn_cast<WRNTargetNode>(W);
+    if (!WT)
       continue;
 
     if (FixedSIMDWidth > 0) {
@@ -4696,19 +4706,19 @@ void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
     SmallVector<WRegionNode*, 32> WorkList{WT};
     while (!WorkList.empty()) {
       unsigned CurSIMDLen = 0;
-      auto *W = WorkList.pop_back_val();
+      auto *WChild = WorkList.pop_back_val();
 
-      if (W != WT && isa<WRNTargetNode>(W))
+      if (WChild != WT && isa<WRNTargetNode>(WChild))
         // If this is an enclosed target region, then
         // we have already processed it and we can take its
         // SIMD width without processing the children.
-        CurSIMDLen = W->getSPIRVSIMDWidth();
-      else if (!isa<WRNVecLoopNode>(W)) {
+        CurSIMDLen = cast<WRNTargetNode>(WChild)->getSPIRVSIMDWidth();
+      else if (!isa<WRNVecLoopNode>(WChild)) {
         WorkList.insert(
-            WorkList.end(), W->wrn_child_begin(), W->wrn_child_end());
+            WorkList.end(), WChild->wrn_child_begin(), WChild->wrn_child_end());
         continue;
       } else
-        CurSIMDLen = W->getSimdlen();
+        CurSIMDLen = WChild->getSimdlen();
 
       if (CurSIMDLen == 0 ||
           // Ignore unsupported SIMD widths.
