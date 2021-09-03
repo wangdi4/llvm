@@ -26,7 +26,7 @@ namespace llvm {
 // 3. does not contain call to kernel or called by another kernel.
 // 4. does not contain call to function that use get***id calls.
 // both 3,4 should be eliminated by the inliner.
-class DPCPPKernelAnalysisPass : PassInfoMixin<DPCPPKernelAnalysisPass> {
+class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
   static StringRef name() { return "DPCPPKernelAnalysisPass"; }
 
