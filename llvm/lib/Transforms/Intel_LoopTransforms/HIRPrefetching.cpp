@@ -755,9 +755,10 @@ void HIRPrefetching::processIndirectPrefetching(
         CheckIf->setPredicateOperandDDRef(PredicateRHS, CheckIf->pred_begin(),
                                           false);
 
-        HasNewIf = false;
         CompareCE = NewIndexCE;
       }
+
+      HasNewIf = false;
       // else create a new HLIf and initialize FirstIndirectPrefetch to a
       // nullptr
     } else {
@@ -820,7 +821,6 @@ bool HIRPrefetching::doPrefetching(
   ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25018u,
                            NumSpatialPrefetches + NumIndirectPrefetches);
   if (HasPragmaInfo) {
-    Lp->getParentRegion()->setGenCode();
     // Number of spatial prefetches=%d
     ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25020u,
                              NumSpatialPrefetches);
@@ -877,6 +877,10 @@ bool HIRPrefetching::doPrefetching(
       ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25147u, PragmaHint,
                                PragmaDist);
     }
+  }
+
+  if (HasPragmaInfo) {
+    Lp->getParentRegion()->setGenCode();
   }
 
   HIRInvalidationUtils::invalidateBody(Lp);
