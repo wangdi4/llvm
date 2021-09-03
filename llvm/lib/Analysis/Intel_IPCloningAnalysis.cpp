@@ -68,9 +68,19 @@ static cl::opt<unsigned> IPCloningNumOfFormalUsesExploredLimit(
 static cl::opt<unsigned> IPSpeCloningPhiLimit(
           "ip-spe-cloning-phi-limit", cl::init(3), cl::ReallyHidden);
 
-// List of uses of a formal that will become potentail constant values
+// Minimum number of IVDEP loops in a Function to consider a potential
+// constant found by deep constant folding analysis for cloning by the
+// loop heuristic.
+static cl::opt<unsigned> IPCloningIVDEPMin(
+          "ip-cloning-ivdep-min", cl::init(45), cl::ReallyHidden);
+
+// List of uses of a formal that will become potential constant values
 // after cloning.
 SmallPtrSet<Value*, 16> PotentialConstValuesAfterCloning;
+
+// List of uses of a formal that will become potential constant values
+// after cloning after deep constant folding.
+SmallPtrSet<Value*, 16> DeepPotentialConstValuesAfterCloning;
 
 // Returns true if 'I' is safe instruction for specialization cloning.
 // It is used to decide whether a formal is valid to enable
@@ -160,7 +170,8 @@ static bool allPhisDefinedInSameBB(SmallPtrSet<Value *, 8> &PhiValues) {
 
 // This routine collects uses of 'V' that are SExt/ZExt instructions
 // and adds them to PotentialConstValuesAfterCloning. 'NumUsesExplored'
-// is used to limit number of uses explored.
+// is used to limit number of uses explored. 'Depth' determines whether
+// this is the result of deep constant folding.
 //
 // This basically helps to handle cases like below:
 //   define internal fastcc void @bar(i32 %ub) unnamed_addr #1 {
@@ -172,7 +183,8 @@ static bool allPhisDefinedInSameBB(SmallPtrSet<Value *, 8> &PhiValues) {
 //     %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
 //
 static void collectSextZextAsPotentialConstants(Value* V,
-                                                unsigned& NumUsesExplored) {
+                                                unsigned& NumUsesExplored,
+                                                unsigned Depth) {
   for (auto *U : V->users()) {
 
     if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit)
@@ -184,15 +196,51 @@ static void collectSextZextAsPotentialConstants(Value* V,
 
       PotentialConstValuesAfterCloning.insert(U);
       LLVM_DEBUG(dbgs() <<  "     SExt/ZExt:  " << *U << "\n");
+      if (Depth)
+        DeepPotentialConstValuesAfterCloning.insert(U);
     }
   }
 }
 
 // It collects uses of given formal variable 'V' that will become
-// constant values after cloning.
+// constant values after cloning. If 'TryDeep', collect potentail constants
+// that require deep constant folding.
 //
-static void collectPotentialConstantsAfterCloning(Value *V) {
+static void collectPotentialConstantsAfterCloning(Value *V, bool TryDeep) {
   unsigned NumUsesExplored = 0;
+
+  //
+  // Place values that are potentially constant after single level and
+  // deep constant folding into 'PotentialConstValuesAfterCloning' and
+  // 'DeepPotentialConstValuesAfterCloning'. For the deep case, consider
+  // a depth of up to 'Depth'. Update 'UsesExplored' to include additional
+  // explored uses.
+  //
+  std::function<void(User *, unsigned &, bool, unsigned)>
+    LoadBinaryValues = [&LoadBinaryValues](User *U, unsigned &UsesExplored,
+                                           bool TryDeep, unsigned Depth) {
+    const unsigned MaxDepth = 3;
+    if (Depth > MaxDepth ||
+        UsesExplored > IPCloningNumOfFormalUsesExploredLimit)
+      return;
+    if (isa<BinaryOperator>(U)) {
+      UsesExplored++;
+      Value *LHS = U->getOperand(0);
+      Value *RHS = U->getOperand(1);
+      // Add it if other operand is constant
+      if (isa<Constant>(LHS) || isa<Constant>(RHS)) {
+        PotentialConstValuesAfterCloning.insert(U);
+        if (Depth)
+          DeepPotentialConstValuesAfterCloning.insert(U);
+        LLVM_DEBUG(dbgs() <<  "     Binary:   " << *U << "\n");
+        // Consider SExt/ZExt as potential constants
+        collectSextZextAsPotentialConstants(U, UsesExplored, Depth);
+        if (TryDeep)
+          for (User *UU : U->users())
+            LoadBinaryValues(UU, UsesExplored, TryDeep, Depth + 1);
+      }
+    }
+  };
 
   // Add formal value as potential constant value after cloning
   PotentialConstValuesAfterCloning.insert(V);
@@ -201,29 +249,19 @@ static void collectPotentialConstantsAfterCloning(Value *V) {
   // Look at all uses of formal value and try to find potential
   // constant values
   for (auto *U : V->users()) {
-
     // Avoid huge lists
     if (NumUsesExplored >= IPCloningNumOfFormalUsesExploredLimit)
       break;
-
-    NumUsesExplored++;
-
-    if (isa<UnaryInstruction>(U) || isa<CastInst>(U) || isa<BitCastInst>(U)) {
+    if (isa<UnaryInstruction>(U) || isa<CastInst>(U)) {
+      NumUsesExplored++;
       // Add simple Unary operator as potential constants
       PotentialConstValuesAfterCloning.insert(U);
       LLVM_DEBUG(dbgs() <<  "     Unary:  " << *U << "\n");
       // Consider SExt/ZExt as potential constants
-      collectSextZextAsPotentialConstants(U, NumUsesExplored);
+      collectSextZextAsPotentialConstants(U, NumUsesExplored, 0);
     }
-    else if (isa<BinaryOperator>(U)) {
-      Value *LHS = U->getOperand(0), *RHS = U->getOperand(1);
-      // Add it if other operand is constant
-      if (isa<Constant>(LHS) || isa<Constant>(RHS)) {
-        PotentialConstValuesAfterCloning.insert(U);
-        LLVM_DEBUG(dbgs() <<  "     Binary:   " << *U << "\n");
-        // Consider SExt/ZExt as potential constants
-        collectSextZextAsPotentialConstants(U, NumUsesExplored);
-      }
+    else {
+      LoadBinaryValues(U, NumUsesExplored, TryDeep, 0);
     }
   }
 }
@@ -257,14 +295,22 @@ static bool applyIFHeurstic(Value *User, Value *V) {
   return false;
 }
 
-// Returns condition of given Loop 'L' if it finds. Otherwise, returns
-// nullptr.
+// Returns condition of given Loop 'L' with exiting basic block 'BB'
+// if it finds it. Otherwise, returns nullptr.
 //
-static ICmpInst *getLoopTest(Loop *L) {
-  if (!L->getExitingBlock()) return nullptr;
-  if (!L->getExitingBlock()->getTerminator()) return nullptr;
+static ICmpInst *getLoopTest(Loop *L, BasicBlock *BB) {
+  if (BB) {
+    if (!L->isLoopExiting(BB))
+      return nullptr;
+  } else {
+    BB = L->getExitingBlock();
+    if (!BB)
+      return nullptr;
+  }
+  if (!BB->getTerminator())
+    return nullptr;
 
-  BranchInst *BI = dyn_cast<BranchInst>(L->getExitingBlock()->getTerminator());
+  BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
 
   // Branch may not have condition in some rare cases.
   // Ex:
@@ -274,13 +320,16 @@ static ICmpInst *getLoopTest(Loop *L) {
   //      if (test == (unsigned) regno) return 1;
   //    }
   //
-  if (!BI || !BI->isConditional()) return nullptr;
+  if (!BI || !BI->isConditional())
+    return nullptr;
   return dyn_cast<ICmpInst>(BI->getCondition());
 }
 
 // Returns true if user 'User' of 'V' satisfies LOOP related heuristics
 // For now, it returns true if 'User' is conditional statement of a Loop
-// or 'V' is used as UB.
+// or 'V' is used as UB. Use 'LI' for info about the loops in the function
+// containing 'U' and 'V'. If 'IsDeep', consider additional screening
+// heuristics.
 //
 //   Ex: Returns true for the below example
 //          V = formal + 2;
@@ -289,7 +338,23 @@ static ICmpInst *getLoopTest(Loop *L) {
 //             ...
 //          }
 //
-static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
+static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI,
+                               bool IsDeep) {
+
+  //
+  // Return 'true' if 'LI' is for a Fortran Function 'F' containing many loops
+  // with 'IVDEP' directives. This is used as a screening criterion.
+  //
+  auto EnclosesManyFortranIVDEPLoops = [](Function *F, LoopInfo *LI) -> bool {
+    if (!F->isFortran())
+      return false;
+    unsigned Count = 0;
+    for (Loop *LL : LI->getLoopsInPreorder())
+      if (findOptionMDForLoop(LL, "llvm.loop.vectorize.ivdep_back"))
+       if (++Count >= IPCloningIVDEPMin)
+        return true;
+    return false;
+  };
 
   if (!IPCloningLoopHeuristic)
     return false;
@@ -310,10 +375,12 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
   Loop *L = LI->getLoopFor(BB);
   if (L == nullptr)
     return false;
-  ICmpInst *Cond = getLoopTest(L);
+  ICmpInst *Cond = getLoopTest(L, IsDeep ? BB : nullptr);
   if (!Cond)
     return false;
   if (Cond != U)
+    return false;
+  if (IsDeep && !EnclosesManyFortranIVDEPLoops(BB->getParent(), LI))
     return false;
   LLVM_DEBUG(dbgs() << "  Used in Loop: " << *U << "\n";);
   return true;
@@ -321,10 +388,13 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
 
 //
 // Return 'true' if 'V' has some user that satisfies the loop heuristic test.
+// 'LI' is the LoopInfo for the Function in which 'V' appears. 'IsDeep' is
+// true if 'V' was found using a deep traversal starting with a potential
+// constant.
 //
-static bool applyLoopHeuristic(Value *V, LoopInfo* LI) {
+static bool applyLoopHeuristic(Value *V, LoopInfo* LI, bool IsDeep) {
   for (User *U : V->users())
-    if (applyLoopHeuristic(U, V, LI))
+    if (applyLoopHeuristic(U, V, LI, IsDeep))
       return true;
   return false;
 }
@@ -484,14 +554,16 @@ extern bool findPotentialConstsAndApplyHeuristics(Function &F, Value *V,
                                                   unsigned *IFCount,
                                                   unsigned *SwitchCount) {
   PotentialConstValuesAfterCloning.clear();
-  collectPotentialConstantsAfterCloning(V);
+  collectPotentialConstantsAfterCloning(V, AfterInl);
   if (IPCloningForceHeuristicsOff)
     return true;
 
   // Apply loop heuristic for all potential constant values
-  for (Value *V1 : PotentialConstValuesAfterCloning)
-    if (applyLoopHeuristic(V1, LI))
+  for (Value *V1 : PotentialConstValuesAfterCloning) {
+    bool IsDeep = DeepPotentialConstValuesAfterCloning.count(V1);
+    if (applyLoopHeuristic(V1, LI, IsDeep))
       return true;
+  }
   if (!AfterInl || !IFSwitchHeuristic)
     return false;
 
