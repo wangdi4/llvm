@@ -944,13 +944,14 @@ void Mapper::remapInstruction(Instruction *I) {
     LLVMContext &C = CB->getContext();
     AttributeList Attrs = CB->getAttributes();
     for (unsigned i = 0; i < Attrs.getNumAttrSets(); ++i) {
-      for (Attribute::AttrKind TypedAttr :
-             {Attribute::ByVal, Attribute::StructRet, Attribute::ByRef,
-              Attribute::InAlloca}) {
-        if (Type *Ty =
-                Attrs.getAttributeAtIndex(i, TypedAttr).getValueAsType()) {
+#if INTEL_CUSTOMIZATION
+      for (int AttrIdx = Attribute::FirstTypeAttr;
+           AttrIdx <= Attribute::LastTypeAttr; AttrIdx++) {
+        Attribute::AttrKind TypedAttr = (Attribute::AttrKind)AttrIdx;
+#endif // INTEL_CUSTOMIZATION
+        if (Type *Ty = Attrs.getAttribute(i, TypedAttr).getValueAsType()) {
           Attrs = Attrs.replaceAttributeTypeAtIndex(C, i, TypedAttr,
-                                                    TypeMapper->remapType(Ty));
+                                             TypeMapper->remapType(Ty));
           break;
         }
       }
