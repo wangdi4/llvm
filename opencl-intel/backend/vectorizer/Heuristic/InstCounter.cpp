@@ -165,6 +165,9 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
 
   if (F.hasOptNone())
     return false;
+  // No need to attempt vectorizing global ctor/dtor.
+  if (CompilationUtils::isGlobalCtorDtor(&F))
+    return false;
   // for statistics:
   OCLSTAT_GATHER_CHECK(
     m_blockCosts.clear();
@@ -268,8 +271,8 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   if (m_preVec) {
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
 
-    // Here, recommended_vector_length is set. This metadata is
-    // only used by VPO-VecClone.
+    // Here, recommended_vector_length is set. This metadata is used by later
+    // VF analysis passes.
     auto vkimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
     vkimd.RecommendedVL.set(m_desiredWidth);
   }
