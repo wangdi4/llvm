@@ -60,7 +60,10 @@ public:
 
   void print(raw_ostream &OS) const;
 
-  unsigned getVF(Function *Kernel) const { return KernelToVF.lookup(Kernel); }
+  unsigned getVF(Function *Kernel) const {
+    assert(KernelToVF.count(Kernel));
+    return KernelToVF.lookup(Kernel);
+  }
 
 private:
   /// Returns whether `ForceVF` takes effect: when `ForceVF == 0`, it has no

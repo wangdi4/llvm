@@ -23,14 +23,14 @@ using namespace llvm;
 namespace {
 
 /// Legacy SetVectorizationFactor pass.
-class SetVectorizationFactorLegacy : public FunctionPass {
+class SetVectorizationFactorLegacy : public ModulePass {
   SetVectorizationFactorPass Impl;
 
 public:
   static char ID;
 
   SetVectorizationFactorLegacy(VectorVariant::ISAClass ISA = VectorVariant::XMM)
-      : FunctionPass(ID), Impl(ISA) {
+      : ModulePass(ID), Impl(ISA) {
     initializeSetVectorizationFactorLegacyPass(
         *PassRegistry::getPassRegistry());
   }
@@ -39,67 +39,56 @@ public:
     return "SetVectorizationFactorLegacy";
   }
 
-  bool runOnFunction(Function &F) override { return Impl.runImpl(F); }
+  bool runOnModule(Module &M) override {
+    return Impl.runImpl(M, &getAnalysis<VFAnalysisLegacy>().getResult());
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addPreserved<CallGraphWrapperPass>();
-    AU.setPreservesCFG();
+    AU.addRequired<VFAnalysisLegacy>();
+    AU.setPreservesAll();
   }
 };
 } // namespace
 
 char SetVectorizationFactorLegacy::ID = 0;
 
-INITIALIZE_PASS(SetVectorizationFactorLegacy, DEBUG_TYPE,
-                "Set VF metadata for each function", false, false)
+INITIALIZE_PASS_BEGIN(SetVectorizationFactorLegacy, DEBUG_TYPE,
+                      "Set VF metadata for kernels", false, false)
+INITIALIZE_PASS_DEPENDENCY(VFAnalysisLegacy)
+INITIALIZE_PASS_END(SetVectorizationFactorLegacy, DEBUG_TYPE,
+                    "Set VF metadata for kernels", false, false)
 
-FunctionPass *
+ModulePass *
 llvm::createSetVectorizationFactorLegacyPass(VectorVariant::ISAClass ISA) {
   return new SetVectorizationFactorLegacy(ISA);
 }
 
 extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
 SetVectorizationFactorPass::SetVectorizationFactorPass(
-    VectorVariant::ISAClass ISA)
-    : ISA(ISA) {
-  if (IsaEncodingOverride.getNumOccurrences())
-    this->ISA = IsaEncodingOverride.getValue();
+    VectorVariant::ISAClass ISA) {
+  // Update IsaEncodingOverride. Used by VFAnalysis.
+  if (!IsaEncodingOverride.getNumOccurrences())
+    IsaEncodingOverride.setValue(ISA);
 }
 
-/// Get preferred vec width according to ISA.
-/// TODO: Future heuristics could be implemented here.
-static unsigned getPreferredVectorizationWidth(VectorVariant::ISAClass ISA) {
-  switch (ISA) {
-  case VectorVariant::XMM:
-  case VectorVariant::YMM1:
-    return 4;
-  case VectorVariant::YMM2:
-    return 8;
-  case VectorVariant::ZMM:
-    return 16;
-  default:
-    llvm_unreachable("unexpected ISA");
+bool SetVectorizationFactorPass::runImpl(Module &M,
+                                         const VFAnalysisInfo *VFInfo) {
+  auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
+  VFInfo->print(dbgs());
+  for (auto *Kernel : Kernels) {
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    unsigned VF = VFInfo->getVF(Kernel);
+    KIMD.RecommendedVL.set(VF);
+    LLVM_DEBUG(dbgs() << "Set VF=" << VF << " for kernel " << Kernel->getName()
+                      << '\n');
   }
+  return !Kernels.empty();
 }
 
-bool SetVectorizationFactorPass::runImpl(Function &F) {
-  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
-  if (KIMD.RecommendedVL.hasValue())
-    return false;
-  // Set "recommended_vector_length" metadata.
-  unsigned VF = getPreferredVectorizationWidth(ISA);
-  KIMD.RecommendedVL.set(VF);
-  LLVM_DEBUG(dbgs() << "Set VF=" << VF << " for function " << F.getName()
-                    << '\n');
-  return true;
-}
-
-PreservedAnalyses SetVectorizationFactorPass::run(Function &F,
-                                                  FunctionAnalysisManager &) {
-  if (!runImpl(F))
-    return PreservedAnalyses::all();
-  PreservedAnalyses PA;
-  PA.preserveSet<CFGAnalyses>();
-  PA.preserve<CallGraphAnalysis>();
-  return PA;
+PreservedAnalyses SetVectorizationFactorPass::run(Module &M,
+                                                  ModuleAnalysisManager &AM) {
+  VFAnalysisInfo *VFInfo = &AM.getResult<VFAnalysis>(M);
+  (void)runImpl(M, VFInfo);
+  // This pass won't invalidate any analysis results.
+  return PreservedAnalyses::all();
 }

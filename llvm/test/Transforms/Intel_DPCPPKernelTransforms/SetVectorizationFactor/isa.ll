@@ -20,12 +20,24 @@
 ; RUN: opt -dpcpp-kernel-set-vf -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-AVX512Core
 ; RUN: opt -passes=dpcpp-kernel-set-vf -dpcpp-vector-variant-isa-encoding-override=AVX512Core %s -S | FileCheck %s -check-prefixes=CHECK-COMMON,CHECK-AVX512Core
 
-define void @foo() {
+define void @kernel() {
   ret void
 }
 
-; CHECK-COMMON: define void @foo
+define void @non_kernel() {
+  ret void
+}
+
+!sycl.kernels = !{!0}
+
+!0 = !{void ()* @kernel}
+
+; CHECK-COMMON: define void @kernel
 ; CHECK-COMMON-SAME: !recommended_vector_length ![[#METADATA_ID:]]
+
+; Don't attach metadata on non-kernel functions.
+; CHECK-COMMON: define void @non_kernel
+; CHECK-NOT: !recommended_vector_length
 
 ; CHECK-COMMON: ![[#METADATA_ID]] = !{i32
 ; CHECK-SSE42-SAME: 4
