@@ -659,6 +659,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                  .Case("aligned", LoopHintAttr::VectorizeAligned)
                  .Case("dynamic_align", LoopHintAttr::VectorizeDynamicAlign)
                  .Case("nodynamic_align", LoopHintAttr::VectorizeNoDynamicAlign)
+                 .Case("vecremainder", LoopHintAttr::VectorizeVecremainder)
+                 .Case("novecremainder", LoopHintAttr::VectorizeNoVecremainder)
                  .Default(LoopHintAttr::Vectorize);
     SetHints(Option, LoopHintAttr::Enable);
   } else if (PragmaName == "loop_count") {
@@ -1178,6 +1180,8 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // VectorAligned
                    {nullptr, nullptr}, // VectorDynamicAlign
                    {nullptr, nullptr}, // VectorNoDynamicAlign
+                   {nullptr, nullptr}, // VectorVecremainder
+                   {nullptr, nullptr}, // VectorNoVecremainder
                    {nullptr, nullptr}, // LoopCount
                    {nullptr, nullptr}, // LoopCountMin
                    {nullptr, nullptr}, // LoopCountMax
@@ -1211,6 +1215,8 @@ CheckForIncompatibleAttributes(Sema &S,
       VectorAligned,
       VectorDynamicAlign,
       VectorNoDynamicAlign,
+      VectorVecremainder,
+      VectorNoVecremainder,
       LoopCount,
       LoopCountMin,
       LoopCountMax,
@@ -1258,6 +1264,12 @@ CheckForIncompatibleAttributes(Sema &S,
       break;
     case LoopHintAttr::VectorizeNoDynamicAlign:
       Category = VectorDynamicAlign;
+      break;
+    case LoopHintAttr::VectorizeVecremainder:
+      Category = VectorVecremainder;
+      break;
+    case LoopHintAttr::VectorizeNoVecremainder:
+      Category = VectorVecremainder;
       break;
     case LoopHintAttr::LoopCount:
       Category = LoopCount;
@@ -1364,6 +1376,8 @@ CheckForIncompatibleAttributes(Sema &S,
                Option == LoopHintAttr::VectorizeAligned ||
                Option == LoopHintAttr::VectorizeDynamicAlign ||
                Option == LoopHintAttr::VectorizeNoDynamicAlign ||
+               Option == LoopHintAttr::VectorizeVecremainder ||
+               Option == LoopHintAttr::VectorizeNoVecremainder ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
                Option == LoopHintAttr::LoopCountMax ||

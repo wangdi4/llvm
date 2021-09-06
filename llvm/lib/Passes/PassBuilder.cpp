@@ -1914,6 +1914,9 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
   FunctionPassManager FPM;
 
   if (Simplify) {
+    // Optimize unnesessary alloca, loads and stores to simplify IR.
+    FPM.addPass(SROA());
+
     // Inlining may introduce BasicBlocks without predecessors into an OpenMP
     // region. This breaks CodeExtractor when outlining the region because it
     // expects a single-entry-single-exit region. Calling CFG simplification

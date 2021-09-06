@@ -661,6 +661,11 @@ _mm_stream_load_si128 (__m128i const *__V)
 /// \param __V2
 ///    A 128-bit vector of [16 x i8]
 /// \returns A 128-bit vector of [16 x i8] containing the lesser values.
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#if !defined(__DSPV1_SUPPORTED__)
+/* end INTEL_CUSTOMIZATION */
+/* end INTEL_FEATURE_ISA_DSPV1 */
 static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epi8 (__m128i __V1, __m128i __V2)
 {
@@ -799,6 +804,11 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmaxud128((__v4si) __V1, (__v4si) __V2);
 }
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#endif // __DSPV1_SUPPORTED__
+/* end INTEL_FEATURE_ISA_DSPV1 */
+/* end INTEL_CUSTOMIZATION */
 
 /* SSE4 Insertion and Extraction from XMM Register Instructions.  */
 /// Takes the first argument \a X and inserts an element from the second

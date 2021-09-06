@@ -205,4 +205,48 @@ defm DVPHADDLSWQ : dspv1_2op_w<0xd0, "dvphaddlswq", loadv8i16>, T_MAP8PS, VEX_W;
 defm DVPHADDLSDUQ : dspv1_2op_w<0xd0, "dvphaddlsduq", loadv4i32>, T_MAP8PD;
 defm DVPHADDLSDQ : dspv1_2op_w<0xd0, "dvphaddlsdq", loadv4i32>, T_MAP8PS;
 // end Chapter 13
+
+// Chapter 19
+let Predicates = [Not64BitMode, HasDSPV1] in {
+  multiclass dspv1_3op_w_ch19<bits<8> Opcode, string OpcodeStr, PatFrag MemOpFrag,
+                         SDNode OpNode, ValueType VT> {
+      def rr : I<Opcode, MRMSrcReg, (outs VR128:$dst),
+               (ins VR128:$src1, VR128:$src2),
+               !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+                [(set VR128:$dst, (VT (OpNode VR128:$src1, VR128:$src2)))]>, VEX_4V;
+      def rm : I<Opcode, MRMSrcMem, (outs VR128:$dst),
+               (ins VR128:$src1, i128mem:$src2),
+               !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+               [(set VR128:$dst, (VT (OpNode VR128:$src1, (MemOpFrag addr:$src2))))]>,
+               VEX_4V;
+  }
+
+  multiclass dspv1_align {
+      def rri : Ii8<0xa7, MRMSrcReg, (outs VR128:$dst),
+                (ins VR128:$src1, VR128:$src2, u8imm:$src3),
+                "dvpalignr\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                [(set VR128:$dst, (v16i8 (X86PAlignr VR128:$src1, VR128:$src2,
+                  (i8 timm:$src3))))]>, VEX_4V, TAPS;
+      def rmi  : Ii8<0xa7, MRMSrcMem, (outs VR128:$dst),
+                (ins VR128:$src1, i128mem:$src2, u8imm:$src3),
+                "dvpalignr\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+                [(set VR128:$dst, (v16i8 (X86PAlignr  VR128:$src1,
+                 (loadv16i8 addr:$src2), (i8 timm:$src3))))]>, VEX_4V, TAPS;
+  }
+}
+
+defm DVPALIGNR : dspv1_align;
+defm DVPMAXSB : dspv1_3op_w_ch19<0xd1, "dvpmaxsb", loadv16i8, smax, v16i8>, T_MAP8PS;
+defm DVPMAXUB : dspv1_3op_w_ch19<0xd1, "dvpmaxub", loadv16i8, umax, v16i8>, T_MAP8PD;
+defm DVPMAXSW : dspv1_3op_w_ch19<0xd1, "dvpmaxsw", loadv8i16, smax, v8i16>, T_MAP8PS, VEX_W;
+defm DVPMAXSD : dspv1_3op_w_ch19<0xd1, "dvpmaxsd", loadv4i32, smax, v4i32>, T_MAP8XS;
+defm DVPMAXUW : dspv1_3op_w_ch19<0xd1, "dvpmaxuw", loadv8i16, umax, v8i16>, T_MAP8PD, VEX_W;
+defm DVPMAXUD : dspv1_3op_w_ch19<0xd1, "dvpmaxud", loadv4i32, umax, v4i32>, T_MAP8XD;
+defm DVPMINSB : dspv1_3op_w_ch19<0xd2, "dvpminsb", loadv16i8, smin, v16i8>, T_MAP8PS;
+defm DVPMINUB : dspv1_3op_w_ch19<0xd2, "dvpminub", loadv16i8, umin, v16i8>, T_MAP8PD;
+defm DVPMINSW : dspv1_3op_w_ch19<0xd2, "dvpminsw", loadv8i16, smin, v8i16>, T_MAP8PS, VEX_W;
+defm DVPMINSD : dspv1_3op_w_ch19<0xd2, "dvpminsd", loadv4i32, smin, v4i32>, T_MAP8XS;
+defm DVPMINUW : dspv1_3op_w_ch19<0xd2, "dvpminuw", loadv8i16, umin, v8i16>, T_MAP8PD, VEX_W;
+defm DVPMINUD : dspv1_3op_w_ch19<0xd2, "dvpminud", loadv4i32, umin, v4i32>, T_MAP8XD;
+// end Chapter 19
 #endif // INTEL_FEATURE_ISA_DSPV1

@@ -107,14 +107,20 @@ struct LoopAttributes {
   /// Value for llvm.loop.vector_always.enable metadata.
   bool VectorizeAlwaysEnable;
 
-  /// Value for llvm.loop.intel.vector_aligned.enable metadata.
+  /// Value for llvm.loop.intel.vector.aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
-  /// Value for llvm.loop.intel.vector_dynamic_align.enable metadata.
+  /// Value for llvm.loop.intel.vector.dynamic_align.enable metadata.
   bool VectorizeDynamicAlignEnable;
 
-  /// Value for llvm.loop.intel.vector_dddynamic_align.enable metadata.
+  /// Value for llvm.loop.intel.vector.nodynamic_align.enable metadata.
   bool VectorizeNoDynamicAlignEnable;
+
+  /// Value for llvm.loop.intel.vector.vecremainder.enable metadata.
+  bool VectorizeVecremainderEnable;
+
+  /// Value for llvm.loop.intel.vector.novecremainder.enable metadata.
+  bool VectorizeNoVecremainderEnable;
 
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
@@ -479,6 +485,16 @@ public:
   /// Set next pushed loop  'vector_dynamic_aligned.enable'
   void setVectorizeNoDynamicAlignEnable() {
     StagedAttrs.VectorizeNoDynamicAlignEnable = true;
+  }
+
+  /// Set next pushed loop  'vector.vecremainder.enable'
+  void setVectorizeVecremainderEnable() {
+    StagedAttrs.VectorizeVecremainderEnable = true;
+  }
+
+  /// Set next pushed loop  'vector.novecremainder.enable'
+  void setVectorizeNoVecremainderEnable() {
+    StagedAttrs.VectorizeNoVecremainderEnable = true;
   }
 
   /// Set the LoopCount for the next loop pushed.

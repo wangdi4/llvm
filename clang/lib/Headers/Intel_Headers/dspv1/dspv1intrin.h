@@ -15,6 +15,9 @@
 #ifndef __DSPINTRIN_H
 #define __DSPINTRIN_H
 
+/* Below intrinsics defined in other headers can be used for DSPV1 */
+// \fn __m128i _mm_alignr_epi8(__m128i a, __m128i b, int imm8)
+
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS128                                                  \
   __attribute__((__always_inline__, __nodebug__, __target__("dspv1"),          \
@@ -311,6 +314,42 @@ static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_dsp_phaddlsdq_epi32(__m128i __A) {
   return (__m128i)__builtin_ia32_dvphaddlsdq((__v4su)__A);
 }
+
+#define _mm_max_epi16(__a, __b)                                                \
+  (__m128i)__builtin_ia32_pmaxsw128((__v8hi)(__a), (__v8hi)(__b))
+
+#define _mm_max_epu8(__a, __b)                                                 \
+  (__m128i)__builtin_ia32_pmaxub128((__v16qi)(__a), (__v16qi)(__b))
+
+#define _mm_min_epi16(__a, __b)                                                \
+  (__m128i)__builtin_ia32_pminsw128((__v8hi)(__a), (__v8hi)(__b))
+
+#define _mm_min_epu8(__a, __b)                                                 \
+  (__m128i)__builtin_ia32_pminub128((__v16qi)(__a), (__v16qi)(__b))
+
+#define _mm_min_epi8(__V1, __V2)                                               \
+  (__m128i)__builtin_ia32_pminsb128((__v16qi)(__V1), (__v16qi)(__V2))
+
+#define _mm_max_epi8(__V1, __V2)                                               \
+  (__m128i)__builtin_ia32_pmaxsb128((__v16qi)(__V1), (__v16qi)(__V2))
+
+#define _mm_min_epu16(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pminuw128((__v8hi)(__V1), (__v8hi)(__V2))
+
+#define _mm_max_epu16(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pmaxuw128((__v8hi)(__V1), (__v8hi)(__V2))
+
+#define _mm_min_epi32(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pminsd128((__v4si)(__V1), (__v4si)(__V2))
+
+#define _mm_max_epi32(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pmaxsd128((__v4si)(__V1), (__v4si)(__V2))
+
+#define _mm_min_epu32(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pminud128((__v4si)(__V1), (__v4si)(__V2))
+
+#define _mm_max_epu32(__V1, __V2)                                              \
+  (__m128i)__builtin_ia32_pmaxud128((__v4si)(__V1), (__v4si)(__V2))
 
 #undef __DEFAULT_FN_ATTRS128
 #endif // __DSPINTRIN_H

@@ -1198,6 +1198,18 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+  if (Subtarget.hasDSPV1() && Subtarget.is32Bit())
+    for (auto VT : {MVT::v16i8, MVT::v8i16, MVT::v4i32}) {
+      setOperationAction(ISD::SMAX, VT, Legal);
+      setOperationAction(ISD::SMIN, VT, Legal);
+      setOperationAction(ISD::UMAX, VT, Legal);
+      setOperationAction(ISD::UMIN, VT, Legal);
+    }
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
+
   if (!Subtarget.useSoftFloat() && Subtarget.hasSSE42()) {
     setOperationAction(ISD::UADDSAT,            MVT::v2i64, Custom);
   }
@@ -38136,7 +38148,15 @@ static bool matchBinaryPermuteShuffle(
   }
 
   // Attempt to match against PALIGNR byte rotate.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+  if (AllowIntDomain && ((MaskVT.is128BitVector() &&
+                          (Subtarget.hasSSSE3() ||
+                           (Subtarget.hasDSPV1() && Subtarget.is32Bit()))) ||
+#else  // INTEL_FEATURE_ISA_DSPV1
   if (AllowIntDomain && ((MaskVT.is128BitVector() && Subtarget.hasSSSE3()) ||
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
                          (MaskVT.is256BitVector() && Subtarget.hasAVX2()) ||
                          (MaskVT.is512BitVector() && Subtarget.hasBWI()))) {
     int ByteRotation = matchShuffleAsByteRotate(MaskVT, V1, V2, Mask);
