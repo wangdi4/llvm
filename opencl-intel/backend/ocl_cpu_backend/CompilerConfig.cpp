@@ -127,7 +127,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             (int)CHANNEL_DEPTH_MODE_STRICT);
         m_LLVMOptions += " --channel-depth-emulation-mode="
             + std::to_string(channelDepthEmulationMode);
-        m_LLVMOptions += " --remove-fpga-reg --demangle-fpga-pipes";
+        m_LLVMOptions += " --dpcpp-remove-fpga-reg --dpcpp-demangle-fpga-pipes";
     }
     else if (EYEQ_EMU_DEVICE == m_targetDevice)
     {

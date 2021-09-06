@@ -252,7 +252,6 @@ set( BACKEND_PASSES
     Prefetch
     SubGroupAdaptation
     ResolveBlockToStaticCall
-    LLVMEqualizer
     PatchCallbackArgs
     SinCosFold
     SmartGVN
