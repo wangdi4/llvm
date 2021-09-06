@@ -16,9 +16,12 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 // Forward declaration
-template <typename, int, access::mode, access::target, access::placeholder,
+/* INTEL_CUSTOMIZATION */
+template <typename DataT, int Dimensions, access::mode AccessMode,
+          access::target AccessTarget, access::placeholder IsPlaceholder,
           typename PropertyListT>
 class accessor;
+/* end INTEL_CUSTOMIZATION */
 namespace detail {
 // This helper template must be specialized for nested instance template
 // of each compile-time-constant property.
