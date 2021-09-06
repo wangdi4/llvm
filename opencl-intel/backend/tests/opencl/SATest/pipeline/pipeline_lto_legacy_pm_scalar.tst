@@ -18,7 +18,7 @@
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+; CHECK:          DPCPPKernelAnalysisLegacy
 
 ; CHECK:          Call Graph SCC Pass Manager
 ; CHECK:            FunctionPass Manager

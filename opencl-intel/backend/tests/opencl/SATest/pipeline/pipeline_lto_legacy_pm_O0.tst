@@ -18,7 +18,7 @@
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
-; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+; CHECK:          DPCPPKernelAnalysisLegacy
 ; CHECK-NOT:      SetVectorizationFactorLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
