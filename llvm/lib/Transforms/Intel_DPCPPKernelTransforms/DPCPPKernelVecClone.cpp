@@ -947,17 +947,9 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   }
 
   DPCPPPrepareKernelForVecClone PK(ISA);
-  FuncSet UnsupportedFuncs =
-      VectorizerUtils::CanVectorize::getNonInlineUnsupportedFunctions(M);
   for (auto *F : Kernels) {
-    // TODO: replace canVectorizeForVPO with "KIMD.RecommendedVL.get() > 1" once
-    // RecommendedVL is unconditionally set by a previous pass and OCLVPOCheckVF
-    // is ported.
-    if (VectorizerUtils::CanVectorize::canVectorizeForVPO(
-          *F, UnsupportedFuncs,
-          DPCPPEnableDirectFunctionCallVectorization,
-          DPCPPEnableSubgroupDirectCallVectorization) &&
-        !F->hasOptNone())
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    if (KIMD.RecommendedVL.get() > 1)
       PK.run(*F);
   }
 }

@@ -89,31 +89,8 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
 // activate the VecClone pass.
 void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function &F) {
   DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
-  unsigned VF;
-  if (KIMD.RecommendedVL.hasValue()) {
-    VF = KIMD.RecommendedVL.get();
-  } else {
-    // Previously vector length was calculated by WeightedInstCounter pass.
-    // We will probably not port WeightedInstCounter pass.
-    // TODO: remove following code once RecommendedVL is unconditionally set by
-    // a previous pass and OCLVPOCheckVF is ported.
-    auto getPreferredVectorizationWidth = [&]() {
-      switch (ISA) {
-      case VectorVariant::XMM:
-        LLVM_FALLTHROUGH;
-      case VectorVariant::YMM1:
-        return 4;
-      case VectorVariant::YMM2:
-        return 8;
-      case VectorVariant::ZMM:
-        return 16;
-      default:
-        llvm_unreachable("unexpected ISA");
-      }
-    };
-    VF = getPreferredVectorizationWidth();
-    KIMD.RecommendedVL.set(VF);
-  }
+  assert(KIMD.RecommendedVL.hasValue());
+  unsigned VF = KIMD.RecommendedVL.get();
 
   // Use "uniform" parameter for all arguments.
   std::vector<VectorKind> ParamsKind(F.arg_size(), VectorKind::uniform());
