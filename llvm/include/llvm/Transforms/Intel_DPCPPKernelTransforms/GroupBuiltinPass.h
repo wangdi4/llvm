@@ -52,10 +52,10 @@ private:
   Constant *getInitializationValue(Function *Func);
 
   /// Implement call to get_local_linear_id().
-  Instruction *getLinearID(CallInst *WGCallInstr);
+  Instruction *getLinearIDForBroadcast(CallInst *WGCallInstr);
 
   /// Generate linear ID out of ID indices
-  Value *calculateLinearID(CallInst *WGCallInstr);
+  Value *calculateLinearIDForBroadcast(CallInst *WGCallInstr);
 
   /// Helper for WI function call generation.
   /// Generates a call to WI function upon its name and dimension index
