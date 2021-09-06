@@ -12,6 +12,7 @@ define <4 x float> @rangeps_128(<4 x float> %a0, <4 x float> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $88, %xmm2, %xmm0, %xmm1
 ; CHECK-NEXT:    vaddps %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -31,6 +32,7 @@ define <4 x float> @rangeps_mem_128(<4 x float> %a0, <4 x float>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi), %xmm1, %xmm0
 ; CHECK-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
@@ -49,6 +51,7 @@ define <4 x float> @rangeps_broadcast_128(<4 x float> %a0, float* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi){1to4}, %xmm1, %xmm0
 ; CHECK-NEXT:    vaddps %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
@@ -70,6 +73,7 @@ define <4 x float> @rangeps_maskz_128(<4 x float> %a0, <4 x float> %a1, i8* %pma
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $88, %xmm2, %xmm0, %xmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddps %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -92,6 +96,7 @@ define <8 x float> @rangeps_256(<8 x float> %a0, <8 x float> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $88, %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vaddps %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vaddps %ymm0, %ymm1, %ymm0
@@ -111,6 +116,7 @@ define <8 x float> @rangeps_mem_256(<8 x float> %a0, <8 x float>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi), %ymm1, %ymm0
 ; CHECK-NEXT:    vaddps %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -129,6 +135,7 @@ define <8 x float> @rangeps_broadcast_256(<8 x float> %a0, float* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi){1to8}, %ymm1, %ymm0
 ; CHECK-NEXT:    vaddps %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -150,6 +157,7 @@ define <8 x float> @rangeps_maskz_256(<8 x float> %a0, <8 x float> %a1, i8* %pma
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $44, %ymm2, %ymm0, %ymm1 {%k1} {z}
 ; CHECK-NEXT:    vaddps %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vaddps %ymm0, %ymm1, %ymm0
@@ -172,6 +180,7 @@ define <16 x float> @rangeps_512(<16 x float> %a0, <16 x float> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $88, %zmm2, %zmm0, %zmm1
 ; CHECK-NEXT:    vaddps %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vaddps %zmm0, %zmm1, %zmm0
@@ -191,6 +200,7 @@ define <16 x float> @rangeps_mem_512(<16 x float> %a0, <16 x float>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi), %zmm1, %zmm0
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -209,6 +219,7 @@ define <16 x float> @rangeps_broadcast_512(<16 x float> %a0, float* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangeps $88, (%rdi){1to16}, %zmm1, %zmm0
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -230,6 +241,7 @@ define <16 x float> @rangeps_maskz_512(<16 x float> %a0, <16 x float> %a1, i16* 
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovw (%rdi), %k1
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangeps $88, %zmm2, %zmm0, %zmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddps %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vaddps %zmm0, %zmm1, %zmm0
@@ -253,6 +265,7 @@ define <2 x double> @rangepd_128(<2 x double> %a0, <2 x double> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %xmm2, %xmm0, %xmm1
 ; CHECK-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
@@ -272,6 +285,7 @@ define <2 x double> @rangepd_mem_128(<2 x double> %a0, <2 x double>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi), %xmm1, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
@@ -290,6 +304,7 @@ define <2 x double> @rangepd_broadcast_128(<2 x double> %a0, double* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi){1to2}, %xmm1, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
@@ -311,6 +326,7 @@ define <2 x double> @rangepd_maskz_128(<2 x double> %a0, <2 x double> %a1, i8* %
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %xmm2, %xmm0, %xmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
@@ -333,6 +349,7 @@ define <4 x double> @rangepd_256(<4 x double> %a0, <4 x double> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vaddpd %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
@@ -352,6 +369,7 @@ define <4 x double> @rangepd_mem_256(<4 x double> %a0, <4 x double>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi), %ymm1, %ymm0
 ; CHECK-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -370,6 +388,7 @@ define <4 x double> @rangepd_broadcast_256(<4 x double> %a0, double* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi){1to4}, %ymm1, %ymm0
 ; CHECK-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -391,6 +410,7 @@ define <4 x double> @rangepd_maskz_256(<4 x double> %a0, <4 x double> %a1, i8* %
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %ymm2, %ymm0, %ymm1 {%k1} {z}
 ; CHECK-NEXT:    vaddpd %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
@@ -413,6 +433,7 @@ define <8 x double> @rangepd_512(<8 x double> %a0, <8 x double> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %zmm2, %zmm0, %zmm1
 ; CHECK-NEXT:    vaddpd %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vaddpd %zmm0, %zmm1, %zmm0
@@ -432,6 +453,7 @@ define <8 x double> @rangepd_mem_512(<8 x double> %a0, <8 x double>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi), %zmm1, %zmm0
 ; CHECK-NEXT:    vaddpd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -450,6 +472,7 @@ define <8 x double> @rangepd_broadcast_512(<8 x double> %a0, double* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangepd $88, (%rdi){1to8}, %zmm1, %zmm0
 ; CHECK-NEXT:    vaddpd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -471,6 +494,7 @@ define <8 x double> @rangepd_maskz_512(<8 x double> %a0, <8 x double> %a1, i8* %
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangepd $88, %zmm2, %zmm0, %zmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddpd %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vaddpd %zmm0, %zmm1, %zmm0
@@ -493,6 +517,7 @@ define <4 x float> @rangess(<4 x float> %a0, <4 x float> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangess $4, %xmm2, %xmm0, %xmm1
 ; CHECK-NEXT:    vaddps %xmm0, %xmm2, %xmm0
 ; CHECK-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -510,6 +535,7 @@ define <4 x float> @rangess_mem(<4 x float> %a0, <4 x float>* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangess $4, (%rdi), %xmm0, %xmm1
 ; CHECK-NEXT:    vaddps %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
@@ -529,6 +555,7 @@ define <4 x float> @rangess_maskz(<4 x float> %a0, <4 x float> %a1, i8* %pmask) 
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovaps {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangess $4, %xmm2, %xmm0, %xmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddps %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddps %xmm0, %xmm1, %xmm0
@@ -551,6 +578,7 @@ define <2 x double> @rangesd(<2 x double> %a0, <2 x double> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangesd $4, %xmm2, %xmm0, %xmm1
 ; CHECK-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm0, %xmm1, %xmm0
@@ -570,6 +598,7 @@ define <2 x double> @rangesd_mem(<2 x double> %a0, <2 x double>* %p1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm1 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vrangesd $4, (%rdi), %xmm1, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    retq
@@ -589,6 +618,7 @@ define <2 x double> @rangesd_maskz(<2 x double> %a0, <2 x double> %a1, i8* %pmas
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
 ; CHECK-NEXT:    vmovapd {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vrangesd $4, %xmm2, %xmm0, %xmm1 {%k1} {z}
 ; CHECK-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vaddpd %xmm0, %xmm1, %xmm0

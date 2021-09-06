@@ -14,6 +14,7 @@ define <8 x i32> @permd(<8 x i32> %a0, <8 x i32> %a1) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermd %ymm2, %ymm1, %ymm0
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm2, %ymm1
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
@@ -33,6 +34,7 @@ define <8 x i32> @permd_mem(<8 x i32>* %p0, <8 x i32> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermd (%rdi), %ymm1, %ymm0
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -51,6 +53,7 @@ define <4 x i64> @permq(<4 x i64> %a0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq {{.*#+}} ymm1 = ymm0[1,2,1,0]
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -66,6 +69,7 @@ define <4 x i64> @permq_mem(<4 x i64>* %p0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm0 = mem[1,2,1,0]
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{flags}"()
@@ -82,6 +86,7 @@ define <8 x float> @permps(<8 x float> %a0, <8 x i32> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermps %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
 ; CHECK-NEXT:    vaddps %ymm2, %ymm0, %ymm0
@@ -101,6 +106,7 @@ define <8 x float> @permps_mem(<8 x float>* %p0, <8 x i32> %a1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermps (%rdi), %ymm0, %ymm1
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
 ; CHECK-NEXT:    vaddps %ymm0, %ymm1, %ymm0
@@ -121,6 +127,7 @@ define <4 x double> @permpd(<4 x double> %a0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm1 = ymm0[1,2,1,0]
 ; CHECK-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -136,6 +143,7 @@ define <4 x double> @permpd_mem(<4 x double>* %p0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm0 = mem[1,2,1,0]
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{flags}"()

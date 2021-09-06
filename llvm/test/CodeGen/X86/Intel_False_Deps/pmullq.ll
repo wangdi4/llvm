@@ -12,6 +12,7 @@ define <2 x i64> @pmullq_128(<2 x i64> %a0, <2 x i64> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqa {{[-0-9]+}}(%r{{[sb]}}p), %xmm2 # 16-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq %xmm2, %xmm0, %xmm1
 ; CHECK-NEXT:    vpaddq %xmm2, %xmm0, %xmm0
 ; CHECK-NEXT:    vpaddq %xmm0, %xmm1, %xmm0
@@ -29,6 +30,7 @@ define <2 x i64> @pmullq_mem_128(<2 x i64> %a0, <2 x i64>* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi), %xmm0, %xmm1
 ; CHECK-NEXT:    vpaddq %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
@@ -45,6 +47,7 @@ define <2 x i64> @pmullq_broadcast_128(<2 x i64> %a0, i64* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi){1to2}, %xmm0, %xmm1
 ; CHECK-NEXT:    vpaddq %xmm0, %xmm1, %xmm0
 ; CHECK-NEXT:    retq
@@ -64,6 +67,7 @@ define <2 x i64> @pmullq_maskz_128(<2 x i64> %a0, <2 x i64> %a1, i8* %pmask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpmullq %xmm1, %xmm0, %xmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %xmm1, %xmm0, %xmm0
 ; CHECK-NEXT:    vpaddq %xmm0, %xmm2, %xmm0
@@ -86,6 +90,7 @@ define <4 x i64> @pmullq_256(<4 x i64> %a0, <4 x i64> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vpaddq %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
@@ -103,6 +108,7 @@ define <4 x i64> @pmullq_mem_256(<4 x i64> %a0, <4 x i64>* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi), %ymm0, %ymm1
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -119,6 +125,7 @@ define <4 x i64> @pmullq_broadcast_256(<4 x i64> %a0, i64* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi){1to4}, %ymm0, %ymm1
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -138,6 +145,7 @@ define <4 x i64> @pmullq_maskz_256(<4 x i64> %a0, <4 x i64> %a1, i8* %pmask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpmullq %ymm1, %ymm0, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
@@ -160,6 +168,7 @@ define <8 x i64> @pmullq_512(<8 x i64> %a0, <8 x i64> %a1) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq %zmm2, %zmm0, %zmm1
 ; CHECK-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm1, %zmm0
@@ -177,6 +186,7 @@ define <8 x i64> @pmullq_mem_512(<8 x i64> %a0, <8 x i64>* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi), %zmm0, %zmm1
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm1, %zmm0
 ; CHECK-NEXT:    retq
@@ -193,6 +203,7 @@ define <8 x i64> @pmullq_broadcast_512(<8 x i64> %a0, i64* %p1) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpmullq (%rdi){1to8}, %zmm0, %zmm1
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm1, %zmm0
 ; CHECK-NEXT:    retq
@@ -212,6 +223,7 @@ define <8 x i64> @pmullq_maskz_512(<8 x i64> %a0, <8 x i64> %a1, i8* %pmask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpmullq %zmm1, %zmm0, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm2, %zmm0

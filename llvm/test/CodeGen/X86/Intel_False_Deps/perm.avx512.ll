@@ -10,6 +10,7 @@ define <4 x i64> @permq_ri_256(<4 x i64> %a0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq {{.*#+}} ymm1 = ymm0[1,2,1,0]
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -27,6 +28,7 @@ define <4 x i64> @permq_rr_256(<4 x i64> %a0, <4 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq %ymm0, %ymm2, %ymm1
 ; CHECK-NEXT:    vpaddq %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
@@ -44,6 +46,7 @@ define <4 x i64> @permq_rm_256(<4 x i64>* %p0, <4 x i64> %idx) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq (%rdi), %ymm0, %ymm1
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -60,6 +63,7 @@ define <4 x i64> @permq_mi_256(<4 x i64>* %p0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm0 = mem[3,2,2,0]
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
@@ -76,6 +80,7 @@ define <4 x i64> @permq_broadcast_256(i64* %p0, <4 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermq (%rdi){1to4}, %ymm1, %ymm0
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -95,6 +100,7 @@ define <4 x i64> @permq_maskz_256(<4 x i64> %a0, <4 x i64> %idx, i8* %mask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermq %ymm0, %ymm1, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
@@ -118,6 +124,7 @@ define <8 x i64> @permq_rr_512(<8 x i64> %a0, <8 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq %zmm0, %zmm2, %zmm1
 ; CHECK-NEXT:    vpaddq %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
@@ -135,6 +142,7 @@ define <8 x i64> @permq_rm_512(<8 x i64>* %p0, <8 x i64> %idx) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermq (%rdi), %zmm0, %zmm1
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -153,6 +161,7 @@ define <8 x i64> @permq_broadcast_512(i64* %p0, <8 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermq (%rdi){1to8}, %zmm1, %zmm0
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -172,6 +181,7 @@ define <8 x i64> @permq_maskz_512(<8 x i64> %a0, <8 x i64> %idx, i8* %mask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermq %zmm0, %zmm1, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddq %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddq %zmm0, %zmm2, %zmm0
@@ -195,6 +205,7 @@ define <8 x i32> @permd_rr_256(<8 x i32> %a0, <8 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm2 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermd %ymm0, %ymm2, %ymm1
 ; CHECK-NEXT:    vpaddd %ymm2, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
@@ -212,6 +223,7 @@ define <8 x i32> @permd_rm_256(<8 x i32>* %p0, <8 x i32> %idx) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermd (%rdi), %ymm0, %ymm1
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -230,6 +242,7 @@ define <8 x i32> @permd_broadcast_256(i32* %p0, <8 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermd (%rdi){1to8}, %ymm1, %ymm0
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    retq
@@ -249,6 +262,7 @@ define <8 x i32> @permd_maskz_256(<8 x i32> %a0, <8 x i32> %idx, i8* %mask) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermd %ymm0, %ymm1, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
 ; CHECK-NEXT:    vpaddd %ymm0, %ymm2, %ymm0
@@ -271,6 +285,7 @@ define <16 x i32> @permd_rr_512(<16 x i32> %a0, <16 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm2 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermd %zmm0, %zmm2, %zmm1
 ; CHECK-NEXT:    vpaddd %zmm2, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddd %zmm1, %zmm0, %zmm0
@@ -288,6 +303,7 @@ define <16 x i32> @permd_rm_512(<16 x i32>* %p0, <16 x i32> %idx) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermd (%rdi), %zmm0, %zmm1
 ; CHECK-NEXT:    vpaddd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -306,6 +322,7 @@ define <16 x i32> @permd_broadcast_512(i32* %p0, <16 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovdqu64 {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermd (%rdi){1to16}, %zmm1, %zmm0
 ; CHECK-NEXT:    vpaddd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    retq
@@ -325,6 +342,7 @@ define <16 x i32> @permd_maskz_512(<16 x i32> %a0, <16 x i32> %idx, i16* %mask) 
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovw (%rdi), %k1
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermd %zmm0, %zmm1, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vpaddd %zmm1, %zmm0, %zmm0
 ; CHECK-NEXT:    vpaddd %zmm0, %zmm2, %zmm0
@@ -345,6 +363,7 @@ define <4 x double> @permpd_ri_256(<4 x double> %a0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm1 = ymm0[1,2,1,0]
 ; CHECK-NEXT:    vaddpd %ymm0, %ymm1, %ymm0
 ; CHECK-NEXT:    retq
@@ -363,6 +382,7 @@ define <4 x double> @permpd_rr_256(<4 x double> %a0, <4 x i64> %idx) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd %ymm0, %ymm2
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermpd %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vcvtqq2pd %ymm0, %ymm0
 ; CHECK-NEXT:    vaddpd %ymm0, %ymm2, %ymm0
@@ -384,6 +404,7 @@ define <4 x double> @permpd_rm_256(<4 x double>* %p0, <4 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd (%rdi), %ymm1, %ymm0
 ; CHECK-NEXT:    vcvtqq2pd %ymm1, %ymm1
 ; CHECK-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
@@ -402,6 +423,7 @@ define <4 x double> @permpd_mi_256(<4 x double>* %p0) {
 ; CHECK-NEXT:    #APP
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd {{.*#+}} ymm0 = mem[3,2,2,0]
 ; CHECK-NEXT:    retq
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15},~{xmm16},~{xmm17},~{xmm18},~{xmm19},~{xmm20},~{xmm21},~{xmm22},~{xmm23},~{xmm24},~{xmm25},~{xmm26},~{xmm27},~{xmm28},~{xmm29},~{xmm30},~{xmm31},~{flags}"()
@@ -418,6 +440,7 @@ define <4 x double> @permpd_broadcast_256(double* %p0, <4 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd (%rdi){1to4}, %ymm1, %ymm0
 ; CHECK-NEXT:    vcvtqq2pd %ymm1, %ymm1
 ; CHECK-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
@@ -439,6 +462,7 @@ define <4 x double> @permpd_maskz_256(<4 x double> %a0, <4 x i64> %idx, i8* %mas
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermpd %ymm0, %ymm1, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vcvtqq2pd %ymm1, %ymm1
 ; CHECK-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
@@ -465,6 +489,7 @@ define <8 x double> @permpd_rr_512(<8 x double> %a0, <8 x i64> %idx) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovapd %zmm0, %zmm2
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermpd %zmm2, %zmm0, %zmm1
 ; CHECK-NEXT:    vcvtqq2pd %zmm0, %zmm0
 ; CHECK-NEXT:    vaddpd %zmm0, %zmm2, %zmm0
@@ -486,6 +511,7 @@ define <8 x double> @permpd_rm_512(<8 x double>* %p0, <8 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd (%rdi), %zmm1, %zmm0
 ; CHECK-NEXT:    vcvtqq2pd %zmm1, %zmm1
 ; CHECK-NEXT:    vaddpd %zmm1, %zmm0, %zmm0
@@ -506,6 +532,7 @@ define <8 x double> @permpd_broadcast_512(double* %p0, <8 x i64> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovupd {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermpd (%rdi){1to8}, %zmm1, %zmm0
 ; CHECK-NEXT:    vcvtqq2pd %zmm1, %zmm1
 ; CHECK-NEXT:    vaddpd %zmm1, %zmm0, %zmm0
@@ -527,6 +554,7 @@ define <8 x double> @permpd_maskz_512(<8 x double> %a0, <8 x i64> %idx, i8* %mas
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermpd %zmm0, %zmm1, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vcvtqq2pd %zmm1, %zmm1
 ; CHECK-NEXT:    vaddpd %zmm1, %zmm0, %zmm0
@@ -554,6 +582,7 @@ define <8 x float> @permps_rr_256(<8 x float> %a0, <8 x i32> %idx) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps %ymm0, %ymm2
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm0 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermps %ymm2, %ymm0, %ymm1
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
 ; CHECK-NEXT:    vaddps %ymm0, %ymm2, %ymm0
@@ -575,6 +604,7 @@ define <8 x float> @permps_rm_256(<8 x float>* %p0, <8 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermps (%rdi), %ymm1, %ymm0
 ; CHECK-NEXT:    vcvtdq2ps %ymm1, %ymm1
 ; CHECK-NEXT:    vaddps %ymm1, %ymm0, %ymm0
@@ -595,6 +625,7 @@ define <8 x float> @permps_broadcast_256(float* %p0, <8 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %ymm1 # 32-byte Reload
+; CHECK-NEXT:    vxorps %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermps (%rdi){1to8}, %ymm1, %ymm0
 ; CHECK-NEXT:    vcvtdq2ps %ymm1, %ymm1
 ; CHECK-NEXT:    vaddps %ymm1, %ymm0, %ymm0
@@ -616,6 +647,7 @@ define <8 x float> @permps_maskz_256(<8 x float> %a0, <8 x i32> %idx, i8* %mask)
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovb (%rdi), %k1
+; CHECK-NEXT:    vxorps %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermps %ymm0, %ymm1, %ymm2 {%k1} {z}
 ; CHECK-NEXT:    vcvtdq2ps %ymm1, %ymm1
 ; CHECK-NEXT:    vaddps %ymm1, %ymm0, %ymm0
@@ -641,6 +673,7 @@ define <16 x float> @permps_rr_512(<16 x float> %a0, <16 x i32> %idx) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovaps %zmm0, %zmm2
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm0 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm1, %xmm1, %xmm1
 ; CHECK-NEXT:    vpermps %zmm2, %zmm0, %zmm1
 ; CHECK-NEXT:    vcvtdq2ps %zmm0, %zmm0
 ; CHECK-NEXT:    vaddps %zmm0, %zmm2, %zmm0
@@ -662,6 +695,7 @@ define <16 x float> @permps_rm_512(<16 x float>* %p0, <16 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermps (%rdi), %zmm1, %zmm0
 ; CHECK-NEXT:    vcvtdq2ps %zmm1, %zmm1
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
@@ -682,6 +716,7 @@ define <16 x float> @permps_broadcast_512(float* %p0, <16 x i32> %idx) {
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vmovups {{[-0-9]+}}(%r{{[sb]}}p), %zmm1 # 64-byte Reload
+; CHECK-NEXT:    vpxor %xmm0, %xmm0, %xmm0
 ; CHECK-NEXT:    vpermps (%rdi){1to16}, %zmm1, %zmm0
 ; CHECK-NEXT:    vcvtdq2ps %zmm1, %zmm1
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0
@@ -703,6 +738,7 @@ define <16 x float> @permps_maskz_512(<16 x float> %a0, <16 x i32> %idx, i16* %m
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    kmovw (%rdi), %k1
+; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpermps %zmm0, %zmm1, %zmm2 {%k1} {z}
 ; CHECK-NEXT:    vcvtdq2ps %zmm1, %zmm1
 ; CHECK-NEXT:    vaddps %zmm1, %zmm0, %zmm0

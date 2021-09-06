@@ -885,7 +885,19 @@ def Tuning4KDSB : SubtargetFeature<"4kdsb", "DSBSize", "DSB4K",
                                [Tuning2KDSB]>;
 def TuningCMULFalseDeps : SubtargetFeature<"false-deps-cmul",
                                "HasCMULFalseDeps", "true",
-                               "CMUL have a false dependency on dest register">;
+                               "CMUL has a false dependency on dest register">;
+def TuningPERMFalseDeps : SubtargetFeature<"false-deps-perm",
+                               "HasPERMFalseDeps", "true",
+                               "PERM has a false dependency on dest register">;
+def TuningRANGEFalseDeps : SubtargetFeature<"false-deps-range",
+                               "HasRANGEFalseDeps", "true",
+                               "RANGE has a false dependency on dest register">;
+def TuningGETMANTFalseDeps : SubtargetFeature<"false-deps-getmant",
+                               "HasGETMANTFalseDeps", "true",
+                               "GETMANT has a false dependency on dest register">;
+def TuningMULLQFalseDeps : SubtargetFeature<"false-deps-mullq",
+                               "HasMULLQFalseDeps", "true",
+                               "MULLQ has a false dependency on dest register">;
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 CPU Families
@@ -1236,6 +1248,10 @@ def ProcessorFeatures {
                                                   FeatureUINTR];
 #if INTEL_CUSTOMIZATION
   list<SubtargetFeature> SPRAdditionalTuning = [TuningCMULFalseDeps,
+                                                TuningPERMFalseDeps,
+                                                TuningRANGEFalseDeps,
+                                                TuningGETMANTFalseDeps,
+                                                TuningMULLQFalseDeps,
                                                 Tuning4KDSB];
   list<SubtargetFeature> SPRTuning = !listconcat(ICXTuning, SPRAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
@@ -1344,8 +1360,9 @@ def ProcessorFeatures {
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
 #if INTEL_CUSTOMIZATION
-  list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB];
-  list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ICXAdditionalTuning);
+  list<SubtargetFeature> ADLAdditionalTuning = [Tuning4KDSB,
+                                                TuningPERMFalseDeps];
+  list<SubtargetFeature> ADLTuning = !listconcat(TGLTuning, ADLAdditionalTuning);
 #endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> ADLFeatures =
     !listconcat(TRMFeatures, ADLAdditionalFeatures);
