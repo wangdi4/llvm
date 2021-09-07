@@ -13225,6 +13225,13 @@ private:
   bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
                                             ArrayRef<int> ArgNums, int Low = 0,
                                             int High = 7);
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+  bool CheckX86BuiltinTilePairDuplicate(CallExpr *TheCall,
+                                        ArrayRef<int> ArgNums);
+  bool CheckX86BuiltinTilePairRangeAndDuplicate(CallExpr *TheCall,
+                                                ArrayRef<int> ArgNums,
+                                                int Low = 0, int High = 7);
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
 #endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                    CallExpr *TheCall);

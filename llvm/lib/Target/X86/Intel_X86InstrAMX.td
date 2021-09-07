@@ -1654,3 +1654,52 @@ defm TCVTROWPS2PHLE : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2phle", PD, XD>
 defm TCVTROWPS2PBF16HE : AMXAVX512CVTROW_BASE<0x6d, 0x07, "tcvtrowps2pbf16he", XD, XD>;
 defm TCVTROWPS2PBF16LE : AMXAVX512CVTROW_BASE<0x6d, 0x77, "tcvtrowps2pbf16le", XS, XS>;
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+let Predicates = [HasAMXSPARSE, In64BitMode], Constraints = "$src1 = $dst" in
+let Constraints = "$src1 = $dst" in
+class AMX_SPARSE_BASE1<bits<8> Opcode, string Opstr> :
+            I<Opcode, MRMSrcReg4VOp3, (outs TILE:$dst),
+            (ins TILE:$src1, TILEPair:$src2, TILEPair:$src3),
+            !strconcat(Opstr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+            []>, VEX_4V, VEX_W;
+
+def TDPSBF16PS : AMX_SPARSE_BASE1<0x5c, "tdpsbf16ps">, T8XS;
+def TDPSFP16PS : AMX_SPARSE_BASE1<0x5c, "tdpsfp16ps">, T8XD;
+def TDPSBSSD   : AMX_SPARSE_BASE1<0x5e, "tdpsbssd">, T8XD;
+def TDPSBSUD   : AMX_SPARSE_BASE1<0x5e, "tdpsbsud">, T8XS;
+def TDPSBUSD   : AMX_SPARSE_BASE1<0x5e, "tdpsbusd">, T8PD;
+def TDPSBUUD   : AMX_SPARSE_BASE1<0x5e, "tdpsbuud">, T8PS;
+
+class AMX_SPARSE_PseudoI<string Opstr> :
+                  PseudoI<(outs), (ins u8imm:$src1, u8imm:$src2, u8imm:$src3),
+                          [(!cast<Intrinsic>("int_x86_"#Opstr) timm:$src1,
+                            timm:$src2, timm:$src3)]>;
+
+let usesCustomInserter = 1 in {
+  def PTDPSBF16PS : AMX_SPARSE_PseudoI<"tdpsbf16ps">;
+  def PTDPSFP16PS : AMX_SPARSE_PseudoI<"tdpsfp16ps">;
+  def PTDPSBSSD   : AMX_SPARSE_PseudoI<"tdpsbssd">;
+  def PTDPSBSUD   : AMX_SPARSE_PseudoI<"tdpsbsud">;
+  def PTDPSBUSD   : AMX_SPARSE_PseudoI<"tdpsbusd">;
+  def PTDPSBUUD   : AMX_SPARSE_PseudoI<"tdpsbuud">;
+}
+
+let Predicates = [HasAMXSPARSE, In64BitMode] in
+class AMX_SPARSE_BASE2<string Opstr> :
+        I<0x69, MRMSrcMem4VOp3FSIB, (outs TILE:$dst),
+         (ins sibmem:$src1, GR32:$src2),
+         !strconcat(Opstr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),[]>, VEX_4V;
+
+def TLDEXPANDB :   AMX_SPARSE_BASE2<"tldexpandb">, T8XS;
+def TLDEXPANDBT1 : AMX_SPARSE_BASE2<"tldexpandbt1">, T8XD;
+def TLDEXPANDW :   AMX_SPARSE_BASE2<"tldexpandw">, T8PS;
+def TLDEXPANDWT1 : AMX_SPARSE_BASE2<"tldexpandwt1">, T8PD;
+
+let usesCustomInserter = 1 in {
+  def PTLDEXPANDB   : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, GR32:$src2), []>;
+  def PTLDEXPANDBT1 : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, GR32:$src2), []>;
+  def PTLDEXPANDW   : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, GR32:$src2), []>;
+  def PTLDEXPANDWT1 : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, GR32:$src2), []>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
