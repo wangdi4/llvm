@@ -372,6 +372,22 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// True if cmul instructions have a false dependency
   /// on the destination register.
   bool HasCMULFalseDeps = false;
+
+  /// True if perm instructions have a false dependency
+  /// on the destination register.
+  bool HasPERMFalseDeps = false;
+
+  /// True if range instructions have a false dependency
+  /// on the destination register.
+  bool HasRANGEFalseDeps = false;
+
+  /// True if getmant instructions have a false dependency
+  /// on the destination register.
+  bool HasGETMANTFalseDeps = false;
+
+  /// True if mullq instructions have a false dependency
+  /// on the destination register.
+  bool HasMULLQFalseDeps = false;
 #endif // INTEL_CUSTOMIZATION
 
   /// Processor has PKU extenstions
@@ -982,6 +998,10 @@ public:
   bool hasFP16() const { return HasFP16; }
 #if INTEL_CUSTOMIZATION
   bool hasCMULFalseDeps() const { return HasCMULFalseDeps; }
+  bool hasPERMFalseDeps() const { return HasPERMFalseDeps; }
+  bool hasRANGEFalseDeps() const { return HasRANGEFalseDeps; }
+  bool hasGETMANTFalseDeps() const { return HasGETMANTFalseDeps; }
+  bool hasMULLQFalseDeps() const { return HasMULLQFalseDeps; }
 #endif // INTEL_CUSTOMIZATION
   bool hasPKU() const { return HasPKU; }
   bool hasVNNI() const { return HasVNNI; }
