@@ -100,9 +100,11 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     LLVM_DEBUG(llvm::dbgs() << "Build program started.\n");
     BuildProgramOptions buildProgramOptions;
 
+    const auto *oclProgramConfig =
+        static_cast<const OpenCLProgramConfiguration *>(pProgramConfig);
     std::string injectedObjectPath = runConfig->GetValue<std::string>(RC_BR_OBJECT_FILE, "");
     if (injectedObjectPath == "")
-      injectedObjectPath = static_cast<const OpenCLProgramConfiguration*>(pProgramConfig)->GetInjectedObjectPath();
+      injectedObjectPath = oclProgramConfig->GetInjectedObjectPath();
 
     std::unique_ptr<llvm::MemoryBuffer> injectedObject;
     // Try to load the injected object file if specified
@@ -120,7 +122,9 @@ void OpenCLBackendRunner::BuildProgram(ICLDevBackendProgram_* pProgram,
     if (runConfig->GetValue<bool>(RC_BR_STOP_BEFORE_JIT, false))
       buildProgramOptions.SetStopBeforeJIT();
 
-    cl_int ret = pCompileService->BuildProgram(pProgram, &buildProgramOptions, "");
+    cl_int ret = pCompileService->BuildProgram(
+        pProgram, &buildProgramOptions,
+        oclProgramConfig->GetCompilationFlags().c_str());
     LLVM_DEBUG(llvm::dbgs() << "Build program finished.\n");
     buildTime.Stop();
 
