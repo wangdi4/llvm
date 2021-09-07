@@ -20252,8 +20252,7 @@ RValue CodeGenFunction::EmitIntelFPGAMemBuiltin(const CallExpr *E) {
 
   llvm::Value *Ann = EmitAnnotationCall(F, PtrVal, AnnotStr, SourceLocation());
 
-  cast<CallBase>(Ann)->addAttribute(llvm::AttributeList::FunctionIndex,
-                                    llvm::Attribute::ReadNone);
+  cast<CallBase>(Ann)->addFnAttr(llvm::Attribute::ReadNone);
 
   return RValue::get(Ann);
 }
@@ -20350,8 +20349,7 @@ RValue CodeGenFunction::EmitBuiltinGenerateSIMDVariant(const CallExpr *E) {
   llvm::FunctionCallee Fn =
       CGM.CreateRuntimeFunction(FTy, CGM.GetIntelSimdVariantFnName(FTy));
   llvm::CallInst *CI = Builder.CreateCall(Fn, {Arg});
-  CI->addAttribute(llvm::AttributeList::FunctionIndex,
-                   llvm::Attribute::get(getLLVMContext(), "vector-variants",
+  CI->addFnAttr(llvm::Attribute::get(getLLVMContext(), "vector-variants",
                                         MangledVariantName));
   return RValue::get(CI);
 }
@@ -20405,8 +20403,7 @@ RValue CodeGenFunction::EmitBuiltinCallSIMDVariant(const CallExpr *E) {
   llvm::FunctionCallee Fn =
       CGM.CreateRuntimeFunction(FTy, CGM.GetIntelIndirectFnName(FTy));
   llvm::CallInst *CI = Builder.CreateCall(Fn, Args);
-  CI->addAttribute(
-      llvm::AttributeList::FunctionIndex,
+  CI->addFnAttr(
       llvm::Attribute::get(getLLVMContext(), "vector-variants", AllNames));
   return RValue::get(CI);
 }

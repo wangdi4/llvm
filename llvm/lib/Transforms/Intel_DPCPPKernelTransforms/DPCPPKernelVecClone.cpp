@@ -817,20 +817,16 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     AttributeList AL = Call->getAttributes();
 
-    AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                         "vector-variants", Variants);
+    AL = AL.addFnAttribute(Call->getContext(), "vector-variants", Variants);
     // TODO: So far the functions that have their vector variants assigned here
     // are essentially "kernel-call-once" functions.
     if (KernelCallOnce)
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::CallOnce);
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::CallOnce);
     if (HasMask)
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::HasVPlanMask);
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::HasVPlanMask);
     else if (!NotHasMask) {
       unsigned ParamsNum = Call->arg_size();
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::CallParamNum,
+      AL = AL.addFnAttribute(Call->getContext(), KernelAttribute::CallParamNum,
                            std::to_string(ParamsNum));
     }
     Call->setAttributes(AL);
@@ -933,9 +929,8 @@ void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
   for (auto *F : SyncBuiltins) {
     for (auto *U : F->users())
       if (auto *CI = dyn_cast<CallInst>(U))
-        CI->setAttributes(CI->getAttributes().addAttribute(
-            CI->getContext(), AttributeList::FunctionIndex,
-            "kernel-uniform-call"));
+        CI->setAttributes(CI->getAttributes().addFnAttribute(
+            CI->getContext(), "kernel-uniform-call"));
   }
 
   auto Kernels = getKernels(M);

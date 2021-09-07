@@ -69,28 +69,20 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
     // Process function (definitions and declaration attributes).
     F->setAttributes(
         F->getAttributes()
-            .addAttribute(F->getContext(), AttributeList::FunctionIndex,
-                          Attribute::Convergent)
-            .addAttribute(F->getContext(), AttributeList::FunctionIndex,
-                          KernelAttribute::ConvergentCall)
-            .addAttribute(F->getContext(), AttributeList::FunctionIndex,
-                          KernelAttribute::CallOnce)
-            .removeAttribute(F->getContext(), AttributeList::FunctionIndex,
-                             Attribute::NoDuplicate));
+            .addFnAttribute(F->getContext(), Attribute::Convergent)
+            .addFnAttribute(F->getContext(), KernelAttribute::ConvergentCall)
+            .addFnAttribute(F->getContext(), KernelAttribute::CallOnce)
+            .removeFnAttribute(F->getContext(),  Attribute::NoDuplicate));
 
     // Process call sites.
     for (User *U : F->users()) {
       if (auto *CI = dyn_cast<CallInst>(U)) {
         CI->setAttributes(
             CI->getAttributes()
-                .addAttribute(CI->getContext(), AttributeList::FunctionIndex,
-                              Attribute::Convergent)
-                .addAttribute(CI->getContext(), AttributeList::FunctionIndex,
-                              KernelAttribute::ConvergentCall)
-                .addAttribute(CI->getContext(), AttributeList::FunctionIndex,
-                              KernelAttribute::CallOnce)
-                .removeAttribute(CI->getContext(), AttributeList::FunctionIndex,
-                                 Attribute::NoDuplicate));
+                .addFnAttribute(CI->getContext(), Attribute::Convergent)
+                .addFnAttribute(CI->getContext(), KernelAttribute::ConvergentCall)
+                .addFnAttribute(CI->getContext(), KernelAttribute::CallOnce)
+                .removeFnAttribute(CI->getContext(), Attribute::NoDuplicate));
       }
     }
   }

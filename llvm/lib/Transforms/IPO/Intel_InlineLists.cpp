@@ -308,11 +308,11 @@ static void addForceInlineAttr(CallBase &CB, Function *Callee,
   }
 
   if (CB.hasFnAttr(Attribute::NoInline)) {
-    CB.removeAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+    CB.removeFnAttr(Attribute::NoInline);
   }
-  CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::AlwaysInline);
+  CB.addFnAttr(Attribute::AlwaysInline);
   if (SetAttribute)
-    CB.addAttribute(llvm::AttributeList::FunctionIndex, "inline-list");
+    CB.addFnAttr("inline-list");
 }
 
 // Add NoInline attribute to callsite.
@@ -339,12 +339,11 @@ static void addForceNoinlineAttr(CallBase &CB, Function *Callee,
   }
 
   if (CB.hasFnAttr(Attribute::AlwaysInline)) {
-    CB.removeAttribute(llvm::AttributeList::FunctionIndex,
-                       Attribute::AlwaysInline);
+    CB.removeFnAttr(Attribute::AlwaysInline);
   }
-  CB.addAttribute(llvm::AttributeList::FunctionIndex, Attribute::NoInline);
+  CB.addFnAttr(Attribute::NoInline);
   if (SetAttribute)
-    CB.addAttribute(llvm::AttributeList::FunctionIndex, "noinline-list");
+    CB.addFnAttr("noinline-list");
 }
 
 // Add AlwaysInline attribute to function.

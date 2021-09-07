@@ -882,8 +882,7 @@ bool InlineAggressiveInfo::analyzeModule(Module &M) {
 void InlineAggressiveInfo::addInliningAttributes() {
   for (unsigned I = 0, E = AggInlCalls.size(); I != E; ++I) {
     CallBase *CB = AggInlCalls[I];
-    CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                     "prefer-inline-aggressive");
+    CB->addFnAttr("prefer-inline-aggressive");
   }
 }
 

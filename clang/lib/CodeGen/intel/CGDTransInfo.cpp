@@ -160,7 +160,7 @@ llvm::Function *CodeGenModule::addDTransInfoToFunc(GlobalDecl GD,
   unsigned NodeIdx = 0;
   if (!FuncInfo.ResultTypes[0].isNull()) {
     if (Func->getReturnType()->isPointerTy()) {
-      Func->addAttribute(0, llvm::Attribute::get(Ctx, "intel_dtrans_func_index",
+      Func->addAttributeAtIndex(0, llvm::Attribute::get(Ctx, "intel_dtrans_func_index",
                                                  std::to_string(++NodeIdx)));
       Attachments.push_back(Generator.AddFieldInfo(FuncInfo.ResultTypes[0],
                                                    Func->getReturnType()));
@@ -171,7 +171,7 @@ llvm::Function *CodeGenModule::addDTransInfoToFunc(GlobalDecl GD,
 
       if (ST->elements()[0]->isPointerTy() ||
           ST->elements()[1]->isPointerTy()) {
-        Func->addAttribute(0,
+        Func->addAttributeAtIndex(0,
                            llvm::Attribute::get(Ctx, "intel_dtrans_func_index",
                                                 std::to_string(++NodeIdx)));
         Attachments.push_back(

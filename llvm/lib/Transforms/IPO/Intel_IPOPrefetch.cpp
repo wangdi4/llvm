@@ -1894,8 +1894,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     unsigned NumNewArgs = 0;
 
     for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-      if (Attrs.hasAttributes(I))
-        NewAttrs = NewAttrs.addAttributes(Ctx, I, Attrs.getAttributes(I));
+      if (Attrs.hasAttributesAtIndex(I))
+        NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
 
     for (unsigned I = 0; I < NParams; ++I) {
       Tys.push_back(FTy->getParamType(I));

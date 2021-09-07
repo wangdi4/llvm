@@ -5685,8 +5685,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
     // within the region.
     CannotThrow = true;
     Attrs =
-        Attrs.addAttribute(getLLVMContext(), llvm::AttributeList::FunctionIndex,
-                           llvm::Attribute::NoUnwind);
+        Attrs.addFnAttribute(getLLVMContext(), llvm::Attribute::NoUnwind);
 #endif // INTEL_COLLAB
   } else {
     // Otherwise, nounwind call sites will never throw.
@@ -5755,18 +5754,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
         CurrentPragmaInlineState->getPragmaInlineAttribute();
     if (A.second) {
       if (A.first == llvm::Attribute::AlwaysInline)
-        Attrs = Attrs.addAttribute(getLLVMContext(),
-                                   llvm::AttributeList::FunctionIndex,
-                                   llvm::Attribute::AlwaysInlineRecursive);
+        Attrs = Attrs.addFnAttribute(getLLVMContext(), llvm::Attribute::AlwaysInlineRecursive);
       else if (A.first == llvm::Attribute::InlineHint)
-        Attrs = Attrs.addAttribute(getLLVMContext(),
-                                   llvm::AttributeList::FunctionIndex,
-                                   llvm::Attribute::InlineHintRecursive);
+        Attrs = Attrs.addFnAttribute(getLLVMContext(), llvm::Attribute::InlineHintRecursive);
       else
         llvm_unreachable("AlwaysInline or InlineHint expected");
     } else
-      Attrs = Attrs.addAttribute(getLLVMContext(),
-                                 llvm::AttributeList::FunctionIndex, A.first);
+      Attrs = Attrs.addFnAttribute(getLLVMContext(), A.first);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5865,8 +5859,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   if (getLangOpts().SYCLIsDevice && CI->doesNotReturn()) {
     if (auto *F = CI->getCalledFunction())
       F->removeFnAttr(llvm::Attribute::NoReturn);
-    CI->removeAttribute(llvm::AttributeList::FunctionIndex,
-                        llvm::Attribute::NoReturn);
+    CI->removeFnAttr(llvm::Attribute::NoReturn);
     SyclSkipNoReturn = true;
   }
 

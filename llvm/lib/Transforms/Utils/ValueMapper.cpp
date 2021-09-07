@@ -949,7 +949,7 @@ void Mapper::remapInstruction(Instruction *I) {
            AttrIdx <= Attribute::LastTypeAttr; AttrIdx++) {
         Attribute::AttrKind TypedAttr = (Attribute::AttrKind)AttrIdx;
 #endif // INTEL_CUSTOMIZATION
-        if (Type *Ty = Attrs.getAttribute(i, TypedAttr).getValueAsType()) {
+        if (Type *Ty = Attrs.getAttributeAtIndex(i, TypedAttr).getValueAsType()) {
           Attrs = Attrs.replaceAttributeTypeAtIndex(C, i, TypedAttr,
                                              TypeMapper->remapType(Ty));
           break;

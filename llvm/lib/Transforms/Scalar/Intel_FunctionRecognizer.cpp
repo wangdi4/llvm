@@ -490,8 +490,7 @@ static bool isQsortMed3(Function &F) {
         return false;
     }
     for (User *U : CU->users())
-      cast<CallBase>(U)->addAttribute(llvm::AttributeList::FunctionIndex,
-                                      "must-be-qsort-compare");
+      cast<CallBase>(U)->addFnAttr("must-be-qsort-compare");
     return true;
   };
 
@@ -3260,8 +3259,7 @@ static bool FunctionRecognizerImpl(Function &F) {
     for (User *U : CmpUse->users()) {
       auto CB = cast<CallBase>(U);
       if (!CB->getCalledFunction() && CB->getCalledOperand() == CmpUse)
-        CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                         "must-be-qsort-compare");
+        CB->addFnAttr("must-be-qsort-compare");
     }
     NumFunctionsRecognized++;
     LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-SPEC_QSORT "

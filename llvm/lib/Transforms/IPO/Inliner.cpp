@@ -761,11 +761,9 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 #if INTEL_CUSTOMIZATION
             auto CB = cast<CallBase>(Ptr);
             if (IsAlwaysInlineRecursive)
-                CB->addAttribute(AttributeList::FunctionIndex,
-                     Attribute::AlwaysInlineRecursive);
+                CB->addFnAttr(Attribute::AlwaysInlineRecursive);
             if (IsInlineHintRecursive)
-                CB->addAttribute(AttributeList::FunctionIndex,
-                     Attribute::InlineHintRecursive);
+                CB->addFnAttr(Attribute::InlineHintRecursive);
 #endif // INTEL_CUSTOMIZATION
             CallSites.push_back(
                 std::make_pair(dyn_cast<CallBase>(Ptr), NewHistoryID));

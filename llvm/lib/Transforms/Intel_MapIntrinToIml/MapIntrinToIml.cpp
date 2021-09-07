@@ -187,7 +187,7 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
   const StringRef ImfPrefix = "imf-";
   const AttributeList AttrList = CI->getAttributes();
 
-  if (AttrList.hasAttributes(AttributeList::FunctionIndex)) {
+  if (AttrList.hasFnAttrs()) {
 
     AttributeSet Attrs = AttrList.getFnAttrs();
 

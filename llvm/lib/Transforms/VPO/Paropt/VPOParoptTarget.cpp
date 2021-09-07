@@ -3516,8 +3516,7 @@ bool VPOParoptTransform::moduleHasOmpGetNumThreadsFunction() {
 }
 
 bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
-  return (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                          "openmp-target-declare"));
+  return (F->getAttributes().hasFnAttr("openmp-target-declare"));
 }
 
 // This function inserts artificial uses for arguments of some clauses

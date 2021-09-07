@@ -1115,7 +1115,7 @@ Value *IRBuilderBase::CreateComplexMul(Value *L, Value *R, bool CxLimitedRange,
       nullptr, Name);
   Result->setFastMathFlags(FMF);
   if (CxLimitedRange)
-    Result->addAttribute(AttributeList::FunctionIndex, "complex-limited-range");
+    Result->addFnAttr("complex-limited-range");
   return Result;
 }
 
@@ -1125,10 +1125,10 @@ Value *IRBuilderBase::CreateComplexDiv(Value *L, Value *R, bool CxLimitedRange,
       nullptr, Name);
   Result->setFastMathFlags(FMF);
   if (CxLimitedRange)
-    Result->addAttribute(AttributeList::FunctionIndex, "complex-limited-range");
+    Result->addFnAttr("complex-limited-range");
   // complex-limited-range implies complex-no-scale
   if (CxNoScale || CxLimitedRange)
-    Result->addAttribute(AttributeList::FunctionIndex, "complex-no-scale");
+    Result->addFnAttr("complex-no-scale");
   return Result;
 }
 #endif // INTEL_CUSTOMIZATION

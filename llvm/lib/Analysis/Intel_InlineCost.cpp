@@ -2277,10 +2277,10 @@ static bool worthyDoubleExternalCallSite1(CallBase &CB, bool PrepareForLTO) {
   if (!IsWorthyUpperCallSite(*CCB1, MaxBBOuterDoubleExternalFxn))
     return false;
   // Qualify all callsites at once by setting the same attribute on all of them.
-  CB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CCB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
-  CCB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext2");
+  CB0->addFnAttr("inline-doubleext2");
+  CB1->addFnAttr("inline-doubleext2");
+  CCB0->addFnAttr("inline-doubleext2");
+  CCB1->addFnAttr("inline-doubleext2");
   return true;
 }
 
@@ -2368,8 +2368,8 @@ static bool worthyDoubleExternalCallSite3(CallBase &CB,
       }
   if (!PassedIVDEPTest)
     return false;
-  CB0->addAttribute(AttributeList::FunctionIndex, "inline-doubleext3");
-  CB1->addAttribute(AttributeList::FunctionIndex, "inline-doubleext3");
+  CB0->addFnAttr("inline-doubleext3");
+  CB1->addFnAttr("inline-doubleext3");
   WorthyCallee = Callee;
   return true;
 }
@@ -2661,13 +2661,13 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
       !CB.hasFnAttr("inline-fusion") &&
       IsEarlyFusionCandidate(Caller, Callee, ILIC, FusionCBs)) {
     for (CallBase *CB : FusionCBs)
-      CB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
+      CB->addFnAttr("inline-fusion");
     return true;
   }
 
   // The call site was marked as candidate for inlining for fusion.
   if (CB.hasFnAttr("inline-fusion")) {
-    CB.removeAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    CB.removeFnAttr("inline-fusion");
     return true;
   }
 
@@ -2873,7 +2873,7 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
   // Mark other inlining candidates with an attribute showing a strong
   // preference for inlining.
   for (auto LocalCB : LocalCSForFusion)
-    LocalCB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    LocalCB->addFnAttr("inline-fusion");
 
   return true;
 }

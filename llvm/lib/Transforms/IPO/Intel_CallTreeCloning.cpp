@@ -2615,8 +2615,8 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   LLVMContext &Ctx = Clone->getContext();
 
   for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-    if (Attrs.hasAttributes(I))
-      NewAttrs = NewAttrs.addAttributes(Ctx, I, Attrs.getAttributes(I));
+    if (Attrs.hasAttributesAtIndex(I))
+      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
 
   for (unsigned I = 0; I < NumArgs; ++I) {
     auto *Arg = Call->getArgOperand(I);
@@ -3055,8 +3055,8 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
   unsigned NumNewArgs = 0;
 
   for (auto I : {AttributeList::ReturnIndex, AttributeList::FunctionIndex})
-    if (Attrs.hasAttributes(I))
-      NewAttrs = NewAttrs.addAttributes(Ctx, I, Attrs.getAttributes(I));
+    if (Attrs.hasAttributesAtIndex(I))
+      NewAttrs = NewAttrs.addAttributesAtIndex(Ctx, I, Attrs.getAttributes(I));
 
   for (unsigned I = 0; I < NParams; ++I) {
     const ConstantInt *C = ConstParams[I];

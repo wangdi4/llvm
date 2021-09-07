@@ -940,10 +940,8 @@ bool WRegionUtils::hasLexicalParentTarget(const WRegionNode *W) {
 
 bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
   Function *F = W->getEntryDirective()->getFunction();
-  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "target.declare") ||
-      F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "openmp-target-declare"))
+  if (F->getAttributes().hasFnAttr("target.declare") ||
+      F->getAttributes().hasFnAttr("openmp-target-declare"))
     return true;
 
   return hasLexicalParentTarget(W);

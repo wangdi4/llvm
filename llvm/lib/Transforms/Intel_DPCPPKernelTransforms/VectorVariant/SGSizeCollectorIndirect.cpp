@@ -145,7 +145,7 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
         continue;
 
       AttributeList Attrs = Call.getAttributes();
-      if (Attrs.hasAttribute(AttributeList::FunctionIndex, "vector-variants"))
+      if (Attrs.hasFnAttr("vector-variants"))
         continue;
 
       // Add vector-variants attribute.
@@ -159,8 +159,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       FuncTy = cast<FunctionType>(Pointer->getElementType());
 
       // Update attributes.
-      Attrs = Attrs.addAttribute(
-          M.getContext(), AttributeList::FunctionIndex, "vector-variants",
+      Attrs = Attrs.addFnAttribute(
+          M.getContext(), "vector-variants",
           GenerateVectorVariants("__intel_indirect_call_XXX",
                                  FuncTy->getNumParams()));
       Call.setAttributes(Attrs);

@@ -79,7 +79,7 @@ void TypeMetadataReader::setDTransFuncMetadata(Function *F,
                                                DTransFunctionType *FnType) {
 
   auto RemoveDTransFuncIndexAttribute = [](Function *F, unsigned Index) {
-    F->removeAttribute(Index, DTransFuncIndexTag);
+    F->removeAttributeAtIndex(Index, DTransFuncIndexTag);
   };
 
   // Add a DTrans function index attribute to 'F' if 'Ty' requires an attribute
@@ -96,7 +96,7 @@ void TypeMetadataReader::setDTransFuncMetadata(Function *F,
       std::string Label = std::to_string(AttrNumber);
       Attribute Attr =
           Attribute::get(F->getContext(), DTransFuncIndexTag, Label);
-      F->addAttribute(Index, Attr);
+      F->addAttributeAtIndex(Index, Attr);
     }
   };
 

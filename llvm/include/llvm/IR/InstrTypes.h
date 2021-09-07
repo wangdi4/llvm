@@ -1495,25 +1495,19 @@ public:
   void addAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
     Attrs = Attrs.addAttributeAtIndex(getContext(), i, Kind);
   }
-  void addAttribute(unsigned i, Attribute::AttrKind Kind) {
-    addAttributeAtIndex(i, Kind);
-  }
 
   /// adds the attribute to the list of attributes.
   void addAttributeAtIndex(unsigned i, Attribute Attr) {
     Attrs = Attrs.addAttributeAtIndex(getContext(), i, Attr);
   }
-  void addAttribute(unsigned i, Attribute Attr) {
-    addAttributeAtIndex(i, Attr);
-  }
 
 #if INTEL_CUSTOMIZATION
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, StringRef Kind) {
+  /*void addAttribute(unsigned i, StringRef Kind) {
     AttributeList PAL = getAttributes();
     PAL = PAL.addAttribute(getContext(), i, Kind);
     setAttributes(PAL);
-  }
+  }*/
 #endif // INTEL_CUSTOMIZATION
 
   /// Adds the attribute to the function.
@@ -1524,6 +1518,11 @@ public:
   /// Adds the attribute to the function.
   void addFnAttr(Attribute Attr) {
     Attrs = Attrs.addFnAttribute(getContext(), Attr);
+  }
+
+  /// Adds the attribute to the function
+  void addFnAttr(StringRef Kind) {
+    Attrs = Attrs.addFnAttribute(getContext(), Kind);
   }
 
   /// Adds the attribute to the return value.
@@ -1552,16 +1551,10 @@ public:
   void removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
     Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
-  void removeAttribute(unsigned i, Attribute::AttrKind Kind) {
-    removeAttributeAtIndex(i, Kind);
-  }
 
   /// removes the attribute from the list of attributes.
   void removeAttributeAtIndex(unsigned i, StringRef Kind) {
     Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
-  }
-  void removeAttribute(unsigned i, StringRef Kind) {
-    removeAttributeAtIndex(i, Kind);
   }
 
   /// Removes the attributes from the function
@@ -1571,6 +1564,11 @@ public:
 
   /// Removes the attribute from the function
   void removeFnAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeFnAttribute(getContext(), Kind);
+  }
+
+  /// Removes the attribute from the function
+  void removeFnAttr(StringRef Kind) {
     Attrs = Attrs.removeFnAttribute(getContext(), Kind);
   }
 
@@ -1625,16 +1623,10 @@ public:
   Attribute getAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) const {
     return getAttributes().getAttributeAtIndex(i, Kind);
   }
-  Attribute getAttribute(unsigned i, Attribute::AttrKind Kind) const {
-    return getAttributeAtIndex(i, Kind);
-  }
 
   /// Get the attribute of a given kind at a position.
   Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const {
     return getAttributes().getAttributeAtIndex(i, Kind);
-  }
-  Attribute getAttribute(unsigned i, StringRef Kind) const {
-    return getAttributeAtIndex(i, Kind);
   }
 
   /// Get the attribute of a given kind for the function.
@@ -2318,15 +2310,14 @@ private:
 
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
-      return Attrs.getAttribute(AttributeList::FunctionIndex, Kind);
+    if (Attrs.hasFnAttr(Kind))
+      return Attrs.getFnAttr(Kind);
 
     if (isFnAttrDisallowedByOpBundle(Kind))
       return Attribute();
 
     if (const Function *F = getCalledFunction())
-      return F->getAttributes().getAttribute(AttributeList::FunctionIndex,
-                                             Kind);
+      return F->getAttributes().getFnAttr(Kind);
 
     return Attribute();
   }

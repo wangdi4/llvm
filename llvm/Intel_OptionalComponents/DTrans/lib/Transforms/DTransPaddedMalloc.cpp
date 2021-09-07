@@ -429,8 +429,8 @@ bool dtrans::PaddedMallocPass::isOutlineFunction(Function *F) {
 
   // Note: These attributes are set if the OpenMP outlining is done by the
   // backend (-fiopenmp).
-  if (FnAttr.hasAttribute(AttributeList::FunctionIndex, "mt-func") ||
-      FnAttr.hasAttribute(AttributeList::FunctionIndex, "task-mt-func"))
+  if (FnAttr.hasFnAttr("mt-func") ||
+      FnAttr.hasFnAttr("task-mt-func"))
     return true;
 
   return false;

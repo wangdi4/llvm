@@ -1703,8 +1703,7 @@ void TileMVInlMarker::markTileChoicesForInlining() {
       if (CB && CB->getCalledFunction() == F &&
           (CB->getCaller() == MainRoot || CB->getCaller() == SubRoot)) {
         if (TileCandidateMark) {
-          CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                           "prefer-inline-tile-choice");
+          CB->addFnAttr("prefer-inline-tile-choice");
           LLVM_DEBUG(dbgs() << "TMVINL: Marked " << CB->getCaller()->getName()
                             << " TO " << F->getName() << " FOR INLINING\n");
         }
