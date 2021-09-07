@@ -179,11 +179,29 @@ defm DVPDPBUUD :  dspv1_3op_rw<0xc1, "dvpdpbuud", loadv16i8>, T_MAP8PS;
 defm DVPDPBUUDS : dspv1_3op_rw<0xc2, "dvpdpbuuds", loadv16i8>, T_MAP8PS;
 defm DVPDPBSSD :  dspv1_3op_rw<0xc1, "dvpdpbssd", loadv16i8>, T_MAP8XD;
 defm DVPDPBSSDS : dspv1_3op_rw<0xc2, "dvpdpbssds", loadv16i8>, T_MAP8XD;
-defm DVPDPBUSD :  dspv1_3op_rw<0xc1, "dvpdpbusd", loadv16i8>, T_MAP8PD;
-defm DVPDPBUSDS : dspv1_3op_rw<0xc2, "dvpdpbusds", loadv16i8>, T_MAP8PD;
 defm DVPDPBSUD :  dspv1_3op_rw<0xc1, "dvpdpbsud", loadv16i8>, T_MAP8XS;
 defm DVPDPBSUDS : dspv1_3op_rw<0xc2, "dvpdpbsuds", loadv16i8>, T_MAP8XS;
 defm DVPNDPBSSD : dspv1_3op_rw<0xde, "dvpndpbssd", loadv16i8>, T_MAP8XS, VEX_W;
+
+multiclass avxvnni_dsp<bits<8> Opcode, string OpcodeStr, SDNode OpNode> {
+  let Constraints = "$src1 = $dst", Predicates = [Not64BitMode, HasDSPV1] in {
+   def rr : I<Opcode, MRMSrcReg, (outs VR128:$dst),
+            (ins VR128:$src1, VR128:$src2, VR128:$src3),
+            !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+            [(set VR128:$dst,
+             (v4i32 (OpNode VR128:$src1,
+              VR128:$src2, VR128:$src3)))]>, VEX_4V;
+   def rm : I<Opcode, MRMSrcMem, (outs VR128:$dst),
+            (ins VR128:$src1, VR128:$src2, i128mem:$src3),
+            !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+            [(set VR128:$dst,
+             (v4i32 (OpNode VR128:$src1,
+              VR128:$src2, (loadv4i32 addr:$src3))))]>, VEX_4V;
+  }
+}
+
+defm DVPDPBUSD :  avxvnni_dsp<0xc1, "dvpdpbusd", X86Vpdpbusd>, T_MAP8PD;
+defm DVPDPBUSDS : avxvnni_dsp<0xc2, "dvpdpbusds", X86Vpdpbusds>, T_MAP8PD;
 // end Chapter 8
 
 // Chapter 12
