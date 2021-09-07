@@ -425,6 +425,10 @@ protected:
   /// whenever we simplify away the stores that would otherwise cause them to be
   /// loads.
   bool EnableLoadElimination;
+
+  /// Whether we allow inlining for recursive call.
+  bool AllowRecursiveCall;
+
   SmallPtrSet<Value *, 16> LoadAddrSet;
 
 #if INTEL_CUSTOMIZATION
@@ -522,7 +526,8 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true)
+        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true),
+        AllowRecursiveCall(false)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -1158,6 +1163,7 @@ public:
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
+    AllowRecursiveCall = Params.AllowRecursiveCall.getValue();
   }
 
   // The cost and the threshold used for early exit during usual
@@ -2387,7 +2393,8 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     // This flag will fully abort the analysis, so don't bother with anything
     // else.
     IsRecursiveCall = true;
-    return false;
+    if (!AllowRecursiveCall)
+      return false;
   }
 
   if (TTI.isLoweredToCall(F)) {
@@ -2625,7 +2632,7 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.
     InlineResult IR = InlineResult::success();
-    if (IsRecursiveCall)
+    if (IsRecursiveCall && !AllowRecursiveCall)
       IR = InlineResult::failure("recursive")      // INTEL
                .setIntelInlReason(NinlrRecursive); // INTEL
     else if (ExposesReturnsTwice)
