@@ -1503,19 +1503,22 @@ static void addSpecialRecProCloneCode(Function *F, Function *FClone,
   IRBuilder<> Builder(BBCond);
   GetElementPtrInst *GEPL = findOrCreateRecProGEP(AILower, BBCond);
   auto Int64Ty = Type::getInt64Ty(F->getContext());
-  Instruction *SILB = Builder.CreateSubscript(
-      0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPL,
-      ConstantInt::get(Int64Ty, 8));
   auto LILBArType = GEPL->getSourceElementType();
+  Type *ElTy;
+  ElTy = GEPL->getResultElementType();
+  Instruction *SILB = Builder.CreateSubscript(
+      0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPL, ElTy,
+      ConstantInt::get(Int64Ty, 8));
   // We checked AILower allocates an array type in isRecProAllocaIntArray(),
   // so casting is OK here.
   auto LILBType = cast<ArrayType>(LILBArType)->getElementType();
   LoadInst *LILB8 = Builder.CreateLoad(LILBType, SILB, "LILB8");
   GetElementPtrInst *GEPU = findOrCreateRecProGEP(AIUpper, BBCond);
-  Instruction *SIUB = Builder.CreateSubscript(
-      0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPU,
-      ConstantInt::get(Int64Ty, 8));
   auto SIUBArType = GEPU->getSourceElementType();
+  ElTy = GEPU->getResultElementType();
+  Instruction *SIUB = Builder.CreateSubscript(
+      0, ConstantInt::get(Int64Ty, 1), ConstantInt::get(Int64Ty, 4), GEPU, ElTy,
+      ConstantInt::get(Int64Ty, 8));
   // We checked AIUpper allocates an array type in isRecProAllocaIntArray(),
   // so casting is OK here.
   auto SIUBType = cast<ArrayType>(SIUBArType)->getElementType();

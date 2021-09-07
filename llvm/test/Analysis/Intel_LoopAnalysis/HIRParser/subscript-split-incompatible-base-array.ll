@@ -23,9 +23,9 @@ entry:
 
 bb83:
   %p = getelementptr inbounds [4 x double], [4 x double]* %A, i64 0, i64 0
-  %p0 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 32, double* nonnull %p, i64 11) #2
-  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* nonnull %p0, i64 12) #2
-  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %p1, i64 13) #2
+  %p0 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 32, double* elementtype(double) nonnull %p, i64 11) #2
+  %p1 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 32, double* elementtype(double) nonnull %p0, i64 12) #2
+  %p2 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %p1, i64 13) #2
   store double 1.0, double* %p2, align 1
   %tmp85 = icmp eq i64 undef, undef
   br i1 %tmp85, label %bb87, label %bb83

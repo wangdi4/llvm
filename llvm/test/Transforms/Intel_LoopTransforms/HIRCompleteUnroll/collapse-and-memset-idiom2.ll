@@ -25,22 +25,22 @@ entry:
 
 loop1:                                           ; preds = %latch1, %entry
   %i4186 = phi i64 [ 1, %entry ], [ %i4183, %latch1 ]
-  %i4187 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 63840, double* nonnull %i4164, i64 %i4186)
+  %i4187 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 63840, double* elementtype(double) nonnull %i4164, i64 %i4186)
   br label %loop2
 
 loop2:                                           ; preds = %loop1, %latch2
   %i4180 = phi i64 [ 1, %loop1 ], [ %i4177, %latch2 ]
-  %i4181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4256, double* nonnull %i4187, i64 %i4180)
+  %i4181 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 4256, double* elementtype(double) nonnull %i4187, i64 %i4180)
   br label %loop3
 
 loop3:                                           ; preds = %loop2, %latch3
   %i4174 = phi i64 [ 0, %loop2 ], [ %i4171, %latch3 ]
-  %i4175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 152, double* nonnull %i4181, i64 %i4174)
+  %i4175 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 0, i64 152, double* elementtype(double) nonnull %i4181, i64 %i4174)
   br label %loop4
 
 loop4:                                           ; preds = %loop3, %loop4
   %i4166 = phi i64 [ 1, %loop3 ], [ %i4168, %loop4 ]
-  %i4167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %i4175, i64 %i4166)
+  %i4167 = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %i4175, i64 %i4166)
   store double 9.9000e+00, double* %i4167, align 1
   %i4168 = add nuw nsw i64 %i4166, 1
   %i4169 = icmp eq i64 %i4168, 20

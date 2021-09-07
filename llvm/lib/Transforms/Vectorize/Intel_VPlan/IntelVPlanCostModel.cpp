@@ -635,6 +635,48 @@ unsigned VPlanTTICostModel::getTTICostForVF(
       return UnknownCost;
 
     Type *VecCondTy = getWidenedType(CondTy, VF);
+
+    if(!isVectorizableTy(OpTy)) {
+      /*  %1 = icmp sgt i32 ...
+       *  %15 = select <i1> %1, <STy> %2, <STy> %3
+       *  (to)
+       *  %1 = icmp sgt <2 x i32> ...
+       *  %1.1 = extractelement <2 x i1> %1, i32 1
+       *  %1.0 = extractelement <2 x i1> %1, i32 0
+       *  %15 = select i1 %1.1, <STy> %4, <STy> %5
+       *  %16 = select i1 %1.0, <STy> %2, <STy> %3
+       *  %15.1 = extractvalue <STy> %15, 0
+       *  %16.1 = extractvalue <STy> %16, 0
+       */
+      unsigned SelectCost = 0;
+      unsigned ExtractCost = 0;
+      if (StructType *STy = dyn_cast<StructType>(OpTy)) {
+        // Cost of extracting cond from vec cond
+        for(unsigned Idx = 0; Idx < VF; Idx++)
+          ExtractCost += VPTTI.getVectorInstrCost(Instruction::ExtractElement, VecCondTy, Idx);
+
+        /* Cost of single select instruction with struct type operands
+         * Here the cost is calculated based on the assumption that all fields
+         * of the struct will eventually be used. i.e. Cost of select with
+         * struct type operands <= Sum of Cost of selecting each element. In
+         * current CM framework, we don't cost based on use. If this changes in
+         * the future, we will update the cost calculation logic here.
+         */
+        for (auto *EltTy : STy->elements()) {
+          // TODO: Handle complex struct types.
+          // getCostImpl skips instructions with UnknownCost, so we will follow the same logic
+          // here.
+          if(!isVectorizableTy(EltTy)) continue;
+          SelectCost += VPTTI.getCmpSelInstrCost(Opcode, EltTy, CondTy);
+        }
+        // TotalCost = Cost of n extracts from VecCondTy +
+        //             Cost of n select instructions
+        // where n = VF
+        return ExtractCost + VF * SelectCost;
+      }
+      return UnknownCost;
+    }
+
     Type *VecOpTy = getWidenedType(OpTy, VF);
     return VPTTI.getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
   }

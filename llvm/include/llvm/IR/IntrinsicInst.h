@@ -1184,6 +1184,10 @@ public:
       return cast<Value>(const_cast<Value *>(getArgOperand(2)));
     }
 
+    Type *getElementType() const {
+      return const_cast<Type *>(getAttributes().getParamElementType(3));
+    }
+
     Value *getIndex() const {
       return cast<Value>(const_cast<Value *>(getArgOperand(4)));
     }

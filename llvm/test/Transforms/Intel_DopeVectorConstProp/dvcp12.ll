@@ -85,8 +85,8 @@ define dso_local void @MAIN__() #0 {
 34:                                               ; preds = %34, %32
   %35 = phi i64 [ %40, %34 ], [ 1, %32 ]
   %36 = sub nsw i64 %33, %35
-  %37 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @"main_$PART1", i64 0, i64 0, i64 0), i64 %35)
-  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %37, i64 %33)
+  %37 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @"main_$PART1", i64 0, i64 0, i64 0), i64 %35)
+  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %37, i64 %33)
   %39 = trunc i64 %36 to i32
   store i32 %39, i32* %38, align 4
   %40 = add nuw nsw i64 %35, 1
@@ -129,8 +129,8 @@ define dso_local void @MAIN__() #0 {
 65:                                               ; preds = %65, %63
   %66 = phi i64 [ %71, %65 ], [ 0, %63 ]
   %67 = sub nsw i64 %64, %66
-  %68 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 40, i32* getelementptr inbounds ([10 x [10 x i32]], [10 x [10 x i32]]* @"main_$PART2", i64 0, i64 0, i64 0), i64 %66)
-  %69 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* %68, i64 %64)
+  %68 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 40, i32* elementtype(i32) getelementptr inbounds ([10 x [10 x i32]], [10 x [10 x i32]]* @"main_$PART2", i64 0, i64 0, i64 0), i64 %66)
+  %69 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) %68, i64 %64)
   %70 = trunc i64 %67 to i32
   store i32 %70, i32* %69, align 4
   %71 = add nuw nsw i64 %66, 1
@@ -146,22 +146,22 @@ define dso_local void @MAIN__() #0 {
   store i64 4, i64* %12, align 8
   store i64 2, i64* %48, align 8
   store i64 0, i64* %47, align 8
-  %77 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %49, i32 0)
+  %77 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 0)
 ; NOTE: stride 0 of new_solver actual arg #0 instance #1 is 4
   store i64 4, i64* %77, align 8
-  %78 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %16, i32 0)
+  %78 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %16, i32 0)
 ; NOTE: lower bound 0 of new_solver actual arg #0 instance #1 is 1
   store i64 1, i64* %78, align 8
-  %79 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %15, i32 0)
+  %79 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %15, i32 0)
 ; NOTE: extent 0 of new_solver actual arg #0 instance #1 is 9
   store i64 9, i64* %79, align 8
-  %80 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %49, i32 1)
+  %80 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %49, i32 1)
 ; NOTE: stride 1 of new_solver actual arg #0 instance #1 is 36
   store i64 36, i64* %80, align 8
-  %81 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %16, i32 1)
+  %81 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %16, i32 1)
 ; NOTE: lower bound 1 of new_solver actual arg #0 instance #1 is 1
   store i64 1, i64* %81, align 8
-  %82 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %15, i32 1)
+  %82 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %15, i32 1)
 ; NOTE: extent 1 of new_solver actual arg #0 instance #1 is 9
   store i64 9, i64* %82, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @"main_$PART1", i64 0, i64 0, i64 0), i32** %46, align 8
@@ -169,31 +169,31 @@ define dso_local void @MAIN__() #0 {
   store i64 4, i64* %17, align 8
   store i64 3, i64* %52, align 8
   store i64 0, i64* %51, align 8
-  %83 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %53, i32 0)
+  %83 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 0)
 ; NOTE: stride 0 of new_solver actual arg #1 instance #1 is 4
   store i64 4, i64* %83, align 8
-  %84 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %21, i32 0)
+  %84 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 0)
 ; NOTE: lower bound 0 of new_solver actual arg #1 instance #1 is 1
   store i64 1, i64* %84, align 8
-  %85 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %20, i32 0)
+  %85 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 0)
 ; NOTE: extent 0 of new_solver actual arg #1 instance #1 is 9
   store i64 9, i64* %85, align 8
-  %86 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %53, i32 1)
+  %86 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 1)
 ; NOTE: stride 1 of new_solver actual arg #1 instance #1 is 36
   store i64 36, i64* %86, align 8
-  %87 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %21, i32 1)
+  %87 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 1)
 ; NOTE: lower bound 1 of new_solver actual arg #1 instance #1 is 1
   store i64 1, i64* %87, align 8
-  %88 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %20, i32 1)
+  %88 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 1)
 ; NOTE: extent 1 of new_solver actual arg #1 instance #1 is 9
   store i64 9, i64* %88, align 8
-  %89 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %53, i32 2)
+  %89 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %53, i32 2)
 ; NOTE: stride 2 of new_solver actual arg #1 instance #1 is 324
   store i64 324, i64* %89, align 8
-  %90 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %21, i32 2)
+  %90 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %21, i32 2)
 ; NOTE: lower bound 2 of new_solver actual arg #1 instance #1 is 1
   store i64 1, i64* %90, align 8
-  %91 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %20, i32 2)
+  %91 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %20, i32 2)
 ; NOTE: extent 2 of new_solver actual arg #1 instance #1 is 9
   store i64 9, i64* %91, align 8
   store i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @"main_$BLOCK", i64 0, i64 0, i64 0, i64 0), i32** %50, align 8
@@ -202,22 +202,22 @@ define dso_local void @MAIN__() #0 {
   store i64 4, i64* %22, align 8
   store i64 2, i64* %56, align 8
   store i64 0, i64* %55, align 8
-  %92 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %57, i32 0)
+  %92 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 0)
 ; NOTE: stride 0 of new_solver actual arg #0 instance #2 is 4
   store i64 4, i64* %92, align 8
-  %93 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 0)
+  %93 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 0)
 ; NOTE: lower bound 0 of new_solver actual arg #0 instance #2 is 1
   store i64 1, i64* %93, align 8
-  %94 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %25, i32 0)
+  %94 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 0)
 ; NOTE: extent 0 of new_solver actual arg #0 instance #2 is 10
   store i64 10, i64* %94, align 8
-  %95 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %57, i32 1)
+  %95 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %57, i32 1)
 ; NOTE: stride 1 of new_solver actual arg #0 instance #2 is 40
   store i64 40, i64* %95, align 8
-  %96 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 1)
+  %96 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 1)
 ; NOTE: lower bound 1 of new_solver actual arg #0 instance #2 is 1
   store i64 1, i64* %96, align 8
-  %97 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %25, i32 1)
+  %97 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 1)
 ; NOTE: extent 1 of new_solver actual arg #0 instance #2 is 10
   store i64 10, i64* %97, align 8
   store i32* getelementptr inbounds ([10 x [10 x i32]], [10 x [10 x i32]]* @"main_$PART2", i64 0, i64 0, i64 0), i32** %54, align 8
@@ -225,31 +225,31 @@ define dso_local void @MAIN__() #0 {
   store i64 4, i64* %27, align 8
   store i64 3, i64* %60, align 8
   store i64 0, i64* %59, align 8
-  %98 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 0)
+  %98 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 0)
 ; NOTE: stride 0 of new_solver actual arg #1 instance #2 is 4
   store i64 4, i64* %98, align 8
-  %99 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 0)
+  %99 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 0)
 ; NOTE: lower bound 0 of new_solver actual arg #1 instance #2 is 1
   store i64 1, i64* %99, align 8
-  %100 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %61, i32 0)
+  %100 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 0)
 ; NOTE: extent 0 of new_solver actual arg #1 instance #2 is 9
   store i64 9, i64* %100, align 8
-  %101 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 1)
+  %101 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 1)
 ; NOTE: stride 1 of new_solver actual arg #1 instance #2 is 36
   store i64 36, i64* %101, align 8
-  %102 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 1)
+  %102 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 1)
 ; NOTE: lower bound 1 of new_solver actual arg #1 instance #2 is 1
   store i64 1, i64* %102, align 8
-  %103 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %61, i32 1)
+  %103 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 1)
 ; NOTE: extent 1 of new_solver actual arg #1 instance #2 is 9
   store i64 9, i64* %103, align 8
-  %104 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 2)
+  %104 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 2)
 ; NOTE: stride 2 of new_solver actual arg #1 instance #2 is 324
   store i64 324, i64* %104, align 8
-  %105 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 2)
+  %105 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %62, i32 2)
 ; NOTE: lower bound 2 of new_solver actual arg #1 instance #2 is 1
   store i64 1, i64* %105, align 8
-  %106 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %61, i32 2)
+  %106 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %61, i32 2)
 ; NOTE: extent 2 of new_solver actual arg #1 instance #2 is 9
   store i64 9, i64* %106, align 8
   store i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @"main_$BLOCK", i64 0, i64 0, i64 0, i64 0), i32** %58, align 8
@@ -272,22 +272,22 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 ; NOTE: Load the base address for the stride of arg #0 into %9
   %9 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %8, i64 0, i32 1
   %10 = load i32*, i32** %3, align 8
-  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %6, i32 0)
+  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 0)
 ; NOTE: Load stride 0 value for arg #1 into %12
   %12 = load i64, i64* %11, align 8
-  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %5, i32 0)
+  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 0)
 ; NOTE: Load extent 0 value for arg #1 into %14
   %14 = load i64, i64* %13, align 8
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %6, i32 1)
+  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 1)
 ; NOTE: Load stride 1 value for arg #1 into %16
   %16 = load i64, i64* %15, align 8
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %5, i32 1)
+  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 1)
 ; NOTE: Load extent 1 value for arg #1 into %18
   %18 = load i64, i64* %17, align 8
-  %19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %6, i32 2)
+  %19 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %6, i32 2)
 ; NOTE: Load stride 2 value for arg #1 into %20
   %20 = load i64, i64* %19, align 8
-  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %5, i32 2)
+  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %5, i32 2)
 ; NOTE: Load extent 2 value for arg #1 into %22
   %22 = load i64, i64* %21, align 8
   %23 = icmp slt i64 %22, 1
@@ -305,7 +305,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 
 28:                                               ; preds = %36, %28
   %29 = phi i64 [ 1, %36 ], [ %31, %28 ]
-  %30 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* %38, i64 %29)
+  %30 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* elementtype(i32) %38, i64 %29)
 ; NOTE: replace %12 with 4
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4,{{.*}})
   store i32 0, i32* %30, align 4
@@ -324,7 +324,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 
 36:                                               ; preds = %42, %33
   %37 = phi i64 [ 1, %42 ], [ %34, %33 ]
-  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* %44, i64 %37)
+  %38 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* elementtype(i32) %44, i64 %37)
 ; NOTE: replace %16 with 36
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36,{{.*}})
   br label %28
@@ -338,17 +338,17 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 
 42:                                               ; preds = %39, %2
   %43 = phi i64 [ %40, %39 ], [ 1, %2 ]
-  %44 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* %10, i64 %43)
+  %44 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* elementtype(i32) %10, i64 %43)
 ; NOTE: replace %20 with 324
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324,{{.*}})
   br label %36
 
 45:                                               ; preds = %39, %2
   %46 = load i32*, i32** %7, align 8
-  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %9, i32 0)
+  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 0)
 ; NOTE: Load stride 0 value for arg #0 into %48
   %48 = load i64, i64* %47, align 8
-  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %9, i32 1)
+  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 1)
 ; NOTE: Load stride 1 value for arg #0 into %50
   %50 = load i64, i64* %49, align 8
   br label %51
@@ -359,10 +359,10 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 
 53:                                               ; preds = %80, %51
   %54 = phi i64 [ %81, %80 ], [ 1, %51 ]
-  %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %50, i32* %46, i64 %54)
+  %55 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %50, i32* elementtype(i32) %46, i64 %54)
 ; NOTE: DO NOT replace %50 with 36
 ; CHECK-NOT: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36,{{.*}})
-  %56 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %48, i32* %55, i64 %52)
+  %56 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %48, i32* elementtype(i32) %55, i64 %52)
 ; NOTE: replace %48 with 4
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4,{{.*}})
   %57 = load i32, i32* %56, align 4
@@ -372,7 +372,7 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 59:                                               ; preds = %76, %59
   %60 = phi i64 [ 1, %76 ], [ %63, %59 ]
   %61 = phi i32 [ 1, %76 ], [ %64, %59 ]
-  %62 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %79, i64 %60)
+  %62 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %79, i64 %60)
   store i32 %61, i32* %62, align 4
   %63 = add nuw nsw i64 %60, 1
   %64 = add nuw nsw i32 %61, 1
@@ -381,15 +381,15 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [2 x { i64, i
 
 66:                                               ; preds = %66, %59
   %67 = phi i64 [ %73, %66 ], [ 1, %59 ]
-  %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %79, i64 %67)
+  %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %79, i64 %67)
   %69 = load i32, i32* %68, align 4
-  %70 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* %10, i64 %67)
+  %70 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 %20, i32* elementtype(i32) %10, i64 %67)
 ; NOTE: replace %20 with 324
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324,{{.*}})
-  %71 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* %70, i64 %54)
+  %71 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %16, i32* elementtype(i32) %70, i64 %54)
 ; NOTE: replace %16 with 36
 ; CHECK: [[V:%[0-9]+]] = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36,{{.*}})
-  %72 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* %71, i64 %52)
+  %72 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %12, i32* elementtype(i32) %71, i64 %52)
   store i32 %69, i32* %72, align 4
   %73 = add nuw nsw i64 %67, 1
   %74 = icmp eq i64 %73, 10

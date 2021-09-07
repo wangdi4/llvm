@@ -71,10 +71,10 @@ entry:
   %lb.i.i = getelementptr inbounds %struct.ArrDesc, %struct.ArrDesc* %inout, i64 0, i32 6, i64 0, i32 2
   %2 = load i64, i64* %lb.i.i, align 8
   %conv5.i.i = trunc i64 %2 to i32
-  %call.i.i.i = tail call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 %conv5.i.i, i32 %conv.i.i, %struct.A* %0, i16 signext 1) #5
+  %call.i.i.i = tail call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 %conv5.i.i, i32 %conv.i.i, %struct.A* elementtype(%struct.A) %0, i16 signext 1) #5
   %i5 = getelementptr inbounds %struct.A, %struct.A* %call.i.i.i, i64 0, i32 1
   %3 = load i16, i16* %i5, align 4
-  %call.i.i.i19 = tail call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 %conv5.i.i, i32 %conv.i.i, %struct.A* %0, i16 signext %3) #5
+  %call.i.i.i19 = tail call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 %conv5.i.i, i32 %conv.i.i, %struct.A* elementtype(%struct.A) %0, i16 signext %3) #5
   %f = getelementptr inbounds %struct.A, %struct.A* %call.i.i.i19, i64 0, i32 0
   %4 = load float, float* %f, align 4
   %conv10 = fadd float %4, 1.000000e+00
@@ -99,10 +99,10 @@ entry:
   store i16 9, i16* %i5, align 4
   %f = getelementptr inbounds [10 x %struct.A], [10 x %struct.A]* %Arr, i64 0, i64 9, i32 0
   store float 2.000000e+00, float* %f, align 8
-  %call.i.i.i.i = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 0, i32 8, %struct.A* nonnull %arrayidx, i16 signext 1) #5
+  %call.i.i.i.i = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 0, i32 8, %struct.A* elementtype(%struct.A) nonnull %arrayidx, i16 signext 1) #5
   %i5.i = getelementptr inbounds %struct.A, %struct.A* %call.i.i.i.i, i64 0, i32 1
   %1 = load i16, i16* %i5.i, align 4
-  %call.i.i.i19.i = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 0, i32 8, %struct.A* nonnull %arrayidx, i16 signext %1) #5
+  %call.i.i.i19.i = call %struct.A* @llvm.intel.subscript.p0s_struct.As.i32.i32.p0s_struct.As.i16(i8 zeroext 0, i32 0, i32 8, %struct.A* elementtype(%struct.A) nonnull %arrayidx, i16 signext %1) #5
   %f.i = getelementptr inbounds %struct.A, %struct.A* %call.i.i.i19.i, i64 0, i32 0
   %2 = load float, float* %f.i, align 4
   %conv10.i = fadd float %2, 1.000000e+00

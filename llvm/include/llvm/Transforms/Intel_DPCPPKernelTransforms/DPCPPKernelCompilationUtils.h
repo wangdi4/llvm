@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
@@ -31,6 +32,7 @@ namespace KernelAttribute {
 extern const StringRef CallOnce;
 extern const StringRef CallParamNum;
 extern const StringRef ConvergentCall;
+extern const StringRef HasSubGroups;
 extern const StringRef HasVPlanMask;
 extern const StringRef RecursionWithBarrier;
 extern const StringRef VectorVariants;
@@ -479,10 +481,19 @@ void updateMetadataTreeWithNewFuncs(
     MDNode *MDTreeNode, SmallSet<MDNode *, 8> &Visited);
 
 inline bool hasByvalByrefArgs(Function *F) {
+  if (!F)
+    return false;
   return llvm::any_of(F->args(), [](auto &Arg) {
     return Arg.hasByValAttr() || Arg.hasByRefAttr();
   });
 }
+
+/// Whether the CallGraphNode `Node` contains a call to the function that
+/// satisfies the given `Condition`. This will perform a DFS on the CallGraph.
+/// Returns true if `Node->getFunction()` calls target function
+/// directly/indirectly.
+bool hasFunctionCallInCGNodeSatisfiedWith(
+    CallGraphNode *Node, function_ref<bool(Function *)> Condition);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

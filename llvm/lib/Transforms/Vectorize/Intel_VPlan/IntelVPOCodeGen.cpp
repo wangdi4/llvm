@@ -311,6 +311,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                            "serial.insertvalue");
   } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
     SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
+  } else if (VPInst->getOpcode() == Instruction::Select) {
+    assert(Ops.size() == 3 && "Select instruction should have three operands.");
+    SerialInst = Builder.CreateSelect(Ops[0], Ops[1], Ops[2]);
   } else if (VPInst->getOpcode() == Instruction::BitCast ||
              VPInst->getOpcode() == Instruction::AddrSpaceCast) {
     assert(Ops.size() == 1 &&
@@ -2487,6 +2490,9 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
   VPValue *Cond = VPInst->getOperand(0);
+  if (!isVectorizableTy(VPInst->getOperand(1)->getType())) {
+    return serializeWithPredication(VPInst);
+  }
   Value *Op0 = getVectorValue(VPInst->getOperand(1));
   Value *Op1 = getVectorValue(VPInst->getOperand(2));
   bool UniformCond = Plan->getVPlanDA()->isUniform(*Cond);

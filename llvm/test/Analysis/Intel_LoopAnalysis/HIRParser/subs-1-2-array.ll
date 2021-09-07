@@ -26,8 +26,8 @@ alloca:
 
 bb17:                                             ; preds = %alloca, %bb17
   %"var$3.016" = phi i64 [ 1, %alloca ], [ %add11, %bb17 ]
-  %1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 4, i32* getelementptr inbounds ([3 x [1 x i32]], [3 x [1 x i32]]* @"_unnamed_main$$_$A", i64 0, i64 0, i64 0), i64 %"var$3.016")
-  %2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1, i64 1)
+  %1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 4, i32* elementtype(i32) getelementptr inbounds ([3 x [1 x i32]], [3 x [1 x i32]]* @"_unnamed_main$$_$A", i64 0, i64 0, i64 0), i64 %"var$3.016")
+  %2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1, i64 1)
   store i32 5, i32* %2, align 4
   %add11 = add nuw nsw i64 %"var$3.016", 1
   %exitcond = icmp eq i64 %add11, 4

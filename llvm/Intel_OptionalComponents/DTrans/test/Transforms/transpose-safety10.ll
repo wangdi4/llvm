@@ -38,17 +38,17 @@ define dso_local void @MAIN__() #0 {
   store i64 4, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 1), align 8
   store i64 2, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 4), align 8
   store i64 0, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 2), align 8
-  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 0) #6
+  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 0) #6
   store i64 1, i64* %4, align 1
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 0), i32 0) #6
+  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 0), i32 0) #6
   store i64 10, i64* %5, align 1
-  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 1) #6
+  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 1) #6
   store i64 1, i64* %6, align 1
-  %7 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 0), i32 1) #6
+  %7 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 0), i32 1) #6
   store i64 10, i64* %7, align 1
-  %8 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 0) #6
+  %8 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 0) #6
   store i64 4, i64* %8, align 1
-  %9 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 1) #6
+  %9 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 1) #6
   store i64 40, i64* %9, align 1
   %10 = or i64 %3, 1073741957
   store i64 %10, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 3), align 8
@@ -64,7 +64,7 @@ define dso_local void @MAIN__() #0 {
 declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly %0) local_unnamed_addr #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* %3, i32 %4) #2
+declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* elementtype(i64) %3, i32 %4) #2
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_alloc_allocatable_handle(i64 %0, i8** nocapture %1, i32 %2, i8* %3) local_unnamed_addr #1
@@ -95,13 +95,13 @@ define internal void @hasvfe_IP_mycontained_() #0 {
   %19 = getelementptr inbounds %"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* %11, i64 0, i32 4
   %20 = getelementptr inbounds %"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* %11, i64 0, i32 5
   %21 = getelementptr inbounds [8 x i64], [8 x i64]* %1, i64 0, i64 0
-  %22 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* nonnull %21, i64 2)
+  %22 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* elementtype(i64) nonnull %21, i64 2)
   %23 = ptrtoint [2 x i64]* %4 to i64
   store i64 %23, i64* %22, align 1
   %24 = getelementptr inbounds [2 x i64], [2 x i64]* %4, i64 0, i64 0
-  %25 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* nonnull %24, i64 0)
+  %25 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* elementtype(i64) nonnull %24, i64 0)
   store volatile i64 0, i64* %25, align 1
-  %26 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* nonnull %24, i64 1)
+  %26 = call i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 0, i64 0, i64 8, i64* elementtype(i64) nonnull %24, i64 1)
   %27 = bitcast %vfe_uplevel_rec_type* %3 to i8*
   call void @llvm.init.trampoline(i8* nonnull %7, i8* bitcast (i32 (%vfe_uplevel_rec_type*)* @"_vfe$0000mycontained$BLK" to i8*), i8* nonnull %27)
   %28 = call i8* @llvm.adjust.trampoline(i8* nonnull %7)
@@ -114,19 +114,19 @@ define internal void @hasvfe_IP_mycontained_() #0 {
   store i64 0, i64* %16, align 8
   %31 = getelementptr inbounds %"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* %11, i64 0, i32 6, i64 0
   %32 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %31, i64 0, i32 2
-  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 0)
+  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %32, i32 0)
   store i64 1, i64* %33, align 1
   %34 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %31, i64 0, i32 0
-  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %34, i32 0)
+  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %34, i32 0)
   store i64 10, i64* %35, align 1
-  %36 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 1)
+  %36 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %32, i32 1)
   store i64 1, i64* %36, align 1
-  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %34, i32 1)
+  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %34, i32 1)
   store i64 10, i64* %37, align 1
   %38 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %31, i64 0, i32 1
-  %39 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 0)
+  %39 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %38, i32 0)
   store i64 4, i64* %39, align 1
-  %40 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 1)
+  %40 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %38, i32 1)
   store i64 40, i64* %40, align 1
   %41 = or i64 %30, 1073741957
   store i64 %41, i64* %18, align 8
@@ -135,9 +135,9 @@ define internal void @hasvfe_IP_mycontained_() #0 {
   %44 = or i32 %43, 262146
   %45 = bitcast %__DTRT_MYCONTAINED.uplevel_nested_type* %2 to i8**
   %46 = call i32 @for_alloc_allocatable_handle(i64 400, i8** nonnull %45, i32 %44, i8* null) #6
-  %47 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 0)
-  %48 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 1)
-  %49 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 1)
+  %47 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %48 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 1), i32 1)
+  %49 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 6, i64 0, i32 2), i32 1)
   br label %50
 
 50:                                               ; preds = %70, %0
@@ -151,16 +151,16 @@ define internal void @hasvfe_IP_mycontained_() #0 {
   %56 = load i64, i64* %33, align 1
   %57 = load i64, i64* %40, align 1, !range !3
   %58 = load i64, i64* %36, align 1
-  %59 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %58, i64 %57, i32* %55, i64 %53)
-  %60 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %56, i64 4, i32* %59, i64 %51)
+  %59 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %58, i64 %57, i32* elementtype(i32) %55, i64 %53)
+  %60 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %56, i64 4, i32* elementtype(i32) %59, i64 %51)
   %61 = trunc i64 %54 to i32
   store i32 %61, i32* %60, align 1
   %62 = load i32*, i32** getelementptr inbounds (%"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* @smmod_mp_myglobal_, i64 0, i32 0), align 8
   %63 = load i64, i64* %47, align 1
   %64 = load i64, i64* %48, align 1, !range !3
   %65 = load i64, i64* %49, align 1
-  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %65, i64 %64, i32* %62, i64 %53)
-  %67 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %63, i64 4, i32* %66, i64 %51)
+  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %65, i64 %64, i32* elementtype(i32) %62, i64 %53)
+  %67 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %63, i64 4, i32* elementtype(i32) %66, i64 %51)
   store i32 %61, i32* %67, align 1
   %68 = add nuw nsw i64 %53, 1
   %69 = icmp eq i64 %68, 11
@@ -176,8 +176,8 @@ define internal void @hasvfe_IP_mycontained_() #0 {
   %75 = load i64, i64* %33, align 1
   %76 = load i64, i64* %40, align 1, !range !3
   %77 = load i64, i64* %36, align 1
-  %78 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %77, i64 %76, i32* %74, i64 5)
-  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %75, i64 4, i32* %78, i64 5)
+  %78 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 %77, i64 %76, i32* elementtype(i32) %74, i64 5)
+  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 %75, i64 4, i32* elementtype(i32) %78, i64 5)
   %80 = load i32, i32* %79, align 1
   %81 = getelementptr inbounds [4 x i8], [4 x i8]* %6, i64 0, i64 0
   store i8 9, i8* %81, align 1
@@ -232,7 +232,7 @@ define internal void @hasvfe_IP_mycontained_() #0 {
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 %0, i64 %1, i64 %2, i64* %3, i64 %4) #2
+declare i64* @llvm.intel.subscript.p0i64.i64.i64.p0i64.i64(i8 %0, i64 %1, i64 %2, i64* elementtype(i64) %3, i64 %4) #2
 
 ; Function Attrs: mustprogress nofree nounwind willreturn
 define internal i32 @"_vfe$0000mycontained$BLK"(%vfe_uplevel_rec_type* nest nocapture readonly %0) #3 {
@@ -242,19 +242,19 @@ define internal i32 @"_vfe$0000mycontained$BLK"(%vfe_uplevel_rec_type* nest noca
   %5 = getelementptr inbounds %__DTRT_MYCONTAINED.uplevel_nested_type, %__DTRT_MYCONTAINED.uplevel_nested_type* %4, i64 0, i32 0
   %6 = getelementptr inbounds %"__DTRT_QNCA_a0$i32*$rank2$", %"__DTRT_QNCA_a0$i32*$rank2$"* %5, i64 0, i32 6, i64 0
   %7 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %6, i64 0, i32 2
-  %8 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %7, i32 0)
+  %8 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %7, i32 0)
   %9 = load volatile i64, i64* %8, align 1
   %10 = load volatile i64, i64* %8, align 1
   %11 = load volatile i64, i64* %8, align 1
   %12 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %6, i64 0, i32 0
-  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %12, i32 0)
+  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %12, i32 0)
   %14 = load volatile i64, i64* %13, align 1
   %15 = load volatile i64, i64* %13, align 1
-  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %7, i32 1)
+  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %7, i32 1)
   %17 = load volatile i64, i64* %16, align 1
   %18 = load volatile i64, i64* %16, align 1
   %19 = load volatile i64, i64* %16, align 1
-  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %12, i32 1)
+  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %12, i32 1)
   %21 = load volatile i64, i64* %20, align 1
   %22 = load volatile i64, i64* %20, align 1
   %23 = mul nsw i64 %22, %15
@@ -269,7 +269,7 @@ declare void @llvm.init.trampoline(i8* nocapture %0, i8* %1, i8* %2) #4
 declare i8* @llvm.adjust.trampoline(i8* %0) #5
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 %0, i64 %1, i64 %2, i32* %3, i64 %4) #2
+declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 %0, i64 %1, i64 %2, i32* elementtype(i32) %3, i64 %4) #2
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_write_seq_fmt(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, i8* %5, ...) local_unnamed_addr #1

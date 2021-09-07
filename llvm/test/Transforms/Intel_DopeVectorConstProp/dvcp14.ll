@@ -36,17 +36,17 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i
 ; Load the base address for the stride of arg #0 into $12
   call void @new_solver_IP_specific_(%uplevel_type* nonnull %3)
   %13 = load i32*, i32** %6, align 8
-  %14 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %9, i32 0)
+  %14 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 0)
   %15 = load i64, i64* %14, align 8
 ; NOTE: Load stride 0 value for arg #1 into %15
-  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %9, i32 1)
+  %16 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 1)
   %17 = load i64, i64* %16, align 8
 ; NOTE: Load stride 1 value for arg #1 into %17
-  %18 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %8, i32 1)
+  %18 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %8, i32 1)
   %19 = load i64, i64* %18, align 8
 ; NOTE: Load extent 1 value for arg #1 into %19
   %20 = load i32*, i32** %10, align 8
-  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %12, i32 0)
+  %21 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %12, i32 0)
   %22 = load i64, i64* %21, align 8
 ; NOTE: Load stride 0 value for arg #0 into %22
   %23 = icmp slt i64 %19, 1
@@ -56,16 +56,16 @@ define internal void @new_solver_({ i32*, i64, i64, i64, i64, i64, [1 x { i64, i
 
 24:                                               ; preds = %24, %2
   %25 = phi i64 [ %30, %24 ], [ 1, %2 ]
-  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %22, i32* %20, i64 %25)
+  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %22, i32* elementtype(i32) %20, i64 %25)
 ; NOTE: Replace %22 with 4
-; CHECK: %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %20, i64 %25)
+; CHECK: %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %20, i64 %25)
   %27 = load i32, i32* %26, align 4
-  %28 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %17, i32* %13, i64 %25)
+  %28 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %17, i32* elementtype(i32) %13, i64 %25)
 ; NOTE: Replace %17 with 12
-; CHECK: %28 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 12, i32* %13, i64 %25)
-  %29 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %15, i32* %28, i64 1)
+; CHECK: %28 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 12, i32* elementtype(i32) %13, i64 %25)
+  %29 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %15, i32* elementtype(i32) %28, i64 1)
 ; NOTE: Replace %15 with 4
-; CHECK: %29 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %28, i64 1)
+; CHECK: %29 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %28, i64 1)
   store i32 %27, i32* %29, align 4
   %30 = add nuw i64 %25, 1
   %31 = icmp eq i64 %25, %19
@@ -100,10 +100,10 @@ define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapt
   %13 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %11, i64 0, i32 1
 ; NOTE: %13 is the base address for the stride of uplevel #1
   %14 = load i32*, i32** %6, align 8
-  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %9, i32 0)
+  %15 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %9, i32 0)
   %16 = load i64, i64* %15, align 8
 ; NOTE: %16 is the stride 0 of uplevel #0
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %8, i32 0)
+  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %8, i32 0)
   %18 = load i64, i64* %17, align 8
 ; NOTE: %18 is the extent 0 of uplevel #0
   %19 = icmp slt i64 %18, 1
@@ -113,9 +113,9 @@ define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapt
 
 20:                                               ; preds = %20, %1
   %21 = phi i64 [ %23, %20 ], [ 1, %1 ]
-  %22 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %16, i32* %14, i64 %21)
+  %22 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %16, i32* elementtype(i32) %14, i64 %21)
 ; NOTE: Replace %16 with 4
-; CHECK: %22 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %14, i64 %21)
+; CHECK: %22 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %14, i64 %21)
   store i32 0, i32* %22, align 4
   %23 = add nuw i64 %21, 1
   %24 = icmp eq i64 %21, %18
@@ -125,9 +125,9 @@ define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapt
 
 25:                                               ; preds = %33, %25
   %26 = phi i64 [ 1, %33 ], [ %28, %25 ]
-  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %39, i32* %35, i64 %26)
+  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %39, i32* elementtype(i32) %35, i64 %26)
 ; NOTE: Replace %39 with 4
-; CHECK: %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %35, i64 %26)
+; CHECK: %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %35, i64 %26)
   store i32 1, i32* %27, align 4
   %28 = add nuw i64 %26, 1
   %29 = icmp eq i64 %26, %41
@@ -144,23 +144,23 @@ define internal void @new_solver_IP_specific_(%uplevel_type* nest noalias nocapt
 
 33:                                               ; preds = %36, %30
   %34 = phi i64 [ %31, %30 ], [ 1, %36 ]
-  %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %43, i32* %37, i64 %34)
+  %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 %43, i32* elementtype(i32) %37, i64 %34)
 ; NOTE: Replace %43 with 12
-; CHECK: %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 12, i32* %37, i64 %34)
+; CHECK: %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 12, i32* elementtype(i32) %37, i64 %34)
   br label %25
 
 36:                                               ; preds = %20, %1
   %37 = load i32*, i32** %10, align 8
-  %38 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %13, i32 0)
+  %38 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %13, i32 0)
   %39 = load i64, i64* %38, align 8
 ; NOTE: %39 is the stride 0 of uplevel #1
-  %40 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %12, i32 0)
+  %40 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %12, i32 0)
   %41 = load i64, i64* %40, align 8
 ; NOTE: %41 is the extent 0 of uplevel #1
-  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %13, i32 1)
+  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %13, i32 1)
   %43 = load i64, i64* %42, align 8
 ; NOTE: %43 is the stride 1 of uplevel #1
-  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %12, i32 1)
+  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %12, i32 1)
   %45 = load i64, i64* %44, align 8
 ; NOTE: %45 is the extent 1 of uplevel #1
   %46 = icmp slt i64 %45, 1
@@ -222,13 +222,13 @@ define dso_local void @MAIN__() {
   store i64 4, i64* %9, align 8
   store i64 1, i64* %12, align 8
   store i64 0, i64* %10, align 8
-  %27 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %15, i32 0)
+  %27 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %15, i32 0)
   store i64 4, i64* %27, align 8
 ; NOTE: stride 0 of new_solver arg #0 is 4
-  %28 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %16, i32 0)
+  %28 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %16, i32 0)
   store i64 1, i64* %28, align 8
 ; NOTE: lower bound 0 of new_solver arg #0 is 1
-  %29 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %14, i32 0)
+  %29 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %14, i32 0)
   store i64 3, i64* %29, align 8
 ; NOTE: extent 0 of new_solver arg #0 is 3
   store i32* getelementptr inbounds ([3 x i32], [3 x i32]* @"main_$PART", i64 0, i64 0), i32** %8, align 8
@@ -236,22 +236,22 @@ define dso_local void @MAIN__() {
   store i64 4, i64* %18, align 8
   store i64 2, i64* %21, align 8
   store i64 0, i64* %19, align 8
-  %30 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %24, i32 0)
+  %30 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %24, i32 0)
   store i64 4, i64* %30, align 8
 ; NOTE: stride 0 of new_solver arg #1 is 4
-  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %25, i32 0)
+  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 0)
   store i64 1, i64* %31, align 8
 ; NOTE: lower bound 0 of new_solver arg #1 is 1
-  %32 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %23, i32 0)
+  %32 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %23, i32 0)
   store i64 3, i64* %32, align 8
 ; NOTE: extent 0 of new_solver arg #1 is 3
-  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %24, i32 1)
+  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %24, i32 1)
   store i64 12, i64* %33, align 8
 ; NOTE: stride 1 of new_solver arg #1 is 12
-  %34 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %25, i32 1)
+  %34 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %25, i32 1)
   store i64 1, i64* %34, align 8
 ; NOTE: lower bound 1 of new_solver arg #1 is 1
-  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %23, i32 1)
+  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %23, i32 1)
   store i64 3, i64* %35, align 8
 ; NOTE: extent 1 of new_solver arg #1 is 3
   store i32* getelementptr inbounds ([3 x [3 x i32]], [3 x [3 x i32]]* @"main_$BLOCK", i64 0, i64 0, i64 0), i32** %17, align 8

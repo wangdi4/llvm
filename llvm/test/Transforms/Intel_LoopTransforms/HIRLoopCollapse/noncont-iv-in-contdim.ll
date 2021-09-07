@@ -71,8 +71,8 @@ bb1:                                              ; preds = %bb6, %alloca_0
   br i1 %rel.4, label %bb6, label %bb5.preheader
 
 bb5.preheader:                                    ; preds = %bb1
-  %"sub_$A8[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul.7, float* nonnull %"sub_$A8", i64 %indvars.iv42)
-  %"sub_$B2[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.6, float* nonnull %"sub_$B2", i64 %indvars.iv42)
+  %"sub_$A8[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul.7, float* elementtype(float) nonnull %"sub_$A8", i64 %indvars.iv42)
+  %"sub_$B2[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.6, float* elementtype(float) nonnull %"sub_$B2", i64 %indvars.iv42)
   br label %bb5
 
 bb5:                                              ; preds = %bb5.preheader, %bb10
@@ -80,14 +80,14 @@ bb5:                                              ; preds = %bb5.preheader, %bb1
   br i1 %rel.5, label %bb10, label %bb9.preheader
 
 bb9.preheader:                                    ; preds = %bb5
-  %"sub_$A8[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.6, float* nonnull %"sub_$A8[]", i64 %indvars.iv38)
+  %"sub_$A8[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul.6, float* elementtype(float) nonnull %"sub_$A8[]", i64 %indvars.iv38)
   br label %bb9
 
 bb9:                                              ; preds = %bb9.preheader, %bb9
   %indvars.iv = phi i64 [ 1, %bb9.preheader ], [ %indvars.iv.next, %bb9 ]
-  %"sub_$A8[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"sub_$A8[][]", i64 %indvars.iv)
+  %"sub_$A8[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"sub_$A8[][]", i64 %indvars.iv)
   %"sub_$A8[][][]_fetch.21" = load float, float* %"sub_$A8[][][]", align 1
-  %"sub_$B2[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"sub_$B2[]", i64 %indvars.iv)
+  %"sub_$B2[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"sub_$B2[]", i64 %indvars.iv)
   %"sub_$B2[][]_fetch.28" = load float, float* %"sub_$B2[][]", align 1
   %add.4 = fadd reassoc ninf nsz arcp contract afn float %"sub_$A8[][][]_fetch.21", %"sub_$B2[][]_fetch.28"
   store float %add.4, float* %"sub_$B2[][]", align 1

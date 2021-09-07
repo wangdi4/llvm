@@ -51,7 +51,7 @@ alloca_0:
   %"foo_$D.addr_length$2_fetch" = load i64, i64* %"foo_$D.addr_length$2", align 1
   %"foo_$D.dim_info$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$D", i32 0, i32 6, i32 0
   %"foo_$D.dim_info$.extent$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"foo_$D.dim_info$", i32 0, i32 0
-  %"foo_$D.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"foo_$D.dim_info$.extent$", i32 0)
+  %"foo_$D.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"foo_$D.dim_info$.extent$", i32 0)
   %"foo_$D.dim_info$.extent$[]_fetch" = load i64, i64* %"foo_$D.dim_info$.extent$[]", align 1
   %mul.2 = mul nsw i64 %"foo_$D.addr_length$2_fetch", %"foo_$D.dim_info$.extent$[]_fetch"
   %"foo_$E.addr_a0$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$E", i32 0, i32 0
@@ -61,7 +61,7 @@ alloca_0:
   %"foo_$E.addr_length$4_fetch" = load i64, i64* %"foo_$E.addr_length$4", align 1
   %"foo_$E.dim_info$" = getelementptr inbounds %"QNCA_a0$i32*$rank1$", %"QNCA_a0$i32*$rank1$"* %"foo_$E", i32 0, i32 6, i32 0
   %"foo_$E.dim_info$.extent$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %"foo_$E.dim_info$", i32 0, i32 0
-  %"foo_$E.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"foo_$E.dim_info$.extent$", i32 0)
+  %"foo_$E.dim_info$.extent$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"foo_$E.dim_info$.extent$", i32 0)
   %"foo_$E.dim_info$.extent$[]_fetch" = load i64, i64* %"foo_$E.dim_info$.extent$[]", align 1
   %mul.3 = mul nsw i64 %"foo_$E.addr_length$4_fetch", %"foo_$E.dim_info$.extent$[]_fetch"
   br label %bb2
@@ -85,7 +85,7 @@ bb2:                                              ; preds = %alloca_0
 }
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* %3, i32 %4) #1
+declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* elementtype(i64) %3, i32 %4) #1
 
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry() #2

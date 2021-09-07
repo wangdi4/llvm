@@ -30,8 +30,8 @@ alloca:
 
 bb17:                                             ; preds = %alloca, %bb17
   %iv = phi i64 [ 1, %alloca ], [ %add11, %bb17 ]
-  %t1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 40, i32* %A, i64 %iv)
-  %t2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %t1, i64 1)
+  %t1 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 40, i32* elementtype(i32) %A, i64 %iv)
+  %t2 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %t1, i64 1)
   store i32 5, i32* %t2, align 4
   %add11 = add nuw nsw i64 %iv, 1
   %exitcond = icmp eq i64 %add11, 4

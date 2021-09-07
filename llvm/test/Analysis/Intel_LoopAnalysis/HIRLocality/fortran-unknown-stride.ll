@@ -21,10 +21,10 @@ bb60:
 
 bb64:                                             ; preds = %bb64, %bb60
   %iv = phi i64 [ %iv.next, %bb64 ], [ 1, %bb60 ]
-  %sub0 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride, i32* %ptr, i64 %iv)
+  %sub0 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride, i32* elementtype(i32) %ptr, i64 %iv)
   %ld1 = load i32, i32* %sub0, align 4
   %add = add nsw i64 %iv, 1
-  %sub.0 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride, i32* %ptr, i64 %add)
+  %sub.0 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 %stride, i32* elementtype(i32) %ptr, i64 %add)
   %ld2 = load i32, i32* %sub.0, align 4
   %iv.next = add nuw nsw i64 %iv, 1
   %exitcond2488 = icmp eq i64 %iv.next, 10

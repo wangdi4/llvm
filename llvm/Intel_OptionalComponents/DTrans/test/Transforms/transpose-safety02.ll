@@ -24,17 +24,17 @@ define void @test01() {
   store i64 4, i64* %"var$01_$field1$", align 8
   store i64 2, i64* %"var$01_$field4$", align 8
   store i64 0, i64* %"var$01_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$01_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$01_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var01, i64 0, i64 0, i64 0), i32** %"var$01_$field0$", align 8
   store i64 1, i64* %"var$01_$field3$", align 8
@@ -64,17 +64,17 @@ define void @test02() {
   store i64 4, i64* %"var$02_$field1$", align 8
   store i64 2, i64* %"var$02_$field4$", align 8
   store i64 0, i64* %"var$02_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$02_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$02_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var02, i64 0, i64 0, i64 0), i32** %"var$02_$field0$", align 8
   store i64 1, i64* %"var$02_$field3$", align 8
@@ -102,19 +102,19 @@ define void @test03() {
   store i64 4, i64* %"var$03_$field1$", align 8
   store i64 2, i64* %"var$03_$field4$", align 8
   store i64 0, i64* %"var$03_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field1$", i32 1)
 
   ; stride is every third element.
   store i64 108, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$03_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$03_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var03, i64 0, i64 0, i64 0), i32** %"var$03_$field0$", align 8
   store i64 1, i64* %"var$03_$field3$", align 8
@@ -148,17 +148,17 @@ define void @test04() {
   store i64 4, i64* %"var$04_$field1$", align 8
   store i64 2, i64* %"var$04_$field4$", align 8
   store i64 0, i64* %"var$04_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$04_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$04_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var04, i64 0, i64 0, i64 0), i32** %"var$04_$field0$", align 8
   store i64 1, i64* %"var$04_$field3$", align 8
@@ -192,17 +192,17 @@ define void @test05() {
   store i64 4, i64* %"var$05_$field1$", align 8
   store i64 2, i64* %"var$05_$field4$", align 8
   store i64 0, i64* %"var$05_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$05_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$05_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var05, i64 0, i64 0, i64 0), i32** %"var$05_$field0$", align 8
   store i64 1, i64* %"var$05_$field3$", align 8
@@ -234,19 +234,19 @@ define void @test06() {
   store i64 4, i64* %"var$06_$field1$", align 8
   store i64 2, i64* %"var$06_$field4$", align 8
   store i64 0, i64* %"var$06_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
   ; Skip extent field
-  ;%t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field0$", i32 0)
+  ;%t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field0$", i32 0)
   ;store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
   ; Skip extent field
-  ;%t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$06_$field6$_$field0$", i32 1)
+  ;%t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$06_$field6$_$field0$", i32 1)
   ;store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var06, i64 0, i64 0, i64 0), i32** %"var$06_$field0$", align 8
   store i64 1, i64* %"var$06_$field3$", align 8
@@ -273,21 +273,21 @@ define void @test07() {
   store i64 4, i64* %"var$07_$field1$", align 8
   store i64 2, i64* %"var$07_$field4$", align 8
   store i64 0, i64* %"var$07_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field2$", i32 0)
 
   ; Introduce two writes to the field to trigger it being rejected.
   store i64 2, i64* %t1, align 8
   store i64 1, i64* %t1, align 8
 
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$07_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$07_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var07, i64 0, i64 0, i64 0), i32** %"var$07_$field0$", align 8
   store i64 1, i64* %"var$07_$field3$", align 8
@@ -315,17 +315,17 @@ define void @test08() {
   store i64 4, i64* %"var$08_$field1$", align 8
   store i64 2, i64* %"var$08_$field4$", align 8
   store i64 0, i64* %"var$08_$field2$", align 8
-  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field1$", i32 0)
+  %t0 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field1$", i32 0)
   store i64 4, i64* %t0, align 8
-  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field2$", i32 0)
+  %t1 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field2$", i32 0)
   store i64 1, i64* %t1, align 8
-  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field0$", i32 0)
+  %t2 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field0$", i32 0)
   store i64 9, i64* %t2, align 8
-  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field1$", i32 1)
+  %t3 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field1$", i32 1)
   store i64 36, i64* %t3, align 8
-  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field2$", i32 1)
+  %t4 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field2$", i32 1)
   store i64 1, i64* %t4, align 8
-  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"var$08_$field6$_$field0$", i32 1)
+  %t5 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"var$08_$field6$_$field0$", i32 1)
   store i64 9, i64* %t5, align 8
   store i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @test_var08, i64 0, i64 0, i64 0), i32** %"var$08_$field0$", align 8
   store i64 1, i64* %"var$08_$field3$", align 8

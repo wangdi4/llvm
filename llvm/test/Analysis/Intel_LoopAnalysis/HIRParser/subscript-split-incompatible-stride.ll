@@ -20,12 +20,12 @@ entry:
 
 for.cond1.preheader:                              ; preds = %for.cond.cleanup3, %entry
   %i = phi i64 [ 0, %entry ], [ %i.next, %for.cond.cleanup3 ]
-  %pi = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 40, i32* %base, i64 %i)
+  %pi = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 0, i64 40, i32* elementtype(i32) %base, i64 %i)
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4, %for.cond1.preheader
   %j = phi i64 [ 0, %for.cond1.preheader ], [ %j.next, %for.body4 ]
-  %pj = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* %pi, i64 %j)
+  %pj = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 0, i64 4, i32* elementtype(i32) %pi, i64 %j)
   store i32 5, i32* %pj, align 4
   %j.next = add nuw nsw i64 %j, 1
   %exitcond = icmp eq i64 %j.next, 10

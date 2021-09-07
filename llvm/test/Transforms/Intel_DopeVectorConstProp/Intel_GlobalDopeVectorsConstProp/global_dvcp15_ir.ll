@@ -103,12 +103,12 @@
 ; the copy dope vector as parameter.
 
 ; CHECK: define internal void @arr_mod_mp_print_info_
-; CHECK:   %48 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %13, i64 %47), !dbg !106
-; CHECK:   %51 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %48, i64 %50), !dbg !106
-; CHECK:   %59 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* %25, i64 %58), !dbg !108
-; CHECK:   %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %59, i64 %47), !dbg !108
-; CHECK:   %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %60, i64 %50), !dbg !108
-; CHECK:   %77 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %38, i64 %76), !dbg !111
+; CHECK:   %48 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %13, i64 %47), !dbg !106
+; CHECK:   %51 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %48, i64 %50), !dbg !106
+; CHECK:   %59 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* elementtype(float) %25, i64 %58), !dbg !108
+; CHECK:   %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* elementtype(float) %59, i64 %47), !dbg !108
+; CHECK:   %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %60, i64 %50), !dbg !108
+; CHECK:   %77 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %38, i64 %76), !dbg !111
 
 source_filename = "ld-temp.o"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -133,7 +133,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   br i1 %4, label %7, label %5, !dbg !41          ; simple.f90:18:16
 
 5:                                                ; preds = %1
-  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !42  ; simple.f90:20:12
+  %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !42  ; simple.f90:20:12
   br label %35, !dbg !41                          ; simple.f90:18:16
 
 7:                                                ; preds = %1
@@ -145,11 +145,11 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   store i64 288, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 1), align 8, !dbg !43  ; simple.f90:18:23
   store i64 1, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 4), align 16, !dbg !43  ; simple.f90:18:23
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 2), align 16, !dbg !43  ; simple.f90:18:23
-  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !43  ; simple.f90:18:23
+  %11 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !43  ; simple.f90:18:23
   store i64 1, i64* %11, align 1, !dbg !43        ; simple.f90:18:23
-  %12 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0), !dbg !43  ; simple.f90:18:23
+  %12 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0), !dbg !43  ; simple.f90:18:23
   store i64 1, i64* %12, align 1, !dbg !43        ; simple.f90:18:23
-  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0), !dbg !43  ; simple.f90:18:23
+  %13 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 0), !dbg !43  ; simple.f90:18:23
   store i64 288, i64* %13, align 1, !dbg !43      ; simple.f90:18:23
   %14 = call i32 (i64*, i32, ...) @for_check_mult_overflow64(i64* nonnull %2, i32 2, i64 1, i64 288) #5, !dbg !43  ; simple.f90:18:23
   %15 = load i64, i64* %2, align 8, !dbg !43      ; simple.f90:18:23
@@ -180,7 +180,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %37 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !42  ; simple.f90:20:12
   %38 = load i64, i64* %36, align 1, !dbg !42     ; simple.f90:20:12
   %39 = sext i32 %3 to i64, !dbg !42              ; simple.f90:20:12
-  %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %38, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %37, i64 %39), !dbg !44  ; simple.f90:20:21
+  %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %38, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %37, i64 %39), !dbg !44  ; simple.f90:20:21
   %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 3, !dbg !44  ; simple.f90:20:21
   %42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 5, !dbg !42  ; simple.f90:20:12
   store i64 0, i64* %42, align 1, !dbg !42        ; simple.f90:20:12
@@ -191,26 +191,26 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 2, !dbg !42  ; simple.f90:20:12
   store i64 0, i64* %45, align 1, !dbg !42        ; simple.f90:20:12
   %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !42  ; simple.f90:20:12
-  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %46, i32 0), !dbg !42  ; simple.f90:20:12
+  %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 0), !dbg !42  ; simple.f90:20:12
   store i64 1, i64* %47, align 1, !dbg !42        ; simple.f90:20:12
   %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !42  ; simple.f90:20:12
-  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %48, i32 0), !dbg !42  ; simple.f90:20:12
+  %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %48, i32 0), !dbg !42  ; simple.f90:20:12
   store i64 10, i64* %49, align 1, !dbg !42       ; simple.f90:20:12
-  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %46, i32 1), !dbg !42  ; simple.f90:20:12
+  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %46, i32 1), !dbg !42  ; simple.f90:20:12
   store i64 1, i64* %50, align 1, !dbg !42        ; simple.f90:20:12
-  %51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %48, i32 1), !dbg !42  ; simple.f90:20:12
+  %51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %48, i32 1), !dbg !42  ; simple.f90:20:12
   store i64 10, i64* %51, align 1, !dbg !42       ; simple.f90:20:12
   %52 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !42  ; simple.f90:20:12
-  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %52, i32 0), !dbg !42  ; simple.f90:20:12
+  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 0), !dbg !42  ; simple.f90:20:12
   store i64 4, i64* %53, align 1, !dbg !42        ; simple.f90:20:12
-  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %52, i32 1), !dbg !42  ; simple.f90:20:12
+  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %52, i32 1), !dbg !42  ; simple.f90:20:12
   store i64 40, i64* %54, align 1, !dbg !42       ; simple.f90:20:12
   store i64 1073741829, i64* %41, align 1, !dbg !42  ; simple.f90:20:12
   %55 = bitcast %"ARR_MOD$.btT_TESTTYPE"* %40 to i8**, !dbg !42  ; simple.f90:20:12
   %56 = tail call i32 @for_allocate_handle(i64 400, i8** %55, i32 262144, i8* null) #5, !dbg !42  ; simple.f90:20:12
   %57 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !45  ; simple.f90:21:12
   %58 = load i64, i64* %36, align 1, !dbg !45     ; simple.f90:21:12
-  %59 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %58, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %57, i64 %39), !dbg !46  ; simple.f90:21:21
+  %59 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %58, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %57, i64 %39), !dbg !46  ; simple.f90:21:21
   %60 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 3, !dbg !46  ; simple.f90:21:21
   %61 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 5, !dbg !45  ; simple.f90:21:12
   store i64 0, i64* %61, align 1, !dbg !45        ; simple.f90:21:12
@@ -221,25 +221,25 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %64 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 2, !dbg !45  ; simple.f90:21:12
   store i64 0, i64* %64, align 1, !dbg !45        ; simple.f90:21:12
   %65 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !45  ; simple.f90:21:12
-  %66 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 0), !dbg !45  ; simple.f90:21:12
+  %66 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %65, i32 0), !dbg !45  ; simple.f90:21:12
   store i64 1, i64* %66, align 1, !dbg !45        ; simple.f90:21:12
   %67 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !45  ; simple.f90:21:12
-  %68 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 0), !dbg !45  ; simple.f90:21:12
+  %68 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %67, i32 0), !dbg !45  ; simple.f90:21:12
   store i64 10, i64* %68, align 1, !dbg !45       ; simple.f90:21:12
-  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 1), !dbg !45  ; simple.f90:21:12
+  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %65, i32 1), !dbg !45  ; simple.f90:21:12
   store i64 1, i64* %69, align 1, !dbg !45        ; simple.f90:21:12
-  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 1), !dbg !45  ; simple.f90:21:12
+  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %67, i32 1), !dbg !45  ; simple.f90:21:12
   store i64 10, i64* %70, align 1, !dbg !45       ; simple.f90:21:12
-  %71 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 2), !dbg !45  ; simple.f90:21:12
+  %71 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %65, i32 2), !dbg !45  ; simple.f90:21:12
   store i64 1, i64* %71, align 1, !dbg !45        ; simple.f90:21:12
-  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 2), !dbg !45  ; simple.f90:21:12
+  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %67, i32 2), !dbg !45  ; simple.f90:21:12
   store i64 10, i64* %72, align 1, !dbg !45       ; simple.f90:21:12
   %73 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !45  ; simple.f90:21:12
-  %74 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 0), !dbg !45  ; simple.f90:21:12
+  %74 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %73, i32 0), !dbg !45  ; simple.f90:21:12
   store i64 4, i64* %74, align 1, !dbg !45        ; simple.f90:21:12
-  %75 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 1), !dbg !45  ; simple.f90:21:12
+  %75 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %73, i32 1), !dbg !45  ; simple.f90:21:12
   store i64 40, i64* %75, align 1, !dbg !45       ; simple.f90:21:12
-  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 2), !dbg !45  ; simple.f90:21:12
+  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %73, i32 2), !dbg !45  ; simple.f90:21:12
   store i64 400, i64* %76, align 1, !dbg !45      ; simple.f90:21:12
   %77 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 0, !dbg !45  ; simple.f90:21:12
   store i64 1073741829, i64* %60, align 1, !dbg !45  ; simple.f90:21:12
@@ -247,7 +247,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %79 = tail call i32 @for_allocate_handle(i64 4000, i8** nonnull %78, i32 262144, i8* null) #5, !dbg !45  ; simple.f90:21:12
   %80 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !47  ; simple.f90:22:12
   %81 = load i64, i64* %36, align 1, !dbg !47     ; simple.f90:22:12
-  %82 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %81, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %80, i64 %39), !dbg !48  ; simple.f90:22:21
+  %82 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %81, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %80, i64 %39), !dbg !48  ; simple.f90:22:21
   %83 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 3, !dbg !48  ; simple.f90:22:21
   %84 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 5, !dbg !47  ; simple.f90:22:12
   store i64 0, i64* %84, align 1, !dbg !47        ; simple.f90:22:12
@@ -258,13 +258,13 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %87 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 2, !dbg !47  ; simple.f90:22:12
   store i64 0, i64* %87, align 1, !dbg !47        ; simple.f90:22:12
   %88 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 2, !dbg !47  ; simple.f90:22:12
-  %89 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %88, i32 0), !dbg !47  ; simple.f90:22:12
+  %89 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %88, i32 0), !dbg !47  ; simple.f90:22:12
   store i64 1, i64* %89, align 1, !dbg !47        ; simple.f90:22:12
   %90 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 0, !dbg !47  ; simple.f90:22:12
-  %91 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %90, i32 0), !dbg !47  ; simple.f90:22:12
+  %91 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %90, i32 0), !dbg !47  ; simple.f90:22:12
   store i64 10, i64* %91, align 1, !dbg !47       ; simple.f90:22:12
   %92 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 1, !dbg !47  ; simple.f90:22:12
-  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %92, i32 0), !dbg !47  ; simple.f90:22:12
+  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %92, i32 0), !dbg !47  ; simple.f90:22:12
   store i64 4, i64* %93, align 1, !dbg !47        ; simple.f90:22:12
   %94 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 0, !dbg !47  ; simple.f90:22:12
   store i64 1073741829, i64* %83, align 1, !dbg !47  ; simple.f90:22:12
@@ -298,7 +298,7 @@ define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly
   call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.1, metadata !54, metadata !DIExpression()), !dbg !61  ; simple.f90:27:42
   call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.1, metadata !55, metadata !DIExpression()), !dbg !62  ; simple.f90:27:45
   call void @llvm.dbg.value(metadata i32 1, metadata !58, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !64  ; simple.f90:32:45
+  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !64  ; simple.f90:32:45
   %6 = load i32, i32* %0, align 1, !dbg !64       ; simple.f90:32:45
   %7 = sext i32 %6 to i64, !dbg !64               ; simple.f90:32:45
   br label %8, !dbg !65                           ; simple.f90:31:14
@@ -316,21 +316,21 @@ define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly
   call void @llvm.dbg.value(metadata i64 %13, metadata !57, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
   %14 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !64  ; simple.f90:32:45
   %15 = load i64, i64* %5, align 1, !dbg !64      ; simple.f90:32:45
-  %16 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %15, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %14, i64 %7), !dbg !67  ; simple.f90:32:16
+  %16 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %15, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %14, i64 %7), !dbg !67  ; simple.f90:32:16
   %17 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %16, i64 0, i32 0, i32 0, !dbg !68  ; simple.f90:32:23
   %18 = load float*, float** %17, align 1, !dbg !68  ; simple.f90:32:23
   %19 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %16, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !68  ; simple.f90:32:23
-  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %19, i32 0), !dbg !68  ; simple.f90:32:23
+  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %19, i32 0), !dbg !68  ; simple.f90:32:23
   %21 = load i64, i64* %20, align 1, !dbg !68     ; simple.f90:32:23
   %22 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %16, i64 0, i32 0, i32 6, i64 0, i32 2, !dbg !68  ; simple.f90:32:23
-  %23 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %22, i32 0), !dbg !68  ; simple.f90:32:23
+  %23 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %22, i32 0), !dbg !68  ; simple.f90:32:23
   %24 = load i64, i64* %23, align 1, !dbg !68     ; simple.f90:32:23
-  %25 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %19, i32 1), !dbg !68  ; simple.f90:32:23
+  %25 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %19, i32 1), !dbg !68  ; simple.f90:32:23
   %26 = load i64, i64* %25, align 1, !dbg !68     ; simple.f90:32:23
-  %27 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %22, i32 1), !dbg !68  ; simple.f90:32:23
+  %27 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %22, i32 1), !dbg !68  ; simple.f90:32:23
   %28 = load i64, i64* %27, align 1, !dbg !68     ; simple.f90:32:23
-  %29 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %28, i64 %26, float* %18, i64 %9), !dbg !67  ; simple.f90:32:16
-  %30 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %24, i64 %21, float* %29, i64 %13), !dbg !67  ; simple.f90:32:16
+  %29 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %28, i64 %26, float* elementtype(float) %18, i64 %9), !dbg !67  ; simple.f90:32:16
+  %30 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %24, i64 %21, float* elementtype(float) %29, i64 %13), !dbg !67  ; simple.f90:32:16
   store float %11, float* %30, align 1, !dbg !67  ; simple.f90:32:16
   call void @llvm.dbg.value(metadata i32 1, metadata !56, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
   br label %31
@@ -340,26 +340,26 @@ define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly
   call void @llvm.dbg.value(metadata i64 %32, metadata !56, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
   %33 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !69  ; simple.f90:34:50
   %34 = load i64, i64* %5, align 1, !dbg !69      ; simple.f90:34:50
-  %35 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %34, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %33, i64 %7), !dbg !70  ; simple.f90:34:18
+  %35 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %34, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %33, i64 %7), !dbg !70  ; simple.f90:34:18
   %36 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %35, i64 0, i32 1, i32 0, !dbg !71  ; simple.f90:34:25
   %37 = load float*, float** %36, align 1, !dbg !71  ; simple.f90:34:25
   %38 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %35, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !71  ; simple.f90:34:25
-  %39 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 0), !dbg !71  ; simple.f90:34:25
+  %39 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %38, i32 0), !dbg !71  ; simple.f90:34:25
   %40 = load i64, i64* %39, align 1, !dbg !71     ; simple.f90:34:25
   %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %35, i64 0, i32 1, i32 6, i64 0, i32 2, !dbg !71  ; simple.f90:34:25
-  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %41, i32 0), !dbg !71  ; simple.f90:34:25
+  %42 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %41, i32 0), !dbg !71  ; simple.f90:34:25
   %43 = load i64, i64* %42, align 1, !dbg !71     ; simple.f90:34:25
-  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 1), !dbg !71  ; simple.f90:34:25
+  %44 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %38, i32 1), !dbg !71  ; simple.f90:34:25
   %45 = load i64, i64* %44, align 1, !dbg !71     ; simple.f90:34:25
-  %46 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %41, i32 1), !dbg !71  ; simple.f90:34:25
+  %46 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %41, i32 1), !dbg !71  ; simple.f90:34:25
   %47 = load i64, i64* %46, align 1, !dbg !71     ; simple.f90:34:25
-  %48 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %38, i32 2), !dbg !71  ; simple.f90:34:25
+  %48 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %38, i32 2), !dbg !71  ; simple.f90:34:25
   %49 = load i64, i64* %48, align 1, !dbg !71     ; simple.f90:34:25
-  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %41, i32 2), !dbg !71  ; simple.f90:34:25
+  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %41, i32 2), !dbg !71  ; simple.f90:34:25
   %51 = load i64, i64* %50, align 1, !dbg !71     ; simple.f90:34:25
-  %52 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %51, i64 %49, float* %37, i64 %32), !dbg !70  ; simple.f90:34:18
-  %53 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %47, i64 %45, float* %52, i64 %9), !dbg !70  ; simple.f90:34:18
-  %54 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %43, i64 %40, float* %53, i64 %13), !dbg !70  ; simple.f90:34:18
+  %52 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %51, i64 %49, float* elementtype(float) %37, i64 %32), !dbg !70  ; simple.f90:34:18
+  %53 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %47, i64 %45, float* elementtype(float) %52, i64 %9), !dbg !70  ; simple.f90:34:18
+  %54 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %43, i64 %40, float* elementtype(float) %53, i64 %13), !dbg !70  ; simple.f90:34:18
   store float %11, float* %54, align 1, !dbg !70  ; simple.f90:34:18
   %55 = add nuw nsw i64 %32, 1, !dbg !72          ; simple.f90:35:16
   call void @llvm.dbg.value(metadata i64 %55, metadata !56, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
@@ -376,16 +376,16 @@ define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly
   call void @llvm.dbg.value(metadata i32 11, metadata !57, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
   %61 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !74  ; simple.f90:37:40
   %62 = load i64, i64* %5, align 1, !dbg !74      ; simple.f90:37:40
-  %63 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %62, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %61, i64 %7), !dbg !75  ; simple.f90:37:14
+  %63 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %62, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %61, i64 %7), !dbg !75  ; simple.f90:37:14
   %64 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 0, !dbg !76  ; simple.f90:37:21
   %65 = load float*, float** %64, align 1, !dbg !76  ; simple.f90:37:21
   %66 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 6, i64 0, i32 1, !dbg !76  ; simple.f90:37:21
-  %67 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %66, i32 0), !dbg !76  ; simple.f90:37:21
+  %67 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %66, i32 0), !dbg !76  ; simple.f90:37:21
   %68 = load i64, i64* %67, align 1, !dbg !76     ; simple.f90:37:21
   %69 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 6, i64 0, i32 2, !dbg !76  ; simple.f90:37:21
-  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %69, i32 0), !dbg !76  ; simple.f90:37:21
+  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %69, i32 0), !dbg !76  ; simple.f90:37:21
   %71 = load i64, i64* %70, align 1, !dbg !76     ; simple.f90:37:21
-  %72 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %71, i64 %68, float* %65, i64 11), !dbg !75  ; simple.f90:37:14
+  %72 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %71, i64 %68, float* elementtype(float) %65, i64 11), !dbg !75  ; simple.f90:37:14
   store float 1.100000e+01, float* %72, align 1, !dbg !75  ; simple.f90:37:14
   %73 = add nuw nsw i64 %9, 1, !dbg !77           ; simple.f90:38:12
   call void @llvm.dbg.value(metadata i64 %73, metadata !58, metadata !DIExpression()), !dbg !63  ; simple.f90:0:0
@@ -419,9 +419,9 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
   %12 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 0, !dbg !102  ; simple.f90:49:16
   %13 = load float*, float** %12, align 1, !dbg !102  ; simple.f90:49:16
   %14 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %4, i64 0, i32 6, i64 0, i32 1, !dbg !102  ; simple.f90:49:16
-  %15 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %14, i32 0), !dbg !102  ; simple.f90:49:16
+  %15 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 0), !dbg !102  ; simple.f90:49:16
   %16 = load i64, i64* %15, align 1, !dbg !102    ; simple.f90:49:16
-  %17 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %14, i32 1), !dbg !102  ; simple.f90:49:16
+  %17 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %14, i32 1), !dbg !102  ; simple.f90:49:16
   %18 = load i64, i64* %17, align 1, !dbg !102    ; simple.f90:49:16
   %19 = getelementptr inbounds [4 x i8], [4 x i8]* %9, i64 0, i64 0, !dbg !102  ; simple.f90:49:16
   %20 = getelementptr inbounds [4 x i8], [4 x i8]* %9, i64 0, i64 1, !dbg !102  ; simple.f90:49:16
@@ -431,11 +431,11 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
   %24 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %5, i64 0, i32 0, !dbg !103  ; simple.f90:51:18
   %25 = load float*, float** %24, align 1, !dbg !103  ; simple.f90:51:18
   %26 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %5, i64 0, i32 6, i64 0, i32 1, !dbg !103  ; simple.f90:51:18
-  %27 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 0), !dbg !103  ; simple.f90:51:18
+  %27 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %26, i32 0), !dbg !103  ; simple.f90:51:18
   %28 = load i64, i64* %27, align 1, !dbg !103    ; simple.f90:51:18
-  %29 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 1), !dbg !103  ; simple.f90:51:18
+  %29 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %26, i32 1), !dbg !103  ; simple.f90:51:18
   %30 = load i64, i64* %29, align 1, !dbg !103    ; simple.f90:51:18
-  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 2), !dbg !103  ; simple.f90:51:18
+  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %26, i32 2), !dbg !103  ; simple.f90:51:18
   %32 = load i64, i64* %31, align 1, !dbg !103    ; simple.f90:51:18
   %33 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 0, !dbg !103  ; simple.f90:51:18
   %34 = getelementptr inbounds [4 x i8], [4 x i8]* %10, i64 0, i64 1, !dbg !103  ; simple.f90:51:18
@@ -444,7 +444,7 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
   %37 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %6, i64 0, i32 0, !dbg !104  ; simple.f90:54:14
   %38 = load float*, float** %37, align 1, !dbg !104  ; simple.f90:54:14
   %39 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %6, i64 0, i32 6, i64 0, i32 1, !dbg !104  ; simple.f90:54:14
-  %40 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %39, i32 0), !dbg !104  ; simple.f90:54:14
+  %40 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %39, i32 0), !dbg !104  ; simple.f90:54:14
   %41 = load i64, i64* %40, align 1, !dbg !104    ; simple.f90:54:14
   %42 = getelementptr inbounds [4 x i8], [4 x i8]* %11, i64 0, i64 0, !dbg !104  ; simple.f90:54:14
   %43 = getelementptr inbounds [4 x i8], [4 x i8]* %11, i64 0, i64 1, !dbg !104  ; simple.f90:54:14
@@ -456,13 +456,13 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
   %47 = phi i64 [ 1, %7 ], [ %83, %74 ]
   call void @llvm.dbg.value(metadata i64 %47, metadata !93, metadata !DIExpression()), !dbg !101  ; simple.f90:0:0
   call void @llvm.dbg.value(metadata i32 1, metadata !92, metadata !DIExpression()), !dbg !101  ; simple.f90:0:0
-  %48 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %18, float* %13, i64 %47), !dbg !106  ; simple.f90:49:25
+  %48 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %18, float* elementtype(float) %13, i64 %47), !dbg !106  ; simple.f90:49:25
   br label %49, !dbg !107                         ; simple.f90:50:16
 
 49:                                               ; preds = %70, %46
   %50 = phi i64 [ 1, %46 ], [ %71, %70 ]
   call void @llvm.dbg.value(metadata i64 %50, metadata !92, metadata !DIExpression()), !dbg !101  ; simple.f90:0:0
-  %51 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %16, float* %48, i64 %50), !dbg !106  ; simple.f90:49:25
+  %51 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %16, float* elementtype(float) %48, i64 %50), !dbg !106  ; simple.f90:49:25
   %52 = load float, float* %51, align 1, !dbg !106  ; simple.f90:49:25
   store i8 26, i8* %19, align 1, !dbg !102        ; simple.f90:49:16
   store i8 1, i8* %20, align 1, !dbg !102         ; simple.f90:49:16
@@ -479,9 +479,9 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
 57:                                               ; preds = %49, %57
   %58 = phi i64 [ %67, %57 ], [ 1, %49 ]
   call void @llvm.dbg.value(metadata i64 %58, metadata !91, metadata !DIExpression()), !dbg !101  ; simple.f90:0:0
-  %59 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %32, float* %25, i64 %58), !dbg !108  ; simple.f90:51:27
-  %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %30, float* %59, i64 %47), !dbg !108  ; simple.f90:51:27
-  %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %28, float* %60, i64 %50), !dbg !108  ; simple.f90:51:27
+  %59 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %32, float* elementtype(float) %25, i64 %58), !dbg !108  ; simple.f90:51:27
+  %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %30, float* elementtype(float) %59, i64 %47), !dbg !108  ; simple.f90:51:27
+  %61 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %28, float* elementtype(float) %60, i64 %50), !dbg !108  ; simple.f90:51:27
   %62 = load float, float* %61, align 1, !dbg !108  ; simple.f90:51:27
   store i8 26, i8* %33, align 1, !dbg !103        ; simple.f90:51:18
   store i8 1, i8* %34, align 1, !dbg !103         ; simple.f90:51:18
@@ -509,7 +509,7 @@ define internal void @arr_mod_mp_print_info_(i32* noalias nocapture readonly %0,
   call void @llvm.dbg.value(metadata i32 undef, metadata !92, metadata !DIExpression()), !dbg !101  ; simple.f90:0:0
   %75 = shl i64 %71, 32, !dbg !104                ; simple.f90:54:14
   %76 = ashr exact i64 %75, 32, !dbg !104         ; simple.f90:54:14
-  %77 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %41, float* %38, i64 %76), !dbg !111  ; simple.f90:54:23
+  %77 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 %41, float* elementtype(float) %38, i64 %76), !dbg !111  ; simple.f90:54:23
   %78 = load float, float* %77, align 1, !dbg !111  ; simple.f90:54:23
   store i8 26, i8* %42, align 1, !dbg !104        ; simple.f90:54:14
   store i8 1, i8* %43, align 1, !dbg !104         ; simple.f90:54:14
@@ -543,22 +543,22 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.1, metadata !118, metadata !DIExpression()), !dbg !122  ; simple.f90:59:37
   call void @llvm.dbg.declare(metadata i32* @anon.11934500c7ed222a0a148892d04ea3ac.1, metadata !119, metadata !DIExpression()), !dbg !123  ; simple.f90:59:40
   %8 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16, !dbg !124  ; simple.f90:62:12
-  %9 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !124  ; simple.f90:62:12
+  %9 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0), !dbg !124  ; simple.f90:62:12
   %10 = load i64, i64* %9, align 1, !dbg !124     ; simple.f90:62:12
   %11 = load i32, i32* %0, align 1, !dbg !124     ; simple.f90:62:12
   %12 = sext i32 %11 to i64, !dbg !124            ; simple.f90:62:12
-  %13 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %10, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %8, i64 %12), !dbg !124  ; simple.f90:62:12
+  %13 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %10, i64 288, %"ARR_MOD$.btT_TESTTYPE"* elementtype(%"ARR_MOD$.btT_TESTTYPE") %8, i64 %12), !dbg !124  ; simple.f90:62:12
   %14 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 0, i32 0, !dbg !124  ; simple.f90:62:12
   %15 = load float*, float** %14, align 1, !dbg !124  ; simple.f90:62:12
   %16 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 0, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %16, i32 0), !dbg !124  ; simple.f90:62:12
+  %17 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %16, i32 0), !dbg !124  ; simple.f90:62:12
   %18 = load i64, i64* %17, align 1, !dbg !124    ; simple.f90:62:12
   %19 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 0, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %19, i32 0), !dbg !124  ; simple.f90:62:12
+  %20 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %19, i32 0), !dbg !124  ; simple.f90:62:12
   %21 = load i64, i64* %20, align 1, !dbg !124    ; simple.f90:62:12
-  %22 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %16, i32 1), !dbg !124  ; simple.f90:62:12
+  %22 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %16, i32 1), !dbg !124  ; simple.f90:62:12
   %23 = load i64, i64* %22, align 1, !dbg !124    ; simple.f90:62:12
-  %24 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %19, i32 1), !dbg !124  ; simple.f90:62:12
+  %24 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %19, i32 1), !dbg !124  ; simple.f90:62:12
   %25 = load i64, i64* %24, align 1, !dbg !124    ; simple.f90:62:12
   %26 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 3, !dbg !124  ; simple.f90:62:12
   %27 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
@@ -568,19 +568,19 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   %29 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
   store i64 0, i64* %29, align 8, !dbg !124       ; simple.f90:62:12
   %30 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 0), !dbg !124  ; simple.f90:62:12
+  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %30, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %18, i64* %31, align 1, !dbg !124     ; simple.f90:62:12
   %32 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
-  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 0), !dbg !124  ; simple.f90:62:12
+  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %32, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %33, align 1, !dbg !124       ; simple.f90:62:12
   %34 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %34, i32 0), !dbg !124  ; simple.f90:62:12
+  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %34, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %21, i64* %35, align 1, !dbg !124     ; simple.f90:62:12
-  %36 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 1), !dbg !124  ; simple.f90:62:12
+  %36 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %30, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 %23, i64* %36, align 1, !dbg !124     ; simple.f90:62:12
-  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 1), !dbg !124  ; simple.f90:62:12
+  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %32, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %37, align 1, !dbg !124       ; simple.f90:62:12
-  %38 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %34, i32 1), !dbg !124  ; simple.f90:62:12
+  %38 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %34, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 %25, i64* %38, align 1, !dbg !124     ; simple.f90:62:12
   %39 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %5, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
   store float* %15, float** %39, align 8, !dbg !124  ; simple.f90:62:12
@@ -588,18 +588,18 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   %40 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 1, i32 0, !dbg !124  ; simple.f90:62:12
   %41 = load float*, float** %40, align 1, !dbg !124  ; simple.f90:62:12
   %42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 1, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %43 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %42, i32 0), !dbg !124  ; simple.f90:62:12
+  %43 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %42, i32 0), !dbg !124  ; simple.f90:62:12
   %44 = load i64, i64* %43, align 1, !dbg !124    ; simple.f90:62:12
   %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 1, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %46 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %45, i32 0), !dbg !124  ; simple.f90:62:12
+  %46 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %45, i32 0), !dbg !124  ; simple.f90:62:12
   %47 = load i64, i64* %46, align 1, !dbg !124    ; simple.f90:62:12
-  %48 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %42, i32 1), !dbg !124  ; simple.f90:62:12
+  %48 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %42, i32 1), !dbg !124  ; simple.f90:62:12
   %49 = load i64, i64* %48, align 1, !dbg !124    ; simple.f90:62:12
-  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %45, i32 1), !dbg !124  ; simple.f90:62:12
+  %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %45, i32 1), !dbg !124  ; simple.f90:62:12
   %51 = load i64, i64* %50, align 1, !dbg !124    ; simple.f90:62:12
-  %52 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %42, i32 2), !dbg !124  ; simple.f90:62:12
+  %52 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %42, i32 2), !dbg !124  ; simple.f90:62:12
   %53 = load i64, i64* %52, align 1, !dbg !124    ; simple.f90:62:12
-  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %45, i32 2), !dbg !124  ; simple.f90:62:12
+  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %45, i32 2), !dbg !124  ; simple.f90:62:12
   %55 = load i64, i64* %54, align 1, !dbg !124    ; simple.f90:62:12
   %56 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 3, !dbg !124  ; simple.f90:62:12
   %57 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
@@ -609,25 +609,25 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   %59 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
   store i64 0, i64* %59, align 8, !dbg !124       ; simple.f90:62:12
   %60 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %61 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %60, i32 0), !dbg !124  ; simple.f90:62:12
+  %61 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %60, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %44, i64* %61, align 1, !dbg !124     ; simple.f90:62:12
   %62 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 6, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
-  %63 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 0), !dbg !124  ; simple.f90:62:12
+  %63 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %62, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %63, align 1, !dbg !124       ; simple.f90:62:12
   %64 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %65 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %64, i32 0), !dbg !124  ; simple.f90:62:12
+  %65 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %64, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %47, i64* %65, align 1, !dbg !124     ; simple.f90:62:12
-  %66 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %60, i32 1), !dbg !124  ; simple.f90:62:12
+  %66 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %60, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 %49, i64* %66, align 1, !dbg !124     ; simple.f90:62:12
-  %67 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 1), !dbg !124  ; simple.f90:62:12
+  %67 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %62, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %67, align 1, !dbg !124       ; simple.f90:62:12
-  %68 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %64, i32 1), !dbg !124  ; simple.f90:62:12
+  %68 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %64, i32 1), !dbg !124  ; simple.f90:62:12
   store i64 %51, i64* %68, align 1, !dbg !124     ; simple.f90:62:12
-  %69 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %60, i32 2), !dbg !124  ; simple.f90:62:12
+  %69 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %60, i32 2), !dbg !124  ; simple.f90:62:12
   store i64 %53, i64* %69, align 1, !dbg !124     ; simple.f90:62:12
-  %70 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %62, i32 2), !dbg !124  ; simple.f90:62:12
+  %70 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %62, i32 2), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %70, align 1, !dbg !124       ; simple.f90:62:12
-  %71 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %64, i32 2), !dbg !124  ; simple.f90:62:12
+  %71 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %64, i32 2), !dbg !124  ; simple.f90:62:12
   store i64 %55, i64* %71, align 1, !dbg !124     ; simple.f90:62:12
   %72 = getelementptr inbounds %"QNCA_a0$float*$rank3$", %"QNCA_a0$float*$rank3$"* %6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
   store float* %41, float** %72, align 8, !dbg !124  ; simple.f90:62:12
@@ -635,10 +635,10 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   %73 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 2, i32 0, !dbg !124  ; simple.f90:62:12
   %74 = load float*, float** %73, align 1, !dbg !124  ; simple.f90:62:12
   %75 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 2, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %75, i32 0), !dbg !124  ; simple.f90:62:12
+  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %75, i32 0), !dbg !124  ; simple.f90:62:12
   %77 = load i64, i64* %76, align 1, !dbg !124    ; simple.f90:62:12
   %78 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %13, i64 0, i32 2, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %79 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %78, i32 0), !dbg !124  ; simple.f90:62:12
+  %79 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %78, i32 0), !dbg !124  ; simple.f90:62:12
   %80 = load i64, i64* %79, align 1, !dbg !124    ; simple.f90:62:12
   %81 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 3, !dbg !124  ; simple.f90:62:12
   %82 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
@@ -648,13 +648,13 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
   %84 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
   store i64 0, i64* %84, align 8, !dbg !124       ; simple.f90:62:12
   %85 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 6, i64 0, i32 1, !dbg !124  ; simple.f90:62:12
-  %86 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %85, i32 0), !dbg !124  ; simple.f90:62:12
+  %86 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %85, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %77, i64* %86, align 1, !dbg !124     ; simple.f90:62:12
   %87 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 6, i64 0, i32 2, !dbg !124  ; simple.f90:62:12
-  %88 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %87, i32 0), !dbg !124  ; simple.f90:62:12
+  %88 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %87, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 1, i64* %88, align 1, !dbg !124       ; simple.f90:62:12
   %89 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 6, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
-  %90 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %89, i32 0), !dbg !124  ; simple.f90:62:12
+  %90 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull elementtype(i64) %89, i32 0), !dbg !124  ; simple.f90:62:12
   store i64 %80, i64* %90, align 1, !dbg !124     ; simple.f90:62:12
   %91 = getelementptr inbounds %"QNCA_a0$float*$rank1$", %"QNCA_a0$float*$rank1$"* %7, i64 0, i32 0, !dbg !124  ; simple.f90:62:12
   store float* %74, float** %91, align 8, !dbg !124  ; simple.f90:62:12

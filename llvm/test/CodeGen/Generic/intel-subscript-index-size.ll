@@ -15,7 +15,7 @@ alloca_0:
 
 bb12:                                             ; preds = %alloca_0, %bb12
   %"var$2.07" = phi i64 [ 1, %alloca_0 ], [ %add, %bb12 ]
-  %"foo_$A_entry[]" = tail call i32* @llvm.intel.subscript.p0i32.i32.i32.p0i32.i64(i8 0, i32 1, i32 4, i32* %"foo_$A", i64 %"var$2.07")
+  %"foo_$A_entry[]" = tail call i32* @llvm.intel.subscript.p0i32.i32.i32.p0i32.i64(i8 0, i32 1, i32 4, i32* elementtype(i32) %"foo_$A", i64 %"var$2.07")
   store i32 2, i32* %"foo_$A_entry[]", align 1
   %add = add nuw nsw i64 %"var$2.07", 1
   %exitcond = icmp eq i64 %add, 11

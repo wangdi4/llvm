@@ -139,7 +139,7 @@ bb3:                                              ; preds = %bb
 
 bb6:                                              ; preds = %bb6, %bb3
   %i7 = phi i64 [ 1, %bb3 ], [ %i9, %bb6 ]
-  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i7)
+  %i8 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i7)
   store double 5.000000e+00, ptr %i8, align 8
   %i9 = add nuw nsw i64 %i7, 1
   %i10 = icmp eq i64 %i9, %i5
@@ -192,16 +192,16 @@ bb4:                                              ; preds = %bb
 bb7:                                              ; preds = %bb7, %bb4
   %i8 = phi i64 [ 3, %bb4 ], [ %i12, %bb7 ]
   %i9 = add nsw i64 %i8, -1
-  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i9)
+  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i9)
   %i11 = load double, ptr %i10, align 8
   %i12 = add nuw nsw i64 %i8, 1
-  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i12)
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i12)
   %i14 = load double, ptr %i13, align 8
   %i15 = fadd double %i11, %i14
-  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i8)
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i8)
   %i17 = load double, ptr %i16, align 8
   %i18 = fadd double %i15, %i17
-  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i8)
+  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i8)
   store double %i18, ptr %i19, align 8
   %i20 = icmp eq i64 %i12, %i6
   br i1 %i20, label %bb21, label %bb7
@@ -224,16 +224,16 @@ bb4:                                              ; preds = %bb
 bb7:                                              ; preds = %bb7, %bb4
   %i8 = phi i64 [ 3, %bb4 ], [ %i12, %bb7 ]
   %i9 = add nsw i64 %i8, -1
-  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i9)
+  %i10 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i9)
   %i11 = load double, ptr %i10, align 8
   %i12 = add nuw nsw i64 %i8, 1
-  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i12)
+  %i13 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i12)
   %i14 = load double, ptr %i13, align 8
   %i15 = fadd double %i11, %i14
-  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i8)
+  %i16 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i8)
   %i17 = load double, ptr %i16, align 8
   %i18 = fadd double %i15, %i17
-  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i8)
+  %i19 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i8)
   store double %i18, ptr %i19, align 8
   %i20 = icmp eq i64 %i12, %i6
   br i1 %i20, label %bb21, label %bb7
@@ -255,16 +255,16 @@ bb4:                                              ; preds = %bb
 bb6:                                              ; preds = %bb6, %bb4
   %i7 = phi i64 [ 2, %bb4 ], [ %i11, %bb6 ]
   %i8 = add nsw i64 %i7, -1
-  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i8)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i8)
   %i10 = load double, ptr %i9, align 8
   %i11 = add nuw nsw i64 %i7, 1
-  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i11)
+  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i11)
   %i13 = load double, ptr %i12, align 8
   %i14 = fadd double %i10, %i13
-  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i7)
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i7)
   %i16 = load double, ptr %i15, align 8
   %i17 = fadd double %i14, %i16
-  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i7)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i7)
   store double %i17, ptr %i18, align 8
   %i19 = icmp eq i64 %i11, %i5
   br i1 %i19, label %bb20, label %bb6
@@ -286,16 +286,16 @@ bb4:                                              ; preds = %bb
 bb6:                                              ; preds = %bb6, %bb4
   %i7 = phi i64 [ 2, %bb4 ], [ %i11, %bb6 ]
   %i8 = add nsw i64 %i7, -1
-  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i8)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i8)
   %i10 = load double, ptr %i9, align 8
   %i11 = add nuw nsw i64 %i7, 1
-  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i11)
+  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i11)
   %i13 = load double, ptr %i12, align 8
   %i14 = fadd double %i10, %i13
-  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i7)
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i7)
   %i16 = load double, ptr %i15, align 8
   %i17 = fadd double %i14, %i16
-  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i7)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i7)
   store double %i17, ptr %i18, align 8
   %i19 = icmp eq i64 %i11, %i5
   br i1 %i19, label %bb20, label %bb6
@@ -317,16 +317,16 @@ bb4:                                              ; preds = %bb
 bb6:                                              ; preds = %bb6, %bb4
   %i7 = phi i64 [ 2, %bb4 ], [ %i11, %bb6 ]
   %i8 = add nsw i64 %i7, -1
-  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i8)
+  %i9 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i8)
   %i10 = load double, ptr %i9, align 8
   %i11 = add nuw nsw i64 %i7, 1
-  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i11)
+  %i12 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i11)
   %i13 = load double, ptr %i12, align 8
   %i14 = fadd double %i10, %i13
-  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg1, i64 %i7)
+  %i15 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg1, i64 %i7)
   %i16 = load double, ptr %i15, align 8
   %i17 = fadd double %i14, %i16
-  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr %arg, i64 %i7)
+  %i18 = tail call ptr @llvm.intel.subscript.p0.i64.i64.p0.i64(i8 0, i64 1, i64 8, ptr elementtype(double) %arg, i64 %i7)
   store double %i17, ptr %i18, align 8
   %i19 = icmp eq i64 %i11, %i5
   br i1 %i19, label %bb20, label %bb6

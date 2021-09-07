@@ -14,7 +14,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$" = type { %"PHYSPROPMOD$.btPHYSPROP_TYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
+%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$" = type { %"PHYSPROPMOD$.btPHYSPROP_TYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64}] }
 %"PHYSPROPMOD$.btPHYSPROP_TYPE" = type { [256 x i8], %"QNCA_a0$float*$rank2$" }
 %"QNCA_a0$float*$rank2$" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
@@ -27,8 +27,8 @@ target triple = "x86_64-unknown-linux-gnu"
 define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4) %0) #0 {
   %2 = alloca [8 x i64], align 16
   %3 = alloca [4 x i8], align 1
-  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 1), i32 0)
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 1), i32 0)
+  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 2), i32 0)
   %6 = load i32, i32* %0, align 1
   %7 = sext i32 %6 to i64
   br label %8
@@ -45,23 +45,23 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
   %15 = load %"PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 0), align 8
   %16 = load i64, i64* %4, align 1
   %17 = load i64, i64* %5, align 1
-  %18 = tail call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %17, i64 %16, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %15, i64 %7)
+  %18 = tail call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %17, i64 %16, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %15, i64 %7)
   %19 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %18, i64 0, i32 1
   %20 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %19, i64 0, i32 0
   %21 = load float*, float** %20, align 1
   %22 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %19, i64 0, i32 6, i64 0
   %23 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %22, i64 0, i32 1
-  %24 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %23, i32 0)
+  %24 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %23, i32 0)
   %25 = load i64, i64* %24, align 1
   %26 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %22, i64 0, i32 2
-  %27 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 0)
+  %27 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 0)
   %28 = load i64, i64* %27, align 1
-  %29 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %23, i32 1)
+  %29 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %23, i32 1)
   %30 = load i64, i64* %29, align 1
-  %31 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 1)
+  %31 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 1)
   %32 = load i64, i64* %31, align 1
-  %33 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %32, i64 %30, float* %21, i64 %11)
-  %34 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %28, i64 %25, float* %33, i64 %9)
+  %33 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %32, i64 %30, float* elementtype(float) %21, i64 %11)
+  %34 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %28, i64 %25, float* elementtype(float) %33, i64 %9)
   store float %14, float* %34, align 1
   %35 = add nuw nsw i64 %11, 1
   %36 = icmp eq i64 %35, 11
@@ -76,7 +76,7 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
   %41 = load %"PHYSPROPMOD$.btPHYSPROP_TYPE"*, %"PHYSPROPMOD$.btPHYSPROP_TYPE"** getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 0), align 8
   %42 = load i64, i64* %4, align 1
   %43 = load i64, i64* %5, align 1
-  %44 = tail call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %43, i64 %42, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %41, i64 %7)
+  %44 = tail call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %43, i64 %42, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %41, i64 %7)
   %45 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %44, i64 0, i32 1
   %46 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %45, i64 0, i32 3
   %47 = load i64, i64* %46, align 1
@@ -84,15 +84,15 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
   %49 = icmp ne i64 %48, 0
   %50 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %45, i64 0, i32 6, i64 0
   %51 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %50, i64 0, i32 1
-  %52 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %51, i32 0)
+  %52 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %51, i32 0)
   %53 = load i64, i64* %52, align 1, !range !3
   %54 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %45, i64 0, i32 1
   %55 = load i64, i64* %54, align 1
   %56 = icmp eq i64 %53, %55
-  %57 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %51, i32 1)
+  %57 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %51, i32 1)
   %58 = load i64, i64* %57, align 1, !range !3
   %59 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %50, i64 0, i32 0
-  %60 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %59, i32 0)
+  %60 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %59, i32 0)
   %61 = load i64, i64* %60, align 1
   %62 = mul nsw i64 %61, %53
   %63 = icmp eq i64 %58, %62
@@ -101,11 +101,11 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
   %66 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %45, i64 0, i32 0
   %67 = load float*, float** %66, align 1
   %68 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %50, i64 0, i32 2
-  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %68, i32 0)
+  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %68, i32 0)
   %70 = load i64, i64* %69, align 1
-  %71 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %68, i32 1)
+  %71 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %68, i32 1)
   %72 = load i64, i64* %71, align 1
-  %73 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %59, i32 1)
+  %73 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %59, i32 1)
   %74 = load i64, i64* %73, align 1
   %75 = shl nsw i64 %61, 2
   br i1 %65, label %76, label %78
@@ -130,9 +130,9 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
 87:                                               ; preds = %103, %87
   %88 = phi i64 [ %70, %103 ], [ %93, %87 ]
   %89 = phi i64 [ 1, %103 ], [ %94, %87 ]
-  %90 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %70, i64 %53, float* %104, i64 %88)
+  %90 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %70, i64 %53, float* elementtype(float) %104, i64 %88)
   %91 = load float, float* %90, align 1
-  %92 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %105, i64 %89)
+  %92 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %105, i64 %89)
   store float %91, float* %92, align 1
   %93 = add nsw i64 %88, 1
   %94 = add nuw nsw i64 %89, 1
@@ -151,8 +151,8 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
   br i1 %84, label %96, label %103
 
 103:                                              ; preds = %100
-  %104 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %72, i64 %58, float* %67, i64 %101)
-  %105 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %75, float* nonnull %81, i64 %102)
+  %104 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %72, i64 %58, float* elementtype(float) %67, i64 %101)
+  %105 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %75, float* elementtype(float) nonnull %81, i64 %102)
   br label %87
 
 106:                                              ; preds = %96, %78, %76
@@ -179,13 +179,13 @@ define internal void @myinit_(i32* noalias nocapture readonly dereferenceable(4)
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* %3, i32 %4) #1
+declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* elementtype(i64) %3, i32 %4) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 %0, i64 %1, i64 %2, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %3, i64 %4) #1
+declare %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 %0, i64 %1, i64 %2, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %3, i64 %4) #1
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 %0, i64 %1, i64 %2, float* %3, i64 %4) #1
+declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 %0, i64 %1, i64 %2, float* elementtype(float) %3, i64 %4) #1
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) local_unnamed_addr #2
@@ -198,11 +198,11 @@ define dso_local void @MAIN__() #3 {
   store i64 352, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 1), align 8
   store i64 1, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 4), align 8
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 2), align 8
-  %3 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %3 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 2), i32 0)
   store i64 1, i64* %3, align 1
-  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 0), i32 0)
+  %4 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 0), i32 0)
   store i64 10, i64* %4, align 1
-  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 1), i32 0)
+  %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 6, i64 0, i32 1), i32 0)
   store i64 352, i64* %5, align 1
   store i64 1073741829, i64* getelementptr inbounds (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_, i64 0, i32 3), align 8
   %6 = tail call i32 @for_allocate_handle(i64 3520, i8** bitcast (%"QNCA_a0$%\22PHYSPROPMOD$.btPHYSPROP_TYPE\22*$rank1$"* @physpropmod_mp_physprop_ to i8**), i32 262144, i8* null) #6
@@ -215,7 +215,7 @@ define dso_local void @MAIN__() #3 {
   %10 = load i64, i64* %5, align 1
   %11 = load i64, i64* %3, align 1
   %12 = sext i32 %8 to i64
-  %13 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %11, i64 %10, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %9, i64 %12)
+  %13 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %11, i64 %10, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %9, i64 %12)
   %14 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %13, i64 0, i32 0
   %15 = getelementptr [256 x i8], [256 x i8]* %14, i64 0, i64 0
   %16 = getelementptr i8, i8* %15, i64 5
@@ -226,7 +226,7 @@ define dso_local void @MAIN__() #3 {
   %19 = load i64, i64* %3, align 1
   %20 = load i32, i32* %1, align 8
   %21 = sext i32 %20 to i64
-  %22 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %19, i64 %18, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %17, i64 %21)
+  %22 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %19, i64 %18, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %17, i64 %21)
   %23 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %22, i64 0, i32 1
   %24 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %23, i64 0, i32 3
   store i64 5, i64* %24, align 1
@@ -240,19 +240,19 @@ define dso_local void @MAIN__() #3 {
   store i64 0, i64* %28, align 1
   %29 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %23, i64 0, i32 6, i64 0
   %30 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 2
-  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 0)
+  %31 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 0)
   store i64 1, i64* %31, align 1
   %32 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 0
-  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 0)
+  %33 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %32, i32 0)
   store i64 10, i64* %33, align 1
-  %34 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 1)
+  %34 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 1)
   store i64 1, i64* %34, align 1
-  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %32, i32 1)
+  %35 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %32, i32 1)
   store i64 10, i64* %35, align 1
   %36 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %29, i64 0, i32 1
-  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %36, i32 0)
+  %37 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %36, i32 0)
   store i64 4, i64* %37, align 1
-  %38 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %36, i32 1)
+  %38 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %36, i32 1)
   store i64 40, i64* %38, align 1
   %39 = load i64, i64* %24, align 1
   %40 = and i64 %39, -68451041281
@@ -267,7 +267,7 @@ define dso_local void @MAIN__() #3 {
   %48 = load i64, i64* %3, align 1
   %49 = load i32, i32* %1, align 8
   %50 = sext i32 %49 to i64
-  %51 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %48, i64 %47, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %46, i64 %50)
+  %51 = call %"PHYSPROPMOD$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64.i64.p0s_PHYSPROPMOD$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %48, i64 %47, %"PHYSPROPMOD$.btPHYSPROP_TYPE"* elementtype(%"PHYSPROPMOD$.btPHYSPROP_TYPE") %46, i64 %50)
   call void @myoutput_(%"PHYSPROPMOD$.btPHYSPROP_TYPE"* %51) #6
   call void @myinit_(i32* nonnull %1) #6
   %52 = load i32, i32* %1, align 8
@@ -293,13 +293,13 @@ define internal void @myoutput_(%"PHYSPROPMOD$.btPHYSPROP_TYPE"* noalias derefer
   %2 = alloca [2 x { i8*, i64 }], align 8
   %3 = getelementptr inbounds %"PHYSPROPMOD$.btPHYSPROP_TYPE", %"PHYSPROPMOD$.btPHYSPROP_TYPE"* %0, i64 0, i32 0
   %4 = getelementptr inbounds [2 x { i8*, i64 }], [2 x { i8*, i64 }]* %2, i64 0, i64 0
-  %5 = call { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 0, i64 1, i32 16, { i8*, i64 }* nonnull %4, i32 1)
+  %5 = call { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 0, i64 1, i32 16, { i8*, i64 }* elementtype({ i8*, i64 }) nonnull %4, i32 1)
   %6 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %5, i64 0, i32 0
   %7 = getelementptr [256 x i8], [256 x i8]* %3, i64 0, i64 0
   store i8* %7, i8** %6, align 1
   %8 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %5, i64 0, i32 1
   store i64 256, i64* %8, align 1
-  %9 = call { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 0, i64 1, i32 16, { i8*, i64 }* nonnull %4, i32 2)
+  %9 = call { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 0, i64 1, i32 16, { i8*, i64 }* elementtype({ i8*, i64 }) nonnull %4, i32 2)
   %10 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %9, i64 0, i32 0
   store i8* getelementptr inbounds ([13 x i8], [13 x i8]* @strlit.1, i64 0, i64 0), i8** %10, align 1
   %11 = getelementptr inbounds { i8*, i64 }, { i8*, i64 }* %9, i64 0, i32 1
@@ -313,7 +313,7 @@ define internal void @myoutput_(%"PHYSPROPMOD$.btPHYSPROP_TYPE"* noalias derefer
 }
 
 ; Function Attrs: nofree nosync nounwind readnone speculatable
-declare { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 %0, i64 %1, i32 %2, { i8*, i64 }* %3, i32 %4) #1
+declare { i8*, i64 }* @llvm.intel.subscript.p0sl_p0i8i64s.i64.i32.p0sl_p0i8i64s.i32(i8 %0, i64 %1, i32 %2, { i8*, i64 }* elementtype({ i8*, i64 }) %3, i32 %4) #1
 
 ; Function Attrs: nofree
 declare dso_local void @for_concat(i8* nocapture readonly %0, i64 %1, i8* nocapture %2, i64 %3) local_unnamed_addr #2

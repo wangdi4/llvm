@@ -5,12 +5,12 @@
 
 ; RUN: opt -S -convert-to-subscript %s 2>&1 | FileCheck -check-prefix=CHECK-CONV %s
 ; @_Z3fooi (GetElementPtrInst)
-; CHECK-CONV: call %"struct.A::B"* @"llvm.intel.subscript.p0s_struct.A::Bs.i64.i64.p0s_struct.A::Bs.i64"(i8 0, i64 0, i64 132
+; CHECK-CONV: call %"struct.A::B"* @"llvm.intel.subscript.p0s_struct.A::Bs.i64.i64.p0s_struct.A::Bs.i64"(i8 0, i64 0, i64 132, %"struct.A::B"* elementtype(%"struct.A::B")
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B", %"struct.A::B"* {{.*}}, i64 0, i32 3, i64 0
-; CHECK-CONV: call %"struct.A::B::C"* @"llvm.intel.subscript.p0s_struct.A::B::Cs.i64.i64.p0s_struct.A::B::Cs.i64"(i8 0, i64 0, i64 24
+; CHECK-CONV: call %"struct.A::B::C"* @"llvm.intel.subscript.p0s_struct.A::B::Cs.i64.i64.p0s_struct.A::B::Cs.i64"(i8 0, i64 0, i64 24, %"struct.A::B::C"* elementtype(%"struct.A::B::C")
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B::C", %"struct.A::B::C"* {{.*}}, i64 0, i32 5
 ; @_Z4bar1v (GEPOperator)
-; CHECK-CONV: call %"struct.A::B"* @"llvm.intel.subscript.p0s_struct.A::Bs.i64.i64.p0s_struct.A::Bs.i64"(i8 0, i64 0, i64 132, %"struct.A::B"* getelementptr inbounds (%struct.A, %struct.A* @a, i64 0, i32 1, i64 0), i64 2)
+; CHECK-CONV: call %"struct.A::B"* @"llvm.intel.subscript.p0s_struct.A::Bs.i64.i64.p0s_struct.A::Bs.i64"(i8 0, i64 0, i64 132, %"struct.A::B"* elementtype(%"struct.A::B") getelementptr inbounds (%struct.A, %struct.A* @a, i64 0, i32 1, i64 0), i64 2)
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B", %"struct.A::B"* {{.*}}, i64 0, i32 3, i64 0
 ; CHECK-CONV: call %"struct.A::B::C"* @"llvm.intel.subscript.p0s_struct.A::B::Cs.i64.i64.p0s_struct.A::B::Cs.i64"(i8 0, i64 0, i64 24, %"struct.A::B::C"*
 ; CHECK-CONV: getelementptr inbounds %"struct.A::B::C", %"struct.A::B::C"*  {{.*}}, i64 0, i32 5

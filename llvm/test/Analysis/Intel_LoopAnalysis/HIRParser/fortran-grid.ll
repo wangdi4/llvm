@@ -87,8 +87,8 @@ bb12.preheader:                                   ; preds = %bb8.preheader, %bb3
   %0 = shl i32 %indvars.iv292.tr, 1
   %1 = add i32 %0, -1
   %int_sext75 = sext i32 %1 to i64
-  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* %"interp_$U", i64 %int_sext75)
-  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* %"interp_$Z", i64 %indvars.iv292)
+  %2 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul41, double* elementtype(double) %"interp_$U", i64 %int_sext75)
+  %3 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 %mul54, double* elementtype(double) %"interp_$Z", i64 %indvars.iv292)
   br label %bb16.preheader
 
 bb16.preheader:                                   ; preds = %bb12.preheader, %bb44
@@ -97,8 +97,8 @@ bb16.preheader:                                   ; preds = %bb12.preheader, %bb
   %4 = shl i32 %indvars.iv284.tr, 1
   %5 = add i32 %4, -1
   %int_sext70 = sext i32 %5 to i64
-  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* %2, i64 %int_sext70)
-  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* %3, i64 %indvars.iv284)
+  %6 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) %2, i64 %int_sext70)
+  %7 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* elementtype(double) %3, i64 %indvars.iv284)
   br label %bb16
 
 bb16:                                             ; preds = %bb16, %bb16.preheader
@@ -107,9 +107,9 @@ bb16:                                             ; preds = %bb16, %bb16.prehead
   %8 = shl i32 %indvars.iv.tr, 1
   %9 = add i32 %8, -1
   %int_sext65 = sext i32 %9 to i64
-  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %6, i64 %int_sext65)
+  %10 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %6, i64 %int_sext65)
   %11 = load double, double* %10, align 8
-  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %7, i64 %indvars.iv)
+  %12 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %7, i64 %indvars.iv)
   %13 = load double, double* %12, align 8
   %add86 = fadd double %11, %13
   store double %add86, double* %10, align 8
@@ -122,8 +122,8 @@ bb43.preheader:                                   ; preds = %bb16
   %14 = shl i32 %indvars.iv284.tr301, 1
   %15 = add i32 %14, -1
   %int_sext136 = sext i32 %15 to i64
-  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* nonnull %2, i64 %int_sext136)
-  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* nonnull %3, i64 %indvars.iv284)
+  %16 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul, double* elementtype(double) nonnull %2, i64 %int_sext136)
+  %17 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 %mul50, double* elementtype(double) nonnull %3, i64 %indvars.iv284)
   br label %bb43
 
 bb43:                                             ; preds = %bb43, %bb43.preheader
@@ -132,12 +132,12 @@ bb43:                                             ; preds = %bb43, %bb43.prehead
   %18 = shl i32 %indvars.iv277.tr, 1
   %19 = add i32 %18, -2
   %int_sext131 = sext i32 %19 to i64
-  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %16, i64 %int_sext131)
+  %20 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %16, i64 %int_sext131)
   %21 = load double, double* %20, align 8
   %22 = add nsw i64 %indvars.iv277, -1
-  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %17, i64 %22)
+  %23 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %17, i64 %22)
   %24 = load double, double* %23, align 8
-  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* %17, i64 %indvars.iv277)
+  %25 = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) %17, i64 %indvars.iv277)
   %26 = load double, double* %25, align 8
   %add162 = fadd double %24, %26
   %mul163 = fmul double %add162, 5.000000e-01

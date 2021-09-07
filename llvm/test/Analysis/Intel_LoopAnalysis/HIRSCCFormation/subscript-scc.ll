@@ -31,7 +31,7 @@ loop:
   %tmp11 = phi i32 [ %tmp16, %loop ], [ %tmp8, %bb3 ]
   %ptr1 = phi i8* [ %ptr2, %loop ], [ %ptr0, %bb3 ]
   %tmp13 = phi i8** [ %tmp15, %loop ], [ %tmp7, %bb3 ]
-  %ptr2 = call i8* @llvm.intel.subscript.p0i8.i32.i32.p0i8.i32(i8 0, i32 0, i32 1, i8* %ptr1, i32 %arg)
+  %ptr2 = call i8* @llvm.intel.subscript.p0i8.i32.i32.p0i8.i32(i8 0, i32 0, i32 1, i8* elementtype(i8) %ptr1, i32 %arg)
   store i8* %ptr2, i8** %tmp13, align 4
   %tmp15 = bitcast i8* %ptr2 to i8**
   %tmp16 = add nsw i32 %tmp11, -1

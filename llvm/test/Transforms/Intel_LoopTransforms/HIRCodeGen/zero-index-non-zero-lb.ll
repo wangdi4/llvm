@@ -32,7 +32,7 @@ bb23.preheader:
 bb23:
   %indvars.iv = phi i64 [ 1, %bb23.preheader ], [ %indvars.iv.next, %bb23 ]
 
-  %"A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %L, i64 8, double* nonnull %A, i64 0)
+  %"A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 %L, i64 8, double* elementtype(double) nonnull %A, i64 0)
   store double 1.000000, double* %"A[]"
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

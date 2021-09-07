@@ -43,6 +43,7 @@ MODULE_ANALYSIS("dpcpp-kernel-local-buffer-analysis", LocalBufferAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-data-per-value-analysis", DataPerValueAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-data-per-barrier-analysis", DataPerBarrierAnalysis())
 MODULE_ANALYSIS("dpcpp-kernel-barrier-wi-analysis", WIRelatedValueAnalysis())
+MODULE_ANALYSIS("dpcpp-kernel-vf-analysis", VFAnalysis())
 MODULE_ANALYSIS("vpo-paropt-config-analysis", VPOParoptConfigAnalysis())
 #endif // INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("inline-advisor", InlineAdvisorAnalysis())
@@ -92,6 +93,7 @@ MODULE_PASS("dpcpp-kernel-sg-size-collector-indirect", SGSizeCollectorIndirectPa
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-data-per-value-analysis>", DataPerValuePrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-barrier-wi-analysis>", WIRelatedValuePrinter(dbgs()))
+MODULE_PASS("print<dpcpp-kernel-vf-analysis>", VFAnalysisPrinter(dbgs()))
 
 #endif //INTEL_CUSTOMIZATION
 MODULE_PASS("agginliner", AggInlinerPass()) // INTEL

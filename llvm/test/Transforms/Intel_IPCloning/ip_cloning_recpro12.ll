@@ -86,9 +86,9 @@
 ; CHECK: %32 = getelementptr inbounds [9 x i32], [9 x i32]* %8, i64 0, i64 0
 ; CHECK: %44 = getelementptr inbounds [9 x i32], [9 x i32]* %9, i64 0, i64 0
 ; CHECK: CondBlock:
-; CHECK: [[V1:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %32, i64 8)
+; CHECK: [[V1:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32*{{.*}}%32, i64 8)
 ; CHECK: %LILB8 = load i32, i32* [[V1]]
-; CHECK: [[V2:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %44, i64 8)
+; CHECK: [[V2:%[0-9]+]] = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32*{{.*}}%44, i64 8)
 ; CHECK: %LIUB8 = load i32, i32* [[V2]]
 ; CHECK: %CMP8S = icmp eq i32 %LILB8, %LIUB8
 ; CHECK: br i1 %CMP8S, label %CallCloneBlock, label %ConstStore
@@ -166,12 +166,12 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 33:                                               ; preds = %33, %1
   %34 = phi i64 [ 1, %1 ], [ %41, %33 ]
-  %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %34)
-  %36 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %35, i64 %20)
+  %35 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %34)
+  %36 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %35, i64 %20)
   %37 = load i32, i32* %36, align 4
   %38 = icmp ne i32 %37, 0
   %39 = sext i1 %38 to i32
-  %40 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %21, i64 %34)
+  %40 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %21, i64 %34)
   store i32 %39, i32* %40, align 4
   %41 = add nuw nsw i64 %34, 1
   %42 = icmp eq i64 %41, 10
@@ -183,17 +183,17 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 45:                                               ; preds = %56, %22
   %46 = phi i64 [ 1, %22 ], [ %57, %56 ]
-  %47 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %21, i64 %46)
+  %47 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %21, i64 %46)
   %48 = load i32, i32* %47, align 4
   %49 = and i32 %48, 1
   %50 = icmp eq i32 %49, 0
   br i1 %50, label %56, label %51
 
 51:                                               ; preds = %45
-  %52 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %46)
-  %53 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %52, i64 %20)
+  %52 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %46)
+  %53 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %52, i64 %20)
   %54 = load i32, i32* %53, align 4
-  %55 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 %46)
+  %55 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 %46)
   store i32 %54, i32* %55, align 4
   br label %56
 
@@ -204,16 +204,16 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 59:                                               ; preds = %69, %43
   %60 = phi i64 [ 1, %43 ], [ %70, %69 ]
-  %61 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %21, i64 %60)
+  %61 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %21, i64 %60)
   %62 = load i32, i32* %61, align 4
   %63 = and i32 %62, 1
   %64 = icmp eq i32 %63, 0
   br i1 %64, label %69, label %65
 
 65:                                               ; preds = %59
-  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 %60)
+  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 %60)
   %67 = load i32, i32* %66, align 4
-  %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 %60)
+  %68 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 %60)
   store i32 %67, i32* %68, align 4
   br label %69
 
@@ -224,14 +224,14 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 72:                                               ; preds = %80, %69
   %73 = phi i64 [ %81, %80 ], [ 1, %69 ]
-  %74 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %21, i64 %73)
+  %74 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %21, i64 %73)
   %75 = load i32, i32* %74, align 4
   %76 = and i32 %75, 1
   %77 = icmp eq i32 %76, 0
   br i1 %77, label %78, label %80
 
 78:                                               ; preds = %72
-  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 %73)
+  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 %73)
   store i32 1, i32* %79, align 4
   br label %80
 
@@ -242,14 +242,14 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 83:                                               ; preds = %91, %80
   %84 = phi i64 [ %92, %91 ], [ 1, %80 ]
-  %85 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %21, i64 %84)
+  %85 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %21, i64 %84)
   %86 = load i32, i32* %85, align 4
   %87 = and i32 %86, 1
   %88 = icmp eq i32 %87, 0
   br i1 %88, label %89, label %91
 
 89:                                               ; preds = %83
-  %90 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 %84)
+  %90 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 %84)
   store i32 9, i32* %90, align 4
   br label %91
 
@@ -259,9 +259,9 @@ define internal void @good(i32* noalias nocapture readonly) {
   br i1 %93, label %94, label %83
 
 94:                                               ; preds = %91
-  %95 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 1)
+  %95 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 1)
   %96 = load i32, i32* %95, align 4
-  %97 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 1)
+  %97 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 1)
   %98 = load i32, i32* %97, align 4
   %99 = icmp slt i32 %98, %96
   br i1 %99, label %1273, label %100
@@ -283,44 +283,44 @@ define internal void @good(i32* noalias nocapture readonly) {
   %114 = sub nsw i64 1, %111
   %115 = add nsw i64 %114, %113
   %116 = icmp slt i64 %115, 1
-  %117 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 1)
-  %118 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %117, i64 %20)
-  %119 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 2)
-  %120 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 2)
-  %121 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 2)
-  %122 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 3)
-  %123 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 3)
-  %124 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 3)
-  %125 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 4)
-  %126 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 4)
-  %127 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 4)
-  %128 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 5)
-  %129 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 5)
-  %130 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 5)
-  %131 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 6)
-  %132 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 6)
-  %133 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 6)
-  %134 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 7)
-  %135 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 7)
-  %136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 7)
-  %137 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %32, i64 8)
-  %138 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %44, i64 8)
-  %139 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 8)
-  %140 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 9)
+  %117 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 1)
+  %118 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %117, i64 %20)
+  %119 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 2)
+  %120 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 2)
+  %121 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 2)
+  %122 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 3)
+  %123 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 3)
+  %124 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 3)
+  %125 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 4)
+  %126 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 4)
+  %127 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 4)
+  %128 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 5)
+  %129 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 5)
+  %130 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 5)
+  %131 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 6)
+  %132 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 6)
+  %133 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 6)
+  %134 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 7)
+  %135 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 7)
+  %136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 7)
+  %137 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %32, i64 8)
+  %138 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %44, i64 8)
+  %139 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 8)
+  %140 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 9)
   %141 = getelementptr inbounds [9 x i32], [9 x i32]* %6, i64 0, i64 0
   %142 = getelementptr inbounds [9 x i32], [9 x i32]* %5, i64 0, i64 0
-  %143 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 0)
-  %144 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %14, i32 0)
-  %145 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %13, i32 0)
-  %146 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %26, i32 1)
-  %147 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %14, i32 1)
-  %148 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %13, i32 1)
-  %149 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %18, i32 0)
-  %150 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %31, i32 0)
-  %151 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 0)
-  %152 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %18, i32 1)
-  %153 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %31, i32 1)
-  %154 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %30, i32 1)
+  %143 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 0)
+  %144 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %14, i32 0)
+  %145 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %13, i32 0)
+  %146 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %26, i32 1)
+  %147 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %14, i32 1)
+  %148 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %13, i32 1)
+  %149 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %18, i32 0)
+  %150 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %31, i32 0)
+  %151 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 0)
+  %152 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %18, i32 1)
+  %153 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %31, i32 1)
+  %154 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %30, i32 1)
   %155 = add nsw i64 %113, 2
   %156 = sub nsw i64 %155, %111
   %157 = sext i32 %96 to i64
@@ -335,7 +335,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %166 = sub nsw i64 1, %163
   %167 = add nsw i64 %166, %165
   %168 = icmp slt i64 %167, 1
-  %169 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %121, i64 %159)
+  %169 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %121, i64 %159)
   %170 = add nsw i64 %165, 2
   %171 = sub nsw i64 %170, %163
   %172 = sext i32 %19 to i64
@@ -348,7 +348,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %179 = sub nsw i64 1, %176
   %180 = add nsw i64 %179, %178
   %181 = icmp slt i64 %180, 1
-  %182 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %124, i64 %172)
+  %182 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %124, i64 %172)
   %183 = add nsw i64 %178, 2
   %184 = sub nsw i64 %183, %176
   %185 = sext i32 %19 to i64
@@ -361,7 +361,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %192 = sub nsw i64 1, %189
   %193 = add nsw i64 %192, %191
   %194 = icmp slt i64 %193, 1
-  %195 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %127, i64 %185)
+  %195 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %127, i64 %185)
   %196 = add nsw i64 %191, 2
   %197 = sub nsw i64 %196, %189
   %198 = sext i32 %19 to i64
@@ -374,7 +374,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %205 = sub nsw i64 1, %202
   %206 = add nsw i64 %205, %204
   %207 = icmp slt i64 %206, 1
-  %208 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %130, i64 %198)
+  %208 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %130, i64 %198)
   %209 = add nsw i64 %204, 2
   %210 = sub nsw i64 %209, %202
   %211 = sext i32 %19 to i64
@@ -387,7 +387,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %218 = sub nsw i64 1, %215
   %219 = add nsw i64 %218, %217
   %220 = icmp slt i64 %219, 1
-  %221 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %133, i64 %211)
+  %221 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %133, i64 %211)
   %222 = add nsw i64 %217, 2
   %223 = sub nsw i64 %222, %215
   %224 = sext i32 %19 to i64
@@ -400,7 +400,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %231 = sub nsw i64 1, %228
   %232 = add nsw i64 %231, %230
   %233 = icmp slt i64 %232, 1
-  %234 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %136, i64 %224)
+  %234 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %136, i64 %224)
   %235 = add nsw i64 %230, 2
   %236 = sub nsw i64 %235, %228
   %237 = sext i32 %19 to i64
@@ -413,7 +413,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %244 = sub nsw i64 1, %241
   %245 = add nsw i64 %244, %243
   %246 = icmp slt i64 %245, 1
-  %247 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %139, i64 %237)
+  %247 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %139, i64 %237)
   %248 = add nsw i64 %243, 2
   %249 = sub nsw i64 %248, %241
   %250 = sext i32 %19 to i64
@@ -426,7 +426,7 @@ define internal void @good(i32* noalias nocapture readonly) {
   %257 = sub nsw i64 1, %254
   %258 = add nsw i64 %257, %256
   %259 = icmp slt i64 %258, 1
-  %260 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %140, i64 %250)
+  %260 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %140, i64 %250)
   %261 = icmp eq i32 %19, 5
   %262 = icmp eq i32 %19, 8
   %263 = add nsw i64 %256, 2
@@ -435,17 +435,17 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 265:                                              ; preds = %1270, %100
   %266 = phi i64 [ %157, %100 ], [ %1271, %1270 ]
-  %267 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %266)
-  %268 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %267, i64 1)
-  %269 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %268, i64 %20)
+  %267 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %266)
+  %268 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %267, i64 1)
+  %269 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %268, i64 %20)
   %270 = load i32, i32* %269, align 4
   %271 = icmp slt i32 %270, 1
   br i1 %271, label %1270, label %272
 
 272:                                              ; preds = %272, %265
   %273 = phi i64 [ %278, %272 ], [ 2, %265 ]
-  %274 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %267, i64 %273)
-  %275 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %274, i64 %20)
+  %274 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %267, i64 %273)
+  %275 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %274, i64 %20)
   %276 = load i32, i32* %275, align 4
   %277 = add nsw i32 %276, -10
   store i32 %277, i32* %275, align 4
@@ -459,7 +459,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 281:                                              ; preds = %281, %280
   %282 = phi i64 [ %288, %281 ], [ 1, %280 ]
   %283 = phi i64 [ %287, %281 ], [ %105, %280 ]
-  %284 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %268, i64 %283)
+  %284 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %268, i64 %283)
   %285 = load i32, i32* %284, align 4
   %286 = add nsw i32 %285, -10
   store i32 %286, i32* %284, align 4
@@ -479,13 +479,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 292:                                              ; preds = %304, %291
   %293 = phi i64 [ %305, %304 ], [ 1, %291 ]
-  %294 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %267, i64 %293)
+  %294 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %267, i64 %293)
   br label %295
 
 295:                                              ; preds = %295, %292
   %296 = phi i64 [ 1, %292 ], [ %302, %295 ]
   %297 = phi i64 [ %111, %292 ], [ %301, %295 ]
-  %298 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %294, i64 %297)
+  %298 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %294, i64 %297)
   %299 = load i32, i32* %298, align 4
   %300 = add nsw i32 %299, -10
   store i32 %300, i32* %298, align 4
@@ -501,8 +501,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 307:                                              ; preds = %307, %290
   %308 = phi i64 [ %313, %307 ], [ 1, %290 ]
-  %309 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %267, i64 %308)
-  %310 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %309, i64 %111)
+  %309 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %267, i64 %308)
+  %310 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %309, i64 %111)
   %311 = load i32, i32* %310, align 4
   %312 = add nsw i32 %311, -10
   store i32 %312, i32* %310, align 4
@@ -526,9 +526,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 324:                                              ; preds = %1223, %320
   %325 = phi i64 [ %322, %320 ], [ %1224, %1223 ]
-  %326 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %325)
-  %327 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %326, i64 2)
-  %328 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %327, i64 %159)
+  %326 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %325)
+  %327 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %326, i64 2)
+  %328 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %327, i64 %159)
   %329 = load i32, i32* %328, align 4
   %330 = icmp slt i32 %329, 1
   br i1 %330, label %1223, label %332
@@ -538,8 +538,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 332:                                              ; preds = %332, %324
   %333 = phi i64 [ %338, %332 ], [ 3, %324 ]
-  %334 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %326, i64 %333)
-  %335 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %334, i64 %159)
+  %334 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %326, i64 %333)
+  %335 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %334, i64 %159)
   %336 = load i32, i32* %335, align 4
   %337 = add nsw i32 %336, -10
   store i32 %337, i32* %335, align 4
@@ -550,7 +550,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 340:                                              ; preds = %340, %331
   %341 = phi i64 [ %347, %340 ], [ 1, %331 ]
   %342 = phi i64 [ %346, %340 ], [ %105, %331 ]
-  %343 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %327, i64 %342)
+  %343 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %327, i64 %342)
   %344 = load i32, i32* %343, align 4
   %345 = add nsw i32 %344, -10
   store i32 %345, i32* %343, align 4
@@ -570,13 +570,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 351:                                              ; preds = %363, %350
   %352 = phi i64 [ %364, %363 ], [ 1, %350 ]
-  %353 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %326, i64 %352)
+  %353 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %326, i64 %352)
   br label %354
 
 354:                                              ; preds = %354, %351
   %355 = phi i64 [ 1, %351 ], [ %361, %354 ]
   %356 = phi i64 [ %163, %351 ], [ %360, %354 ]
-  %357 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %353, i64 %356)
+  %357 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %353, i64 %356)
   %358 = load i32, i32* %357, align 4
   %359 = add nsw i32 %358, -10
   store i32 %359, i32* %357, align 4
@@ -592,8 +592,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 366:                                              ; preds = %366, %349
   %367 = phi i64 [ %372, %366 ], [ 1, %349 ]
-  %368 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %326, i64 %367)
-  %369 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %368, i64 %163)
+  %368 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %326, i64 %367)
+  %369 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %368, i64 %163)
   %370 = load i32, i32* %369, align 4
   %371 = add nsw i32 %370, -10
   store i32 %371, i32* %369, align 4
@@ -617,9 +617,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 383:                                              ; preds = %1176, %379
   %384 = phi i64 [ %381, %379 ], [ %1177, %1176 ]
-  %385 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %384)
-  %386 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %385, i64 3)
-  %387 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %386, i64 %172)
+  %385 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %384)
+  %386 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %385, i64 3)
+  %387 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %386, i64 %172)
   %388 = load i32, i32* %387, align 4
   %389 = icmp slt i32 %388, 1
   br i1 %389, label %1176, label %391
@@ -629,8 +629,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 391:                                              ; preds = %391, %383
   %392 = phi i64 [ %397, %391 ], [ 4, %383 ]
-  %393 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %385, i64 %392)
-  %394 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %393, i64 %172)
+  %393 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %385, i64 %392)
+  %394 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %393, i64 %172)
   %395 = load i32, i32* %394, align 4
   %396 = add nsw i32 %395, -10
   store i32 %396, i32* %394, align 4
@@ -641,7 +641,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 399:                                              ; preds = %399, %390
   %400 = phi i64 [ %406, %399 ], [ 1, %390 ]
   %401 = phi i64 [ %405, %399 ], [ %105, %390 ]
-  %402 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %386, i64 %401)
+  %402 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %386, i64 %401)
   %403 = load i32, i32* %402, align 4
   %404 = add nsw i32 %403, -10
   store i32 %404, i32* %402, align 4
@@ -661,13 +661,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 410:                                              ; preds = %422, %409
   %411 = phi i64 [ %423, %422 ], [ 1, %409 ]
-  %412 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %385, i64 %411)
+  %412 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %385, i64 %411)
   br label %413
 
 413:                                              ; preds = %413, %410
   %414 = phi i64 [ 1, %410 ], [ %420, %413 ]
   %415 = phi i64 [ %176, %410 ], [ %419, %413 ]
-  %416 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %412, i64 %415)
+  %416 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %412, i64 %415)
   %417 = load i32, i32* %416, align 4
   %418 = add nsw i32 %417, -10
   store i32 %418, i32* %416, align 4
@@ -683,8 +683,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 425:                                              ; preds = %425, %408
   %426 = phi i64 [ %431, %425 ], [ 1, %408 ]
-  %427 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %385, i64 %426)
-  %428 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %427, i64 %176)
+  %427 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %385, i64 %426)
+  %428 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %427, i64 %176)
   %429 = load i32, i32* %428, align 4
   %430 = add nsw i32 %429, -10
   store i32 %430, i32* %428, align 4
@@ -708,9 +708,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 442:                                              ; preds = %1129, %438
   %443 = phi i64 [ %440, %438 ], [ %1130, %1129 ]
-  %444 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %443)
-  %445 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %444, i64 4)
-  %446 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %445, i64 %185)
+  %444 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %443)
+  %445 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %444, i64 4)
+  %446 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %445, i64 %185)
   %447 = load i32, i32* %446, align 4
   %448 = icmp slt i32 %447, 1
   br i1 %448, label %1129, label %450
@@ -720,8 +720,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 450:                                              ; preds = %450, %442
   %451 = phi i64 [ %456, %450 ], [ 5, %442 ]
-  %452 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %444, i64 %451)
-  %453 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %452, i64 %185)
+  %452 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %444, i64 %451)
+  %453 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %452, i64 %185)
   %454 = load i32, i32* %453, align 4
   %455 = add nsw i32 %454, -10
   store i32 %455, i32* %453, align 4
@@ -732,7 +732,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 458:                                              ; preds = %458, %449
   %459 = phi i64 [ %465, %458 ], [ 1, %449 ]
   %460 = phi i64 [ %464, %458 ], [ %105, %449 ]
-  %461 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %445, i64 %460)
+  %461 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %445, i64 %460)
   %462 = load i32, i32* %461, align 4
   %463 = add nsw i32 %462, -10
   store i32 %463, i32* %461, align 4
@@ -752,13 +752,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 469:                                              ; preds = %481, %468
   %470 = phi i64 [ %482, %481 ], [ 4, %468 ]
-  %471 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %444, i64 %470)
+  %471 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %444, i64 %470)
   br label %472
 
 472:                                              ; preds = %472, %469
   %473 = phi i64 [ 1, %469 ], [ %479, %472 ]
   %474 = phi i64 [ %189, %469 ], [ %478, %472 ]
-  %475 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %471, i64 %474)
+  %475 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %471, i64 %474)
   %476 = load i32, i32* %475, align 4
   %477 = add nsw i32 %476, -10
   store i32 %477, i32* %475, align 4
@@ -774,8 +774,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 484:                                              ; preds = %484, %467
   %485 = phi i64 [ %490, %484 ], [ 4, %467 ]
-  %486 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %444, i64 %485)
-  %487 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %486, i64 %189)
+  %486 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %444, i64 %485)
+  %487 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %486, i64 %189)
   %488 = load i32, i32* %487, align 4
   %489 = add nsw i32 %488, -10
   store i32 %489, i32* %487, align 4
@@ -799,9 +799,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 501:                                              ; preds = %1082, %497
   %502 = phi i64 [ %499, %497 ], [ %1083, %1082 ]
-  %503 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %502)
-  %504 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %503, i64 5)
-  %505 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %504, i64 %198)
+  %503 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %502)
+  %504 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %503, i64 5)
+  %505 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %504, i64 %198)
   %506 = load i32, i32* %505, align 4
   %507 = icmp slt i32 %506, 1
   br i1 %507, label %1082, label %509
@@ -811,8 +811,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 509:                                              ; preds = %509, %501
   %510 = phi i64 [ %515, %509 ], [ 6, %501 ]
-  %511 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %503, i64 %510)
-  %512 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %511, i64 %198)
+  %511 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %503, i64 %510)
+  %512 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %511, i64 %198)
   %513 = load i32, i32* %512, align 4
   %514 = add nsw i32 %513, -10
   store i32 %514, i32* %512, align 4
@@ -823,7 +823,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 517:                                              ; preds = %517, %508
   %518 = phi i64 [ %524, %517 ], [ 1, %508 ]
   %519 = phi i64 [ %523, %517 ], [ %105, %508 ]
-  %520 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %504, i64 %519)
+  %520 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %504, i64 %519)
   %521 = load i32, i32* %520, align 4
   %522 = add nsw i32 %521, -10
   store i32 %522, i32* %520, align 4
@@ -843,13 +843,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 528:                                              ; preds = %540, %527
   %529 = phi i64 [ %541, %540 ], [ 4, %527 ]
-  %530 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %503, i64 %529)
+  %530 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %503, i64 %529)
   br label %531
 
 531:                                              ; preds = %531, %528
   %532 = phi i64 [ 1, %528 ], [ %538, %531 ]
   %533 = phi i64 [ %202, %528 ], [ %537, %531 ]
-  %534 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %530, i64 %533)
+  %534 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %530, i64 %533)
   %535 = load i32, i32* %534, align 4
   %536 = add nsw i32 %535, -10
   store i32 %536, i32* %534, align 4
@@ -865,8 +865,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 543:                                              ; preds = %543, %526
   %544 = phi i64 [ %549, %543 ], [ 4, %526 ]
-  %545 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %503, i64 %544)
-  %546 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %545, i64 %202)
+  %545 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %503, i64 %544)
+  %546 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %545, i64 %202)
   %547 = load i32, i32* %546, align 4
   %548 = add nsw i32 %547, -10
   store i32 %548, i32* %546, align 4
@@ -890,9 +890,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 560:                                              ; preds = %1035, %556
   %561 = phi i64 [ %558, %556 ], [ %1036, %1035 ]
-  %562 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %561)
-  %563 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %562, i64 6)
-  %564 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %563, i64 %211)
+  %562 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %561)
+  %563 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %562, i64 6)
+  %564 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %563, i64 %211)
   %565 = load i32, i32* %564, align 4
   %566 = icmp slt i32 %565, 1
   br i1 %566, label %1035, label %568
@@ -902,8 +902,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 568:                                              ; preds = %568, %560
   %569 = phi i64 [ %574, %568 ], [ 7, %560 ]
-  %570 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %562, i64 %569)
-  %571 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %570, i64 %211)
+  %570 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %562, i64 %569)
+  %571 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %570, i64 %211)
   %572 = load i32, i32* %571, align 4
   %573 = add nsw i32 %572, -10
   store i32 %573, i32* %571, align 4
@@ -914,7 +914,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 576:                                              ; preds = %576, %567
   %577 = phi i64 [ %583, %576 ], [ 1, %567 ]
   %578 = phi i64 [ %582, %576 ], [ %105, %567 ]
-  %579 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %563, i64 %578)
+  %579 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %563, i64 %578)
   %580 = load i32, i32* %579, align 4
   %581 = add nsw i32 %580, -10
   store i32 %581, i32* %579, align 4
@@ -934,13 +934,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 587:                                              ; preds = %599, %586
   %588 = phi i64 [ %600, %599 ], [ 4, %586 ]
-  %589 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %562, i64 %588)
+  %589 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %562, i64 %588)
   br label %590
 
 590:                                              ; preds = %590, %587
   %591 = phi i64 [ 1, %587 ], [ %597, %590 ]
   %592 = phi i64 [ %215, %587 ], [ %596, %590 ]
-  %593 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %589, i64 %592)
+  %593 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %589, i64 %592)
   %594 = load i32, i32* %593, align 4
   %595 = add nsw i32 %594, -10
   store i32 %595, i32* %593, align 4
@@ -956,8 +956,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 602:                                              ; preds = %602, %585
   %603 = phi i64 [ %608, %602 ], [ 4, %585 ]
-  %604 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %562, i64 %603)
-  %605 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %604, i64 %215)
+  %604 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %562, i64 %603)
+  %605 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %604, i64 %215)
   %606 = load i32, i32* %605, align 4
   %607 = add nsw i32 %606, -10
   store i32 %607, i32* %605, align 4
@@ -981,9 +981,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 619:                                              ; preds = %988, %615
   %620 = phi i64 [ %617, %615 ], [ %989, %988 ]
-  %621 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %620)
-  %622 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %621, i64 7)
-  %623 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %622, i64 %224)
+  %621 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %620)
+  %622 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %621, i64 7)
+  %623 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %622, i64 %224)
   %624 = load i32, i32* %623, align 4
   %625 = icmp slt i32 %624, 1
   br i1 %625, label %988, label %627
@@ -993,8 +993,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 627:                                              ; preds = %627, %619
   %628 = phi i64 [ %633, %627 ], [ 8, %619 ]
-  %629 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %621, i64 %628)
-  %630 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %629, i64 %224)
+  %629 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %621, i64 %628)
+  %630 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %629, i64 %224)
   %631 = load i32, i32* %630, align 4
   %632 = add nsw i32 %631, -10
   store i32 %632, i32* %630, align 4
@@ -1005,7 +1005,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 635:                                              ; preds = %635, %626
   %636 = phi i64 [ %642, %635 ], [ 1, %626 ]
   %637 = phi i64 [ %641, %635 ], [ %105, %626 ]
-  %638 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %622, i64 %637)
+  %638 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %622, i64 %637)
   %639 = load i32, i32* %638, align 4
   %640 = add nsw i32 %639, -10
   store i32 %640, i32* %638, align 4
@@ -1025,13 +1025,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 646:                                              ; preds = %658, %645
   %647 = phi i64 [ %659, %658 ], [ 7, %645 ]
-  %648 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %621, i64 %647)
+  %648 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %621, i64 %647)
   br label %649
 
 649:                                              ; preds = %649, %646
   %650 = phi i64 [ 1, %646 ], [ %656, %649 ]
   %651 = phi i64 [ %228, %646 ], [ %655, %649 ]
-  %652 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %648, i64 %651)
+  %652 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %648, i64 %651)
   %653 = load i32, i32* %652, align 4
   %654 = add nsw i32 %653, -10
   store i32 %654, i32* %652, align 4
@@ -1047,8 +1047,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 661:                                              ; preds = %661, %644
   %662 = phi i64 [ %667, %661 ], [ 7, %644 ]
-  %663 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %621, i64 %662)
-  %664 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %663, i64 %228)
+  %663 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %621, i64 %662)
+  %664 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %663, i64 %228)
   %665 = load i32, i32* %664, align 4
   %666 = add nsw i32 %665, -10
   store i32 %666, i32* %664, align 4
@@ -1072,16 +1072,16 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 678:                                              ; preds = %941, %674
   %679 = phi i64 [ %676, %674 ], [ %942, %941 ]
-  %680 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %679)
-  %681 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %680, i64 8)
-  %682 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %681, i64 %237)
+  %680 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %679)
+  %681 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %680, i64 8)
+  %682 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %681, i64 %237)
   %683 = load i32, i32* %682, align 4
   %684 = icmp slt i32 %683, 1
   br i1 %684, label %941, label %685
 
 685:                                              ; preds = %678
-  %686 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %680, i64 9)
-  %687 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %686, i64 %237)
+  %686 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %680, i64 9)
+  %687 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %686, i64 %237)
   %688 = load i32, i32* %687, align 4
   %689 = add nsw i32 %688, -10
   store i32 %689, i32* %687, align 4
@@ -1090,7 +1090,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 690:                                              ; preds = %690, %685
   %691 = phi i64 [ %697, %690 ], [ 1, %685 ]
   %692 = phi i64 [ %696, %690 ], [ %105, %685 ]
-  %693 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %681, i64 %692)
+  %693 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %681, i64 %692)
   %694 = load i32, i32* %693, align 4
   %695 = add nsw i32 %694, -10
   store i32 %695, i32* %693, align 4
@@ -1110,13 +1110,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 701:                                              ; preds = %713, %700
   %702 = phi i64 [ %714, %713 ], [ 7, %700 ]
-  %703 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %680, i64 %702)
+  %703 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %680, i64 %702)
   br label %704
 
 704:                                              ; preds = %704, %701
   %705 = phi i64 [ 1, %701 ], [ %711, %704 ]
   %706 = phi i64 [ %241, %701 ], [ %710, %704 ]
-  %707 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %703, i64 %706)
+  %707 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %703, i64 %706)
   %708 = load i32, i32* %707, align 4
   %709 = add nsw i32 %708, -10
   store i32 %709, i32* %707, align 4
@@ -1132,8 +1132,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 716:                                              ; preds = %716, %699
   %717 = phi i64 [ %722, %716 ], [ 7, %699 ]
-  %718 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %680, i64 %717)
-  %719 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %718, i64 %241)
+  %718 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %680, i64 %717)
+  %719 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %718, i64 %241)
   %720 = load i32, i32* %719, align 4
   %721 = add nsw i32 %720, -10
   store i32 %721, i32* %719, align 4
@@ -1146,9 +1146,9 @@ define internal void @good(i32* noalias nocapture readonly) {
   store i32 %725, i32* %247, align 4
   %726 = sub i32 %675, %725
   %727 = sext i32 %726 to i64
-  %728 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %727)
-  %729 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %728, i64 9)
-  %730 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %729, i64 %250)
+  %728 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %727)
+  %729 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %728, i64 9)
+  %730 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %729, i64 %250)
   %731 = load i32, i32* %730, align 4
   %732 = icmp slt i32 %731, 1
   br i1 %732, label %904, label %733
@@ -1159,7 +1159,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 734:                                              ; preds = %734, %733
   %735 = phi i64 [ %741, %734 ], [ 1, %733 ]
   %736 = phi i64 [ %740, %734 ], [ %105, %733 ]
-  %737 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %729, i64 %736)
+  %737 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %729, i64 %736)
   %738 = load i32, i32* %737, align 4
   %739 = add nsw i32 %738, -10
   store i32 %739, i32* %737, align 4
@@ -1179,13 +1179,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 745:                                              ; preds = %757, %744
   %746 = phi i64 [ %758, %757 ], [ 7, %744 ]
-  %747 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %728, i64 %746)
+  %747 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %728, i64 %746)
   br label %748
 
 748:                                              ; preds = %748, %745
   %749 = phi i64 [ 1, %745 ], [ %755, %748 ]
   %750 = phi i64 [ %254, %745 ], [ %754, %748 ]
-  %751 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %747, i64 %750)
+  %751 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %747, i64 %750)
   %752 = load i32, i32* %751, align 4
   %753 = add nsw i32 %752, -10
   store i32 %753, i32* %751, align 4
@@ -1201,8 +1201,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 760:                                              ; preds = %760, %743
   %761 = phi i64 [ %766, %760 ], [ 7, %743 ]
-  %762 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %728, i64 %761)
-  %763 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %762, i64 %254)
+  %762 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %728, i64 %761)
+  %763 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %762, i64 %254)
   %764 = load i32, i32* %763, align 4
   %765 = add nsw i32 %764, -10
   store i32 %765, i32* %763, align 4
@@ -1216,8 +1216,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 769:                                              ; preds = %789, %768
   %770 = phi i64 [ %790, %789 ], [ 1, %768 ]
-  %771 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %770)
-  %772 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %771, i64 %254)
+  %771 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %770)
+  %772 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %771, i64 %254)
   %773 = load i32, i32* %772, align 4
   %774 = icmp eq i32 %773, 0
   br i1 %774, label %775, label %789
@@ -1225,9 +1225,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 775:                                              ; preds = %775, %769
   %776 = phi i64 [ %784, %775 ], [ 1, %769 ]
   %777 = phi i32 [ %783, %775 ], [ 0, %769 ]
-  %778 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %776)
-  %779 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %778, i64 %770)
-  %780 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %779, i64 %254)
+  %778 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %776)
+  %779 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %778, i64 %770)
+  %780 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %779, i64 %254)
   %781 = load i32, i32* %780, align 4
   %782 = icmp sgt i32 %781, 0
   %783 = select i1 %782, i32 -1, i32 %777
@@ -1251,7 +1251,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 794:                                              ; preds = %794, %792
   %795 = phi i64 [ %797, %794 ], [ 1, %792 ]
-  %796 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %141, i64 %795)
+  %796 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %141, i64 %795)
   store i32 0, i32* %796, align 4
   %797 = add nuw nsw i64 %795, 1
   %798 = icmp eq i64 %797, 10
@@ -1259,15 +1259,15 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 799:                                              ; preds = %812, %794
   %800 = phi i64 [ %813, %812 ], [ 1, %794 ]
-  %801 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %800)
-  %802 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %141, i64 %800)
+  %801 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %800)
+  %802 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %141, i64 %800)
   %803 = load i32, i32* %802, align 4
   br label %804
 
 804:                                              ; preds = %804, %799
   %805 = phi i32 [ %803, %799 ], [ %809, %804 ]
   %806 = phi i64 [ 1, %799 ], [ %810, %804 ]
-  %807 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %801, i64 %806)
+  %807 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %801, i64 %806)
   %808 = load i32, i32* %807, align 4
   %809 = add nsw i32 %805, %808
   %810 = add nuw nsw i64 %806, 1
@@ -1282,10 +1282,10 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 815:                                              ; preds = %815, %812
   %816 = phi i64 [ %821, %815 ], [ 1, %812 ]
-  %817 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %141, i64 %816)
+  %817 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %141, i64 %816)
   %818 = load i32, i32* %817, align 4
   %819 = sub nsw i32 45, %818
-  %820 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %142, i64 %816)
+  %820 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %142, i64 %816)
   store i32 %819, i32* %820, align 4
   %821 = add nuw nsw i64 %816, 1
   %822 = icmp eq i64 %821, 10
@@ -1293,9 +1293,9 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 823:                                              ; preds = %823, %815
   %824 = phi i64 [ %829, %823 ], [ 1, %815 ]
-  %825 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %824)
-  %826 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %825, i64 9)
-  %827 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %142, i64 %824)
+  %825 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %824)
+  %826 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %825, i64 9)
+  %827 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %142, i64 %824)
   %828 = load i32, i32* %827, align 4
   store i32 %828, i32* %826, align 4
   %829 = add nuw nsw i64 %824, 1
@@ -1305,8 +1305,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 831:                                              ; preds = %831, %823
   %832 = phi i64 [ %838, %831 ], [ 1, %823 ]
   %833 = phi i32 [ %837, %831 ], [ 0, %823 ]
-  %834 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %832)
-  %835 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %834, i64 9)
+  %834 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %832)
+  %835 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %834, i64 9)
   %836 = load i32, i32* %835, align 4
   %837 = add nsw i32 %836, %833
   %838 = add nuw nsw i64 %832, 1
@@ -1325,15 +1325,15 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 845:                                              ; preds = %856, %842
   %846 = phi i64 [ 1, %842 ], [ %857, %856 ]
-  %847 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %846)
-  %848 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku3_, i64 0, i64 0, i64 0), i64 %846)
+  %847 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %846)
+  %848 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku3_, i64 0, i64 0, i64 0), i64 %846)
   br label %849
 
 849:                                              ; preds = %849, %845
   %850 = phi i64 [ 1, %845 ], [ %854, %849 ]
-  %851 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %847, i64 %850)
+  %851 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %847, i64 %850)
   %852 = load i32, i32* %851, align 4
-  %853 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %848, i64 %850)
+  %853 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %848, i64 %850)
   store i32 %852, i32* %853, align 4
   %854 = add nuw nsw i64 %850, 1
   %855 = icmp eq i64 %854, 10
@@ -1393,7 +1393,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 870:                                              ; preds = %870, %869
   %871 = phi i64 [ %877, %870 ], [ 1, %869 ]
   %872 = phi i64 [ %876, %870 ], [ %105, %869 ]
-  %873 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %729, i64 %872)
+  %873 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %729, i64 %872)
   %874 = load i32, i32* %873, align 4
   %875 = add nsw i32 %874, 10
   store i32 %875, i32* %873, align 4
@@ -1413,13 +1413,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 881:                                              ; preds = %893, %880
   %882 = phi i64 [ %894, %893 ], [ 7, %880 ]
-  %883 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %728, i64 %882)
+  %883 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %728, i64 %882)
   br label %884
 
 884:                                              ; preds = %884, %881
   %885 = phi i64 [ 1, %881 ], [ %891, %884 ]
   %886 = phi i64 [ %254, %881 ], [ %890, %884 ]
-  %887 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %883, i64 %886)
+  %887 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %883, i64 %886)
   %888 = load i32, i32* %887, align 4
   %889 = add nsw i32 %888, 10
   store i32 %889, i32* %887, align 4
@@ -1435,8 +1435,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 896:                                              ; preds = %896, %879
   %897 = phi i64 [ %902, %896 ], [ 7, %879 ]
-  %898 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %728, i64 %897)
-  %899 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %898, i64 %254)
+  %898 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %728, i64 %897)
+  %899 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %898, i64 %254)
   %900 = load i32, i32* %899, align 4
   %901 = add nsw i32 %900, 10
   store i32 %901, i32* %899, align 4
@@ -1453,7 +1453,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 907:                                              ; preds = %907, %904
   %908 = phi i64 [ %914, %907 ], [ 1, %904 ]
   %909 = phi i64 [ %913, %907 ], [ %105, %904 ]
-  %910 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %681, i64 %909)
+  %910 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %681, i64 %909)
   %911 = load i32, i32* %910, align 4
   %912 = add nsw i32 %911, 10
   store i32 %912, i32* %910, align 4
@@ -1473,13 +1473,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 918:                                              ; preds = %930, %917
   %919 = phi i64 [ %931, %930 ], [ 7, %917 ]
-  %920 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %680, i64 %919)
+  %920 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %680, i64 %919)
   br label %921
 
 921:                                              ; preds = %921, %918
   %922 = phi i64 [ 1, %918 ], [ %928, %921 ]
   %923 = phi i64 [ %241, %918 ], [ %927, %921 ]
-  %924 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %920, i64 %923)
+  %924 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %920, i64 %923)
   %925 = load i32, i32* %924, align 4
   %926 = add nsw i32 %925, 10
   store i32 %926, i32* %924, align 4
@@ -1495,8 +1495,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 933:                                              ; preds = %933, %916
   %934 = phi i64 [ %939, %933 ], [ 7, %916 ]
-  %935 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %680, i64 %934)
-  %936 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %935, i64 %241)
+  %935 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %680, i64 %934)
+  %936 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %935, i64 %241)
   %937 = load i32, i32* %936, align 4
   %938 = add nsw i32 %937, 10
   store i32 %938, i32* %936, align 4
@@ -1517,8 +1517,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 946:                                              ; preds = %946, %944
   %947 = phi i64 [ 8, %944 ], [ %952, %946 ]
-  %948 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %621, i64 %947)
-  %949 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %948, i64 %224)
+  %948 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %621, i64 %947)
+  %949 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %948, i64 %224)
   %950 = load i32, i32* %949, align 4
   %951 = add nsw i32 %950, 10
   store i32 %951, i32* %949, align 4
@@ -1529,7 +1529,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 954:                                              ; preds = %954, %945
   %955 = phi i64 [ %961, %954 ], [ 1, %945 ]
   %956 = phi i64 [ %960, %954 ], [ %105, %945 ]
-  %957 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %622, i64 %956)
+  %957 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %622, i64 %956)
   %958 = load i32, i32* %957, align 4
   %959 = add nsw i32 %958, 10
   store i32 %959, i32* %957, align 4
@@ -1549,13 +1549,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 965:                                              ; preds = %977, %964
   %966 = phi i64 [ %978, %977 ], [ 7, %964 ]
-  %967 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %621, i64 %966)
+  %967 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %621, i64 %966)
   br label %968
 
 968:                                              ; preds = %968, %965
   %969 = phi i64 [ 1, %965 ], [ %975, %968 ]
   %970 = phi i64 [ %228, %965 ], [ %974, %968 ]
-  %971 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %967, i64 %970)
+  %971 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %967, i64 %970)
   %972 = load i32, i32* %971, align 4
   %973 = add nsw i32 %972, 10
   store i32 %973, i32* %971, align 4
@@ -1571,8 +1571,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 980:                                              ; preds = %980, %963
   %981 = phi i64 [ %986, %980 ], [ 7, %963 ]
-  %982 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %621, i64 %981)
-  %983 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %982, i64 %228)
+  %982 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %621, i64 %981)
+  %983 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %982, i64 %228)
   %984 = load i32, i32* %983, align 4
   %985 = add nsw i32 %984, 10
   store i32 %985, i32* %983, align 4
@@ -1593,8 +1593,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 993:                                              ; preds = %993, %991
   %994 = phi i64 [ 7, %991 ], [ %999, %993 ]
-  %995 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %562, i64 %994)
-  %996 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %995, i64 %211)
+  %995 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %562, i64 %994)
+  %996 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %995, i64 %211)
   %997 = load i32, i32* %996, align 4
   %998 = add nsw i32 %997, 10
   store i32 %998, i32* %996, align 4
@@ -1605,7 +1605,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1001:                                             ; preds = %1001, %992
   %1002 = phi i64 [ %1008, %1001 ], [ 1, %992 ]
   %1003 = phi i64 [ %1007, %1001 ], [ %105, %992 ]
-  %1004 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %563, i64 %1003)
+  %1004 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %563, i64 %1003)
   %1005 = load i32, i32* %1004, align 4
   %1006 = add nsw i32 %1005, 10
   store i32 %1006, i32* %1004, align 4
@@ -1625,13 +1625,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1012:                                             ; preds = %1024, %1011
   %1013 = phi i64 [ %1025, %1024 ], [ 4, %1011 ]
-  %1014 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %562, i64 %1013)
+  %1014 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %562, i64 %1013)
   br label %1015
 
 1015:                                             ; preds = %1015, %1012
   %1016 = phi i64 [ 1, %1012 ], [ %1022, %1015 ]
   %1017 = phi i64 [ %215, %1012 ], [ %1021, %1015 ]
-  %1018 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1014, i64 %1017)
+  %1018 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1014, i64 %1017)
   %1019 = load i32, i32* %1018, align 4
   %1020 = add nsw i32 %1019, 10
   store i32 %1020, i32* %1018, align 4
@@ -1647,8 +1647,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1027:                                             ; preds = %1027, %1010
   %1028 = phi i64 [ %1033, %1027 ], [ 4, %1010 ]
-  %1029 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %562, i64 %1028)
-  %1030 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1029, i64 %215)
+  %1029 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %562, i64 %1028)
+  %1030 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1029, i64 %215)
   %1031 = load i32, i32* %1030, align 4
   %1032 = add nsw i32 %1031, 10
   store i32 %1032, i32* %1030, align 4
@@ -1669,8 +1669,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1040:                                             ; preds = %1040, %1038
   %1041 = phi i64 [ 6, %1038 ], [ %1046, %1040 ]
-  %1042 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %503, i64 %1041)
-  %1043 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1042, i64 %198)
+  %1042 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %503, i64 %1041)
+  %1043 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1042, i64 %198)
   %1044 = load i32, i32* %1043, align 4
   %1045 = add nsw i32 %1044, 10
   store i32 %1045, i32* %1043, align 4
@@ -1681,7 +1681,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1048:                                             ; preds = %1048, %1039
   %1049 = phi i64 [ %1055, %1048 ], [ 1, %1039 ]
   %1050 = phi i64 [ %1054, %1048 ], [ %105, %1039 ]
-  %1051 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %504, i64 %1050)
+  %1051 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %504, i64 %1050)
   %1052 = load i32, i32* %1051, align 4
   %1053 = add nsw i32 %1052, 10
   store i32 %1053, i32* %1051, align 4
@@ -1701,13 +1701,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1059:                                             ; preds = %1071, %1058
   %1060 = phi i64 [ %1072, %1071 ], [ 4, %1058 ]
-  %1061 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %503, i64 %1060)
+  %1061 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %503, i64 %1060)
   br label %1062
 
 1062:                                             ; preds = %1062, %1059
   %1063 = phi i64 [ 1, %1059 ], [ %1069, %1062 ]
   %1064 = phi i64 [ %202, %1059 ], [ %1068, %1062 ]
-  %1065 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1061, i64 %1064)
+  %1065 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1061, i64 %1064)
   %1066 = load i32, i32* %1065, align 4
   %1067 = add nsw i32 %1066, 10
   store i32 %1067, i32* %1065, align 4
@@ -1723,8 +1723,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1074:                                             ; preds = %1074, %1057
   %1075 = phi i64 [ %1080, %1074 ], [ 4, %1057 ]
-  %1076 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %503, i64 %1075)
-  %1077 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1076, i64 %202)
+  %1076 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %503, i64 %1075)
+  %1077 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1076, i64 %202)
   %1078 = load i32, i32* %1077, align 4
   %1079 = add nsw i32 %1078, 10
   store i32 %1079, i32* %1077, align 4
@@ -1745,8 +1745,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1087:                                             ; preds = %1087, %1085
   %1088 = phi i64 [ 5, %1085 ], [ %1093, %1087 ]
-  %1089 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %444, i64 %1088)
-  %1090 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1089, i64 %185)
+  %1089 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %444, i64 %1088)
+  %1090 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1089, i64 %185)
   %1091 = load i32, i32* %1090, align 4
   %1092 = add nsw i32 %1091, 10
   store i32 %1092, i32* %1090, align 4
@@ -1757,7 +1757,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1095:                                             ; preds = %1095, %1086
   %1096 = phi i64 [ %1102, %1095 ], [ 1, %1086 ]
   %1097 = phi i64 [ %1101, %1095 ], [ %105, %1086 ]
-  %1098 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %445, i64 %1097)
+  %1098 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %445, i64 %1097)
   %1099 = load i32, i32* %1098, align 4
   %1100 = add nsw i32 %1099, 10
   store i32 %1100, i32* %1098, align 4
@@ -1777,13 +1777,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1106:                                             ; preds = %1118, %1105
   %1107 = phi i64 [ %1119, %1118 ], [ 4, %1105 ]
-  %1108 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %444, i64 %1107)
+  %1108 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %444, i64 %1107)
   br label %1109
 
 1109:                                             ; preds = %1109, %1106
   %1110 = phi i64 [ 1, %1106 ], [ %1116, %1109 ]
   %1111 = phi i64 [ %189, %1106 ], [ %1115, %1109 ]
-  %1112 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1108, i64 %1111)
+  %1112 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1108, i64 %1111)
   %1113 = load i32, i32* %1112, align 4
   %1114 = add nsw i32 %1113, 10
   store i32 %1114, i32* %1112, align 4
@@ -1799,8 +1799,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1121:                                             ; preds = %1121, %1104
   %1122 = phi i64 [ %1127, %1121 ], [ 4, %1104 ]
-  %1123 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %444, i64 %1122)
-  %1124 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1123, i64 %189)
+  %1123 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %444, i64 %1122)
+  %1124 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1123, i64 %189)
   %1125 = load i32, i32* %1124, align 4
   %1126 = add nsw i32 %1125, 10
   store i32 %1126, i32* %1124, align 4
@@ -1821,8 +1821,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1134:                                             ; preds = %1134, %1132
   %1135 = phi i64 [ 4, %1132 ], [ %1140, %1134 ]
-  %1136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %385, i64 %1135)
-  %1137 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1136, i64 %172)
+  %1136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %385, i64 %1135)
+  %1137 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1136, i64 %172)
   %1138 = load i32, i32* %1137, align 4
   %1139 = add nsw i32 %1138, 10
   store i32 %1139, i32* %1137, align 4
@@ -1833,7 +1833,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1142:                                             ; preds = %1142, %1133
   %1143 = phi i64 [ %1149, %1142 ], [ 1, %1133 ]
   %1144 = phi i64 [ %1148, %1142 ], [ %105, %1133 ]
-  %1145 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %386, i64 %1144)
+  %1145 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %386, i64 %1144)
   %1146 = load i32, i32* %1145, align 4
   %1147 = add nsw i32 %1146, 10
   store i32 %1147, i32* %1145, align 4
@@ -1853,13 +1853,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1153:                                             ; preds = %1165, %1152
   %1154 = phi i64 [ %1166, %1165 ], [ 1, %1152 ]
-  %1155 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %385, i64 %1154)
+  %1155 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %385, i64 %1154)
   br label %1156
 
 1156:                                             ; preds = %1156, %1153
   %1157 = phi i64 [ 1, %1153 ], [ %1163, %1156 ]
   %1158 = phi i64 [ %176, %1153 ], [ %1162, %1156 ]
-  %1159 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1155, i64 %1158)
+  %1159 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1155, i64 %1158)
   %1160 = load i32, i32* %1159, align 4
   %1161 = add nsw i32 %1160, 10
   store i32 %1161, i32* %1159, align 4
@@ -1875,8 +1875,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1168:                                             ; preds = %1168, %1151
   %1169 = phi i64 [ %1174, %1168 ], [ 1, %1151 ]
-  %1170 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %385, i64 %1169)
-  %1171 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1170, i64 %176)
+  %1170 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %385, i64 %1169)
+  %1171 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1170, i64 %176)
   %1172 = load i32, i32* %1171, align 4
   %1173 = add nsw i32 %1172, 10
   store i32 %1173, i32* %1171, align 4
@@ -1897,8 +1897,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1181:                                             ; preds = %1181, %1179
   %1182 = phi i64 [ 3, %1179 ], [ %1187, %1181 ]
-  %1183 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %326, i64 %1182)
-  %1184 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1183, i64 %159)
+  %1183 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %326, i64 %1182)
+  %1184 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1183, i64 %159)
   %1185 = load i32, i32* %1184, align 4
   %1186 = add nsw i32 %1185, 10
   store i32 %1186, i32* %1184, align 4
@@ -1909,7 +1909,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1189:                                             ; preds = %1189, %1180
   %1190 = phi i64 [ %1196, %1189 ], [ 1, %1180 ]
   %1191 = phi i64 [ %1195, %1189 ], [ %105, %1180 ]
-  %1192 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %327, i64 %1191)
+  %1192 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %327, i64 %1191)
   %1193 = load i32, i32* %1192, align 4
   %1194 = add nsw i32 %1193, 10
   store i32 %1194, i32* %1192, align 4
@@ -1929,13 +1929,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1200:                                             ; preds = %1212, %1199
   %1201 = phi i64 [ %1213, %1212 ], [ 1, %1199 ]
-  %1202 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %326, i64 %1201)
+  %1202 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %326, i64 %1201)
   br label %1203
 
 1203:                                             ; preds = %1203, %1200
   %1204 = phi i64 [ %163, %1200 ], [ %1209, %1203 ]
   %1205 = phi i64 [ 1, %1200 ], [ %1210, %1203 ]
-  %1206 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1202, i64 %1204)
+  %1206 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1202, i64 %1204)
   %1207 = load i32, i32* %1206, align 4
   %1208 = add nsw i32 %1207, 10
   store i32 %1208, i32* %1206, align 4
@@ -1951,8 +1951,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1215:                                             ; preds = %1215, %1198
   %1216 = phi i64 [ %1221, %1215 ], [ 1, %1198 ]
-  %1217 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %326, i64 %1216)
-  %1218 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1217, i64 %163)
+  %1217 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %326, i64 %1216)
+  %1218 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1217, i64 %163)
   %1219 = load i32, i32* %1218, align 4
   %1220 = add nsw i32 %1219, 10
   store i32 %1220, i32* %1218, align 4
@@ -1973,8 +1973,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1228:                                             ; preds = %1228, %1226
   %1229 = phi i64 [ 2, %1226 ], [ %1234, %1228 ]
-  %1230 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %267, i64 %1229)
-  %1231 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1230, i64 %20)
+  %1230 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %267, i64 %1229)
+  %1231 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1230, i64 %20)
   %1232 = load i32, i32* %1231, align 4
   %1233 = add nsw i32 %1232, 10
   store i32 %1233, i32* %1231, align 4
@@ -1985,7 +1985,7 @@ define internal void @good(i32* noalias nocapture readonly) {
 1236:                                             ; preds = %1236, %1227
   %1237 = phi i64 [ %1242, %1236 ], [ %105, %1227 ]
   %1238 = phi i64 [ %1243, %1236 ], [ 1, %1227 ]
-  %1239 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %268, i64 %1237)
+  %1239 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %268, i64 %1237)
   %1240 = load i32, i32* %1239, align 4
   %1241 = add nsw i32 %1240, 10
   store i32 %1241, i32* %1239, align 4
@@ -2005,13 +2005,13 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1247:                                             ; preds = %1259, %1246
   %1248 = phi i64 [ %1260, %1259 ], [ 1, %1246 ]
-  %1249 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %267, i64 %1248)
+  %1249 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %267, i64 %1248)
   br label %1250
 
 1250:                                             ; preds = %1250, %1247
   %1251 = phi i64 [ %111, %1247 ], [ %1256, %1250 ]
   %1252 = phi i64 [ 1, %1247 ], [ %1257, %1250 ]
-  %1253 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1249, i64 %1251)
+  %1253 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1249, i64 %1251)
   %1254 = load i32, i32* %1253, align 4
   %1255 = add nsw i32 %1254, 10
   store i32 %1255, i32* %1253, align 4
@@ -2027,8 +2027,8 @@ define internal void @good(i32* noalias nocapture readonly) {
 
 1262:                                             ; preds = %1262, %1245
   %1263 = phi i64 [ %1268, %1262 ], [ 1, %1245 ]
-  %1264 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %267, i64 %1263)
-  %1265 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1264, i64 %111)
+  %1264 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %267, i64 %1263)
+  %1265 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1264, i64 %111)
   %1266 = load i32, i32* %1265, align 4
   %1267 = add nsw i32 %1266, 10
   store i32 %1267, i32* %1265, align 4

@@ -48,7 +48,7 @@ entry:
 
 outer.loop:                                              ; preds = %latch, %t921
   %t925 = phi i64 [ %t913, %entry ], [ %t958, %latch ]
-  %t926 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* nonnull %t922, i64 %t925)
+  %t926 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* elementtype(float) nonnull %t922, i64 %t925)
   %t927 = load float, float* %t926, align 1
   %t928 = fdiv fast float 1.000000e+00, %t927
   br label %loop
@@ -57,16 +57,16 @@ loop:                                              ; preds = %loop, %outer.loop
   %t930 = phi i64 [ %t950, %loop ], [ 8, %outer.loop ]
   %t931 = phi float [ %t947, %loop ], [ 0.000000e+00, %outer.loop ]
   %t932 = phi float [ %t949, %loop ], [ 0.000000e+00, %outer.loop ]
-  %t933 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* getelementptr inbounds ([11 x float], [11 x float]* @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$LOWER_WVL", i64 0, i64 0), i64 %t930)
+  %t933 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) getelementptr inbounds ([11 x float], [11 x float]* @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$LOWER_WVL", i64 0, i64 0), i64 %t930)
   %t934 = load float, float* %t933, align 1
-  %t935 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* getelementptr inbounds ([11 x float], [11 x float]* @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$UPPER_WVL", i64 0, i64 0), i64 %t930)
+  %t935 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) getelementptr inbounds ([11 x float], [11 x float]* @"module_ra_aerosol_mp_calc_aerosol_goddard_sw_$UPPER_WVL", i64 0, i64 0), i64 %t930)
   %t936 = load float, float* %t935, align 1
   %t937 = fadd fast float %t936, %t934
   %t938 = fmul fast float %t937, 0x3FED1745C0000000
   %t939 = call fast float @llvm.log.f32(float %t938)
-  %t940 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %t145, float* nonnull %t143, i64 %t930)
-  %t941 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %t912, i64 %t144, float* nonnull %t940, i64 %t920)
-  %t942 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* nonnull %t941, i64 %t925)
+  %t940 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %t145, float* elementtype(float) nonnull %t143, i64 %t930)
+  %t941 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %t912, i64 %t144, float* elementtype(float) nonnull %t940, i64 %t920)
+  %t942 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* elementtype(float) nonnull %t941, i64 %t925)
   %t943 = load float, float* %t942, align 1
   %t944 = fmul fast float %t943, %t928
   %t945 = call fast float @llvm.log.f32(float %t944)
@@ -83,7 +83,7 @@ latch:                                              ; preds = %loop
   %t954 = phi float [ %t949, %loop ]
   %t955 = fneg fast float %t953
   %t956 = fdiv fast float %t955, %t954
-  %t957 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* %t923, i64 %t925)
+  %t957 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %t911, i64 4, float* elementtype(float) %t923, i64 %t925)
   store float %t956, float* %t957, align 1
   %t958 = add nsw i64 %t925, 1
   %t959 = icmp eq i64 %t958, %t918

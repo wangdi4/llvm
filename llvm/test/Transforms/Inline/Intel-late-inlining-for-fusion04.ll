@@ -120,23 +120,23 @@ bb71:                                             ; preds = %bb67, %bb71
   %int_sext121 = zext i32 %"bar_$I.0" to i64
   %int_sext124 = zext i32 %"bar_$J.0" to i64
   %int_sext127 = zext i32 %"bar_$K.0" to i64
-  %"bar_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* %"bar_$A", i64 %int_sext127)
-  %"bar_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"bar_$A[]", i64 %int_sext124)
-  %"bar_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"bar_$A[][]", i64 %int_sext121)
+  %"bar_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* elementtype(float) %"bar_$A", i64 %int_sext127)
+  %"bar_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"bar_$A[]", i64 %int_sext124)
+  %"bar_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"bar_$A[][]", i64 %int_sext121)
   %"bar_$A[][][]_fetch" = load float, float* %"bar_$A[][][]", align 4
-  %"bar_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* %"bar_$B", i64 %int_sext121)
-  %"bar_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"bar_$B[]", i64 %int_sext127)
-  %"bar_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"bar_$B[][]", i64 %int_sext124)
+  %"bar_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* elementtype(float) %"bar_$B", i64 %int_sext121)
+  %"bar_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"bar_$B[]", i64 %int_sext127)
+  %"bar_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"bar_$B[][]", i64 %int_sext124)
   %"bar_$B[][][]_fetch" = load float, float* %"bar_$B[][][]", align 4
   %add46 = fadd float %"bar_$A[][][]_fetch", %"bar_$B[][][]_fetch"
-  %"bar_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* %"bar_$C", i64 %int_sext124)
-  %"bar_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"bar_$C[]", i64 %int_sext121)
-  %"bar_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"bar_$C[][]", i64 %int_sext127)
+  %"bar_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* elementtype(float) %"bar_$C", i64 %int_sext124)
+  %"bar_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"bar_$C[]", i64 %int_sext121)
+  %"bar_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"bar_$C[][]", i64 %int_sext127)
   %"bar_$C[][][]_fetch" = load float, float* %"bar_$C[][][]", align 4
   %add75 = fadd float %add46, %"bar_$C[][][]_fetch"
-  %"bar_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* %"bar_$D", i64 %int_sext127)
-  %"bar_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"bar_$D[]", i64 %int_sext124)
-  %"bar_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"bar_$D[][]", i64 %int_sext121)
+  %"bar_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul17, float* elementtype(float) %"bar_$D", i64 %int_sext127)
+  %"bar_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"bar_$D[]", i64 %int_sext124)
+  %"bar_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"bar_$D[][]", i64 %int_sext121)
   %"bar_$D[][][]_fetch" = load float, float* %"bar_$D[][][]", align 4
   %add104 = fadd float %add75, %"bar_$D[][][]_fetch"
   store float %add104, float* %"bar_$A[][][]", align 4
@@ -173,9 +173,9 @@ alloca:
   call void @bar_(float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$A", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$B", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$C", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$D", i64 0, i64 0, i64 0, i64 0), i32* nonnull @1)
   call void @bar_(float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$A", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$B", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$C", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$D", i64 0, i64 0, i64 0, i64 0), i32* nonnull @2)
   call void @bar_(float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$A", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$B", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$C", i64 0, i64 0, i64 0, i64 0), float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$D", i64 0, i64 0, i64 0, i64 0), i32* nonnull @3)
-  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$A", i64 0, i64 0, i64 0, i64 0), i64 1)
-  %"foo_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* %"foo_$A[]", i64 1)
-  %"foo_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"foo_$A[][]", i64 1)
+  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$A", i64 0, i64 0, i64 0, i64 0), i64 1)
+  %"foo_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) %"foo_$A[]", i64 1)
+  %"foo_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"foo_$A[][]", i64 1)
   %0 = bitcast float* %"foo_$A[][][]" to i32*
   %"foo_$A[][][]_fetch68" = load i32, i32* %0, align 4
   %.fca.0.gep64 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0
@@ -192,9 +192,9 @@ alloca:
   %ptr_cast2 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof, i64 0, i64 0
   %ptr_cast4 = bitcast { float }* %ARGBLOCK_0 to i8*
   %func_result = call i32 (i8*, i32, i64, i8*, i8*, ...) @for_write_seq_lis(i8* nonnull %ptr_cast, i32 -1, i64 1239157112576, i8* nonnull %ptr_cast2, i8* nonnull %ptr_cast4)
-  %"foo_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$B", i64 0, i64 0, i64 0, i64 0), i64 2)
-  %"foo_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* %"foo_$B[]", i64 2)
-  %"foo_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"foo_$B[][]", i64 2)
+  %"foo_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$B", i64 0, i64 0, i64 0, i64 0), i64 2)
+  %"foo_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) %"foo_$B[]", i64 2)
+  %"foo_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"foo_$B[][]", i64 2)
   %2 = bitcast float* %"foo_$B[][][]" to i32*
   %"foo_$B[][][]_fetch69" = load i32, i32* %2, align 4
   %.fca.0.gep60 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof11, i64 0, i64 0
@@ -210,9 +210,9 @@ alloca:
   %ptr_cast17 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof11, i64 0, i64 0
   %ptr_cast19 = bitcast { float }* %ARGBLOCK_1 to i8*
   %func_result21 = call i32 @for_write_seq_lis_xmit(i8* nonnull %ptr_cast, i8* nonnull %ptr_cast17, i8* nonnull %ptr_cast19)
-  %"foo_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$C", i64 0, i64 0, i64 0, i64 0), i64 3)
-  %"foo_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* %"foo_$C[]", i64 3)
-  %"foo_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"foo_$C[][]", i64 3)
+  %"foo_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$C", i64 0, i64 0, i64 0, i64 0), i64 3)
+  %"foo_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) %"foo_$C[]", i64 3)
+  %"foo_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"foo_$C[][]", i64 3)
   %4 = bitcast float* %"foo_$C[][][]" to i32*
   %"foo_$C[][][]_fetch70" = load i32, i32* %4, align 4
   %.fca.0.gep56 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof28, i64 0, i64 0
@@ -228,9 +228,9 @@ alloca:
   %ptr_cast34 = getelementptr inbounds [4 x i8], [4 x i8]* %addressof28, i64 0, i64 0
   %ptr_cast36 = bitcast { float }* %ARGBLOCK_2 to i8*
   %func_result38 = call i32 @for_write_seq_lis_xmit(i8* nonnull %ptr_cast, i8* nonnull %ptr_cast34, i8* nonnull %ptr_cast36)
-  %"foo_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$D", i64 0, i64 0, i64 0, i64 0), i64 4)
-  %"foo_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* %"foo_$D[]", i64 4)
-  %"foo_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"foo_$D[][]", i64 4)
+  %"foo_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 40000, float* elementtype(float) getelementptr inbounds ([100 x [100 x [100 x float]]], [100 x [100 x [100 x float]]]* @"foo_$D", i64 0, i64 0, i64 0, i64 0), i64 4)
+  %"foo_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 400, float* elementtype(float) %"foo_$D[]", i64 4)
+  %"foo_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"foo_$D[][]", i64 4)
   %6 = bitcast float* %"foo_$D[][][]" to i32*
   %"foo_$D[][][]_fetch71" = load i32, i32* %6, align 4
   %.fca.0.gep = getelementptr inbounds [4 x i8], [4 x i8]* %addressof45, i64 0, i64 0
@@ -287,21 +287,21 @@ bb125:                                            ; preds = %bb121, %bb125
   %int_sext20 = zext i32 %"baz_$I.0" to i64
   %int_sext22 = zext i32 %"baz_$J.0" to i64
   %int_sext23 = zext i32 %"baz_$K.0" to i64
-  %"baz_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* %"baz_$A", i64 %int_sext23)
-  %"baz_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"baz_$A[]", i64 %int_sext22)
-  %"baz_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"baz_$A[][]", i64 %int_sext20)
+  %"baz_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* elementtype(float) %"baz_$A", i64 %int_sext23)
+  %"baz_$A[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"baz_$A[]", i64 %int_sext22)
+  %"baz_$A[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"baz_$A[][]", i64 %int_sext20)
   store float 1.000000e+00, float* %"baz_$A[][][]", align 4
-  %"baz_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* %"baz_$B", i64 %int_sext23)
-  %"baz_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"baz_$B[]", i64 %int_sext22)
-  %"baz_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"baz_$B[][]", i64 %int_sext20)
+  %"baz_$B[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* elementtype(float) %"baz_$B", i64 %int_sext23)
+  %"baz_$B[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"baz_$B[]", i64 %int_sext22)
+  %"baz_$B[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"baz_$B[][]", i64 %int_sext20)
   store float 2.000000e+00, float* %"baz_$B[][][]", align 4
-  %"baz_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* %"baz_$C", i64 %int_sext23)
-  %"baz_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"baz_$C[]", i64 %int_sext22)
-  %"baz_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"baz_$C[][]", i64 %int_sext20)
+  %"baz_$C[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* elementtype(float) %"baz_$C", i64 %int_sext23)
+  %"baz_$C[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"baz_$C[]", i64 %int_sext22)
+  %"baz_$C[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"baz_$C[][]", i64 %int_sext20)
   store float 3.000000e+00, float* %"baz_$C[][][]", align 4
-  %"baz_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* %"baz_$D", i64 %int_sext23)
-  %"baz_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %"baz_$D[]", i64 %int_sext22)
-  %"baz_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %"baz_$D[][]", i64 %int_sext20)
+  %"baz_$D[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 %mul13, float* elementtype(float) %"baz_$D", i64 %int_sext23)
+  %"baz_$D[][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %"baz_$D[]", i64 %int_sext22)
+  %"baz_$D[][][]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %"baz_$D[][]", i64 %int_sext20)
   store float 4.000000e+00, float* %"baz_$D[][][]", align 4
   %add87 = add nuw nsw i32 %"baz_$K.0", 1
   %rel93 = icmp slt i32 %"baz_$K.0", %"baz_$N_fetch8"

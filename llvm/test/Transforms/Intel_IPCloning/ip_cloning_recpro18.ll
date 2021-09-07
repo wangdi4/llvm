@@ -134,22 +134,22 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 15:                                               ; preds = %15, %1
   %16 = phi i64 [ 1, %1 ], [ %23, %15 ]
-  %17 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %16), !dbg !1894
-  %18 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %17, i64 %11), !dbg !1894
+  %17 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %16), !dbg !1894
+  %18 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %17, i64 %11), !dbg !1894
   %19 = load i32, i32* %18, align 1, !dbg !1894
   %20 = icmp ne i32 %19, 0, !dbg !1894
   %21 = zext i1 %20 to i32, !dbg !1894
-  %22 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %12, i64 %16), !dbg !1894
+  %22 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %12, i64 %16), !dbg !1894
   store i32 %21, i32* %22, align 1, !dbg !1894
   %23 = add nuw nsw i64 %16, 1, !dbg !1894
   %24 = icmp eq i64 %23, 10, !dbg !1894
   br i1 %24, label %13, label %15, !dbg !1894
 
 25:                                               ; preds = %35
-  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %36), !dbg !1894
-  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %26, i64 %11), !dbg !1894
+  %26 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %36), !dbg !1894
+  %27 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %26, i64 %11), !dbg !1894
   %28 = load i32, i32* %27, align 1, !dbg !1894
-  %29 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 %36), !dbg !1894
+  %29 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 %36), !dbg !1894
   store i32 %28, i32* %29, align 1, !dbg !1895
   br label %30, !dbg !1895
 
@@ -164,16 +164,16 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 35:                                               ; preds = %30, %13
   %36 = phi i64 [ 1, %13 ], [ %31, %30 ]
-  %37 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %12, i64 %36), !dbg !1895
+  %37 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %12, i64 %36), !dbg !1895
   %38 = load i32, i32* %37, align 1, !dbg !1895
   %39 = and i32 %38, 1, !dbg !1895
   %40 = icmp eq i32 %39, 0, !dbg !1895
   br i1 %40, label %30, label %25, !dbg !1895
 
 41:                                               ; preds = %48
-  %42 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 %49), !dbg !1895
+  %42 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 %49), !dbg !1895
   %43 = load i32, i32* %42, align 1, !dbg !1895
-  %44 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 %49), !dbg !1895
+  %44 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 %49), !dbg !1895
   store i32 %43, i32* %44, align 1, !dbg !1896
   br label %45, !dbg !1896
 
@@ -184,14 +184,14 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 48:                                               ; preds = %45, %33
   %49 = phi i64 [ 1, %33 ], [ %46, %45 ]
-  %50 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %12, i64 %49), !dbg !1896
+  %50 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %12, i64 %49), !dbg !1896
   %51 = load i32, i32* %50, align 1, !dbg !1896
   %52 = and i32 %51, 1, !dbg !1896
   %53 = icmp eq i32 %52, 0, !dbg !1896
   br i1 %53, label %45, label %41, !dbg !1896
 
 54:                                               ; preds = %59
-  %55 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 %60), !dbg !1896
+  %55 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 %60), !dbg !1896
   store i32 1, i32* %55, align 1, !dbg !1897
   br label %56, !dbg !1897
 
@@ -202,14 +202,14 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 59:                                               ; preds = %56, %45
   %60 = phi i64 [ %57, %56 ], [ 1, %45 ]
-  %61 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %12, i64 %60), !dbg !1897
+  %61 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %12, i64 %60), !dbg !1897
   %62 = load i32, i32* %61, align 1, !dbg !1897
   %63 = and i32 %62, 1, !dbg !1897
   %64 = icmp eq i32 %63, 0, !dbg !1897
   br i1 %64, label %54, label %56, !dbg !1897
 
 65:                                               ; preds = %70
-  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 %71), !dbg !1897
+  %66 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 %71), !dbg !1897
   store i32 9, i32* %66, align 1, !dbg !1898
   br label %67, !dbg !1898
 
@@ -220,7 +220,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 70:                                               ; preds = %67, %56
   %71 = phi i64 [ %68, %67 ], [ 1, %56 ]
-  %72 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %12, i64 %71), !dbg !1898
+  %72 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %12, i64 %71), !dbg !1898
   %73 = load i32, i32* %72, align 1, !dbg !1898
   %74 = and i32 %73, 1, !dbg !1898
   %75 = icmp eq i32 %74, 0, !dbg !1898
@@ -228,9 +228,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 76:                                               ; preds = %67
   call void @llvm.dbg.value(metadata !DIArgList(i32 undef, i32 0, i32 undef), metadata !1879, metadata !DIExpression(DW_OP_LLVM_arg, 0, DW_OP_plus_uconst, 3, DW_OP_LLVM_arg, 1, DW_OP_LLVM_arg, 2, DW_OP_constu, 1, DW_OP_minus, DW_OP_constu, 3, DW_OP_mod, DW_OP_minus, DW_OP_plus, DW_OP_stack_value)), !dbg !1899
-  %77 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 1), !dbg !1900
+  %77 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 1), !dbg !1900
   %78 = load i32, i32* %77, align 1, !dbg !1900
-  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 1), !dbg !1900
+  %79 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 1), !dbg !1900
   %80 = load i32, i32* %79, align 1, !dbg !1900
   call void @llvm.dbg.value(metadata i32 %78, metadata !1890, metadata !DIExpression()), !dbg !1899
   %81 = icmp slt i32 %80, %78, !dbg !1900
@@ -247,29 +247,29 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
   call void @llvm.dbg.value(metadata i32 %86, metadata !1879, metadata !DIExpression()), !dbg !1899
   %87 = sext i32 %86 to i64, !dbg !1904
   %88 = icmp sgt i32 %86, 9, !dbg !1904
-  %89 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 1), !dbg !1905
-  %90 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 2), !dbg !1906
-  %91 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 2), !dbg !1906
-  %92 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 2), !dbg !1907
-  %93 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 3), !dbg !1908
-  %94 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 3), !dbg !1908
-  %95 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 3), !dbg !1909
-  %96 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 4), !dbg !1910
-  %97 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 4), !dbg !1910
-  %98 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 4), !dbg !1911
-  %99 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 5), !dbg !1912
-  %100 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 5), !dbg !1912
-  %101 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 5), !dbg !1913
-  %102 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 6), !dbg !1914
-  %103 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 6), !dbg !1914
-  %104 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 6), !dbg !1915
-  %105 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 7), !dbg !1916
-  %106 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 7), !dbg !1916
-  %107 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 7), !dbg !1917
-  %108 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %14, i64 8), !dbg !1918
-  %109 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %34, i64 8), !dbg !1918
-  %110 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 8), !dbg !1919
-  %111 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 9), !dbg !1920
+  %89 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 1), !dbg !1905
+  %90 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 2), !dbg !1906
+  %91 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 2), !dbg !1906
+  %92 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 2), !dbg !1907
+  %93 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 3), !dbg !1908
+  %94 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 3), !dbg !1908
+  %95 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 3), !dbg !1909
+  %96 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 4), !dbg !1910
+  %97 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 4), !dbg !1910
+  %98 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 4), !dbg !1911
+  %99 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 5), !dbg !1912
+  %100 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 5), !dbg !1912
+  %101 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 5), !dbg !1913
+  %102 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 6), !dbg !1914
+  %103 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 6), !dbg !1914
+  %104 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 6), !dbg !1915
+  %105 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 7), !dbg !1916
+  %106 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 7), !dbg !1916
+  %107 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 7), !dbg !1917
+  %108 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %14, i64 8), !dbg !1918
+  %109 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %34, i64 8), !dbg !1918
+  %110 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 8), !dbg !1919
+  %111 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 9), !dbg !1920
   %112 = getelementptr inbounds [9 x i32], [9 x i32]* %5, i64 0, i64 0, !dbg !1921
   %113 = getelementptr inbounds [9 x i32], [9 x i32]* %6, i64 0, i64 0, !dbg !1922
   %114 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %7, i64 0, i32 3, !dbg !1923
@@ -278,14 +278,14 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
   %117 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %7, i64 0, i32 2, !dbg !1923
   %118 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %7, i64 0, i32 6, i64 0, !dbg !1923
   %119 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %118, i64 0, i32 1, !dbg !1923
-  %120 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %119, i32 0), !dbg !1923
+  %120 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %119, i32 0), !dbg !1923
   %121 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %118, i64 0, i32 2, !dbg !1923
-  %122 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %121, i32 0), !dbg !1923
+  %122 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %121, i32 0), !dbg !1923
   %123 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %118, i64 0, i32 0, !dbg !1923
-  %124 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %123, i32 0), !dbg !1923
-  %125 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %119, i32 1), !dbg !1923
-  %126 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %121, i32 1), !dbg !1923
-  %127 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %123, i32 1), !dbg !1923
+  %124 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %123, i32 0), !dbg !1923
+  %125 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %119, i32 1), !dbg !1923
+  %126 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %121, i32 1), !dbg !1923
+  %127 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %123, i32 1), !dbg !1923
   %128 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %7, i64 0, i32 0, !dbg !1923
   %129 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %8, i64 0, i32 3, !dbg !1923
   %130 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %8, i64 0, i32 1, !dbg !1923
@@ -293,14 +293,14 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
   %132 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %8, i64 0, i32 2, !dbg !1923
   %133 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %8, i64 0, i32 6, i64 0, !dbg !1923
   %134 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %133, i64 0, i32 1, !dbg !1923
-  %135 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %134, i32 0), !dbg !1923
+  %135 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %134, i32 0), !dbg !1923
   %136 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %133, i64 0, i32 2, !dbg !1923
-  %137 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %136, i32 0), !dbg !1923
+  %137 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %136, i32 0), !dbg !1923
   %138 = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %133, i64 0, i32 0, !dbg !1923
-  %139 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %138, i32 0), !dbg !1923
-  %140 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %134, i32 1), !dbg !1923
-  %141 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %136, i32 1), !dbg !1923
-  %142 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %138, i32 1), !dbg !1923
+  %139 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %138, i32 0), !dbg !1923
+  %140 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %134, i32 1), !dbg !1923
+  %141 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %136, i32 1), !dbg !1923
+  %142 = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %138, i32 1), !dbg !1923
   %143 = getelementptr inbounds %"QNCA_a0$i32*$rank2$", %"QNCA_a0$i32*$rank2$"* %8, i64 0, i32 0, !dbg !1923
   %144 = bitcast %"QNCA_a0$i32*$rank2$"* %7 to %"QNCA_a0$i32*$rank2$"*, !dbg !1924
   %145 = bitcast %"QNCA_a0$i32*$rank2$"* %8 to %"QNCA_a0$i32*$rank2$"*, !dbg !1924
@@ -318,15 +318,15 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
   %157 = icmp slt i64 %156, 1, !dbg !1928
   %158 = add nsw i64 %154, 2, !dbg !1928
   %159 = sub nsw i64 %158, %152, !dbg !1928
-  %160 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %89, i64 %11), !dbg !1905
-  %161 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %92, i64 %11), !dbg !1907
-  %162 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %95, i64 %11), !dbg !1909
-  %163 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %98, i64 %11), !dbg !1911
-  %164 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %101, i64 %11), !dbg !1913
-  %165 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %104, i64 %11), !dbg !1915
-  %166 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %107, i64 %11), !dbg !1917
-  %167 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %110, i64 %11), !dbg !1919
-  %168 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %111, i64 %11), !dbg !1920
+  %160 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %89, i64 %11), !dbg !1905
+  %161 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %92, i64 %11), !dbg !1907
+  %162 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %95, i64 %11), !dbg !1909
+  %163 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %98, i64 %11), !dbg !1911
+  %164 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %101, i64 %11), !dbg !1913
+  %165 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %104, i64 %11), !dbg !1915
+  %166 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %107, i64 %11), !dbg !1917
+  %167 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %110, i64 %11), !dbg !1919
+  %168 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %111, i64 %11), !dbg !1920
   %169 = icmp eq i32 %10, 5, !dbg !1929
   %170 = icmp eq i32 %10, 8, !dbg !1930
   br label %171, !dbg !1925
@@ -334,17 +334,17 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 171:                                              ; preds = %1176, %82
   %172 = phi i64 [ %147, %82 ], [ %1177, %1176 ]
   call void @llvm.dbg.value(metadata i64 %172, metadata !1890, metadata !DIExpression()), !dbg !1899
-  %173 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %172), !dbg !1931
-  %174 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %173, i64 1), !dbg !1931
-  %175 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %174, i64 %11), !dbg !1931
+  %173 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %172), !dbg !1931
+  %174 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %173, i64 1), !dbg !1931
+  %175 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %174, i64 %11), !dbg !1931
   %176 = load i32, i32* %175, align 1, !dbg !1931
   %177 = icmp slt i32 %176, 1, !dbg !1925
   br i1 %177, label %1176, label %178, !dbg !1925
 
 178:                                              ; preds = %178, %171
   %179 = phi i64 [ %184, %178 ], [ 2, %171 ]
-  %180 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %173, i64 %179), !dbg !1932
-  %181 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %180, i64 %11), !dbg !1932
+  %180 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %173, i64 %179), !dbg !1932
+  %181 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %180, i64 %11), !dbg !1932
   %182 = load i32, i32* %181, align 1, !dbg !1932
   %183 = add nsw i32 %182, -10, !dbg !1933
   store i32 %183, i32* %181, align 1, !dbg !1932
@@ -358,7 +358,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 187:                                              ; preds = %187, %186
   %188 = phi i64 [ %193, %187 ], [ %87, %186 ]
   %189 = phi i64 [ %194, %187 ], [ 1, %186 ]
-  %190 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %174, i64 %188), !dbg !1904
+  %190 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %174, i64 %188), !dbg !1904
   %191 = load i32, i32* %190, align 1, !dbg !1904
   %192 = add nsw i32 %191, -10, !dbg !1934
   store i32 %192, i32* %190, align 1, !dbg !1904
@@ -376,7 +376,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 197:                                              ; preds = %209, %197
   %198 = phi i64 [ %152, %209 ], [ %203, %197 ]
   %199 = phi i64 [ 1, %209 ], [ %204, %197 ]
-  %200 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %211, i64 %198), !dbg !1928
+  %200 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %211, i64 %198), !dbg !1928
   %201 = load i32, i32* %200, align 1, !dbg !1928
   %202 = add nsw i32 %201, -10, !dbg !1935
   store i32 %202, i32* %200, align 1, !dbg !1928
@@ -392,13 +392,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 209:                                              ; preds = %220, %206
   %210 = phi i64 [ %207, %206 ], [ 1, %220 ]
-  %211 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %173, i64 %210), !dbg !1928
+  %211 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %173, i64 %210), !dbg !1928
   br label %197, !dbg !1928
 
 212:                                              ; preds = %212, %196
   %213 = phi i64 [ %218, %212 ], [ 1, %196 ]
-  %214 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %173, i64 %213), !dbg !1927
-  %215 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %214, i64 %152), !dbg !1927
+  %214 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %173, i64 %213), !dbg !1927
+  %215 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %214, i64 %152), !dbg !1927
   %216 = load i32, i32* %215, align 1, !dbg !1927
   %217 = add nsw i32 %216, -10, !dbg !1936
   store i32 %217, i32* %215, align 1, !dbg !1927
@@ -427,9 +427,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 230:                                              ; preds = %1129, %226
   %231 = phi i64 [ %228, %226 ], [ %1130, %1129 ]
   call void @llvm.dbg.value(metadata i64 %231, metadata !1889, metadata !DIExpression()), !dbg !1899
-  %232 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %231), !dbg !1939
-  %233 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %232, i64 2), !dbg !1939
-  %234 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %233, i64 %11), !dbg !1939
+  %232 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %231), !dbg !1939
+  %233 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %232, i64 2), !dbg !1939
+  %234 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %233, i64 %11), !dbg !1939
   %235 = load i32, i32* %234, align 1, !dbg !1939
   %236 = icmp slt i32 %235, 1, !dbg !1938
   br i1 %236, label %1129, label %238, !dbg !1938
@@ -439,8 +439,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 238:                                              ; preds = %238, %230
   %239 = phi i64 [ %244, %238 ], [ 3, %230 ]
-  %240 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %239), !dbg !1941
-  %241 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %240, i64 %11), !dbg !1941
+  %240 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %239), !dbg !1941
+  %241 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %240, i64 %11), !dbg !1941
   %242 = load i32, i32* %241, align 1, !dbg !1941
   %243 = add nsw i32 %242, -10, !dbg !1942
   store i32 %243, i32* %241, align 1, !dbg !1941
@@ -451,7 +451,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 246:                                              ; preds = %246, %237
   %247 = phi i64 [ %252, %246 ], [ %87, %237 ]
   %248 = phi i64 [ %253, %246 ], [ 1, %237 ]
-  %249 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %233, i64 %247), !dbg !1940
+  %249 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %233, i64 %247), !dbg !1940
   %250 = load i32, i32* %249, align 1, !dbg !1940
   %251 = add nsw i32 %250, -10, !dbg !1943
   store i32 %251, i32* %249, align 1, !dbg !1940
@@ -469,7 +469,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 256:                                              ; preds = %268, %256
   %257 = phi i64 [ %152, %268 ], [ %262, %256 ]
   %258 = phi i64 [ 1, %268 ], [ %263, %256 ]
-  %259 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %270, i64 %257), !dbg !1945
+  %259 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %270, i64 %257), !dbg !1945
   %260 = load i32, i32* %259, align 1, !dbg !1945
   %261 = add nsw i32 %260, -10, !dbg !1946
   store i32 %261, i32* %259, align 1, !dbg !1945
@@ -485,13 +485,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 268:                                              ; preds = %279, %265
   %269 = phi i64 [ %266, %265 ], [ 1, %279 ]
-  %270 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %269), !dbg !1945
+  %270 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %269), !dbg !1945
   br label %256, !dbg !1945
 
 271:                                              ; preds = %271, %255
   %272 = phi i64 [ %277, %271 ], [ 1, %255 ]
-  %273 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %272), !dbg !1947
-  %274 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %273, i64 %152), !dbg !1947
+  %273 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %272), !dbg !1947
+  %274 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %273, i64 %152), !dbg !1947
   %275 = load i32, i32* %274, align 1, !dbg !1947
   %276 = add nsw i32 %275, -10, !dbg !1948
   store i32 %276, i32* %274, align 1, !dbg !1947
@@ -520,9 +520,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 289:                                              ; preds = %1082, %285
   %290 = phi i64 [ %287, %285 ], [ %1083, %1082 ]
   call void @llvm.dbg.value(metadata i64 %290, metadata !1888, metadata !DIExpression()), !dbg !1899
-  %291 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %290), !dbg !1951
-  %292 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %291, i64 3), !dbg !1951
-  %293 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %292, i64 %11), !dbg !1951
+  %291 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %290), !dbg !1951
+  %292 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %291, i64 3), !dbg !1951
+  %293 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %292, i64 %11), !dbg !1951
   %294 = load i32, i32* %293, align 1, !dbg !1951
   %295 = icmp slt i32 %294, 1, !dbg !1950
   br i1 %295, label %1082, label %297, !dbg !1950
@@ -532,8 +532,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 297:                                              ; preds = %297, %289
   %298 = phi i64 [ %303, %297 ], [ 4, %289 ]
-  %299 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %298), !dbg !1953
-  %300 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %299, i64 %11), !dbg !1953
+  %299 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %298), !dbg !1953
+  %300 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %299, i64 %11), !dbg !1953
   %301 = load i32, i32* %300, align 1, !dbg !1953
   %302 = add nsw i32 %301, -10, !dbg !1954
   store i32 %302, i32* %300, align 1, !dbg !1953
@@ -544,7 +544,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 305:                                              ; preds = %305, %296
   %306 = phi i64 [ %311, %305 ], [ %87, %296 ]
   %307 = phi i64 [ %312, %305 ], [ 1, %296 ]
-  %308 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %292, i64 %306), !dbg !1952
+  %308 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %292, i64 %306), !dbg !1952
   %309 = load i32, i32* %308, align 1, !dbg !1952
   %310 = add nsw i32 %309, -10, !dbg !1955
   store i32 %310, i32* %308, align 1, !dbg !1952
@@ -562,7 +562,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 315:                                              ; preds = %327, %315
   %316 = phi i64 [ %152, %327 ], [ %321, %315 ]
   %317 = phi i64 [ 1, %327 ], [ %322, %315 ]
-  %318 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %329, i64 %316), !dbg !1957
+  %318 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %329, i64 %316), !dbg !1957
   %319 = load i32, i32* %318, align 1, !dbg !1957
   %320 = add nsw i32 %319, -10, !dbg !1958
   store i32 %320, i32* %318, align 1, !dbg !1957
@@ -578,13 +578,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 327:                                              ; preds = %338, %324
   %328 = phi i64 [ %325, %324 ], [ 1, %338 ]
-  %329 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %328), !dbg !1957
+  %329 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %328), !dbg !1957
   br label %315, !dbg !1957
 
 330:                                              ; preds = %330, %314
   %331 = phi i64 [ %336, %330 ], [ 1, %314 ]
-  %332 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %331), !dbg !1959
-  %333 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %332, i64 %152), !dbg !1959
+  %332 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %331), !dbg !1959
+  %333 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %332, i64 %152), !dbg !1959
   %334 = load i32, i32* %333, align 1, !dbg !1959
   %335 = add nsw i32 %334, -10, !dbg !1960
   store i32 %335, i32* %333, align 1, !dbg !1959
@@ -613,9 +613,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 348:                                              ; preds = %1035, %344
   %349 = phi i64 [ %346, %344 ], [ %1036, %1035 ]
   call void @llvm.dbg.value(metadata i64 %349, metadata !1887, metadata !DIExpression()), !dbg !1899
-  %350 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %349), !dbg !1963
-  %351 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %350, i64 4), !dbg !1963
-  %352 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %351, i64 %11), !dbg !1963
+  %350 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %349), !dbg !1963
+  %351 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %350, i64 4), !dbg !1963
+  %352 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %351, i64 %11), !dbg !1963
   %353 = load i32, i32* %352, align 1, !dbg !1963
   %354 = icmp slt i32 %353, 1, !dbg !1962
   br i1 %354, label %1035, label %356, !dbg !1962
@@ -625,8 +625,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 356:                                              ; preds = %356, %348
   %357 = phi i64 [ %362, %356 ], [ 5, %348 ]
-  %358 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %357), !dbg !1965
-  %359 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %358, i64 %11), !dbg !1965
+  %358 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %357), !dbg !1965
+  %359 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %358, i64 %11), !dbg !1965
   %360 = load i32, i32* %359, align 1, !dbg !1965
   %361 = add nsw i32 %360, -10, !dbg !1966
   store i32 %361, i32* %359, align 1, !dbg !1965
@@ -637,7 +637,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 364:                                              ; preds = %364, %355
   %365 = phi i64 [ %370, %364 ], [ %87, %355 ]
   %366 = phi i64 [ %371, %364 ], [ 1, %355 ]
-  %367 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %351, i64 %365), !dbg !1964
+  %367 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %351, i64 %365), !dbg !1964
   %368 = load i32, i32* %367, align 1, !dbg !1964
   %369 = add nsw i32 %368, -10, !dbg !1967
   store i32 %369, i32* %367, align 1, !dbg !1964
@@ -655,7 +655,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 374:                                              ; preds = %386, %374
   %375 = phi i64 [ %152, %386 ], [ %380, %374 ]
   %376 = phi i64 [ 1, %386 ], [ %381, %374 ]
-  %377 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %388, i64 %375), !dbg !1969
+  %377 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %388, i64 %375), !dbg !1969
   %378 = load i32, i32* %377, align 1, !dbg !1969
   %379 = add nsw i32 %378, -10, !dbg !1970
   store i32 %379, i32* %377, align 1, !dbg !1969
@@ -671,13 +671,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 386:                                              ; preds = %397, %383
   %387 = phi i64 [ %384, %383 ], [ 4, %397 ]
-  %388 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %387), !dbg !1969
+  %388 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %387), !dbg !1969
   br label %374, !dbg !1969
 
 389:                                              ; preds = %389, %373
   %390 = phi i64 [ %395, %389 ], [ 4, %373 ]
-  %391 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %390), !dbg !1971
-  %392 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %391, i64 %152), !dbg !1971
+  %391 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %390), !dbg !1971
+  %392 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %391, i64 %152), !dbg !1971
   %393 = load i32, i32* %392, align 1, !dbg !1971
   %394 = add nsw i32 %393, -10, !dbg !1972
   store i32 %394, i32* %392, align 1, !dbg !1971
@@ -706,9 +706,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 407:                                              ; preds = %988, %403
   %408 = phi i64 [ %405, %403 ], [ %989, %988 ]
   call void @llvm.dbg.value(metadata i64 %408, metadata !1886, metadata !DIExpression()), !dbg !1899
-  %409 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %408), !dbg !1975
-  %410 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %409, i64 5), !dbg !1975
-  %411 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %410, i64 %11), !dbg !1975
+  %409 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %408), !dbg !1975
+  %410 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %409, i64 5), !dbg !1975
+  %411 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %410, i64 %11), !dbg !1975
   %412 = load i32, i32* %411, align 1, !dbg !1975
   %413 = icmp slt i32 %412, 1, !dbg !1974
   br i1 %413, label %988, label %415, !dbg !1974
@@ -718,8 +718,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 415:                                              ; preds = %415, %407
   %416 = phi i64 [ %421, %415 ], [ 6, %407 ]
-  %417 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %416), !dbg !1977
-  %418 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %417, i64 %11), !dbg !1977
+  %417 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %416), !dbg !1977
+  %418 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %417, i64 %11), !dbg !1977
   %419 = load i32, i32* %418, align 1, !dbg !1977
   %420 = add nsw i32 %419, -10, !dbg !1978
   store i32 %420, i32* %418, align 1, !dbg !1977
@@ -730,7 +730,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 423:                                              ; preds = %423, %414
   %424 = phi i64 [ %429, %423 ], [ %87, %414 ]
   %425 = phi i64 [ %430, %423 ], [ 1, %414 ]
-  %426 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %410, i64 %424), !dbg !1976
+  %426 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %410, i64 %424), !dbg !1976
   %427 = load i32, i32* %426, align 1, !dbg !1976
   %428 = add nsw i32 %427, -10, !dbg !1979
   store i32 %428, i32* %426, align 1, !dbg !1976
@@ -748,7 +748,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 433:                                              ; preds = %445, %433
   %434 = phi i64 [ %152, %445 ], [ %439, %433 ]
   %435 = phi i64 [ 1, %445 ], [ %440, %433 ]
-  %436 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %447, i64 %434), !dbg !1981
+  %436 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %447, i64 %434), !dbg !1981
   %437 = load i32, i32* %436, align 1, !dbg !1981
   %438 = add nsw i32 %437, -10, !dbg !1982
   store i32 %438, i32* %436, align 1, !dbg !1981
@@ -764,13 +764,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 445:                                              ; preds = %456, %442
   %446 = phi i64 [ %443, %442 ], [ 4, %456 ]
-  %447 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %446), !dbg !1981
+  %447 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %446), !dbg !1981
   br label %433, !dbg !1981
 
 448:                                              ; preds = %448, %432
   %449 = phi i64 [ %454, %448 ], [ 4, %432 ]
-  %450 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %449), !dbg !1983
-  %451 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %450, i64 %152), !dbg !1983
+  %450 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %449), !dbg !1983
+  %451 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %450, i64 %152), !dbg !1983
   %452 = load i32, i32* %451, align 1, !dbg !1983
   %453 = add nsw i32 %452, -10, !dbg !1984
   store i32 %453, i32* %451, align 1, !dbg !1983
@@ -809,9 +809,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 476:                                              ; preds = %941, %462
   %477 = phi i64 [ %464, %462 ], [ %942, %941 ]
   call void @llvm.dbg.value(metadata i64 %477, metadata !1885, metadata !DIExpression()), !dbg !1899
-  %478 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %477), !dbg !1988
-  %479 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %478, i64 6), !dbg !1988
-  %480 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %479, i64 %11), !dbg !1988
+  %478 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %477), !dbg !1988
+  %479 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %478, i64 6), !dbg !1988
+  %480 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %479, i64 %11), !dbg !1988
   %481 = load i32, i32* %480, align 1, !dbg !1988
   %482 = icmp slt i32 %481, 1, !dbg !1986
   br i1 %482, label %941, label %484, !dbg !1986
@@ -821,8 +821,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 484:                                              ; preds = %484, %476
   %485 = phi i64 [ %490, %484 ], [ 7, %476 ]
-  %486 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %485), !dbg !1990
-  %487 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %486, i64 %11), !dbg !1990
+  %486 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %485), !dbg !1990
+  %487 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %486, i64 %11), !dbg !1990
   %488 = load i32, i32* %487, align 1, !dbg !1990
   %489 = add nsw i32 %488, -10, !dbg !1991
   store i32 %489, i32* %487, align 1, !dbg !1990
@@ -833,7 +833,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 492:                                              ; preds = %492, %483
   %493 = phi i64 [ %498, %492 ], [ %87, %483 ]
   %494 = phi i64 [ %499, %492 ], [ 1, %483 ]
-  %495 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %479, i64 %493), !dbg !1989
+  %495 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %479, i64 %493), !dbg !1989
   %496 = load i32, i32* %495, align 1, !dbg !1989
   %497 = add nsw i32 %496, -10, !dbg !1992
   store i32 %497, i32* %495, align 1, !dbg !1989
@@ -851,7 +851,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 502:                                              ; preds = %514, %502
   %503 = phi i64 [ %152, %514 ], [ %508, %502 ]
   %504 = phi i64 [ 1, %514 ], [ %509, %502 ]
-  %505 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %516, i64 %503), !dbg !1994
+  %505 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %516, i64 %503), !dbg !1994
   %506 = load i32, i32* %505, align 1, !dbg !1994
   %507 = add nsw i32 %506, -10, !dbg !1995
   store i32 %507, i32* %505, align 1, !dbg !1994
@@ -867,13 +867,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 514:                                              ; preds = %525, %511
   %515 = phi i64 [ %512, %511 ], [ 4, %525 ]
-  %516 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %515), !dbg !1994
+  %516 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %515), !dbg !1994
   br label %502, !dbg !1994
 
 517:                                              ; preds = %517, %501
   %518 = phi i64 [ %523, %517 ], [ 4, %501 ]
-  %519 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %518), !dbg !1996
-  %520 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %519, i64 %152), !dbg !1996
+  %519 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %518), !dbg !1996
+  %520 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %519, i64 %152), !dbg !1996
   %521 = load i32, i32* %520, align 1, !dbg !1996
   %522 = add nsw i32 %521, -10, !dbg !1997
   store i32 %522, i32* %520, align 1, !dbg !1996
@@ -897,9 +897,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 530:                                              ; preds = %894, %528
   %531 = phi i64 [ %474, %528 ], [ %895, %894 ]
   call void @llvm.dbg.value(metadata i64 %531, metadata !1884, metadata !DIExpression()), !dbg !1899
-  %532 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %531), !dbg !1999
-  %533 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %532, i64 7), !dbg !1999
-  %534 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %533, i64 %11), !dbg !1999
+  %532 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %531), !dbg !1999
+  %533 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %532, i64 7), !dbg !1999
+  %534 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %533, i64 %11), !dbg !1999
   %535 = load i32, i32* %534, align 1, !dbg !1999
   %536 = icmp slt i32 %535, 1, !dbg !1987
   br i1 %536, label %894, label %538, !dbg !1987
@@ -909,8 +909,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 538:                                              ; preds = %538, %530
   %539 = phi i64 [ %544, %538 ], [ 8, %530 ]
-  %540 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %539), !dbg !2001
-  %541 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %540, i64 %11), !dbg !2001
+  %540 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %539), !dbg !2001
+  %541 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %540, i64 %11), !dbg !2001
   %542 = load i32, i32* %541, align 1, !dbg !2001
   %543 = add nsw i32 %542, -10, !dbg !2002
   store i32 %543, i32* %541, align 1, !dbg !2001
@@ -921,7 +921,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 546:                                              ; preds = %546, %537
   %547 = phi i64 [ %552, %546 ], [ %87, %537 ]
   %548 = phi i64 [ %553, %546 ], [ 1, %537 ]
-  %549 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %533, i64 %547), !dbg !2000
+  %549 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %533, i64 %547), !dbg !2000
   %550 = load i32, i32* %549, align 1, !dbg !2000
   %551 = add nsw i32 %550, -10, !dbg !2003
   store i32 %551, i32* %549, align 1, !dbg !2000
@@ -939,7 +939,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 556:                                              ; preds = %568, %556
   %557 = phi i64 [ %152, %568 ], [ %562, %556 ]
   %558 = phi i64 [ 1, %568 ], [ %563, %556 ]
-  %559 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %570, i64 %557), !dbg !2005
+  %559 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %570, i64 %557), !dbg !2005
   %560 = load i32, i32* %559, align 1, !dbg !2005
   %561 = add nsw i32 %560, -10, !dbg !2006
   store i32 %561, i32* %559, align 1, !dbg !2005
@@ -955,13 +955,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 568:                                              ; preds = %579, %565
   %569 = phi i64 [ %566, %565 ], [ 7, %579 ]
-  %570 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %569), !dbg !2005
+  %570 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %569), !dbg !2005
   br label %556, !dbg !2005
 
 571:                                              ; preds = %571, %555
   %572 = phi i64 [ %577, %571 ], [ 7, %555 ]
-  %573 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %572), !dbg !2007
-  %574 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %573, i64 %152), !dbg !2007
+  %573 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %572), !dbg !2007
+  %574 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %573, i64 %152), !dbg !2007
   %575 = load i32, i32* %574, align 1, !dbg !2007
   %576 = add nsw i32 %575, -10, !dbg !2008
   store i32 %576, i32* %574, align 1, !dbg !2007
@@ -985,16 +985,16 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 584:                                              ; preds = %847, %582
   %585 = phi i64 [ %472, %582 ], [ %848, %847 ]
   call void @llvm.dbg.value(metadata i64 %585, metadata !1883, metadata !DIExpression()), !dbg !1899
-  %586 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %585), !dbg !2011
-  %587 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %586, i64 8), !dbg !2011
-  %588 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %587, i64 %11), !dbg !2011
+  %586 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %585), !dbg !2011
+  %587 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %586, i64 8), !dbg !2011
+  %588 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %587, i64 %11), !dbg !2011
   %589 = load i32, i32* %588, align 1, !dbg !2011
   %590 = icmp slt i32 %589, 1, !dbg !2010
   br i1 %590, label %847, label %591, !dbg !2010
 
 591:                                              ; preds = %584
-  %592 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %586, i64 9), !dbg !2012
-  %593 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %592, i64 %11), !dbg !2012
+  %592 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %586, i64 9), !dbg !2012
+  %593 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %592, i64 %11), !dbg !2012
   %594 = load i32, i32* %593, align 1, !dbg !2012
   %595 = add nsw i32 %594, -10, !dbg !2013
   store i32 %595, i32* %593, align 1, !dbg !2012
@@ -1003,7 +1003,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 596:                                              ; preds = %596, %591
   %597 = phi i64 [ %602, %596 ], [ %87, %591 ]
   %598 = phi i64 [ %603, %596 ], [ 1, %591 ]
-  %599 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %587, i64 %597), !dbg !2014
+  %599 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %587, i64 %597), !dbg !2014
   %600 = load i32, i32* %599, align 1, !dbg !2014
   %601 = add nsw i32 %600, -10, !dbg !2015
   store i32 %601, i32* %599, align 1, !dbg !2014
@@ -1021,7 +1021,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 606:                                              ; preds = %618, %606
   %607 = phi i64 [ %152, %618 ], [ %612, %606 ]
   %608 = phi i64 [ 1, %618 ], [ %613, %606 ]
-  %609 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %620, i64 %607), !dbg !2017
+  %609 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %620, i64 %607), !dbg !2017
   %610 = load i32, i32* %609, align 1, !dbg !2017
   %611 = add nsw i32 %610, -10, !dbg !2018
   store i32 %611, i32* %609, align 1, !dbg !2017
@@ -1037,13 +1037,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 618:                                              ; preds = %629, %615
   %619 = phi i64 [ %616, %615 ], [ 7, %629 ]
-  %620 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %586, i64 %619), !dbg !2017
+  %620 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %586, i64 %619), !dbg !2017
   br label %606, !dbg !2017
 
 621:                                              ; preds = %621, %605
   %622 = phi i64 [ %627, %621 ], [ 7, %605 ]
-  %623 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %586, i64 %622), !dbg !2019
-  %624 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %623, i64 %152), !dbg !2019
+  %623 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %586, i64 %622), !dbg !2019
+  %624 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %623, i64 %152), !dbg !2019
   %625 = load i32, i32* %624, align 1, !dbg !2019
   %626 = add nsw i32 %625, -10, !dbg !2020
   store i32 %626, i32* %624, align 1, !dbg !2019
@@ -1060,9 +1060,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
   %632 = sub i32 %583, %631, !dbg !2021
   call void @llvm.dbg.value(metadata i32 %632, metadata !1882, metadata !DIExpression()), !dbg !1899
   %633 = sext i32 %632 to i64, !dbg !2022
-  %634 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %633), !dbg !2022
-  %635 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %634, i64 9), !dbg !2022
-  %636 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %635, i64 %11), !dbg !2022
+  %634 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %633), !dbg !2022
+  %635 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %634, i64 9), !dbg !2022
+  %636 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %635, i64 %11), !dbg !2022
   %637 = load i32, i32* %636, align 1, !dbg !2022
   %638 = icmp slt i32 %637, 1, !dbg !2023
   br i1 %638, label %810, label %639, !dbg !2023
@@ -1073,7 +1073,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 640:                                              ; preds = %640, %639
   %641 = phi i64 [ %646, %640 ], [ %87, %639 ]
   %642 = phi i64 [ %647, %640 ], [ 1, %639 ]
-  %643 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %635, i64 %641), !dbg !2024
+  %643 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %635, i64 %641), !dbg !2024
   %644 = load i32, i32* %643, align 1, !dbg !2024
   %645 = add nsw i32 %644, -10, !dbg !2025
   store i32 %645, i32* %643, align 1, !dbg !2024
@@ -1091,7 +1091,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 650:                                              ; preds = %662, %650
   %651 = phi i64 [ %152, %662 ], [ %656, %650 ]
   %652 = phi i64 [ 1, %662 ], [ %657, %650 ]
-  %653 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %664, i64 %651), !dbg !2027
+  %653 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %664, i64 %651), !dbg !2027
   %654 = load i32, i32* %653, align 1, !dbg !2027
   %655 = add nsw i32 %654, -10, !dbg !2028
   store i32 %655, i32* %653, align 1, !dbg !2027
@@ -1107,13 +1107,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 662:                                              ; preds = %673, %659
   %663 = phi i64 [ %660, %659 ], [ 7, %673 ]
-  %664 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %634, i64 %663), !dbg !2027
+  %664 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %634, i64 %663), !dbg !2027
   br label %650, !dbg !2027
 
 665:                                              ; preds = %665, %649
   %666 = phi i64 [ %671, %665 ], [ 7, %649 ]
-  %667 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %634, i64 %666), !dbg !2029
-  %668 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %667, i64 %152), !dbg !2029
+  %667 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %634, i64 %666), !dbg !2029
+  %668 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %667, i64 %152), !dbg !2029
   %669 = load i32, i32* %668, align 1, !dbg !2029
   %670 = add nsw i32 %669, -10, !dbg !2030
   store i32 %670, i32* %668, align 1, !dbg !2029
@@ -1132,8 +1132,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 675:                                              ; preds = %696, %674
   %676 = phi i64 [ %697, %696 ], [ 1, %674 ]
   call void @llvm.dbg.value(metadata i64 %676, metadata !1878, metadata !DIExpression()), !dbg !1899
-  %677 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %676), !dbg !2031
-  %678 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %677, i64 %152), !dbg !2031
+  %677 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku1_, i64 0, i64 0, i64 0), i64 %676), !dbg !2031
+  %678 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %677, i64 %152), !dbg !2031
   %679 = load i32, i32* %678, align 1, !dbg !2031
   %680 = icmp eq i32 %679, 0, !dbg !2032
   br i1 %680, label %681, label %696, !dbg !2032
@@ -1141,9 +1141,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 681:                                              ; preds = %681, %675
   %682 = phi i32 [ %690, %681 ], [ 0, %675 ]
   %683 = phi i64 [ %691, %681 ], [ 1, %675 ]
-  %684 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %683), !dbg !2033
-  %685 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %684, i64 %676), !dbg !2033
-  %686 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %685, i64 %152), !dbg !2033
+  %684 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 2, i64 1, i64 324, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x [9 x i32]]], [9 x [9 x [9 x i32]]]* @brute_force_mp_block_, i64 0, i64 0, i64 0, i64 0), i64 %683), !dbg !2033
+  %685 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %684, i64 %676), !dbg !2033
+  %686 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %685, i64 %152), !dbg !2033
   %687 = load i32, i32* %686, align 1, !dbg !2033
   %688 = icmp sgt i32 %687, 0, !dbg !2034
   %689 = zext i1 %688 to i32, !dbg !2034
@@ -1170,7 +1170,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 701:                                              ; preds = %701, %699
   %702 = phi i64 [ %704, %701 ], [ 1, %699 ]
-  %703 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %112, i64 %702), !dbg !1921
+  %703 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %112, i64 %702), !dbg !1921
   store i32 0, i32* %703, align 1, !dbg !1921
   %704 = add nuw nsw i64 %702, 1, !dbg !1921
   %705 = icmp eq i64 %704, 10, !dbg !1921
@@ -1179,7 +1179,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 706:                                              ; preds = %717, %706
   %707 = phi i64 [ 1, %717 ], [ %712, %706 ]
   %708 = phi i32 [ %721, %717 ], [ %711, %706 ]
-  %709 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %719, i64 %707), !dbg !1922
+  %709 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %719, i64 %707), !dbg !1922
   %710 = load i32, i32* %709, align 1, !dbg !1922
   %711 = add nsw i32 %708, %710, !dbg !1921
   %712 = add nuw nsw i64 %707, 1, !dbg !1921
@@ -1194,17 +1194,17 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 717:                                              ; preds = %714, %701
   %718 = phi i64 [ %715, %714 ], [ 1, %701 ]
-  %719 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %718), !dbg !1922
-  %720 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %112, i64 %718), !dbg !1921
+  %719 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %718), !dbg !1922
+  %720 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %112, i64 %718), !dbg !1921
   %721 = load i32, i32* %720, align 1
   br label %706, !dbg !1921
 
 722:                                              ; preds = %722, %714
   %723 = phi i64 [ %728, %722 ], [ 1, %714 ]
-  %724 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %112, i64 %723), !dbg !1921
+  %724 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %112, i64 %723), !dbg !1921
   %725 = load i32, i32* %724, align 1, !dbg !1921
   %726 = sub nsw i32 45, %725, !dbg !2037
-  %727 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %113, i64 %723), !dbg !1922
+  %727 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %113, i64 %723), !dbg !1922
   store i32 %726, i32* %727, align 1, !dbg !1922
   %728 = add nuw nsw i64 %723, 1, !dbg !1922
   %729 = icmp eq i64 %728, 10, !dbg !1922
@@ -1212,9 +1212,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 730:                                              ; preds = %730, %722
   %731 = phi i64 [ %736, %730 ], [ 1, %722 ]
-  %732 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %731), !dbg !1922
-  %733 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %732, i64 9), !dbg !1922
-  %734 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %113, i64 %731), !dbg !1922
+  %732 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %731), !dbg !1922
+  %733 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %732, i64 9), !dbg !1922
+  %734 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %113, i64 %731), !dbg !1922
   %735 = load i32, i32* %734, align 1, !dbg !1922
   store i32 %735, i32* %733, align 1, !dbg !1922
   %736 = add nuw nsw i64 %731, 1, !dbg !1922
@@ -1224,8 +1224,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 738:                                              ; preds = %738, %730
   %739 = phi i32 [ %744, %738 ], [ 0, %730 ]
   %740 = phi i64 [ %745, %738 ], [ 1, %730 ]
-  %741 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %740), !dbg !2038
-  %742 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %741, i64 9), !dbg !2038
+  %741 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %740), !dbg !2038
+  %742 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %741, i64 9), !dbg !2038
   %743 = load i32, i32* %742, align 1, !dbg !2038
   %744 = add nsw i32 %743, %739, !dbg !2039
   %745 = add nuw nsw i64 %740, 1, !dbg !2039
@@ -1244,9 +1244,9 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 752:                                              ; preds = %762, %752
   %753 = phi i64 [ 1, %762 ], [ %757, %752 ]
-  %754 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %764, i64 %753), !dbg !2043
+  %754 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %764, i64 %753), !dbg !2043
   %755 = load i32, i32* %754, align 1, !dbg !2043
-  %756 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %765, i64 %753), !dbg !2043
+  %756 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %765, i64 %753), !dbg !2043
   store i32 %755, i32* %756, align 1, !dbg !2043
   %757 = add nuw nsw i64 %753, 1, !dbg !2043
   %758 = icmp eq i64 %757, 10, !dbg !2043
@@ -1259,8 +1259,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 762:                                              ; preds = %759, %749
   %763 = phi i64 [ 1, %749 ], [ %760, %759 ]
-  %764 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %763), !dbg !2043
-  %765 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku3_, i64 0, i64 0, i64 0), i64 %763), !dbg !2043
+  %764 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku2_, i64 0, i64 0, i64 0), i64 %763), !dbg !2043
+  %765 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) getelementptr inbounds ([9 x [9 x i32]], [9 x [9 x i32]]* @brute_force_mp_sudoku3_, i64 0, i64 0, i64 0), i64 %763), !dbg !2043
   br label %752, !dbg !2043
 
 766:                                              ; preds = %759
@@ -1311,7 +1311,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 776:                                              ; preds = %776, %775
   %777 = phi i64 [ %782, %776 ], [ %87, %775 ]
   %778 = phi i64 [ %783, %776 ], [ 1, %775 ]
-  %779 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %635, i64 %777), !dbg !2051
+  %779 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %635, i64 %777), !dbg !2051
   %780 = load i32, i32* %779, align 1, !dbg !2051
   %781 = add nsw i32 %780, 10, !dbg !2052
   store i32 %781, i32* %779, align 1, !dbg !2051
@@ -1329,7 +1329,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 786:                                              ; preds = %798, %786
   %787 = phi i64 [ %152, %798 ], [ %792, %786 ]
   %788 = phi i64 [ 1, %798 ], [ %793, %786 ]
-  %789 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %800, i64 %787), !dbg !2054
+  %789 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %800, i64 %787), !dbg !2054
   %790 = load i32, i32* %789, align 1, !dbg !2054
   %791 = add nsw i32 %790, 10, !dbg !2055
   store i32 %791, i32* %789, align 1, !dbg !2054
@@ -1345,13 +1345,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 798:                                              ; preds = %809, %795
   %799 = phi i64 [ %796, %795 ], [ 7, %809 ]
-  %800 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %634, i64 %799), !dbg !2054
+  %800 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %634, i64 %799), !dbg !2054
   br label %786, !dbg !2054
 
 801:                                              ; preds = %801, %785
   %802 = phi i64 [ %807, %801 ], [ 7, %785 ]
-  %803 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %634, i64 %802), !dbg !2056
-  %804 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %803, i64 %152), !dbg !2056
+  %803 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %634, i64 %802), !dbg !2056
+  %804 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %803, i64 %152), !dbg !2056
   %805 = load i32, i32* %804, align 1, !dbg !2056
   %806 = add nsw i32 %805, 10, !dbg !2057
   store i32 %806, i32* %804, align 1, !dbg !2056
@@ -1372,7 +1372,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 813:                                              ; preds = %813, %810
   %814 = phi i64 [ %819, %813 ], [ %87, %810 ]
   %815 = phi i64 [ %820, %813 ], [ 1, %810 ]
-  %816 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %587, i64 %814), !dbg !2060
+  %816 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %587, i64 %814), !dbg !2060
   %817 = load i32, i32* %816, align 1, !dbg !2060
   %818 = add nsw i32 %817, 10, !dbg !2061
   store i32 %818, i32* %816, align 1, !dbg !2060
@@ -1390,7 +1390,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 823:                                              ; preds = %835, %823
   %824 = phi i64 [ %152, %835 ], [ %829, %823 ]
   %825 = phi i64 [ 1, %835 ], [ %830, %823 ]
-  %826 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %837, i64 %824), !dbg !2063
+  %826 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %837, i64 %824), !dbg !2063
   %827 = load i32, i32* %826, align 1, !dbg !2063
   %828 = add nsw i32 %827, 10, !dbg !2064
   store i32 %828, i32* %826, align 1, !dbg !2063
@@ -1406,13 +1406,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 835:                                              ; preds = %846, %832
   %836 = phi i64 [ %833, %832 ], [ 7, %846 ]
-  %837 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %586, i64 %836), !dbg !2063
+  %837 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %586, i64 %836), !dbg !2063
   br label %823, !dbg !2063
 
 838:                                              ; preds = %838, %822
   %839 = phi i64 [ %844, %838 ], [ 7, %822 ]
-  %840 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %586, i64 %839), !dbg !2065
-  %841 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %840, i64 %152), !dbg !2065
+  %840 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %586, i64 %839), !dbg !2065
+  %841 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %840, i64 %152), !dbg !2065
   %842 = load i32, i32* %841, align 1, !dbg !2065
   %843 = add nsw i32 %842, 10, !dbg !2066
   store i32 %843, i32* %841, align 1, !dbg !2065
@@ -1437,8 +1437,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 852:                                              ; preds = %852, %850
   %853 = phi i64 [ 8, %850 ], [ %858, %852 ]
-  %854 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %853), !dbg !2067
-  %855 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %854, i64 %11), !dbg !2067
+  %854 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %853), !dbg !2067
+  %855 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %854, i64 %11), !dbg !2067
   %856 = load i32, i32* %855, align 1, !dbg !2067
   %857 = add nsw i32 %856, 10, !dbg !2069
   store i32 %857, i32* %855, align 1, !dbg !2067
@@ -1449,7 +1449,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 860:                                              ; preds = %860, %851
   %861 = phi i64 [ %866, %860 ], [ %87, %851 ]
   %862 = phi i64 [ %867, %860 ], [ 1, %851 ]
-  %863 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %533, i64 %861), !dbg !2068
+  %863 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %533, i64 %861), !dbg !2068
   %864 = load i32, i32* %863, align 1, !dbg !2068
   %865 = add nsw i32 %864, 10, !dbg !2070
   store i32 %865, i32* %863, align 1, !dbg !2068
@@ -1467,7 +1467,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 870:                                              ; preds = %882, %870
   %871 = phi i64 [ %152, %882 ], [ %876, %870 ]
   %872 = phi i64 [ 1, %882 ], [ %877, %870 ]
-  %873 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %884, i64 %871), !dbg !2072
+  %873 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %884, i64 %871), !dbg !2072
   %874 = load i32, i32* %873, align 1, !dbg !2072
   %875 = add nsw i32 %874, 10, !dbg !2073
   store i32 %875, i32* %873, align 1, !dbg !2072
@@ -1483,13 +1483,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 882:                                              ; preds = %893, %879
   %883 = phi i64 [ %880, %879 ], [ 7, %893 ]
-  %884 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %883), !dbg !2072
+  %884 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %883), !dbg !2072
   br label %870, !dbg !2072
 
 885:                                              ; preds = %885, %869
   %886 = phi i64 [ %891, %885 ], [ 7, %869 ]
-  %887 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %532, i64 %886), !dbg !2074
-  %888 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %887, i64 %152), !dbg !2074
+  %887 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %532, i64 %886), !dbg !2074
+  %888 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %887, i64 %152), !dbg !2074
   %889 = load i32, i32* %888, align 1, !dbg !2074
   %890 = add nsw i32 %889, 10, !dbg !2075
   store i32 %890, i32* %888, align 1, !dbg !2074
@@ -1514,8 +1514,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 899:                                              ; preds = %899, %897
   %900 = phi i64 [ 7, %897 ], [ %905, %899 ]
-  %901 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %900), !dbg !2076
-  %902 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %901, i64 %11), !dbg !2076
+  %901 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %900), !dbg !2076
+  %902 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %901, i64 %11), !dbg !2076
   %903 = load i32, i32* %902, align 1, !dbg !2076
   %904 = add nsw i32 %903, 10, !dbg !2078
   store i32 %904, i32* %902, align 1, !dbg !2076
@@ -1526,7 +1526,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 907:                                              ; preds = %907, %898
   %908 = phi i64 [ %913, %907 ], [ %87, %898 ]
   %909 = phi i64 [ %914, %907 ], [ 1, %898 ]
-  %910 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %479, i64 %908), !dbg !2077
+  %910 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %479, i64 %908), !dbg !2077
   %911 = load i32, i32* %910, align 1, !dbg !2077
   %912 = add nsw i32 %911, 10, !dbg !2079
   store i32 %912, i32* %910, align 1, !dbg !2077
@@ -1544,7 +1544,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 917:                                              ; preds = %929, %917
   %918 = phi i64 [ %152, %929 ], [ %923, %917 ]
   %919 = phi i64 [ 1, %929 ], [ %924, %917 ]
-  %920 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %931, i64 %918), !dbg !2081
+  %920 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %931, i64 %918), !dbg !2081
   %921 = load i32, i32* %920, align 1, !dbg !2081
   %922 = add nsw i32 %921, 10, !dbg !2082
   store i32 %922, i32* %920, align 1, !dbg !2081
@@ -1560,13 +1560,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 929:                                              ; preds = %940, %926
   %930 = phi i64 [ %927, %926 ], [ 4, %940 ]
-  %931 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %930), !dbg !2081
+  %931 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %930), !dbg !2081
   br label %917, !dbg !2081
 
 932:                                              ; preds = %932, %916
   %933 = phi i64 [ %938, %932 ], [ 4, %916 ]
-  %934 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %478, i64 %933), !dbg !2083
-  %935 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %934, i64 %152), !dbg !2083
+  %934 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %478, i64 %933), !dbg !2083
+  %935 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %934, i64 %152), !dbg !2083
   %936 = load i32, i32* %935, align 1, !dbg !2083
   %937 = add nsw i32 %936, 10, !dbg !2084
   store i32 %937, i32* %935, align 1, !dbg !2083
@@ -1591,8 +1591,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 946:                                              ; preds = %946, %944
   %947 = phi i64 [ 6, %944 ], [ %952, %946 ]
-  %948 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %947), !dbg !2085
-  %949 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %948, i64 %11), !dbg !2085
+  %948 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %947), !dbg !2085
+  %949 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %948, i64 %11), !dbg !2085
   %950 = load i32, i32* %949, align 1, !dbg !2085
   %951 = add nsw i32 %950, 10, !dbg !2087
   store i32 %951, i32* %949, align 1, !dbg !2085
@@ -1603,7 +1603,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 954:                                              ; preds = %954, %945
   %955 = phi i64 [ %960, %954 ], [ %87, %945 ]
   %956 = phi i64 [ %961, %954 ], [ 1, %945 ]
-  %957 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %410, i64 %955), !dbg !2086
+  %957 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %410, i64 %955), !dbg !2086
   %958 = load i32, i32* %957, align 1, !dbg !2086
   %959 = add nsw i32 %958, 10, !dbg !2088
   store i32 %959, i32* %957, align 1, !dbg !2086
@@ -1621,7 +1621,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 964:                                              ; preds = %976, %964
   %965 = phi i64 [ %152, %976 ], [ %970, %964 ]
   %966 = phi i64 [ 1, %976 ], [ %971, %964 ]
-  %967 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %978, i64 %965), !dbg !2090
+  %967 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %978, i64 %965), !dbg !2090
   %968 = load i32, i32* %967, align 1, !dbg !2090
   %969 = add nsw i32 %968, 10, !dbg !2091
   store i32 %969, i32* %967, align 1, !dbg !2090
@@ -1637,13 +1637,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 976:                                              ; preds = %987, %973
   %977 = phi i64 [ %974, %973 ], [ 4, %987 ]
-  %978 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %977), !dbg !2090
+  %978 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %977), !dbg !2090
   br label %964, !dbg !2090
 
 979:                                              ; preds = %979, %963
   %980 = phi i64 [ %985, %979 ], [ 4, %963 ]
-  %981 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %409, i64 %980), !dbg !2092
-  %982 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %981, i64 %152), !dbg !2092
+  %981 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %409, i64 %980), !dbg !2092
+  %982 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %981, i64 %152), !dbg !2092
   %983 = load i32, i32* %982, align 1, !dbg !2092
   %984 = add nsw i32 %983, 10, !dbg !2093
   store i32 %984, i32* %982, align 1, !dbg !2092
@@ -1668,8 +1668,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 993:                                              ; preds = %993, %991
   %994 = phi i64 [ 5, %991 ], [ %999, %993 ]
-  %995 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %994), !dbg !2094
-  %996 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %995, i64 %11), !dbg !2094
+  %995 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %994), !dbg !2094
+  %996 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %995, i64 %11), !dbg !2094
   %997 = load i32, i32* %996, align 1, !dbg !2094
   %998 = add nsw i32 %997, 10, !dbg !2096
   store i32 %998, i32* %996, align 1, !dbg !2094
@@ -1680,7 +1680,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1001:                                             ; preds = %1001, %992
   %1002 = phi i64 [ %1007, %1001 ], [ %87, %992 ]
   %1003 = phi i64 [ %1008, %1001 ], [ 1, %992 ]
-  %1004 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %351, i64 %1002), !dbg !2095
+  %1004 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %351, i64 %1002), !dbg !2095
   %1005 = load i32, i32* %1004, align 1, !dbg !2095
   %1006 = add nsw i32 %1005, 10, !dbg !2097
   store i32 %1006, i32* %1004, align 1, !dbg !2095
@@ -1698,7 +1698,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1011:                                             ; preds = %1023, %1011
   %1012 = phi i64 [ %152, %1023 ], [ %1017, %1011 ]
   %1013 = phi i64 [ 1, %1023 ], [ %1018, %1011 ]
-  %1014 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1025, i64 %1012), !dbg !2099
+  %1014 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1025, i64 %1012), !dbg !2099
   %1015 = load i32, i32* %1014, align 1, !dbg !2099
   %1016 = add nsw i32 %1015, 10, !dbg !2100
   store i32 %1016, i32* %1014, align 1, !dbg !2099
@@ -1714,13 +1714,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1023:                                             ; preds = %1034, %1020
   %1024 = phi i64 [ %1021, %1020 ], [ 4, %1034 ]
-  %1025 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %1024), !dbg !2099
+  %1025 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %1024), !dbg !2099
   br label %1011, !dbg !2099
 
 1026:                                             ; preds = %1026, %1010
   %1027 = phi i64 [ %1032, %1026 ], [ 4, %1010 ]
-  %1028 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %350, i64 %1027), !dbg !2101
-  %1029 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1028, i64 %152), !dbg !2101
+  %1028 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %350, i64 %1027), !dbg !2101
+  %1029 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1028, i64 %152), !dbg !2101
   %1030 = load i32, i32* %1029, align 1, !dbg !2101
   %1031 = add nsw i32 %1030, 10, !dbg !2102
   store i32 %1031, i32* %1029, align 1, !dbg !2101
@@ -1745,8 +1745,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1040:                                             ; preds = %1040, %1038
   %1041 = phi i64 [ 4, %1038 ], [ %1046, %1040 ]
-  %1042 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %1041), !dbg !2103
-  %1043 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1042, i64 %11), !dbg !2103
+  %1042 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %1041), !dbg !2103
+  %1043 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1042, i64 %11), !dbg !2103
   %1044 = load i32, i32* %1043, align 1, !dbg !2103
   %1045 = add nsw i32 %1044, 10, !dbg !2105
   store i32 %1045, i32* %1043, align 1, !dbg !2103
@@ -1757,7 +1757,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1048:                                             ; preds = %1048, %1039
   %1049 = phi i64 [ %1054, %1048 ], [ %87, %1039 ]
   %1050 = phi i64 [ %1055, %1048 ], [ 1, %1039 ]
-  %1051 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %292, i64 %1049), !dbg !2104
+  %1051 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %292, i64 %1049), !dbg !2104
   %1052 = load i32, i32* %1051, align 1, !dbg !2104
   %1053 = add nsw i32 %1052, 10, !dbg !2106
   store i32 %1053, i32* %1051, align 1, !dbg !2104
@@ -1775,7 +1775,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1058:                                             ; preds = %1070, %1058
   %1059 = phi i64 [ %152, %1070 ], [ %1064, %1058 ]
   %1060 = phi i64 [ 1, %1070 ], [ %1065, %1058 ]
-  %1061 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1072, i64 %1059), !dbg !2108
+  %1061 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1072, i64 %1059), !dbg !2108
   %1062 = load i32, i32* %1061, align 1, !dbg !2108
   %1063 = add nsw i32 %1062, 10, !dbg !2109
   store i32 %1063, i32* %1061, align 1, !dbg !2108
@@ -1791,13 +1791,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1070:                                             ; preds = %1081, %1067
   %1071 = phi i64 [ %1068, %1067 ], [ 1, %1081 ]
-  %1072 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %1071), !dbg !2108
+  %1072 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %1071), !dbg !2108
   br label %1058, !dbg !2108
 
 1073:                                             ; preds = %1073, %1057
   %1074 = phi i64 [ %1079, %1073 ], [ 1, %1057 ]
-  %1075 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %291, i64 %1074), !dbg !2110
-  %1076 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1075, i64 %152), !dbg !2110
+  %1075 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %291, i64 %1074), !dbg !2110
+  %1076 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1075, i64 %152), !dbg !2110
   %1077 = load i32, i32* %1076, align 1, !dbg !2110
   %1078 = add nsw i32 %1077, 10, !dbg !2111
   store i32 %1078, i32* %1076, align 1, !dbg !2110
@@ -1822,8 +1822,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1087:                                             ; preds = %1087, %1085
   %1088 = phi i64 [ 3, %1085 ], [ %1093, %1087 ]
-  %1089 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %1088), !dbg !2112
-  %1090 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1089, i64 %11), !dbg !2112
+  %1089 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %1088), !dbg !2112
+  %1090 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1089, i64 %11), !dbg !2112
   %1091 = load i32, i32* %1090, align 1, !dbg !2112
   %1092 = add nsw i32 %1091, 10, !dbg !2114
   store i32 %1092, i32* %1090, align 1, !dbg !2112
@@ -1834,7 +1834,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1095:                                             ; preds = %1095, %1086
   %1096 = phi i64 [ %1101, %1095 ], [ %87, %1086 ]
   %1097 = phi i64 [ %1102, %1095 ], [ 1, %1086 ]
-  %1098 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %233, i64 %1096), !dbg !2113
+  %1098 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %233, i64 %1096), !dbg !2113
   %1099 = load i32, i32* %1098, align 1, !dbg !2113
   %1100 = add nsw i32 %1099, 10, !dbg !2115
   store i32 %1100, i32* %1098, align 1, !dbg !2113
@@ -1852,7 +1852,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1105:                                             ; preds = %1117, %1105
   %1106 = phi i64 [ %152, %1117 ], [ %1111, %1105 ]
   %1107 = phi i64 [ 1, %1117 ], [ %1112, %1105 ]
-  %1108 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1119, i64 %1106), !dbg !2117
+  %1108 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1119, i64 %1106), !dbg !2117
   %1109 = load i32, i32* %1108, align 1, !dbg !2117
   %1110 = add nsw i32 %1109, 10, !dbg !2118
   store i32 %1110, i32* %1108, align 1, !dbg !2117
@@ -1868,13 +1868,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1117:                                             ; preds = %1128, %1114
   %1118 = phi i64 [ %1115, %1114 ], [ 1, %1128 ]
-  %1119 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %1118), !dbg !2117
+  %1119 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %1118), !dbg !2117
   br label %1105, !dbg !2117
 
 1120:                                             ; preds = %1120, %1104
   %1121 = phi i64 [ %1126, %1120 ], [ 1, %1104 ]
-  %1122 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %232, i64 %1121), !dbg !2119
-  %1123 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1122, i64 %152), !dbg !2119
+  %1122 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %232, i64 %1121), !dbg !2119
+  %1123 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1122, i64 %152), !dbg !2119
   %1124 = load i32, i32* %1123, align 1, !dbg !2119
   %1125 = add nsw i32 %1124, 10, !dbg !2120
   store i32 %1125, i32* %1123, align 1, !dbg !2119
@@ -1899,8 +1899,8 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1134:                                             ; preds = %1134, %1132
   %1135 = phi i64 [ 2, %1132 ], [ %1140, %1134 ]
-  %1136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* %173, i64 %1135), !dbg !2121
-  %1137 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1136, i64 %11), !dbg !2121
+  %1136 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) %173, i64 %1135), !dbg !2121
+  %1137 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1136, i64 %11), !dbg !2121
   %1138 = load i32, i32* %1137, align 1, !dbg !2121
   %1139 = add nsw i32 %1138, 10, !dbg !2123
   store i32 %1139, i32* %1137, align 1, !dbg !2121
@@ -1911,7 +1911,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1142:                                             ; preds = %1142, %1133
   %1143 = phi i64 [ %1148, %1142 ], [ %87, %1133 ]
   %1144 = phi i64 [ %1149, %1142 ], [ 1, %1133 ]
-  %1145 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %174, i64 %1143), !dbg !2122
+  %1145 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %174, i64 %1143), !dbg !2122
   %1146 = load i32, i32* %1145, align 1, !dbg !2122
   %1147 = add nsw i32 %1146, 10, !dbg !2124
   store i32 %1147, i32* %1145, align 1, !dbg !2122
@@ -1929,7 +1929,7 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 1152:                                             ; preds = %1164, %1152
   %1153 = phi i64 [ %152, %1164 ], [ %1158, %1152 ]
   %1154 = phi i64 [ 1, %1164 ], [ %1159, %1152 ]
-  %1155 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1166, i64 %1153), !dbg !2126
+  %1155 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1166, i64 %1153), !dbg !2126
   %1156 = load i32, i32* %1155, align 1, !dbg !2126
   %1157 = add nsw i32 %1156, 10, !dbg !2127
   store i32 %1157, i32* %1155, align 1, !dbg !2126
@@ -1945,13 +1945,13 @@ define internal void @brute_force_mp_digits_2_(i32* noalias nocapture readonly d
 
 1164:                                             ; preds = %1175, %1161
   %1165 = phi i64 [ %1162, %1161 ], [ 1, %1175 ]
-  %1166 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %173, i64 %1165), !dbg !2126
+  %1166 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %173, i64 %1165), !dbg !2126
   br label %1152, !dbg !2126
 
 1167:                                             ; preds = %1167, %1151
   %1168 = phi i64 [ %1173, %1167 ], [ 1, %1151 ]
-  %1169 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* nonnull %173, i64 %1168), !dbg !2128
-  %1170 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* %1169, i64 %152), !dbg !2128
+  %1169 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 1, i64 1, i64 36, i32* elementtype(i32) nonnull %173, i64 %1168), !dbg !2128
+  %1170 = tail call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) %1169, i64 %152), !dbg !2128
   %1171 = load i32, i32* %1170, align 1, !dbg !2128
   %1172 = add nsw i32 %1171, 10, !dbg !2129
   store i32 %1172, i32* %1170, align 1, !dbg !2128

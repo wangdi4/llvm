@@ -112,8 +112,8 @@ bb18485:                                          ; preds = %bb15677, %bb18485.p
 
 bb18496:                                          ; preds = %bb18496, %bb18485
   %indvars.iv22267 = phi i64 [ 2, %bb18485 ], [ %indvars.iv.next22268, %bb18496 ]
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 %indvars.iv22267)
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772", i64 %indvars.iv22271)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 %indvars.iv22267)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772", i64 %indvars.iv22271)
   store float undef, float* %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]14772[]", align 1
   %indvars.iv.next22268 = add nuw nsw i64 %indvars.iv22267, 1
   %exitcond22270 = icmp eq i64 %indvars.iv.next22268, undef
@@ -149,8 +149,8 @@ bb18649.preheader:                                ; preds = %bb18588
 bb18750:                                          ; preds = %bb18750, %bb18649.preheader
   %indvars.iv22312 = phi i64 [ %indvars.iv.next22313, %bb18750 ], [ undef, %bb18649.preheader ]
   %"NCLDS[]15890_fetch" = load i32, i32* undef, align 1
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 1)
-  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000", i64 %indvars.iv22312)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 undef, i64 undef, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475", i64 1)
+  %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 undef, i64 4, float* elementtype(float) nonnull %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000", i64 %indvars.iv22312)
   store float undef, float* %"module_ra_gfdleta_mp_swr93_$DFNTRN475[]16000[]", align 1
   %indvars.iv.next22313 = add nsw i64 %indvars.iv22312, 1
   %exitcond22315 = icmp eq i64 %indvars.iv.next22313, %wide.trip.count22225

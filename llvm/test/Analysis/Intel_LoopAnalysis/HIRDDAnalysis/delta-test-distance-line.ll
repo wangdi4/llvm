@@ -40,12 +40,12 @@ bb4:                                              ; preds = %bb4, %alloca_0
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb4 ], [ 0, %alloca_0 ], !in.de.ssa !0
   %0 = shl nuw nsw i64 %indvars.iv, 1
   %1 = add nuw nsw i64 %indvars.iv, 3
-  %A_ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %A, i64 %1)
-  %A__ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %A_, i64 %0)
+  %A_ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %A, i64 %1)
+  %A__ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %A_, i64 %0)
   %A__fetch = load float, float* %A__, align 1
   %add5 = fadd float %A__fetch, 9.000000e+00
-  %A12_ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* %A, i64 %indvars.iv)
-  %A12__ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %A12_, i64 %indvars.iv)
+  %A12_ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 %mul, float* elementtype(float) %A, i64 %indvars.iv)
+  %A12__ = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) %A12_, i64 %indvars.iv)
   store float %add5, float* %A12__, align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1001

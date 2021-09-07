@@ -50,7 +50,7 @@ bb5:                                              ; preds = %alloca, %bb5
   %add = add nuw nsw i32 %"foo_$I.0", 45
   %int_cast = sitofp i32 %add to float
   %int_sext8 = zext i32 %"foo_$I.0" to i64
-  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$A", i64 %int_sext8)
+  %"foo_$A[]" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$A", i64 %int_sext8)
   store float %int_cast, float* %"foo_$A[]", align 4
   %add12 = add nuw nsw i32 %"foo_$I.0", 1
   %rel18 = icmp slt i32 %"foo_$I.0", %"foo_$N_fetch"
@@ -59,7 +59,7 @@ bb5:                                              ; preds = %alloca, %bb5
 bb12:                                             ; preds = %alloca, %bb5
   %"foo_$N_fetch22" = load i32, i32* %"foo_$N", align 4
   %int_sext23 = sext i32 %"foo_$N_fetch22" to i64
-  %"foo_$A[]21" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* nonnull %"foo_$A", i64 %int_sext23)
+  %"foo_$A[]21" = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* elementtype(float) nonnull %"foo_$A", i64 %int_sext23)
   %"foo_$A[]21_fetch" = load float, float* %"foo_$A[]21", align 4
   ret float %"foo_$A[]21_fetch"
 }

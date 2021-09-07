@@ -59,14 +59,14 @@ loop:
   %accum = phi i16 [ 0, %bb2 ], [ %sum, %loop ]
   %ptr = phi i16* [ %ptr0, %bb2 ], [ %ptr1, %loop ]
 
-  %tmp30 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* %ptr, i64 0)
-  %tmp31 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* %ptr, i64 1)
+  %tmp30 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 0)
+  %tmp31 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 1)
   %tmp32 = load i16, i16* %tmp30, align 2
   %tmp33 = add i16 %tmp32, %accum
-  %ptr1 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* %ptr, i64 2)
+  %ptr1 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 2)
   %tmp35 = load i16, i16* %tmp31, align 2
   %tmp36 = add i16 %tmp33, %tmp35
-  %tmp37 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* %ptr, i64 3)
+  %tmp37 = call i16* @llvm.intel.subscript.p0i16.i64.i64.p0i16.i64(i8 0, i64 0, i64 2, i16* elementtype(i16) %ptr, i64 3)
   %tmp38 = load i16, i16* %ptr1, align 2
   %sum = add i16 %tmp38, %tmp36
 

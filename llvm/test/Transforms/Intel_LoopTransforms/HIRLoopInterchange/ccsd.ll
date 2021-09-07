@@ -59,25 +59,25 @@ bb491:                                            ; preds = %bb496, %bb491.prehe
 
 bb495:                                            ; preds = %bb500, %bb491
   %"ccsd_idx1_wrk1_$I.0" = phi i64 [ %add250, %bb500 ], [ undef, %bb491 ]
-  %"ccsd_idx1_wrk1_$ERI1[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 undef, i64 undef, double* nonnull %"ccsd_idx1_wrk1_$ERI1", i64 %"ccsd_idx1_wrk1_$I.0")
-  %"ccsd_idx1_wrk1_$ERI1[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* nonnull %"ccsd_idx1_wrk1_$ERI1[]", i64 %"ccsd_idx1_wrk1_$J.0")
+  %"ccsd_idx1_wrk1_$ERI1[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 undef, i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$ERI1", i64 %"ccsd_idx1_wrk1_$I.0")
+  %"ccsd_idx1_wrk1_$ERI1[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$ERI1[]", i64 %"ccsd_idx1_wrk1_$J.0")
   br label %bb499
 
 bb499:                                            ; preds = %bb510, %bb495
   %"ccsd_idx1_wrk1_$K.0" = phi i64 [ %add240, %bb510 ], [ %"ccsd_idx1_wrk1_$KLO_fetch", %bb495 ]
-  %"ccsd_idx1_wrk1_$ERI1[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"ccsd_idx1_wrk1_$KLO_fetch", i64 undef, double* nonnull %"ccsd_idx1_wrk1_$ERI1[][]", i64 %"ccsd_idx1_wrk1_$K.0")
-  %"ccsd_idx1_wrk1_$ERI1[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"ccsd_idx1_wrk1_$ERI1[][][]", i64 1)
+  %"ccsd_idx1_wrk1_$ERI1[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"ccsd_idx1_wrk1_$KLO_fetch", i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$ERI1[][]", i64 %"ccsd_idx1_wrk1_$K.0")
+  %"ccsd_idx1_wrk1_$ERI1[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$ERI1[][][]", i64 1)
   %"ccsd_idx1_wrk1_$ERI1[][][][]_fetch" = load double, double* %"ccsd_idx1_wrk1_$ERI1[][][][]", align 1
   br label %bb509
 
 bb509:                                            ; preds = %bb509, %bb499
   %"ccsd_idx1_wrk1_$II.0" = phi i64 [ %add230, %bb509 ], [ 1, %bb499 ]
-  %"ccsd_idx1_wrk1_$SISN[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 undef, double* nonnull %"ccsd_idx1_wrk1_$SISN", i64 %"ccsd_idx1_wrk1_$II.0")
-  %"ccsd_idx1_wrk1_$SISN[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* nonnull %"ccsd_idx1_wrk1_$SISN[]", i64 %"ccsd_idx1_wrk1_$J.0")
-  %"ccsd_idx1_wrk1_$SISN[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 undef, double* nonnull %"ccsd_idx1_wrk1_$SISN[][]", i64 1)
-  %"ccsd_idx1_wrk1_$SISN[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"ccsd_idx1_wrk1_$SISN[][][]", i64 %"ccsd_idx1_wrk1_$K.0")
+  %"ccsd_idx1_wrk1_$SISN[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$SISN", i64 %"ccsd_idx1_wrk1_$II.0")
+  %"ccsd_idx1_wrk1_$SISN[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$SISN[]", i64 %"ccsd_idx1_wrk1_$J.0")
+  %"ccsd_idx1_wrk1_$SISN[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 undef, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$SISN[][]", i64 1)
+  %"ccsd_idx1_wrk1_$SISN[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$SISN[][][]", i64 %"ccsd_idx1_wrk1_$K.0")
   %"ccsd_idx1_wrk1_$SISN[][][][]_fetch" = load double, double* %"ccsd_idx1_wrk1_$SISN[][][][]", align 1
-  %"ccsd_idx1_wrk1_$SISN[][][][]203" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"ccsd_idx1_wrk1_$SISN[][][]", i64 %"ccsd_idx1_wrk1_$I.0")
+  %"ccsd_idx1_wrk1_$SISN[][][][]203" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"ccsd_idx1_wrk1_$SISN[][][]", i64 %"ccsd_idx1_wrk1_$I.0")
   store double undef, double* %"ccsd_idx1_wrk1_$SISN[][][][]203", align 1
   %add230 = add nuw nsw i64 %"ccsd_idx1_wrk1_$II.0", 1
   %exitcond = icmp eq i64 %add230, undef

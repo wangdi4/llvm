@@ -51,7 +51,7 @@ alloca:
 
 bb4:                                              ; preds = %bb4, %alloca
   %indvars.iv27 = phi i64 [ %indvars.iv.next28, %bb4 ], [ 1, %alloca ]
-  %1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %ptr_cast, i64 %indvars.iv27)
+  %1 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %ptr_cast, i64 %indvars.iv27)
   %2 = trunc i64 %indvars.iv27 to i32
   store i32 %2, i32* %1, align 4
   %indvars.iv.next28 = add nuw nsw i64 %indvars.iv27, 1
@@ -67,9 +67,9 @@ bb5:                                              ; preds = %bb4
 
 bb12:                                             ; preds = %bb12, %bb5
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb12 ], [ 1, %bb5 ]
-  %4 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %ptr_cast, i64 %indvars.iv)
+  %4 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %ptr_cast, i64 %indvars.iv)
   %5 = load i32, i32* %4, align 4
-  %6 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %ptr_cast14, i64 %indvars.iv)
+  %6 = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %ptr_cast14, i64 %indvars.iv)
   store i32 %5, i32* %6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 101

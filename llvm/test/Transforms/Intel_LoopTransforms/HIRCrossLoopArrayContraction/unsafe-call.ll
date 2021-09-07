@@ -160,7 +160,7 @@ bb5.preheader:                                    ; preds = %bb1
   %3 = trunc i64 %indvars.iv146 to i32
   %"(double)s2_$K_fetch.23$" = sitofp i32 %3 to double
   %sub.1 = fsub fast double %"s2_$T1_fetch.22", %"(double)s2_$K_fetch.23$"
-  %"s2_$TMP6[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* nonnull %"s2_$TMP6", i64 %indvars.iv146)
+  %"s2_$TMP6[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* elementtype(double) nonnull %"s2_$TMP6", i64 %indvars.iv146)
   br label %bb5
 
 bb5:                                              ; preds = %bb5.preheader, %bb10
@@ -168,22 +168,22 @@ bb5:                                              ; preds = %bb5.preheader, %bb1
   br i1 %rel.15, label %bb10, label %bb9.preheader
 
 bb9.preheader:                                    ; preds = %bb5
-  %"s2_$TMP6[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* nonnull %"s2_$TMP6[]", i64 %indvars.iv142)
+  %"s2_$TMP6[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* elementtype(double) nonnull %"s2_$TMP6[]", i64 %indvars.iv142)
   br label %bb9
 
 bb9:                                              ; preds = %bb9.preheader, %bb16
   %indvars.iv138 = phi i64 [ 1, %bb9.preheader ], [ %indvars.iv.next139, %bb16 ]
-  %"s2_$TMP6[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$TMP6[][]", i64 %indvars.iv138)
+  %"s2_$TMP6[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$TMP6[][]", i64 %indvars.iv138)
   br label %bb13
 
 bb13:                                             ; preds = %bb20, %bb9
   %indvars.iv135 = phi i64 [ %indvars.iv.next136, %bb20 ], [ 1, %bb9 ]
-  %"s2_$TMP6[][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$TMP6[][][]", i64 %indvars.iv135)
+  %"s2_$TMP6[][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$TMP6[][][]", i64 %indvars.iv135)
   br label %bb17
 
 bb17:                                             ; preds = %bb17, %bb13
   %indvars.iv132 = phi i64 [ %indvars.iv.next133, %bb17 ], [ 1, %bb13 ]
-  %"s2_$TMP6[][][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$TMP6[][][][]", i64 %indvars.iv132)
+  %"s2_$TMP6[][][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$TMP6[][][][]", i64 %indvars.iv132)
   store double %sub.1, double* %"s2_$TMP6[][][][][]", align 1
   %indvars.iv.next133 = add nuw nsw i64 %indvars.iv132, 1
   %exitcond134.not = icmp eq i64 %indvars.iv.next133, 6
@@ -223,8 +223,8 @@ bb21:                                             ; preds = %bb21.preheader, %bb
   br i1 %rel.14, label %bb26, label %bb25.preheader
 
 bb25.preheader:                                   ; preds = %bb21
-  %"s2_$TMP6[]47" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* nonnull %"s2_$TMP6", i64 %indvars.iv128)
-  %"s2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* nonnull %"s2_$B", i64 %indvars.iv128)
+  %"s2_$TMP6[]47" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* elementtype(double) nonnull %"s2_$TMP6", i64 %indvars.iv128)
+  %"s2_$B[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.26, double* elementtype(double) nonnull %"s2_$B", i64 %indvars.iv128)
   br label %bb25
 
 bb25:                                             ; preds = %bb25.preheader, %bb30
@@ -232,14 +232,14 @@ bb25:                                             ; preds = %bb25.preheader, %bb
   br i1 %rel.15, label %bb30, label %bb29.preheader
 
 bb29.preheader:                                   ; preds = %bb25
-  %"s2_$TMP6[][]48" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* nonnull %"s2_$TMP6[]47", i64 %indvars.iv124)
-  %"s2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* nonnull %"s2_$B[]", i64 %indvars.iv124)
+  %"s2_$TMP6[][]48" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* elementtype(double) nonnull %"s2_$TMP6[]47", i64 %indvars.iv124)
+  %"s2_$B[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.25, double* elementtype(double) nonnull %"s2_$B[]", i64 %indvars.iv124)
   br label %bb29
 
 bb29:                                             ; preds = %bb29.preheader, %bb36
   %indvars.iv121 = phi i64 [ 1, %bb29.preheader ], [ %indvars.iv.next122, %bb36 ]
-  %"s2_$TMP6[][][]49" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$TMP6[][]48", i64 %indvars.iv121)
-  %"s2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$B[][]", i64 %indvars.iv121)
+  %"s2_$TMP6[][][]49" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$TMP6[][]48", i64 %indvars.iv121)
+  %"s2_$B[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$B[][]", i64 %indvars.iv121)
   br label %bb33
 
 bb33:                                             ; preds = %bb40, %bb29
@@ -248,12 +248,12 @@ bb33:                                             ; preds = %bb40, %bb29
 
 bb37:                                             ; preds = %bb37, %bb33
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb37 ], [ 1, %bb33 ]
-  %"s2_$TMP6[][][][]50" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$TMP6[][][]49", i64 %indvars.iv)
-  %"s2_$TMP6[][][][][]51" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$TMP6[][][][]50", i64 %indvars.iv118)
+  %"s2_$TMP6[][][][]50" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$TMP6[][][]49", i64 %indvars.iv)
+  %"s2_$TMP6[][][][][]51" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$TMP6[][][][]50", i64 %indvars.iv118)
   %"s2_$TMP6[][][][][]_fetch.65" = load double, double* %"s2_$TMP6[][][][][]51", align 1
   %add.10 = fadd fast double %"s2_$TMP6[][][][][]_fetch.65", %"s2_$T1_fetch.22"
-  %"s2_$B[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$B[][][]", i64 %indvars.iv)
-  %"s2_$B[][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$B[][][][]", i64 %indvars.iv118)
+  %"s2_$B[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$B[][][]", i64 %indvars.iv)
+  %"s2_$B[][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$B[][][][]", i64 %indvars.iv118)
   store double %add.10, double* %"s2_$B[][][][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 6
@@ -353,7 +353,7 @@ bb5.i.preheader:                                  ; preds = %bb1.i
   %3 = trunc i64 %indvars.iv130 to i32
   %"(double)s2_$K_fetch.23$.i" = sitofp i32 %3 to double
   %sub.1.i = fsub fast double %"s2_$T1_fetch.22.i", %"(double)s2_$K_fetch.23$.i"
-  %"s2_$TMP6[].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* nonnull %"s2_$TMP6.i", i64 %indvars.iv130) #4
+  %"s2_$TMP6[].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* elementtype(double) nonnull %"s2_$TMP6.i", i64 %indvars.iv130) #4
   br label %bb5.i
 
 bb5.i:                                            ; preds = %bb5.i.preheader, %bb10.i
@@ -361,22 +361,22 @@ bb5.i:                                            ; preds = %bb5.i.preheader, %b
   br i1 %rel.15.i, label %bb10.i, label %bb9.i.preheader
 
 bb9.i.preheader:                                  ; preds = %bb5.i
-  %"s2_$TMP6[][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* nonnull %"s2_$TMP6[].i", i64 %indvars.iv126) #4
+  %"s2_$TMP6[][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* elementtype(double) nonnull %"s2_$TMP6[].i", i64 %indvars.iv126) #4
   br label %bb9.i
 
 bb9.i:                                            ; preds = %bb9.i.preheader, %bb16.i
   %indvars.iv122 = phi i64 [ 1, %bb9.i.preheader ], [ %indvars.iv.next123, %bb16.i ]
-  %"s2_$TMP6[][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$TMP6[][].i", i64 %indvars.iv122) #4
+  %"s2_$TMP6[][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$TMP6[][].i", i64 %indvars.iv122) #4
   br label %bb13.i
 
 bb13.i:                                           ; preds = %bb20.i, %bb9.i
   %indvars.iv119 = phi i64 [ %indvars.iv.next120, %bb20.i ], [ 1, %bb9.i ]
-  %"s2_$TMP6[][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$TMP6[][][].i", i64 %indvars.iv119) #4
+  %"s2_$TMP6[][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$TMP6[][][].i", i64 %indvars.iv119) #4
   br label %bb17.i
 
 bb17.i:                                           ; preds = %bb17.i, %bb13.i
   %indvars.iv116 = phi i64 [ %indvars.iv.next117, %bb17.i ], [ 1, %bb13.i ]
-  %"s2_$TMP6[][][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$TMP6[][][][].i", i64 %indvars.iv116) #4
+  %"s2_$TMP6[][][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$TMP6[][][][].i", i64 %indvars.iv116) #4
   store double %sub.1.i, double* %"s2_$TMP6[][][][][].i", align 1, !noalias !3
   %indvars.iv.next117 = add nuw nsw i64 %indvars.iv116, 1
   %exitcond118.not = icmp eq i64 %indvars.iv.next117, 6
@@ -416,8 +416,8 @@ bb21.i:                                           ; preds = %bb21.i.preheader, %
   br i1 %rel.14.i, label %bb26.i, label %bb25.i.preheader
 
 bb25.i.preheader:                                 ; preds = %bb21.i
-  %"s2_$TMP6[]47.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* nonnull %"s2_$TMP6.i", i64 %indvars.iv112) #4
-  %"s2_$B[].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* nonnull %"shell_$B22", i64 %indvars.iv112) #4
+  %"s2_$TMP6[]47.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* elementtype(double) nonnull %"s2_$TMP6.i", i64 %indvars.iv112) #4
+  %"s2_$B[].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* elementtype(double) nonnull %"shell_$B22", i64 %indvars.iv112) #4
   br label %bb25.i
 
 bb25.i:                                           ; preds = %bb25.i.preheader, %bb30.i
@@ -425,14 +425,14 @@ bb25.i:                                           ; preds = %bb25.i.preheader, %
   br i1 %rel.15.i, label %bb30.i, label %bb29.i.preheader
 
 bb29.i.preheader:                                 ; preds = %bb25.i
-  %"s2_$TMP6[][]48.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* nonnull %"s2_$TMP6[]47.i", i64 %indvars.iv108) #4
-  %"s2_$B[][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* nonnull %"s2_$B[].i", i64 %indvars.iv108) #4
+  %"s2_$TMP6[][]48.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* elementtype(double) nonnull %"s2_$TMP6[]47.i", i64 %indvars.iv108) #4
+  %"s2_$B[][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* elementtype(double) nonnull %"s2_$B[].i", i64 %indvars.iv108) #4
   br label %bb29.i
 
 bb29.i:                                           ; preds = %bb29.i.preheader, %bb36.i
   %indvars.iv104 = phi i64 [ 1, %bb29.i.preheader ], [ %indvars.iv.next105, %bb36.i ]
-  %"s2_$TMP6[][][]49.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$TMP6[][]48.i", i64 %indvars.iv104) #4
-  %"s2_$B[][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"s2_$B[][].i", i64 %indvars.iv104) #4
+  %"s2_$TMP6[][][]49.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$TMP6[][]48.i", i64 %indvars.iv104) #4
+  %"s2_$B[][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"s2_$B[][].i", i64 %indvars.iv104) #4
   br label %bb33.i
 
 bb33.i:                                           ; preds = %bb40.i, %bb29.i
@@ -441,12 +441,12 @@ bb33.i:                                           ; preds = %bb40.i, %bb29.i
 
 bb37.i:                                           ; preds = %bb37.i, %bb33.i
   %indvars.iv98 = phi i64 [ %indvars.iv.next99, %bb37.i ], [ 1, %bb33.i ]
-  %"s2_$TMP6[][][][]50.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$TMP6[][][]49.i", i64 %indvars.iv98) #4
-  %"s2_$TMP6[][][][][]51.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$TMP6[][][][]50.i", i64 %indvars.iv101) #4
+  %"s2_$TMP6[][][][]50.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$TMP6[][][]49.i", i64 %indvars.iv98) #4
+  %"s2_$TMP6[][][][][]51.i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$TMP6[][][][]50.i", i64 %indvars.iv101) #4
   %"s2_$TMP6[][][][][]_fetch.65.i" = load double, double* %"s2_$TMP6[][][][][]51.i", align 1, !noalias !3
   %add.10.i = fadd fast double %"s2_$TMP6[][][][][]_fetch.65.i", %"s2_$T1_fetch.22.i"
-  %"s2_$B[][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"s2_$B[][][].i", i64 %indvars.iv98) #4
-  %"s2_$B[][][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"s2_$B[][][][].i", i64 %indvars.iv101) #4
+  %"s2_$B[][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"s2_$B[][][].i", i64 %indvars.iv98) #4
+  %"s2_$B[][][][][].i" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"s2_$B[][][][].i", i64 %indvars.iv101) #4
   store double %add.10.i, double* %"s2_$B[][][][][].i", align 1, !alias.scope !0, !noalias !8
   %indvars.iv.next99 = add nuw nsw i64 %indvars.iv98, 1
   %exitcond100.not = icmp eq i64 %indvars.iv.next99, 6
@@ -487,8 +487,8 @@ bb45:                                             ; preds = %bb45.preheader, %bb
   br i1 %rel.14.i, label %bb50, label %bb49.preheader
 
 bb49.preheader:                                   ; preds = %bb45
-  %"shell_$B22[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* nonnull %"shell_$B22", i64 %indvars.iv94)
-  %"shell_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* nonnull %"shell_$A", i64 %indvars.iv94)
+  %"shell_$B22[]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* elementtype(double) nonnull %"shell_$B22", i64 %indvars.iv94)
+  %"shell_$A[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 4, i64 1, i64 %mul.73, double* elementtype(double) nonnull %"shell_$A", i64 %indvars.iv94)
   br label %bb49
 
 bb49:                                             ; preds = %bb49.preheader, %bb54
@@ -496,27 +496,27 @@ bb49:                                             ; preds = %bb49.preheader, %bb
   br i1 %rel.15.i, label %bb54, label %bb53.preheader
 
 bb53.preheader:                                   ; preds = %bb49
-  %"shell_$B22[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* nonnull %"shell_$B22[]", i64 %indvars.iv90)
-  %"shell_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* nonnull %"shell_$A[]", i64 %indvars.iv90)
+  %"shell_$B22[][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* elementtype(double) nonnull %"shell_$B22[]", i64 %indvars.iv90)
+  %"shell_$A[][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 3, i64 1, i64 %mul.72, double* elementtype(double) nonnull %"shell_$A[]", i64 %indvars.iv90)
   br label %bb53
 
 bb53:                                             ; preds = %bb53.preheader, %bb60
   %indvars.iv87 = phi i64 [ 1, %bb53.preheader ], [ %indvars.iv.next88, %bb60 ]
-  %"shell_$B22[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"shell_$B22[][]", i64 %indvars.iv87)
-  %"shell_$A[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* nonnull %"shell_$A[][]", i64 %indvars.iv87)
+  %"shell_$B22[][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"shell_$B22[][]", i64 %indvars.iv87)
+  %"shell_$A[][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 2, i64 1, i64 200, double* elementtype(double) nonnull %"shell_$A[][]", i64 %indvars.iv87)
   br label %bb57
 
 bb57:                                             ; preds = %bb64, %bb53
   %indvars.iv84 = phi i64 [ %indvars.iv.next85, %bb64 ], [ 1, %bb53 ]
-  %"shell_$B22[][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"shell_$B22[][][]", i64 %indvars.iv84)
-  %"shell_$A[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* nonnull %"shell_$A[][][]", i64 %indvars.iv84)
+  %"shell_$B22[][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"shell_$B22[][][]", i64 %indvars.iv84)
+  %"shell_$A[][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 1, i64 40, double* elementtype(double) nonnull %"shell_$A[][][]", i64 %indvars.iv84)
   br label %bb61
 
 bb61:                                             ; preds = %bb61, %bb57
   %indvars.iv = phi i64 [ %indvars.iv.next, %bb61 ], [ 1, %bb57 ]
-  %"shell_$B22[][][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"shell_$B22[][][][]", i64 %indvars.iv)
+  %"shell_$B22[][][][][]" = call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"shell_$B22[][][][]", i64 %indvars.iv)
   %"shell_$B22[][][][][]_fetch.126" = load double, double* %"shell_$B22[][][][][]", align 1
-  %"shell_$A[][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* nonnull %"shell_$A[][][][]", i64 %indvars.iv)
+  %"shell_$A[][][][][]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 0, i64 1, i64 8, double* elementtype(double) nonnull %"shell_$A[][][][]", i64 %indvars.iv)
   store double %"shell_$B22[][][][][]_fetch.126", double* %"shell_$A[][][][][]", align 1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 6

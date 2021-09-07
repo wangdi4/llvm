@@ -57,14 +57,14 @@ bb3:                                              ; preds = %bb2
   %"A.dim_info$3" = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(4)* %A, i32 0, i32 6, i32 0
   %addr_cast_node4 = addrspacecast { i64, i64, i64 } addrspace(4)* %"A.dim_info$3" to { i64, i64, i64 }*
   %"A.dim_info$.spacing$5" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %addr_cast_node4, i32 0, i32 1
-  %"A.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"A.dim_info$.spacing$5", i32 0)
+  %"A.dim_info$.spacing$[]" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"A.dim_info$.spacing$5", i32 0)
   %"A.dim_info$.spacing$[]_fetch" = load i64, i64* %"A.dim_info$.spacing$[]", align 1
   %"A.dim_info$" = getelementptr inbounds %"QNCA_a0$i32 addrspace(4)*$rank1$", %"QNCA_a0$i32 addrspace(4)*$rank1$" addrspace(4)* %A, i32 0, i32 6, i32 0
   %addr_cast_node = addrspacecast { i64, i64, i64 } addrspace(4)* %"A.dim_info$" to { i64, i64, i64 }*
   %"A.dim_info$.spacing$" = getelementptr inbounds { i64, i64, i64 }, { i64, i64, i64 }* %addr_cast_node, i32 0, i32 1
-  %"A.dim_info$.spacing$[]1" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* %"A.dim_info$.spacing$", i32 0)
+  %"A.dim_info$.spacing$[]1" = call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) %"A.dim_info$.spacing$", i32 0)
   %"A.dim_info$.spacing$[]1_fetch" = load i64, i64* %"A.dim_info$.spacing$[]1", align 1
-  %"addr_cast_node_fetch[]" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 1, i64 %"A.dim_info$.spacing$[]_fetch", i32 addrspace(4)* %addr_cast_node_fetch, i64 2)
+  %"addr_cast_node_fetch[]" = call i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 0, i64 1, i64 %"A.dim_info$.spacing$[]_fetch", i32 addrspace(4)* elementtype(i32) %addr_cast_node_fetch, i64 2)
   store i32 20, i32 addrspace(4)* %"addr_cast_node_fetch[]", align 1
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TARGET"() ]
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.DATA"() ]
@@ -75,10 +75,10 @@ bb3:                                              ; preds = %bb2
 declare token @llvm.directive.region.entry() #1
 
 ; Function Attrs: nounwind readnone speculatable
-declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* %3, i32 %4) #2
+declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 %0, i64 %1, i32 %2, i64* elementtype(i64) %3, i32 %4) #2
 
 ; Function Attrs: nounwind readnone speculatable
-declare i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 %0, i64 %1, i64 %2, i32 addrspace(4)* %3, i64 %4) #2
+declare i32 addrspace(4)* @llvm.intel.subscript.p4i32.i64.i64.p4i32.i64(i8 %0, i64 %1, i64 %2, i32 addrspace(4)* elementtype(i32) %3, i64 %4) #2
 
 ; Function Attrs: nounwind
 declare void @llvm.directive.region.exit(token %0) #1
