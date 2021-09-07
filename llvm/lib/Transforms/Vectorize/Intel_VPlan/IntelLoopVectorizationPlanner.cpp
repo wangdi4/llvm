@@ -604,6 +604,7 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
                                     int64_t UnalignedGain,
                                     uint64_t ScalarCost,
                                     uint64_t TripCount,
+                                    bool PeelIsDynamic,
                                     bool IsLoopTripCountEstimated) {
   if (!VPlanEnablePeeling)
     return true;
@@ -612,8 +613,12 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
     return true;
 
   LLVM_DEBUG(dbgs() << "Using cost model to enable peeling. ");
-  if (!IsLoopTripCountEstimated) {
-    // When trip count is known, rely on cost model completely.
+  if (!IsLoopTripCountEstimated && !PeelIsDynamic) {
+    // When trip count of main loop is known, rely on cost model completely.
+    // Same for when the trip count of peel loops is known, which is not the
+    // case for dynamic peeling. Cost model in such cases must assume worst
+    // case of VF - 1 iterations. Let further tests below drive the decision
+    // on whether or not to peel.
     bool GoUnaligned = UnalignedGain > AlignedGain;
     LLVM_DEBUG(dbgs() << "Trip count is known. "
                       << "GoUnaligned = UnalignedGain > AlignedGain: "
@@ -795,9 +800,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
                                      VLSA, VF, PeelingVariant);
     // Calculate the total cost of remainder loop if there is one.
+    bool PeelIsDynamic = PeelingVariant ?
+        isa<VPlanDynamicPeeling>(PeelingVariant) : false;
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
-        PeelEvaluator.getTripCount(), VF, BestUF);
+        PeelEvaluator.getTripCount(), PeelIsDynamic, VF, BestUF);
 
     // Calculate main loop's trip count. Currently, the unroll factor is set to
     // 1 because VPlan's loop unroller is called after selecting the best VF.
@@ -826,7 +833,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // is one.
     VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
-        0 /*Peel trip count */, VF, BestUF);
+        0 /*Peel trip count */, false /*no dynamic peeling*/, VF, BestUF);
     const decltype(TripCount) MainLoopTripCountWithoutPeel =
         TripCount / (VF * BestUF);
     uint64_t VectorCostWithoutPeel =
@@ -846,6 +853,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                                                GainWithoutPeel,
                                                ScalarCost,
                                                TripCount,
+                                               PeelIsDynamic,
                                                IsTripCountEstimated);
 
     const char CmpChar =

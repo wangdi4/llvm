@@ -133,11 +133,24 @@ public:
                           const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI, const DataLayout *DL,
                           VPlanVLSAnalysis *VLSA, unsigned OrigTC,
-                          unsigned PeelTC, unsigned MainLoopVF,
-                          unsigned MainLoopUF)
+                          unsigned PeelTC, bool PeelIsDynamic,
+                          unsigned MainLoopVF, unsigned MainLoopUF)
       : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA),
-        RemainderTC((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF)),
-        PeelTC(PeelTC), MainLoopVF(MainLoopVF), MainLoopUF(MainLoopUF) {
+        PeelTC(PeelTC), PeelIsDynamic(PeelIsDynamic), MainLoopVF(MainLoopVF),
+        MainLoopUF(MainLoopUF) {
+    // For dynamic peeling cases we set the trip count to the max number of
+    // iterations that can be performed. Otherwise, the second expression
+    // will result in 0 for when the main loop trip count is a multiple of
+    // VF + (VF - 1). Previously, this resulted in no remainder loop being
+    // emitted, which (mostly) is incorrect. In most cases, we must have a
+    // remainder loop when we are doing dynamic peeling because we don't know
+    // the number of peel iterations. However, there is one special case where
+    // this is not true, and that is when we have dynamic peeling,
+    // MainLoopVF = 2, and the remaining iterations are known to be even. That
+    // optimization is not yet supported.
+    RemainderTC = PeelIsDynamic ?
+        MainLoopVF * MainLoopUF - 1 : // tc is unknown, but this is the max
+        ((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF));
     calculateBestVariant();
   }
 
@@ -173,12 +186,13 @@ private:
   RemainderLoopKind RemainderKind = RemainderLoopKind::Scalar;
   unsigned LoopCost = 0;
   unsigned RemainderVF = 1;
-  unsigned RemainderTC = 0;
   unsigned PeelTC = 0;
   unsigned UnMaskedVectorCost = 0;
+  bool PeelIsDynamic = false;
   unsigned MainLoopVF = 0;
   unsigned MainLoopUF = 0;
   unsigned NewRemainderTC = 0;
+  unsigned RemainderTC = 0;
 
   RemainderLoopKind calculateBestVariant();
 
