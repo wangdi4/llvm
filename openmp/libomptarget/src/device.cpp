@@ -897,7 +897,7 @@ void *DeviceTy::data_alloc_managed(int64_t Size) {
   if (RTL->data_alloc_managed)
     return RTL->data_alloc_managed(RTLDeviceID, Size);
   else
-    return nullptr;
+    return RTL->data_alloc(RTLDeviceID, Size, nullptr, TARGET_ALLOC_DEFAULT);
 }
 
 int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
