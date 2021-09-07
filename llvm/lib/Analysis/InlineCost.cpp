@@ -526,8 +526,8 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true),
-        AllowRecursiveCall(false)
+        CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
+        SingleBB(true)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
