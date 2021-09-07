@@ -207,15 +207,6 @@ EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
                                 void *HostBase);
 
-// Similar to __tgt_rtl_data_alloc, but additionally specify that user initiated
-// the allocation
-EXTERN
-void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
-
-// Explicit target memory allocator
-EXTERN void *__tgt_rtl_data_alloc_explicit(
-    int32_t ID, int64_t Size, int32_t Kind);
-
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,

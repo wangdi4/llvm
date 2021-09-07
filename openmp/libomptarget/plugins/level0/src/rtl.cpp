@@ -4087,35 +4087,64 @@ void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   return mem;
 }
 
-EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                  int32_t Kind) {
-  void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
-  DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
+static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+  void *Mem = nullptr;
+
+  if (DeviceInfo->Flags.UseMemoryPool)
+    Mem = DeviceInfo->poolAlloc(DeviceId, Size, Kind);
+
+  if (Mem == nullptr)
+    Mem = allocDataExplicit(DeviceId, Size, Kind);
+
+  if (Mem) {
+    std::unique_lock<std::mutex>(DeviceInfo->DataMutexes[DeviceId]);
+    DeviceInfo->addImplicitArgs(DeviceId, Mem, Kind);
+  }
+
   return Mem;
 }
 
-EXTERN void *__tgt_rtl_data_alloc_user(
-    int32_t DeviceId, int64_t Size, void *HstPtr) {
-  // Device memory by default respecting LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM
-  int32_t allocKind = TARGET_ALLOC_DEVICE;
+EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
+                                  int32_t Kind) {
+  void *Mem = nullptr;
 
-  if (DeviceInfo->TargetAllocKind != TARGET_ALLOC_DEFAULT)
-    allocKind = DeviceInfo->TargetAllocKind;
+  if (HstPtr) {
+    Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
+  } else {
+    // User allocation
+    int32_t AllocKind = Kind;
+    if (AllocKind == TARGET_ALLOC_DEFAULT) {
+      // Set allocation kind to device while respecting
+      // LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM.
+      AllocKind = DeviceInfo->TargetAllocKind;
+      if (AllocKind == TARGET_ALLOC_DEFAULT)
+        AllocKind = TARGET_ALLOC_DEVICE;
+    }
+    Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
+  }
+  if (Mem)
+    DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
 
-  return __tgt_rtl_data_alloc_explicit(DeviceId, Size, allocKind);
+  return Mem;
 }
 
 EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
                                        void *HstPtr, void *HstBase) {
   void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
-  DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
+  if (Mem)
+    DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
+
   return Mem;
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
+  int32_t Kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
                                                     : TARGET_ALLOC_SHARED;
-  return __tgt_rtl_data_alloc_explicit(DeviceId, Size, kind);
+  void *Mem = dataAllocExplicit(DeviceId, Size, Kind);
+  if (Mem)
+    DeviceInfo->addHostAccessible(DeviceId, Mem, Size, Kind);
+
+  return Mem;
 }
 
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
@@ -4124,25 +4153,6 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {
   DP("Ptr " DPxMOD " is %sa device accessible memory pointer.\n", DPxPTR(Ptr),
      ret ? "" : "not ");
   return ret;
-}
-
-EXTERN void *__tgt_rtl_data_alloc_explicit(
-    int32_t DeviceId, int64_t Size, int32_t Kind) {
-  void *mem = nullptr;
-
-  if (DeviceInfo->Flags.UseMemoryPool)
-    mem = DeviceInfo->poolAlloc(DeviceId, Size, Kind);
-
-  if (mem == nullptr)
-    mem = allocDataExplicit(DeviceId, Size, Kind);
-
-  if (mem) {
-    DeviceInfo->addHostAccessible(DeviceId, mem, Size, Kind);
-    std::unique_lock<std::mutex>(DeviceInfo->DataMutexes[DeviceId]);
-    DeviceInfo->addImplicitArgs(DeviceId, mem, Kind);
-  }
-
-  return mem;
 }
 
 // Tasks to be done when completing an asynchronous command.

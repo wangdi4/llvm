@@ -61,7 +61,6 @@ struct RTLInfoTy {
   typedef int32_t(manifest_data_for_region_ty)(int32_t, void *,
                                                void **, size_t);
   typedef void *(data_alloc_base_ty)(int32_t, int64_t, void *, void *);
-  typedef void *(data_alloc_user_ty)(int32_t, int64_t, void *);
   typedef char *(get_device_name_ty)(int32_t, char *, size_t);
   typedef int32_t(run_team_nd_region_ty)(int32_t, void *, void **, ptrdiff_t *,
                                          int32_t, int32_t, int32_t, void *);
@@ -80,7 +79,6 @@ struct RTLInfoTy {
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
   typedef int32_t(is_device_accessible_ptr_ty)(int32_t, void *);
-  typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
   typedef void (init_ompt_ty)(void *);
   typedef int32_t(get_data_alloc_info_ty)(int32_t, int32_t, void *, void *);
   typedef int32_t(push_subdevice_ty)(int64_t);
@@ -151,7 +149,6 @@ struct RTLInfoTy {
   data_retrieve_nowait_ty *data_retrieve_nowait = nullptr;
   manifest_data_for_region_ty *manifest_data_for_region = nullptr;
   data_alloc_base_ty *data_alloc_base = nullptr;
-  data_alloc_user_ty *data_alloc_user = nullptr;
   get_device_name_ty *get_device_name = nullptr;
   run_team_nd_region_ty *run_team_nd_region = nullptr;
   run_team_nd_region_nowait_ty *run_team_nd_region_nowait = nullptr;
@@ -164,7 +161,6 @@ struct RTLInfoTy {
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
   is_device_accessible_ptr_ty *is_device_accessible_ptr = nullptr;
-  data_alloc_explicit_ty *data_alloc_explicit = nullptr;
   init_ompt_ty *init_ompt = nullptr;
   get_data_alloc_info_ty *get_data_alloc_info = nullptr;
   push_subdevice_ty *push_subdevice = nullptr;

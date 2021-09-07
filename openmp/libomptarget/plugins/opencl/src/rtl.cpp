@@ -2881,13 +2881,6 @@ EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
   return (void *)context;
 }
 
-// Allocate a managed memory object.
-EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
-  int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
-                                                    : TARGET_ALLOC_SHARED;
-  return __tgt_rtl_data_alloc_explicit(device_id, size, kind);
-}
-
 // Check if the pointer belongs to a device-accessible pointer ranges
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
     int32_t DeviceId, void *Ptr) {
@@ -2997,77 +2990,92 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
   return ret;
 }
 
-EXTERN void *__tgt_rtl_data_alloc_explicit(
-    int32_t device_id, int64_t size, int32_t kind) {
-  auto device = DeviceInfo->Devices[device_id];
-  auto context = DeviceInfo->getContext(device_id);
-  cl_int rc;
-  void *mem = nullptr;
-  auto &mutex = DeviceInfo->Mutexes[device_id];
-  auto MaxSize = DeviceInfo->MaxMemAllocSize[device_id];
-  ProfileIntervalTy dataAllocTimer("DataAlloc", device_id);
-  dataAllocTimer.start();
+static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+  auto Device = DeviceInfo->Devices[DeviceId];
+  auto Context = DeviceInfo->getContext(DeviceId);
+  cl_int RC;
+  void *Mem = nullptr;
+  auto &Mtx = DeviceInfo->Mutexes[DeviceId];
+  auto MaxSize = DeviceInfo->MaxMemAllocSize[DeviceId];
+  ProfileIntervalTy DataAllocTimer("DataAlloc", DeviceId);
+  DataAllocTimer.start();
 
-  switch (kind) {
+  switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    mem = dataAlloc(device_id, size, nullptr, nullptr, 0);
+    Mem = dataAlloc(DeviceId, Size, nullptr, nullptr, 0);
     break;
   case TARGET_ALLOC_HOST:
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
+    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
                                                 clHostMemAllocINTELId)) {
       DP("Host memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL, rc, context,
-                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
-    if (mem) {
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, 0);
+    if (Mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-        std::unique_lock<std::mutex> dataLock(mutex);
-        DeviceInfo->DeviceAccessibleData[device_id].emplace(
-            std::make_pair(mem, size));
+        std::unique_lock<std::mutex> dataLock(Mtx);
+        DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
+            std::make_pair(Mem, Size));
       }
-      DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
+      DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(Mem));
     }
     break;
   case TARGET_ALLOC_SHARED:
     if (!DeviceInfo->isExtensionFunctionEnabled(
-          device_id, clSharedMemAllocINTELId)) {
+          DeviceId, clSharedMemAllocINTELId)) {
       DP("Shared memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL, rc, context, device,
-                     getAllocMemProperties(size, MaxSize)->data(), size, 0);
-    if (mem) {
+    CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, 0);
+    if (Mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
-        std::unique_lock<std::mutex> dataLock(mutex);
-        DeviceInfo->DeviceAccessibleData[device_id].emplace(
-            std::make_pair(mem, size));
+        std::unique_lock<std::mutex> dataLock(Mtx);
+        DeviceInfo->DeviceAccessibleData[DeviceId].emplace(
+            std::make_pair(Mem, Size));
       }
-      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
+      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(Mem));
     }
     break;
   default:
     FATAL_ERROR("Invalid target data allocation kind");
   }
 
-  // Add it to implicit arguments
-  mutex.lock();
-  DeviceInfo->ImplicitArgs[device_id][0].insert(mem);
-  mutex.unlock();
+  if (Mem) {
+    // Add it to implicit arguments
+    Mtx.lock();
+    DeviceInfo->ImplicitArgs[DeviceId][0].insert(Mem);
+    Mtx.unlock();
 
-  DeviceInfo->addHostAccessible(device_id, mem, size, kind);
+    DeviceInfo->addHostAccessible(DeviceId, Mem, Size, Kind);
+  }
 
-  dataAllocTimer.stop();
+  DataAllocTimer.stop();
 
-  return mem;
+  return Mem;
 }
 
 EXTERN
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
+void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
                            int32_t Kind) {
-  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 0);
+  int32_t ImplicitArg = 0;
+
+  if (!HstPtr) {
+    ImplicitArg = 1;
+    // User allocation
+    if (Kind != TARGET_ALLOC_DEFAULT) {
+      // Explicit allocation
+      return dataAllocExplicit(DeviceId, Size, Kind);
+    }
+    if (DeviceInfo->Flags.UseBuffer) {
+      // Experimental CL buffer allocation
+      return DeviceInfo->allocDataClMem(DeviceId, Size);
+    }
+  }
+  return dataAlloc(DeviceId, Size, HstPtr, HstPtr, ImplicitArg);
 }
 
 // Allocate a base buffer with the given information.
@@ -3077,13 +3085,11 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
   return dataAlloc(device_id, size, hst_ptr, hst_base, 0);
 }
 
-// Allocation was initiated by user (omp_target_alloc)
-EXTERN void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
-                                       void *hst_ptr) {
-  if (DeviceInfo->Flags.UseBuffer)
-    return DeviceInfo->allocDataClMem(device_id, size);
-
-  return dataAlloc(device_id, size, hst_ptr, hst_ptr, 1);
+// Allocate a managed memory object.
+EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
+  int32_t Kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
+                                                    : TARGET_ALLOC_SHARED;
+  return dataAllocExplicit(DeviceId, Size, Kind);
 }
 
 EXTERN
