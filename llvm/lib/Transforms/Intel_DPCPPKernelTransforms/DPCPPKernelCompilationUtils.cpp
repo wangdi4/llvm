@@ -50,6 +50,8 @@ namespace OclLanguage {
 static const unsigned OpenCL_CPP = 4;
 }
 
+const StringRef NAME_WG_BOUNDARIES_FUNCTION_PREFIX = "WG.boundaries.";
+
 const StringRef NAME_GET_GID = "get_global_id";
 const StringRef NAME_GET_LID = "get_local_id";
 const StringRef NAME_GET_LINEAR_GID = "get_global_linear_id";
@@ -73,6 +75,9 @@ const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_SG_BARRIER = "sub_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
+
+// atomic fence functions
+const StringRef NAME_ATOMIC_WORK_ITEM_FENCE = "atomic_work_item_fence";
 
 // work-group functions
 const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
@@ -551,6 +556,14 @@ bool hasWorkGroupFinalizePrefix(StringRef S) {
   return stripName(S).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
 }
 
+bool hasWorkGroupBoundariesPrefix(StringRef S) {
+  return S.find(NAME_WG_BOUNDARIES_FUNCTION_PREFIX) != S.npos;
+}
+
+std::string appendWorkGroupBoundariesPrefix(StringRef S) {
+  return (NAME_WG_BOUNDARIES_FUNCTION_PREFIX + S).str();
+}
+
 std::string appendWorkGroupFinalizePrefix(StringRef S) {
   assert(isMangledName(S) && "expected mangled name of work group built-in");
   reflection::FunctionDescriptor FD = demangle(S);
@@ -692,6 +705,26 @@ static std::string mangleWithParam(StringRef N, unsigned NumOfParams) {
   return mangle(FD);
 }
 
+static std::string
+mangleWithParam(StringRef N, ArrayRef<reflection::TypePrimitiveEnum> Types) {
+  reflection::FunctionDescriptor FD;
+  FD.Name = N.str();
+  for (const auto &Ty : Types) {
+    reflection::ParamType *pTy = new reflection::PrimitiveType(Ty);
+    reflection::RefParamType UI(pTy);
+    FD.Parameters.push_back(UI);
+  }
+  return mangle(FD);
+}
+
+std::string mangledAtomicWorkItemFence() {
+  reflection::TypePrimitiveEnum Params[] = {reflection::PRIMITIVE_UINT,
+                                            reflection::PRIMITIVE_MEMORY_ORDER,
+                                            reflection::PRIMITIVE_MEMORY_SCOPE};
+
+  return mangleWithParam(NAME_ATOMIC_WORK_ITEM_FENCE, Params);
+}
+
 std::string mangledGetGID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID);
 }
@@ -754,6 +787,26 @@ std::string mangledSGBarrier(BarrierType BT) {
 
   llvm_unreachable("Unknown sub_group_barrier version");
   return "";
+}
+
+std::string mangledGetMaxSubGroupSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_MAX_SUB_GROUP_SIZE);
+}
+
+std::string mangledNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_NUM_SUB_GROUPS);
+}
+
+std::string mangledGetSubGroupId() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_SUB_GROUP_ID);
+}
+
+std::string mangledEnqueuedNumSubGroups() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
+      NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
 }
 
 std::string mangledGetSubGroupSize() {
@@ -982,7 +1035,6 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                             ArrayRef<const char *> NewNames,
                             ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
   assert(NewTypes.size() == NewNames.size());
-  assert(NewTypes.size() == NewAttrs.size());
   // Initialize with all original arguments in the function sugnature.
   SmallVector<Type *, 16> Types;
 

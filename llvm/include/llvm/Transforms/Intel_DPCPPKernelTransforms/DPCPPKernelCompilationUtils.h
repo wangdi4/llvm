@@ -283,6 +283,9 @@ PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy);
 Function *importFunctionDecl(Module *Dst, const Function *Orig,
                              bool DuplicateIfExists = false);
 
+/// Returns the mangled name of the function atomic_work_item_fence.
+std::string mangledAtomicWorkItemFence();
+
 /// Returns the mangled name of the function get_global_id.
 std::string mangledGetGID();
 
@@ -298,7 +301,7 @@ std::string mangledGetLID();
 /// Returns the mangled name of the function get_group_id.
 std::string mangledGetGroupID();
 
-/// Returns the mangled name of the function get_local_size
+/// Returns the mangled name of the function get_local_size.
 std::string mangledGetLocalSize();
 
 /// Returns the mangled name of the function get_enqueued_local_size.
@@ -318,8 +321,20 @@ std::string mangledWGBarrier(BarrierType BT);
 ///     void sub_group_barrier (cl_mem_fence_flags flags, memory_scope scope)
 std::string mangledSGBarrier(BarrierType BT);
 
+/// Returns the mangled name of the function get_num_sub_groups.
+std::string mangledNumSubGroups();
+
+/// Returns the mangled name of the function get_sub_group_id.
+std::string mangledGetSubGroupId();
+
+/// Returns the mangled name of the function get_enqueued_num_sub_groups.
+std::string mangledEnqueuedNumSubGroups();
+
 /// Returns the mangled name of the function get_sub_group_size.
 std::string mangledGetSubGroupSize();
+
+/// Returns the mangled name of the function get_max_sub_group_size.
+std::string mangledGetMaxSubGroupSize();
 
 /// Returns the mangled name of the function get_sub_group_local_id.
 std::string mangledGetSubGroupLocalId();
@@ -500,6 +515,9 @@ inline bool hasByvalByrefArgs(Function *F) {
 /// directly/indirectly.
 bool hasFunctionCallInCGNodeSatisfiedWith(
     CallGraphNode *Node, function_ref<bool(Function *)> Condition);
+
+bool hasWorkGroupBoundariesPrefix(StringRef S);
+std::string appendWorkGroupBoundariesPrefix(StringRef S);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm

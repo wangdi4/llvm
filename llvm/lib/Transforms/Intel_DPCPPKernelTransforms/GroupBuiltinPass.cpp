@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/GroupBuiltinPass.h"
+#include "RuntimeService.h"
 #include "Utils/FunctionDescriptor.h"
 #include "Utils/NameMangleAPI.h"
 #include "Utils/ParameterType.h"
@@ -305,15 +306,6 @@ Value *GroupBuiltinPass::calculateLinearIDForBroadcast(CallInst *WGCallInstr) {
   return RetVal;
 }
 
-Function *GroupBuiltinPass::findFunctionInModule(StringRef FuncName) {
-  for (Module *M : BuiltinModuleList) {
-    Function *RetFunction = M->getFunction(FuncName);
-    if (RetFunction)
-      return RetFunction;
-  }
-  return nullptr;
-}
-
 bool GroupBuiltinPass::runImpl(Module &M) {
   this->M = &M;
   Context = &M.getContext();
@@ -456,7 +448,8 @@ bool GroupBuiltinPass::runImpl(Module &M) {
     // c. Create function declaration object (unless the module contains it
     // already)
     // Get the new function declaration out of built-in module list.
-    Function *LibFunc = findFunctionInModule(newFuncName);
+    Function *LibFunc = RuntimeService::findFunctionInBuiltinModules(
+        BuiltinModuleList, newFuncName);
     assert(LibFunc && "WG builtin is not supported in built-in module");
     Function *NewFunc = importFunctionDecl(this->M, LibFunc);
     assert(NewFunc && "Non-function object with the same signature "
@@ -492,7 +485,8 @@ bool GroupBuiltinPass::runImpl(Module &M) {
       std::string FinalizeFuncName = appendWorkGroupFinalizePrefix(FuncName);
       // Create function
       // Get the new function declaration out of built-in modules list.
-      Function *LibFunc = findFunctionInModule(FinalizeFuncName);
+      Function *LibFunc = RuntimeService::findFunctionInBuiltinModules(
+          BuiltinModuleList, FinalizeFuncName);
       assert(LibFunc && "WG builtin is not supported in built-in module");
       Function *FinalizeFunc = importFunctionDecl(this->M, LibFunc);
       assert(FinalizeFunc && "Non-function object with the same signature "

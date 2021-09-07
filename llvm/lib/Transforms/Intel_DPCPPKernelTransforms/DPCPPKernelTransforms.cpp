@@ -39,6 +39,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializePhiCanonicalizationLegacyPass(Registry);
   initializePrepareKernelArgsLegacyPass(Registry);
   initializeRedundantPhiNodeLegacyPass(Registry);
+  initializeResolveSubGroupWICallLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
   initializeSetVectorizationFactorLegacyPass(Registry);
   initializeSGSizeCollectorLegacyPass(Registry);

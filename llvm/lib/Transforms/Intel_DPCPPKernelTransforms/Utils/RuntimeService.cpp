@@ -16,6 +16,17 @@ using namespace llvm::DPCPPKernelCompilationUtils;
 namespace llvm {
 namespace RuntimeService {
 
+Function *
+findFunctionInBuiltinModules(const SmallVector<Module *, 2> &BuiltinModules,
+                             StringRef Name) {
+  for (Module *M : BuiltinModules) {
+    Function *RetFunction = M->getFunction(Name);
+    if (RetFunction)
+      return RetFunction;
+  }
+  return nullptr;
+}
+
 std::pair<bool, bool> isTIDGenerator(const CallInst *CI) {
   if (!CI || !CI->getCalledFunction())
     return {false, false};

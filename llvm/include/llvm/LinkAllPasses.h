@@ -436,6 +436,7 @@ namespace {
       (void)llvm::createLocalBufferAnalysisLegacyPass();
       (void)llvm::createLocalBuffersLegacyPass(false);
       (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();

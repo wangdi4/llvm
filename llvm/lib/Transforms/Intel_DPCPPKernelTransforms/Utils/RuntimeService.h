@@ -20,6 +20,10 @@ namespace llvm {
 /// functions.
 namespace RuntimeService {
 
+Function *
+findFunctionInBuiltinModules(const SmallVector<Module *, 2> &BuiltinModules,
+                             StringRef Name);
+
 /// Check if specified instruction is an ID generator with constant operator.
 /// \returns a pair of whether the instruction is TID generator and whether
 /// there is an error that its argument is not constant.
