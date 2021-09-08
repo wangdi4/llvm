@@ -125,14 +125,14 @@
 ; CHECK: |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   |   |   %ld = (@C)[0][i6];
-; CHECK: |   |   |   |   |   |   (%ContractedArray)[i5][i6] = %ld;
+; CHECK: |   |   |   |   |   |   (%ContractedArray)[0][i5][i6] = %ld;
 ; CHECK: |   |   |   |   |   + END LOOP
 ; CHECK: |   |   |   |   + END LOOP
 ; CHECK: |   |   |   |
 ; CHECK: |   |   |   |
 ; CHECK: |   |   |   |   + DO i5 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   |   + DO i6 = 0, 9, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   |   %ld1 = (%ContractedArray)[i6][i5];
+; CHECK: |   |   |   |   |   |   %ld1 = (%ContractedArray)[0][i6][i5];
 ; CHECK: |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %ld1 + 1;
 ; CHECK: |   |   |   |   |   + END LOOP
 ; CHECK: |   |   |   |   + END LOOP

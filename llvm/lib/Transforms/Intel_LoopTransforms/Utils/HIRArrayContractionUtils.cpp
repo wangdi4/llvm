@@ -510,6 +510,15 @@ void HIRArrayContractionUtil::contract(RegDDRef *Ref,
   //
   SmallVector<unsigned, 4> Vec(ToContractDims.begin(), ToContractDims.end());
   llvm::sort(Vec.begin(), Vec.end(), std::greater<unsigned>());
+
+  // Retain pointer dimension of alloca. For example, we may be contracting
+  // array type [10 x [10 x i32]] to [10 x i32]. The contracted alloca will have
+  // a type of [10 x i32]* which requires 2 dimensions, one for the pointer
+  // dimension and another for the array dimension, like this-
+  // (%ContractedArray)[0][i1]
+  AfterRef->getDimensionIndex(Vec.back())->clear();
+  Vec.pop_back();
+
   for (auto I : Vec) {
     AfterRef->removeDimension(I);
   }

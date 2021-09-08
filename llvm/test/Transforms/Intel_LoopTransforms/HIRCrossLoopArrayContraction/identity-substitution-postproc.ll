@@ -76,7 +76,7 @@
 ;       |   |   |   |   |   %"(float)shell_$M_fetch$" = sitofp.i32.float(i5 + 1);
 ;       |   |   |   |   |   %add.18 = %add.17  +  %"(float)shell_$M_fetch$";
 ;       |   |   |   |   |   %"(double)add.18$" = fpext.float.double(%add.18);
-;       |   |   |   |   |   (%ContractedArray)[i5][i4] = %"(double)add.18$";
+;       |   |   |   |   |   (%ContractedArray)[0][i5][i4] = %"(double)add.18$";
 ;       |   |   |   |   + END LOOP
 ;       |   |   |   + END LOOP
 ;       |   |   |
@@ -84,7 +84,7 @@
 ;       |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
 ;       |   |   |   |   + DO i5 = 0, 4, 1   <DO_LOOP>
 ;       |   |   |   |   |   %"shell_$IDENT34[][][][][]_fetch" = (%"shell_$IDENT34")[i1][i2][i3][i4][i5];
-;       |   |   |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[i4][i5];
+;       |   |   |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[0][i4][i5];
 ;       |   |   |   |   |   %mul.68 = %"shell_$IDENT34[][][][][]_fetch"  *  5.000000e-01;
 ;       |   |   |   |   |   %mul.69 = %mul.68  *  %"shell_$B6[][][][][]_fetch";
 ;       |   |   |   |   |   %sub.1 = %"shell_$IDENT34[][][][][]_fetch"  -  %mul.69;
@@ -107,27 +107,27 @@
 ;  |   |   |   %"(float)shell_$M_fetch$" = sitofp.i32.float(1);
 ;  |   |   |   %add.18 = %add.17  +  %"(float)shell_$M_fetch$";
 ;  |   |   |   %"(double)add.18$" = fpext.float.double(%add.18);
-;  |   |   |   (%ContractedArray)[0][0] = %"(double)add.18$";
+;  |   |   |   (%ContractedArray)[0][0][0] = %"(double)add.18$";
 ;  |   |   |   %"(float)shell_$M_fetch$" = sitofp.i32.float(2);
 ;  |   |   |   %add.18 = %add.17  +  %"(float)shell_$M_fetch$";
 ;  |   |   |   %"(double)add.18$" = fpext.float.double(%add.18);
-;  |   |   |   (%ContractedArray)[1][0] = %"(double)add.18$";
+;  |   |   |   (%ContractedArray)[0][1][0] = %"(double)add.18$";
 ;  |   |   |   %"(float)shell_$M_fetch$" = sitofp.i32.float(3);
 ;  |   |   |   %add.18 = %add.17  +  %"(float)shell_$M_fetch$";
 ;  |   |   |   %"(double)add.18$" = fpext.float.double(%add.18);
-;  |   |   |   (%ContractedArray)[2][0] = %"(double)add.18$";
+;  |   |   |   (%ContractedArray)[0][2][0] = %"(double)add.18$";
 
 ; ...
 
-;  |   |   |   (%ContractedArray)[4][4] = %"(double)add.18$";
+;  |   |   |   (%ContractedArray)[0][4][4] = %"(double)add.18$";
 ;  |   |   |   %"shell_$IDENT34[][][][][]_fetch" = (%"shell_$IDENT34")[i1][i2][i3][0][0];
-;  |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[0][0];
+;  |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[0][0][0];
 ;  |   |   |   %mul.68 = %"shell_$IDENT34[][][][][]_fetch"  *  5.000000e-01;
 ;  |   |   |   %mul.69 = %mul.68  *  %"shell_$B6[][][][][]_fetch";
 ;  |   |   |   %sub.1 = %"shell_$IDENT34[][][][][]_fetch"  -  %mul.69;
 ;  |   |   |   (%"shell_$A")[i1][i2][i3][0][0] = %sub.1;
 ;  |   |   |   %"shell_$IDENT34[][][][][]_fetch" = (%"shell_$IDENT34")[i1][i2][i3][0][1];
-;  |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[0][1];
+;  |   |   |   %"shell_$B6[][][][][]_fetch" = (%ContractedArray)[0][0][1];
 ;  |   |   |   %mul.68 = %"shell_$IDENT34[][][][][]_fetch"  *  5.000000e-01;
 ;  |   |   |   %mul.69 = %mul.68  *  %"shell_$B6[][][][][]_fetch";
 ;  |   |   |   %sub.1 = %"shell_$IDENT34[][][][][]_fetch"  -  %mul.69;

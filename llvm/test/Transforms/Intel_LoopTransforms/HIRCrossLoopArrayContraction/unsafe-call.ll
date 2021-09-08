@@ -77,14 +77,14 @@
 ;            |   |   + DO i3 = 0, sext.i32.i64(%"shell_$NX_fetch.104") + -1, 1   <DO_LOOP>
 ;            |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
 ;            |   |   |   |   + DO i5 = 0, 4, 1   <DO_LOOP>
-;            |   |   |   |   |   (%ContractedArray)[i4][i5] = %temp16;
+;            |   |   |   |   |   (%ContractedArray)[0][i4][i5] = %temp16;
 ;            |   |   |   |   + END LOOP
 ;            |   |   |   + END LOOP
 ;            |   |   |
 ;            |   |   |
 ;            |   |   |   + DO i4 = 0, 4, 1   <DO_LOOP>
 ;            |   |   |   |   + DO i5 = 0, 4, 1   <DO_LOOP>
-;            |   |   |   |   |   %"s2_$TMP6[][][][][]_fetch.65.i" = (%ContractedArray)[i5][i4];
+;            |   |   |   |   |   %"s2_$TMP6[][][][][]_fetch.65.i" = (%ContractedArray)[0][i5][i4];
 ;            |   |   |   |   |   %add.10.i = %"s2_$TMP6[][][][][]_fetch.65.i"  +  %"s2_$T1_fetch.22.i";
 ;            |   |   |   |   |   (%"shell_$B22")[i1][i2][i3][i5][i4] = %add.10.i;
 ;            |   |   |   |   + END LOOP
