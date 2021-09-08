@@ -55,9 +55,8 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]], [[BB5]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (FV )] i64 [[VP3:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP4:%.*]], [[BB5]] ] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = add i64 [[VP1]] i64 [[VP3]] (SVAOpBits 0->V 1->V )
-; FIXME -- SVA results for the subscript should be a vector as we need to generate a scatter.
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x [128 x i64]]* @arr i64 0 i64 [[VP1]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F 4->F 5->F 6->F 7->F 8->F 9->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP5]] i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [128 x [128 x i64]]* @arr i64 0 i64 [[VP1]] i64 [[VP3]] (SVAOpBits 0->V 1->V 2->V 3->V 4->V 5->V 6->V 7->V 8->V 9->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP5]] i64* [[VP_SUBSCRIPT]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP4]] = add i64 [[VP3]] i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP6:%.*]] = icmp sle i64 [[VP4]] i64 127 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP6]], [[BB5]], [[BB3]] (SVAOpBits 0->F 1->F 2->F )
