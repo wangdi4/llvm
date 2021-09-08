@@ -76,6 +76,10 @@ static cl::opt<bool> DisableCodeGen(
     cl::desc(
         "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
+static cl::opt<bool> EnableOuterLoopHIR(
+    "enable-vplan-outer-loop-hir", cl::init(false), cl::Hidden,
+    cl::desc("Enable vectorization of outer loops in VPlan HIR path"));
+
 // TODO: Unify with LoopVectorize's vplan-build-stress-test?
 cl::opt<bool> VPlanConstrStressTest(
     "vpo-vplan-build-stress-test", cl::init(false),
@@ -1332,11 +1336,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 }
 
 bool VPlanDriverHIRImpl::isSupported(HLLoop *Lp) {
-  if (HIRLoopStats->getSelfLoopStatistics(Lp).hasSwitches())
+  if (HIRLoopStats->getTotalLoopStatistics(Lp).hasSwitches())
     return false;
 
-  // Outerloop vectorization is not supported
-  if (!Lp->isInnermost())
+  // Bail out for outer loops if not enabled
+  if (!EnableOuterLoopHIR && !Lp->isInnermost())
     return false;
 
   // Unsupported HLLoop types for vectorization
