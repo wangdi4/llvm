@@ -115,6 +115,11 @@ VPlanScalarEvolutionHIR::computeAddressSCEVImpl(const VPLoadStoreInst &LSI) {
   if (AddressCE->getDenominator() != 1)
     return nullptr;
 
+  // Currently the way we create AddRecHIR will not work if the index
+  // expression has an implicit conversion. This is a TODO item for now.
+  if (AddressCE->getSrcType() != AddressCE->getDestType())
+    return nullptr;
+
   // Only expressions with loop invariant blobs and without nested IVs can be
   // represented as AddRecExpr.
   unsigned MainLoopLevel = MainLoop->getNestingLevel();
