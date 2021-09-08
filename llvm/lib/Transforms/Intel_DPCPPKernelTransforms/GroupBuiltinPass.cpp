@@ -219,6 +219,21 @@ CallInst *GroupBuiltinPass::getWICall(Instruction *Before, StringRef FuncName,
   return Call;
 }
 
+static inline bool isMaskedBroadcast(const Function *F) {
+  // For non-masked broadcast, the last argument is a scalar local ID, while
+  // the the masked version, it's a vector mask.
+  auto *FTy = F->getFunctionType();
+  unsigned LastOpIdx = FTy->getNumParams() - 1;
+  return FTy->getParamType(LastOpIdx)->isVectorTy();
+}
+
+static inline unsigned getNDimForBroadcast(const Function *F) {
+  unsigned NDim = F->getFunctionType()->getNumParams() - 1;
+  if (isMaskedBroadcast(F))
+    NDim--;
+  return NDim;
+}
+
 // Generates sequence for LinearID calculation for 2D workgroup
 static Instruction *calculate2DimLinearID(Instruction *Before, Value *LocalID_0,
                                           Value *LocalSize_0,
@@ -246,8 +261,10 @@ static Instruction *calculate3DimLinearID(Instruction *Before,
                                    Before);
 }
 
-Instruction *GroupBuiltinPass::getLinearID(CallInst *WGCallInstr) {
-  unsigned NDim = WGCallInstr->getNumArgOperands() - 1;
+Instruction *GroupBuiltinPass::getLinearIDForBroadcast(CallInst *WGCallInstr) {
+  auto *CalledF = WGCallInstr->getCalledFunction();
+  unsigned NDim = getNDimForBroadcast(CalledF);
+
   // For 1-dim workgroup - return get_local_id(0)
   Instruction *RetVal = getWICall(WGCallInstr, mangledGetLID(), 0);
   if (NDim > 1) {
@@ -266,8 +283,10 @@ Instruction *GroupBuiltinPass::getLinearID(CallInst *WGCallInstr) {
   return RetVal;
 }
 
-Value *GroupBuiltinPass::calculateLinearID(CallInst *WGCallInstr) {
-  unsigned NDim = WGCallInstr->getNumArgOperands() - 1;
+Value *GroupBuiltinPass::calculateLinearIDForBroadcast(CallInst *WGCallInstr) {
+  auto *CalledF = WGCallInstr->getCalledFunction();
+  unsigned NDim = getNDimForBroadcast(CalledF);
+
   // For single-dimensional we return local_id parameter as is
   Value *RetVal = WGCallInstr->getArgOperand(1);
   if (NDim > 1) {
@@ -360,7 +379,7 @@ bool GroupBuiltinPass::runImpl(Module &M) {
     unsigned NumArgs = WGCallInst->getNumArgOperands();
     Function *Callee = WGCallInst->getCalledFunction();
     assert(Callee && "Unexpected indirect function invocation");
-    std::string FuncName = Callee->getName().str();
+    StringRef FuncName = Callee->getName();
     Type *RetType = WGCallInst->getType();
 
     // 1. Add alloca for the accumulated result at the function start...
@@ -376,8 +395,10 @@ bool GroupBuiltinPass::runImpl(Module &M) {
     // result.
 
     // a. At first - produce parameter list for the new callee.
+    bool IsBroadcast = isWorkGroupBroadCast(FuncName);
+    bool IsMaskedBroadcast = IsBroadcast && isMaskedBroadcast(Callee);
     SmallVector<Value *, 2> Params;
-    if (!isWorkGroupBroadCast(FuncName)) {
+    if (!IsBroadcast) {
       // For all WG function, but broadcasts - keep original arguments intact.
       for (unsigned Idx = 0; Idx < NumArgs; Idx++) {
         Value *Arg = WGCallInst->getArgOperand(Idx);
@@ -389,11 +410,17 @@ bool GroupBuiltinPass::runImpl(Module &M) {
       Value *Arg = WGCallInst->getArgOperand(0);
       Params.push_back(Arg);
       // Linear form of local_id parameter.
-      Arg = calculateLinearID(WGCallInst);
+      Arg = calculateLinearIDForBroadcast(WGCallInst);
       Params.push_back(Arg);
       // Linear local ID of the WI.
-      Arg = getLinearID(WGCallInst);
+      Arg = getLinearIDForBroadcast(WGCallInst);
       Params.push_back(Arg);
+
+      // Mask
+      if (IsMaskedBroadcast) {
+        Arg = *(WGCallInst->arg_end() - 1);
+        Params.push_back(Arg);
+      }
     }
     // Append pointer to return value accumulator.
     Params.push_back(Result);
@@ -402,16 +429,18 @@ bool GroupBuiltinPass::runImpl(Module &M) {
     assert(isMangledName(FuncName) &&
            "WG BI function name is expected to be mangled!");
     reflection::FunctionDescriptor FD = demangle(FuncName);
-    if (isWorkGroupBroadCast(FuncName)) {
-      // Adjust parameter list to changes in broadcast WG signature (recycling
-      // 'size_t' from parameter#1):
-      if (NumArgs == 2) {
-        // Complete lacking (for 1D broadcast).
-        FD.Parameters.push_back(FD.Parameters[1]);
-      } else if (NumArgs == 4) {
-        // Remove redundant (for 3D broadcast).
-        FD.Parameters.pop_back();
-      }
+
+    if (IsBroadcast) {
+      reflection::RefParamType MaskTy;
+      if (IsMaskedBroadcast)
+        MaskTy = FD.Parameters.back();
+      auto IDTy = FD.Parameters[1]; // Get ID type of the local ID
+
+      FD.Parameters.resize(1); // Keep the type of the value to broadcast
+      FD.Parameters.push_back(IDTy); // Add type for linear local ID
+      FD.Parameters.push_back(IDTy); // Add type for linear ID
+      if (IsMaskedBroadcast)
+        FD.Parameters.push_back(MaskTy);
     }
     // We're utilizing 'gentype' parameter attribute from the 1st argument,
     // because for a WG function its return type is ALWAYS a pointer to the
@@ -448,7 +477,7 @@ bool GroupBuiltinPass::runImpl(Module &M) {
 
     // 6. For uniform & vectorized WG function (less broadcast WG) - finalize
     // the result
-    if (isWorkGroupUniform(FuncName) && !isWorkGroupBroadCast(FuncName) &&
+    if (isWorkGroupUniform(FuncName) && !IsBroadcast &&
         RetType->isVectorTy()) {
 
       // a. Load 'alloca' value of the accumulated result.

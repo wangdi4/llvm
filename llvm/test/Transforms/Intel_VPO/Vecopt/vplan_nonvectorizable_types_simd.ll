@@ -44,10 +44,10 @@ alloca_2:
   %"A.addr_a0$" = getelementptr inbounds %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$", %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$"* %A, i64 0, i32 0
   %"A.addr_a0$_fetch.8" = load %"EXTENT$.btINTVL"*, %"EXTENT$.btINTVL"** %"A.addr_a0$", align 1
   %"A.dim_info$.spacing$" = getelementptr inbounds %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$", %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$"* %A, i64 0, i32 6, i64 0, i32 1
-  %"A.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"A.dim_info$.spacing$", i32 0)
+  %"A.dim_info$.spacing$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"A.dim_info$.spacing$", i32 0)
   %"A.dim_info$.spacing$[]_fetch.9" = load i64, i64* %"A.dim_info$.spacing$[]", align 1
   %"A.dim_info$.extent$" = getelementptr inbounds %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$", %"QNCA_a0$%\22EXTENT$.btINTVL\22*$rank1$"* %A, i64 0, i32 6, i64 0, i32 0
-  %"A.dim_info$.extent$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %"A.dim_info$.extent$", i32 0)
+  %"A.dim_info$.extent$[]" = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* elementtype(i64) nonnull %"A.dim_info$.extent$", i32 0)
   %"A.dim_info$.extent$[]_fetch.10" = load i64, i64* %"A.dim_info$.extent$[]", align 1
   %0 = icmp sgt i64 %"A.dim_info$.extent$[]_fetch.10", 0
   %slct.3 = select i1 %0, i64 %"A.dim_info$.extent$[]_fetch.10", i64 0
@@ -65,7 +65,7 @@ loop_body10.preheader.1:                            ; preds = %loop_body10.prehe
 
 loop_body10:                                      ; preds = %loop_body10.preheader.1, %loop_body10
   %"$loop_ctr.012" = phi i64 [ %add.3, %loop_body10 ], [ 1, %loop_body10.preheader.1 ]
-  %"A.addr_a0$_fetch.8[]" = tail call %"EXTENT$.btINTVL"* @"llvm.intel.subscript.p0s_EXTENT$.btINTVLs.i64.i64.p0s_EXTENT$.btINTVLs.i64"(i8 0, i64 1, i64 %"A.dim_info$.spacing$[]_fetch.9", %"EXTENT$.btINTVL"* %"A.addr_a0$_fetch.8", i64 %"$loop_ctr.012")
+  %"A.addr_a0$_fetch.8[]" = tail call %"EXTENT$.btINTVL"* @"llvm.intel.subscript.p0s_EXTENT$.btINTVLs.i64.i64.p0s_EXTENT$.btINTVLs.i64"(i8 0, i64 1, i64 %"A.dim_info$.spacing$[]_fetch.9", %"EXTENT$.btINTVL"* elementtype(%"EXTENT$.btINTVL") %"A.addr_a0$_fetch.8", i64 %"$loop_ctr.012")
   %"A.FIRST$.i" = getelementptr inbounds %"EXTENT$.btINTVL", %"EXTENT$.btINTVL"* %"A.addr_a0$_fetch.8[]", i64 0, i32 0
   %"A.FIRST$_fetch.1.i" = load i32, i32* %"A.FIRST$.i", align 1
   %add.1.i = add nsw i32 %"A.FIRST$_fetch.1.i", 1
@@ -79,7 +79,7 @@ loop_body10:                                      ; preds = %loop_body10.prehead
   %slct.1.fca.0.extract.i = extractvalue %"EXTENT$.btINTVL" %slct.1.i, 0
   %slct.1.fca.1.extract.i = extractvalue %"EXTENT$.btINTVL" %slct.1.i, 1
   %slct.1.fca.extractsum.i = add nsw i32 %slct.1.fca.0.extract.i, %slct.1.fca.1.extract.i
-  %"var$6[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* nonnull %"var$6", i64 %"$loop_ctr.012")
+  %"var$6[]" = call i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8 0, i64 1, i64 4, i32* elementtype(i32) nonnull %"var$6", i64 %"$loop_ctr.012")
   store i32 %slct.1.fca.extractsum.i, i32* %"var$6[]", align 1
   %add.3 = add nuw nsw i64 %"$loop_ctr.012", 1
   %exitcond = icmp eq i64 %add.3, %1

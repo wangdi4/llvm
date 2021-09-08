@@ -18,7 +18,7 @@ def get_existing_api(file):
                 strip_line=stripComments(line)
                 block.append(strip_line) 
 
-            if out and code.endswith(")"):
+            if out and code.endswith(") {"):
                 out = False
                 bstr = ''.join(block)
                 bstr = bstr.split("ZE_APICALL",1)[1].strip()

@@ -29,18 +29,6 @@ __m128i test_mm_dsp_pdpbssds_epi32(__m128i __A, __m128i __B, __m128i __C) {
   return _mm_dsp_pdpbssds_epi32(__A, __B, __C);
 }
 
-__m128i test_mm_dsp_pdpbusd_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  // CHECK-LABEL: @test_mm_dsp_pdpbusd_epi32(
-  // CHECK: call <4 x i32> @llvm.x86.dvpdpbusd(<4 x i32> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
-  return _mm_dsp_pdpbusd_epi32(__A, __B, __C);
-}
-
-__m128i test_mm_dsp_pdpbusds_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  // CHECK-LABEL: @test_mm_dsp_pdpbusds_epi32(
-  // CHECK: call <4 x i32> @llvm.x86.dvpdpbusds(<4 x i32> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
-  return _mm_dsp_pdpbusds_epi32(__A, __B, __C);
-}
-
 __m128i test_mm_dsp_pdpbsud_epi32(__m128i __A, __m128i __B, __m128i __C) {
   // CHECK-LABEL: @test_mm_dsp_pdpbsud_epi32(
   // CHECK: call <4 x i32> @llvm.x86.dvpdpbsud(<4 x i32> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
@@ -57,4 +45,16 @@ __m128i test_mm_dsp_pndpbssd_epi32(__m128i __A, __m128i __B, __m128i __C) {
   // CHECK-LABEL: @test_mm_dsp_pndpbssd_epi32(
   // CHECK: call <4 x i32> @llvm.x86.dvpndpbssd(<4 x i32> %{{.*}}, <16 x i8> %{{.*}}, <16 x i8> %{{.*}})
   return _mm_dsp_pndpbssd_epi32(__A, __B, __C);
+}
+
+__m128i test_mm_dpbusd_epi32(__m128i __S, __m128i __A, __m128i __B) {
+  // CHECK-LABEL: @test_mm_dpbusd_epi32
+  // CHECK: @llvm.x86.avx512.vpdpbusd.128
+  return _mm_dpbusd_epi32(__S, __A, __B);
+}
+
+__m128i test_mm_dpbusds_epi32(__m128i __S, __m128i __A, __m128i __B) {
+  // CHECK-LABEL: @test_mm_dpbusds_epi32
+  // CHECK: @llvm.x86.avx512.vpdpbusds.128
+  return _mm_dpbusds_epi32(__S, __A, __B);
 }

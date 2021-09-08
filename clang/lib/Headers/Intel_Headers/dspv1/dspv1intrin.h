@@ -17,6 +17,8 @@
 
 /* Below intrinsics defined in other headers can be used for DSPV1 */
 // \fn __m128i _mm_alignr_epi8(__m128i a, __m128i b, int imm8)
+// \fn __m128i _mm_dpbusd_epi32(__m128i src, __m128i a, __m128i b)
+// \fn __m128i _mm_dpbusds_epi32(__m128i src, __m128i a, __m128i b)
 
 /* Define the default attributes for the functions in this file. */
 #define __DEFAULT_FN_ATTRS128                                                  \
@@ -158,18 +160,6 @@ _mm_dsp_pdpbssd_epi32(__m128i __A, __m128i __B, __m128i __C) {
 static __inline__ __m128i __DEFAULT_FN_ATTRS128
 _mm_dsp_pdpbssds_epi32(__m128i __A, __m128i __B, __m128i __C) {
   return (__m128i)__builtin_ia32_dvpdpbssds((__v4su)__A, (__v16qu)__B,
-                                            (__v16qu)__C);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS128
-_mm_dsp_pdpbusd_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  return (__m128i)__builtin_ia32_dvpdpbusd((__v4su)__A, (__v16qu)__B,
-                                           (__v16qu)__C);
-}
-
-static __inline__ __m128i __DEFAULT_FN_ATTRS128
-_mm_dsp_pdpbusds_epi32(__m128i __A, __m128i __B, __m128i __C) {
-  return (__m128i)__builtin_ia32_dvpdpbusds((__v4su)__A, (__v16qu)__B,
                                             (__v16qu)__C);
 }
 

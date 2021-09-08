@@ -42,25 +42,25 @@ define <4 x i32> @test_int_x86_dvpdpbssds(<4 x i32> %A, <16 x i8> %B, <16 x i8> 
 }
 declare <4 x i32> @llvm.x86.dvpdpbssds(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
 
-define <4 x i32> @test_int_x86_dvpdpbusd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+define <4 x i32> @test_int_x86_dvpdpbusd(<4 x i32> %A, <4 x i32> %B, <4 x i32> %C) nounwind {
 ; CHECK-LABEL: test_int_x86_dvpdpbusd:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    dvpdpbusd %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x71,0xc1,0xc2]
 ; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <4 x i32> @llvm.x86.dvpdpbusd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  %ret = call <4 x i32> @llvm.x86.avx512.vpdpbusd.128(<4 x i32> %A, <4 x i32> %B, <4 x i32> %C)
   ret <4 x i32> %ret
 }
-declare <4 x i32> @llvm.x86.dvpdpbusd(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+declare <4 x i32> @llvm.x86.avx512.vpdpbusd.128(<4 x i32>, <4 x i32>, <4 x i32>)
 
-define <4 x i32> @test_int_x86_dvpdpbusds(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
+define <4 x i32> @test_int_x86_dvpdpbusds(<4 x i32> %A, <4 x i32> %B, <4 x i32> %C) nounwind {
 ; CHECK-LABEL: test_int_x86_dvpdpbusds:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    dvpdpbusds %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe8,0x71,0xc2,0xc2]
 ; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <4 x i32> @llvm.x86.dvpdpbusds(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+  %ret = call <4 x i32> @llvm.x86.avx512.vpdpbusds.128(<4 x i32> %A, <4 x i32> %B, <4 x i32> %C)
   ret <4 x i32> %ret
 }
-declare <4 x i32> @llvm.x86.dvpdpbusds(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C)
+declare <4 x i32> @llvm.x86.avx512.vpdpbusds.128(<4 x i32>, <4 x i32>, <4 x i32>)
 
 define <4 x i32> @test_int_x86_dvpdpbsud(<4 x i32> %A, <16 x i8> %B, <16 x i8> %C) nounwind {
 ; CHECK-LABEL: test_int_x86_dvpdpbsud:
