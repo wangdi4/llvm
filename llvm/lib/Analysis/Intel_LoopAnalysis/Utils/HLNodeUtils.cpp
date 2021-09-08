@@ -5665,3 +5665,23 @@ bool HLNodeUtils::hasGotoOnAllBranches(HLNode *Node) {
 
   return false;
 }
+
+bool HLNodeUtils::hasManyLifeTimeIntrinsics(const HLLoop *Loop) {
+  const unsigned NumInstsThreshold = 50;
+
+  if (Loop->getNumChildren() < NumInstsThreshold)
+    return false;
+
+  // Make sure if the first NumInstsThreshold instructions are
+  // lifetime_start intrinsics.
+  return std::all_of(Loop->child_begin(),
+                      std::next(Loop->child_begin(), NumInstsThreshold),
+               [](const HLNode& Node) {
+               if (const HLInst* HInst = dyn_cast<HLInst>(&Node)) {
+                 Intrinsic::ID Id;
+                 return HInst->isIntrinCall(Id)
+                   && Id == Intrinsic::lifetime_start;
+               }
+               return false; });
+
+}

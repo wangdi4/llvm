@@ -2953,6 +2953,15 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
 std::pair<int64_t, unsigned>
 HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
+
+  if (!Loop->isInnermost() &&
+      HLNodeUtils::hasManyLifeTimeIntrinsics(Loop)) {
+    LLVM_DEBUG(dbgs() << "Avoiding CU due to LifeTime\n");
+    LLVM_DEBUG(Loop->dump());
+
+    return std::make_pair(-1, 0);
+  }
+
   SmallVector<HLLoop *, 8> CandidateChildLoops;
 
   int64_t AvgTripCnt = -1, TotalTripCnt = -1;

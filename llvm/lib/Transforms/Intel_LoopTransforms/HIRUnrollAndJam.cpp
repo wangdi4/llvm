@@ -233,6 +233,7 @@ public:
 class HIRUnrollAndJam::Analyzer final : public HLNodeVisitorBase {
   HIRUnrollAndJam &HUAJ;
 
+  HLNode *SkipNode;
 private:
   /// Computes and returns unroll factor for the loop using cost model. Returns
   /// 0 to indicate that unroll & jam should be throttled recursively and 1 to
@@ -247,7 +248,7 @@ private:
   void refineUnrollFactorUsingParentLoop(HLLoop *Lp, unsigned &UnrollFactor);
 
 public:
-  Analyzer(HIRUnrollAndJam &HUAJ) : HUAJ(HUAJ) {}
+  Analyzer(HIRUnrollAndJam &HUAJ) : HUAJ(HUAJ), SkipNode(nullptr) {}
 
   /// Performs preliminary checks to throttle loops for unroll & jam.
   void visit(HLLoop *Lp);
@@ -262,6 +263,8 @@ public:
   void visit(HLNode *Node);
 
   void postVisit(HLNode *) {}
+
+  bool skipRecursion(const HLNode* Node) const { return Node == SkipNode; }
 
   /// Driver function performing legality/profitability analysis on a loopnest
   /// represented by \p Lp.
@@ -594,6 +597,16 @@ void HIRUnrollAndJam::Analyzer::visit(HLNode *Node) {
 void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
 
   HUAJ.initializeUnrollFactor(Lp);
+
+  if (!Lp->isInnermost() &&
+      HLNodeUtils::hasManyLifeTimeIntrinsics(Lp)) {
+    LLVM_DEBUG(dbgs() << "Avoiding UaJ due to LifeTime\n");
+    LLVM_DEBUG(Lp->dump());
+
+    HUAJ.throttleRecursively(Lp);
+    SkipNode = Lp;
+    return;
+  }
 
   if (!Lp->isDo()) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam of non-DO loop!\n");

@@ -34,7 +34,9 @@ extern const StringRef CallParamNum;
 extern const StringRef ConvergentCall;
 extern const StringRef HasSubGroups;
 extern const StringRef HasVPlanMask;
+extern const StringRef OCLVecUniformReturn;
 extern const StringRef RecursionWithBarrier;
+extern const StringRef UniformCall;
 extern const StringRef VectorVariants;
 
 inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {

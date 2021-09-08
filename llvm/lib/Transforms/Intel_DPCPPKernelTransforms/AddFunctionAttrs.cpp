@@ -9,12 +9,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddFunctionAttrs.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 #define DEBUG_TYPE "dpcpp-kernel-add-function-attrs"
 
@@ -49,9 +51,32 @@ ModulePass *llvm::createAddFunctionAttrsLegacyPass() {
   return new AddFunctionAttrsLegacy();
 }
 
-bool AddFunctionAttrsPass::runImpl(Module &M) {
-  using namespace DPCPPKernelCompilationUtils;
+static bool isAMXMatrixIntrinsicFunction(Function &F) {
+  switch (F.getIntrinsicID()) {
+  case Intrinsic::experimental_matrix_load:
+  case Intrinsic::experimental_matrix_store:
+  case Intrinsic::experimental_matrix_mad:
+    return true;
+  default:
+    return false;
+  }
+}
 
+static bool addAMXMatrixIntrinsicAttributes(Module &M) {
+  bool Changed = false;
+  for (auto &F : M) {
+    if (!isAMXMatrixIntrinsicFunction(F))
+      continue;
+    F.addFnAttr(Attribute::Convergent);
+    F.addFnAttr(KernelAttribute::CallOnce);
+    F.addFnAttr(KernelAttribute::UniformCall);
+    F.addFnAttr(KernelAttribute::OCLVecUniformReturn);
+    Changed = true;
+  }
+  return Changed;
+}
+
+static bool handleSyncBuiltinAttributes(Module &M) {
   // Get all synchronize built-ins declared in module.
   FuncSet SyncBuiltins = getAllSyncBuiltinsDeclsForNoDuplicateRelax(M);
   if (SyncBuiltins.empty()) {
@@ -87,6 +112,18 @@ bool AddFunctionAttrsPass::runImpl(Module &M) {
     }
   }
   return true;
+}
+
+bool AddFunctionAttrsPass::runImpl(Module &M) {
+  bool Changed = false;
+
+  // Add "convergent", "kernel-call-once", "kernel-uniform-call" and
+  // "opencl-vec-uniform-return" to AMX matrix intrinsics.
+  Changed |= addAMXMatrixIntrinsicAttributes(M);
+
+  Changed |= handleSyncBuiltinAttributes(M);
+
+  return Changed;
 }
 
 PreservedAnalyses AddFunctionAttrsPass::run(Module &M,
