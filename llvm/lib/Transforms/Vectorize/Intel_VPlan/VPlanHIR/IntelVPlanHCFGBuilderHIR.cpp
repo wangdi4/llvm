@@ -42,7 +42,6 @@
 ///
 /// TODO's:
 ///   - Outer loops.
-///   - Expose ZTT for inner loops.
 ///   - HLSwitch
 ///   - Loops with multiple exits.
 ///
@@ -472,8 +471,20 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // TODO: Print something more useful.
   LLVM_DEBUG(dbgs() << "Visiting HLLoop: " << HLp->getNumber() << "\n");
 
-  // - ZTT for inner loops -
-  // TODO: isInnerMost(), ztt_pred_begin/end
+  // Make the zero trip test(Ztt) explicit for inner loops.
+  bool EmitZtt = HLp != TheLoop && HLp->hasZtt();
+  VPBasicBlock *ZttStartBlock = nullptr;
+  if (EmitZtt) {
+    // Force creation of a new VPBB for ztt check
+    ActiveVPBB = nullptr;
+    updateActiveVPBB();
+    ZttStartBlock = ActiveVPBB;
+
+    // Generate the compare instructions for the loop Ztt check and
+    // store the final compare as the condition bit to be used to
+    // bypass the loop.
+    CondBits[ZttStartBlock] = Decomposer.createLoopZtt(HLp, ZttStartBlock);
+  }
 
   // - Loop PH -
   // Force creation of a new VPBB for PH.
@@ -564,6 +575,18 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
     connectVPBBtoPreds(MultiExitLandingPad);
     Predecessors.push_back(MultiExitLandingPad);
     ActiveVPBB = MultiExitLandingPad;
+  }
+
+  if (EmitZtt) {
+    // Force creation of new block for Ztt check to jump to bypassing the loop.
+    ActiveVPBB = nullptr;
+    updateActiveVPBB();
+
+    assert(ZttStartBlock && "Unexpected null Ztt start block");
+    // ZttStartBlock jumps to either the preheader or the new block created
+    // here using the condition bit that we set up earlier.
+    ZttStartBlock->setTerminator(Preheader, ActiveVPBB,
+                                 CondBits[ZttStartBlock]);
   }
 
   // Restore previous current HLLoop.

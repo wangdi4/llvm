@@ -1334,6 +1334,48 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   return BottomTest;
 }
 
+VPInstruction *VPDecomposerHIR::createLoopZtt(HLLoop *HLp,
+                                              VPBasicBlock *ZttBlock) {
+  VPBuilder::InsertPointGuard Guard(Builder);
+  Builder.setInsertPoint(ZttBlock);
+  Builder.setCurrentDebugLocation(HLp->getDebugLoc());
+
+  // Keep last instruction before decomposition. We will need it to set the
+  // master VPInstruction of all the created decomposed VPInstructions.
+  VPInstruction *LastVPIBeforeDec = getLastVPI(ZttBlock);
+
+  VPInstruction *CombinedVPInst = nullptr;
+  auto PredBegin = HLp->ztt_pred_begin();
+  auto PredEnd = HLp->ztt_pred_end();
+  for (auto PredIt = PredBegin; PredIt != PredEnd; ++PredIt) {
+    // Generate VPValues for the LHS and RHS of the DDRefs corresponding
+    // to PredIt and generate Cmp instruction using predicate from PredIt.
+    auto *VPOp1 = decomposeVPOperand(
+        HLp->getZttPredicateOperandDDRef(PredIt, true /* IsLHS */));
+    auto *VPOp2 = decomposeVPOperand(
+        HLp->getZttPredicateOperandDDRef(PredIt, false /* IsLHS */));
+    auto *CurVPInst = createCmpInst(*PredIt, VPOp1, VPOp2);
+
+    // Combine using 'And' into CombinedVPInst if non-null
+    if (CombinedVPInst)
+      CombinedVPInst =
+          cast<VPInstruction>(Builder.createAnd(CombinedVPInst, CurVPInst));
+    else
+      CombinedVPInst = CurVPInst;
+  }
+
+  assert(CombinedVPInst && "No VPInstruction generated for Ztt");
+
+  // Set underlying HLDDNode for combined VPInst since it's the last created
+  // instruction for decomposition of this HLIf
+  CombinedVPInst->HIR().setUnderlyingNode(HLp);
+
+  // Set CombinedVPInst as master VPInstruction of any decomposed VPInstruction
+  // resulting from decomposing ztt.
+  setMasterForDecomposedVPIs(CombinedVPInst, LastVPIBeforeDec, ZttBlock);
+  return CombinedVPInst;
+}
+
 VPPHINode *VPDecomposerHIR::getOrCreateEmptyPhiForDDRef(Type *PhiTy,
                                                         VPBasicBlock *VPBB,
                                                         DDRef *DDR) {
