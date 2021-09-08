@@ -18,7 +18,15 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
+#define DEBUG_TYPE "dpcpp-kernel-analysis"
+
 using namespace llvm;
+
+// TODO: Enable this flag by default when all passes required by native subgroup
+// are ported.
+static cl::opt<bool> DPCPPEnableNativeSubgroups(
+    "dpcpp-enable-native-subgroups", cl::init(false), cl::Hidden,
+    cl::desc("Enable native subgroup functionality"));
 
 namespace {
 
@@ -36,10 +44,13 @@ public:
 
   StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 
-  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
+  bool runOnModule(Module &M) override {
+    return Impl.runImpl(M, getAnalysis<CallGraphWrapperPass>().getCallGraph());
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
+    AU.addRequired<CallGraphWrapperPass>();
+    AU.setPreservesAll();
   }
 
 private:
@@ -53,8 +64,12 @@ private:
 
 char DPCPPKernelAnalysisLegacy::ID = 0;
 
-INITIALIZE_PASS(DPCPPKernelAnalysisLegacy, "dpcpp-kernel-analysis",
-                "Analyze which function go in barrier route", false, false)
+INITIALIZE_PASS_BEGIN(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
+                      "Analyze which function go in barrier route", false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
+INITIALIZE_PASS_END(DPCPPKernelAnalysisLegacy, DEBUG_TYPE,
+                    "Analyze which function go in barrier route", false, false)
 
 void DPCPPKernelAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
   Impl.print(OS, M);
@@ -129,7 +144,23 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
   DPCPPKernelLoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
 }
 
-bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
+void DPCPPKernelAnalysisPass::fillSubgroupCallingFuncs(CallGraph &CG) {
+  using namespace DPCPPKernelCompilationUtils;
+  for (auto &F : *M) {
+    if (F.isDeclaration())
+      continue;
+    if (hasFunctionCallInCGNodeSatisfiedWith(CG[&F], [&](Function *CalledFunc) {
+          return CalledFunc && CalledFunc->isDeclaration() &&
+                 (isSubGroupBuiltin(CalledFunc->getName()) ||
+                  isSubGroupBarrier(CalledFunc->getName()));
+        })) {
+      SubgroupCallingFuncs.insert(&F);
+      F.addFnAttr(KernelAttribute::HasSubGroups);
+    }
+  }
+}
+
+bool DPCPPKernelAnalysisPass::runImpl(Module &M, CallGraph &CG) {
   this->M = &M;
   UnsupportedFuncs.clear();
   auto KernelList = DPCPPKernelCompilationUtils::getKernels(M);
@@ -138,11 +169,15 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
   fillKernelCallers();
   fillSyncUsersFuncs();
   fillUnsupportedTIDFuncs();
+  if (DPCPPEnableNativeSubgroups)
+    fillSubgroupCallingFuncs(CG);
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     KIMD.NoBarrierPath.set(!UnsupportedFuncs.count(Kernel));
+    if (DPCPPEnableNativeSubgroups)
+      KIMD.KernelHasSubgroups.set(SubgroupCallingFuncs.count(Kernel));
   }
 
   return (Kernels.size() != 0);
@@ -161,18 +196,19 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     bool NoBarrierPath = KIMD.NoBarrierPath.get();
+    bool KernelHasSubgroups = KIMD.KernelHasSubgroups.get();
 
-    if (NoBarrierPath) {
-      OS << FuncName << " yes\n";
-    } else {
-      OS << FuncName << " no\n";
-    }
+    OS << "Kernel <" << FuncName << ">: NoBarrierPath=" << NoBarrierPath
+       << " KernelHasSubgroups=" << KernelHasSubgroups << '\n';
   }
+
+  OS << "\nFunctions that call subgroup builtins:\n";
+  for (Function *F : SubgroupCallingFuncs)
+    OS << "  " << F->getName() << '\n';
 }
 
 PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
-  if (!runImpl(M))
-    return PreservedAnalyses::all();
-  return PreservedAnalyses::none();
+  (void)runImpl(M, AM.getResult<CallGraphAnalysis>(M));
+  return PreservedAnalyses::all();
 }

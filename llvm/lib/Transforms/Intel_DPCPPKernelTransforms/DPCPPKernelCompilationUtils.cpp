@@ -568,6 +568,11 @@ bool isWorkGroupBuiltin(StringRef S) {
   return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
 }
 
+bool isWorkGroupBarrier(StringRef S) {
+  return S == mangledBarrier() || S == mangledWGBarrier(BarrierType::NoScope) ||
+         S == mangledWGBarrier(BarrierType::WithScope);
+}
+
 /// Subgroup builtin functions
 
 bool isGetSubGroupSize(StringRef S) {
@@ -659,6 +664,11 @@ bool isSubGroupDivergent(StringRef S) {
 
 bool isSubGroupBuiltin(StringRef S) {
   return isSubGroupUniform(S) || isSubGroupDivergent(S);
+}
+
+bool isSubGroupBarrier(StringRef S) {
+  return S == mangledSGBarrier(BarrierType::NoScope) ||
+         S == mangledSGBarrier(BarrierType::WithScope);
 }
 
 template <reflection::TypePrimitiveEnum... ParamTys>
@@ -919,18 +929,14 @@ FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
       continue;
     StringRef FName = F.getName();
     if (IsWG) {
-      if (FName == mangledBarrier() ||
-          FName == mangledWGBarrier(BarrierType::NoScope) ||
-          FName == mangledWGBarrier(BarrierType::WithScope) ||
+      if (isWorkGroupBarrier(FName) ||
           /* work group built-ins */
           isWorkGroupBuiltin(FName) ||
           /* built-ins synced as if were called by a single work item */
           isWorkGroupAsyncOrPipeBuiltin(FName, M))
         FSet.insert(&F);
     } else {
-      if (FName == mangledSGBarrier(BarrierType::NoScope) ||
-          FName == mangledSGBarrier(BarrierType::WithScope) ||
-          isSubGroupBuiltin(FName))
+      if (isSubGroupBarrier(FName) || isSubGroupBuiltin(FName))
         FSet.insert(&F);
     }
   }
@@ -946,9 +952,7 @@ FuncSet getAllSyncBuiltinsDeclsForNoDuplicateRelax(Module &M) {
     if (!F.isDeclaration())
       continue;
     llvm::StringRef FName = F.getName();
-    if (FName == mangledSGBarrier(BarrierType::NoScope) ||
-        FName == mangledSGBarrier(BarrierType::WithScope) ||
-        isKMPAcquireReleaseLock(FName))
+    if (isSubGroupBarrier(FName) || isKMPAcquireReleaseLock(FName))
       FSet.insert(&F);
   }
 
@@ -962,11 +966,7 @@ FuncSet getAllSyncBuiltinsDeclsForKernelUniformCallAttr(Module &M) {
     if (!F.isDeclaration())
       continue;
     llvm::StringRef FName = F.getName();
-    if (FName == mangledBarrier() ||
-        FName == mangledWGBarrier(BarrierType::NoScope) ||
-        FName == mangledWGBarrier(BarrierType::WithScope) ||
-        FName == mangledSGBarrier(BarrierType::NoScope) ||
-        FName == mangledSGBarrier(BarrierType::WithScope) ||
+    if (isWorkGroupBarrier(FName) || isSubGroupBarrier(FName) ||
         isKMPAcquireReleaseLock(FName) ||
         isWorkGroupAsyncOrPipeBuiltin(FName, M)) {
       FSet.insert(&F);

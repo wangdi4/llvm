@@ -1,7 +1,7 @@
 ; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
 ; CHECK: DPCPPKernelAnalysisPass
-; CHECK: kernel_contains_barrier no
+; CHECK: Kernel <kernel_contains_barrier>: NoBarrierPath=0
 
 define void @kernel_contains_barrier() {
 entry:

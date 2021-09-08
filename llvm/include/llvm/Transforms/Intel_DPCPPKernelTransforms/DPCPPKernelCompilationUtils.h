@@ -240,6 +240,7 @@ bool isWorkGroupMin(StringRef S);
 bool isWorkGroupMax(StringRef S);
 bool isAsyncWorkGroupCopy(StringRef S);
 bool isAsyncWorkGroupStridedCopy(StringRef S);
+bool isWorkGroupBarrier(StringRef S);
 /// }@
 
 /// Returns true if \p S is a name of workgroup builtin, and it's uniform inside
@@ -361,6 +362,9 @@ bool isSubGroupDivergent(StringRef S);
 
 /// Returns true if \p S is a name of subgroup builtin.
 bool isSubGroupBuiltin(StringRef S);
+
+/// Returns true if \p S is the name of subgroup barrier.
+bool isSubGroupBarrier(StringRef S);
 
 /// Collect all kernel functions.
 inline auto getKernels(Module &M) {
