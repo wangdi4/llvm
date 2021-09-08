@@ -501,7 +501,7 @@ OclBuiltinImpl work_group_broadcast_mask_helper_32 = OclBuiltinImpl<work_group_b
     }
   }]>;
 
-OclBuiltinImpl work_group_broadcast_mask_helper_64 = OclBuiltinImpl<work_group_broadcast_helper, work_group_vector_types_all64, 0, [{
+OclBuiltinImpl work_group_broadcast_mask_helper_64 = OclBuiltinImpl<work_group_broadcast_helper_mask, work_group_vector_types_all64, 0, [{
    if ($Arg2VarName <= $Arg1VarName && $Arg1VarName < $Arg2VarName + vec_step($Arg0VarName)) {
       uint offset = $Arg1VarName - $Arg2VarName;
       $Arg0ugentype _mask = ($Arg0ugentype)(offset);
