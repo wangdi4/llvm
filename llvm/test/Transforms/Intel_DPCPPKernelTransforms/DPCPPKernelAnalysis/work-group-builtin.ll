@@ -1,17 +1,17 @@
 ; RUN: opt -analyze -dpcpp-kernel-analysis < %s -S -o - | FileCheck %s
 
 ; CHECK: DPCPPKernelAnalysisPass
-; CHECK: kernel_contains_wg_all no
-; CHECK: kernel_contains_wg_any no
-; CHECK: kernel_contains_wg_broadcastij no
-; CHECK: kernel_contains_wg_broadcastijj no
-; CHECK: kernel_contains_wg_broadcastijjj no
-; CHECK: kernel_contains_wg_reduce_add no
-; CHECK: kernel_contains_wg_reduce_min no
-; CHECK: kernel_contains_wg_scan_exclusive_add no
-; CHECK: kernel_contains_wg_scan_exclusive_min no
-; CHECK: kernel_contains_wg_scan_inclusive_add no
-; CHECK: kernel_contains_wg_scan_inclusive_min no
+; CHECK-DAG: Kernel <kernel_contains_wg_all>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_any>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_broadcastij>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_broadcastijj>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_broadcastijjj>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_reduce_add>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_reduce_min>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_scan_exclusive_add>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_scan_exclusive_min>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_scan_inclusive_add>: NoBarrierPath=0
+; CHECK-DAG: Kernel <kernel_contains_wg_scan_inclusive_min>: NoBarrierPath=0
 
 define void @kernel_contains_wg_all() {
 entry:
