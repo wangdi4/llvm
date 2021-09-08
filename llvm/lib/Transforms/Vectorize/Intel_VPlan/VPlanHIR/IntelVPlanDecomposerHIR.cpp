@@ -1309,22 +1309,24 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
     DecompUB = decomposeVPOperand(HLp->getUpperDDRef());
     VPOperands.push_back(DecompUB);
   }
+  bool UBInstsGenerated = LastVPIBeforeDec != getLastVPI(LpPH);
 
   // #2.
   CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HLp);
   auto *BottomTest = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                            VPOperands[1], HLp);
 
-  if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
-    // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
-    // the decomposed group.
-    DecompUBVPI->HIR().setUnderlyingNode(HLp);
+  if (UBInstsGenerated)
+    if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
+      // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
+      // the decomposed group.
+      DecompUBVPI->HIR().setUnderlyingNode(HLp);
 
-    // Set DecompUBVPI as master VPInstruction of any other decomposed
-    // VPInstruction of UB.
-    setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
-    DecompUBVPI->HIR().setValid();
-  }
+      // Set DecompUBVPI as master VPInstruction of any other decomposed
+      // VPInstruction of UB.
+      setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
+      DecompUBVPI->HIR().setValid();
+    }
 
   // Set the underlying HIR of the new VPInstructions (and its potential
   // decomposed VPInstructions) to valid.
