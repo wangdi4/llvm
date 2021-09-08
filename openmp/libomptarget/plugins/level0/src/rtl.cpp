@@ -1107,9 +1107,8 @@ struct RTLFlagsTy {
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
-  uint64_t UseCopyEngine : 1;
   uint64_t UseImageOptions : 1;
-  uint64_t Reserved : 55;
+  uint64_t Reserved : 56;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -1118,7 +1117,6 @@ struct RTLFlagsTy {
       UseHostMemForUSM(0),
       UseMemoryPool(1),
       UseDriverGroupSizes(0),
-      UseCopyEngine(1),
       UseImageOptions(1),
       Reserved(0) {}
 };
@@ -1450,6 +1448,10 @@ public:
   int32_t CommandBatchLevel = 0;
   int32_t CommandBatchCount = INT32_MAX;
 
+  /// Copy engine option
+  /// 0: disabled, 1: main, 2: link, 3: all (default)
+  int32_t UseCopyEngine = 3;
+
   /// Memory pool parameters
   /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
   std::map<int32_t, std::vector<int32_t>> MemPoolInfo = {
@@ -1727,12 +1729,23 @@ public:
     // Use copy engine if available
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE")) {
       if (env[0] == 'F' || env[0] == 'f' || env[0] == '0') {
-        Flags.UseCopyEngine = 0;
+        UseCopyEngine = 0;
       } else {
-        DP("Ignoring incorrect definition, "
-           "LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=%s\n", env);
-        DP("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>\n");
-        DP("  <Value> := 0 | F | f\n");
+        std::string Value(env);
+        if (Value == "main")
+          UseCopyEngine = 1;
+        else if (Value == "link")
+          UseCopyEngine = 2;
+        else if (Value == "all")
+          UseCopyEngine = 3;
+        else {
+          DP("Ignoring incorrect definition, "
+             "LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=%s\n", env);
+          DP("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>\n");
+          DP("  <Value>   := <Disable> | <Type>\n");
+          DP("  <Disable> := 0 | F | f\n");
+          DP("  <Type>    := main | link | all\n");
+        }
       }
     }
 
@@ -1876,16 +1889,12 @@ public:
   }
 
   ze_command_list_handle_t getCopyCmdList(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine)
-      return getCmdList(DeviceId);
-
     if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX) {
-      // TODO: Current PVC's second tile does not report main copy engine, so
-      // use link copy engine instead. Remove this after the issue is fixed.
+      // Return link copy engine if it is enabled, compute engine otherwise
       if (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0)
         return getLinkCopyCmdList(DeviceId);
-
-      return getCmdList(DeviceId);
+      else
+        return getCmdList(DeviceId);
     }
 
     // Use copy engine
@@ -1900,23 +1909,19 @@ public:
   }
 
   bool usingCopyCmdQueue(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine ||
-        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+    if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX &&
+        LinkCopyCmdQueueGroupOrdinals[DeviceId].second == 0)
        return  false;
     return true;
   }
 
   ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine)
-      return getCmdQueue(DeviceId);
-
     if (CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX) {
-      // TODO: Current PVC's second tile does not report main copy engine, so
-      // use link copy engine instead. Remove this after the issue is fixed.
+      // Return link copy engine if it is enabled, compute engine otherwise
       if (LinkCopyCmdQueueGroupOrdinals[DeviceId].second > 0)
         return getLinkCopyCmdQueue(DeviceId);
-
-      return getCmdQueue(DeviceId);
+      else
+        return getCmdQueue(DeviceId);
     }
 
     // Use copy engine
@@ -1931,13 +1936,15 @@ public:
   }
 
   ze_command_list_handle_t getLinkCopyCmdList(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine)
-      return getCmdList(DeviceId);
-
     // Ordinal.first is ordinal, Ordinal.second is number of queues
     auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
-    if (Ordinal.second == 0)
-      return getCopyCmdList(DeviceId); // No link copy engine
+    if (Ordinal.second == 0) {
+      // Return main copy engine if it is enabled, compute engine otherwise
+      if (CopyCmdQueueGroupOrdinals[DeviceId] != UINT32_MAX)
+        return getCopyCmdList(DeviceId);
+      else
+        return getCmdList(DeviceId);
+    }
 
     auto TLS = getTLS();
     auto CmdList = TLS->getLinkCopyCmdList(DeviceId);
@@ -1950,13 +1957,15 @@ public:
   }
 
   ze_command_queue_handle_t getLinkCopyCmdQueue(int32_t DeviceId) {
-    if (!Flags.UseCopyEngine)
-      return getCmdQueue(DeviceId);
-
     // Ordinal.first is ordinal, Ordinal.second is number of queues
     auto &Ordinal = LinkCopyCmdQueueGroupOrdinals[DeviceId];
-    if (Ordinal.second == 0)
-      return getCopyCmdQueue(DeviceId); // No link copy engine
+    if (Ordinal.second == 0) {
+      // Return main copy engine if it is enabled, compute engine otherwise
+      if (CopyCmdQueueGroupOrdinals[DeviceId] != UINT32_MAX)
+        return getCopyCmdQueue(DeviceId);
+      else
+        return getCmdQueue(DeviceId);
+    }
 
     auto TLS = getTLS();
     auto CmdQueue = TLS->getLinkCopyCmdQueue(DeviceId);
@@ -3357,10 +3366,20 @@ static int32_t appendDeviceProperties(
     QueueOrdinal = getCmdQueueGroupOrdinal(Device);
   DeviceInfo->CmdQueueGroupOrdinals.push_back(QueueOrdinal);
   DeviceInfo->CmdQueueIndices.push_back(QueueIndex);
-  DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
-      getCopyCmdQueueGroupOrdinal(Device).first);
-  DeviceInfo->LinkCopyCmdQueueGroupOrdinals.push_back(
-      getCopyCmdQueueGroupOrdinal(Device, true));
+
+  auto UseCopyEngine = DeviceInfo->UseCopyEngine;
+
+  // Get main copy command queue ordinal if enabled
+  std::pair<uint32_t, uint32_t> CopyOrdinal{UINT32_MAX, 0};
+  if (UseCopyEngine == 1 || UseCopyEngine == 3)
+    CopyOrdinal = getCopyCmdQueueGroupOrdinal(Device);
+  DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(CopyOrdinal.first);
+
+  // Get link copy command queue ordinal if enabled
+  CopyOrdinal = {UINT32_MAX, 0};
+  if (UseCopyEngine == 2 || UseCopyEngine == 3)
+    CopyOrdinal = getCopyCmdQueueGroupOrdinal(Device, true);
+  DeviceInfo->LinkCopyCmdQueueGroupOrdinals.push_back(CopyOrdinal);
 
   DP("Found a GPU device, Name = %s\n", properties.name);
 

@@ -262,15 +262,22 @@ not exceeding ``<PoolSize>``.
 
 **Default**: Equivalent to ``<Option>=all,1,4,256``
 
-``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Disable>``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
 
+  <Value>   := <Disable> | <Type>
   <Disable> := 0 | F | f
+  <Type>    := main | link | all
 
-Disables use of copy engine for memory copy operations.
+Controls how to use copy engines for data transfer if device supports.
 
-**Default**: Enabled if device supports
+``0 | F | f``: Disables use of copy engines.
+``main``: Enables only main copy engines if device supports.
+``link``: Enables only link copy engines if device supports.
+``all``: Enables all copy engines if device supports.
+
+**Default**: all
 
 ``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
