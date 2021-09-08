@@ -87,6 +87,7 @@ MODULE_PASS("dpcpp-kernel-vec-clone", DPCPPKernelVecClonePass())
 MODULE_PASS("dpcpp-kernel-vector-variant-fillin", VectorVariantFillIn())
 MODULE_PASS("dpcpp-kernel-vector-variant-lowering", VectorVariantLowering())
 MODULE_PASS("dpcpp-kernel-create-simd-variant-propagation", CreateSimdVariantPropagation())
+MODULE_PASS("dpcpp-kernel-set-vf", SetVectorizationFactorPass())
 MODULE_PASS("dpcpp-kernel-sg-size-collector", SGSizeCollectorPass())
 MODULE_PASS("dpcpp-kernel-sg-size-collector-indirect", SGSizeCollectorIndirectPass())
 
@@ -629,7 +630,6 @@ FUNCTION_PASS("handle-pragma-vector-aligned", HandlePragmaVectorAlignedPass())
 FUNCTION_PASS("dpcpp-kernel-builtin-call-to-inst", BuiltinCallToInstPass())
 FUNCTION_PASS("dpcpp-kernel-phi-canonicalization", PhiCanonicalization())
 FUNCTION_PASS("dpcpp-kernel-redundant-phi-node", RedundantPhiNode())
-FUNCTION_PASS("dpcpp-kernel-set-vf", SetVectorizationFactorPass())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_PASS("print<vpo-wrncollection>",

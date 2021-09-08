@@ -13,24 +13,22 @@
 
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 
 namespace llvm {
 
 /// Set "recommended_vector_length" metadata (A.K.A. Vectorization Factor) for
-/// each function.
+/// kernel functions.
 class SetVectorizationFactorPass
     : public PassInfoMixin<SetVectorizationFactorPass> {
 public:
   explicit SetVectorizationFactorPass(
       VectorVariant::ISAClass ISA = VectorVariant::XMM);
 
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
-  bool runImpl(Function &F);
-
-private:
-  VectorVariant::ISAClass ISA;
+  bool runImpl(Module &M, const VFAnalysisInfo *VFInfo);
 };
 } // namespace llvm
 

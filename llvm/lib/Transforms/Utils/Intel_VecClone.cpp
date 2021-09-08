@@ -252,7 +252,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
 
   std::string VariantName = V.generateFunctionName(F.getName());
   Function* Clone = Function::Create(CloneFuncType,
-                                     GlobalValue::ExternalLinkage,
+                                     F.getLinkage(),
                                      VariantName, F.getParent());
 
   // Remove vector variant attributes from the original function. They are

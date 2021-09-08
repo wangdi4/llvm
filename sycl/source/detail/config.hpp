@@ -43,6 +43,11 @@ constexpr bool ConfigFromCompileDefEnabled = false;
 constexpr bool ConfigFromCompileDefEnabled = true;
 #endif // DISABLE_CONFIG_FROM_COMPILE_TIME
 
+constexpr int MAX_CONFIG_NAME = 256;
+#ifdef INTEL_CUSTOMIZATION
+constexpr int MAX_CONFIG_VALUE = 1024;
+#endif // INTEL_CUSTOMIZATION
+
 // Enum of config IDs for accessing other arrays
 enum ConfigID {
   START = 0,
@@ -58,7 +63,7 @@ constexpr const char *getStrOrNullptr(const char *Str) {
 }
 
 // Intializes configs from the configuration file
-void readConfig();
+void readConfig(bool ForceInitialization = false);
 
 template <ConfigID Config> class SYCLConfigBase;
 
