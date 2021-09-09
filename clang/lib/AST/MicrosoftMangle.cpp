@@ -2521,6 +2521,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
   case BuiltinType::BFloat16:
+  case BuiltinType::Ibm128:
 #if INTEL_CUSTOMIZATION
   // Float128 warning message is intentionally disabled, since we handle it
   // above under an Intel Customization block.
