@@ -62,13 +62,11 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       if (!F || !F->getName().startswith("__intel_indirect_call"))
         continue;
 
-      assert(Call.getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                               "vector-variants") &&
+      assert(Call.getAttributes().hasFnAttr("vector-variants") &&
              "Vector variants should always be set for this call");
 
       SmallVector<StringRef, 4> Variants;
-      Attribute Attr =
-          Call.getAttribute(AttributeList::FunctionIndex, "vector-variants");
+      Attribute Attr = Call.getFnAttr("vector-variants");
       Attr.getValueAsString().split(Variants, ",");
       assert(!Variants.empty() &&
              "Expected non-empty vector-variants attribute");

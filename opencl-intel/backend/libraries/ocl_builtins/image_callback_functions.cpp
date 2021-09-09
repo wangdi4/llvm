@@ -26,6 +26,57 @@
 #define UNORM_INT16_FACTOR 65535.f
 #define UNORM_INT8_FACTOR  255.f
 
+// FIXME:
+// Workaround: These decls were removed in https: //reviews.llvm.org/D108761.
+// Add them here temporarily to make the build pass.
+#define __ovld __attribute__((overloadable))
+float __ovld vloada_half(size_t offset, const __constant half *p);
+float __ovld vloada_half(size_t offset, const half *p);
+float __ovld vloada_half(size_t offset, const __global half *p);
+float __ovld vloada_half(size_t offset, const __local half *p);
+float __ovld vloada_half(size_t offset, const __private half *p);
+void __ovld vstorea_half(float data, size_t offset, half *p);
+void __ovld vstorea_half_rte(float data, size_t offset, half *p);
+void __ovld vstorea_half_rtz(float data, size_t offset, half *p);
+void __ovld vstorea_half_rtp(float data, size_t offset, half *p);
+void __ovld vstorea_half_rtn(float data, size_t offset, half *p);
+void __ovld vstorea_half(double data, size_t offset, half *p);
+void __ovld vstorea_half_rte(double data, size_t offset, half *p);
+void __ovld vstorea_half_rtz(double data, size_t offset, half *p);
+void __ovld vstorea_half_rtp(double data, size_t offset, half *p);
+void __ovld vstorea_half_rtn(double data, size_t offset, half *p);
+void __ovld vstorea_half(float data, size_t offset, __global half *p);
+void __ovld vstorea_half_rte(float data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtz(float data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtp(float data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtn(float data, size_t offset, __global half *p);
+void __ovld vstorea_half(float data, size_t offset, __local half *p);
+void __ovld vstorea_half_rte(float data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtz(float data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtp(float data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtn(float data, size_t offset, __local half *p);
+void __ovld vstorea_half(float data, size_t offset, __private half *p);
+void __ovld vstorea_half_rte(float data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtz(float data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtp(float data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtn(float data, size_t offset, __private half *p);
+void __ovld vstorea_half(double data, size_t offset, __global half *p);
+void __ovld vstorea_half_rte(double data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtz(double data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtp(double data, size_t offset, __global half *p);
+void __ovld vstorea_half_rtn(double data, size_t offset, __global half *p);
+void __ovld vstorea_half(double data, size_t offset, __local half *p);
+void __ovld vstorea_half_rte(double data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtz(double data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtp(double data, size_t offset, __local half *p);
+void __ovld vstorea_half_rtn(double data, size_t offset, __local half *p);
+void __ovld vstorea_half(double data, size_t offset, __private half *p);
+void __ovld vstorea_half_rte(double data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtz(double data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtp(double data, size_t offset, __private half *p);
+void __ovld vstorea_half_rtn(double data, size_t offset, __private half *p);
+#undef __ovld
+
 // Clamp border color used for CL_A, CL_INTENSITY, CL_Rx, CL_RA, CL_RGx, CL_RGBx, CL_ARGB, CL_BGRA, CL_RGBA
 ALIGN16 const constant float4 BorderColorNoAlphaFloat = {0.0f, 0.0f, 0.0f, 0.0f};
 ALIGN16 const constant int4 BorderColorNoAlphaInt = {0, 0, 0, 0};

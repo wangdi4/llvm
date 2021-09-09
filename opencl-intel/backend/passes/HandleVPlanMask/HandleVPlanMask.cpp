@@ -157,9 +157,8 @@ bool HandleVPlanMask::runOnModule(Module &M) {
     for (auto *User : Func->users()) {
       auto *Call = dyn_cast<CallInst>(User);
       assert(Call && "Unexpected use of OpenCL Built-ins");
-      Call->removeAttribute(AttributeList::FunctionIndex,
-                            CompilationUtils::ATTR_HAS_VPLAN_MASK);
-      Call->removeAttribute(AttributeList::FunctionIndex, "call-params-num");
+      Call->removeFnAttr(CompilationUtils::ATTR_HAS_VPLAN_MASK);
+      Call->removeFnAttr("call-params-num");
     }
   }
 

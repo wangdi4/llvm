@@ -113,8 +113,8 @@ bool SGBuiltin::insertSGBarrierForSGCalls(Module &M) {
 
       AttributeList AL = CI->getAttributes();
       // All sub-group built-ins have mask argument.
-      AL = AL.addAttribute(M.getContext(), AttributeList::FunctionIndex,
-                           CompilationUtils::ATTR_HAS_VPLAN_MASK);
+      AL = AL.addFnAttribute(M.getContext(),
+                             CompilationUtils::ATTR_HAS_VPLAN_MASK);
       CI->setAttributes(AL);
 
       // Insert sg_barrier before, dummy_sg_barrier after to exclude the

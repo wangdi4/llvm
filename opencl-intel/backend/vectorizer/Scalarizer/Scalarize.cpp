@@ -1485,8 +1485,10 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
     SmallVector<Type *, 1> types(1, scalarType);
     Type* retType = static_cast<Type*>(FixedVectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);
-    (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::ReadNone);
-    (void) funcAttr.addAttribute(m_currFunc->getContext(), ~0, Attribute::NoUnwind);
+    (void)funcAttr.addFnAttribute(m_currFunc->getContext(),
+                                  Attribute::ReadNone);
+    (void)funcAttr.addFnAttribute(m_currFunc->getContext(),
+                                  Attribute::NoUnwind);
     return true;
   }
 

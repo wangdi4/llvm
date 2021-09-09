@@ -602,12 +602,13 @@ void FuncResolver::resolveFunc(CallInst* caller) {
     //Parameter attributes starts with index 1-NumOfParams
     unsigned int idx = i+1;
     //pcall starts with mask argument, skip it when setting original argument attributes.
-    (void) as.addAttributes(func->getContext(), 1 + idx, callAttr.getParamAttrs(idx));
+    (void)as.addParamAttributes(func->getContext(), idx,
+                                callAttr.getParamAttrs(idx));
   }
   //set function attributes of pcall
-  (void) as.addAttributes(func->getContext(), AttributeList::FunctionIndex, callAttr.getFnAttrs());
+  (void)as.addFnAttributes(func->getContext(), callAttr.getFnAttrs());
   //set return value attributes of pcall
-  (void) as.addAttributes(func->getContext(), AttributeList::ReturnIndex, callAttr.getRetAttrs());
+  (void)as.addRetAttributes(func->getContext(), callAttr.getRetAttrs());
   pcall->setAttributes(as);
   VectorizerUtils::SetDebugLocBy(pcall, caller);
   caller->replaceAllUsesWith(pcall);

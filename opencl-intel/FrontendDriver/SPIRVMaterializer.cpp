@@ -37,7 +37,7 @@ static void removeNoInlineAttr(Function &F) {
   F.removeFnAttr(Attribute::AttrKind::NoInline);
   for (auto *U : F.users()) {
     if (auto *CI = dyn_cast<CallInst>(U))
-      CI->removeAttribute(AttributeList::FunctionIndex, Attribute::NoInline);
+      CI->removeFnAttr(Attribute::NoInline);
   }
 }
 
