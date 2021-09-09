@@ -111,6 +111,11 @@
 ///    ENDFOR
 ///    DST[MAX:128] := 0
 /// \endoperation
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#if !defined(__DSPV1_SUPPORTED__)
+/* end INTEL_FEATURE_ISA_DSPV1 */
+/* end INTEL_CUSTOMIZATION */
 #define _mm_dpbusd_epi32(S, A, B) \
   ((__m128i)__builtin_ia32_vpdpbusd128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
 
@@ -133,6 +138,11 @@
 /// \endoperation
 #define _mm_dpbusds_epi32(S, A, B) \
   ((__m128i)__builtin_ia32_vpdpbusds128((__v4si)(S), (__v4si)(A), (__v4si)(B)))
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_DSPV1 */
+#endif // __DSPV1_SUPPORTED__
+/* end INTEL_FEATURE_ISA_DSPV1 */
+/* end INTEL_CUSTOMIZATION */
 
 /// Multiply groups of 2 adjacent pairs of signed 16-bit integers in \a A with
 /// corresponding 16-bit integers in \a B, producing 2 intermediate signed 32-bit

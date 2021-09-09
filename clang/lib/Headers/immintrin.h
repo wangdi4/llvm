@@ -235,8 +235,7 @@ typedef struct __tile1024i_str {
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__) ||                \
-    defined(__DSPV1__)
+    defined(__AVXVNNI__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
 #include <avxvnniintrin.h>
 #endif
