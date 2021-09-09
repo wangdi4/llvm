@@ -63,6 +63,9 @@ public:
           case Intrinsic::experimental_matrix_load:
           case Intrinsic::experimental_matrix_store:
           case Intrinsic::experimental_matrix_mad:
+          case Intrinsic::experimental_matrix_sumad:
+          case Intrinsic::experimental_matrix_usmad:
+          case Intrinsic::experimental_matrix_uumad:
             Worklist.push_back(&*BBI);
             break;
           }
@@ -112,6 +115,9 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixIntrinsics(IntrinsicInst *II) {
     MadeChange |= ProcessMatrixStore(II);
     break;
   case Intrinsic::experimental_matrix_mad:
+  case Intrinsic::experimental_matrix_sumad:
+  case Intrinsic::experimental_matrix_usmad:
+  case Intrinsic::experimental_matrix_uumad:
     MadeChange |= ProcessMatrixMad(II);
     break;
   }
@@ -265,9 +271,26 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixMad(IntrinsicInst *II) {
   IRBuilder<> Builder(II);
   FixedVectorType *MatrixType = cast<FixedVectorType>(II->getType());
   Type *MatrixElemType = MatrixType->getElementType();
-  Intrinsic::ID IID = MatrixElemType->isFloatTy()
-                          ? Intrinsic::x86_tdpbf16ps_internal
-                          : Intrinsic::x86_tdpbssd_internal;
+  Intrinsic::ID IID;
+  switch (II->getIntrinsicID()) {
+  default:
+    assert(false && "Invalid Intrinsic ID!");
+    break;
+  case Intrinsic::experimental_matrix_mad:
+    IID = MatrixElemType->isFloatTy() ? Intrinsic::x86_tdpbf16ps_internal
+                                      : Intrinsic::x86_tdpbssd_internal;
+    break;
+  case Intrinsic::experimental_matrix_sumad:
+    IID = Intrinsic::x86_tdpbsud_internal;
+    break;
+  case Intrinsic::experimental_matrix_usmad:
+    IID = Intrinsic::x86_tdpbusd_internal;
+    break;
+  case Intrinsic::experimental_matrix_uumad:
+    IID = Intrinsic::x86_tdpbuud_internal;
+    break;
+  }
+
   Value *M =
       Builder.getInt16(cast<ConstantInt>(II->getOperand(6))->getSExtValue());
   Value *K =
