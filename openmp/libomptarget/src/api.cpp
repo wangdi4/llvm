@@ -38,36 +38,6 @@ EXTERN int omp_get_initial_device(void) {
 }
 
 EXTERN void *omp_target_alloc(size_t size, int device_num) {
-  TIMESCOPE();
-  DP("Call to omp_target_alloc for device %d requesting %zu bytes\n",
-     device_num, size);
-
-  if (size <= 0) {
-    DP("Call to omp_target_alloc with non-positive length\n");
-    return NULL;
-  }
-
-  void *rc = NULL;
-
-  if (device_num == omp_get_initial_device()) {
-    rc = malloc(size);
-    DP("omp_target_alloc returns host ptr " DPxMOD "\n", DPxPTR(rc));
-    return rc;
-  }
-
-  if (!device_is_ready(device_num)) {
-    DP("omp_target_alloc returns NULL ptr\n");
-    return NULL;
-  }
-
-#if INTEL_COLLAB
-  DeviceTy &Device = PM->Devices[device_num];
-  if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
-    rc = Device.data_alloc_managed(size);
-    DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
-    return rc;
-  }
-#endif // INTEL_COLLAB
   return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
 }
 
