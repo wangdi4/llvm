@@ -10567,13 +10567,6 @@ public:
   template <typename AttrType>
   bool checkRangedIntegralArgument(Expr *E, const AttrType *TmpAttr,
                                    ExprResult &Result);
-#endif // INTEL_CUSTOMIZATION
-
-  template <typename AttrType>
-  void AddOneConstantPowerTwoValueAttr(Decl *D, const AttributeCommonInfo &CI,
-                                       Expr *E);
-
-#if INTEL_CUSTOMIZATION
   template <typename AttrType>
   void HLSAddOneConstantValueAttr(Decl *D, const AttributeCommonInfo &CI,
                                   Expr *E);
@@ -10642,6 +10635,14 @@ public:
   SYCLIntelMaxGlobalWorkDimAttr *
   MergeSYCLIntelMaxGlobalWorkDimAttr(Decl *D,
                                      const SYCLIntelMaxGlobalWorkDimAttr &A);
+  void AddIntelFPGABankWidthAttr(Decl *D, const AttributeCommonInfo &CI,
+                                 Expr *E);
+  IntelFPGABankWidthAttr *
+  MergeIntelFPGABankWidthAttr(Decl *D, const IntelFPGABankWidthAttr &A);
+  void AddIntelFPGANumBanksAttr(Decl *D, const AttributeCommonInfo &CI,
+                                Expr *E);
+  IntelFPGANumBanksAttr *
+  MergeIntelFPGANumBanksAttr(Decl *D, const IntelFPGANumBanksAttr &A);
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
   void AddAlignedAttr(Decl *D, const AttributeCommonInfo &CI, Expr *E,
                       bool IsPackExpansion);
@@ -13877,53 +13878,6 @@ void Sema::addIntelTripleArgAttr(Decl *D, const AttributeCommonInfo &CI,
   }
   D->addAttr(::new (Context)
                  WorkGroupAttrType(Context, CI, XDimExpr, YDimExpr, ZDimExpr));
-}
-
-template <typename AttrType>
-void Sema::AddOneConstantPowerTwoValueAttr(Decl *D,
-                                           const AttributeCommonInfo &CI,
-                                           Expr *E) {
-  AttrType TmpAttr(Context, CI, E);
-
-  if (!E->isValueDependent()) {
-    llvm::APSInt Value;
-    ExprResult ICE = VerifyIntegerConstantExpression(E, &Value);
-    if (ICE.isInvalid())
-      return;
-    if (!Value.isStrictlyPositive()) {
-      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
-          << CI << /*positive*/ 0;
-      return;
-    }
-    if (!Value.isPowerOf2()) {
-      Diag(CI.getLoc(), diag::err_attribute_argument_not_power_of_two)
-          << &TmpAttr;
-      return;
-    }
-    if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-      if (auto *BBA = D->getAttr<IntelFPGABankBitsAttr>()) {
-        unsigned NumBankBits = BBA->args_size();
-        if (NumBankBits != Value.ceilLogBase2()) {
-          Diag(TmpAttr.getLocation(), diag::err_bankbits_numbanks_conflicting);
-          return;
-        }
-      }
-    }
-    E = ICE.get();
-  }
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        Context, IntelFPGAMemoryAttr::Default));
-
-  // We are adding a user NumBanks, drop any implicit default.
-  if (IntelFPGANumBanksAttr::classof(&TmpAttr)) {
-    if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
-      if (NBA->isImplicit())
-        D->dropAttr<IntelFPGANumBanksAttr>();
-  }
-
-  D->addAttr(::new (Context) AttrType(Context, CI, E));
 }
 
 /// RAII object that enters a new expression evaluation context.
