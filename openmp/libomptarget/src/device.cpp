@@ -512,7 +512,14 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
 }
 
 void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
+#if INTEL_COLLAB
+  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
+  void *Ret = RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
+  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, Ret));
+  return Ret;
+#else // INTEL_COLLAB
   return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
+#endif // INTEL_COLLAB
 }
 
 int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
@@ -772,16 +779,6 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
   return ret;
 }
 
-void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
-  OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
-  void *ret = RTL->data_alloc_user
-                  ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
-                  : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
-                                    TARGET_ALLOC_DEFAULT);
-  OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
-  return ret;
-}
-
 int32_t DeviceTy::data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                                      int64_t Size, void *AsyncData) {
   OMPT_TRACE(
@@ -909,13 +906,6 @@ int32_t DeviceTy::is_device_accessible_ptr(void *Ptr) {
 
 int32_t DeviceTy::managed_memory_supported() {
   return RTL->is_device_accessible_ptr != nullptr;
-}
-
-void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {
-  if (RTL->data_alloc_explicit)
-    return RTL->data_alloc_explicit(RTLDeviceID, Size, Kind);
-  else
-    return nullptr;
 }
 
 int32_t DeviceTy::get_data_alloc_info(

@@ -369,7 +369,6 @@ struct DeviceTy {
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   char *get_device_name(char *Buffer, size_t BufferMaxSize);
   void *data_alloc_base(int64_t Size, void *HstPtrBegin, void *HstPtrBase);
-  void *data_alloc_user(int64_t Size, void *HstPtrBegin);
   int32_t data_submit_nowait(void *TgtPtrBegin, void *HstPtrBegin,
                              int64_t Size, void *AsyncData);
   int32_t data_retrieve_nowait(void *HstPtrBegin, void *TgtPtrBegin,
@@ -397,7 +396,6 @@ struct DeviceTy {
   void *data_alloc_managed(int64_t Size);
   int32_t is_device_accessible_ptr(void *Ptr);
   int32_t managed_memory_supported();
-  void *data_alloc_explicit(int64_t Size, int32_t Kind);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
   int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);

@@ -67,12 +67,8 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
     DP("omp_target_alloc returns managed ptr " DPxMOD "\n", DPxPTR(rc));
     return rc;
   }
-  rc = Device.data_alloc_user(size, NULL);
-  DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
-  return rc;
-#else  // INTEL_COLLAB
-  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
 #endif // INTEL_COLLAB
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
 }
 
 EXTERN void *llvm_omp_target_alloc_device(size_t size, int device_num) {
@@ -591,44 +587,16 @@ EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
   return Device.getInteropRcDesc(ret_code);
 }
 
-static void *target_alloc_explicit(
-    size_t size, int device_num, int kind, const char *name) {
-  DP("Call to %s for device %d requesting %zu bytes\n", name, device_num, size);
-
-  if (size <= 0) {
-    DP("Call to %s with non-positive length\n", name);
-    return NULL;
-  }
-
-  void *rc = NULL;
-
-  if (device_num == omp_get_initial_device()) {
-    rc = malloc(size);
-    DP("%s returns host ptr " DPxMOD "\n", name, DPxPTR(rc));
-    return rc;
-  }
-
-  if (!device_is_ready(device_num)) {
-    DP("%s returns NULL ptr\n", name);
-    return NULL;
-  }
-
-  DeviceTy &Device = PM->Devices[device_num];
-  rc = Device.data_alloc_explicit(size, kind);
-  DP("%s returns device ptr " DPxMOD "\n", name, DPxPTR(rc));
-  return rc;
-}
-
 EXTERN void *omp_target_alloc_device(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
 }
 
 EXTERN void *omp_target_alloc_host(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_HOST, __func__);
 }
 
 EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
-  return target_alloc_explicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
 
 EXTERN void *omp_target_get_context(int device_num) {

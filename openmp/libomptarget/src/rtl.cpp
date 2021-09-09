@@ -334,8 +334,6 @@ void RTLsTy::LoadRTLs() {
       } while (0)
     #define SET_OPTIONAL_INTERFACE_FN(name) SET_OPTIONAL_INTERFACE(name, name)
     SET_OPTIONAL_INTERFACE_FN(data_alloc_base);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_user);
-    SET_OPTIONAL_INTERFACE_FN(data_alloc_explicit);
     SET_OPTIONAL_INTERFACE_FN(data_alloc_managed);
     SET_OPTIONAL_INTERFACE_FN(data_submit_nowait);
     SET_OPTIONAL_INTERFACE_FN(data_retrieve_nowait);
