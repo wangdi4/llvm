@@ -130,7 +130,7 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
     return;
   }
 
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
     printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
@@ -158,7 +158,7 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
   if (encodedId != device_id)
-    PM->Devices[device_id].popSubDevice();
+    PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -212,7 +212,7 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
     return;
   }
 
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
     printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
@@ -240,7 +240,7 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
   if (encodedId != device_id)
-    PM->Devices[device_id].popSubDevice();
+    PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -293,7 +293,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
     printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
                          arg_names, "Updating OpenMP data");
 
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
   AsyncInfoTy AsyncInfo(Device);
 #if INTEL_COLLAB
   Device.pushSubDevice(encodedId, device_id);
@@ -307,7 +307,7 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
   if (encodedId != device_id)
-    PM->Devices[device_id].popSubDevice();
+    PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
 }
 
@@ -371,10 +371,10 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
 
 #if INTEL_COLLAB
   // Push device encoding
-  PM->Devices[device_id].pushSubDevice(encodedId, device_id);
+  PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
   AsyncInfoTy AsyncInfo(Device);
   int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
                   arg_types, arg_names, arg_mappers, 0, 0, false /*team*/,
@@ -385,7 +385,7 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
-    PM->Devices[device_id].popSubDevice();
+    PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
   return rc;
 }
@@ -457,10 +457,10 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
 
 #if INTEL_COLLAB
   // Push device encoding
-  PM->Devices[device_id].pushSubDevice(encodedId, device_id);
+  PM->Devices[device_id]->pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
   AsyncInfoTy AsyncInfo(Device);
   int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
                   arg_types, arg_names, arg_mappers, team_num, thread_limit,
@@ -472,7 +472,7 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
-    PM->Devices[device_id].popSubDevice();
+    PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
   return rc;
 }
@@ -531,8 +531,8 @@ EXTERN void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
   DP("__kmpc_push_target_tripcount(%" PRId64 ", %" PRIu64 ")\n", device_id,
      loop_tripcount);
   PM->TblMapMtx.lock();
-  PM->Devices[device_id].LoopTripCnt.emplace(__kmpc_global_thread_num(NULL),
-                                             loop_tripcount);
+  PM->Devices[device_id]->LoopTripCnt.emplace(__kmpc_global_thread_num(NULL),
+                                              loop_tripcount);
   PM->TblMapMtx.unlock();
 }
 
@@ -546,7 +546,7 @@ EXTERN int32_t __tgt_is_device_available(int64_t device_num,
     return false;
   }
 
-  return PM->Devices[device_num].isSupportedDevice(device_type);
+  return PM->Devices[device_num]->isSupportedDevice(device_type);
 }
 
 EXTERN char *__tgt_get_device_name(
@@ -566,7 +566,7 @@ EXTERN char *__tgt_get_device_name(
 
   DP("Querying device for its name.\n");
 
-  DeviceTy &Device = PM->Devices[device_num];
+  DeviceTy &Device = *PM->Devices[device_num];
   return Device.get_device_name(buffer, buffer_max_size);
 }
 
@@ -586,7 +586,7 @@ EXTERN char *__tgt_get_device_rtl_name(
     return NULL;
   }
 
-  const RTLInfoTy *RTL = PM->Devices[device_num].RTL;
+  const RTLInfoTy *RTL = PM->Devices[device_num]->RTL;
   assert(RTL && "Device with uninitialized RTL.");
   strncpy(buffer, RTL->RTLConstName, buffer_max_size - 1);
   buffer[buffer_max_size - 1] = '\0';
@@ -627,7 +627,7 @@ EXTERN void *__tgt_create_interop_obj(
     return NULL;
   }
 
-  DeviceTy &Device = PM->Devices[device_id];
+  DeviceTy &Device = *PM->Devices[device_id];
 
   auto &rtl_name = Device.RTL->RTLName;
   int32_t plugin;
@@ -674,7 +674,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
     return OFFLOAD_FAIL;
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
-  DeviceTy &Device = PM->Devices[obj->device_id];
+  DeviceTy &Device = *PM->Devices[obj->device_id];
   if (obj->queue)
     Device.release_offload_queue(obj->queue);
   free(interop_obj);
@@ -734,7 +734,7 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
-      PM->Devices[interop->device_id].create_offload_queue(interop);
+      PM->Devices[interop->device_id]->create_offload_queue(interop);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
@@ -774,7 +774,7 @@ EXTERN omp_interop_t __tgt_create_interop(
     device_num = omp_get_default_device();
 
   if (device_is_ready(device_num)) {
-    Interop = PM->Devices[device_num].createInterop(interop_type, num_prefers,
+    Interop = PM->Devices[device_num]->createInterop(interop_type, num_prefers,
                                                     prefer_ids);
     DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
        DPxPTR(Interop), device_num);
@@ -798,7 +798,7 @@ EXTERN int __tgt_release_interop(omp_interop_t interop) {
     return OFFLOAD_FAIL;
   }
 
-  return PM->Devices[DeviceNum].releaseInterop(TgtInterop);
+  return PM->Devices[DeviceNum]->releaseInterop(TgtInterop);
 }
 
 EXTERN int __tgt_use_interop(omp_interop_t interop) {
@@ -819,7 +819,7 @@ EXTERN int __tgt_use_interop(omp_interop_t interop) {
   if (!TgtInterop->TargetSync)
     return OFFLOAD_SUCCESS;
 
-  return PM->Devices[DeviceNum].useInterop(TgtInterop);
+  return PM->Devices[DeviceNum]->useInterop(TgtInterop);
 }
 
 EXTERN int __tgt_get_target_memory_info(
@@ -834,7 +834,7 @@ EXTERN int __tgt_get_target_memory_info(
   }
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
-  DeviceTy &Device = PM->Devices[obj->device_id];
+  DeviceTy &Device = *PM->Devices[obj->device_id];
   return Device.get_data_alloc_info(num_ptrs, tgt_ptrs, ptr_info);
 }
 
@@ -856,7 +856,7 @@ EXTERN void __tgt_add_build_options(
     return;
   }
 
-  auto RTLInfo = PM->Devices[device_num].RTL;
+  auto RTLInfo = PM->Devices[device_num]->RTL;
   if (RTLInfo->add_build_options)
     RTLInfo->add_build_options(compile_options, link_options);
 }
@@ -871,6 +871,6 @@ EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
 }
 
 EXTERN int __tgt_print_device_info(int64_t device_id) {
-  return PM->Devices[device_id].printDeviceInfo(
-      PM->Devices[device_id].RTLDeviceID);
+  return PM->Devices[device_id]->printDeviceInfo(
+      PM->Devices[device_id]->RTLDeviceID);
 }
