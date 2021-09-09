@@ -729,9 +729,9 @@ def device_math_lib_EQ : CommaJoined<["-"], "device-math-lib=">,
 def no_device_math_lib_EQ : CommaJoined<["-"], "no-device-math-lib=">,
   Flags<[NoXarchOption]>, Values<"fp32,fp64">;
 def no_intel_lib_EQ : CommaJoined<["-"], "no-intel-lib=">,
-  Values<"libirc,libimf,libirng,libsvml,libifport">, HelpText<"Restrict "
+  Values<"libirc,libimf,libirng,libsvml">, HelpText<"Restrict "
   "linking of Intel specific libraries. Valid arguments are libirc, libimf, "
-  "libirng, libsvml,">;
+  "libirng, libsvml">;
 def no_intel_lib : Flag<["-"], "no-intel-lib">,
   HelpText<"Restrict linking of all Intel specific libraries.">;
 #endif // INTEL_CUSTOMIZATION
