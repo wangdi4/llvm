@@ -39,6 +39,10 @@
 #endif
 /* end INTEL_FEATURE_ISA_RAO_INT */
 /* end INTEL_CUSTOMIZATION */
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__CRC32__)
+#include <crc32intrin.h>
+#endif
 
 #define __SSC_MARK(Tag)                                                        \
   __asm__ __volatile__("movl %%ebx, %%eax; movl %0, %%ebx; .byte 0x64, 0x67, " \
