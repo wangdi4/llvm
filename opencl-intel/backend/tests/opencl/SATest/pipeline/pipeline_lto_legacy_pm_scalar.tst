@@ -25,7 +25,12 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK-NOT:      VFAnalysisLegacy
 ; CHECK-NOT:      SetVectorizationFactorLegacy
+; CHECK-NOT:      VectorVariantLoweringLegacy
+; CHECK-NOT:      CreateSimdVariantPropagationLegacy
+; CHECK-NOT:      SGSizeCollectorLegacy
+; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecClone pass
 ; CHECK-NOT:      VPlan Vectorization Driver
 ; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
