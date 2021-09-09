@@ -1839,6 +1839,27 @@ def int_experimental_matrix_mad
                llvm_anyvector_ty, llvm_metadata_ty,
                LLVMMatchType<0>, llvm_metadata_ty,
                llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty]>;
+
+def int_experimental_matrix_sumad
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+              [llvm_anyvector_ty, llvm_metadata_ty,
+               llvm_anyvector_ty, llvm_metadata_ty,
+               LLVMMatchType<0>, llvm_metadata_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty]>;
+
+def int_experimental_matrix_usmad
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+              [llvm_anyvector_ty, llvm_metadata_ty,
+               llvm_anyvector_ty, llvm_metadata_ty,
+               LLVMMatchType<0>, llvm_metadata_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty]>;
+
+def int_experimental_matrix_uumad
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+              [llvm_anyvector_ty, llvm_metadata_ty,
+               llvm_anyvector_ty, llvm_metadata_ty,
+               LLVMMatchType<0>, llvm_metadata_ty,
+               llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_metadata_ty]>;
 #endif // INTEL_CUSTOMIZATION
 
 //===---------- Intrinsics to control hardware supported loops ----------===//

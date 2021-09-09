@@ -65,16 +65,16 @@
 ; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   (%ContractedArray)[i4][i5] = i4 + i5;
-; CHECK: |   |   |   |   |   (%ContractedArray16)[i4][i5] = i4 + i5;
+; CHECK: |   |   |   |   |   (%ContractedArray)[0][i4][i5] = i4 + i5;
+; CHECK: |   |   |   |   |   (%ContractedArray16)[0][i4][i5] = i4 + i5;
 ; CHECK: |   |   |   |   + END LOOP
 ; CHECK: |   |   |   + END LOOP
 ; CHECK: |   |   |
 ; CHECK: |   |   |
 ; CHECK: |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   %t5 = (%ContractedArray)[i5][i4];
-; CHECK: |   |   |   |   |   %t6 = (%ContractedArray16)[i5][i4];
+; CHECK: |   |   |   |   |   %t5 = (%ContractedArray)[0][i5][i4];
+; CHECK: |   |   |   |   |   %t6 = (%ContractedArray16)[0][i5][i4];
 ; CHECK: |   |   |   |   |   (%C)[0][i1][i2][i3][i4][i5] = %t5 + %t6;
 ; CHECK: |   |   |   |   + END LOOP
 ; CHECK: |   |   |   + END LOOP
@@ -88,16 +88,16 @@
 ; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   (%ContractedArray17)[i4][i5] = i4 + i5;
-; CHECK: |   |   |   |   |   (%ContractedArray18)[i4][i5] = i4 + i5;
+; CHECK: |   |   |   |   |   (%ContractedArray17)[0][i4][i5] = i4 + i5;
+; CHECK: |   |   |   |   |   (%ContractedArray18)[0][i4][i5] = i4 + i5;
 ; CHECK: |   |   |   |   + END LOOP
 ; CHECK: |   |   |   + END LOOP
 ; CHECK: |   |   |
 ; CHECK: |   |   |
 ; CHECK: |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   |   + DO i5 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   %t8 = (%ContractedArray17)[i5][i4];
-; CHECK: |   |   |   |   |   %t9 = (%ContractedArray18)[i5][i4];
+; CHECK: |   |   |   |   |   %t8 = (%ContractedArray17)[0][i5][i4];
+; CHECK: |   |   |   |   |   %t9 = (%ContractedArray18)[0][i5][i4];
 ; CHECK: |   |   |   |   |   (%C)[0][i1][i2][i3][i4][i5] = %t8 + %t9;
 ; CHECK: |   |   |   |   + END LOOP
 ; CHECK: |   |   |   + END LOOP
