@@ -347,10 +347,11 @@ public:
   /// Add return value attributes to this function.
   void addRetAttr(Attribute::AttrKind Kind);
 
-#if INTEL_CUSTOMIZATION
   /// Add return value attributes to this function.
   void addRetAttr(Attribute Attr);
-#endif
+
+  /// Add return value attributes to this function.
+  void addRetAttrs(const AttrBuilder &Attrs);
 
   /// adds the attribute to the list of attributes for the given arg.
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);

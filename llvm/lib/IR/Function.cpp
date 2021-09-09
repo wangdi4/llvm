@@ -565,11 +565,13 @@ void Function::addRetAttr(Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.addRetAttribute(getContext(), Kind);
 }
 
-#if INTEL_CUSTOMIZATION
 void Function::addRetAttr(Attribute Attr) {
   AttributeSets = AttributeSets.addRetAttribute(getContext(), Attr);
 }
-#endif
+
+void Function::addRetAttrs(const AttrBuilder &Attrs) {
+  AttributeSets = AttributeSets.addRetAttributes(getContext(), Attrs);
+}
 
 void Function::addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
   AttributeSets = AttributeSets.addParamAttribute(getContext(), ArgNo, Kind);
