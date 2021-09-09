@@ -398,7 +398,11 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   // Find "shared" candidates that can be privatized.
   SmallVector<AllocaInst *, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
-    if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
+    Value *V = I->getOrig();
+    if (!V)
+      continue;
+
+    if (auto *AI = dyn_cast<AllocaInst>(V)) {
       // Do not do privatization for a shared item if it is captured by a nested
       // task.
       //
@@ -424,7 +428,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     // Check if shared item is a bitcasted alloca instruction that can be
     // privatized. If so move bitcast into the work region and change shared
     // item to alloca instruction.
-    if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
+    if (auto *BCI = dyn_cast<BitCastInst>(V))
       if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
 
         // TODO: If the BC's region is nested, we cannot make the alloca
@@ -460,7 +464,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not a local pointer"));
+    LLVM_DEBUG(reportSkipped(V, "not a local pointer"));
   }
 
   if (ToPrivatize.empty())
@@ -727,7 +731,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           // Change item's value to null.
           Value *NewV = Constant::getNullValue(U->getType());
           U.set(NewV);
-          Item->setOrig(NewV);
+          Item->setOrig(nullptr);
           Changed = true;
         }
       }
@@ -742,7 +746,7 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       bool Changed = false;
       for (auto *Item : Clause->items()) {
         Value *V = Item->getOrig();
-        if (hasWRNUses(W, V))
+        if (!V || hasWRNUses(W, V))
           continue;
 
         // Special handling for the schedule chunk that is loaded from a shared
@@ -793,6 +797,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       Changed |= CleanupRedundantItems(Clause);
     if (auto *Clause = W->getSharedIfSupported())
       Changed |= CleanupRedundantItems(Clause);
+    if (auto *Clause = W->getLprivIfSupported())
+      Changed |= CleanupRedundantItems(Clause);
 
     if (!ToPrivatize.empty()) {
       StringRef PrivateClause =
@@ -839,6 +845,7 @@ bool VPOParoptTransform::privatizeSharedItems() {
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNWksLoop:
     case WRegionNode::WRNDistribute:
+    case WRegionNode::WRNVecLoop:
       Changed |= simplifyRegionClauses(W);
       break;
     }

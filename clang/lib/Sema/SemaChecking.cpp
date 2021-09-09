@@ -4503,6 +4503,34 @@ bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
   return false;
 }
 
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+// Check if the TilePair registers is legal and duplicated.
+bool Sema::CheckX86BuiltinTilePairDuplicate(CallExpr *TheCall,
+                                            ArrayRef<int> ArgNums) {
+  std::bitset<16> ArgValues;
+  for (int ArgNum : ArgNums) {
+    llvm::APSInt Arg;
+    SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
+    int ArgExtValue = Arg.getExtValue();
+    assert((ArgExtValue >= 0 || ArgExtValue < 32) &&
+           "Incorrect TilePair register num.");
+    if (ArgValues.test(ArgExtValue / 2))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tilepair_arg_duplicate)
+             << TheCall->getArg(ArgNum)->getSourceRange();
+    ArgValues.set(ArgExtValue / 2);
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTilePairRangeAndDuplicate(CallExpr *TheCall,
+                                                    ArrayRef<int> ArgNums,
+                                                    int Low, int High) {
+  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
+         CheckX86BuiltinTilePairDuplicate(TheCall, ArgNums);
+}
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
+
 bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
                                                 ArrayRef<int> ArgNums, int Low,
                                                 int High) {
@@ -4739,6 +4767,20 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
     return (CheckX86BuiltinTileArgumentsRange(TheCall, 0, 0, 31) ||
             CheckX86BuiltinTileArgumentsRange(TheCall, 1, 0, 255));
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+  case X86::BI__builtin_ia32_tdpsbssd:
+  case X86::BI__builtin_ia32_tdpsbsud:
+  case X86::BI__builtin_ia32_tdpsbusd:
+  case X86::BI__builtin_ia32_tdpsbuud:
+  case X86::BI__builtin_ia32_tdpsbf16ps:
+  case X86::BI__builtin_ia32_tdpsfp16ps:
+    return CheckX86BuiltinTilePairRangeAndDuplicate(TheCall, {0, 1, 2});
+  case X86::BI__builtin_ia32_tldexpandb:
+  case X86::BI__builtin_ia32_tldexpandbt1:
+  case X86::BI__builtin_ia32_tldexpandw:
+  case X86::BI__builtin_ia32_tldexpandwt1:
+    return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
   }
 }
 #endif // INTEL_CUSTOMIZATION

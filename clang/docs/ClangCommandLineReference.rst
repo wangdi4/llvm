@@ -3617,6 +3617,11 @@ X86
 .. option:: -mamx-transpose2, -mno-amx-transpose2
 
 .. end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+.. INTEL_FEATURE_ISA_AMX_SPARSE
+.. option:: -mamx-sparse, -mno-amx-sparse
+
+.. end INTEL_FEATURE_ISA_AMX_SPARSE
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

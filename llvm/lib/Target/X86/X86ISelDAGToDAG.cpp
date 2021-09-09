@@ -5226,6 +5226,38 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+    case Intrinsic::x86_tldexpandb:
+    case Intrinsic::x86_tldexpandbt1:
+    case Intrinsic::x86_tldexpandw:
+    case Intrinsic::x86_tldexpandwt1: {
+      if (!Subtarget->hasAMXSPARSE())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tldexpandb:   Opc = X86::PTLDEXPANDB;   break;
+      case Intrinsic::x86_tldexpandbt1: Opc = X86::PTLDEXPANDBT1; break;
+      case Intrinsic::x86_tldexpandw:   Opc = X86::PTLDEXPANDW;   break;
+      case Intrinsic::x86_tldexpandwt1: Opc = X86::PTLDEXPANDWT1; break;
+      }
+      // FIXME: Match displacement and scale.
+      unsigned TIndex = Node->getConstantOperandVal(2);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      SDValue Chain = Node->getOperand(0);
+      MachineSDNode *CNode;
+      SDValue Ops[] = {
+          TReg, Base, Scale, Index, Disp, Segment, Node->getOperand(5), Chain};
+      CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
 #endif // INTEL_CUSTOMIZATION
     }
     break;

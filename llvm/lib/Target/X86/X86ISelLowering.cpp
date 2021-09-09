@@ -37170,6 +37170,59 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_AVX512_CVTROW
+#if INTEL_FEATURE_ISA_AMX_SPARSE
+  case X86::PTLDEXPANDB:
+  case X86::PTLDEXPANDBT1:
+  case X86::PTLDEXPANDW:
+  case X86::PTLDEXPANDWT1: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTLDEXPANDB:   Opc = X86::TLDEXPANDB;    break;
+    case X86::PTLDEXPANDBT1: Opc = X86::TLDEXPANDBT1;  break;
+    case X86::PTLDEXPANDW:   Opc = X86::TLDEXPANDW;    break;
+    case X86::PTLDEXPANDWT1: Opc = X86::TLDEXPANDWT1;  break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MIB.add(MI.getOperand(6)); // reg
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTDPSBF16PS:
+  case X86::PTDPSFP16PS:
+  case X86::PTDPSBSSD:
+  case X86::PTDPSBSUD:
+  case X86::PTDPSBUSD:
+  case X86::PTDPSBUUD: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTDPSBF16PS: Opc = X86::TDPSBF16PS; break;
+    case X86::PTDPSFP16PS: Opc = X86::TDPSFP16PS; break;
+    case X86::PTDPSBSSD:   Opc = X86::TDPSBSSD; break;
+    case X86::PTDPSBSUD:   Opc = X86::TDPSBSUD; break;
+    case X86::PTDPSBUSD:   Opc = X86::TDPSBUSD; break;
+    case X86::PTDPSBUUD:   Opc = X86::TDPSBUUD; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMPair(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMPair(MI.getOperand(2).getImm()), RegState::Undef);
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_SPARSE
 #endif // INTEL_CUSTOMIZATION
   }
 }
