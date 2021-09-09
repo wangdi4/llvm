@@ -1072,8 +1072,10 @@ static void getAvailableFeatures(unsigned ECX, unsigned EDX, unsigned MaxLeaf,
     setFeature(X86::FEATURE_FMA);
   if ((ECX >> 19) & 1)
     setFeature(X86::FEATURE_SSE4_1);
-  if ((ECX >> 20) & 1)
+  if ((ECX >> 20) & 1) {
     setFeature(X86::FEATURE_SSE4_2);
+    setFeature(X86::FEATURE_CRC32);
+  }
   if ((ECX >> 23) & 1)
     setFeature(X86::FEATURE_POPCNT);
   if ((ECX >> 25) & 1)
@@ -1519,6 +1521,7 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   Features["cx16"]   = (ECX >> 13) & 1;
   Features["sse4.1"] = (ECX >> 19) & 1;
   Features["sse4.2"] = (ECX >> 20) & 1;
+  Features["crc32"]  = Features["sse4.2"];
   Features["movbe"]  = (ECX >> 22) & 1;
   Features["popcnt"] = (ECX >> 23) & 1;
   Features["aes"]    = (ECX >> 25) & 1;
