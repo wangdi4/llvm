@@ -74,7 +74,6 @@ SetVectorizationFactorPass::SetVectorizationFactorPass(
 bool SetVectorizationFactorPass::runImpl(Module &M,
                                          const VFAnalysisInfo *VFInfo) {
   auto Kernels = DPCPPKernelMetadataAPI::KernelList(M).getList();
-  VFInfo->print(dbgs());
   for (auto *Kernel : Kernels) {
     DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
     unsigned VF = VFInfo->getVF(Kernel);
