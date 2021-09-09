@@ -5118,6 +5118,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-mllvm");
         CmdArgs.push_back("-vpo-paropt-preserve-llvm-intrin");
       }
+      if (Args.hasArg(options::OPT_fopenmp_target_fast_atomics)) {
+        CmdArgs.push_back("-mllvm");
+        CmdArgs.push_back("-vpo-paropt-enable-64bit-opencl-atomics=true");
+      }
     }
 #endif // INTEL_CUSTOMIZATION
   }
