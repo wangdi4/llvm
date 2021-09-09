@@ -917,10 +917,9 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
 // We don't consider/recognize those different kinds of idiom here, the
 // classification is done in VPlan. Moreover, we do not recognize general
 // conflict for now.
-// We bail-out if one of the following does not occut:
+// We bail-out if one of the following does not occur:
 // - there should be only one backward flow dependency (backward dependencies do
-// not
-//   have linear memrefs)
+//   not have linear memrefs)
 // - the load and store should have the same memory reference
 // - there should be only one output dependency
 // - the conflict index should not be redefined between load and store
@@ -995,6 +994,10 @@ bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
     // Check if both source and sink nodes have the same memory reference.
     if (!DDRefUtils::areEqual(SinkRef, StoreMemDDRef))
       return Mismatch("Wrong memory dependency.");
+
+    // Check that sink ref is not a fake ref of the call.
+    if ((cast<RegDDRef>(SinkRef))->isFake())
+      return Mismatch("Sink ref is fake ref.");
 
     LoadRef = SinkRef;
 

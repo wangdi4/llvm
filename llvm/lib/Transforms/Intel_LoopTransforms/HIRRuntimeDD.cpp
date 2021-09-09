@@ -554,6 +554,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "SIMD Loop";
   case UNKNOWN_MIN_MAX:
     return "Could not find MIN and MAX bounds";
+  case UNKNOWN_ADDR_RANGE:
+    return "Mem ref has unknown address range";
   }
   llvm_unreachable("Unexpected give up reason");
 }
@@ -1073,6 +1075,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
       return STRUCT_ACCESS;
     }
 
+    if (std::any_of(Groups[I].begin(), Groups[I].end(),
+                    [](const RegDDRef *Ref) { return Ref->isFake(); })) {
+      return UNKNOWN_ADDR_RANGE;
+    }
+
     bool IsWriteGroup =
         std::any_of(Groups[I].begin(), Groups[I].end(),
                     [](const RegDDRef *Ref) { return Ref->isLval(); });
@@ -1112,7 +1119,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
     // Skip Read-Read segments
     assert((S1.isWrite() || S2.isWrite()) &&
-           "At least of the one segments should be a write segment");
+           "At least one of the segments should be a write segment");
 
     Context.SegmentList.push_back(S1.genSegment());
     Context.SegmentList.push_back(S2.genSegment());

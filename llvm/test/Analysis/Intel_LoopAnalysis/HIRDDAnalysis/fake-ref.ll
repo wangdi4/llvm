@@ -3,11 +3,11 @@
 
 ; Test checks that DD analysis does not refine (*) edges between real and fake DDRefs.
 
-; CHECK: (%A)[undef] --> (%A)[undef] FLOW (*)
+; CHECK: (%A)[0] --> (%A)[5] FLOW (*)
 
 ; <11>               + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
 ; <2>                |   @bar(&((%A)[0]));
-; <4>                |   %ld = (%A)[undef];
+; <4>                |   %ld = (%A)[5];
 ; <11>               + END LOOP
 ; <0>          END REGION
 
@@ -26,7 +26,7 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %i.05 = phi i32 [ %inc, %for.body ], [ 0, %for.body.preheader ]
   call void @bar(i32* %A)
-  %gep = getelementptr inbounds i32, i32* %A, i64 undef
+  %gep = getelementptr inbounds i32, i32* %A, i64 5
   %ld = load i32, i32* %gep, align 4
   %inc = add nuw nsw i32 %i.05, 1
   %exitcond = icmp eq i32 %inc, %n

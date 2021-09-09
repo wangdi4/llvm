@@ -726,6 +726,12 @@ void HIRArrayTranspose::MallocAnalyzer::processFree(HLInst *HInst) {
 
   // This is treated just like other uses which need to be transposed.
   HAT.StridedGEPRefUses.push_back(ArgOpRef);
+
+  // Do the same for fake ref access.
+  assert((std::distance(HInst->fake_ddref_begin(),
+                        HInst->fake_ddref_end()) == 1) &&
+         "Inconsistant fake ddref for 'free' call");
+  HAT.StridedGEPRefUses.push_back(*(HInst->fake_ddref_begin()));
 }
 
 std::pair<int64_t, unsigned>
@@ -1123,7 +1129,7 @@ void HIRArrayTranspose::transposeStridedRefs(
 
     assert(!CE->hasBlob() && "blobs in CE not expected!");
 
-    // Add mallloc offset to bring the index in terms of original malloc base
+    // Add malloc offset to bring the index in terms of original malloc base
     // pointer.
     CE->addConstant(ArrayOffsetInElements, false);
 

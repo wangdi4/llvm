@@ -117,8 +117,7 @@ public:
       : HLC(HLC), RefVec(RefVec), GEPRefVec(GEPRefVec) {}
 
   void visit(HLDDNode *Node) {
-    for (auto I = Node->op_ddref_begin(), E = Node->op_ddref_end(); I != E;
-         ++I) {
+    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
       collectRef(*I);
     }
   }
@@ -425,6 +424,9 @@ bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
   const unsigned InnerLpLevel = InnerLp->getNestingLevel();
 
   for (RegDDRef *GEPRef : GEPRefVec) {
+    if (GEPRef->isFake())
+      continue;
+
     const unsigned NumDims = GEPRef->getNumDimensions();
     unsigned CollapseLevel = (NumDims == 1)
                                  ? matchSingleDimDynShapeArray(GEPRef)
@@ -562,6 +564,9 @@ unsigned HIRLoopCollapse::getNumMatchedDimensions(RegDDRef *GEPRef) {
 bool HIRLoopCollapse::areNonGEPRefsProfitable(void) {
 
   for (auto Ref : RefVec) {
+    if (Ref->isFake())
+      continue;
+
     for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
       CanonExpr *CE = (*I);
 

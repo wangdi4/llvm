@@ -130,7 +130,7 @@ class HIRIdiomRecognition {
   bool makeStartRef(RegDDRef *Ref, HLLoop *Loop, bool IsNegStride);
 
   // Creates fake ddref for the memset/memcpy calls
-  RegDDRef *createFakeDDRef(const RegDDRef *Ref, unsigned Level);
+  RegDDRef *createFakeDDRef(const RegDDRef *Ref);
 
 public:
   HIRIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS,
@@ -421,31 +421,9 @@ bool HIRIdiomRecognition::makeStartRef(RegDDRef *Ref, HLLoop *Loop,
   return true;
 }
 
-RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref,
-                                               unsigned Level) {
-  // TODO: Reuse Ref for FakeDDRef as we will be removing it's HLNode.
-  // If reuse the RemovedNodes should be also updated as the Ref will be
-  // attached to the different HLNode.
+RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref) {
   RegDDRef *FakeRef = Ref->clone();
-  unsigned UndefIndex = InvalidBlobIndex;
-  for (CanonExpr *CE :
-       llvm::make_range(FakeRef->canon_begin(), FakeRef->canon_end())) {
-    if (!CE->hasIV(Level)) {
-      continue;
-    }
-
-    CE->removeIV(Level);
-
-    CE->getBlobUtils().createUndefBlob(CE->getSrcType(), true, &UndefIndex);
-    CE->addBlob(UndefIndex, 1, false);
-
-    break;
-  }
-
-  assert(UndefIndex != InvalidBlobIndex && "There should be at least one IV");
-
-  // Fake DDRef will be attached to the pre-header of the i*Level* loop.
-  FakeRef->updateDefLevel(Level - 1);
+  FakeRef->setAddressOf(false);
 
   return FakeRef;
 }
@@ -496,9 +474,8 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
   // The i8 blob could be non linear at the pre-header level.
   RHS->updateDefLevel(Loop->getNestingLevel() - 1);
 
-  HLInst *MemsetInst = HNU.createMemset(Ref.release(), RHS, Size);
-  MemsetInst->addFakeLvalDDRef(
-      createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
+  HLInst *MemsetInst = HNU.createMemset(Ref.get(), RHS, Size);
+  MemsetInst->addFakeLvalDDRef(createFakeDDRef(Ref.release()));
   if (ExtractPreheader) {
     Loop->extractPreheader();
     ExtractPreheader = false;
@@ -561,11 +538,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
   }
 
   HLInst *MemcpyInst =
-      HNU.createMemcpy(StoreRef.release(), LoadRef.release(), Size);
-  MemcpyInst->addFakeLvalDDRef(
-      createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
-  MemcpyInst->addFakeRvalDDRef(
-      createFakeDDRef(Candidate.RHS, Loop->getNestingLevel()));
+      HNU.createMemcpy(StoreRef.get(), LoadRef.get(), Size);
+  MemcpyInst->addFakeLvalDDRef(createFakeDDRef(StoreRef.release()));
+  MemcpyInst->addFakeRvalDDRef(createFakeDDRef(LoadRef.release()));
 
   if (ExtractPreheader) {
     Loop->extractPreheader();
