@@ -3685,9 +3685,11 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
     ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
     Type *DimTy = VPSubscript->getDimensionType(Dim);
+    Type *DimElemTy = isa<ArrayType>(DimTy) ? DimTy->getArrayElementType()
+                                            : DimTy->getPointerElementType();
     NewRef->addDimension(Idx->getSingleCanonExpr(), StructOffsets,
                          Lower->getSingleCanonExpr(),
-                         Stride->getSingleCanonExpr(), DimTy);
+                         Stride->getSingleCanonExpr(), DimTy, DimElemTy);
   }
 
   makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen, ScalarLaneID);

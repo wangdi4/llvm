@@ -2911,8 +2911,7 @@ static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
     return GEP->getSourceElementType();
   } else {
     auto *Sub = cast<SubscriptInst>(GEPOp);
-    // TODO: Use SubscriptInst's ElementType info once it is added.
-    return Sub->getPointerOperand()->getType()->getPointerElementType();
+    return Sub->getElementType();
   }
 }
 
@@ -3099,8 +3098,7 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   Offsets.push_back(-1);
 
   unsigned NumOp = GEPOp->getNumIndices();
-  auto CurTy =
-      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
+  auto CurTy = getBasePtrElementType(GEPOp);
 
   // Ignore first index.
   for (unsigned I = 1; I < NumOp; ++I) {
@@ -3173,6 +3171,7 @@ const Value *HIRParser::traceSingleOperandPhis(const Value *Val) const {
 
 class DimInfo {
   Type *Ty = nullptr;
+  Type *ElemTy = nullptr;
   Value *Stride = nullptr;
 
   SmallVector<Value *, 4> Indices;
@@ -3183,6 +3182,9 @@ class DimInfo {
 public:
   Type *getType() const { return Ty; }
   void setType(Type *Ty) { this->Ty = Ty; }
+
+  Type *getElementType() const { return ElemTy; }
+  void setElementType(Type *Ty) { this->ElemTy = Ty; }
 
   Value *getStride() const { return Stride; }
   void setStride(Value *Stride) { this->Stride = Stride; }
@@ -3231,13 +3233,6 @@ public:
 
     Indices.push_back(Idx);
     IndicesLB.push_back(LB);
-  }
-
-  void clear() {
-    Ty = nullptr;
-    Stride = nullptr;
-    Indices.clear();
-    IndicesLB.clear();
   }
 
   bool isDefined() const {
@@ -3459,6 +3454,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const SubscriptInst *Sub) {
 
   DimInfo &Dim = Arr.getOrCreate(Sub->getTypeRank());
   Dim.setType(Sub->getType());
+  Dim.setElementType(Sub->getElementType());
   Dim.setStride(Sub->getStride());
   Dim.addIndex(Sub->getIndex(), Sub->getLowerBound());
 
@@ -3575,6 +3571,7 @@ std::list<ArrayInfo> HIRParser::GEPChain::parseGEPOp(const HIRParser &Parser,
 
     auto &Dim = Arr->getOrCreate(Rank);
     Dim.setType(DimTy);
+    Dim.setElementType(DimElemTy);
     Dim.addIndex(Index, nullptr);
 
     auto Stride = DimElemTy->isSized()
@@ -3774,6 +3771,7 @@ bool HIRParser::GEPChain::extend(const HIRParser &Parser,
       auto &NextDim = NextArr.getDim(I);
 
       CurDim.setType(NextDim.getType());
+      CurDim.setElementType(NextDim.getElementType());
       CurDim.setStride(NextDim.getStride());
 
       for (auto Idx : zip(NextDim.indices(), NextDim.indicesLB())) {
@@ -3888,7 +3886,7 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       Ref->addDimensionHighest(IndexCE, StructOffsets, LowerCE, StrideCE,
-                               Dim.getType());
+                               Dim.getType(), Dim.getElementType());
     }
   }
 
@@ -3916,7 +3914,8 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
     mergeIndexCE(HighestDimCE, IndexCE);
     getCanonExprUtils().destroy(IndexCE);
   } else {
-    Ref->addDimensionHighest(IndexCE, {}, nullptr, StrideCE, DimType);
+    Ref->addDimensionHighest(IndexCE, {}, nullptr, StrideCE, DimType,
+                             DimElemType);
     Ref->setBasePtrElementType(DimElemType);
   }
 
@@ -4997,6 +4996,8 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
 RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
                                           SmallVectorImpl<BlobTy> &Strides,
                                           SmallVectorImpl<BlobTy> &DimSizes) {
+  assert(Ref->isSingleDimension() && "Expected single dimension refs");
+
   BlobUtils &BU = getBlobUtils();
   DDRefUtils &DRU = getDDRefUtils();
   CanonExprUtils &CEU = getCanonExprUtils();
@@ -5008,6 +5009,8 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
                                       Ref->getSymbase());
 
   Type *IndexType = LinearIndexCE->getSrcType();
+  Type *DimType = Ref->getDimensionType(1);
+  Type *DimElemType = Ref->getDimensionElementType(1);
 
   // Add dimensions using Strides.
   for (BlobTy Stride : Strides) {
@@ -5033,8 +5036,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
       StrideCE->multiplyByBlob(StrideIndex);
     }
 
-    Type *DimType = Ref->getBaseCE()->getDestType();
-    NewRef->addDimension(CE, {}, CE->clone(), StrideCE, DimType);
+    NewRef->addDimension(CE, {}, CE->clone(), StrideCE, DimType, DimElemType);
   }
 
   // Ref may have innermost struct offset.
