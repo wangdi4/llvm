@@ -52,7 +52,7 @@ struct RTLInfoTy {
                                             int32_t, uint64_t,
                                             __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
-  typedef int64_t(synchronize_ty)(int32_t, __tgt_async_info *);
+  typedef int32_t(synchronize_ty)(int32_t, __tgt_async_info *);
 #if INTEL_COLLAB
   typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
                                          void *);
