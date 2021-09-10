@@ -1176,11 +1176,6 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("VK16",            ENCODING_RM)
   ENCODING("VK32",            ENCODING_RM)
   ENCODING("VK64",            ENCODING_RM)
-  ENCODING("VK1PAIR",         ENCODING_RM)
-  ENCODING("VK2PAIR",         ENCODING_RM)
-  ENCODING("VK4PAIR",         ENCODING_RM)
-  ENCODING("VK8PAIR",         ENCODING_RM)
-  ENCODING("VK16PAIR",        ENCODING_RM)
   ENCODING("BNDR",            ENCODING_RM)
   ENCODING("TILE",            ENCODING_RM)
 #if INTEL_CUSTOMIZATION
@@ -1284,11 +1279,6 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("VK16",            ENCODING_VVVV)
   ENCODING("VK32",            ENCODING_VVVV)
   ENCODING("VK64",            ENCODING_VVVV)
-  ENCODING("VK1PAIR",         ENCODING_VVVV)
-  ENCODING("VK2PAIR",         ENCODING_VVVV)
-  ENCODING("VK4PAIR",         ENCODING_VVVV)
-  ENCODING("VK8PAIR",         ENCODING_VVVV)
-  ENCODING("VK16PAIR",        ENCODING_VVVV)
   ENCODING("TILE",            ENCODING_VVVV)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
