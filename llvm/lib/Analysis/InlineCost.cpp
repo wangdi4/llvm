@@ -1002,18 +1002,11 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Threshold -= VectorBonus;
     else if (NumVectorInstructions <= NumInstructions / 2)
       Threshold -= VectorBonus / 2;
-
 #if INTEL_CUSTOMIZATION
     if (NumVectorInstructions > NumInstructions / 10)
       YesReasonVector.push_back(InlrVectorBonus);
-    bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
-    InlineReason Reason =
-        IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
-                     : bestInlineReason(NoReasonVector, NinlrNotProfitable);
-    if (!IsProfitable)
-      return InlineResult::failure("not profitable").setIntelInlReason(Reason);
-    return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
+
     if (Optional<int> AttrCost =
             getStringFnAttrAsInt(CandidateCall, "function-inline-cost"))
       Cost = *AttrCost;
@@ -1030,6 +1023,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         return InlineResult::failure("Cost over threshold.");
     }
 
+#if INTEL_CUSTOMIZATION
+    bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
+    InlineReason Reason =
+        IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
+                     : bestInlineReason(NoReasonVector, NinlrNotProfitable);
+    if (!IsProfitable)
+      return InlineResult::failure("not profitable").setIntelInlReason(Reason);
+    return InlineResult::success().setIntelInlReason(Reason);
+#endif // INTEL_CUSTOMIZATION
     if (IgnoreThreshold || Cost < std::max(1, Threshold))
       return InlineResult::success();
     return InlineResult::failure("Cost over threshold.");
