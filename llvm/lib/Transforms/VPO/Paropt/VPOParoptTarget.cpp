@@ -738,6 +738,19 @@ static bool ignoreSpecialOperands(const Instruction *I) {
     if (CalledF->hasName() &&
         IgnoreCalls.find(std::string(CalledF->getName())) != IgnoreCalls.end())
       return true;
+
+    if (CallI->hasFnAttr("openmp-privatization-constructor") ||
+        CallI->hasFnAttr("openmp-privatization-destructor") ||
+        CallI->hasFnAttr("openmp-privatization-copyconstructor") ||
+        CallI->hasFnAttr("openmp-privatization-copyassign")) {
+      const Value *CheckArgument = CallI->getArgOperand(0);
+      const Value *RootPointer = CheckArgument->stripInBoundsOffsets();
+      if (cast<PointerType>(CheckArgument->getType())->getAddressSpace() ==
+              vpo::ADDRESS_SPACE_PRIVATE ||
+          cast<PointerType>(RootPointer->getType())->getAddressSpace() ==
+              vpo::ADDRESS_SPACE_PRIVATE)
+        return true;
+    }
   } else if (auto StoreI = dyn_cast<StoreInst>(I)) {
     const Value *StorePointer = StoreI->getPointerOperand();
     const Value *RootPointer = StorePointer->stripInBoundsOffsets();
