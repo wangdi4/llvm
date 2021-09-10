@@ -890,7 +890,8 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL)) &&
+  if (TLI && !TLI->isFunctionVectorizable(
+        FnName, ElementCount::getFixed(VL)) &&
       !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
       !isOpenCLWriteChannel(FnName))
     return nullptr;
@@ -903,11 +904,14 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   if (VecVariant) {
-    std::string VFnName = *VecVariant->getName();
+    // Having getName() absent means that the vector variant was in the form
+    // "_ZGVbM4uu_" without the BaseName. Use function name then.
+    std::string VFnName = VecVariant->getName().hasValue() ?
+      *VecVariant->getName() : VecVariant->generateFunctionName(FnName);
     Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
       VectorF->copyAttributesFrom(OrigF);
     }
     return VectorF;
@@ -950,7 +954,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     Function *VectorF = M->getFunction(VFnName);
     if (!VectorF) {
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     }
     // Note: The function signature is different for the vector version of
     // these functions. E.g., in the case of __read_pipe the 2nd parameter
@@ -966,6 +970,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     return VectorF;
   }
 
+  assert(TLI && "TLI is expected to be initialized.");
   // Generate a vector library call.
   StringRef VFnName =
       TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
@@ -982,7 +987,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       VecRetTy = StructType::get(ElementType, ElementType);
     }
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-    VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+    VectorF = Function::Create(FTy, OrigF->getLinkage(), VFnName, M);
     VectorF->copyAttributesFrom(OrigF);
   }
   return VectorF;
