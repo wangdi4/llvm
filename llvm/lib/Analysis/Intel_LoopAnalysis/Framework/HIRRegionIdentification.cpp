@@ -2542,3 +2542,66 @@ bool HIRRegionIdentification::hasNonGEPAccess(
 
   return false;
 }
+
+const GEPOperator *HIRRegionIdentification::tracebackToGEPOp(
+    const Value *Val, SmallPtrSetImpl<const Value *> &VisitedInsts) const {
+  while (1) {
+
+    if (auto *Phi = dyn_cast<PHINode>(Val)) {
+      // Bail out if we have already visted this phi to avoid getting into
+      // infinite cycle.
+      if (!VisitedInsts.insert(Phi).second) {
+        return nullptr;
+      }
+
+      // Trace through phis.
+      if (isHeaderPhi(Phi)) {
+        Val = getHeaderPhiUpdateVal(Phi);
+        continue;
+
+      } else {
+        // Since the traceback is specifically for getting element type of
+        // AddRec phis, we can use the first operand which can find a GEPOp.
+        unsigned NumOp = Phi->getNumIncomingValues();
+        for (unsigned I = 0; I < NumOp; ++I) {
+          if (auto *PhiGEPOp =
+                  tracebackToGEPOp(Phi->getIncomingValue(I), VisitedInsts)) {
+            return PhiGEPOp;
+          }
+        }
+      }
+    }
+
+    // Trace through bitcast with same src and dest types.
+    if (auto *BitCast = dyn_cast<BitCastInst>(Val)) {
+      if (BitCast->getType() != BitCast->getOperand(0)->getType()) {
+        return nullptr;
+      }
+
+      Val = BitCast->getOperand(0);
+      continue;
+    }
+
+    break;
+  }
+
+  return dyn_cast<GEPOperator>(Val);
+}
+
+Type *
+HIRRegionIdentification::findPhiElementType(const PHINode *AddRecPhi) const {
+  SmallPtrSet<const Value *, 12> VisitedInsts;
+
+  auto *GEPOp = tracebackToGEPOp(AddRecPhi, VisitedInsts);
+
+  if (!GEPOp) {
+    auto *PhiTy = cast<PointerType>(AddRecPhi->getType());
+
+    // This check will try to keep parsing identical for non-opaque ptrs.
+    // Parsing will change in some case with opaque ptrs.
+    // See phi-base-with-bitcast-ptr-element-type.ll for an example.
+    return PhiTy->isOpaque() ? nullptr : PhiTy->getPointerElementType();
+  }
+
+  return GEPOp->getResultElementType();
+}

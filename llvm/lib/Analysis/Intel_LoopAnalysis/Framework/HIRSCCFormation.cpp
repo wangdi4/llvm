@@ -103,8 +103,13 @@ bool HIRSCCFormation::hasUnconventionalAccess(
   int64_t ConstStride = getStride(AddRec);
 
   auto &DL = Phi->getModule()->getDataLayout();
-  uint64_t PtrElemSize =
-      DL.getTypeAllocSize(Phi->getType()->getPointerElementType());
+  auto *ElementTy = RI.findPhiElementType(Phi);
+
+  if (!ElementTy) {
+    return true;
+  }
+
+  uint64_t PtrElemSize = DL.getTypeAllocSize(ElementTy);
 
   // Return conservative answer if constant stride is not available or not
   // evenly divisible by ptr element size.
