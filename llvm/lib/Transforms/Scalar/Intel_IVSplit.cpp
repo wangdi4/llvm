@@ -75,7 +75,7 @@ namespace {
     LoopInfo *LI;
 
     SmallVector<PHINode *, 2> IVs;
-    SmallVector<Value *, 2> Allocs;
+    SmallVector<AllocaInst *, 2> Allocs;
     SmallVector<Value *, 2> Reloads;
     SmallVector<Value *, 2> ReDefs;
 
@@ -284,7 +284,7 @@ void IVSplit::spillIV(Loop * L, IRBuilder<> &Builder) {
         // A single load in the loop preheader will increase register pressure
         // for the inner loops and reload in the inner loops is better.
         Builder.SetInsertPoint(Inst);
-        auto *PtrTy = Allocs[I]->getType()->getPointerElementType();
+        auto *PtrTy = Allocs[I]->getAllocatedType();
         auto reload =
             Builder.CreateLoad(PtrTy, Allocs[I], "iv-inner-reload-var");
         IVUse.set(reload);
@@ -304,7 +304,7 @@ void IVSplit::reloadIV(Loop * L, IRBuilder<> &Builder) {
   Builder.SetInsertPoint(InsertPt);
   // Insert IVs reloading
   for (size_t I = 0, E = IVs.size(); I < E; I++) {
-    auto *PtrTy = Allocs[I]->getType()->getPointerElementType();
+    auto *PtrTy = Allocs[I]->getAllocatedType();
     auto Inst = Builder.CreateLoad(PtrTy, Allocs[I], "iv-reload-var");
     Reloads.push_back(Inst);
     LLVM_DEBUG(dbgs() << "Reload IV " << IVs[I]->getName() << "\n");

@@ -292,6 +292,11 @@ public:
                                          VPBasicBlock *LpPH,
                                          VPBasicBlock *LpLatch);
 
+  /// Create instructions that compute the Ztt check for the given \p HLp.
+  /// The instruction that gives the final result to be used for bypassing
+  /// the loop is returned.
+  VPInstruction *createLoopZtt(HLLoop *HLp, VPBasicBlock *ZttBlock);
+
   /// Create empty PHIs for temps that are live-out in VPlan's exit block. This
   /// ensures that correct merge PHIs are emitted for ambiguous use of a DDRef
   /// outside the loop being vectorized. Consider the example below -

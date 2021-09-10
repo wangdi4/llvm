@@ -60,9 +60,6 @@ private:
   /// Helper for WI function call generation.
   /// Generates a call to WI function upon its name and dimension index
   CallInst *getWICall(Instruction *Before, StringRef FuncName, unsigned DimIdx);
-
-  /// Find a builtin function in builtin module list
-  Function *findFunctionInModule(StringRef FuncName);
 };
 
 class GroupBuiltinLegacy : public ModulePass {

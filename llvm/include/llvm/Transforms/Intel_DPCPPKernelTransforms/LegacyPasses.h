@@ -55,6 +55,9 @@ ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createLocalBuffersLegacyPass(bool UseTLSGlobals);
 ModulePass *createAddImplicitArgsLegacyPass();
+ModulePass *createResolveSubGroupWICallLegacyPass(
+    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
+    bool ResolveSGBarrier = true);
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);

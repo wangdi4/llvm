@@ -321,6 +321,11 @@
 @SW_ADVANCED:SECRET@
 # end INTEL_FEATURE_SW_ADVANCED
 
+# Advanced optimizations that can be shared inside Intel in source form
+# INTEL_FEATURE_SHARED_SW_ADVANCED
+@SHARED_SW_ADVANCED:SECRET@
+# end INTEL_FEATURE_SHARED_SW_ADVANCED
+
 # INTEL_FEATURE_SW_DTRANS
 # Build the compiler with DTrans optimizations enabled
 @SW_DTRANS:SECRET@
