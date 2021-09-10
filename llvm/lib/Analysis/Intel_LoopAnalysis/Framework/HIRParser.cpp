@@ -34,6 +34,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 
+#include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -4958,7 +4959,7 @@ HIRParser::delinearizeBlobIndex(Type *IndexType, unsigned BlobIndex,
                                                 : ScopedSE.getOne(IndexType);
 
   SmallVector<BlobTy, MaxLoopNestLevel> Subscripts;
-  ScopedSE.computeAccessFunctions(Blob, Subscripts, DimSizes);
+  computeAccessFunctions(ScopedSE, Blob, Subscripts, DimSizes);
 
   // Failed to compute access functions.
   if (Subscripts.empty()) {
@@ -5137,8 +5138,8 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
   }
 
   // Sort and uniq Strides and populate Sizes.
-  ScopedSE.findArrayDimensions(Strides, Sizes,
-                               ScopedSE.getOne(Strides.front()->getType()));
+  findArrayDimensions(ScopedSE, Strides, Sizes,
+                      ScopedSE.getOne(Strides.front()->getType()));
 
   LLVM_DEBUG(dbgs() << "Strides:\n");
   LLVM_DEBUG(for (auto &Blob : Strides) { Blob->dump(); });

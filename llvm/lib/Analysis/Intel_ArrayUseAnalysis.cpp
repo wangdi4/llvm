@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/Intel_ArrayUseAnalysis.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
@@ -477,7 +478,7 @@ ArrayRangeInfo ArrayUse::getRangeUse(Instruction &I) const {
   // exposed. We use findArrayDimensions instead to get to this routine.
   SmallVector<const SCEV *, 1> Terms, Sizes;
   Terms.push_back(PtrOffset);
-  SE.findArrayDimensions(Terms, Sizes, ElemSize);
+  findArrayDimensions(SE, Terms, Sizes, ElemSize);
   const SCEV *IdxOffset = Sizes.empty() ? SE.getUDivExpr(PtrOffset, ElemSize) :
     Sizes[0];
 
