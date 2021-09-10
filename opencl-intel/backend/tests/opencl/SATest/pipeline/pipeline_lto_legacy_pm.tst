@@ -26,7 +26,12 @@
 ; CHECK:              Loop Pass Manager
 ; CHECK:                Unroll loops
 
+; CHECK:          VFAnalysisLegacy
 ; CHECK:          SetVectorizationFactorLegacy
+; CHECK:          VectorVariantLoweringLegacy
+; CHECK:          CreateSimdVariantPropagationLegacy
+; CHECK:          SGSizeCollectorLegacy
+; CHECK:          SGSizeCollectorIndirectLegacy
 ; CHECK-NEXT:     DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK-NEXT:     Fill-in addresses of vector variants
