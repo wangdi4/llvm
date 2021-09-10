@@ -333,7 +333,7 @@ public:
   void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
 
   // Create VPlans that are needed for CFG merge by the selected scenario.
-  void createMergerVPlans(VPAnalysesFactory &VPAF);
+  void createMergerVPlans(VPAnalysesFactoryBase &VPAF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.

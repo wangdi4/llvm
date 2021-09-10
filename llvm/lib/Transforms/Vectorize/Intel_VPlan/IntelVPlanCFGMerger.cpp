@@ -616,7 +616,7 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
                                  const SingleLoopVecScenario &Scen,
                                  std::list<CfgMergerPlanDescr> &PlanDescrs,
                                  Loop *OrigLoop, VPlan &MainPlan,
-                                 VPAnalysesFactory &VPAF) {
+                                 VPAnalysesFactoryBase &VPAF) {
 
   using ScalarPeelVPlanFab = ScalarPeelOrRemainderVPlanFab<true>;
   using ScalarRemainderVPlanFab = ScalarPeelOrRemainderVPlanFab<false>;

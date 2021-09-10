@@ -32,6 +32,8 @@
 #include "IntelVPlanValue.h"
 #include "IntelVPlanValueTracking.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
+#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallSet.h"
@@ -119,44 +121,79 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
 struct TripCountInfo;
 
-// This class is used to create all the necessairy analyses that are needed for
-// VPlan.
-class VPAnalysesFactory {
+// This abstract class is used to create all the necessary analyses that are
+// needed for VPlan. They are implemented by the 2 derived classes :
+// VPAnalysesFactory and VPAnalysesFactoryHIR.
+class VPAnalysesFactoryBase {
 private:
-  ScalarEvolution &SE;
-  const Loop *Lp = nullptr;
   DominatorTree *DT = nullptr;
   AssumptionCache *AC = nullptr;
   const DataLayout *DL = nullptr;
-  bool IsLLVMIR = false;
+
+protected:
+  virtual ~VPAnalysesFactoryBase() {}
 
 public:
-  VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
-                    AssumptionCache *AC, const DataLayout *DL, bool IsLLVMIR)
-      : SE(SE), Lp(Lp), DT(DT), AC(AC), DL(DL), IsLLVMIR(IsLLVMIR) {}
+  VPAnalysesFactoryBase(DominatorTree *DT, AssumptionCache *AC,
+                        const DataLayout *DL)
+      : DT(DT), AC(AC), DL(DL) {}
 
-  std::unique_ptr<VPlanScalarEvolution> createVPSE() {
-    if (IsLLVMIR) {
-      auto &Context = Lp->getHeader()->getContext();
-      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context, DL);
-    } else
-      llvm_unreachable("Unimplemented for HIR path.");
-  }
+  virtual std::unique_ptr<VPlanScalarEvolution> createVPSE() = 0;
 
-  std::unique_ptr<VPlanValueTracking> createVPVT(VPlanScalarEvolution *VPSE) {
-    if (IsLLVMIR) {
-      auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
-      return std::make_unique<VPlanValueTrackingLLVM>(*VPSELLVM, *DL, AC, DT);
-    } else
-      llvm_unreachable("Unimplemented for HIR path.");
-  }
+  virtual std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) = 0;
 
-  bool isLLVMIRPath() { return IsLLVMIR; }
-
-  const Loop *getLoop() { return Lp; }
   DominatorTree *getDominatorTree() { return DT; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const DataLayout *getDataLayout() { return DL; }
+};
+
+class VPAnalysesFactory final : public VPAnalysesFactoryBase {
+private:
+  ScalarEvolution &SE;
+  const Loop *Lp = nullptr;
+
+public:
+  VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
+                    AssumptionCache *AC, const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, AC, DL), SE(SE), Lp(Lp) {}
+
+  std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
+    auto &Context = Lp->getHeader()->getContext();
+    return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp, Context,
+                                                      getDataLayout());
+  }
+
+  std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) override {
+    auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
+    return std::make_unique<VPlanValueTrackingLLVM>(
+        *VPSELLVM, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  }
+
+  const Loop *getLoop() { return Lp; }
+};
+
+class VPAnalysesFactoryHIR final : public VPAnalysesFactoryBase {
+private:
+  loopopt::HLLoop *HLp = nullptr;
+
+public:
+  VPAnalysesFactoryHIR(loopopt::HLLoop *HLp, DominatorTree *DT,
+                       AssumptionCache *AC, const DataLayout *DL)
+      : VPAnalysesFactoryBase(DT, AC, DL), HLp(HLp) {}
+
+  std::unique_ptr<VPlanScalarEvolution> createVPSE() override {
+    return std::make_unique<VPlanScalarEvolutionHIR>(HLp);
+  }
+
+  std::unique_ptr<VPlanValueTracking>
+  createVPVT(VPlanScalarEvolution *VPSE) override {
+    return std::make_unique<VPlanValueTrackingHIR>(
+        HLp, *getDataLayout(), getAssumptionCache(), getDominatorTree());
+  }
+
+  loopopt::HLLoop *getLoop() { return HLp; }
 };
 
 /// Enumeration to uniquely identify various VPlan analyses.
@@ -4373,9 +4410,9 @@ public:
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
 
-  /// Utility method to clone VPlan. VPAnalysesFactory has methods to
+  /// Utility method to clone VPlan. VPAnalysesFactoryBase has methods to
   /// create additional analyses required for cloned VPlan.
-  virtual VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) = 0;
+  virtual VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) = 0;
 
   void setPreferredPeeling(unsigned VF,
                            std::unique_ptr<VPlanPeelingVariant> Peeling) {
@@ -4445,7 +4482,8 @@ protected:
 
   // Helper method used by cloning functionality to populate data in the new
   // VPlan.
-  void copyData(VPAnalysesFactory &VPAF, UpdateDA UDA, VPlanVector *TargetPlan);
+  void copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
+                VPlanVector *TargetPlan);
 };
 
 /// Class to represent VPlan for scalar-peel loops.
@@ -4483,9 +4521,9 @@ class VPlanMasked : public VPlanVector {
 public:
   VPlanMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
-  /// Utility method to clone Non-Masked-vplan. VPAnalysesFactory has methods to
-  /// create additional analyses required for cloned VPlan.
-  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
+  /// Utility method to clone Non-Masked-vplan. VPAnalysesFactoryBase has
+  /// methods to create additional analyses required for cloned VPlan.
+  VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) override;
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPlan *V) {
@@ -4498,12 +4536,12 @@ class VPlanNonMasked : public VPlanVector {
 public:
   VPlanNonMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI);
 
-  /// Utility method to clone masked-vplan. VPAnalysesFactory has methods to
+  /// Utility method to clone masked-vplan. VPAnalysesFactoryBase has methods to
   /// create additional analyses required for cloned VPlan.
-  VPlanVector *clone(VPAnalysesFactory &VPAF, UpdateDA UDA) override;
+  VPlanVector *clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) override;
 
   /// Utility method to allow a Non-masked VPlan to clone a masked VPlan.
-  VPlanMasked *cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA);
+  VPlanMasked *cloneMasked(VPAnalysesFactoryBase &VPAF, UpdateDA UDA);
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:

@@ -11181,6 +11181,11 @@ public:
   StmtResult ActOnOpenMPPrefetchDirective(
       ArrayRef<OMPClause *> Clauses, SourceLocation StartLoc,
       SourceLocation EndLoc);
+  /// Called on well-formed '\#pragma omp scope' after parsing of the
+  /// associated statement.
+  StmtResult ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
+                                       Stmt *AStmt, SourceLocation StartLoc,
+                                       SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 
   /// Called on well-formed '\#pragma omp single' after parsing of the

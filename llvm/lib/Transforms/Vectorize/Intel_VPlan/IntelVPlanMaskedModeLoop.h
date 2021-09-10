@@ -89,16 +89,16 @@ namespace vpo {
 
 class VPlanNonMasked;
 class VPlanMasked;
-class VPAnalysesFactory;
+class VPAnalysesFactoryBase;
 class VPInstruction;
 class VPLoop;
 
 class MaskedModeLoopCreator {
   VPlanNonMasked *OrigVPlan = nullptr;
-  VPAnalysesFactory &VPAF;
+  VPAnalysesFactoryBase &VPAF;
 
 public:
-  MaskedModeLoopCreator(VPlanNonMasked *OrigVPlan, VPAnalysesFactory &VPAF)
+  MaskedModeLoopCreator(VPlanNonMasked *OrigVPlan, VPAnalysesFactoryBase &VPAF)
       : OrigVPlan(OrigVPlan), VPAF(VPAF) {}
 
   // Emit masked mode loop.
