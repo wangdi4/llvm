@@ -12,28 +12,29 @@
 #define _LCONV_C99
 #endif
 
-#include "string"
-#include "locale"
-#include "codecvt"
-#include "vector"
 #include "algorithm"
-#include "typeinfo"
-#ifndef _LIBCPP_NO_EXCEPTIONS
-#  include "type_traits"
-#endif
 #include "clocale"
+#include "codecvt"
+#include "cstdio"
+#include "cstdlib"
 #include "cstring"
-#if defined(_LIBCPP_MSVCRT)
-#define _CTYPE_DISABLE_MACROS
-#endif
 #include "cwctype"
-#if defined(_LIBCPP_MSVCRT) || defined(__MINGW32__)
-#include "__support/win32/locale_win32.h"
-#elif !defined(__BIONIC__) && !defined(__NuttX__)
-#include <langinfo.h>
+#include "locale"
+#include "string"
+#include "type_traits"
+#include "typeinfo"
+#include "vector"
+
+#if defined(_LIBCPP_MSVCRT)
+#   define _CTYPE_DISABLE_MACROS
 #endif
-#include <stdlib.h>
-#include <stdio.h>
+
+#if defined(_LIBCPP_MSVCRT) || defined(__MINGW32__)
+#   include "__support/win32/locale_win32.h"
+#elif !defined(__BIONIC__) && !defined(__NuttX__)
+#   include <langinfo.h>
+#endif
+
 #include "include/atomic_support.h"
 #include "include/sso_allocator.h"
 #include "__undef_macros"
@@ -747,8 +748,6 @@ collate_byname<wchar_t>::do_transform(const char_type* lo, const char_type* hi) 
     return out;
 }
 
-// template <> class ctype<wchar_t>;
-
 const ctype_base::mask ctype_base::space;
 const ctype_base::mask ctype_base::print;
 const ctype_base::mask ctype_base::cntrl;
@@ -761,6 +760,8 @@ const ctype_base::mask ctype_base::xdigit;
 const ctype_base::mask ctype_base::blank;
 const ctype_base::mask ctype_base::alnum;
 const ctype_base::mask ctype_base::graph;
+
+// template <> class ctype<wchar_t>;
 
 locale::id ctype<wchar_t>::id;
 
@@ -4379,7 +4380,7 @@ static bool checked_string_to_char_convert(char& dest,
     dest = res;
     return true;
   }
-  // FIXME: Work around specific multibyte sequences that we can reasonable
+  // FIXME: Work around specific multibyte sequences that we can reasonably
   // translate into a different single byte.
   switch (wout) {
   case L'\u202F': // narrow non-breaking space

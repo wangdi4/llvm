@@ -2194,9 +2194,11 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     setLibcallName(RTLIB::SRL_I128, nullptr);
     setLibcallName(RTLIB::SRA_I128, nullptr);
     setLibcallName(RTLIB::MUL_I128, nullptr);
+    // The MULO libcall is not part of libgcc, only compiler-rt.
     setLibcallName(RTLIB::MULO_I64, nullptr);
-    setLibcallName(RTLIB::MULO_I128, nullptr);
   }
+  // The MULO libcall is not part of libgcc, only compiler-rt.
+  setLibcallName(RTLIB::MULO_I128, nullptr);
 
   // Combine sin / cos into _sincos_stret if it is available.
   if (getLibcallName(RTLIB::SINCOS_STRET_F32) != nullptr &&
@@ -6870,7 +6872,7 @@ static SDValue getOnesVector(EVT VT, SelectionDAG &DAG, const SDLoc &dl) {
   assert((VT.is128BitVector() || VT.is256BitVector() || VT.is512BitVector()) &&
          "Expected a 128/256/512-bit vector type");
 
-  APInt Ones = APInt::getAllOnesValue(32);
+  APInt Ones = APInt::getAllOnes(32);
   unsigned NumElts = VT.getSizeInBits() / 32;
   SDValue Vec = DAG.getConstant(Ones, dl, MVT::getVectorVT(MVT::i32, NumElts));
   return DAG.getBitcast(VT, Vec);
@@ -7149,19 +7151,19 @@ static bool getTargetConstantBitsFromNode(SDValue Op, unsigned EltSizeInBits,
 
   // Handle UNDEFs.
   if (Op.isUndef()) {
-    APInt UndefSrcElts = APInt::getAllOnesValue(NumElts);
+    APInt UndefSrcElts = APInt::getAllOnes(NumElts);
     SmallVector<APInt, 64> SrcEltBits(NumElts, APInt(EltSizeInBits, 0));
     return CastBitData(UndefSrcElts, SrcEltBits);
   }
 
   // Extract scalar constant bits.
   if (auto *Cst = dyn_cast<ConstantSDNode>(Op)) {
-    APInt UndefSrcElts = APInt::getNullValue(1);
+    APInt UndefSrcElts = APInt::getZero(1);
     SmallVector<APInt, 64> SrcEltBits(1, Cst->getAPIntValue());
     return CastBitData(UndefSrcElts, SrcEltBits);
   }
   if (auto *Cst = dyn_cast<ConstantFPSDNode>(Op)) {
-    APInt UndefSrcElts = APInt::getNullValue(1);
+    APInt UndefSrcElts = APInt::getZero(1);
     APInt RawBits = Cst->getValueAPF().bitcastToAPInt();
     SmallVector<APInt, 64> SrcEltBits(1, RawBits);
     return CastBitData(UndefSrcElts, SrcEltBits);
@@ -7365,12 +7367,12 @@ static bool getTargetConstantBitsFromNode(SDValue Op, unsigned EltSizeInBits,
                                        AllowPartialUndefs))
       return false;
 
-    UndefElts = APInt::getNullValue(NumElts);
+    UndefElts = APInt::getZero(NumElts);
     for (int i = 0; i != (int)NumElts; ++i) {
       int M = Mask[i];
       if (M < 0) {
         UndefElts.setBit(i);
-        EltBits.push_back(APInt::getNullValue(EltSizeInBits));
+        EltBits.push_back(APInt::getZero(EltSizeInBits));
       } else if (M < (int)NumElts) {
         if (UndefElts0[M])
           UndefElts.setBit(i);
@@ -7467,8 +7469,8 @@ static void getPackDemandedElts(EVT VT, const APInt &DemandedElts,
   int NumEltsPerLane = NumElts / NumLanes;
   int NumInnerEltsPerLane = NumInnerElts / NumLanes;
 
-  DemandedLHS = APInt::getNullValue(NumInnerElts);
-  DemandedRHS = APInt::getNullValue(NumInnerElts);
+  DemandedLHS = APInt::getZero(NumInnerElts);
+  DemandedRHS = APInt::getZero(NumInnerElts);
 
   // Map DemandedElts to the packed operands.
   for (int Lane = 0; Lane != NumLanes; ++Lane) {
@@ -7491,8 +7493,8 @@ static void getHorizDemandedElts(EVT VT, const APInt &DemandedElts,
   int NumEltsPerLane = NumElts / NumLanes;
   int HalfEltsPerLane = NumEltsPerLane / 2;
 
-  DemandedLHS = APInt::getNullValue(NumElts);
-  DemandedRHS = APInt::getNullValue(NumElts);
+  DemandedLHS = APInt::getZero(NumElts);
+  DemandedRHS = APInt::getZero(NumElts);
 
   // Map DemandedElts to the horizontal operands.
   for (int Idx = 0; Idx != NumElts; ++Idx) {
@@ -7839,7 +7841,7 @@ static void computeZeroableShuffleElements(ArrayRef<int> Mask,
                                            SDValue V1, SDValue V2,
                                            APInt &KnownUndef, APInt &KnownZero) {
   int Size = Mask.size();
-  KnownUndef = KnownZero = APInt::getNullValue(Size);
+  KnownUndef = KnownZero = APInt::getZero(Size);
 
   V1 = peekThroughBitcasts(V1);
   V2 = peekThroughBitcasts(V2);
@@ -7932,7 +7934,7 @@ static bool getTargetShuffleAndZeroables(SDValue N, SmallVectorImpl<int> &Mask,
   int Size = Mask.size();
   SDValue V1 = Ops[0];
   SDValue V2 = IsUnary ? V1 : Ops[1];
-  KnownUndef = KnownZero = APInt::getNullValue(Size);
+  KnownUndef = KnownZero = APInt::getZero(Size);
 
   V1 = peekThroughBitcasts(V1);
   V2 = peekThroughBitcasts(V2);
@@ -8039,7 +8041,7 @@ static void resolveZeroablesFromTargetShuffle(const SmallVectorImpl<int> &Mask,
                                               APInt &KnownUndef,
                                               APInt &KnownZero) {
   unsigned NumElts = Mask.size();
-  KnownUndef = KnownZero = APInt::getNullValue(NumElts);
+  KnownUndef = KnownZero = APInt::getZero(NumElts);
 
   for (unsigned i = 0; i != NumElts; ++i) {
     int M = Mask[i];
@@ -8535,7 +8537,7 @@ static bool getTargetShuffleInputs(SDValue Op, SmallVectorImpl<SDValue> &Inputs,
 
   APInt KnownUndef, KnownZero;
   unsigned NumElts = Op.getValueType().getVectorNumElements();
-  APInt DemandedElts = APInt::getAllOnesValue(NumElts);
+  APInt DemandedElts = APInt::getAllOnes(NumElts);
   return getTargetShuffleInputs(Op, DemandedElts, Inputs, Mask, KnownUndef,
                                 KnownZero, DAG, Depth, ResolveKnownElts);
 }
@@ -9060,9 +9062,9 @@ static SDValue EltsFromConsecutiveLoads(EVT VT, ArrayRef<SDValue> Elts,
   unsigned NumElems = Elts.size();
 
   int LastLoadedElt = -1;
-  APInt LoadMask = APInt::getNullValue(NumElems);
-  APInt ZeroMask = APInt::getNullValue(NumElems);
-  APInt UndefMask = APInt::getNullValue(NumElems);
+  APInt LoadMask = APInt::getZero(NumElems);
+  APInt ZeroMask = APInt::getZero(NumElems);
+  APInt UndefMask = APInt::getZero(NumElems);
 
   SmallVector<LoadSDNode*, 8> Loads(NumElems, nullptr);
   SmallVector<int64_t, 8> ByteOffsets(NumElems, 0);
@@ -10324,7 +10326,7 @@ static SDValue getHopForBuildVector(const BuildVectorSDNode *BV,
     V1 = insertSubVector(DAG.getUNDEF(VT), V1, 0, DAG, SDLoc(BV), Width);
 
   unsigned NumElts = VT.getVectorNumElements();
-  APInt DemandedElts = APInt::getAllOnesValue(NumElts);
+  APInt DemandedElts = APInt::getAllOnes(NumElts);
   for (unsigned i = 0; i != NumElts; ++i)
     if (BV->getOperand(i).isUndef())
       DemandedElts.clearBit(i);
@@ -10899,9 +10901,9 @@ X86TargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
     return VectorConstant;
 
   unsigned EVTBits = EltVT.getSizeInBits();
-  APInt UndefMask = APInt::getNullValue(NumElems);
-  APInt ZeroMask = APInt::getNullValue(NumElems);
-  APInt NonZeroMask = APInt::getNullValue(NumElems);
+  APInt UndefMask = APInt::getZero(NumElems);
+  APInt ZeroMask = APInt::getZero(NumElems);
+  APInt NonZeroMask = APInt::getZero(NumElems);
   bool IsAllConstants = true;
   SmallSet<SDValue, 8> Values;
   unsigned NumConstants = NumElems;
@@ -23083,7 +23085,7 @@ static bool matchScalarReduction(SDValue Op, ISD::NodeType BinOp,
       if (!SrcOpMap.empty() && VT != SrcOpMap.begin()->first.getValueType())
         return false;
       unsigned NumElts = VT.getVectorNumElements();
-      APInt EltCount = APInt::getNullValue(NumElts);
+      APInt EltCount = APInt::getZero(NumElts);
       M = SrcOpMap.insert(std::make_pair(Src, EltCount)).first;
       SrcOps.push_back(Src);
     }
@@ -23187,7 +23189,7 @@ static SDValue MatchVectorAllZeroTest(SDValue Op, ISD::CondCode CC,
 
   // Check whether we're masking/truncating an OR-reduction result, in which
   // case track the masked bits.
-  APInt Mask = APInt::getAllOnesValue(Op.getScalarValueSizeInBits());
+  APInt Mask = APInt::getAllOnes(Op.getScalarValueSizeInBits());
   switch (Op.getOpcode()) {
   case ISD::TRUNCATE: {
     SDValue Src = Op.getOperand(0);
@@ -37391,8 +37393,8 @@ void X86TargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
     APInt DemandedLHS, DemandedRHS;
     getPackDemandedElts(VT, DemandedElts, DemandedLHS, DemandedRHS);
 
-    Known.One = APInt::getAllOnesValue(BitWidth * 2);
-    Known.Zero = APInt::getAllOnesValue(BitWidth * 2);
+    Known.One = APInt::getAllOnes(BitWidth * 2);
+    Known.Zero = APInt::getAllOnes(BitWidth * 2);
 
     KnownBits Known2;
     if (!!DemandedLHS) {
@@ -38138,8 +38140,8 @@ static bool matchBinaryShuffle(MVT MaskVT, ArrayRef<int> Mask,
     unsigned NumV2Elts = V2.getValueType().getVectorNumElements();
     unsigned Scale1 = NumV1Elts / NumMaskElts;
     unsigned Scale2 = NumV2Elts / NumMaskElts;
-    APInt DemandedZeroV1 = APInt::getNullValue(NumV1Elts);
-    APInt DemandedZeroV2 = APInt::getNullValue(NumV2Elts);
+    APInt DemandedZeroV1 = APInt::getZero(NumV1Elts);
+    APInt DemandedZeroV2 = APInt::getZero(NumV2Elts);
     for (unsigned i = 0; i != NumMaskElts; ++i) {
       int M = Mask[i];
       if (M == SM_SentinelUndef)
@@ -38917,8 +38919,8 @@ static SDValue combineX86ShuffleChain(ArrayRef<SDValue> Inputs, SDValue Root,
   if (UnaryShuffle && MaskContainsZeros && AllowVariablePerLaneMask &&
       isSequentialOrUndefOrZeroInRange(Mask, 0, NumMaskElts, 0) &&
       DAG.getTargetLoweringInfo().isTypeLegal(MaskVT)) {
-    APInt Zero = APInt::getNullValue(MaskEltSizeInBits);
-    APInt AllOnes = APInt::getAllOnesValue(MaskEltSizeInBits);
+    APInt Zero = APInt::getZero(MaskEltSizeInBits);
+    APInt AllOnes = APInt::getAllOnes(MaskEltSizeInBits);
     APInt UndefElts(NumMaskElts, 0);
     SmallVector<APInt, 64> EltBits(NumMaskElts, Zero);
     for (unsigned i = 0; i != NumMaskElts; ++i) {
@@ -39427,7 +39429,7 @@ static SDValue combineX86ShufflesConstants(ArrayRef<SDValue> Ops,
   APInt ZeroElts(NumMaskElts, 0);
   APInt ConstantElts(NumMaskElts, 0);
   SmallVector<APInt, 8> ConstantBitData(NumMaskElts,
-                                        APInt::getNullValue(MaskSizeInBits));
+                                        APInt::getZero(MaskSizeInBits));
   for (unsigned i = 0; i != NumMaskElts; ++i) {
     int M = Mask[i];
     if (M == SM_SentinelUndef) {
@@ -39554,7 +39556,7 @@ static SDValue combineX86ShufflesRecursively(
   SmallVector<int, 64> OpMask;
   SmallVector<SDValue, 2> OpInputs;
   APInt OpUndef, OpZero;
-  APInt OpDemandedElts = APInt::getAllOnesValue(VT.getVectorNumElements());
+  APInt OpDemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
   bool IsOpVariableMask = isTargetShuffleVariableMask(Op.getOpcode());
   if (!getTargetShuffleInputs(Op, OpDemandedElts, OpInputs, OpMask, OpUndef,
                               OpZero, DAG, Depth, false))
@@ -39597,7 +39599,7 @@ static SDValue combineX86ShufflesRecursively(
     // up in an infinite loop.
     bool ResolveKnownZeros = true;
     if (!OpZero.isNullValue()) {
-      APInt UsedInputs = APInt::getNullValue(OpInputs.size());
+      APInt UsedInputs = APInt::getZero(OpInputs.size());
       for (int i = 0, e = OpMask.size(); i != e; ++i) {
         int M = OpMask[i];
         if (OpUndef[i] || OpZero[i] || isUndefOrZero(M))
@@ -41197,7 +41199,7 @@ static SDValue combineShuffle(SDNode *N, SelectionDAG &DAG,
     // Simplify source operands based on shuffle mask.
     // TODO - merge this into combineX86ShufflesRecursively.
     APInt KnownUndef, KnownZero;
-    APInt DemandedElts = APInt::getAllOnesValue(VT.getVectorNumElements());
+    APInt DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
     if (TLI.SimplifyDemandedVectorElts(Op, DemandedElts, KnownUndef, KnownZero,
                                        DCI))
       return SDValue(N, 0);
@@ -41804,7 +41806,7 @@ bool X86TargetLowering::SimplifyDemandedVectorEltsForTargetNode(
       continue;
 
     int Lo = Src * NumElts;
-    APInt SrcElts = APInt::getNullValue(NumElts);
+    APInt SrcElts = APInt::getZero(NumElts);
     for (int i = 0; i != NumElts; ++i)
       if (DemandedElts[i]) {
         int M = OpMask[i] - Lo;
@@ -42326,7 +42328,7 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
         return getZeroVector(VT.getSimpleVT(), Subtarget, DAG, SDLoc(Op));
 
       // Bitmask that indicates which ops have only been accessed 'inline'.
-      APInt IdentityOp = APInt::getAllOnesValue(NumOps);
+      APInt IdentityOp = APInt::getAllOnes(NumOps);
       for (int i = 0; i != NumElts; ++i) {
         int M = ShuffleMask[i];
         if (!DemandedElts[i] || ShuffleUndef[i])
@@ -43246,7 +43248,7 @@ static SDValue combineMinMaxReduction(SDNode *Extract, SelectionDAG &DAG,
   else if (BinOp == ISD::SMIN)
     Mask = DAG.getConstant(APInt::getSignedMinValue(MaskEltsBits), DL, SrcVT);
   else if (BinOp == ISD::UMAX)
-    Mask = DAG.getConstant(APInt::getAllOnesValue(MaskEltsBits), DL, SrcVT);
+    Mask = DAG.getAllOnesConstant(DL, SrcVT);
 
   if (Mask)
     MinPos = DAG.getNode(ISD::XOR, DL, SrcVT, Mask, MinPos);
@@ -43979,8 +43981,8 @@ static SDValue combineExtractVectorElt(SDNode *N, SelectionDAG &DAG,
 
   if (IsPextr) {
     const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-    if (TLI.SimplifyDemandedBits(
-            SDValue(N, 0), APInt::getAllOnesValue(VT.getSizeInBits()), DCI))
+    if (TLI.SimplifyDemandedBits(SDValue(N, 0),
+                                 APInt::getAllOnes(VT.getSizeInBits()), DCI))
       return SDValue(N, 0);
 
     // PEXTR*(PINSR*(v, s, c), c) -> s (with implicit zext handling).
@@ -45572,7 +45574,7 @@ static SDValue combineSetCCMOVMSK(SDValue EFLAGS, X86::CondCode &CC,
       ShuffleInputs.size() == 1 && !isAnyZeroOrUndef(ShuffleMask) &&
       ShuffleInputs[0].getValueSizeInBits() == VecVT.getSizeInBits()) {
     unsigned NumShuffleElts = ShuffleMask.size();
-    APInt DemandedElts = APInt::getNullValue(NumShuffleElts);
+    APInt DemandedElts = APInt::getZero(NumShuffleElts);
     for (int M : ShuffleMask) {
       assert(0 <= M && M < (int)NumShuffleElts && "Bad unary shuffle index");
       DemandedElts.setBit(M);
@@ -46826,7 +46828,7 @@ static SDValue combineVectorPack(SDNode *N, SelectionDAG &DAG,
     unsigned NumSrcEltsPerLane = NumSrcElts / NumLanes;
 
     APInt Undefs(NumDstElts, 0);
-    SmallVector<APInt, 32> Bits(NumDstElts, APInt::getNullValue(DstBitsPerElt));
+    SmallVector<APInt, 32> Bits(NumDstElts, APInt::getZero(DstBitsPerElt));
     for (unsigned Lane = 0; Lane != NumLanes; ++Lane) {
       for (unsigned Elt = 0; Elt != NumDstEltsPerLane; ++Elt) {
         unsigned SrcIdx = Lane * NumSrcEltsPerLane + Elt % NumSrcEltsPerLane;
@@ -46856,9 +46858,9 @@ static SDValue combineVectorPack(SDNode *N, SelectionDAG &DAG,
           if (Val.isIntN(DstBitsPerElt))
             Val = Val.trunc(DstBitsPerElt);
           else if (Val.isNegative())
-            Val = APInt::getNullValue(DstBitsPerElt);
+            Val = APInt::getZero(DstBitsPerElt);
           else
-            Val = APInt::getAllOnesValue(DstBitsPerElt);
+            Val = APInt::getAllOnes(DstBitsPerElt);
         }
         Bits[Lane * NumDstEltsPerLane + Elt] = Val;
       }
@@ -47016,7 +47018,7 @@ static SDValue combineVectorShiftVar(SDNode *N, SelectionDAG &DAG,
 
   APInt KnownUndef, KnownZero;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  APInt DemandedElts = APInt::getAllOnesValue(VT.getVectorNumElements());
+  APInt DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
   if (TLI.SimplifyDemandedVectorElts(SDValue(N, 0), DemandedElts, KnownUndef,
                                      KnownZero, DCI))
     return SDValue(N, 0);
@@ -47118,8 +47120,8 @@ static SDValue combineVectorShiftImm(SDNode *N, SelectionDAG &DAG,
   }
 
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  if (TLI.SimplifyDemandedBits(SDValue(N, 0),
-                               APInt::getAllOnesValue(NumBitsPerElt), DCI))
+  if (TLI.SimplifyDemandedBits(SDValue(N, 0), APInt::getAllOnes(NumBitsPerElt),
+                               DCI))
     return SDValue(N, 0);
 
   return SDValue();
@@ -47138,7 +47140,7 @@ static SDValue combineVectorInsert(SDNode *N, SelectionDAG &DAG,
     unsigned NumBitsPerElt = VT.getScalarSizeInBits();
     const TargetLowering &TLI = DAG.getTargetLoweringInfo();
     if (TLI.SimplifyDemandedBits(SDValue(N, 0),
-                                 APInt::getAllOnesValue(NumBitsPerElt), DCI))
+                                 APInt::getAllOnes(NumBitsPerElt), DCI))
       return SDValue(N, 0);
   }
 
@@ -48477,7 +48479,7 @@ static SDValue detectSSatPattern(SDValue In, EVT VT, bool MatchPackUS = false) {
 
   APInt SignedMax, SignedMin;
   if (MatchPackUS) {
-    SignedMax = APInt::getAllOnesValue(NumDstBits).zext(NumSrcBits);
+    SignedMax = APInt::getAllOnes(NumDstBits).zext(NumSrcBits);
     SignedMin = APInt(NumSrcBits, 0);
   } else {
     SignedMax = APInt::getSignedMaxValue(NumDstBits).sext(NumSrcBits);
@@ -50325,7 +50327,7 @@ static SDValue combineVectorSignBitsTruncation(SDNode *N, const SDLoc &DL,
   // SimplifyDemandedBits often relaxes sra to srl so we need to reverse it.
   if (In.getOpcode() == ISD::SRL && N->isOnlyUserOf(In.getNode()))
     if (const APInt *ShAmt = DAG.getValidShiftAmountConstant(
-            In, APInt::getAllOnesValue(VT.getVectorNumElements()))) {
+            In, APInt::getAllOnes(VT.getVectorNumElements()))) {
       if (*ShAmt == MinSignBits) {
         SDValue NewIn = DAG.getNode(ISD::SRA, DL, InVT, In->ops());
         return truncateVectorWithPACK(X86ISD::PACKSS, VT, NewIn, DL, DAG,
@@ -50581,7 +50583,7 @@ static SDValue combineVTRUNC(SDNode *N, SelectionDAG &DAG,
     return DAG.getNode(X86ISD::VTRUNCUS, DL, VT, USatVal);
 
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  APInt DemandedMask(APInt::getAllOnesValue(VT.getScalarSizeInBits()));
+  APInt DemandedMask(APInt::getAllOnes(VT.getScalarSizeInBits()));
   if (TLI.SimplifyDemandedBits(SDValue(N, 0), DemandedMask, DCI))
     return SDValue(N, 0);
 
@@ -51086,7 +51088,7 @@ static SDValue combineBEXTR(SDNode *N, SelectionDAG &DAG,
 
   // Simplify the inputs.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  APInt DemandedMask(APInt::getAllOnesValue(NumBits));
+  APInt DemandedMask(APInt::getAllOnes(NumBits));
   if (TLI.SimplifyDemandedBits(SDValue(N, 0), DemandedMask, DCI))
     return SDValue(N, 0);
 
@@ -51290,7 +51292,7 @@ static SDValue combineX86INT_TO_FP(SDNode *N, SelectionDAG &DAG,
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
 
   APInt KnownUndef, KnownZero;
-  APInt DemandedElts = APInt::getAllOnesValue(VT.getVectorNumElements());
+  APInt DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
   if (TLI.SimplifyDemandedVectorElts(SDValue(N, 0), DemandedElts, KnownUndef,
                                      KnownZero, DCI))
     return SDValue(N, 0);
@@ -52529,7 +52531,7 @@ static SDValue combineMOVMSK(SDNode *N, SelectionDAG &DAG,
 
   // Simplify the inputs.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  APInt DemandedMask(APInt::getAllOnesValue(NumBits));
+  APInt DemandedMask(APInt::getAllOnes(NumBits));
   if (TLI.SimplifyDemandedBits(SDValue(N, 0), DemandedMask, DCI))
     return SDValue(N, 0);
 
@@ -54909,7 +54911,7 @@ static SDValue combinePMULDQ(SDNode *N, SelectionDAG &DAG,
 
   // PMULDQ/PMULUDQ only uses lower 32 bits from each vector element.
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  if (TLI.SimplifyDemandedBits(SDValue(N, 0), APInt::getAllOnesValue(64), DCI))
+  if (TLI.SimplifyDemandedBits(SDValue(N, 0), APInt::getAllOnes(64), DCI))
     return SDValue(N, 0);
 
   // If the input is an extend_invec and the SimplifyDemandedBits call didn't
@@ -55023,7 +55025,7 @@ static SDValue combineKSHIFT(SDNode *N, SelectionDAG &DAG,
 
   APInt KnownUndef, KnownZero;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  APInt DemandedElts = APInt::getAllOnesValue(VT.getVectorNumElements());
+  APInt DemandedElts = APInt::getAllOnes(VT.getVectorNumElements());
   if (TLI.SimplifyDemandedVectorElts(SDValue(N, 0), DemandedElts, KnownUndef,
                                      KnownZero, DCI))
     return SDValue(N, 0);
@@ -55235,8 +55237,7 @@ static SDValue combinePDEP(SDNode *N, SelectionDAG &DAG,
                            TargetLowering::DAGCombinerInfo &DCI) {
   unsigned NumBits = N->getSimpleValueType(0).getSizeInBits();
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
-  if (TLI.SimplifyDemandedBits(SDValue(N, 0),
-                               APInt::getAllOnesValue(NumBits), DCI))
+  if (TLI.SimplifyDemandedBits(SDValue(N, 0), APInt::getAllOnes(NumBits), DCI))
     return SDValue(N, 0);
 
   return SDValue();
