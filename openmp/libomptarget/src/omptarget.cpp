@@ -368,6 +368,14 @@ void *targetAllocExplicit(size_t size, int device_num, int kind,
   }
 
   DeviceTy &Device = *PM->Devices[device_num];
+#if INTEL_COLLAB
+  if (kind == TARGET_ALLOC_DEFAULT &&
+      PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+    rc = Device.data_alloc_managed(size);
+    DP("%s returns managed ptr " DPxMOD "\n", name, DPxPTR(rc));
+    return rc;
+  }
+#endif // INTEL_COLLAB
   rc = Device.allocData(size, nullptr, kind);
   DP("%s returns device ptr " DPxMOD "\n", name, DPxPTR(rc));
   return rc;
