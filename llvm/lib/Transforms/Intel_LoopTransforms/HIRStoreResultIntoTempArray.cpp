@@ -848,8 +848,8 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
 
       CanonExpr *StrideCE = getStrideCE(ExtractedLoop, TypeSize, I);
       Type *DimTy = AllocaRef->getBaseType();
-
-      AllocaRef->addDimension(CloneCE, {}, nullptr, StrideCE, DimTy);
+      Type *DimElemTy = AllocaRef->getBasePtrElementType();
+      AllocaRef->addDimension(CloneCE, {}, nullptr, StrideCE, DimTy, DimElemTy);
 
       break;
     }
