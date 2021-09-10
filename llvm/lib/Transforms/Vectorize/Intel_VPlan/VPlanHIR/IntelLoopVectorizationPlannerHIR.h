@@ -59,6 +59,8 @@ protected:
   /// bailout in such cases than assert or generate incorrect code.
   bool canProcessLoopBody(const VPlanVector &Plan, const VPLoop &Loop) const override;
 
+  void createLiveInOutLists(VPlanVector &Plan) override;
+
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
                               const TargetLibraryInfo *TLI,

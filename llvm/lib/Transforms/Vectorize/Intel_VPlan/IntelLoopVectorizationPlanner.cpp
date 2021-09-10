@@ -114,8 +114,6 @@ static LoopVPlanDumpControl
     LinearizationDumpControl("linearization", "predication and linearization");
 static LoopVPlanDumpControl
     AllZeroBypassDumpControl("all-zero-bypass", "all zero bypass insertion");
-static LoopVPlanDumpControl
-    LiveInOutListsDumpControl("live-inout-list", "live in/out lists creation");
 
 static LoopVPlanDumpControl LoopMassagingDumpControl("loop-massaging",
                                                      "loop massaging");
@@ -460,12 +458,6 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
   VPLiveInOutCreator LICreator(Plan);
   LICreator.createInOutValues(TheLoop);
-  VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (LiveInOutListsDumpControl.dumpPlain())
-    Plan.getExternals().dumpScalarInOuts(outs(), TheLoop);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {

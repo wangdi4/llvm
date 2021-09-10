@@ -174,6 +174,11 @@ bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
   return true;
 }
 
+void LoopVectorizationPlannerHIR::createLiveInOutLists(VPlanVector &Plan) {
+  VPLiveInOutCreator LICreator(Plan);
+  LICreator.createInOutValues(TheLoop);
+}
+
 unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
   bool ForcedValue = false;
   unsigned UF = LoopVectorizationPlanner::getLoopUnrollFactor(&ForcedValue);
