@@ -1600,6 +1600,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 }
 
 void VPlanDivergenceAnalysis::improveStrideUsingIR() {
+  // Restrict stride improvements using IR to inner loops.
+  if (!RegionLoop || !RegionLoop->isInnermost())
+    return;
+
   for (const VPBasicBlock &VPBB : *Plan) {
     for (auto &VPInst : VPBB) {
       auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
