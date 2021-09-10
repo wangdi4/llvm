@@ -5,10 +5,7 @@
 // UNSUPPORTED: rocm_nvidia
 // UNSUPPORTED: rocm_amd
 
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl.hpp>
-/* end INTEL_CUSTOMIZATION */
-
+#include <sycl/sycl.hpp>
 #include <cmath>
 
 class Kernel1Name;

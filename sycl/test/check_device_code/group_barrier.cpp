@@ -1,9 +1,6 @@
 // RUN: %clangxx -fsycl-device-only -fsycl-unnamed-lambda -S -Xclang -emit-llvm %s -o - | FileCheck %s
 
-/* INTEL_CUSTOMIZATION */
-// Use legacy path for xmain compiler
-#include <CL/sycl.hpp>
-/* end INTEL_CUSTOMIZATION */
+#include <sycl/sycl.hpp>
 
 const auto TestLambda = [](auto G) {
   sycl::group_barrier(G);

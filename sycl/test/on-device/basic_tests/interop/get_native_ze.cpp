@@ -5,9 +5,7 @@
 #include <level_zero/ze_api.h>
 
 #include <CL/sycl/backend/level_zero.hpp>
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl.hpp>
-/* end INTEL_CUSTOMIZATION */
+#include <sycl/sycl.hpp>
 
 constexpr auto BE = sycl::backend::level_zero;
 

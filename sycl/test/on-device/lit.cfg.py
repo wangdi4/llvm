@@ -190,6 +190,22 @@ else:
     config.substitutions.append( ('%debug_option',  '-g' ) )
     config.substitutions.append( ('%cxx_std_option',  '-std=' ) )
 
+# INTEL_CUSTOMIZATION
+# Add an extra include directory which points to a fake sycl/sycl.hpp (which just points to CL/sycl.hpp)
+# location to workaround compiler versions which do not provide this header
+check_sycl_hpp_file='sycl_hpp_include.cpp'
+with open(check_sycl_hpp_file, 'w') as fp:
+     fp.write('#include <sycl/sycl.hpp>\n')
+     fp.write('int main() {}')
+
+sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
+if sycl_hpp_available[0] != 0:
+    if platform.system() == 'Windows':
+        llvm_config.with_environment('INCLUDE', config.extra_include)
+    else:
+        llvm_config.with_environment('CPATH', config.extra_include)
+# end INTEL_CUSTOMIZATION
+
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
 

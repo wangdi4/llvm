@@ -26,6 +26,9 @@ config.llvm_enable_projects = "@LLVM_ENABLE_PROJECTS@"
 
 config.sycl_threads_lib = '@SYCL_THREADS_LIB@'
 config.extra_environment = lit_config.params.get("extra_environment", "@LIT_EXTRA_ENVIRONMENT@")
+# INTEL_CUSTOMIZATION
+config.extra_include = "@CMAKE_CURRENT_SOURCE_DIR@/../include"
+# end INTEL_CUSTOMIZATION
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

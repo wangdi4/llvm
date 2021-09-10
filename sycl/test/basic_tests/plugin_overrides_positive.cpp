@@ -23,9 +23,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
 
 #else
 
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl.hpp>
-/* end INTEL_CUSTOMIZATION */
+#include <sycl/sycl.hpp>
 
 int main() {
   try {
