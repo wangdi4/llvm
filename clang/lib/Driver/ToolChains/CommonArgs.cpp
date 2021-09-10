@@ -920,7 +920,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
         bool OfastSet = false;
         if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
           OfastSet = A->getOption().matches(options::OPT_Ofast);
-        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto_EQ) && OfastSet)
           addllvmOption("-loopopt=1");
         else {
           addllvmOption("-loopopt=0");

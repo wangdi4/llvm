@@ -151,7 +151,7 @@
 // -fast settings
 // RUN: %clang -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // RUN: %clang_cl -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
-// CHECK-INTEL-LOOPOPT-FAST: "-flto" "-flto-unit"
+// CHECK-INTEL-LOOPOPT-FAST: "-flto=full" "-flto-unit"
 // CHECK-INTEL-LOOPOPT-FAST: "-O3"
 // CHECK-INTEL-LOOPOPT-FAST: "-mllvm" "-loopopt"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-target-cpu" "x86_64"
@@ -160,7 +160,7 @@
 // disable LTO in fast
 // RUN: %clang -### --intel -c -fast -fno-lto %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
 // RUN: %clang_cl -### --intel -c -fast -Qipo- %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-FAST-NOLTO %s
-// CHECK-INTEL-FAST-NOLTO-NOT: "-flto"
+// CHECK-INTEL-FAST-NOLTO-NOT: "-flto=full"
 // CHECK-INTEL-FAST-NOLTO: "-O3"
 // CHECK-INTEL-FAST-NOLTO: "-mllvm" "-loopopt"
 

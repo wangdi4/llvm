@@ -560,14 +560,11 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (!Opt.contains("O")) {
       if (!hasXOpt)
         addClaim(IsCLMode() ? options::OPT__SLASH_Qx : options::OPT_x, "HOST");
-      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                        options::OPT_fno_lto, false)) {
+      if (!Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
         // check to make sure that if LTO is disabled, it is done after fast.
         if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
-          if (A->getOption().matches(options::OPT_Ofast)) {
-            addClaim(options::OPT_flto);
+          if (A->getOption().matches(options::OPT_Ofast))
             isIntelLTO = true;
-          }
       }
     }
   }
@@ -593,9 +590,8 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
           addClaim(options::OPT_fno_slp_vectorize);
     }
     // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
-    if (Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                     options::OPT_fno_lto, false)) {
-      if (Arg *A = Args.getLastArg(options::OPT_flto)) {
+    if (Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
+      if (Arg *A = Args.getLastArg(options::OPT_flto_EQ)) {
         StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
         if (Opt.contains("Qipo"))
           isIntelLTO = true;

@@ -3506,7 +3506,7 @@ def install__name : Separate<["-"], "install_name">;
 def iprefix : JoinedOrSeparate<["-"], "iprefix">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Set the -iwithprefix/-iwithprefixbefore prefix">, MetaVarName<"<dir>">;
 //if INTEL_CUSTOMIZATION
-def ipo : Flag<["-"], "ipo">, Alias<flto>,
+def ipo : Flag<["-"], "ipo">, Alias<flto_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable LTO in 'full' mode">;
 def no_ipo : Flag<["-"], "no-ipo">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
@@ -7273,7 +7273,7 @@ def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   "function entry and exit">;
 def _SLASH_Qinstrument_functions_ : CLFlag<"Qinstrument-functions-">,
   Alias<fno_instrument_functions>;
-def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
+def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_QdD : CLFlag<"QdD">, Alias<dD>,
   HelpText<"Print macro definitions in -E mode in addition to normal output.">;
