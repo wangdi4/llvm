@@ -120,7 +120,6 @@ llvm::Pass *createLoopStridedCodeMotionPass();
 llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
-llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createHandleVPlanMaskPass();
@@ -662,9 +661,8 @@ static void populatePassesPostFailCheck(
     PM.add(createOptimizeIDivPass());
   }
   PM.add(createPreventDivisionCrashesPass());
-  // We need InstructionCombining and GVN passes after ShiftZeroUpperBits,
-  // PreventDivisionCrashes passes to optimize redundancy introduced by those
-  // passes
+  // We need InstructionCombining and GVN passes after PreventDivisionCrashes
+  // passes to optimize redundancy introduced by those passes
   if (OptLevel > 0) {
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(createSmartGVNPass(false));
