@@ -63,7 +63,6 @@ void initializeOclFunctionAttrsPass(llvm::PassRegistry&);
 void initializeBuiltinLibInfoPass(llvm::PassRegistry&);
 void initializeLoopStridedCodeMotionPass(llvm::PassRegistry&);
 void initializeRelaxedPassPass(llvm::PassRegistry&);
-void initializeShiftZeroUpperBitsPass(llvm::PassRegistry&);
 void initializePrefetchPass(llvm::PassRegistry&);
 void initializeLoopWIAnalysisPass(llvm::PassRegistry&);
 void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
