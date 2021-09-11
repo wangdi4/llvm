@@ -380,8 +380,7 @@ template <typename DerivedT> struct PassInfoMixin {
     StringRef Name = getTypeName<DerivedT>();
     Name.consume_front("llvm::");
 #if INTEL_CUSTOMIZATION
-    if (Name.startswith("loopopt::"))
-      Name = Name.drop_front(strlen("loopopt::"));
+    Name.consume_front("loopopt::");
 #endif // INTEL_CUSTOMIZATION
     return Name;
   }
