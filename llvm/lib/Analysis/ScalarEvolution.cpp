@@ -12420,19 +12420,6 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
     if (!isa<SCEVConstant>(FoundRHS) && !isa<SCEVAddRecExpr>(FoundLHS))
       return isImpliedCondOperands(Pred, LHS, RHS, FoundRHS, FoundLHS, Context);
 
-    // There's no clear preference between forms 3. and 4., try both.  Avoid
-    // forming getNotSCEV of pointer values as the resulting subtract is
-    // not legal.
-    if (!LHS->getType()->isPointerTy() && !RHS->getType()->isPointerTy() &&
-        isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
-                              FoundLHS, FoundRHS, Context))
-      return true;
-
-    if (!FoundLHS->getType()->isPointerTy() &&
-        !FoundRHS->getType()->isPointerTy() &&
-        isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
-                              getNotSCEV(FoundRHS), Context))
-      return true;
 #if INTEL_CUSTOMIZATION
     // If we negate the SCEV and we are using unsigned comparisons, the
     // range analysis may be incorrect.
@@ -12445,16 +12432,26 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
     // With unsigned icmp, -b > a, and -b > 0, and "b < 0" which is incorrect.
     // This only seems to cause a problem in xmain, because xmain adds one
     // to IVs, to move them into the always-positive range.
+    //
+    // Guard the application of rules 3 and 4 with this unsigned check.
     if (!ICmpInst::isUnsigned(FoundPred)) {
-      return isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
-                                   FoundLHS, FoundRHS, Context) ||
-             isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
-                                   getNotSCEV(FoundRHS), Context);
+      // There's no clear preference between forms 3. and 4., try both.  Avoid
+      // forming getNotSCEV of pointer values as the resulting subtract is
+      // not legal.
+      if (!LHS->getType()->isPointerTy() && !RHS->getType()->isPointerTy() &&
+          isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
+                                FoundLHS, FoundRHS, Context))
+        return true;
+
+      if (!FoundLHS->getType()->isPointerTy() &&
+          !FoundRHS->getType()->isPointerTy() &&
+          isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
+                                getNotSCEV(FoundRHS), Context))
+        return true;
     }
-    // TODO: We may try the tests below if the tests above do not apply.
-    // llorg just returns the value of the above test at this point.
-    return false;
+    // llorg returns false below, rest of code may not work with swapped preds.
 #endif // INTEL_CUSTOMIZATION
+    return false;
   }
 
   // Unsigned comparison is the same as signed comparison when both the operands
