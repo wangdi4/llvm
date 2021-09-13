@@ -2675,10 +2675,13 @@ def fobjc_disable_direct_methods_for_testing :
   MarshallingInfoFlag<LangOpts<"ObjCDisableDirectMethodsForTesting">>;
 
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
-def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, FlangOption, FC1Option]>,
-  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 #if INTEL_CUSTOMIZATION
+def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, FlangOption, FC1Option]>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code. Advanced users "
+  "who prefer to use OpenMP* as it is implemented by the LLVM community "
+  "can get most of that functionality by using -fopenmp.">;
+def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Choose which OpenMP version to link with.">;
 #endif // INTEL_CUSTOMIZATION
@@ -2721,10 +2724,14 @@ def fopenmp_relocatable_target : Flag<["-"], "fopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fnoopenmp_relocatable_target : Flag<["-"], "fnoopenmp-relocatable-target">,
   Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
-def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
-  HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 #if INTEL_CUSTOMIZATION
-def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
+def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused]>, HelpText<"Emit OpenMP code only for "
+  "SIMD-based constructs. Advanced users who prefer to use OpenMP* as it is "
+  "implemented by the LLVM community can get most of that functionality by "
+  "using -fopenmp-simd.">;
+def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused]>, HelpText<"Same as -qopenmp-simd">;
 def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fiopenmp_vec_at_O0 : Flag<["-"], "fiopenmp-vec-at-O0">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fno_iopenmp_vec_at_O0 : Flag<["-"], "fno-iopenmp-vec-at-O0">, Group<f_Group>, Flags<[NoArgumentUnused]>;
@@ -2776,7 +2783,8 @@ defm openmp_optimistic_collapse : BoolFOption<"openmp-optimistic-collapse",
   LangOpts<"OpenMPOptimisticCollapse">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse>, BothFlags<[NoArgumentUnused, HelpHidden]>>;
 // INTEL_COLLAB
-def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>,
+  Flags<[NoArgumentUnused]>, HelpText<"Same as -qopenmp">;
 def fno_iopenmp : Flag<["-"], "fno-iopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
