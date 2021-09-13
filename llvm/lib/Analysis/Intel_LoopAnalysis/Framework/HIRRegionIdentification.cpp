@@ -564,18 +564,18 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Loop *Lp) {
   assert(Ty && "Type is null!");
 
-  while (isa<ArrayType>(Ty) || isa<VectorType>(Ty) || isa<PointerType>(Ty)) {
-    if (Ty->isVectorTy()) {
-      if (IsGEPRelated) {
+  if (IsGEPRelated) {
+    while (isa<ArrayType>(Ty) || isa<VectorType>(Ty)) {
+      if (Ty->isVectorTy()) {
         printOptReportRemark(
             Lp, "GEP related vector types currently not supported.");
+
         return false;
+      } else {
+        assert(Ty->isArrayTy() && "Array type expected!");
+
+        Ty = cast<ArrayType>(Ty)->getElementType();
       }
-      Ty = cast<VectorType>(Ty)->getElementType();
-    } else if (Ty->isArrayTy()) {
-      Ty = cast<ArrayType>(Ty)->getElementType();
-    } else {
-      Ty = Ty->getPointerElementType();
     }
   }
 
@@ -596,7 +596,8 @@ bool HIRRegionIdentification::containsUnsupportedTy(
 
   if (auto *SubInst = dyn_cast<SubscriptInst>(GEPOrSubs)) {
     // Subscript intrinsic can contain vector types.
-    return !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
+    return !isSupported(SubInst->getElementType(), true, Lp) ||
+           !isSupported(SubInst->getPointerOperandType(), true, Lp) ||
            !isSupported(SubInst->getIndex()->getType(), true, Lp) ||
            !isSupported(SubInst->getStride()->getType(), true, Lp);
   }
