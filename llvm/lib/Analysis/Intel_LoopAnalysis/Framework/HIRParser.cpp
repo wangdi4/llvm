@@ -2916,53 +2916,6 @@ static Type *getBasePtrElementType(const GEPOrSubsOperator *GEPOp) {
   }
 }
 
-// Tries to trace though some instruction types to get to a GEPOperator.
-static const GEPOperator *
-tracebackToGEPOp(const Value *Val, const HIRRegionIdentification &RI,
-                 SmallPtrSetImpl<const Value *> &VisitedInsts) {
-  while (1) {
-
-    if (auto *Phi = dyn_cast<PHINode>(Val)) {
-      // Bail out if we have already visted this phi to avoid getting into
-      // infinite cycle.
-      if (!VisitedInsts.insert(Phi).second) {
-        return nullptr;
-      }
-
-      // Trace through phis.
-      if (RI.isHeaderPhi(Phi)) {
-        Val = RI.getHeaderPhiUpdateVal(Phi);
-        continue;
-
-      } else {
-        // Since the traceback is specifically for getting element type of
-        // AddRec phis, we can use the first operand which can find a GEPOp.
-        unsigned NumOp = Phi->getNumIncomingValues();
-        for (unsigned I = 0; I < NumOp; ++I) {
-          if (auto *PhiGEPOp = tracebackToGEPOp(Phi->getIncomingValue(I), RI,
-                                                VisitedInsts)) {
-            return PhiGEPOp;
-          }
-        }
-      }
-    }
-
-    // Trace through bitcast with same src and dest types.
-    if (auto *BitCast = dyn_cast<BitCastInst>(Val)) {
-      if (BitCast->getType() != BitCast->getOperand(0)->getType()) {
-        return nullptr;
-      }
-
-      Val = BitCast->getOperand(0);
-      continue;
-    }
-
-    break;
-  }
-
-  return dyn_cast<GEPOperator>(Val);
-}
-
 // Populates \p IndexedTypes vector with types being indexed by the \p GEPOp.
 // ex.:
 //   -- gep [10 x { i8, float }]* %p, 0, i, 1
@@ -2980,32 +2933,6 @@ static void populateIndexedTypes(const GEPOperator *GEPOp,
   for (auto I = gep_type_begin(GEPOp), E = gep_type_end(GEPOp); I != E; ++I) {
     IndexedTypes.push_back(I.getIndexedType());
   }
-}
-
-static Type *getLastIndexedType(const GEPOperator *GEPOp) {
-  SmallVector<Type *, 4> IndexedTypes;
-
-  populateIndexedTypes(GEPOp, IndexedTypes);
-
-  return IndexedTypes.back();
-}
-
-static Type *findPhiElementType(const PHINode *AddRecPhi,
-                                const HIRRegionIdentification &RI) {
-  SmallPtrSet<const Value *, 12> VisitedInsts;
-
-  auto *GEPOp = tracebackToGEPOp(AddRecPhi, RI, VisitedInsts);
-
-  if (!GEPOp) {
-    auto *PhiTy = cast<PointerType>(AddRecPhi->getType());
-
-    // This check will try to keep parsing identical for non-opaque ptrs.
-    // Parsing will change in some case with opaque ptrs.
-    // See phi-base-with-bitcast-ptr-element-type.ll for an example.
-    return PhiTy->isOpaque() ? nullptr : PhiTy->getPointerElementType();
-  }
-
-  return getLastIndexedType(GEPOp);
 }
 
 CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
@@ -3047,7 +2974,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level,
 
   int64_t OrigDenom = IndexCE->getDenominator();
 
-  *ElemTy = findPhiElementType(Phi, RI);
+  *ElemTy = RI.findPhiElementType(Phi);
 
   if (!*ElemTy) {
     return nullptr;
