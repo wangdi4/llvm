@@ -4,11 +4,6 @@ endif(INCLUDE_MKL)
 
 set( TARGET framework_test_type )
 
-# Temporarily disable loopopt due to a LoopOpt bug, see CMPLRLLVM-11239 for details
-ocl_replace_compiler_option(CMAKE_CXX_FLAGS "-mllvm -loopopt" "")
-ocl_replace_compiler_option(CMAKE_C_FLAGS "-mllvm -loopopt" "")
-add_flag_if_supported("-mllvm -loopopt=0" CMPLR_LLVM_LOOPOPT)
-
 include_directories( ${OCL_SOURCE_DIR}/framework/export
                      ${OCL_SOURCE_DIR}/framework/Tracing
                      ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export )
