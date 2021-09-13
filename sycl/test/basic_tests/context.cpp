@@ -3,9 +3,7 @@
 
 // This test performs basic check of the SYCL context class.
 
-/* INTEL_CUSTOMIZATION */
-#include <CL/sycl.hpp>
-/* end INTEL_CUSTOMIZATION */
+#include <sycl/sycl.hpp>
 #include <iostream>
 
 using namespace cl::sycl;
