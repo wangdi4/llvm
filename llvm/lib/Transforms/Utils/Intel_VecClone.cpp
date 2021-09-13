@@ -247,13 +247,9 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
     ParmTypes.push_back(MaskVecTy);
   }
 
-  FunctionType* CloneFuncType = FunctionType::get(ReturnType, ParmTypes,
-                                                  false);
-
-  std::string VariantName = V.generateFunctionName(F.getName());
-  Function* Clone = Function::Create(CloneFuncType,
-                                     F.getLinkage(),
-                                     VariantName, F.getParent());
+  Function* Clone = getOrInsertVectorFunction(&F, V.getVlen(), ParmTypes,
+                                              nullptr, Intrinsic::not_intrinsic,
+                                              &V, V.isMasked());
 
   // Remove vector variant attributes from the original function. They are
   // not needed for the cloned function and it prevents any attempts at
