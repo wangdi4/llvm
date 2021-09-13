@@ -814,7 +814,12 @@ static void reorderScalars(SmallVectorImpl<Value *> &Scalars,
 #if INTEL_CUSTOMIZATION
 namespace {
 /// Tracks the state we can represent the loads in the given sequence.
-enum class LoadsState { Gather, Vectorize, ScatterVectorize, SplitLoadVectorize };
+enum class LoadsState {
+  Gather,
+  Vectorize,
+  ScatterVectorize,
+  SplitLoadVectorize
+};
 } // anonymous namespace
 #endif // INTEL_CUSTOMIZATION
 
@@ -886,12 +891,11 @@ public:
 
   /// Checks if the given array of loads can be represented as a vectorized,
   /// scatter or just simple gather.
-  LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
-                               const TargetTransformInfo &TTI,
-                               const DataLayout &DL, ScalarEvolution &SE,
-                               SmallVectorImpl<unsigned> &Order,
-                               SmallVectorImpl<Value *> &PointerOps,
-                               SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups);
+  LoadsState canVectorizeLoads(
+      ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
+      const DataLayout &DL, ScalarEvolution &SE,
+      SmallVectorImpl<unsigned> &Order, SmallVectorImpl<Value *> &PointerOps,
+      SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups);
 #endif // INTEL_CUSTOMIZATION
 
   /// Construct a vectorizable tree that starts at \p Roots, ignoring users for
@@ -4050,25 +4054,11 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
 }
 
 #if INTEL_CUSTOMIZATION
-LoadsState BoUpSLP::canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
-                                    const TargetTransformInfo &TTI,
-                                    const DataLayout &DL, ScalarEvolution &SE,
-                                    SmallVectorImpl<unsigned> &Order,
-                                    SmallVectorImpl<Value *> &PointerOps,
-                                    SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups) {
-#else
-namespace {
-/// Tracks the state we can represent the loads in the given sequence.
-enum class LoadsState { Gather, Vectorize, ScatterVectorize };
-} // anonymous namespace
-
-/// Checks if the given array of loads can be represented as a vectorized,
-/// scatter or just simple gather.
-static LoadsState canVectorizeLoads(ArrayRef<Value *> VL, const Value *VL0,
-                                    const TargetTransformInfo &TTI,
-                                    const DataLayout &DL, ScalarEvolution &SE,
-                                    SmallVectorImpl<unsigned> &Order,
-                                    SmallVectorImpl<Value *> &PointerOps) {
+LoadsState BoUpSLP::canVectorizeLoads(
+    ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
+    const DataLayout &DL, ScalarEvolution &SE, SmallVectorImpl<unsigned> &Order,
+    SmallVectorImpl<Value *> &PointerOps,
+    SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups) {
 #endif // INTEL_CUSTOMIZATION
   // Check that a vectorized load would load the same memory as a scalar
   // load. For example, we don't want to vectorize loads that are smaller
@@ -5720,9 +5710,6 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
         LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
         break;
-#else
-      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, CurrentOrder,
-                                PointerOps)) {
 #endif // INTEL_CUSTOMIZATION
       case LoadsState::Vectorize:
         if (CurrentOrder.empty()) {
@@ -6620,10 +6607,6 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
                                               LoadGroups);
             switch (LS) {
             case LoadsState::SplitLoadVectorize:
-#else
-            LoadsState LS = canVectorizeLoads(Slice, Slice.front(), *TTI, *DL,
-                                              *SE, CurrentOrder, PointerOps);
-            switch (LS) {
 #endif // INTEL_CUSTOMIZATION
             case LoadsState::Vectorize:
             case LoadsState::ScatterVectorize:
