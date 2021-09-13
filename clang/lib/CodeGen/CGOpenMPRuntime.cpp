@@ -1975,10 +1975,19 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // the threadprivate copy of the variable VD
       CodeGenFunction CtorCGF(CGM);
 
+#if INTEL_COLLAB
+      CodeGenModule::InTargetRegionRAII ITR(
+          CGM, CGM.getLangOpts().OpenMPLateOutline);
+#endif // INTEL_COLLAB
+
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_ctor"), FI, Loc);
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        Fn->setLinkage(llvm::Function::ExternalLinkage);
+#endif // INTEL_COLLAB
       auto NL = ApplyDebugLocation::CreateEmpty(CtorCGF);
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
                             FunctionArgList(), Loc, Loc);
@@ -2021,10 +2030,19 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
       // copy of the variable VD
       CodeGenFunction DtorCGF(CGM);
 
+#if INTEL_COLLAB
+      CodeGenModule::InTargetRegionRAII ITR(
+          CGM, CGM.getLangOpts().OpenMPLateOutline);
+#endif // INTEL_COLLAB
+
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_dtor"), FI, Loc);
+#if INTEL_COLLAB
+      if (CGM.getLangOpts().OpenMPLateOutline)
+        Fn->setLinkage(llvm::Function::ExternalLinkage);
+#endif // INTEL_COLLAB
       auto NL = ApplyDebugLocation::CreateEmpty(DtorCGF);
       DtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
                             FunctionArgList(), Loc, Loc);

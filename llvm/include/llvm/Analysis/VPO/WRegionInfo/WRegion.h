@@ -747,6 +747,7 @@ private:
   SmallVector<Value *, 3> UncollapsedNDRange;
   uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
+  bool HasTeamsReduction = false;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -765,7 +766,10 @@ protected:
     UncollapsedNDRange.insert(
         UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
   }
-public:
+  void setHasTeamsReduction() override {
+    HasTeamsReduction = true;
+  }
+ public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
   DEFINE_GETTER(MapClause,          getMap,         Map)
@@ -796,11 +800,11 @@ public:
     return UncollapsedNDRange;
   }
 
-  void setSPIRVSIMDWidth(unsigned Width) override {
+  void setSPIRVSIMDWidth(unsigned Width) {
     SPIRVSIMDWidth = Width;
   }
 
-  unsigned getSPIRVSIMDWidth() const override {
+  unsigned getSPIRVSIMDWidth() const {
     return SPIRVSIMDWidth;
   }
 
@@ -817,6 +821,10 @@ public:
 
   uint8_t getNDRangeDistributeDim() const override {
     return NDRangeDistributeDim;
+  }
+
+  bool getHasTeamsReduction() const override {
+    return HasTeamsReduction;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

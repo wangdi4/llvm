@@ -543,6 +543,12 @@ public:
   virtual bool getTreatDistributeParLoopAsDistribute() const {
     WRNERROR("TREAT_DISTRIBUTE_PAR_LOOP_AS_DISTRIBUTE");
   }
+  virtual void setHasTeamsReduction() {
+    WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
+  virtual bool getHasTeamsReduction() const {
+    WRNERROR("OFFLOAD_HAS_TEAMS_REDUCTION");
+  }
 
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
@@ -595,9 +601,6 @@ public:
     WRNERROR(QUAL_OMP_THREAD_LIMIT);
   }
 #endif //INTEL_CUSTOMIZATION
-
-  virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}
-  virtual unsigned getSPIRVSIMDWidth() const {WRNERROR("SPIRVSIMDWidth");}
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
