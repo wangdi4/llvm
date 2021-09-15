@@ -7380,6 +7380,11 @@ Sema::MergeIntelFPGABankWidthAttr(Decl *D, const IntelFPGABankWidthAttr &A) {
 
 static void handleIntelFPGABankWidthAttr(Sema &S, Decl *D,
                                          const ParsedAttr &A) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, A))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   S.AddIntelFPGABankWidthAttr(D, A, A.getArgAsExpr(0));
@@ -7471,6 +7476,11 @@ Sema::MergeIntelFPGANumBanksAttr(Decl *D, const IntelFPGANumBanksAttr &A) {
 }
 
 static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
+#if INTEL_CUSTOMIZATION
+  if (checkValidSYCLSpelling(S, A))
+   return;
+#endif // INTEL_CUSTOMIZATION
+
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   S.AddIntelFPGANumBanksAttr(D, A, A.getArgAsExpr(0));
