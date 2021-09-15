@@ -397,13 +397,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}bw_two
   //CHECK: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
-  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
+  //expected-note@+2{{previous attribute is here}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__bankwidth__(8)))
   __attribute__((__bankwidth__(16)))
@@ -522,13 +519,10 @@ void foo1()
 
   //CHECK: VarDecl{{.*}}nb_two
   //CHECK: IntelFPGANumBanksAttr
-  //CHECK-NEXT: ConstantExpr
+  //CHECK-NEXT: ConstantExpr{{.*}}'int'
   //CHECK-NEXT: value: Int 8
-  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGANumBanksAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
+  //CHECK-NEXT: IntegerLiteral{{.*}}'int' 8
+  //expected-note@+2{{previous attribute is here}}
   //expected-warning@+2{{is already applied}}
   __attribute__((__numbanks__(8)))
   __attribute__((__numbanks__(16)))
