@@ -3865,7 +3865,7 @@ public:
       //
       // Pointers to StructTypes are a tricky case, as the definition could
       // be recursive.  This could be resolved by struct TAGs, but these are
-      // not structly preserved in LLVM. We could try to derive them from
+      // not strictly preserved in LLVM. We could try to derive them from
       // the StructType's name, but in LLVM even anonymous types get a name.
       // (albeit a recognizable one because it is either %struct.anon or
       // of the form %struct.anon.*).
@@ -10812,7 +10812,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return SawFortran || getLangRuleOutOfBoundsOK();
+  return getLangRuleOutOfBoundsOK();
 }
 
 bool DTransAnalysisInfo::getDTransUseCRuleCompat() {

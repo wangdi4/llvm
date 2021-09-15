@@ -22,13 +22,10 @@ define i32 @main() {
   %res = call i32 %fptr(%struct.test01a* @myarg), !intel_dtrans_type !2
   ret i32 %res
 }
-; TODO: Currently, indirect function calls are not analyzed for cases that
-;       can be safety handled, so this will generate the "Address taken" safety
-;       bit. Once the analysis is complete, this bit can be removed.
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
-; CHECK: Safety data: Global instance | Has initializer list | Address taken{{ *$}}
+; CHECK: Safety data: Global instance | Has initializer list{{ *$}}
 
 
 !1 = !{i32 0, i32 0}  ; i32
