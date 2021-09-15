@@ -2528,15 +2528,7 @@ private:
                 KernelType, TransformedArgType>::value> * = nullptr>
   auto getRangeRoundedKernelLambda(KernelType KernelFunc,
                                    range<Dims> NumWorkItems) {
-<<<<<<< HEAD
-    return [=](TransformedArgType Arg, kernel_handler KH) {
-      if (Arg[0] >= NumWorkItems[0])
-        return;
-      Arg.set_allowed_range(NumWorkItems);
-      KernelFunc(Arg, KH);
-    };
-=======
-    if constexpr (detail::isKernelLambdaCallableWithKernelHandler<
+    if constexpr (detail::isKernelLambdaCallableWithKernelHandlerImpl<
                       KernelType, TransformedArgType>()) {
       return detail::RoundedRangeKernelWithKH<TransformedArgType, Dims,
                                               KernelType>(NumWorkItems,
@@ -2545,7 +2537,6 @@ private:
       return detail::RoundedRangeKernel<TransformedArgType, Dims, KernelType>(
           NumWorkItems, KernelFunc);
     }
->>>>>>> 2d28cd45bef8e6eee40e97cbaa68ca345db48d73
   }
 
   template <typename WrapperT, typename TransformedArgType, int Dims,
