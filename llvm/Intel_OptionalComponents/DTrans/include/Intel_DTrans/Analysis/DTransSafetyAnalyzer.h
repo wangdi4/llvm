@@ -108,6 +108,14 @@ public:
   // of the structure.
   bool getDTransOutOfBoundsOK() const;
 
+  // Return the value used during analysis for the command line option
+  // "dtrans-usecrulecompat" which controls the assumptions regarding whether
+  // C language rules may be applied to disambiguate types.  NOTE: If a
+  // Fortran function is seen, we will conservatively return 'false' for
+  // getDTransUseCRuleCompat() even if the command line option is 'true', as
+  // the appropriate rules for Fortran have not yet been implemented.
+  bool getDTransUseCRuleCompat() const;
+
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.
   dtrans::TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
@@ -248,6 +256,10 @@ private:
   void PostProcessFieldValueInfo();
   void computeStructFrequency(dtrans::StructInfo *StInfo);
 
+  // Check language specific info that may affect whether certain rules
+  // like DTransUseCRuleCompat can be applied.
+  void checkLanguages(Module &M);
+
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
   std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;
@@ -292,6 +304,10 @@ private:
 
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;
+
+  // Indicates that a Fortran function was seen. This will disable
+  // DTransUseCRuleCompat.
+  bool SawFortran = false;
 };
 
 class DTransSafetyAnalyzer : public AnalysisInfoMixin<DTransSafetyAnalyzer> {
