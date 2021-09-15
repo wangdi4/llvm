@@ -156,12 +156,23 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createCFGSimplificationPass());
         MPM.add(createPromoteMemoryToRegisterPass());
         MPM.add(createAggressiveDCEPass());
+        MPM.add(createResolveSubGroupWICallLegacyPass(
+            m_RtlModules, /*ResolveSGBarrier*/ false));
         MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
         // Barrier passes begin.
+        // TODO: insert ReplaceScalarWithMask pass here
+
+        // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
+        MPM.add(createResolveSubGroupWICallLegacyPass(
+            m_RtlModules, /*ResolveSGBarrier*/ false));
         MPM.add(createPhiCanonicalizationLegacyPass());
         MPM.add(createRedundantPhiNodeLegacyPass());
         MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
         MPM.add(createBarrierInFunctionLegacyPass());
+
+        // Resolve subgroup barriers after subgroup emulation passes
+        MPM.add(createResolveSubGroupWICallLegacyPass(
+            m_RtlModules, /*ResolveSGBarrier*/ true));
         MPM.add(createSplitBBonBarrierLegacyPass());
         MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
                                               /*UseTLSGlobals*/ false));
@@ -185,12 +196,17 @@ void OptimizerLTOLegacyPM::registerLastPasses(
   if (PMBuilder.OptLevel == 0) {
     // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
     // following passes to the end of pipeline.
+    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                  /*ResolveSGBarrier*/ false));
     MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
     // Barrier passes begin.
     MPM.add(createPhiCanonicalizationLegacyPass());
     MPM.add(createRedundantPhiNodeLegacyPass());
     MPM.add(createGroupBuiltinLegacyPass(m_RtlModules));
     MPM.add(createBarrierInFunctionLegacyPass());
+    // Resolve subgroup barriers after subgroup emulation passes
+    MPM.add(createResolveSubGroupWICallLegacyPass(m_RtlModules,
+                                                  /*ResolveSGBarrier*/ true));
     MPM.add(createSplitBBonBarrierLegacyPass());
     MPM.add(createKernelBarrierLegacyPass(m_debugType == intel::Native,
                                           /*UseTLSGlobals*/ false));

@@ -34,13 +34,15 @@
 ; CHECK-NOT:      DPCPPKernelVecClone pass
 ; CHECK-NOT:      VPlan Vectorization Driver
 ; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
-
-; CHECK:          WGLoopCreatorLegacy
+; CHECK:          ResolveSubGroupWICallLegacy
+; CHECK-NEXT:     WGLoopCreatorLegacy
+; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization
 ; CHECK-NEXT:         Intel Kernel RedundantPhiNode
 ; CHECK-NEXT:     GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
+; CHECK-NEXT:     ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis
