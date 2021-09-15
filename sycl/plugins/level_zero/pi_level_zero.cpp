@@ -2731,44 +2731,29 @@ pi_result piMemBufferCreate(pi_context Context, pi_mem_flags Flags, size_t Size,
     //
   }
 
-  // Choose an alignment that is at most 64 and is the next power of 2 for sizes
-  // less than 64.
-  auto Alignment = Size;
-  if (Alignment > 32UL)
-    Alignment = 64UL;
-  else if (Alignment > 16UL)
-    Alignment = 32UL;
-  else if (Alignment > 8UL)
-    Alignment = 16UL;
-  else if (Alignment > 4UL)
-    Alignment = 8UL;
-  else if (Alignment > 2UL)
-    Alignment = 4UL;
-  else if (Alignment > 1UL)
-    Alignment = 2UL;
-  else
-    Alignment = 1UL;
-
-  pi_result Result;
   if (DeviceIsIntegrated) {
-    Result = piextUSMHostAlloc(&Ptr, Context, nullptr, Size, Alignment);
+    ze_host_mem_alloc_desc_t ZeDesc = {};
+    ZeDesc.flags = 0;
+    ZE_CALL(zeMemAllocHost, (Context->ZeContext, &ZeDesc, Size, 1, &Ptr));
   } else if (Context->SingleRootDevice) {
     // If we have a single discrete device or all devices in the context are
     // sub-devices of the same device then we can allocate on device
-    Result = piextUSMDeviceAlloc(&Ptr, Context, Context->SingleRootDevice,
-                                 nullptr, Size, Alignment);
+    ze_device_mem_alloc_desc_t ZeDesc = {};
+    ZeDesc.flags = 0;
+    ZeDesc.ordinal = 0;
+    ZE_CALL(zeMemAllocDevice, (Context->ZeContext, &ZeDesc, Size, 1,
+                               Context->SingleRootDevice->ZeDevice, &Ptr));
   } else {
+    ze_host_mem_alloc_desc_t ZeDesc = {};
+    ZeDesc.flags = 0;
     // Context with several gpu cards. Temporarily use host allocation because
     // it is accessible by all devices. But it is not good in terms of
     // performance.
     // TODO: We need to either allow remote access to device memory using IPC,
     // or do explicit memory transfers from one device to another using host
     // resources as backing buffers to allow those transfers.
-    Result = piextUSMHostAlloc(&Ptr, Context, nullptr, Size, Alignment);
+    ZE_CALL(zeMemAllocHost, (Context->ZeContext, &ZeDesc, Size, 1, &Ptr));
   }
-
-  if (Result != PI_SUCCESS)
-    return Result;
 
   if (HostPtr) {
     if ((Flags & PI_MEM_FLAGS_HOST_PTR_USE) != 0 ||
@@ -2839,7 +2824,7 @@ pi_result piMemRelease(pi_mem Mem) {
     } else {
       auto Buf = static_cast<_pi_buffer *>(Mem);
       if (!Buf->isSubBuffer()) {
-        PI_CALL(piextUSMFree(Mem->Context, Mem->getZeHandle()));
+        ZE_CALL(zeMemFree, (Mem->Context->ZeContext, Mem->getZeHandle()));
       }
     }
     delete Mem;
@@ -5973,11 +5958,6 @@ pi_result USMDeviceMemoryAlloc::allocateImpl(void **ResultPtr, size_t Size,
                             Alignment);
 }
 
-pi_result USMHostMemoryAlloc::allocateImpl(void **ResultPtr, size_t Size,
-                                           pi_uint32 Alignment) {
-  return USMHostAllocImpl(ResultPtr, Context, nullptr, Size, Alignment);
-}
-
 void *USMMemoryAllocBase::allocate(size_t Size) {
   void *Ptr = nullptr;
 
@@ -6139,41 +6119,15 @@ pi_result piextUSMHostAlloc(void **ResultPtr, pi_context Context,
     PI_CALL(piContextRetain(Context));
   }
 
-  if (!UseUSMAllocator ||
-      // L0 spec says that allocation fails if Alignment != 2^n, in order to
-      // keep the same behavior for the allocator, just call L0 API directly and
-      // return the error code.
-      ((Alignment & (Alignment - 1)) != 0)) {
-    pi_result Res =
-        USMHostAllocImpl(ResultPtr, Context, Properties, Size, Alignment);
-    if (IndirectAccessTrackingEnabled) {
-      // Keep track of all memory allocations in the context
-      Context->MemAllocs.emplace(std::piecewise_construct,
-                                 std::forward_as_tuple(*ResultPtr),
-                                 std::forward_as_tuple(Context));
-    }
-    return Res;
+  pi_result Res =
+      USMHostAllocImpl(ResultPtr, Context, Properties, Size, Alignment);
+  if (IndirectAccessTrackingEnabled) {
+    // Keep track of all memory allocations in the context
+    Context->MemAllocs.emplace(std::piecewise_construct,
+                               std::forward_as_tuple(*ResultPtr),
+                               std::forward_as_tuple(Context));
   }
-
-  // There is a single allocator for Host USM allocations, so we don't need to
-  // find the allocator depending on context as we do for Shared and Device
-  // allocations.
-  try {
-    *ResultPtr = Context->HostMemAllocContext->allocate(Size, Alignment);
-    if (IndirectAccessTrackingEnabled) {
-      // Keep track of all memory allocations in the context
-      Context->MemAllocs.emplace(std::piecewise_construct,
-                                 std::forward_as_tuple(*ResultPtr),
-                                 std::forward_as_tuple(Context));
-    }
-  } catch (const UsmAllocationException &Ex) {
-    *ResultPtr = nullptr;
-    return Ex.getError();
-  } catch (...) {
-    return PI_ERROR_UNKNOWN;
-  }
-
-  return PI_SUCCESS;
+  return Res;
 }
 
 // Helper function to deallocate USM memory, if indirect access support is
@@ -6213,20 +6167,6 @@ static pi_result USMFreeHelper(pi_context Context, void *Ptr) {
   ZE_CALL(zeMemGetAllocProperties,
           (Context->ZeContext, Ptr, &ZeMemoryAllocationProperties,
            &ZeDeviceHandle));
-
-  // If memory type is host release from host pool
-  if (ZeMemoryAllocationProperties.type == ZE_MEMORY_TYPE_HOST) {
-    try {
-      Context->HostMemAllocContext->deallocate(Ptr);
-    } catch (const UsmAllocationException &Ex) {
-      return Ex.getError();
-    } catch (...) {
-      return PI_ERROR_UNKNOWN;
-    }
-    if (IndirectAccessTrackingEnabled)
-      PI_CALL(ContextReleaseHelper(Context));
-    return PI_SUCCESS;
-  }
 
   if (ZeDeviceHandle) {
     pi_device Device;
