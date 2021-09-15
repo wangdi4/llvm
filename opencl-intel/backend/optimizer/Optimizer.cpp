@@ -152,7 +152,6 @@ llvm::Pass *createSmartGVNPass(bool);
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass(bool isUniformWGSize,
                                           bool useTLSGlobals);
-llvm::Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
 llvm::ModulePass *createDetectRecursionPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
@@ -653,7 +652,8 @@ static void populatePassesPostFailCheck(
 #endif
 
   if (EnableNativeOpenCLSubgroups)
-    PM.add(createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
+    PM.add(createResolveSubGroupWICallLegacyPass(pRtlModuleList,
+                                                 /*ResolveSGBarrier*/ false));
 
   // Unroll small loops with unknown trip count.
   PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 16, 0, 0, 1));

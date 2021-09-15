@@ -244,7 +244,6 @@ set( BACKEND_PASSES
     ProfilingInfoPass
     RelaxedPass
     ResolveWICall
-    ResolveSubGroupWICall
     SetPreferVectorWidth
     UndefExternalFuncs
     KernelInfo
