@@ -7340,24 +7340,24 @@ namespace {
       // If the variable appears in a map clause, don't hoist.
       for (const auto *C : S.getClausesOfKind<OMPMapClause>()) {
         for (const auto *E : C->varlists()) {
-          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
-            if (isVarUsedInBounds(PVD))
+          if (const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(VD))
               return false;
         }
       }
       // If the variable appears in a is_device_ptr clause, don't hoist.
       for (const auto *C : S.getClausesOfKind<OMPIsDevicePtrClause>()) {
         for (const auto *E : C->varlists()) {
-          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
-            if (isVarUsedInBounds(PVD))
+          if (const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(VD))
               return false;
         }
       }
       // If the variable appears in a private clause, don't hoist.
       for (const auto *C : S.getClausesOfKind<OMPPrivateClause>()) {
         for (const auto *E : C->varlists()) {
-          if (const VarDecl *PVD = OpenMPLateOutliner::getExplicitVarDecl(E))
-            if (isVarUsedInBounds(PVD))
+          if (const VarDecl *VD = OpenMPLateOutliner::getExplicitVarDecl(E))
+            if (isVarUsedInBounds(VD))
               return false;
         }
       }
