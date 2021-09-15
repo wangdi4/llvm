@@ -60,7 +60,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
     intel::initializeResolveWICallPass(Registry);
-    intel::initializeResolveSubGroupWICallPass(Registry);
     intel::initializeResolveBlockToStaticCallPass(Registry);
     intel::initializeDetectRecursionPass(Registry);
     intel::initializeDebugInfoPassPass(Registry);

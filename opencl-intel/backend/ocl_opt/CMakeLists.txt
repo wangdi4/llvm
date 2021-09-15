@@ -39,7 +39,6 @@ set(OCL_BE_PASSES
     RelaxedPass
     ResolveBlockToStaticCall
     ResolveWICall
-    ResolveSubGroupWICall
     SetPreferVectorWidth
     SinCosFold
     SmartGVN
