@@ -201,9 +201,9 @@ with open(check_sycl_hpp_file, 'w') as fp:
 sycl_hpp_available = subprocess.getstatusoutput(config.clang+' -fsycl  ' + check_sycl_hpp_file)
 if sycl_hpp_available[0] != 0:
     if platform.system() == 'Windows':
-        llvm_config.with_environment('INCLUDE', config.extra_include)
+        llvm_config.with_environment('INCLUDE', config.extra_include, append_path=True)
     else:
-        llvm_config.with_environment('CPATH', config.extra_include)
+        llvm_config.with_environment('CPATH', config.extra_include, append_path=True)
 # end INTEL_CUSTOMIZATION
 
 # Every SYCL implementation provides a host implementation.
