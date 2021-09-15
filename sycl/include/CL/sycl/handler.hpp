@@ -198,6 +198,42 @@ checkValueRange(const T &V) {
 #endif
 }
 
+template <typename TransformedArgType, int Dims, typename KernelType>
+class RoundedRangeKernel {
+public:
+  RoundedRangeKernel(range<Dims> NumWorkItems, KernelType KernelFunc)
+      : NumWorkItems(NumWorkItems), KernelFunc(KernelFunc) {}
+
+  void operator()(TransformedArgType Arg) const {
+    if (Arg[0] >= NumWorkItems[0])
+      return;
+    Arg.set_allowed_range(NumWorkItems);
+    KernelFunc(Arg);
+  }
+
+private:
+  range<Dims> NumWorkItems;
+  KernelType KernelFunc;
+};
+
+template <typename TransformedArgType, int Dims, typename KernelType>
+class RoundedRangeKernelWithKH {
+public:
+  RoundedRangeKernelWithKH(range<Dims> NumWorkItems, KernelType KernelFunc)
+      : NumWorkItems(NumWorkItems), KernelFunc(KernelFunc) {}
+
+  void operator()(TransformedArgType Arg, kernel_handler KH) const {
+    if (Arg[0] >= NumWorkItems[0])
+      return;
+    Arg.set_allowed_range(NumWorkItems);
+    KernelFunc(Arg, KH);
+  }
+
+private:
+  range<Dims> NumWorkItems;
+  KernelType KernelFunc;
+};
+
 } // namespace detail
 
 namespace ext {
@@ -2492,12 +2528,15 @@ private:
                 KernelType, TransformedArgType>::value> * = nullptr>
   auto getRangeRoundedKernelLambda(KernelType KernelFunc,
                                    range<Dims> NumWorkItems) {
-    return [=](TransformedArgType Arg, kernel_handler KH) {
-      if (Arg[0] >= NumWorkItems[0])
-        return;
-      Arg.set_allowed_range(NumWorkItems);
-      KernelFunc(Arg, KH);
-    };
+    if constexpr (detail::isKernelLambdaCallableWithKernelHandlerImpl<
+                      KernelType, TransformedArgType>()) {
+      return detail::RoundedRangeKernelWithKH<TransformedArgType, Dims,
+                                              KernelType>(NumWorkItems,
+                                                          KernelFunc);
+    } else {
+      return detail::RoundedRangeKernel<TransformedArgType, Dims, KernelType>(
+          NumWorkItems, KernelFunc);
+    }
   }
 
   template <typename WrapperT, typename TransformedArgType, int Dims,
