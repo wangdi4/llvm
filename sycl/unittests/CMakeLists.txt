@@ -25,5 +25,8 @@ add_subdirectory(scheduler)
 add_subdirectory(SYCL2020)
 add_subdirectory(thread_safety)
 add_subdirectory(program_manager)
+<<<<<<< HEAD
 add_subdirectory(assert)
+=======
+>>>>>>> 7cd3bd5cd2ec92db4d2afa61eab118f6f1cc7233
 add_subdirectory(Extensions)
