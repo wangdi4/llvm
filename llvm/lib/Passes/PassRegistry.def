@@ -339,15 +339,16 @@ FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 FUNCTION_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 FUNCTION_ANALYSIS("divergence", DivergenceAnalysis())
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_DTRANS
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-FUNCTION_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())              // INTEL
-FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())   // INTEL
-FUNCTION_ANALYSIS("soatoaos-struct-methods", dtrans::SOAToAOSStructMethodsCheckDebug()) // INTEL
+FUNCTION_ANALYSIS("soatoaos-approx", dtrans::SOAToAOSApproximationDebug())
+FUNCTION_ANALYSIS("soatoaos-array-methods", dtrans::SOAToAOSArrayMethodsCheckDebug())
+FUNCTION_ANALYSIS("soatoaos-struct-methods", dtrans::SOAToAOSStructMethodsCheckDebug())
+FUNCTION_ANALYSIS("soatoaosop-approx", dtransOP::SOAToAOSOPApproximationDebug())
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #endif // INTEL_FEATURE_SW_DTRANS
 
-#if INTEL_CUSTOMIZATION
 FUNCTION_ANALYSIS("array-use", ArrayUseAnalysis())
 FUNCTION_ANALYSIS("xm-opt-level", XmainOptLevelAnalysis())
 FUNCTION_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())

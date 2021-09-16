@@ -38,6 +38,35 @@ public:
   // This is used to share the core implementation with the legacy pass.
   bool runImpl(Module &M, DTransSafetyInfo &DTInfo, WholeProgramInfo &WPInfo);
 };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Debugging pass to check computation of approximate IR.
+struct SOAToAOSOPApproximationDebugResult;
+class SOAToAOSOPApproximationDebug
+    : public AnalysisInfoMixin<SOAToAOSOPApproximationDebug> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<SOAToAOSOPApproximationDebug>;
+  static char PassID;
+
+public:
+  // Called from lit-tests, result is consumed only by lit-tests.
+  class Ignore {
+    std::unique_ptr<SOAToAOSOPApproximationDebugResult> Ptr;
+
+  public:
+    Ignore(SOAToAOSOPApproximationDebugResult *Ptr);
+    Ignore(Ignore &&Other);
+    const SOAToAOSOPApproximationDebugResult *get() const;
+    // Prevent default dtor creation while type is incomplete.
+    ~Ignore();
+  };
+  typedef Ignore Result;
+
+  Result run(Function &F, FunctionAnalysisManager &AM);
+};
+
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 } // namespace dtransOP
 
 ModulePass *createDTransSOAToAOSOPWrapperPass();
