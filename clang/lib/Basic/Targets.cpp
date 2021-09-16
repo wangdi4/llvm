@@ -648,7 +648,14 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       case llvm::Triple::MSVC:
         assert(HT.getArch() == llvm::Triple::x86_64 &&
                "Unsupported host architecture");
-        return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+#if INTEL_CUSTOMIZATION
+        switch (Triple.getEnvironment()) {
+        case llvm::Triple::IntelFPGA:
+          return new MicrosoftX86_64_SPIR64INTELFpgaTargetInfo(Triple, Opts);
+        default:
+          return new MicrosoftX86_64_SPIR64TargetInfo(Triple, Opts);
+        }
+#endif // INTEL_CUSTOMIZATION
       }
     case llvm::Triple::Linux:
       return new LinuxTargetInfo<SPIR64TargetInfo>(Triple, Opts);
