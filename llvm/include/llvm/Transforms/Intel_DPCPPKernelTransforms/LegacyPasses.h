@@ -50,6 +50,7 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
                                           bool useTLSGlobals);
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createIndirectCallLoweringLegacyPass();
 ModulePass *createInternalizeNonKernelFuncLegacyPass();
 ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();

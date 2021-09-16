@@ -91,6 +91,7 @@ MODULE_PASS("dpcpp-kernel-create-simd-variant-propagation", CreateSimdVariantPro
 MODULE_PASS("dpcpp-kernel-set-vf", SetVectorizationFactorPass())
 MODULE_PASS("dpcpp-kernel-sg-size-collector", SGSizeCollectorPass())
 MODULE_PASS("dpcpp-kernel-sg-size-collector-indirect", SGSizeCollectorIndirectPass())
+MODULE_PASS("dpcpp-kernel-indirect-call-lowering", IndirectCallLowering())
 
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))
 MODULE_PASS("print<dpcpp-kernel-data-per-value-analysis>", DataPerValuePrinter(dbgs()))
