@@ -28,17 +28,12 @@
 ; VPCHECK-NEXT:              |   %unifcond = extractelement %.vec,  0;
 ; VPCHECK-NEXT:              |   if (%unifcond == 1)
 ; VPCHECK-NEXT:              |   {
+; VPCHECK-NEXT:              |      %.vec1 = (<4 x float>*)(@B)[0][i1];
+; VPCHECK-NEXT:              |      %.vec2 = (<4 x float>*)(@C)[0][i1];
+; VPCHECK-NEXT:              |      %.vec3 = %.vec1  +  %.vec2;
+; VPCHECK-NEXT:              |      %.vec4 = %red.var  +  %.vec3;
+; VPCHECK-NEXT:              |      %phi.temp = %.vec4;
 ; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   else
-; VPCHECK-NEXT:              |   {
-; VPCHECK-NEXT:              |      goto [[BB5:BB5.*]];
-; VPCHECK-NEXT:              |   }
-; VPCHECK-NEXT:              |   %.vec1 = (<4 x float>*)(@B)[0][i1];
-; VPCHECK-NEXT:              |   %.vec2 = (<4 x float>*)(@C)[0][i1];
-; VPCHECK-NEXT:              |   %.vec3 = %.vec1  +  %.vec2;
-; VPCHECK-NEXT:              |   %.vec4 = %red.var  +  %.vec3;
-; VPCHECK-NEXT:              |   %phi.temp = %.vec4;
-; VPCHECK-NEXT:              |   [[BB5]]:
 ; VPCHECK-NEXT:              |   %red.var = %phi.temp;
 ; VPCHECK-NEXT:              + END LOOP
 ; VPCHECK:                   %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);

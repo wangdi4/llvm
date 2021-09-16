@@ -4362,6 +4362,7 @@ public:
   const VPDominatorTree *getDT() const { return PlanDT.get(); }
   /// Getter for Post-Dominator Tree
   VPPostDominatorTree *getPDT() { return PlanPDT.get(); }
+  const VPPostDominatorTree *getPDT() const { return PlanPDT.get(); }
 
   /// Compute the Dominator Tree for this Plan.
   void computeDT();
