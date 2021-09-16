@@ -380,13 +380,22 @@ private:
     auto Root = PDT->getNode(nullptr);
     if (!Root)
       return;
+#if INTEL_CUSTOMIZATION
+    // Don't clear the rename stack after each node. pdom check in 3e71118d
+    // is sufficient, but more expensive. Otherwise we miss cases with more
+    // than 1 pdom depth level.
+    RenameStackType RenameStack;
+#endif // INTEL_CUSTOMIZATION
     // Depth first walk on PDom tree to fill the CHIargs at each PDF.
     for (auto Node : depth_first(Root)) {
       BasicBlock *BB = Node->getBlock();
       if (!BB)
         continue;
 
-      RenameStackType RenameStack;
+#if INTEL_CUSTOMIZATION
+      //RenameStackType RenameStack;
+#endif // INTEL_CUSTOMIZATION
+
       // Collect all values in BB and push to stack.
       fillRenameStack(BB, ValueBBs, RenameStack);
 
