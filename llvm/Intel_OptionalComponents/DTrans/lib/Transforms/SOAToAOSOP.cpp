@@ -21,6 +21,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 #include "Intel_DTrans/Transforms/SOAToAOSOPExternal.h"
+#include "SOAToAOSOPEffects.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
@@ -63,7 +64,7 @@ private:
   bool prepareTypes(Module &M) override;
   void populateTypes(Module &M) override;
 
-  class CandidateSideEffectsInfo : public SOAToAOSOPCFGInfo {
+  class CandidateSideEffectsInfo : public SOAToAOSOPCFGInfo, DepMap {
   protected:
     CandidateSideEffectsInfo() {}
 

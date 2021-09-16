@@ -12,18 +12,18 @@ class a {
 void a::d() { c<a>(this, &a::e); }
 
 // a::d()
-// CHECK: define dso_local void @_ZN1a1dEv(%class.a* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[A_D:[0-9]+]]
+// CHECK: define dso_local void @_ZN1a1dEv(%class._ZTS1a.a* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1" %{{.*}}){{.*}}!intel.dtrans.func.type ![[A_D:[0-9]+]]
 // a::e()
-// CHECK: declare !intel.dtrans.func.type ![[A_E:[0-9]+]] void @_ZN1a1eEv(%class.a* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1")
+// CHECK: declare !intel.dtrans.func.type ![[A_E:[0-9]+]] void @_ZN1a1eEv(%class._ZTS1a.a* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1")
 // c<a>::c(a*, void (a::*)())
-// CHECK: declare !intel.dtrans.func.type ![[C_C:[0-9]+]] void @_ZN1cI1aEC1EPS0_MS0_FvvE(%class.c* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1", %class.a* "intel_dtrans_func_index"="2", i64, i64)
+// CHECK: declare !intel.dtrans.func.type ![[C_C:[0-9]+]] void @_ZN1cI1aEC1EPS0_MS0_FvvE(%class._ZTS1cI1aE.c* nonnull align 1 dereferenceable(1) "intel_dtrans_func_index"="1", %class._ZTS1a.a* "intel_dtrans_func_index"="2", i64, i64)
 
 // CHECK: intel.dtrans.types = !{![[A:[0-9]+]], ![[C:[0-9]+]]}
-// CHECK: ![[A]] = !{!"S", %class.a zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}
+// CHECK: ![[A]] = !{!"S", %class._ZTS1a.a zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}
 // CHECK: ![[CHAR]] = !{i8 0, i32 0}
-// CHECK: ![[C]] = !{!"S", %class.c zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}
+// CHECK: ![[C]] = !{!"S", %class._ZTS1cI1aE.c zeroinitializer, i32 1, ![[CHAR:[0-9]+]]}
 // CHECK: ![[A_D]] = distinct !{![[A_PTR:[0-9]+]]}
-// CHECK: ![[A_PTR]] = !{%class.a zeroinitializer, i32 1}
+// CHECK: ![[A_PTR]] = !{%class._ZTS1a.a zeroinitializer, i32 1}
 // CHECK: ![[A_E]] = distinct !{![[A_PTR]]}
 // CHECK: ![[C_C]] = distinct !{![[C_PTR:[0-9]+]], ![[A_PTR]]}
-// CHECK: ![[C_PTR]] = !{%class.c zeroinitializer, i32 1}
+// CHECK: ![[C_PTR]] = !{%class._ZTS1cI1aE.c zeroinitializer, i32 1}

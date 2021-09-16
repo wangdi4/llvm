@@ -21,7 +21,7 @@ int main() {
 }
 
 // CHECK: !intel.dtrans.types = !{![[STRUCT_NODE:[0-9]+]]}
-// CHECK: ![[STRUCT_NODE]] = !{!"S", %struct.test_simple zeroinitializer, i32 5, ![[F1:[0-9]+]], ![[F2:[0-9]+]], ![[F3:[0-9]+]], ![[F4:[0-9]+]], ![[F2]]}
+// CHECK: ![[STRUCT_NODE]] = !{!"S", %struct._ZTS11test_simple.test_simple zeroinitializer, i32 5, ![[F1:[0-9]+]], ![[F2:[0-9]+]], ![[F3:[0-9]+]], ![[F4:[0-9]+]], ![[F2]]}
 // CHECK: ![[F1]] = !{i32 0, i32 0}
 // CHECK: ![[F2]] = !{i64 0, i32 0}
 // CHECK: ![[F3]] = !{i16 0, i32 0}

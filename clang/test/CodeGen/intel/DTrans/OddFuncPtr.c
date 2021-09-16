@@ -10,12 +10,12 @@ typedef struct {
 f g;
 
 // CHECK: !intel.dtrans.types = !{![[STRUCT_F:[0-9]+]], ![[STRUCT_ANON:[0-9]+]]}
-// CHECK: ![[STRUCT_F]] = !{!"S", %struct.f zeroinitializer, i32 1, ![[FUNC_PTR:[0-9]+]]}
+// CHECK: ![[STRUCT_F]] = !{!"S", %struct._ZTS1f.f zeroinitializer, i32 1, ![[FUNC_PTR:[0-9]+]]}
 // CHECK: ![[FUNC_PTR]] = !{![[FUNC:[0-9]+]], i32 1}
 // CHECK: ![[FUNC]] = !{!"F", i1 true, i32 1, ![[VOID:[0-9]+]], ![[ANON_PTR:[0-9]+]]}
 // CHECK: ![[VOID]] = !{!"void", i32 0}
-// CHECK: ![[ANON_PTR]] = !{%struct.anon zeroinitializer, i32 1}
-// CHECK: ![[STRUCT_ANON]] = !{!"S", %struct.anon zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT_PTR:[0-9]+]], ![[VOID_PTR:[0-9]+]]}
+// CHECK: ![[ANON_PTR]] = !{%"struct._ZTS3$_0.anon" zeroinitializer, i32 1}
+// CHECK: ![[STRUCT_ANON]] = !{!"S", %"struct._ZTS3$_0.anon" zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT_PTR:[0-9]+]], ![[VOID_PTR:[0-9]+]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
 // CHECK: ![[INT_PTR]] = !{i32 0, i32 1}
 // CHECK: ![[VOID_PTR]] = !{i8 0, i32 1}

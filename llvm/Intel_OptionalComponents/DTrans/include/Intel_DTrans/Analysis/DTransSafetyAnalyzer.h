@@ -69,6 +69,10 @@ public:
 
   ~DTransSafetyInfo();
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv);
+
   // Access methods to get the classes used when constructing the DTransTypes.
   DTransTypeManager &getTypeManager() {
     assert(TM.get() && "DTransTypeManager not initialized");

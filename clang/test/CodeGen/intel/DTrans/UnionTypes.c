@@ -26,9 +26,9 @@ C c;
 D d;
 
 // CHECK: !intel.dtrans.types = !{![[A:[0-9]+]], ![[B:[0-9]+]], ![[C:[0-9]+]], ![[D:[0-9]+]]}
-// CHECK: ![[A]] = !{!"S", %union.A zeroinitializer, i32 1, ![[LONG:[0-9]+]]}
+// CHECK: ![[A]] = !{!"S", %union._ZTS1A.A zeroinitializer, i32 1, ![[LONG:[0-9]+]]}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}
-// CHECK: ![[B]] = !{!"S", %union.B zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}
+// CHECK: ![[B]] = !{!"S", %union._ZTS1B.B zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}
 // CHECK: ![[VOID_PTR]] = !{i8 0, i32 1}
-// CHECK: ![[C]] = !{!"S", %union.C zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}
-// CHECK: ![[D]] = !{!"S", %union.D zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}
+// CHECK: ![[C]] = !{!"S", %union._ZTS1C.C zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}
+// CHECK: ![[D]] = !{!"S", %union._ZTS1D.D zeroinitializer, i32 1, ![[VOID_PTR:[0-9]+]]}

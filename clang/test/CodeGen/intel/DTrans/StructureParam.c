@@ -49,13 +49,13 @@ int test3(Double1 d1, Double2 d2) { return 0; }
 // the type signatures anyway.
 // CHECK: !intel.dtrans.types = !{![[PIXEL:[0-9]+]], ![[FLOATS1:[0-9]+]], ![[FLOATS2:[0-9]+]], ![[FLOATS3:[0-9]+]], ![[FLOATS4:[0-9]+]], ![[DOUBLES1:[0-9]+]], ![[DOUBLES2:[0-9]+]]}
 
-// CHECK: ![[PIXEL]] = !{!"S", %struct._PixelPacket zeroinitializer, i32 4, ![[SHORT:[0-9]+]], ![[SHORT]], ![[SHORT]], ![[SHORT]]}
+// CHECK: ![[PIXEL]] = !{!"S", %struct._ZTS12_PixelPacket._PixelPacket zeroinitializer, i32 4, ![[SHORT:[0-9]+]], ![[SHORT]], ![[SHORT]], ![[SHORT]]}
 // CHECK: ![[SHORT]] = !{i16 0, i32 0}
-// CHECK: ![[FLOATS1]] = !{!"S", %struct._Floats1 zeroinitializer, i32 1, ![[FLOAT:[0-9]+]]}
+// CHECK: ![[FLOATS1]] = !{!"S", %struct._ZTS8_Floats1._Floats1 zeroinitializer, i32 1, ![[FLOAT:[0-9]+]]}
 // CHECK: ![[FLOAT]] = !{float 0.0{{.+}}, i32 0}
-// CHECK: ![[FLOATS2]] = !{!"S", %struct._Floats2 zeroinitializer, i32 2, ![[FLOAT]], ![[FLOAT]]}
-// CHECK: ![[FLOATS3]] = !{!"S", %struct._Floats3 zeroinitializer, i32 3, ![[FLOAT]], ![[FLOAT]], ![[FLOAT]]}
-// CHECK: ![[FLOATS4]] = !{!"S", %struct._Floats4 zeroinitializer, i32 4, ![[FLOAT]], ![[FLOAT]], ![[FLOAT]], ![[FLOAT]]}
-// CHECK: ![[DOUBLES1]] = !{!"S", %struct._Doubles1 zeroinitializer, i32 1, ![[DOUBLE:[0-9]+]]}
+// CHECK: ![[FLOATS2]] = !{!"S", %struct._ZTS8_Floats2._Floats2 zeroinitializer, i32 2, ![[FLOAT]], ![[FLOAT]]}
+// CHECK: ![[FLOATS3]] = !{!"S", %struct._ZTS8_Floats3._Floats3 zeroinitializer, i32 3, ![[FLOAT]], ![[FLOAT]], ![[FLOAT]]}
+// CHECK: ![[FLOATS4]] = !{!"S", %struct._ZTS8_Floats4._Floats4 zeroinitializer, i32 4, ![[FLOAT]], ![[FLOAT]], ![[FLOAT]], ![[FLOAT]]}
+// CHECK: ![[DOUBLES1]] = !{!"S", %struct._ZTS9_Doubles1._Doubles1 zeroinitializer, i32 1, ![[DOUBLE:[0-9]+]]}
 // CHECK: ![[DOUBLE]] = !{double 0.0{{.+}}, i32 0}
-// CHECK: ![[DOUBLES2]] = !{!"S", %struct._Doubles2 zeroinitializer, i32 2, ![[DOUBLE]], ![[DOUBLE]]}
+// CHECK: ![[DOUBLES2]] = !{!"S", %struct._ZTS9_Doubles2._Doubles2 zeroinitializer, i32 2, ![[DOUBLE]], ![[DOUBLE]]}
