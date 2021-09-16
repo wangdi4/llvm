@@ -430,9 +430,8 @@ const DenseMap<unsigned, const char *> OptReportDiag::Diags = {
             "-mprefer-vector-width=512 to override."},
 
     {25018, "Total number of lines prefetched=%d"},
-    {25019, "Number of spatial prefetches=%d, dist=%d"},
-    {25020, "Number of spatial prefetches=%d"},
-    {25033, "Number of indirect prefetches=%d"},
+    {25019, "Number of spatial prefetches=%d, default dist=%d"},
+    {25033, "Number of indirect prefetches=%d, default dist=%d"},
     {25045, "Fused Loops: %s"},
     {25046, "Loop lost in Fusion"},
     {25147, "Using directive-based hint=%d, distance=%d for prefetching spatial memory reference"},

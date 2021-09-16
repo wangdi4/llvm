@@ -125,6 +125,12 @@ static cl::opt<bool>
 static cl::opt<bool> EnablePrefetchW("hir-prefetching-prefetchw",
                                      cl::init(false), cl::Hidden,
                                      cl::desc("Enable prefetchW"));
+
+static cl::opt<bool>
+    EnableIndirectPrefetching("hir-prefetching-enable-indirect-prefetching",
+                              cl::init(false), cl::Hidden,
+                              cl::desc("Enable indirect prefetching"));
+
 namespace {
 
 struct PragmaInfo {
@@ -171,7 +177,7 @@ public:
 
 private:
   bool doPrefetching(
-      HLLoop *Lp, bool HasPragmaInfo,
+      HLLoop *Lp, bool HasPragmaInfo, int DefaultPrefetchDist,
       const SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
       const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 
@@ -179,7 +185,7 @@ private:
                                   unsigned PrefetchHint, bool IsWrite);
 
   bool doAnalysis(
-      HLLoop *Lp, bool &HasPragmaInfo,
+      HLLoop *Lp, bool &HasPragmaInfo, int &DefaultPrefetchDist,
       SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
       SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates);
 
@@ -193,8 +199,8 @@ private:
   void collectPrefetchPragmaInfo(
       HLLoop *Lp,
       DenseMap<unsigned, std::tuple<int, int, bool>> &CandidateVarSBsDistsHints,
-      int &PrefetchDist, int &PrefetchHint,
-      bool &DefaultHasSpecifiedHintOrDist);
+      int &PrefetchDist, int &PrefetchHint, bool &DefaultHasSpecifiedHintOrDist,
+      bool &HasPrefetchAll);
 
   void collectIndirectPrefetchingCandidates(
       HLLoop *Lp, const RegDDRef *FirstRef, int Dist, int Hint,
@@ -382,7 +388,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
     HLLoop *Lp,
     DenseMap<unsigned, std::tuple<int, int, bool>> &CandidateVarSBsDistsHints,
     int &DefaultPrefetchDist, int &DefaultPrefetchHint,
-    bool &DefaultHasSpecifiedHintOrDist) {
+    bool &DefaultHasSpecifiedHintOrDist, bool &HasPrefetchAll) {
   auto Info = Lp->getPrefetchingPragmaInfo();
   unsigned Size = Info.size();
   SmallVector<PragmaInfo, 16> PragmaVarsDistsHints;
@@ -419,6 +425,11 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
       DefaultPrefetchDist = Dist;
       DefaultPrefetchHint = Hint;
       DefaultHasSpecifiedHintOrDist = HasSpecifiedHintOrDist;
+
+      // In the case of #pragma no prefetch, Dist = 0
+      if (Dist) {
+        HasPrefetchAll = true;
+      }
       continue;
     }
 
@@ -521,7 +532,7 @@ void HIRPrefetching::collectIndirectPrefetchingCandidates(
 }
 
 bool HIRPrefetching::doAnalysis(
-    HLLoop *Lp, bool &HasPragmaInfo,
+    HLLoop *Lp, bool &HasPragmaInfo, int &DefaultPrefetchDist,
     SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
     SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
   if (!Lp->isDo()) {
@@ -566,12 +577,13 @@ bool HIRPrefetching::doAnalysis(
   }
 
   DenseMap<unsigned, std::tuple<int, int, bool>> CandidateVarSBsDistsHints;
-  int DefaultPrefetchDist = getPrefetchingDist(Lp);
+  DefaultPrefetchDist = getPrefetchingDist(Lp);
   int DefaultPrefetchHint = 3 - ForceHint;
   bool DefaultHasSpecifiedHintOrDist = false;
-
+  bool HasPrefetchAll = false;
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
-                            DefaultPrefetchHint, DefaultHasSpecifiedHintOrDist);
+                            DefaultPrefetchHint, DefaultHasSpecifiedHintOrDist,
+                            HasPrefetchAll);
 
   unsigned Level = Lp->getNestingLevel();
   int64_t ConstStride;
@@ -601,9 +613,12 @@ bool HIRPrefetching::doAnalysis(
       if (!FirstRef->isLinearAtLevel(Level)) {
         NumNonLinearStreams++;
 
-        collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
-                                             HasSpecifiedHintOrDist,
-                                             IndirectPrefetchCandidates);
+        if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB) ||
+            HasPrefetchAll || EnableIndirectPrefetching) {
+          collectIndirectPrefetchingCandidates(Lp, FirstRef, Dist, Hint,
+                                               HasSpecifiedHintOrDist,
+                                               IndirectPrefetchCandidates);
+        }
       }
 
       continue;
@@ -808,7 +823,7 @@ void HIRPrefetching::processIndirectPrefetching(
 }
 
 bool HIRPrefetching::doPrefetching(
-    HLLoop *Lp, bool HasPragmaInfo,
+    HLLoop *Lp, bool HasPragmaInfo, int DefaultPrefetchDist,
     const SmallVectorImpl<PrefetchCandidateInfo> &SpatialPrefetchCandidates,
     const SmallVectorImpl<PrefetchCandidateInfo> &IndirectPrefetchCandidates) {
   unsigned NumIndirectPrefetches = IndirectPrefetchCandidates.size();
@@ -816,31 +831,30 @@ bool HIRPrefetching::doPrefetching(
   RegDDRef *StrideRef = Lp->getStrideDDRef();
   int64_t Stride;
   StrideRef->isIntConstant(&Stride);
+  DefaultPrefetchDist /= Stride;
 
   OptReportBuilder &ORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getORBuilder();
 
-  // Total number of lines prefetched=%d
-  ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25018u,
-                           NumSpatialPrefetches + NumIndirectPrefetches);
+  if (ORBuilder.isOptReportOn()) {
+    // Total number of lines prefetched=%d
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25018u,
+                             NumSpatialPrefetches + NumIndirectPrefetches);
 
-  if (HasPragmaInfo) {
-    // Number of spatial prefetches=%d
-    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25020u,
-                             NumSpatialPrefetches);
+    // Number of spatial prefetches=%d, default dist=%d
+    ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25019u,
+                             NumSpatialPrefetches, DefaultPrefetchDist);
 
     if (NumIndirectPrefetches) {
-      // Number of indirect prefetches=%d
+      // Number of indirect prefetches=%d, default dist=%d
       ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25033u,
-                               NumIndirectPrefetches);
+                               NumIndirectPrefetches, DefaultPrefetchDist);
     }
   }
 
   if (!IndirectPrefetchCandidates.empty()) {
     processIndirectPrefetching(Lp, Stride, IndirectPrefetchCandidates);
   }
-
-  bool HasAddOptReport = false;
 
   for (auto It = SpatialPrefetchCandidates.begin(),
             E = SpatialPrefetchCandidates.end();
@@ -850,16 +864,6 @@ bool HIRPrefetching::doPrefetching(
     int PrefetchHint = It->Hint;
     bool IsWrite = It->IsWrite;
     bool HasSpecifiedHintOrDist = It->HasSpecifiedHintOrDist;
-
-    // Get the prefetch dist for spatial prefetch candidates by looking for the
-    // first spatial prefetch candidate's dist when there is no pragma info
-    if (!HasAddOptReport && !HasPragmaInfo) {
-      int PragmaDist = PrefetchDist / Stride;
-      // Number of spatial prefetches=%d, dist=%d
-      ORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25019u,
-                               NumSpatialPrefetches, PragmaDist);
-      HasAddOptReport = true;
-    }
 
     RegDDRef *PrefetchRef = Ref->clone();
 
@@ -922,18 +926,19 @@ bool HIRPrefetching::run() {
 
   for (auto &Lp : CandidateLoops) {
     SmallVector<PrefetchCandidateInfo, 64> SpatialPrefetchCandidates;
-    bool HasPragmaInfo = false;
     SmallVector<PrefetchCandidateInfo, 4> IndirectPrefetchCandidates;
-
+    bool HasPragmaInfo = false;
+    int DefaultPrefetchDist = 0;
     // Analyze the loop and check if it is suitable for prefetching
-    if (!doAnalysis(Lp, HasPragmaInfo, SpatialPrefetchCandidates,
-                    IndirectPrefetchCandidates)) {
+    if (!doAnalysis(Lp, HasPragmaInfo, DefaultPrefetchDist,
+                    SpatialPrefetchCandidates, IndirectPrefetchCandidates)) {
       continue;
     }
 
-    Result = doPrefetching(Lp, HasPragmaInfo, SpatialPrefetchCandidates,
-                           IndirectPrefetchCandidates) ||
-             Result;
+    Result =
+        doPrefetching(Lp, HasPragmaInfo, DefaultPrefetchDist,
+                      SpatialPrefetchCandidates, IndirectPrefetchCandidates) ||
+        Result;
   }
 
   return Result;
