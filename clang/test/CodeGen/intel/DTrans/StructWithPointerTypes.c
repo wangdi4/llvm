@@ -40,12 +40,12 @@ int main() {
 
 // CHECK: intel.dtrans.types = !{![[TAP:[0-9]+]], ![[TP2:[0-9]+]]}
 
-// CHECK: ![[TAP]] = !{!"S", %struct.test_arc_pointers zeroinitializer, i32 7, ![[INT:[0-9]+]], ![[LONG:[0-9]+]], ![[SHORT:[0-9]+]], ![[DOUBLE:[0-9]+]], ![[LONG]], ![[STRUCT_PTR:[0-9]+]], ![[STRUCT_PTR]]}
+// CHECK: ![[TAP]] = !{!"S", %struct._ZTS17test_arc_pointers.test_arc_pointers zeroinitializer, i32 7, ![[INT:[0-9]+]], ![[LONG:[0-9]+]], ![[SHORT:[0-9]+]], ![[DOUBLE:[0-9]+]], ![[LONG]], ![[STRUCT_PTR:[0-9]+]], ![[STRUCT_PTR]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}
 // CHECK: ![[SHORT]] = !{i16 0, i32 0}
 // CHECK: ![[DOUBLE]] = !{double 0.0{{0+}}e+00, i32 0}
-// CHECK: ![[STRUCT_PTR]] = !{%struct.test_arc_pointers zeroinitializer, i32 1}
+// CHECK: ![[STRUCT_PTR]] = !{%struct._ZTS17test_arc_pointers.test_arc_pointers zeroinitializer, i32 1}
 
-// CHECK: ![[TP2]] = !{!"S", %struct.test_ptr2 zeroinitializer, i32 3, ![[STRUCT_PTR]], ![[LONG_PTR:[0-9]+]], ![[LONG_PTR]]}
+// CHECK: ![[TP2]] = !{!"S", %struct._ZTS9test_ptr2.test_ptr2 zeroinitializer, i32 3, ![[STRUCT_PTR]], ![[LONG_PTR:[0-9]+]], ![[LONG_PTR]]}
 // CHECK: ![[LONG_PTR]] = !{i64 0, i32 1}

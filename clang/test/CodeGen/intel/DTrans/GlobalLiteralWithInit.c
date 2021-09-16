@@ -14,11 +14,11 @@ struct a c[] = {{.c = d}, {.b = d}};
 struct a e[];
 
 // CHECK: @a = global [1 x { { i32, [4 x i8] } }] [{ { i32, [4 x i8] } } { { i32, [4 x i8] } { i32 0, [4 x i8] undef } }], align 8, !intel_dtrans_type ![[A:[0-9]+]]
-// CHECK: @b = global [1 x %struct.a] [%struct.a { %union.anon { i8* bitcast ([1 x i8*]* @d to i8*) } }], align 8, !intel_dtrans_type ![[B:[0-9]+]]
-// CHECK: @c = global <{ { { i8** } }, %struct.a }> <{ { { i8** } } { { i8** } { i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @d, i32 0, i32 0) } }, %struct.a { %union.anon { i8* bitcast ([1 x i8*]* @d to i8*) } } }>, align 16, !intel_dtrans_type ![[C:[0-9]+]]
+// CHECK: @b = global [1 x %struct._ZTS1a.a] [%struct._ZTS1a.a { %union._ZTSN1aUt_E.anon { i8* bitcast ([1 x i8*]* @d to i8*) } }], align 8, !intel_dtrans_type ![[B:[0-9]+]]
+// CHECK: @c = global <{ { { i8** } }, %struct._ZTS1a.a }> <{ { { i8** } } { { i8** } { i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @d, i32 0, i32 0) } }, %struct._ZTS1a.a { %union._ZTSN1aUt_E.anon { i8* bitcast ([1 x i8*]* @d to i8*) } } }>, align 16, !intel_dtrans_type ![[C:[0-9]+]]
 // CHECK: @d = global [1 x i8*] zeroinitializer, align 8, !intel_dtrans_type ![[D:[0-9]+]]
 // Note: e has the same type as b in this case.
-// CHECK: @e = global [1 x %struct.a] zeroinitializer, align 8, !intel_dtrans_type ![[B:[0-9]+]]
+// CHECK: @e = global [1 x %struct._ZTS1a.a] zeroinitializer, align 8, !intel_dtrans_type ![[B:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[ANON_UNION:[0-9]+]], ![[A_STRUCT:[0-9]+]]}
 
@@ -31,7 +31,7 @@ struct a e[];
 // CHECK: ![[CHAR4_ARRAY]] = !{!"A", i32 4, ![[CHAR:[0-9]+]]}
 // CHECK: ![[CHAR]] = !{i8 0, i32 0}
 // CHECK: ![[B]] = !{!"A", i32 1, ![[A_REF:[0-9]+]]}
-// CHECK: ![[A_REF]] = !{%struct.a zeroinitializer, i32 0}
+// CHECK: ![[A_REF]] = !{%struct._ZTS1a.a zeroinitializer, i32 0}
 // CHECK: ![[C]] = !{![[C_LIT:[0-9]+]], i32 0}
 // CHECK: ![[C_LIT]] = !{!"L", i32 2, ![[C_LIT2:[0-9]+]], ![[A_REF]]}
 // CHECK: ![[C_LIT2]] = !{![[C_LIT3:[0-9]+]], i32 0}
@@ -41,7 +41,7 @@ struct a e[];
 // CHECK: ![[CHAR_PTR_PTR]] = !{i8 0, i32 2}
 // CHECK: ![[D]] = !{!"A", i32 1, ![[CHAR_PTR:[0-9]+]]}
 // CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
-// CHECK: ![[ANON_UNION]] = !{!"S", %union.anon zeroinitializer, i32 1, ![[CHAR_PTR]]}
-// CHECK: ![[A_STRUCT]] = !{!"S", %struct.a zeroinitializer, i32 1, ![[ANON_UNION_REF:[0-9]+]]}
-// CHECK: ![[ANON_UNION_REF]] = !{%union.anon zeroinitializer, i32 0}
+// CHECK: ![[ANON_UNION]] = !{!"S", %union._ZTSN1aUt_E.anon zeroinitializer, i32 1, ![[CHAR_PTR]]}
+// CHECK: ![[A_STRUCT]] = !{!"S", %struct._ZTS1a.a zeroinitializer, i32 1, ![[ANON_UNION_REF:[0-9]+]]}
+// CHECK: ![[ANON_UNION_REF]] = !{%union._ZTSN1aUt_E.anon zeroinitializer, i32 0}
 

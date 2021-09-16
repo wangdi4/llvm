@@ -29,26 +29,26 @@ int main() {
   return 0;
 }
 
-// CHECK: @ptr_arc = constant %struct.arc* @a_arc, align 8, !intel_dtrans_type ![[ARC_PTR:[0-9]+]]
-// CHECK: @arc_cmp = global i32 (%struct.arc*, %struct.arc*)* @arcless, align 8, !intel_dtrans_type ![[FPTR:[0-9]+]]
-// CHECK: @basket = global %struct.basket* null, align 8, !intel_dtrans_type ![[BASKET_PTR:[0-9]+]]
-// CHECK: @perm_p = global %struct.basket*** null, align 8, !intel_dtrans_type ![[BASKET_PTRPTRPTR:[0-9]+]]
+// CHECK: @ptr_arc = constant %struct._ZTS3arc.arc* @a_arc, align 8, !intel_dtrans_type ![[ARC_PTR:[0-9]+]]
+// CHECK: @arc_cmp = global i32 (%struct._ZTS3arc.arc*, %struct._ZTS3arc.arc*)* @arcless, align 8, !intel_dtrans_type ![[FPTR:[0-9]+]]
+// CHECK: @basket = global %struct._ZTS6basket.basket* null, align 8, !intel_dtrans_type ![[BASKET_PTR:[0-9]+]]
+// CHECK: @perm_p = global %struct._ZTS6basket.basket*** null, align 8, !intel_dtrans_type ![[BASKET_PTRPTRPTR:[0-9]+]]
 // CHECK: @basket_sizes = global i32* null, align 8, !intel_dtrans_type ![[INT_PTR:[0-9]+]]
-// CHECK: @all_arc_ptrs = global [256 x %struct.arc*] zeroinitializer, align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
+// CHECK: @all_arc_ptrs = global [256 x %struct._ZTS3arc.arc*] zeroinitializer, align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
 
-// CHECK: declare !intel.dtrans.func.type ![[ARCLESS_MD:[0-9]+]] i32 @arcless(%struct.arc* "intel_dtrans_func_index"="1", %struct.arc* "intel_dtrans_func_index"="2")
+// CHECK: declare !intel.dtrans.func.type ![[ARCLESS_MD:[0-9]+]] i32 @arcless(%struct._ZTS3arc.arc* "intel_dtrans_func_index"="1", %struct._ZTS3arc.arc* "intel_dtrans_func_index"="2")
 
 // CHECK: !intel.dtrans.types = !{![[ARC:[0-9]+]], ![[BASKET:[0-9]+]]}
 
-// CHECK: ![[ARC_PTR]] = !{%struct.arc zeroinitializer, i32 1}
+// CHECK: ![[ARC_PTR]] = !{%struct._ZTS3arc.arc zeroinitializer, i32 1}
 // CHECK: ![[FPTR]] = !{![[FUNC:[0-9]+]], i32 1}
 // CHECK: ![[FUNC]] = !{!"F", i1 false, i32 2, ![[INT:[0-9]+]], ![[ARC_PTR]], ![[ARC_PTR]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
-// CHECK: ![[BASKET_PTR]] = !{%struct.basket zeroinitializer, i32 1}
-// CHECK: ![[BASKET_PTRPTRPTR]] = !{%struct.basket zeroinitializer, i32 3}
+// CHECK: ![[BASKET_PTR]] = !{%struct._ZTS6basket.basket zeroinitializer, i32 1}
+// CHECK: ![[BASKET_PTRPTRPTR]] = !{%struct._ZTS6basket.basket zeroinitializer, i32 3}
 // CHECK: ![[INT_PTR]] = !{i32 0, i32 1}
 // CHECK: ![[ARC_PTR_ARRAY]] = !{!"A", i32 256, ![[ARC_PTR]]}
-// CHECK: ![[ARC]] = !{!"S", %struct.arc zeroinitializer, i32 3, ![[INT]], ![[LONG:[0-9]+]], ![[ARC_PTR]]}
+// CHECK: ![[ARC]] = !{!"S", %struct._ZTS3arc.arc zeroinitializer, i32 3, ![[INT]], ![[LONG:[0-9]+]], ![[ARC_PTR]]}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}
-// CHECK: ![[BASKET]] = !{!"S", %struct.basket zeroinitializer, i32 1, ![[ARC_PTR]]}
+// CHECK: ![[BASKET]] = !{!"S", %struct._ZTS6basket.basket zeroinitializer, i32 1, ![[ARC_PTR]]}
 // CHECK: ![[ARCLESS_MD]] = distinct !{![[ARC_PTR]], ![[ARC_PTR]]}

@@ -25,30 +25,30 @@ int test(void *arcList) {
   return arc_cmp(arc0, arc1);
 }
 
-// CHECK: @all_arcs = global [2 x %struct.arc*] [%struct.arc* @A1, %struct.arc* @A2], align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
-// CHECK: @arc_cmp = global i32 (%struct.arc**, %struct.arc**)* @arcCostLess, align 8, !intel_dtrans_type ![[FPTR:[0-9]+]]
+// CHECK: @all_arcs = global [2 x %struct._ZTS3arc.arc*] [%struct._ZTS3arc.arc* @A1, %struct._ZTS3arc.arc* @A2], align 16, !intel_dtrans_type ![[ARC_PTR_ARRAY:[0-9]+]]
+// CHECK: @arc_cmp = global i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)* @arcCostLess, align 8, !intel_dtrans_type ![[FPTR:[0-9]+]]
 
-// CHECK: define dso_local i32 @arcCostLess(%struct.arc** "intel_dtrans_func_index"="1" %{{.+}}, %struct.arc** "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[COSTLESS_FUNC_MD:[0-9]+]]
-// CHECK: %arc1.addr = alloca %struct.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR:[0-9]+]]
-// CHECK: %arc2.addr = alloca %struct.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
+// CHECK: define dso_local i32 @arcCostLess(%struct._ZTS3arc.arc** "intel_dtrans_func_index"="1" %{{.+}}, %struct._ZTS3arc.arc** "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[COSTLESS_FUNC_MD:[0-9]+]]
+// CHECK: %arc1.addr = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR:[0-9]+]]
+// CHECK: %arc2.addr = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
 
 // CHECK: define dso_local i32 @test(i8* "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[TEST_FUNC_MD:[0-9]+]]
 // CHECK: %arcList.addr = alloca i8*, align 8, !intel_dtrans_type ![[VOID_PTR:[0-9]+]]
-// CHECK: %[[ARC0:.+]] = alloca %struct.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
-// CHECK: %[[ARC1:.+]] = alloca %struct.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
-// CHECK: %[[FUNC_LOAD:.+]] = load i32 (%struct.arc**, %struct.arc**)*, i32 (%struct.arc**, %struct.arc**)** @arc_cmp
-// CHECK: %[[ARC0_LOAD:.+]] = load %struct.arc**, %struct.arc*** %[[ARC0]]
-// CHECK: %[[ARC1_LOAD:.+]] = load %struct.arc**, %struct.arc*** %[[ARC1]]
-// CHECK: call i32 %[[FUNC_LOAD]](%struct.arc** %[[ARC0_LOAD]], %struct.arc** %[[ARC1_LOAD]]), !intel_dtrans_type ![[FUNC:[0-9]+]]
+// CHECK: %[[ARC0:.+]] = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
+// CHECK: %[[ARC1:.+]] = alloca %struct._ZTS3arc.arc**, align 8, !intel_dtrans_type ![[ARC_PTR_PTR]]
+// CHECK: %[[FUNC_LOAD:.+]] = load i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)*, i32 (%struct._ZTS3arc.arc**, %struct._ZTS3arc.arc**)** @arc_cmp
+// CHECK: %[[ARC0_LOAD:.+]] = load %struct._ZTS3arc.arc**, %struct._ZTS3arc.arc*** %[[ARC0]]
+// CHECK: %[[ARC1_LOAD:.+]] = load %struct._ZTS3arc.arc**, %struct._ZTS3arc.arc*** %[[ARC1]]
+// CHECK: call i32 %[[FUNC_LOAD]](%struct._ZTS3arc.arc** %[[ARC0_LOAD]], %struct._ZTS3arc.arc** %[[ARC1_LOAD]]), !intel_dtrans_type ![[FUNC:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[ARC:[0-9]+]]}
 
 // CHECK: ![[ARC_PTR_ARRAY]] = !{!"A", i32 2, ![[ARC_PTR:[0-9]+]]}
-// CHECK: ![[ARC_PTR]] = !{%struct.arc zeroinitializer, i32 1}
+// CHECK: ![[ARC_PTR]] = !{%struct._ZTS3arc.arc zeroinitializer, i32 1}
 // CHECK: ![[FPTR]] = !{![[FUNC]], i32 1}
 // CHECK: ![[FUNC]] = !{!"F", i1 false, i32 2, ![[INT:[0-9]+]], ![[ARC_PTR_PTR]], ![[ARC_PTR_PTR]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
-// CHECK: ![[ARC]] = !{!"S", %struct.arc zeroinitializer, i32 3, ![[INT]], ![[LONG:[0-9]+]], ![[ARC_PTR]]}
+// CHECK: ![[ARC]] = !{!"S", %struct._ZTS3arc.arc zeroinitializer, i32 3, ![[INT]], ![[LONG:[0-9]+]], ![[ARC_PTR]]}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}
 
 // CHECK: ![[COSTLESS_FUNC_MD]] = distinct !{![[ARC_PTR_PTR]], ![[ARC_PTR_PTR]]}
