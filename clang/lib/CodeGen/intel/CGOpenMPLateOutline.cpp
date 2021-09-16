@@ -799,6 +799,7 @@ bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
 void OpenMPLateOutliner::addImplicitClauses() {
   if (!isOpenMPLoopDirective(CurrentDirectiveKind) &&
       !isOpenMPParallelDirective(CurrentDirectiveKind) &&
+      CurrentDirectiveKind != OMPD_scope &&
       CurrentDirectiveKind != OMPD_task && CurrentDirectiveKind != OMPD_loop &&
       CurrentDirectiveKind != OMPD_target && CurrentDirectiveKind != OMPD_teams)
     return;
@@ -2814,6 +2815,11 @@ void OpenMPLateOutliner::emitOMPPrefetchDirective() {
                              OMPD_prefetch);
 }
 
+void OpenMPLateOutliner::emitOMPScopeDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.SCOPE", "DIR.OMP.END.SCOPE",
+                             OMPD_scope);
+}
+
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
@@ -2977,6 +2983,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_prefetch:
+  case OMPD_scope:
     return false;
   case OMPD_unknown:
   default:
@@ -3444,6 +3451,10 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
 
   case OMPD_prefetch:
     Outliner.emitOMPPrefetchDirective();
+    break;
+
+  case OMPD_scope:
+    Outliner.emitOMPScopeDirective();
     break;
 
   // These directives are not yet implemented.
