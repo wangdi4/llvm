@@ -59,6 +59,7 @@ extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
 extern bool EnableSOAAnalysisHIR;
 extern bool EnableNewCFGMerge;
+extern bool EnableNewCFGMergeHIR;
 extern unsigned DefaultTripCount;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
@@ -333,7 +334,7 @@ public:
   void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
 
   // Create VPlans that are needed for CFG merge by the selected scenario.
-  void createMergerVPlans(VPAnalysesFactoryBase &VPAF);
+  virtual void createMergerVPlans(VPAnalysesFactoryBase &VPAF);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.

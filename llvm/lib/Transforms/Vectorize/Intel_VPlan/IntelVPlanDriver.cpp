@@ -1284,6 +1284,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
+  // Start preparations to generate auxiliary loops.
+  if (VF > 1) {
+    LVP.createMergerVPlans(VPAF);
+    // TODO: Merge all VPlans into one CFG.
+  }
+
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
     VPLoop *OuterMostVPLoop = Plan->getMainLoop(true);

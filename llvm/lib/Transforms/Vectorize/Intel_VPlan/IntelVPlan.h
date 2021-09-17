@@ -585,7 +585,9 @@ public:
     ConstStepVector,
     ScalarPeel,
     ScalarRemainder,
+    ScalarPeelRemainderHIR,
     OrigLiveOut,
+    OrigLiveOutHIR,
     PushVF,
     PopVF,
     PlanAdapter,
@@ -2936,6 +2938,108 @@ protected:
   }
 };
 
+// Class to represent scalar HIR peel and remainder loop instructions in VPlan.
+class VPPeelRemainderHIR : public VPInstruction {
+  // The original loop.
+  loopopt::HLLoop *HLp;
+
+  // Map to track temps that need to be initialized.
+  SmallVector<loopopt::DDRef *, 4> TempInitMap;
+
+  // Flag to indicate whether the scalar loop has to be cloned. (Because we need
+  // two copies of it and this is the second one.)
+  bool NeedsCloning = false;
+
+  // Temp that defines the lower bound of the scalar loop. Will be nullptr for
+  // peel loop.
+  loopopt::DDRef *LowerBoundTmp = nullptr;
+
+protected:
+  using VPInstruction::addOperand;
+  using VPInstruction::removeAllOperands;
+  using VPInstruction::removeOperand;
+  using VPInstruction::setOperand;
+
+  VPInstruction *cloneImpl() const override {
+    assert(false && "not expected to clone");
+    return nullptr;
+  }
+
+public:
+  VPPeelRemainderHIR(loopopt::HLLoop *HLp, bool ShouldClone = false)
+      : VPInstruction(VPInstruction::ScalarPeelRemainderHIR,
+                      Type::getTokenTy(HLp->getHLNodeUtils().getContext()), {}),
+        HLp(HLp), NeedsCloning(ShouldClone) {}
+
+  // Get the original loop.
+  loopopt::HLLoop *getLoop() const { return HLp; }
+
+  // Return true if cloning is required.
+  bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
+
+  // Add \p VPVal to the instruction operands list and the \p Temp to the
+  // TempInitMap.
+  void addTemp(VPValue *VPVal, loopopt::DDRef *Temp) {
+    addOperand(VPVal);
+    TempInitMap.push_back(Temp);
+  }
+
+  // Get the temp corresponding to the \p Idx.
+  loopopt::DDRef *getTemp(unsigned Idx) const {
+    assert(Idx <= TempInitMap.size() - 1 &&
+           "Invalid entry in the temp-init map requested.");
+    return TempInitMap[Idx];
+  }
+
+  // Set the temp corresponding to the \p Idx.
+  void setClonedTemp(unsigned Idx, loopopt::DDRef *T) {
+    assert(Idx <= TempInitMap.size() - 1 &&
+           "Invalid entry in the temp-init map requested.");
+    TempInitMap[Idx] = T;
+  }
+
+  // Set lower bound temp for the loop.
+  void setLowerBoundTemp(loopopt::DDRef *Tmp) { LowerBoundTmp = Tmp; }
+
+  loopopt::DDRef *getLowerBoundTemp() const { return LowerBoundTmp; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeelRemainderHIR;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  virtual void printImpl(raw_ostream &O) const {
+    formatted_raw_ostream FO(O);
+    // TODO: How to find unique ID for HLLoop?
+    FO << " "
+       << "<HLLoop>"
+       << ", NeedsCloning: " << isCloningRequired() << ", LBTemp: ";
+    if (auto *LB = getLowerBoundTemp())
+      LB->print(FO);
+    else
+      FO << "none";
+    FO << ", TempInitMap:";
+    assert(getNumOperands() == TempInitMap.size() &&
+           "Inconsistent temp init data!");
+    for (unsigned I = 0; I < getNumOperands(); ++I) {
+      FO << "\n       { Initialize temp ";
+      TempInitMap[I]->print(FO);
+      FO << " with -> ";
+      getOperand(I)->printAsOperand(FO);
+      FO << " }";
+    }
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 /// Class for representing the 'scalar-peel' instruction.
 /// This class holds all the information needed for representing the code
 /// required for peel-loop generation.
@@ -3317,8 +3421,8 @@ using VPPrivateFinalCond = VPPrivateFinalC<VPInstruction::PrivateFinalCond>;
 using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem>;
 
 /// VPOrigLiveOut represents the outgoing value from the scalar
-/// loop described by VPScalarRemainder, which is its operand. It links
-/// an outgoing scalar value from the loop with VPlan.
+/// loop described by VPScalarRemainder/VPPeelRemainderHIR, which is its
+/// operand. It links an outgoing scalar value from the loop with VPlan.
 /// Example.
 ///
 /// The %vp3 describes outgoing value %add0 from the loop VP_REUSE_LOOP.
@@ -3340,19 +3444,20 @@ using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem
 ///   i64 [[VP6:%.*]] = phi-merge  [ i64 %vp4, %bb8 ],  [ i64 live-out1, %bb6 ]
 ///   br label %bb9
 ///
-class VPOrigLiveOut : public VPInstruction {
-  const Value *LiveOutVal;
+template <class VPReuseLoopTy, class LiveOutTy, unsigned OrigLiveOutOpcode>
+class VPOrigLiveOutImpl : public VPInstruction {
+  const LiveOutTy *LiveOutVal;
   unsigned MergeId;
 
 public:
-  VPOrigLiveOut(VPPeelRemainder *PeelRemainder, const Value *LiveOutVal, unsigned Id)
-      : VPInstruction(VPInstruction::OrigLiveOut, LiveOutVal->getType(),
-                      {PeelRemainder}),
+  VPOrigLiveOutImpl(Type *BaseTy, VPReuseLoopTy *PeelRemainder,
+                    const LiveOutTy *LiveOutVal, unsigned Id)
+      : VPInstruction(OrigLiveOutOpcode, BaseTy, {PeelRemainder}),
         LiveOutVal(LiveOutVal), MergeId(Id) {}
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
-    return V->getOpcode() == VPInstruction::OrigLiveOut;
+    return V->getOpcode() == OrigLiveOutOpcode;
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -3362,15 +3467,17 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const {
-    O << " ";
-    getOperand(0)->printAsOperand(O);
-    O << ", liveout: " << *LiveOutVal;
+    formatted_raw_ostream FO(O);
+    FO << " ";
+    getOperand(0)->printAsOperand(FO);
+    FO << ", liveout: ";
+    LiveOutVal->print(FO);
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Only CG needs this...
-  const Value *getLiveOutVal() const { return LiveOutVal; }
-  void setClonedLiveOutVal(Value *V) { LiveOutVal = V; }
+  const LiveOutTy *getLiveOutVal() const { return LiveOutVal; }
+  void setClonedLiveOutVal(LiveOutTy *V) { LiveOutVal = V; }
 
   // Used during CFG merge.
   unsigned getMergeId() const { return MergeId;}
@@ -3382,6 +3489,11 @@ protected:
   }
 };
 
+// Specialized types for IR and HIR versions.
+using VPOrigLiveOut =
+    VPOrigLiveOutImpl<VPPeelRemainder, Value, VPInstruction::OrigLiveOut>;
+using VPOrigLiveOutHIR = VPOrigLiveOutImpl<VPPeelRemainderHIR, loopopt::DDRef,
+                                           VPInstruction::OrigLiveOutHIR>;
 
 /// Instruction representing a wide VLS-optimized (Vector Load/Stores) load. It
 /// takes place of several adjacent loads and substitutes several
