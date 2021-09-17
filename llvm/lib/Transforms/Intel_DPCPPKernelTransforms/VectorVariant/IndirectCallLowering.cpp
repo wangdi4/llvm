@@ -55,13 +55,11 @@ bool IndirectCallLowering::runImpl(Module &M) {
         continue;
 
       assert(
-          Call.getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                            KernelAttribute::VectorVariants) &&
+          Call.getAttributes().hasFnAttr(KernelAttribute::VectorVariants) &&
           "Vector variants should always be set for this call");
 
       SmallVector<StringRef, 4> Variants;
-      Attribute Attr = Call.getAttribute(AttributeList::FunctionIndex,
-                                         KernelAttribute::VectorVariants);
+      Attribute Attr = Call.getFnAttr(KernelAttribute::VectorVariants);
       Attr.getValueAsString().split(Variants, ",");
       assert(!Variants.empty() &&
              "Expected non-empty vector-variants attribute");
