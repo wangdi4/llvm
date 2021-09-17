@@ -79,12 +79,6 @@ class LLVM_LIBRARY_VISIBILITY SPIRTargetInfo : public TargetInfo {
 public:
   SPIRTargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
-#if INTEL_CUSTOMIZATION
-    assert((getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment ||
-            getTriple().getEnvironment() == llvm::Triple::IntelFPGA ||
-            getTriple().getEnvironment() == llvm::Triple::IntelEyeQ) &&
-           "SPIR target must use unknown environment type");
-#endif // INTEL_CUSTOMIZATION
     TLSSupported = false;
     VLASupported = false;
     LongWidth = LongAlign = 64;
