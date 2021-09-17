@@ -37,7 +37,7 @@ void foo2() {
   // CHECK: DIR.OMP.TASK
   // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
   // CHECK-SAME: "QUAL.OMP.DEPEND.OUT"(i32* [[Y]])
-  // CHECK-DAG: "QUAL.OMP.SHARED"(i32** [[YP]])
+  // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32** [[YP]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[Y]])
   // CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[SZ]])
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[YPMAP]])
@@ -87,10 +87,8 @@ void foo3(float *vx_in, float *vx_out) {
   // CHECK: [[OUT:%.+]] = alloca float*,
   // CHECK: DIR.OMP.TASK
   // CHECK: "QUAL.OMP.TARGET.TASK"
-  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(float** [[IN]])
-  // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(float** [[OUT]])
-  // CHECK: "QUAL.OMP.SHARED"(float** [[IN]])
-  // CHECK: "QUAL.OMP.SHARED"(float** [[OUT]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** [[IN]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** [[OUT]])
   // CHECK: DIR.OMP.TARGET
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
@@ -98,4 +96,42 @@ void foo3(float *vx_in, float *vx_out) {
   for (int i = 0; i < 10; ++i)
      vx_out[i] = vx_in[i] + 10;
 }
+
+float *xp, *yp, **za[10];
+void bar(float*, float*, float*);
+struct Str { float x[10]; };
+Str s, *sp;
+void foo4() {
+  // CHECK: [[L3:%.+]] = load float*, float** @yp
+  // CHECK: [[L4:%.+]] = load %struct.Str*, %struct.Str** @sp,
+  // CHECK: [[L5:%.+]] = load %struct.Str*, %struct.Str** @sp,
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
+  // CHECK-SAME: "QUAL.OMP.SHARED"(float** @xp)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** @yp)
+  // CHECK-SAME: "QUAL.OMP.SHARED"([10 x float**]* @za)
+  // CHECK-SAME: "QUAL.OMP.SHARED"(%struct.Str* @s)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(%struct.Str** @sp)
+  // CHECK: DIR.OMP.END.TASK
+  #pragma omp target nowait map(tofrom:xp) map(to:za[0:1]) map(to:s.x[0:]) map(to: sp->x[0:1])
+  bar(xp, yp, za[0][0]);
+
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
+  // CHECK-SAME: QUAL.OMP.INREDUCTION.ADD:ARRSECT"(float** @xp
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** @yp)
+  // CHECK-SAME: "QUAL.OMP.SHARED"([10 x float**]* @za)
+  // CHECK: DIR.OMP.END.TASK
+  #pragma omp target nowait map(tofrom:xp) in_reduction(+ : xp[0:1])
+  bar(xp, yp, za[0][0]);
+
+  // CHECK: DIR.OMP.TASK
+  // CHECK-SAME: "QUAL.OMP.TARGET.TASK"
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** @xp)
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(float** @yp)
+  // CHECK-SAME: "QUAL.OMP.SHARED"([10 x float**]* @za)
+  #pragma omp target nowait map(tofrom:xp[0:1])
+  bar(xp, yp, za[0][0]);
+}
+
 // end INTEL_COLLAB
