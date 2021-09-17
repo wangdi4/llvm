@@ -118,15 +118,6 @@ public:
   private:
     const OrderedArgs *TgtClauseArgs = nullptr;
 
-    // Information about inputs/outputs which are rewritten during block
-    // extraction. This information is used later for emitting debug info.
-    struct RewrittenValueInfo {
-      Value *Storage;
-      unsigned ArgNo;
-    };
-    typedef DenseMap<Value *, struct RewrittenValueInfo> RewrittenValuesMap;
-    RewrittenValuesMap RewrittenValues;
-
     // Declaration location for extracted routine.
     DebugLoc DeclLoc;
 #endif // INTEL_COLLAB
@@ -181,8 +172,6 @@ public:
 #if INTEL_COLLAB
     /// Routines for updating debug information during code extraction.
     void setDeclLoc(DebugLoc DL) { DeclLoc = DL; }
-    void updateDebugInfo(Function *OldF, Function *NewF,
-                         const ValueSet &inputs, const ValueSet &outputs);
 #endif // INTEL_COLLAB
 
     /// Perform the extraction, returning the new function.
@@ -297,6 +286,19 @@ public:
                                 BasicBlock *header,
                                 BasicBlock *newRootNode, BasicBlock *newHeader,
                                 Function *oldFunction, Module *M);
+
+#if INTEL_COLLAB
+    /// Create debug information for an extracted routine, including a
+    /// subprogram and debug intrinsics for parameter values.
+    void constructFunctionDebug(Function *OF, Function *NF,
+        const ValueSet &inputs, const ValueSet &outputs,
+        const ValueMap<Value *, Value *> &RewrittenValues);
+    void constructDebugSubprogram(Function *OldF, Function *NewF,
+        DILocation *Loc);
+    void constructDebugParameters(Function *OF, Function *NF,
+        const ValueSet &inputs, const ValueSet &outputs,
+        const ValueMap<Value *, Value *> &RewrittenValues);
+#endif // INTEL_COLLAB
 
     void moveCodeToFunction(Function *newFunction);
 
