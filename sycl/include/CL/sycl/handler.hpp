@@ -560,11 +560,18 @@ private:
   template <typename KernelName, typename KernelType, int Dims,
             typename LambdaArgType>
   void StoreLambda(KernelType KernelFunc) {
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
     if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
                                                  LambdaArgType>::value &&
 /* end INTEL_CUSTOMIZATION */
         MIsHost) {
+=======
+    constexpr bool IsCallableWithKernelHandler =
+        detail::isKernelLambdaCallableWithKernelHandler<KernelType,
+                                                        LambdaArgType>();
+    if (IsCallableWithKernelHandler && MIsHost) {
+>>>>>>> e292aa5113bf12feda696048d729ead10d993f98
       throw cl::sycl::feature_not_supported(
           "kernel_handler is not yet supported by host device.",
           PI_INVALID_OPERATION);
@@ -593,9 +600,13 @@ private:
 /* INTEL_CUSTOMIZATION */
     // If the kernel lambda is callable with a kernel_handler argument, manifest
     // the associated kernel handler.
+<<<<<<< HEAD
     if (detail::KernelLambdaHasKernelHandlerArgT<KernelType,
                                                         LambdaArgType>::value) {
 /* end INTEL_CUSTOMIZATION */
+=======
+    if constexpr (IsCallableWithKernelHandler) {
+>>>>>>> e292aa5113bf12feda696048d729ead10d993f98
       getOrInsertHandlerKernelBundle(/*Insert=*/true);
     }
   }
