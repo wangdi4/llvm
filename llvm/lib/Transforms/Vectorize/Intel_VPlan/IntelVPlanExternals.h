@@ -210,13 +210,6 @@ class VPExternalValues {
   /// uniquely identifies each external definition.
   FoldingSet<VPExternalDef> VPExternalDefsHIR;
 
-  /// Return the iterator range for external defs in VPExternalDefsHIR.
-  decltype(auto) getVPExternalDefsHIR() const {
-    return map_range(
-        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
-        [](const VPExternalDef &Def) { return &Def; });
-  }
-
   /// Holds all the external uses in this VPlan.
   using ExternalUsesListTy = SmallVector<std::unique_ptr<VPExternalUse>, 16>;
   ExternalUsesListTy VPExternalUses;
@@ -255,6 +248,13 @@ class VPExternalValues {
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
+
+  /// Return the iterator range for external defs in VPExternalDefsHIR.
+  decltype(auto) getVPExternalDefsHIR() const {
+    return map_range(
+        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
+        [](const VPExternalDef &Def) { return &Def; });
+  }
 
   ~VPExternalValues() {
     // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.

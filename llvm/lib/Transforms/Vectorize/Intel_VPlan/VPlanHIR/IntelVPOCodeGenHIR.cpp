@@ -54,6 +54,11 @@ using namespace llvm::vpo;
 STATISTIC(LoopsVectorized, "Number of HIR loops vectorized");
 
 static cl::opt<bool>
+    EnableNaiveIfElseGeneration("enable-naive-if-else-generation",
+                                cl::init(false), cl::Hidden,
+                                cl::desc("Enable naive if/else generation"));
+
+static cl::opt<bool>
     DisableStressTest("disable-vplan-stress-test", cl::init(false), cl::Hidden,
                       cl::desc("Disable VPO Vectorizer Stress Testing"));
 
@@ -549,10 +554,10 @@ public:
 } // End anonymous namespace
 
 void HandledCheck::visit(HLDDNode *Node) {
-  if (!isa<HLInst>(Node) && !isa<HLIf>(Node)) {
+  if (!isa<HLInst>(Node) && !isa<HLIf>(Node) && !isa<HLLoop>(Node)) {
     DEBUG_WITH_TYPE("VPOCGHIR-bailout",
                     dbgs() << "VPLAN_OPTREPORT: Loop not handled - only "
-                              "HLInst/HLIf are supported\n");
+                              "HLInst/HLIf/HLLoop are supported\n");
     IsHandled = false;
     return;
   }
@@ -787,6 +792,33 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   // Search loop representation is not explicit. Force mixed CG.
   if (isSearchLoop())
     setForceMixedCG(true);
+  else {
+    // Check that all VPLoops are in loop simplified form and that Latch
+    // has conditional branch.
+    const VPLoop *OuterMostVPLoop = getVPLoop();
+    for (auto *VPLp : post_order(OuterMostVPLoop)) {
+      // Essentially the same checks as the ones done by isLoopSimplifyForm used
+      // by loopopt, except for the additional check for single exit block.
+      auto isLoopSimplifyForm = [](const VPLoop *VPLp) {
+        return VPLp->getLoopPreheader() && VPLp->getLoopLatch() &&
+               VPLp->hasDedicatedExits() && VPLp->getExitBlock();
+      };
+      if (!isLoopSimplifyForm(VPLp)) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                  "loopsimplify form\n");
+        return false;
+      }
+      auto *Latch = VPLp->getLoopLatch();
+      assert(Latch && "Expected non-null loop latch");
+      if (Latch->getNumSuccessors() != 2) {
+        DEBUG_WITH_TYPE("VPOCGHIR-bailout",
+                        dbgs() << "VPLAN_OPTREPORT: Loop not handled - expect "
+                                  "latch with 2 successors\n");
+        return false;
+      }
+    }
+  }
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
@@ -965,6 +997,24 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
     }
   }
 
+  // Setup skeleton loop for every VPLoop in VPlan. We use MainLoop
+  // for the outer most and create a new unknown loop for others.
+  const VPLoop *OuterMostVPLoop = getVPLoop();
+  for (auto *VPLp : post_order(OuterMostVPLoop)) {
+    LoopPreheaderBlocks.insert(VPLp->getLoopPreheader());
+    LoopHeaderBlocks.insert(VPLp->getHeader());
+    LoopExitBlocks.insert(VPLp->getExitBlock());
+    if (VPLp == OuterMostVPLoop) {
+      VPLoopHLLoopMap[VPLp] = MainLoop;
+    } else {
+      auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
+      auto *DDR = DDRefUtilities.createConstDDRef(Int64Ty, 0);
+      auto *UnknownLoop = HLNodeUtilities.createHLLoop(
+          nullptr, DDR, DDR->clone(), DDR->clone(), 1);
+      VPLoopHLLoopMap[VPLp] = UnknownLoop;
+    }
+  }
+
   // Do not attempt hoisting when a remainder loop is needed as remainder
   // loop updates the scalar reduction value. Since we blend in the scalar
   // reduction value in reduction initialization code, hoisting up the
@@ -1010,8 +1060,96 @@ void VPOCodeGenHIR::dumpFinalHIR() {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+void VPOCodeGenHIR::setupLiveInLiveOut() {
+  auto addLiveInLiveOut = [this](const VPValue *Def, const VPUser *User,
+                                 const RegDDRef *DefRef) -> void {
+    const VPLoop *DefVPLoop = nullptr, *UseVPLoop = nullptr;
+    HLLoop *DefHLLoop = nullptr, *UseHLLoop = nullptr;
+
+    // DefHLLoop is set to the HLLoop corresponding to the VPLoop in which
+    // Def occurs if Def is an instruction. Otherwise, it remains null(for
+    // external def or def instruction outside the vector loop).
+    if (auto *DefInst = dyn_cast<VPInstruction>(Def))
+      DefVPLoop = Plan->getVPLoopInfo()->getLoopFor(DefInst->getParent());
+    if (DefVPLoop)
+      DefHLLoop = VPLoopHLLoopMap[DefVPLoop];
+
+    // UseHLLoop is set to the HLLoop corresponding to the VPLoop in which
+    // Use occurs if Use is an instruction. Otherwise, it remains null(for
+    // external use or use instruction outside the vector loop).
+    if (auto *UseInst = dyn_cast<VPInstruction>(User))
+      UseVPLoop = Plan->getVPLoopInfo()->getLoopFor(UseInst->getParent());
+    if (UseVPLoop)
+      UseHLLoop = VPLoopHLLoopMap[UseVPLoop];
+
+    // Simple case - no need to add livein/liveout information
+    if (DefVPLoop == UseVPLoop)
+      return;
+
+    // Def outside the outer most loop. Propagate livein information
+    // starting from use loop all the way up to and including MainLoop.
+    if (!DefVPLoop) {
+      assert(UseHLLoop && "Expected non-null use loop");
+      while (UseHLLoop != MainLoop->getParentLoop()) {
+        UseHLLoop->addLiveInTemp(DefRef);
+        UseHLLoop = UseHLLoop->getParentLoop();
+      }
+      return;
+    }
+
+    // Use outside the outer most loop. Propagate liveout information
+    // starting from  def loop all the way up to and including MainLoop.
+    if (!UseVPLoop) {
+      assert(DefHLLoop && "Expected non-null def loop");
+      while (DefHLLoop != MainLoop->getParentLoop()) {
+        DefHLLoop->addLiveOutTemp(DefRef);
+        DefHLLoop = DefHLLoop->getParentLoop();
+      }
+      return;
+    }
+
+    assert(UseHLLoop && DefHLLoop && "Expected non-null use and def loops");
+    auto *LCAHLLoop =
+        HLNodeUtils::getLowestCommonAncestorLoop(DefHLLoop, UseHLLoop);
+
+    // Add DefRef as livein into UseHLLoop and recursively into its parent loop
+    // until we reach LCAHLLoop.
+    while (UseHLLoop != LCAHLLoop) {
+      UseHLLoop->addLiveInTemp(DefRef);
+      UseHLLoop = UseHLLoop->getParentLoop();
+    }
+
+    while (DefHLLoop != LCAHLLoop) {
+      DefHLLoop->addLiveOutTemp(DefRef);
+      DefHLLoop = DefHLLoop->getParentLoop();
+    }
+  };
+
+  // For each definition in VPValWideRef map, get the users and add the
+  // livein/liveout information
+  for (auto &ValRef : VPValWideRefMap) {
+    auto *Def = ValRef.first;
+    auto *DefRef = ValRef.second;
+    for (auto *User : Def->users())
+      addLiveInLiveOut(Def, User, DefRef);
+  }
+
+  // For each definition in VPValScalRef map, get the users and add the
+  // livein/liveout information
+  for (auto &ValRef : VPValScalRefMap) {
+    auto *Def = ValRef.first;
+    auto &ScalMap = ValRef.second;
+    for (auto &LaneRef : ScalMap) {
+      auto *DefRef = LaneRef.second;
+      for (auto *User : Def->users())
+        addLiveInLiveOut(Def, User, DefRef);
+    }
+  }
+}
+
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
   eliminateRedundantGotosLabels();
+  setupLiveInLiveOut();
 
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
@@ -1469,8 +1607,6 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
             // Insert the replicating instruction into preheader of vector loop.
             HLNodeUtils::insertBefore(MainLoop, ReplBlobInst);
             auto NewRef = ReplBlobInst->getLvalDDRef();
-            // Add the new replicated Ref as a live-in for vector loop.
-            MainLoop->addLiveInTemp(NewRef->getSymbase());
 
             AuxRefs.push_back(NewRef);
             CE->replaceBlob(BI,
@@ -3108,7 +3244,6 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // GEP Refs to be embedded into each other.
   HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
   addInstUnmasked(BaseRefCopy);
-  MainLoop->addLiveInTemp(BaseRefCopy->getLvalDDRef()->getSymbase());
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] createVectorPrivatePtrs: BaseRef: ";
              BaseRef->dump(1); dbgs() << "\n");
 
@@ -3212,11 +3347,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     insertReductionInit(&RedInitHLInsts);
 
     // Add the reduction init ref as a live-in for each loop up to and including
-    // the hoist loop.
+    // the hoist loop starting from MainLoop's parent loop. The livein/liveout
+    // information for MainLoop will be added by setupLiveInLiveOut call.
     // TODO: The same ref should also be LiveOut, so that can also be done here
     // only. Any exceptions?
     auto LvalSymbase = WInst->getLvalDDRef()->getSymbase();
-    HLLoop *ThisLoop = MainLoop;
+    HLLoop *ThisLoop = MainLoop->getParentLoop();
     while (ThisLoop != RednHoistLp->getParentLoop()) {
       ThisLoop->addLiveInTemp(LvalSymbase);
       ThisLoop->addLiveOutTemp(LvalSymbase);
@@ -3346,8 +3482,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
                       << "\n");
     PrivateMemBlobRefs[VPAllocaPriv] =
         std::make_pair(AllocaBlob, AllocaMemRefSym);
-    // Add the newly generated alloca as live-in to the main loop.
-    MainLoop->addLiveInTemp(AllocaBlob->getSymbase());
     // Since we are adding a new r-val use of temp outside the loop (check
     // createVectorPrivatePtrs), make the temp live-in at all parent loop
     // levels.
@@ -3390,8 +3524,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
     RegDDRef *OrigPrivDescr = getUniformScalarRef(ExtUse);
     RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
-    // Mark the temp to extract from live-out of the loop.
-    MainLoop->addLiveOutTemp(VecRef->getSymbase());
     auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
         VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
     addInstUnmasked(PrivExtract);
@@ -3417,9 +3549,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     auto *CondPrivateFinal = cast<VPPrivateFinalCond>(VPInst);
     RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
     RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
-    // Mark the temps to extract from live-out of the loop.
-    MainLoop->addLiveOutTemp(VecExit->getSymbase());
-    MainLoop->addLiveOutTemp(VecIndex->getSymbase());
 
     HLContainerTy CondPrivFinalInsts;
 
@@ -3765,7 +3894,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         VPInst->HIR().isMaster()
             ? VPInst->HIR().getUnderlyingNode()
             : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
-    if (isa<HLLoop>(HNode))
+    if (isa<HLLoop>(HNode) && HNode == OrigLoop)
       if (VPInst->getOpcode() != Instruction::Add ||
           !MainLoopIVInsts.count(VPInst))
         return;
@@ -4225,14 +4354,26 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Select: {
-    auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
+    auto PredInst = dyn_cast<VPCmpInst>(VPInst->getOperand(0));
+    CmpInst::Predicate Pred;
     RegDDRef *Pred0, *Pred1;
 
     // In order for HIR idiom recognition to work, when generating the widened
     // select we need to use operands of the compare instruction corresponding
-    // to the select mask.
-    Pred0 = widenRef(PredInst->getOperand(0), getVF());
-    Pred1 = widenRef(PredInst->getOperand(1), getVF());
+    // to the select mask when possible.
+    if (PredInst) {
+      Pred0 = widenRef(PredInst->getOperand(0), getVF());
+      Pred1 = widenRef(PredInst->getOperand(1), getVF());
+      Pred = PredInst->getPredicate();
+    } else {
+      Pred0 = widenRef(VPInst->getOperand(0), getVF());
+      Type *CondTy = Pred0->getDestType();
+      Constant *OneVal = Constant::getAllOnesValue(CondTy->getScalarType());
+      Pred1 = getConstantSplatDDRef(
+          DDRefUtilities, OneVal,
+          cast<FixedVectorType>(CondTy)->getNumElements());
+      Pred = CmpInst::ICMP_EQ;
+    }
 
     // If this select instruction corresponds to a reduction (min/max), then we
     // need to write the result back to the corresponding reduction variable.
@@ -4242,7 +4383,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
                                                    : FastMathFlags();
     NewInst = HLNodeUtilities.createSelect(
-        PredInst->getPredicate(), Pred0, Pred1, RefOp0, RefOp1, InstName,
+        Pred, Pred0, Pred1, RefOp0, RefOp1, InstName,
         RedRef ? RedRef->clone() : nullptr, FMF);
     break;
   }
@@ -4657,8 +4798,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         makeSymLiveInForParentLoops(RvalSym);
       }
       addInstUnmasked(NewInst);
-      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-      MainLoop->addLiveInTemp(NewInst->getLvalDDRef()->getSymbase());
+      SmallVector<const RegDDRef *, 1> AuxRefs;
+      makeConsistentAndAddToMap(NewInst->getLvalDDRef(), VPInst, AuxRefs, Widen,
+                                ScalarLaneID);
+
       return;
     }
 
@@ -4667,13 +4810,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::AllZeroCheck: {
     RegDDRef *A = RefOp0;
-    if (Mask || CurMaskValue) {
-      // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
-      // case for masked inner-loops which we won't see in HIR. add A, Mask
-      assert(false && "Mask supported for AllZeroCheck?");
+    if (!Mask)
+      Mask = CurMaskValue;
+    if (Mask) {
+      HLInst *And =
+          HLNodeUtilities.createAnd(Mask->clone(), RefOp0, "allz.and.");
+      addInstUnmasked(And);
+      A = And->getLvalDDRef()->clone();
     }
 
-    RegDDRef *AllZeroCmp = generateCompareToZero(A, Mask, true /* Equal */);
+    RegDDRef *AllZeroCmp = generateCompareToZero(A, nullptr, true /* Equal */);
     addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
@@ -4837,6 +4983,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
          "Expected single outermost loop!");
   VPLoop *OuterMostVPLoop = *VPLI->begin();
+
   VPBasicBlock *OuterMostLpPreheader =
       cast<VPBasicBlock>(OuterMostVPLoop->getLoopPreheader());
 
@@ -5121,10 +5268,9 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     Label = createBlockLabel(VPBB);
 
   // NOTE - the implementation here still assumes few things
-  // --  We are dealing with inner-most loop vectorization and that the blocks
-  // are traversed in RPO order. We start the insertion point before the
-  // MainLoop and set the same appropriately once we hit the loop header
-  // and exit blocks.
+  // -- that the blocks are traversed in RPO order. We start the insertion
+  // point before the MainLoop and set the same appropriately once we hit
+  // the loop header and exit blocks.
   // -- Reduction related instructions are placed either at current insertion
   // point or reduction related insertion points depending on whether
   // they are hoisted.
@@ -5133,20 +5279,97 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   // and the remainder loop is made explicit.
   if (!InsertPoint)
     HLNodeUtilities.insertBefore(MainLoop, Label);
-  else if (VLoop->getHeader() == VPBB)
-    HLNodeUtilities.insertAsFirstChild(MainLoop, Label);
-  else if (VLoop->getExitBlock() == VPBB)
-    HLNodeUtilities.insertAfter(MainLoop, Label);
-  else
+  else if (LoopHeaderBlocks.count(VPBB)) {
+    auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
+    auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+    // Main vector loop is already linked in
+    if (CurVPLoop != getVPLoop())
+      HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
+    HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
+  } else if (LoopExitBlocks.count(VPBB)) {
+    auto *CurVPLoop =
+        Plan->getVPLoopInfo()->getLoopFor(VPBB->getSinglePredecessor());
+    auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+    HLNodeUtilities.insertAfter(CurHLLoop, Label);
+  } else
     HLNodeUtilities.insertAfter(InsertPoint, Label);
 
   InsertPoint = Label;
+}
+
+void VPOCodeGenHIR::emitBlockTerminatorNaive(const VPBasicBlock *SourceBB) {
+  // Get or create the label corresponding to Block start and create a HLGoto
+  // with target set to this label. Return the created HLGoto after adding it
+  // to the needed vector.
+  auto createGotoAndSetTargetLabel = [this](const VPBasicBlock *Block) {
+    HLLabel *Label = getOrCreateBlockLabel(Block);
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(Label);
+    GotosVector.push_back(Goto);
+    return Goto;
+  };
+
+  // The loop backedge/exit is implicit in the vector loop. Do not emit
+  // gotos in the main vector loop latch block. TODO - look into why we need
+  // to suppress goto in PreHeader.
+  bool MainLoopLatch =
+      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
+  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+      !LoopPreheaderBlocks.count(SourceBB)) {
+    const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
+
+    // If the block has two successors, we emit the following sequence
+    // of code for 'SourceBB: (condbit: C1) Successors: Succ1, Succ2'.
+    //
+    //    Cond = extractelement C1_VEC, 0
+    //    if (Cond == 1)
+    //       goto Succ1_Label
+    //    else
+    //       goto Succ2_Label
+    // If the block has a single succesor, we emit the following for
+    // 'SourceBB: Successors: Succ1'.
+    //
+    //     goto Succ1_Label.
+    // The gotos are created with appropriate target label.
+    if (SourceBB->getNumSuccessors() == 2) {
+      const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
+      const VPValue *CondBit = SourceBB->getCondBit();
+      auto *CondRef = getWideRefForVPVal(CondBit);
+      assert(CondRef && "Missind widened DDRef!");
+      HLInst *Extract = HLNodeUtilities.createExtractElementInst(
+          CondRef->clone(), (unsigned)0, "unifcond");
+      addInst(Extract, nullptr /* Mask */);
+      CondRef = Extract->getLvalDDRef()->clone();
+      HLIf *If = HLNodeUtilities.createHLIf(
+          PredicateTy::ICMP_EQ, CondRef,
+          DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
+      addInst(If, nullptr /* Mask */);
+
+      HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
+      HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+
+      HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
+      HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+      LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
+    } else {
+      HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);
+      addInst(Goto, nullptr /* Mask */);
+    }
+  }
 }
 
 void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // TODO - search loop representation is currently not explicit.
   if (isSearchLoop())
     return;
+
+  // Use naive if/else generation when the corresponding flag is true. This is
+  // needed when CFG merger is enabled as we need further improvements in how we
+  // pull in code into the then and else parts in the presence of
+  // unstructured control flow.
+  if (EnableNaiveIfElseGeneration) {
+    emitBlockTerminatorNaive(SourceBB);
+    return;
+  }
 
   // Get or create the label corresponding to Block start and create a HLGoto
   // with target set to this label. Return the created HLGoto after adding it
@@ -5171,8 +5394,8 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // to suppress goto in PreHeader.
   bool MainLoopLatch =
       VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
-  bool IsPH = VLoop->getLoopPreheader() == SourceBB;
-  if (SourceBB->getNumSuccessors() && !MainLoopLatch && !IsPH) {
+  if (SourceBB->getNumSuccessors() && !MainLoopLatch &&
+      !LoopPreheaderBlocks.count(SourceBB)) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
     // Generate an appropriate if/else or goto target block depending on the
@@ -5180,9 +5403,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     if (SourceBB->getNumSuccessors() == 2) {
       const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
 
-      // We are not dealing with backedges at this point as we only vectorize
-      // inner loops. Check and set flags to see if then or else successors are
-      // fall through.
+      // Check and set flags to see if then or else successors are fall through.
       //
       // -- neither fall through
       // br cond succ1 succ2
@@ -5253,13 +5474,21 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
         insertUnlinkedGotoLabel(ElseGoto);
       }
 
-      // Insert the if-merge block label after the if/else if not inserted
-      // already
+      // Insert the if-merge block label if not inserted already. This is
+      // placed after the if or after the loop if the conditional branch
+      // is in a loop latch(check that Succ1 is a loop header block).
       auto *IfSuccBlock =
           ElseFallThru ? Succ2 : PDT->getNode(SourceBB)->getIDom()->getBlock();
       HLNode *IfSuccLabel = getOrCreateBlockLabel(IfSuccBlock);
-      if (!IfSuccLabel->getParent())
-        HLNodeUtils::insertAfter(If, IfSuccLabel);
+      if (!IfSuccLabel->getParent()) {
+        if (LoopHeaderBlocks.count(Succ1)) {
+          auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(Succ1);
+          auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
+          HLNodeUtils::insertAfter(CurHLLoop, IfSuccLabel);
+        } else {
+          HLNodeUtils::insertAfter(If, IfSuccLabel);
+        }
+      }
 
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
