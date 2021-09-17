@@ -21,27 +21,6 @@
 
 #define DEBUG_TYPE "sg-function-widen"
 
-Value *intel::fixIntNVector(Type *VType, Value *VPtr, Instruction *IP) {
-  auto *VecType = cast<FixedVectorType>(VType);
-  auto *EleType = VecType->getScalarType();
-  unsigned Size = VecType->getNumElements();
-  IRBuilder<> Builder(IP);
-  auto &DL = IP->getModule()->getDataLayout();
-
-  auto *EleIntType = dyn_cast<IntegerType>(EleType);
-  if (!EleIntType)
-    return Builder.CreateLoad(VecType, VPtr);
-  unsigned StoreSize = DL.getTypeStoreSizeInBits(EleIntType);
-  if (EleIntType->getBitWidth() == StoreSize)
-    return Builder.CreateLoad(VecType, VPtr);
-
-  Type *ExtType = Builder.getIntNTy(StoreSize);
-  Type *ExtVecType = FixedVectorType::get(ExtType, Size);
-  Value *CastPtr = Builder.CreateBitCast(VPtr, PointerType::get(ExtVecType, 0));
-  Value *CastVal = Builder.CreateLoad(ExtVecType, CastPtr);
-  return Builder.CreateTrunc(CastVal, VecType);
-}
-
 namespace intel {
 
 // TODO: We need to add a function(sth like processIncompatibleAttrs) OR a pass
@@ -90,14 +69,8 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
   Type *ReturnType = F.getReturnType();
 
   // Expand return type to vector.
-  if (!ReturnType->isVoidTy()) {
-    if (auto *VecReturnType = dyn_cast<FixedVectorType>(ReturnType))
-      ReturnType =
-          FixedVectorType::get(VecReturnType->getScalarType(),
-                               V.getVlen() * VecReturnType->getNumElements());
-    else
-      ReturnType = FixedVectorType::get(ReturnType, V.getVlen());
-  }
+  if (!ReturnType->isVoidTy())
+    ReturnType = SGHelper::getVectorType(ReturnType, V.getVlen());
 
   std::vector<VectorKind> ParamKinds = V.getParameters();
   SmallVector<Type *, 4> ParamTypes;
@@ -106,12 +79,8 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
   std::vector<VectorKind>::iterator VKIt = ParamKinds.begin();
   for (; ParamIt != ParamEnd; ++ParamIt, ++VKIt) {
     if (VKIt->isVector()) {
-      if (auto *OrigParamType = dyn_cast<FixedVectorType>(*ParamIt))
-        ParamTypes.push_back(FixedVectorType::get(
-            (*ParamIt)->getScalarType(),
-            V.getVlen() * OrigParamType->getNumElements()));
-      else
-        ParamTypes.push_back(FixedVectorType::get(*ParamIt, V.getVlen()));
+      Type *WidenedParamType = SGHelper::getVectorType(*ParamIt, V.getVlen());
+      ParamTypes.push_back(WidenedParamType);
     } else {
       ParamTypes.push_back(*ParamIt);
     }
@@ -166,8 +135,8 @@ Function *FunctionWidener::CloneFunction(Function &F, VectorVariant &V,
   }
 
   // FIXME
-  auto FnAttrs = Attrs.getFnAttrs().removeAttribute(
-      Context, "min-legal-vector-width");
+  auto FnAttrs =
+      Attrs.getFnAttrs().removeAttribute(Context, "min-legal-vector-width");
 
   // Remove incompatible return attributes.
   auto RetAttrs = Attrs.getRetAttrs()
@@ -325,7 +294,10 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
         // TODO: Replace this with bitcast and load.
         for (unsigned EleIdx = 0; EleIdx < OrigNumElements; ++EleIdx) {
           auto *EleVal = Builder.CreateExtractElement(Arg, EleId);
-          Val = Builder.CreateInsertElement(Val, EleVal, EleIdx);
+          // EleVal might be promoted, create a trunc to original scalar type.
+          auto *Trunc = SGHelper::createZExtOrTruncProxy(
+              EleVal, OrigArgType->getScalarType(), Builder);
+          Val = Builder.CreateInsertElement(Val, Trunc, EleIdx);
           EleId = Builder.CreateAdd(EleId, Helper.getOne());
         }
 
@@ -339,7 +311,10 @@ void FunctionWidener::expandVectorParameters(Function *Clone, VectorVariant &V,
         Builder.SetInsertPoint(IP);
         auto *Idx = Helper.createGetSubGroupLId(IP);
         auto *Val = Builder.CreateExtractElement(Arg, Idx);
-        I->replaceUsesOfWith(Arg, Val);
+        // The argument element Val might be promoted, create a trunc.
+        auto *Trunc =
+            SGHelper::createZExtOrTruncProxy(Val, OrigArgType, Builder);
+        I->replaceUsesOfWith(Arg, Trunc);
         LLVM_DEBUG(dbgs() << "To:" << *I << "\n");
       }
     }
@@ -396,39 +371,28 @@ void FunctionWidener::expandReturn(Function *Clone) {
   }
 
   Type *OrigReturnType = (*RIs.begin())->getOperand(0)->getType();
-
-  if (auto *VecReturnType = dyn_cast<FixedVectorType>(OrigReturnType)) {
-    unsigned OrigNumElements = VecReturnType->getNumElements();
-    for (auto *RI : RIs) {
-      LLVM_DEBUG(dbgs() << "Expanding return value:" << *RI << "\n");
-      Value *OrigVal = RI->getOperand(0);
-      Instruction *IP = getInsertPoint(RI, OrigVal);
-      Builder.SetInsertPoint(IP);
-      auto *Idx = Helper.createGetSubGroupLId(IP);
-
-      auto *EleIdx = Builder.CreateMul(Idx, Builder.getInt32(OrigNumElements));
-      auto *ElePtr =
-          Builder.CreateGEP(ReturnType, ReturnPtr, {Helper.getZero(), EleIdx});
-      ElePtr =
-          Builder.CreateBitCast(ElePtr, PointerType::get(VecReturnType, 0));
-      // Will we encounter iN / type3 issue here?
-      Builder.CreateStore(OrigVal, ElePtr);
-      auto *WideRet = fixIntNVector(ReturnType, ReturnPtr, RI);
-      RI->setOperand(0, WideRet);
-    }
-  } else {
-    for (auto *RI : RIs) {
-      LLVM_DEBUG(dbgs() << "Expanding return value:" << *RI << "\n");
-      Value *OrigVal = RI->getOperand(0);
-      Instruction *IP = getInsertPoint(RI, OrigVal);
-      Builder.SetInsertPoint(IP);
-      auto *Idx = Helper.createGetSubGroupLId(IP);
-      auto *ElePtr =
-          Builder.CreateGEP(ReturnType, ReturnPtr, {Helper.getZero(), Idx});
-      Builder.CreateStore(OrigVal, ElePtr);
-      auto *WideRet = fixIntNVector(ReturnType, ReturnPtr, RI);
-      RI->setOperand(0, WideRet);
-    }
+  auto *VecReturnType = dyn_cast<FixedVectorType>(OrigReturnType);
+  unsigned OrigReturnNumElements =
+      VecReturnType ? VecReturnType->getNumElements() : 1;
+  for (auto *RI : RIs) {
+    LLVM_DEBUG(dbgs() << "Expanding return value:" << *RI << "\n");
+    Value *OrigVal = RI->getOperand(0);
+    Instruction *IP = getInsertPoint(RI, OrigVal);
+    Builder.SetInsertPoint(IP);
+    auto *Idx = Helper.createGetSubGroupLId(IP);
+    // If the original return type is already a vector type, scale the offset.
+    Idx = Builder.CreateMul(Idx, Builder.getInt32(OrigReturnNumElements));
+    auto *ElePtr =
+        Builder.CreateGEP(ReturnType, ReturnPtr, {Helper.getZero(), Idx});
+    // ElePtr's pointee type might be different with OrigReturnType if original
+    // return type is vector.
+    ElePtr =
+        Builder.CreatePointerCast(ElePtr, PointerType::get(OrigReturnType, 0));
+    Builder.CreateStore(OrigVal, ElePtr);
+    // Reset insert point to the terminator.
+    Builder.SetInsertPoint(RI);
+    auto *WideRet = Builder.CreateLoad(ReturnType, ReturnPtr);
+    RI->setOperand(0, WideRet);
   }
 
   // If this function is a WG sync function, we need to restore the ending

@@ -371,4 +371,42 @@ void SGHelper::insertPrintf(const Twine &Prefix, Instruction *IP,
   Builder.CreateCall(PrintFunc, Args, "PRINT.");
 }
 
+Type *SGHelper::getPromotedIntVecType(Type *IntVecType) {
+  auto *VecType = dyn_cast<FixedVectorType>(IntVecType);
+  // Only cares about integer vector promotion.
+  if (!VecType || !VecType->getScalarType()->isIntegerTy())
+    return IntVecType;
+
+  auto *IntElemType = cast<IntegerType>(VecType->getScalarType());
+  auto ElemBitWidth = IntElemType->getBitWidth();
+  // If bit width is multiple of 8, no need to promote.
+  if (ElemBitWidth % 8 == 0)
+    return IntVecType;
+
+  // Ceil to multiple of 8.
+  auto PromotedBitWidth = (ElemBitWidth + 7) / 8 * 8;
+  return FixedVectorType::get(
+      IntegerType::get(IntVecType->getContext(), PromotedBitWidth),
+      VecType->getNumElements());
+}
+
+Type *SGHelper::getVectorType(Type *T, unsigned Size) {
+  Type *WidenType = nullptr;
+  if (auto *VecType = dyn_cast<VectorType>(T)) {
+    WidenType = FixedVectorType::get(VecType->getScalarType(),
+                                     Size * VecType->getNumElements());
+  } else {
+    // Only allow non-agg Type.
+    WidenType = FixedVectorType::get(T, Size);
+  }
+
+  return getPromotedIntVecType(WidenType);
+}
+
+Value *SGHelper::createZExtOrTruncProxy(Value *From, Type *ToType, IRBuilder<> &Builder) {
+  if (!From->getType()->isIntOrIntVectorTy() || !ToType->isIntOrIntVectorTy())
+    return From;
+  return Builder.CreateZExtOrTrunc(From, ToType);
+}
+
 } // namespace intel
