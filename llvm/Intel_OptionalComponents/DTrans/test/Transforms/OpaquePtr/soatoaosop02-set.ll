@@ -6,11 +6,11 @@
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
 ; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
-; RUN: opt < %s -force-opaque-pointers -whole-program-assume -disable-output \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
 ; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-OP %s
-; RUN: opt < %s -force-opaque-pointers -whole-program-assume -disable-output \
+; RUN: opt < %s -opaque-pointers -whole-program-assume -disable-output \
 ; RUN:      -debug-only=dtrans-soatoaosop-deps \
 ; RUN:      -passes='require<dtrans-safetyanalyzer>,function(require<soatoaosop-approx>)' \
 ; RUN:      2>&1 | FileCheck --check-prefix=CHECK-WF %s
