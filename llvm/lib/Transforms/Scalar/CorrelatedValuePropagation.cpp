@@ -1174,7 +1174,7 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, DominatorTree *DT,
         break;
 #if INTEL_CUSTOMIZATION
       case Instruction::FRem:
-        BBChanged |= processFRem(cast<BinaryOperator>(II), LVI);
+        BBChanged |= processFRem(cast<BinaryOperator>(&II), LVI);
         break;
 #endif // INTEL_CUSTOMIZATION
       }
