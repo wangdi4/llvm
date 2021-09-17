@@ -306,6 +306,6 @@ int FullFeatures(void);
 // WINDOWS: musttail call i32 @FullFeatures.V
 // WINDOWS: musttail call i32 @FullFeatures.A
 
-// CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+cx8,+f16c,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
-// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+cmov,+cx8,+f16c,+fma,+lzcnt,+mmx,+movbe,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
+// CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+crc32,+cx8,+f16c,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
+// CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+cmov,+crc32,+cx8,+f16c,+fma,+lzcnt,+mmx,+movbe,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK: attributes #[[O]] = {{.*}}"target-features"="+cmov,+cx8,+mmx,+movbe,+sse,+sse2,+sse3,+ssse3,+x87"
