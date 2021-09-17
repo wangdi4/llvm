@@ -354,7 +354,7 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
      DPxPTR(host_ptr), device_id);
   if (checkDeviceAndCtors(device_id, loc)) {
     DP("Not offloading to device %" PRId64 "\n", device_id);
-    return OFFLOAD_FAIL;
+    return OMP_TGT_FAIL;
   }
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
@@ -382,12 +382,17 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
   if (rc == OFFLOAD_SUCCESS)
     rc = AsyncInfo.synchronize();
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
   return rc;
+=======
+  assert(rc == OFFLOAD_SUCCESS && "__tgt_target_mapper unexpected failure!");
+  return OMP_TGT_SUCCESS;
+>>>>>>> 2187cbf56ff19c600e697ce762ba487134d99a84
 }
 
 EXTERN int __tgt_target_nowait_mapper(
@@ -440,7 +445,7 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
      DPxPTR(host_ptr), device_id);
   if (checkDeviceAndCtors(device_id, loc)) {
     DP("Not offloading to device %" PRId64 "\n", device_id);
-    return OFFLOAD_FAIL;
+    return OMP_TGT_FAIL;
   }
 
   if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
@@ -469,12 +474,18 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
     rc = AsyncInfo.synchronize();
 
   handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
     PM->Devices[device_id]->popSubDevice();
 #endif // INTEL_COLLAB
   return rc;
+=======
+  assert(rc == OFFLOAD_SUCCESS &&
+         "__tgt_target_teams_mapper unexpected failure!");
+  return OMP_TGT_SUCCESS;
+>>>>>>> 2187cbf56ff19c600e697ce762ba487134d99a84
 }
 
 EXTERN int __tgt_target_teams_nowait_mapper(
