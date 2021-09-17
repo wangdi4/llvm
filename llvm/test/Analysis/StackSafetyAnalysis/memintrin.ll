@@ -74,16 +74,11 @@ define void @MemsetNonConstInBounds(i1 zeroext %z) {
 ; CHECK-LABEL: MemsetNonConstInBounds dso_preemptable{{$}}
 ; CHECK-NEXT: args uses:
 ; CHECK-NEXT: allocas uses:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; Refined from [0,7): memset runs from 0 to size-1
 ; CHECK-NEXT: x[4]: [0,4){{$}}
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK-NEXT: x[4]: [0,7){{$}}
 ; GLOBAL-NEXT: safe accesses:
->>>>>>> 57335b6e2eaddfbef5d68b022fb1a65199c1cd86
-; CHECK-EMPTY:
 entry:
   %x = alloca i32, align 4
   %x1 = bitcast i32* %x to i8*
