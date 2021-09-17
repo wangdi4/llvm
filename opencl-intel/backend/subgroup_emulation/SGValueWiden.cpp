@@ -357,25 +357,12 @@ void SGValueWiden::hoistUniformValue(Instruction *V, Instruction *FirstI) {
     setWIValue(V);
 }
 
-static Type *getVectorType(Type *T, unsigned Size) {
-  if (auto *VecType = dyn_cast<VectorType>(T)) {
-    return FixedVectorType::get(VecType->getScalarType(),
-                                Size * VecType->getNumElements());
-  }
-  // Only allow non-agg Type.
-  return FixedVectorType::get(T, Size);
-}
-
-static Type *getVectorType(Value *V, unsigned Size) {
-  return getVectorType(V->getType(), Size);
-}
-
 Value *SGValueWiden::getVectorValuePtr(Value *V, unsigned Size,
                                        Instruction *IP) {
   assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
   auto *WideValuePtr = cast<AllocaInst>(VecValueMap[V]);
   auto *WideType = WideValuePtr->getAllocatedType();
-  Type *DestType = getVectorType(V, Size);
+  Type *DestType = SGHelper::getVectorType(V, Size);
   IRBuilder<> Builder(IP);
 
   // eg. V = alloca i32 DestType shold be <16 x i32*>
@@ -423,7 +410,7 @@ static Value *loadVectorByVecElement(Value *Addr, Type *OrigValType,
   auto *VectorValType = cast<FixedVectorType>(OrigValType);
   Type *ScalarEleType = VectorValType->getScalarType();
   unsigned OrigNumElem = VectorValType->getNumElements();
-  Type *DestType = getVectorType(OrigValType, VF);
+  Type *DestType = SGHelper::getVectorType(OrigValType, VF);
   Value *Res = UndefValue::get(DestType);
   for (unsigned Idx = 0; Idx < VF; ++Idx) {
     for (unsigned Id = 0; Id < OrigNumElem; ++Id) {
@@ -453,28 +440,7 @@ void SGValueWiden::setVectorValue(Value *Data, Value *V, unsigned Size,
   assert(VecValueMap.count(V) && "Can't find Value in VecValueMap");
   Value *Ptr = getVectorValuePtr(V, Size, IP);
   if (Ptr != nullptr) {
-    auto *IntVType = dyn_cast<IntegerType>(OrigValType);
-    if (!IntVType) {
-      Builder.CreateStore(Data, Ptr);
-      return;
-    }
-    auto &DL = IP->getModule()->getDataLayout();
-    unsigned StoreSize = DL.getTypeStoreSizeInBits(OrigValType);
-    if (IntVType->getBitWidth() == StoreSize) {
-      Builder.CreateStore(Data, Ptr);
-      return;
-    }
-
-    // For <VF x i1> type, since we will get the value one by one via GEP, we
-    // will be actually getting value from <VF x i8>*, so we need to store it as
-    // <VF x i8>.
-    Type *ExtVType = Type::getIntNTy(V->getContext(), StoreSize);
-    Type *ExtWideVType = FixedVectorType::get(ExtVType, Size);
-    Value *CastPtr =
-        Builder.CreateBitCast(Ptr, PointerType::get(ExtWideVType, 0));
-    Value *CastVal = Builder.CreateZExt(Data, ExtWideVType);
-    Builder.CreateStore(CastVal, CastPtr);
-    return;
+    Builder.CreateStore(Data, Ptr);
   } else {
     // Do we need to fix vector memory access here?
     storeVectorByVecElement(VecValueMap[V], Data, OrigValType, Size, Builder);
@@ -495,16 +461,13 @@ Value *SGValueWiden::getVectorValue(Value *V, unsigned Size, Instruction *IP) {
     if (WideValPtr == nullptr)
       return loadVectorByVecElement(VecValueMap[V], OrigValType, Size, Builder);
 
-    // For <VF x i1> type, since we were storing it one by one, we were actually
-    // setting value to <VF x i8>*, so we need to load it as <VF x i8>.
-    return fixIntNVector(getVectorType(V, Size), WideValPtr, IP);
-  } else {
-    if (UniValueMap.count(V))
-      V = Builder.CreateLoad(OrigValType, UniValueMap[V]);
-    if (isa<FixedVectorType>(OrigValType))
-      return replicateVector(V, Size, Builder, "splat.");
-    return Builder.CreateVectorSplat(Size, V);
+    return Builder.CreateLoad(SGHelper::getVectorType(V, Size), WideValPtr);
   }
+  if (UniValueMap.count(V))
+    V = Builder.CreateLoad(OrigValType, UniValueMap[V]);
+  if (isa<FixedVectorType>(OrigValType))
+    return replicateVector(V, Size, Builder, "splat.");
+  return Builder.CreateVectorSplat(Size, V);
 }
 
 Value *SGValueWiden::getScalarValue(Value *V, Instruction *IP) {
@@ -531,11 +494,17 @@ void SGValueWiden::setWIValue(Value *V) {
   if (isa<PHINode>(IP))
     IP = IP->getParent()->getFirstNonPHI();
   IRBuilder<> Builder(IP);
-  Value *Offset = VecValueMap.count(V)   ? getWIOffset(IP, VecValueMap[V])
-                  : UniValueMap.count(V) ? UniValueMap[V]
-                                         : nullptr;
-  assert(Offset && "Can't find value in ValueMap");
-  Builder.CreateStore(V, Offset);
+  if (!VecValueMap.count(V) && !UniValueMap.count(V)) {
+    LLVM_DEBUG(dbgs() << "Value: " << *V << '\n');
+    llvm_unreachable("Can't find value in ValueMap!");
+  }
+  auto *Offset =
+      VecValueMap.count(V) ? getWIOffset(IP, VecValueMap[V]) : UniValueMap[V];
+  // Offset's pointee type might be the promoted widen type of V.
+  // In such cases, we need to zext V to promoted type before store.
+  auto *Promoted = SGHelper::createZExtOrTruncProxy(
+      V, Offset->getType()->getPointerElementType(), Builder);
+  Builder.CreateStore(Promoted, Offset);
 }
 
 Value *SGValueWiden::getWIValue(Instruction *U, Value *V) {
@@ -548,11 +517,13 @@ Value *SGValueWiden::getWIValue(Instruction *U, Value *V) {
   assert(VecValueMap.count(V) && "Can't find value in VecValueMap");
   Value *Src = VecValueMap[V];
   Instruction *IP = getInsertPoint(U, V);
+  IRBuilder<> Builder(IP);
   auto *Offset = getWIOffset(IP, Src);
   auto *LI =
-      new LoadInst(Offset->getType()->getPointerElementType(), Offset, "", IP);
-  LI->setDebugLoc(IP->getDebugLoc());
-  return LI;
+      Builder.CreateLoad(Offset->getType()->getPointerElementType(), Offset);
+  // Src might be the promoted widen type of V.
+  // In such cases, we need to trunc LI to V's original type.
+  return SGHelper::createZExtOrTruncProxy(LI, V->getType(), Builder);
 }
 
 Value *SGValueWiden::getWIOffset(Instruction *IP, Value *Src) {
@@ -650,6 +621,9 @@ void SGValueWiden::widenCalls() {
         NewArg = getVectorValue(Arg, Size, ParamIP);
       }
       assert(NewArg && "Vector value is null!");
+      // Function argument might be promoted, create a zext.
+      NewArg = SGHelper::createZExtOrTruncProxy(
+          NewArg, WideFunc->getArg(Pair.index())->getType(), Builder);
       NewArgs.push_back(NewArg);
       NewArgTypes.push_back(NewArg->getType());
     }
@@ -691,14 +665,16 @@ void SGValueWiden::widenValue(Instruction *V, Instruction *FirstI,
 
   AllocaInst *WideValueAddr = nullptr;
   if (VType->isAggregateType() || VType->isVectorTy()) {
-    Type *WideType = ArrayType::get(VType, Size);
+    auto *Promoted = SGHelper::getPromotedIntVecType(VType);
+    Type *WideType = ArrayType::get(Promoted, Size);
     WideValueAddr = Builder.CreateAlloca(WideType, nullptr, NewName);
-    // We may convert ths addr to pointer of vector and then load the vector
+    // We may convert this addr to pointer of vector and then load the vector
     // from it. This behaviour will cause aligned vector move, so we need to
     // update the alignment here.
-    WideValueAddr->setAlignment(Align(WideValueAddr->getAlignment() * Size));
+    WideValueAddr->setAlignment(
+        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted) * Size);
   } else {
-    Type *WideType = getVectorType(VType, Size);
+    Type *WideType = SGHelper::getVectorType(VType, Size);
     WideValueAddr = Builder.CreateAlloca(WideType, nullptr, NewName);
   }
 
@@ -745,14 +721,16 @@ void SGValueWiden::widenAlloca(Instruction *V, Instruction *FirstI,
 
   AllocaInst *WideValue = nullptr;
   if (AllocatedType->isAggregateType() || AllocatedType->isVectorTy()) {
-    Type *WideType = ArrayType::get(AllocatedType, NewSize);
+    auto *Promoted = SGHelper::getPromotedIntVecType(AllocatedType);
+    Type *WideType = ArrayType::get(Promoted, NewSize);
     WideValue = Builder.CreateAlloca(WideType, AddrSpace, nullptr, NewName);
-    // We may convert ths addr to pointer of vector and then load the vector
+    // We may convert this addr to pointer of vector and then load the vector
     // from it. This behaviour will cause aligned vector move, so we need to
     // update the alignment here.
-    WideValue->setAlignment(Align(AI->getAlignment() * Size));
+    WideValue->setAlignment(
+        V->getModule()->getDataLayout().getPrefTypeAlign(Promoted) * Size);
   } else {
-    Type *WideType = getVectorType(AllocatedType, NewSize);
+    Type *WideType = SGHelper::getVectorType(AllocatedType, NewSize);
     WideValue = Builder.CreateAlloca(WideType, AddrSpace, nullptr, NewName);
   }
   VecValueMap[V] = WideValue;
@@ -800,6 +778,11 @@ void SGValueWiden::widenAlloca(Instruction *V, Instruction *FirstI,
         ArraySize->getZExtValue() > 1 ? Builder.CreateMul(Idx, ArraySize) : Idx;
     auto *NewV = Builder.CreateGEP(WideValue->getAllocatedType(), WideValue,
                                    {ConstZero, Offset});
+    // NewV's pointee type might be the promoted type of V.
+    // e.g. "alloca i1, align 1" will be widen to
+    //      "alloca <16 x i8>, align 16"
+    // In such cases, we need to cast the GEP back to original pointer type.
+    NewV = Builder.CreatePointerCast(NewV, V->getType());
     UI->replaceUsesOfWith(V, NewV);
   }
 

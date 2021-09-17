@@ -16,6 +16,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 
 namespace llvm {
@@ -147,6 +148,36 @@ public:
   /// TODO: Move this to CompilationUtils
   static void insertPrintf(const llvm::Twine &Prefix, llvm::Instruction *IP,
                            llvm::ArrayRef<llvm::Value *> Inputs = llvm::None);
+
+  /// Get promoted integer vector type for IntVecType. Return IntVecType if
+  /// promotion is not needed.
+  /// Some integer vector types are not element-wise-addressable on X86 targets.
+  /// e.g. <16 x i1> would be stored in packed bits (2 bytes)
+  ///      In such case we cannot do GEP on <16 x i1>*, since it's impossible to
+  ///      get byte-aligned address for each i1 element.
+  /// The promoted type is guaranteed to be GEP-able.
+  /// e.g. <16 x i1> is promoted to <16 x i8>
+  /// e.g. <2 x i2> is promoted to <2 x i8>
+  static llvm::Type *getPromotedIntVecType(llvm::Type *IntVecType);
+  static llvm::Type *getPromotedIntVecType(llvm::Value *V) {
+    return getPromotedIntVecType(V->getType());
+  }
+
+  /// Get vector type of T widen by Size. Result vector type is promoted if
+  /// needed.
+  /// e.g. i32 --> <Size x i32>
+  /// e.g. <4 x i32> --> <4xSize x i32>
+  /// e.g. i1 --> <Size x i8> (promoted to i8)
+  static llvm::Type *getVectorType(llvm::Type *T, unsigned Size);
+  static llvm::Type *getVectorType(llvm::Value *V, unsigned Size) {
+    return getVectorType(V->getType(), Size);
+  }
+
+  /// Create zext or trunc instruction on From value to the destination type.
+  /// If no need, return From.
+  static llvm::Value *createZExtOrTruncProxy(llvm::Value *From,
+                                             llvm::Type *ToType,
+                                             llvm::IRBuilder<> &Builder);
 
 private:
   void findBarriers();
