@@ -9829,17 +9829,22 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
 
   Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ);
   // See if device code splitting is requested
+<<<<<<< HEAD
   if (!IsOpenMPSPIRV && A) {
 #endif // INTEL_CUSTOMIZATION
     if (StringRef(A->getValue()) == "per_kernel")
+=======
+  if (Arg *A = TCArgs.getLastArg(options::OPT_fsycl_device_code_split_EQ)) {
+    auto CodeSplitValue = StringRef(A->getValue());
+    if (CodeSplitValue == "per_kernel")
+>>>>>>> 631fd6971276f36c7a6d1ec07bca181c389be1d9
       addArgs(CmdArgs, TCArgs, {"-split=kernel"});
-    else if (StringRef(A->getValue()) == "per_source")
+    else if (CodeSplitValue == "per_source")
       addArgs(CmdArgs, TCArgs, {"-split=source"});
-    else if (StringRef(A->getValue()) == "auto")
+    else if (CodeSplitValue == "auto")
       addArgs(CmdArgs, TCArgs, {"-split=auto"});
-    else
-      // split must be off
-      assert(StringRef(A->getValue()) == "off");
+    else { // Device code split is off
+    }
   } else {
     // auto is the default split mode
     addArgs(CmdArgs, TCArgs, {"-split=auto"});
