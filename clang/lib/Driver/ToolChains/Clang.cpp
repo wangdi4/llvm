@@ -7732,7 +7732,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     D.Diag(diag::err_drv_unsupported_opt_for_target)
         << Args.getLastArg(options::OPT_frecord_command_line)->getAsString(Args)
         << TripleStr;
-  if (TC.UseDwarfDebugFlags() || GRecordSwitches || FRecordSwitches) {
+#if INTEL_CUSTOMIZATION
+  auto Sox = Args.hasArg(options::OPT_sox);
+  if (TC.UseDwarfDebugFlags() || GRecordSwitches || FRecordSwitches || Sox) {
+#endif // INTEL_CUSTOMIZATION
     ArgStringList OriginalArgs;
     for (const auto &Arg : Args)
       Arg->render(Args, OriginalArgs);
@@ -7754,6 +7757,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-record-command-line");
       CmdArgs.push_back(FlagsArgString);
     }
+#if INTEL_CUSTOMIZATION
+    if (Sox)
+      CmdArgs.push_back(Args.MakeArgString("-sox=" + Twine(FlagsArgString)));
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Host-side cuda compilation receives all device-side outputs in a single
