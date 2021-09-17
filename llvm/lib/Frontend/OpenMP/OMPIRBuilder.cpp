@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Utils/LoopPeel.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 
 #include <sstream>
@@ -275,6 +276,18 @@ void OpenMPIRBuilder::finalize(Function *Fn, bool AllowExtractorSinking) {
 
 OpenMPIRBuilder::~OpenMPIRBuilder() {
   assert(OutlineInfos.empty() && "There must be no outstanding outlinings");
+}
+
+GlobalValue *OpenMPIRBuilder::createDebugKind(unsigned DebugKind) {
+  IntegerType *I32Ty = Type::getInt32Ty(M.getContext());
+  auto *GV = new GlobalVariable(
+      M, I32Ty,
+      /* isConstant = */ true, GlobalValue::PrivateLinkage,
+      ConstantInt::get(I32Ty, DebugKind), "__omp_rtl_debug_kind");
+
+  llvm::appendToUsed(M, {GV});
+
+  return GV;
 }
 
 Value *OpenMPIRBuilder::getOrCreateIdent(Constant *SrcLocStr,
