@@ -128,6 +128,8 @@ MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
 MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
+MODULE_PASS("dtrans-elim-ro-field-access-op",                    // INTEL
+            dtransOP::EliminateROFieldAccessPass())              // INTEL
 MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
 MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL

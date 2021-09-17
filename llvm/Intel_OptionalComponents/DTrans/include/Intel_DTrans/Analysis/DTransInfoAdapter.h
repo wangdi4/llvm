@@ -85,6 +85,24 @@ public:
     return DTInfo.getCallInfo(I);
   }
 
+  bool isReadOnlyFieldAccess(LoadInst *LI) const {
+    return DTInfo.isReadOnlyFieldAccess(LI);
+  } 
+
+  bool isPtrToStruct(Argument *A) const {
+    auto PTy = dyn_cast<PointerType>(A->getType());
+    if (!PTy)
+      return false;
+    return isa<StructType>(PTy->getElementType());
+  }
+
+  bool isFunctionPtr(StructType *STy, unsigned Idx) {
+    auto PTy = dyn_cast<PointerType>(STy->getElementType(Idx));
+    if (!PTy)
+      return false;
+    return isa<FunctionType>(PTy->getElementType());
+  } 
+
 private:
   DTransAnalysisInfo &DTInfo;
 };
@@ -154,6 +172,18 @@ public:
   dtrans::CallInfo *getCallInfo(const Instruction *I) const {
     return DTInfo.getCallInfo(I);
   }
+  
+  bool isReadOnlyFieldAccess(LoadInst *LI) const {
+    return DTInfo.isReadOnlyFieldAccess(LI);
+  } 
+
+  bool isPtrToStruct(Argument *A) const {
+    return DTInfo.isPtrToStruct(A); 
+  }
+
+  bool isFunctionPtr(StructType *STy, unsigned Idx) {
+    return DTInfo.isFunctionPtr(STy, Idx);
+  } 
 
 private:
   DTransSafetyInfo &DTInfo;

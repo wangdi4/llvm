@@ -4,7 +4,7 @@
 ; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -debug-only=elim-ro-field-access -disable-output 2>&1 | FileCheck --check-prefix=DBG %s
 ; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -dtrans-print-types -disable-output 2>&1 | FileCheck --check-prefix=SAFETY %s
 
-; This test verifies the dtrans eliminate read-only field access pass.
+; This test verifies the DTrans eliminate read-only field access pass.
 ; lzma_allocator type has safety check violations due to bad casting.
 
 %struct.lzma_allocator = type { i8* (i8*, i64, i64)*, void (i8*, i8*)*, i8* }
