@@ -341,6 +341,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "lane-extract";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
+  case VPInstruction::OrigLiveOutHIR:
+    return "orig-live-out-hir";
   case VPInstruction::PushVF:
     return "pushvf";
   case VPInstruction::PopVF:
@@ -349,6 +351,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "scalar-peel";
   case VPInstruction::ScalarRemainder:
     return "scalar-remainder";
+  case VPInstruction::ScalarPeelRemainderHIR:
+    return "scalar-hir-loop";
   case VPInstruction::PlanAdapter:
     return "vplan-adapter";
   case VPInstruction::PlanPeelAdapter:
@@ -558,12 +562,22 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     return;
   }
 
+  if (auto *ScalarLpHIR = dyn_cast<VPPeelRemainderHIR>(this)) {
+    ScalarLpHIR->printImpl(O);
+    return;
+  }
+
   if (auto *SCEVWrapper = dyn_cast<VPInvSCEVWrapper>(this)) {
     SCEVWrapper->printImpl(O);
     return;
   }
 
   if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+    LiveOut->printImpl(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPOrigLiveOutHIR>(this)) {
     LiveOut->printImpl(O);
     return;
   }
@@ -1210,10 +1224,14 @@ void VPlanScalar::setNeedCloneOrigLoop(bool V) {
   if (!V)
     return;
   for (VPBasicBlock &B : *this) {
-    auto LoopI = llvm::find_if(
-        B, [](const VPInstruction &I) { return isa<VPPeelRemainder>(I); });
+    auto LoopI = llvm::find_if(B, [](const VPInstruction &I) {
+      return isa<VPPeelRemainder>(I) || isa<VPPeelRemainderHIR>(I);
+    });
     if (LoopI != B.end()) {
-      cast<VPPeelRemainder>(*LoopI).setCloningRequired();
+      if (auto *IRPeelRem = dyn_cast<VPPeelRemainder>(&*LoopI))
+        IRPeelRem->setCloningRequired();
+      else
+        cast<VPPeelRemainderHIR>(*LoopI).setCloningRequired();
       return;
     }
   }

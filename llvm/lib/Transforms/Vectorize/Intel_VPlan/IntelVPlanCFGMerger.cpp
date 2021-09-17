@@ -309,6 +309,10 @@ static Use *getExitBBUse(Loop *Loop) {
                                      : &Br->getOperandUse(1);
 }
 
+// Dummy no-op method to accept HLLoop and enable templatized
+// ScalarPeelOrRemainderVPlanFabBase::runImpl.
+static Use *getExitBBUse(loopopt::HLLoop *Loop) { return nullptr; }
+
 VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
                                                     VPBasicBlock *InsertAfter,
                                                     VPBasicBlock *FinalBB) {
@@ -332,8 +336,10 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
     unsigned Id = cast<VPPHINode>(I).getMergeId();
     const ScalarInOutDescr *ScalarDescr = ScalarInOuts.getDescr(Id);
     assert(ScalarDescr && "InOutDescr not found");
-    auto LO = Builder.create<VPOrigLiveOut>("orig.liveout", Remainder,
-                                  ScalarDescr->getLiveOut(), Id);
+    // Old CFGMerger is used only by LLVM-IR path.
+    auto LO = Builder.create<VPOrigLiveOut>(
+        "orig.liveout", ScalarDescr->getValueType(), Remainder,
+        ScalarDescr->getLiveOut(), Id);
     Plan.getVPlanDA()->markUniform(*LO);
     PHINode *OrigPhi = ScalarDescr->getPhi();
     if (OrigPhi)
@@ -349,7 +355,20 @@ template <typename VPlanType, typename VPInstructionType>
 class ScalarPeelOrRemainderVPlanFabBase {
   virtual void addRemainderLiveIn(ScalarInOutDescr *Descr,
                                   VPInstructionType *I) {}
-  virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk, Use *Val) = 0;
+  virtual void addRemainderLiveIn(ScalarInOutDescrHIR *Descr,
+                                  VPInstructionType *I) {}
+  // Will be no-op for HIR specialized fabs.
+  virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk, Use *Val) {}
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescr *Descr,
+                                       VPInstructionType *I) {
+    return nullptr;
+  }
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescrHIR *Descr,
+                                       VPInstructionType *I) {
+    return nullptr;
+  }
   virtual void setPlanName(VPlan &MainPlan) = 0;
   virtual const char *getFirstBlockName() = 0;
 
@@ -369,14 +388,14 @@ protected:
   //  - Liveins for the VPScalar{Peel,Remainder} instruction are also filled
   //    in, except the peel count for a peel loop.
   //  - Create a new DA instance.
-  VPlanType *runImpl(VPlan &MainPlan, Loop *OrigLoop) {
+  template <class LoopTy>
+  VPlanType *runImpl(VPlan &MainPlan, LoopTy *OrigLoop) {
     NewPlan =
         new VPlanType(MainPlan.getExternals(), MainPlan.getUnlinkedVPInsts());
     setPlanName(MainPlan);
 
     // Create live-in and live-out lists.
-    const ScalarInOutList *ScalarInOuts =
-        NewPlan->getExternals().getScalarLoopInOuts(OrigLoop);
+    auto *ScalarInOuts = NewPlan->getExternals().getScalarLoopInOuts(OrigLoop);
 
     // First create live-ins
     VPLiveInOutCreator LICreator(*NewPlan);
@@ -399,9 +418,8 @@ protected:
     DenseMap<int, VPValue *> LiveOuts;
     for (auto ScalarDescr : ScalarInOuts->list()) {
       int MergeId = ScalarDescr->getId();
-      auto LO = Builder.create<VPOrigLiveOut>(
-          "orig.liveout", ScalarLoopInstr, ScalarDescr->getLiveOut(), MergeId);
-      LiveOuts[MergeId] = LO;
+      LiveOuts[MergeId] =
+          generateOrigLiveOut(Builder, ScalarDescr, ScalarLoopInstr);
       addRemainderLiveIn(ScalarDescr, ScalarLoopInstr); // No-op for peel
     }
     // Create live out list.
@@ -449,8 +467,43 @@ class ScalarPeelOrRemainderVPlanFab
     I->setTargetLabel(Blk, Val);
   }
 
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescr *Descr,
+                                       VPInstructionType *I) override {
+    return Builder.create<VPOrigLiveOut>("orig.liveout", Descr->getValueType(),
+                                         I, Descr->getLiveOut(),
+                                         Descr->getId());
+  }
+
 public:
   VPlanType *create(VPlan &MainPlan, Loop *OrigLoop) {
+    return runImpl(MainPlan, OrigLoop);
+  }
+};
+
+// Peel specialization for HIR
+template <bool>
+class ScalarPeelOrRemainderVPlanFabHIR
+    : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarPeel,
+                                               VPPeelRemainderHIR> {
+  using VPlanType = VPlanScalarPeel;
+  using VPInstructionType = VPPeelRemainderHIR;
+
+  virtual const char *getFirstBlockName() override { return "PeelBlk"; }
+  virtual void setPlanName(VPlan &MainPlan) override {
+    NewPlan->setName(MainPlan.getName() + ".ScalarPeel");
+  }
+
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescrHIR *Descr,
+                                       VPInstructionType *I) override {
+    return Builder.create<VPOrigLiveOutHIR>("orig.liveout",
+                                            Descr->getValueType(), I,
+                                            Descr->getHIRRef(), Descr->getId());
+  }
+
+public:
+  VPlanType *create(VPlan &MainPlan, loopopt::HLLoop *OrigLoop) {
     return runImpl(MainPlan, OrigLoop);
   }
 };
@@ -480,8 +533,72 @@ class ScalarPeelOrRemainderVPlanFab<false>
     I->addLiveIn(Blk, Val);
   }
 
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescr *Descr,
+                                       VPInstructionType *I) override {
+    return Builder.create<VPOrigLiveOut>("orig.liveout", Descr->getValueType(),
+                                         I, Descr->getLiveOut(),
+                                         Descr->getId());
+  }
+
 public:
   VPlanType *create(VPlan &MainPlan, Loop *OrigLoop) {
+    return runImpl(MainPlan, OrigLoop);
+  }
+};
+
+// Remainder specialization for HIR
+template <>
+class ScalarPeelOrRemainderVPlanFabHIR<false>
+    : public ScalarPeelOrRemainderVPlanFabBase<VPlanScalarRemainder,
+                                               VPPeelRemainderHIR> {
+  using VPlanType = VPlanScalarRemainder;
+  using VPInstructionType = VPPeelRemainderHIR;
+
+  virtual const char *getFirstBlockName() override { return "RemBlk"; }
+  virtual void setPlanName(VPlan &MainPlan) override {
+    NewPlan->setName(MainPlan.getName() + ".ScalarRemainder");
+  }
+
+  // Overriden method to create temp initialization map for the scalar remainder
+  // loop.
+  virtual void addRemainderLiveIn(ScalarInOutDescrHIR *Descr,
+                                  VPInstructionType *I) override {
+    loopopt::HLLoop *OrigLp = I->getLoop();
+    auto *HIRRef = Descr->getHIRRef();
+
+    // If the temp is not main loop IV and not live-in then ignore.
+    // TODO: Consider uplifting this property to ScalarInOutDescr.
+    if (!Descr->isMainLoopIV() && !OrigLp->isLiveIn(HIRRef->getSymbase()))
+      return;
+
+    int Id = Descr->getId();
+    auto *LiveIn = const_cast<VPLiveInValue *>(NewPlan->getLiveInValue(Id));
+
+    // For main loop IV we don't have a temp to initialize the live-in. Create a
+    // new temp to track lower-bound of loop.
+    if (Descr->isMainLoopIV()) {
+      loopopt::RegDDRef *LBTmp =
+          OrigLp->getHLNodeUtils().createTemp(OrigLp->getIVType(), "lb.tmp");
+      I->addTemp(LiveIn, LBTmp);
+      I->setLowerBoundTemp(LBTmp);
+      return;
+    }
+
+    // For other descriptors we simply update temp-init map.
+    I->addTemp(LiveIn, const_cast<loopopt::DDRef *>(HIRRef));
+  }
+
+  virtual VPValue *generateOrigLiveOut(VPBuilder &Builder,
+                                       ScalarInOutDescrHIR *Descr,
+                                       VPInstructionType *I) override {
+    return Builder.create<VPOrigLiveOutHIR>("orig.liveout",
+                                            Descr->getValueType(), I,
+                                            Descr->getHIRRef(), Descr->getId());
+  }
+
+public:
+  VPlanType *create(VPlan &MainPlan, loopopt::HLLoop *OrigLoop) {
     return runImpl(MainPlan, OrigLoop);
   }
 };
@@ -493,6 +610,7 @@ void VPlanCFGMerger::updateMergeBlockByScalarLiveOuts(VPBasicBlock *BB,
   for (auto &PN: BB->getVPPhis())
     MergePhis[PN.getMergeId()] = &PN;
 
+  // TODO: Old CFGMerger is used only by LLVM-IR path.
   for (auto &I : *InBlock)
     if (auto *OrigLI = dyn_cast<VPOrigLiveOut>(&I))
       MergePhis[OrigLI->getMergeId()]->addIncoming(OrigLI, InBlock);
@@ -612,14 +730,21 @@ void VPlanCFGMerger::insertPushPopVF(VPlan &P, unsigned VF, unsigned UF) {
   }
 }
 
+template <class LoopTy>
 void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
                                  const SingleLoopVecScenario &Scen,
                                  std::list<CfgMergerPlanDescr> &PlanDescrs,
-                                 Loop *OrigLoop, VPlan &MainPlan,
+                                 LoopTy *OrigLoop, VPlan &MainPlan,
                                  VPAnalysesFactoryBase &VPAF) {
 
-  using ScalarPeelVPlanFab = ScalarPeelOrRemainderVPlanFab<true>;
-  using ScalarRemainderVPlanFab = ScalarPeelOrRemainderVPlanFab<false>;
+  using ScalarPeelVPlanFab =
+      typename std::conditional<std::is_same<LoopTy, loopopt::HLLoop>::value,
+                                ScalarPeelOrRemainderVPlanFabHIR<true>,
+                                ScalarPeelOrRemainderVPlanFab<true>>::type;
+  using ScalarRemainderVPlanFab =
+      typename std::conditional<std::is_same<LoopTy, loopopt::HLLoop>::value,
+                                ScalarPeelOrRemainderVPlanFabHIR<false>,
+                                ScalarPeelOrRemainderVPlanFab<false>>::type;
 
   auto dumpNewVPlan = [](const VPlan *P) -> void {
     VPLAN_DUMP(MergeNewPlansDumpControl, P);
@@ -739,6 +864,16 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
+
+template void VPlanCFGMerger::createPlans<Loop>(LoopVectorizationPlanner &,
+                                                const SingleLoopVecScenario &,
+                                                std::list<CfgMergerPlanDescr> &,
+                                                Loop *, VPlan &,
+                                                VPAnalysesFactoryBase &);
+template void VPlanCFGMerger::createPlans<loopopt::HLLoop>(
+    LoopVectorizationPlanner &, const SingleLoopVecScenario &,
+    std::list<CfgMergerPlanDescr> &, loopopt::HLLoop *, VPlan &,
+    VPAnalysesFactoryBase &);
 
 void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
                                      VPBasicBlock *InsertBefore,
