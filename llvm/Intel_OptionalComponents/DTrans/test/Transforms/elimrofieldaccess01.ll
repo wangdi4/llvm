@@ -1,7 +1,7 @@
 ; RUN: opt  < %s -whole-program-assume -dtrans-elim-ro-field-access -S 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes=dtrans-elim-ro-field-access -S 2>&1 | FileCheck %s
 
-; This test verifies the dtrans eliminate read-only field access pass.
+; This test verifies the DTrans eliminate read-only field access pass.
 
 %struct.lzma_allocator = type { i8* (i8*, i64, i64)*, void (i8*, i8*)*, i8* }
 

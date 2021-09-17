@@ -87,6 +87,10 @@ public:
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
 
+  // Setup the livein/liveout information for loops generated during
+  // vector code generation.
+  void setupLiveInLiveOut();
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpFinalHIR();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -509,6 +513,10 @@ public:
   // so that the gotos are fixed up at the end of vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
 
+  // Naive version of emitBlockTerminator which does not attempt to pull
+  // in code into then and else parts of an if.
+  void emitBlockTerminatorNaive(const VPBasicBlock *SourceBB);
+
   // Return the Lval temp that was generated to represent the deconstructed PHI
   // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
   // otherwise.
@@ -672,6 +680,11 @@ private:
 
   // True if #pragma omp simd defined for OrigLoop
   bool IsOmpSIMD;
+
+  SmallPtrSet<const VPBasicBlock *, 2> LoopPreheaderBlocks;
+  SmallPtrSet<const VPBasicBlock *, 2> LoopHeaderBlocks;
+  SmallPtrSet<const VPBasicBlock *, 2> LoopExitBlocks;
+  SmallDenseMap<const VPLoop *, HLLoop *> VPLoopHLLoopMap;
 
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
