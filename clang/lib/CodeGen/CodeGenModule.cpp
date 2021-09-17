@@ -2245,6 +2245,17 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     AddedAttr = true;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (CodeGenOpts.getLoopOptPipeline() == CodeGenOptions::LoopOptLightWeight) {
+    Attrs.addAttribute("loopopt-pipeline", "light");
+    AddedAttr = true;
+  }
+  if (CodeGenOpts.getLoopOptPipeline() == CodeGenOptions::LoopOptFull) {
+    Attrs.addAttribute("loopopt-pipeline", "full");
+    AddedAttr = true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return AddedAttr;
 }
 

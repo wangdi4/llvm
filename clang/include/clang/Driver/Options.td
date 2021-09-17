@@ -6047,6 +6047,16 @@ def fprofile_instrument_EQ : Joined<["-"], "fprofile-instrument=">,
     NormalizedValuesScope<"CodeGenOptions">,
     NormalizedValues<["ProfileNone", "ProfileClangInstr", "ProfileIRInstr", "ProfileCSIRInstr"]>,
     MarshallingInfoEnum<CodeGenOpts<"ProfileInstr">, "ProfileNone">;
+
+#if INTEL_CUSTOMIZATION
+def floopopt_pipeline_EQ : Joined<["-"], "floopopt-pipeline=">,
+    HelpText<"Specify loopopt pipeline. The accepted value is none, light, full">,
+    Values<"none,light,full">,
+    NormalizedValuesScope<"CodeGenOptions">,
+    NormalizedValues<["LoopOptNone", "LoopOptLightWeight", "LoopOptFull"]>,
+    MarshallingInfoEnum<CodeGenOpts<"LoopOptPipeline">, "LoopOptNone">;
+#endif // INTEL_CUSTOMIZATION
+
 def fprofile_instrument_path_EQ : Joined<["-"], "fprofile-instrument-path=">,
     HelpText<"Generate instrumented code to collect execution counts into "
              "<file> (overridden by LLVM_PROFILE_FILE env var)">,
