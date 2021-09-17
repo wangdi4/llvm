@@ -1785,6 +1785,7 @@ static bool tryToReplaceGlobalWithMSVCStdout(
 /// it if possible.  If we make a change, return true.
 static bool
 processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
+                      function_ref<TargetTransformInfo &(Function &)> GetTTI,
                       function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                       WholeProgramInfo *WPInfo,  // INTEL
                       function_ref<DominatorTree &(Function &)> LookupDomTree) {
@@ -1892,18 +1893,26 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
     if (SRAGlobal(GV, DL))
       return true;
   }
-  if (GS.StoredType == GlobalStatus::StoredOnce && GS.StoredOnceValue) {
+  Value *StoredOnceValue = GS.getStoredOnceValue();
+  if (GS.StoredType == GlobalStatus::StoredOnce && StoredOnceValue) {
     // Avoid speculating constant expressions that might trap (div/rem).
-    auto *SOVConstant = dyn_cast<Constant>(GS.StoredOnceValue);
+    auto *SOVConstant = dyn_cast<Constant>(StoredOnceValue);
     if (SOVConstant && SOVConstant->canTrap())
       return Changed;
 
+    Function &StoreFn =
+        const_cast<Function &>(*GS.StoredOnceStore->getFunction());
     // If the initial value for the global was an undef value, and if only
     // one other value was stored into it, we can just change the
     // initializer to be the stored value, then delete all stores to the
     // global.  This allows us to mark it constant.
+    // This is restricted to address spaces that allow globals to have
+    // initializers. NVPTX, for example, does not support initializers for
+    // shared memory (AS 3).
     if (SOVConstant && SOVConstant->getType() == GV->getValueType() &&
-        isa<UndefValue>(GV->getInitializer())) {
+        isa<UndefValue>(GV->getInitializer()) &&
+        GetTTI(StoreFn).canHaveNonUndefGlobalInitializerInAddressSpace(
+            GV->getType()->getAddressSpace())) {
       // Change the initial value here.
       GV->setInitializer(SOVConstant);
 
@@ -1922,8 +1931,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
 
     // Try to optimize globals based on the knowledge that only one value
     // (besides its initializer) is ever stored to the global.
-    if (optimizeOnceStoredGlobal(GV, GS.StoredOnceValue, GS.Ordering, DL,
-                                 GetTLI))
+    if (optimizeOnceStoredGlobal(GV, StoredOnceValue, GS.Ordering, DL, GetTLI))
       return true;
 
 #if INTEL_CUSTOMIZATION
@@ -1937,29 +1945,29 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
       !GV->isExternallyInitialized() &&
       allNonInstructionUsersCanBeMadeInstructions(GV) &&
       isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
-                                     GS.StoredOnceValue, LookupDomTree)) {
+                                     StoredOnceValue, LookupDomTree)) {
     LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
     return true;
   }
   // Replace uses of global variable with another global variable if
   // possible.
   if (GS.StoredType == GlobalStatus::StoredOnce &&
-      GS.StoredOnceValue &&
+      StoredOnceValue &&
       GV->getValueType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0 &&
       !GV->isExternallyInitialized() &&
-      tryToReplaceGlobalWithStoredOnceValue(GV, GS.StoredOnceValue, WPInfo)) {
+      tryToReplaceGlobalWithStoredOnceValue(GV, StoredOnceValue, WPInfo)) {
     LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH ANOTHER GLOBAL: "
                       << *GV << "\n");
     return true;
   }
   // Replace uses of global variable with @__acrt_iob_func(i32 1) if possible.
   if (GS.StoredType == GlobalStatus::StoredOnce &&
-      GS.StoredOnceValue &&
+      StoredOnceValue &&
       GV->getValueType()->isSingleValueType() &&
       GV->getType()->getAddressSpace() == 0 &&
       !GV->isExternallyInitialized() &&
-      tryToReplaceGlobalWithMSVCStdout(GV, GS.StoredOnceValue, WPInfo,
+      tryToReplaceGlobalWithMSVCStdout(GV, StoredOnceValue, WPInfo,
                                        GetTLI)) {
     LLVM_DEBUG(dbgs() << "GLOBAL REPLACED WITH __acrt_iob_func(1): "
                       << *GV << "\n");
@@ -1984,6 +1992,7 @@ processInternalGlobal(GlobalVariable *GV, const GlobalStatus &GS,
 /// make a change, return true.
 static bool
 processGlobal(GlobalValue &GV,
+              function_ref<TargetTransformInfo &(Function &)> GetTTI,
               function_ref<TargetLibraryInfo &(Function &)> GetTLI,
               WholeProgramInfo *WPInfo,  // INTEL
               function_ref<DominatorTree &(Function &)> LookupDomTree) {
@@ -2017,7 +2026,7 @@ processGlobal(GlobalValue &GV,
   if (GVar->isConstant() || !GVar->hasInitializer())
     return Changed;
 
-  return processInternalGlobal(GVar, GS, GetTLI, WPInfo,   // INTEL
+  return processInternalGlobal(GVar, GS, GetTTI, GetTLI, WPInfo,   // INTEL
                                LookupDomTree) || Changed;  // INTEL
 }
 
@@ -2321,7 +2330,7 @@ OptimizeFunctions(Module &M,
       }
     }
 
-    Changed |= processGlobal(*F, GetTLI, nullptr, LookupDomTree); // INTEL
+    Changed |= processGlobal(*F, GetTTI, GetTLI, nullptr, LookupDomTree); // INTEL
 
     if (!F->hasLocalLinkage())
       continue;
@@ -2390,6 +2399,7 @@ OptimizeFunctions(Module &M,
 
 static bool
 OptimizeGlobalVars(Module &M,
+                   function_ref<TargetTransformInfo &(Function &)> GetTTI,
                    function_ref<TargetLibraryInfo &(Function &)> GetTLI,
                    function_ref<DominatorTree &(Function &)> LookupDomTree,
                    WholeProgramInfo *WPInfo,    // INTEL
@@ -2419,7 +2429,7 @@ OptimizeGlobalVars(Module &M,
       continue;
     }
 
-    Changed |= processGlobal(*GV, GetTLI, WPInfo, LookupDomTree); // INTEL
+    Changed |= processGlobal(*GV, GetTTI, GetTLI, WPInfo, LookupDomTree); // INTEL
   }
   return Changed;
 }
@@ -3092,7 +3102,7 @@ static bool optimizeGlobalsInModule(
     });
 
     // Optimize non-address-taken globals.
-    LocalChange |= OptimizeGlobalVars(M, GetTLI, LookupDomTree, WPInfo, // INTEL
+    LocalChange |= OptimizeGlobalVars(M, GetTTI, GetTLI, LookupDomTree, WPInfo, // INTEL
                                       NotDiscardableComdats);           // INTEL
 
     // Resolve aliases, when possible.
