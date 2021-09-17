@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; TODO: Remove the -force-opaque-pointers option. It is currently needed
+; TODO: Remove the -opaque-pointers option. It is currently needed
 ; because global variables are not recognized as being opaque pointers yet.
 
-; RUN: opt < %s -force-opaque-pointers -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types 2>&1 | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -dtrans-safetyanalyzer -dtrans-print-types 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -disable-output -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types  2>&1 | FileCheck %s
 
 ; This test verifies that a getelementptr instruction tagged with metadata
 ; that explicitly marks the type results in the safety analyzer using that

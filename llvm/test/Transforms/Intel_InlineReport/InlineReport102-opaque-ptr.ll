@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: intel_feature_sw_advanced
-; RUN: opt -force-opaque-pointers < %s -S -inline -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers < %s -S -passes='cgscc(inline)' -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -inline -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers < %s -S -passes='cgscc(inline)' -inline-report=0xe807 -pre-lto-inline-cost -min-callee-args-double-external=4 -min-callee-ivdep-loops-double-external=2 2>&1 | FileCheck %s
 
 ; Check that rpassm_ is inlined by the double callsite external function
 ; inline heuristic because it is a Fortran function which is called twice

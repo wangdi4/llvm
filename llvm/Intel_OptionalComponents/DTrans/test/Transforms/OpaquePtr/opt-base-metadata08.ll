@@ -1,7 +1,7 @@
 ; RUN: opt -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -force-opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
-; RUN: opt -force-opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -S -dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -S -passes=dtransop-optbasetest -dtransop-optbasetest-typelist=struct.test01 < %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; Test the metadata attachments on instructions get updated
 ; in a non-cloned function when the base class changes types.

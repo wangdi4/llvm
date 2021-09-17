@@ -1,7 +1,7 @@
 ; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -force-opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
-; RUN: opt -force-opaque-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -whole-program-assume -passes=dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 ; This test verifies that the dtrans delete pass correctly transforms
 ; structures that have unused fields and meet the necessary safety conditions.

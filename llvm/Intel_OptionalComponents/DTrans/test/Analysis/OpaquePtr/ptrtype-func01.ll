@@ -2,8 +2,8 @@
 
 ; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose < %s 2>&1 | FileCheck %s
 
 ; Test type recovery for function definitions with and without metadata
 

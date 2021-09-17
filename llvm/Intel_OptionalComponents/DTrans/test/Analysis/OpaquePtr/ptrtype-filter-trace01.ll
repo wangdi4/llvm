@@ -5,8 +5,8 @@
 
 ; RUN: opt -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
-; RUN: opt -force-opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
+; RUN: opt -opaque-pointers -disable-output -whole-program-assume -passes=dtrans-ptrtypeanalyzertest -debug-only=dtrans-pta-verbose -dtrans-pta-filter-print-funcs=test01,test03 < %s 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-OPAQUE
 
 
 ; Lines marked with CHECK-NONOPAQUE are tests for the current form of IR.

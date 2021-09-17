@@ -1,7 +1,7 @@
 ; RUN: opt -S -whole-program-assume -dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
 ; RUN: opt -S -whole-program-assume -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-NONOPAQUE
-; RUN: opt -S -force-opaque-pointers -whole-program-assume -dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
-; RUN: opt -S -force-opaque-pointers -whole-program-assume -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -S -opaque-pointers -whole-program-assume -dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
+; RUN: opt -S -opaque-pointers -whole-program-assume -passes=dtrans-aostosoaop %s 2>&1 | FileCheck %s --check-prefix=CHECK-OPAQUE
 
 ; This test verifies that the AOS-to-SOA transformation accepts structures
 ; that meet all the required safety conditions.
