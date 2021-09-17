@@ -10,7 +10,7 @@ target triple = "x86_64-apple-macosx10.14.0"
 
 ; - The llvm.dbg.value intrinsic pointing to an argument in @foo (%arg1) is
 ;   dropped
-; CHECK: llvm.dbg.value(metadata i32 %arg1, metadata [[ARG1:![0-9]+]], metadata !DIExpression(DW_OP_deref))                                              ;INTEL
+; CHECK: llvm.dbg.value(metadata i32 %arg1, metadata [[ARG1:![0-9]+]], metadata !DIExpression()) ;INTEL
 
 ; - Instructions without locations in the original function have no
 ;   location in the new function

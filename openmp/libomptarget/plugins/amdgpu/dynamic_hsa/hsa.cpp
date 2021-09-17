@@ -102,7 +102,14 @@ static bool checkForHSA() {
   const char *HsaLib = DYNAMIC_HSA_PATH;
   void *DynlibHandle = dlopen(HsaLib, RTLD_NOW);
   if (!DynlibHandle) {
+#if INTEL_COLLAB
+    char *ErrorMsg = dlerror();
+    if (!ErrorMsg)
+      ErrorMsg = "unknown error";
+    DP("Unable to load library '%s': %s!\n", HsaLib, ErrorMsg);
+#else // INTEL_COLLAB
     DP("Unable to load library '%s': %s!\n", HsaLib, dlerror());
+#endif // INTEL_COLLAB
     return false;
   }
 

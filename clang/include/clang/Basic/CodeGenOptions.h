@@ -99,6 +99,15 @@ public:
     ProfileCSIRInstr, // IR level PGO context sensitive instrumentation in LLVM.
   };
 
+#if INTEL_CUSTOMIZATION
+  enum LoopOptPipelineKind {
+    LoopOptNone,        // LoopOpt pipeline/passes disabled.
+    LoopOptLightWeight, // Lightweight LoopOpt pipeline with limited set of
+                        // passes enabled.
+    LoopOptFull         // Full LoopOpt pipeline is enabled.
+  };
+#endif // INTEL_CUSTOMIZATION
+
   enum EmbedBitcodeKind {
     Embed_Off,      // No embedded bitcode.
     Embed_All,      // Embed both bitcode and commandline in the output.
@@ -220,6 +229,8 @@ public:
 #if INTEL_CUSTOMIZATION
   /// OpenCL compile options to embed in the SPIR metadata
   std::string SPIRCompileOptions;
+  /// Compiler options to embed in .comment section
+  std::string Sox;
 #endif // INTEL_CUSTOMIZATION
 
   /// The files specified here are linked in to the module before optimizations.

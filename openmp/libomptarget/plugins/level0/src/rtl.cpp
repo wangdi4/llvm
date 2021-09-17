@@ -4578,6 +4578,10 @@ static void decideKernelGroupArguments(
     ze_group_count_t &GroupCounts) {
 
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
   auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
   auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
@@ -4666,7 +4670,7 @@ static void decideKernelGroupArguments(
     } else {
       // For kernels with cross-WG reductions use LWS equal
       // to kernelWidth. This is just a performance heuristic.
-      if (KInfo->getHasTeamsReduction() &&
+      if (KInfo && KInfo->getHasTeamsReduction() &&
           // Only do this for discrete devices.
           DeviceInfo->isDiscreteDevice(DeviceId) &&
           DeviceInfo->ReductionSubscriptionRate)
@@ -4692,7 +4696,7 @@ static void decideKernelGroupArguments(
   uint32_t groupCounts[3] = {maxGroupCount, 1, 1};
   uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
   if (!maxGroupCountForced) {
-    if (KInfo->getHasTeamsReduction() &&
+    if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->ReductionSubscriptionRate) {
       if (DeviceInfo->isDiscreteDevice(DeviceId)) {
         // Do not apply ReductionSubscriptionRate for non-discrete devices.

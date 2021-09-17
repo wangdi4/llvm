@@ -936,6 +936,11 @@ void CodeGenModule::Release() {
   if (getCodeGenOpts().EmitVersionIdentMetadata)
     EmitVersionIdentMetadata();
 
+#if INTEL_CUSTOMIZATION
+  if (!getCodeGenOpts().Sox.empty())
+    EmitSoxIdentMetadata();
+#endif // INTEL_CUSTOMIZATION
+
   if (!getCodeGenOpts().RecordCommandLine.empty())
     EmitCommandLineMetadata();
 
@@ -2240,6 +2245,17 @@ bool CodeGenModule::GetCPUAndFeaturesAttributes(GlobalDecl GD,
     Attrs.addAttribute("target-features", llvm::join(Features, ","));
     AddedAttr = true;
   }
+
+#if INTEL_CUSTOMIZATION
+  if (CodeGenOpts.getLoopOptPipeline() == CodeGenOptions::LoopOptLightWeight) {
+    Attrs.addAttribute("loopopt-pipeline", "light");
+    AddedAttr = true;
+  }
+  if (CodeGenOpts.getLoopOptPipeline() == CodeGenOptions::LoopOptFull) {
+    Attrs.addAttribute("loopopt-pipeline", "full");
+    AddedAttr = true;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return AddedAttr;
 }
@@ -7280,6 +7296,17 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 
   Out << "</compiler_to_driver_communication>";
 }
+
+void CodeGenModule::EmitSoxIdentMetadata() {
+  llvm::NamedMDNode *IdentMetadata =
+      TheModule.getOrInsertNamedMetadata("llvm.ident");
+  std::string SoxString = getCodeGenOpts().Sox;
+  llvm::LLVMContext &Ctx = TheModule.getContext();
+
+  llvm::Metadata *IdentNode[] = {llvm::MDString::get(Ctx, SoxString)};
+  IdentMetadata->addOperand(llvm::MDNode::get(Ctx, IdentNode));
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
