@@ -2325,11 +2325,7 @@ OptimizeFunctions(Module &M,
       }
     }
 
-<<<<<<< HEAD
-    Changed |= processGlobal(*F, GetTTI, GetTLI, nullptr, LookupDomTree); // INTEL
-=======
-    Changed |= processGlobal(F, GetTTI, GetTLI, LookupDomTree);
->>>>>>> e030d31fda31a8ec597e52d5fcac49a114cc51c1
+    Changed |= processGlobal(F, GetTTI, GetTLI, nullptr, LookupDomTree); // INTEL
 
     if (!F.hasLocalLinkage())
       continue;
@@ -2425,11 +2421,7 @@ OptimizeGlobalVars(Module &M,
       continue;
     }
 
-<<<<<<< HEAD
-    Changed |= processGlobal(*GV, GetTTI, GetTLI, WPInfo, LookupDomTree); // INTEL
-=======
-    Changed |= processGlobal(GV, GetTTI, GetTLI, LookupDomTree);
->>>>>>> e030d31fda31a8ec597e52d5fcac49a114cc51c1
+    Changed |= processGlobal(GV, GetTTI, GetTLI, WPInfo, LookupDomTree); // INTEL
   }
   return Changed;
 }
