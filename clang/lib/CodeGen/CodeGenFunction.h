@@ -4230,11 +4230,12 @@ public:
   /// \param IsVolatile true if the atomic variable is volatile.
   /// \param IsPostCapture If true, return the value after the operation,
   /// otherwise return the value before the operation.
-  /// \returns Captured value based on \p IsPostCapture.
-  RValue EmitAtomicCompareAndSwap(RValue Expected, RValue Desired,
-                                  LValue Lvalue, llvm::CmpInst::Predicate Op,
-                                  llvm::AtomicOrdering AO, bool IsVolatile,
-                                  bool IsPostCapture);
+  /// \returns Captured value based on \p IsPostCapture and the captured
+  /// compare value.
+  std::pair<RValue, RValue>
+  EmitAtomicCompareAndSwap(RValue Expected, RValue Desired, LValue Lvalue,
+                           llvm::CmpInst::Predicate Op, llvm::AtomicOrdering AO,
+                           bool IsVolatile, bool IsPostCapture);
 #endif // INTEL_COLLAB
 
   std::pair<RValue, llvm::Value *> EmitAtomicCompareExchange(

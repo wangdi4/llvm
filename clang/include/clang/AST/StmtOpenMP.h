@@ -3550,6 +3550,13 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// if (x < expr) { x = expr; }
   /// \endcode
   bool IsCompareMax = false;
+  /// Used for 'atomic compare capture' constructs. True for forms that update
+  /// 'v' only when the condition is false.
+  /// \code
+  /// if(x == e) { x = d; } else { v = x; }
+  /// { r = x == e; if(r) { x = d; } else { v = x; } }
+  /// \endcode
+  bool IsConditionalCapture = false;
 #endif // INTEL_COLLAB
 
   /// Build directive with the given start and end location.
@@ -3633,13 +3640,15 @@ public:
 #if INTEL_COLLAB
   /// \param IsCompareMin true if 'compare' min case
   /// \param IsCompareMax true if 'compare' max case
+  /// \param IsConditionalCapture true if capture when condition is false.
 #endif // INTEL_COLLAB
   static OMPAtomicDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
 #if INTEL_COLLAB
          Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
-         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax);
+         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
+         bool IsConditionalCapture);
 #else // INTEL_COLLAB
          Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
 #endif // INTEL_COLLAB
@@ -3684,6 +3693,7 @@ public:
   bool isCompareMin() const { return IsCompareMin; }
   /// Return true if atomic compare is 'max' form.
   bool isCompareMax() const { return IsCompareMax; }
+  bool isConditionalCapture() const { return IsConditionalCapture; }
 #endif // INTEL_COLLAB
 
   /// Get 'v' part of the associated expression/statement.
