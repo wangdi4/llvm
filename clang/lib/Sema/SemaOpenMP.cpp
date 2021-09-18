@@ -12242,12 +12242,24 @@ class OpenMPAtomicCompareCaptureChecker {
   bool IsCompareMax = false;
   /// True if the value captured is before the atomic operation.
   bool IsCapturedBefore = false;
+  /// True if the value captured is conditional.
+  bool IsConditionalCapture = false;
 
   bool checkCondition(Expr *Cond, unsigned DiagId, unsigned NoteId);
   bool checkThenBlock(Stmt *S, unsigned DiagId, unsigned NoteId);
   bool checkElseBlock(Stmt *S, unsigned DiagId, unsigned NoteId);
   bool checkCompoundStmt(CompoundStmt *CS, unsigned DiagId, unsigned NoteId);
   bool checkIfStmt(IfStmt *If, unsigned DiagId, unsigned NoteId);
+
+  Expr *convert(Expr *E) {
+    if (!E)
+      return nullptr;
+    assert(X && "expected non-null X");
+    return SemaRef
+        .PerformImplicitConversion(E, X->getType(), Sema::AA_Converting,
+                                   /*AllowExplicit=*/true)
+        .get();
+  }
 
 public:
   OpenMPAtomicCompareCaptureChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
@@ -12279,6 +12291,8 @@ public:
   bool getIsCompareMax() const { return IsCompareMax; }
   /// Return true if the captured before form was found.
   bool getIsCapturedBefore() const { return IsCapturedBefore; }
+  /// Return true if capture is conditional.
+  bool getIsConditionalCapture() const { return IsConditionalCapture; }
 };
 }
 
@@ -12318,6 +12332,7 @@ bool OpenMPAtomicCompareCaptureChecker::checkCondition(Expr *Cond,
     SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
     return true;
   }
+  Expected = convert(Expected);
   return ErrorFound != NoError;
 }
 
@@ -12378,6 +12393,7 @@ bool OpenMPAtomicCompareCaptureChecker::checkThenBlock(Stmt *S, unsigned DiagId,
     SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
     return true;
   }
+  Desired = convert(Desired);
   return ErrorFound != NoError;
 }
 
@@ -12407,6 +12423,7 @@ bool OpenMPAtomicCompareCaptureChecker::checkElseBlock(Stmt *S, unsigned DiagId,
           PossibleX->Profile(Id, SemaRef.getASTContext(), /*Canonical=*/true);
           if (XId == Id) {
             V = BO->getLHS()->IgnoreParenImpCasts();
+            IsConditionalCapture = true;
             if (!V->isLValue()) {
               ErrorFound = NotAnLValue;
               NoteLoc = ErrorLoc = V->getBeginLoc();
@@ -12740,6 +12757,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   Expr *Expected = nullptr;
   bool IsCompareMin = false;
   bool IsCompareMax = false;
+  bool IsConditionalCapture = false;
 #endif // INTEL_COLLAB
   // OpenMP [2.12.6, atomic Construct]
   // In the next expressions:
@@ -12930,6 +12948,7 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
       IsPostfixUpdate = Checker.getIsCapturedBefore();
       IsCompareMin = Checker.getIsCompareMin();
       IsCompareMax = Checker.getIsCompareMax();
+      IsConditionalCapture = Checker.getIsConditionalCapture();
     }
   } else if (AtomicKind == OMPC_compare) {
     OpenMPAtomicCompareChecker Checker(*this);
@@ -13170,7 +13189,8 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
 #if INTEL_COLLAB
                                     X, V, E, Expected, Result, UE,
                                     IsXLHSInRHSPart, IsPostfixUpdate,
-                                    IsCompareMin, IsCompareMax);
+                                    IsCompareMin, IsCompareMax,
+                                    IsConditionalCapture);
 #else // INTEL_COLLAB
                                     X, V, E, UE, IsXLHSInRHSPart,
                                     IsPostfixUpdate);

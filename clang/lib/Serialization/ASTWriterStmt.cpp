@@ -2401,6 +2401,7 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
 #if INTEL_COLLAB
   Record.writeBool(D->isCompareMin());
   Record.writeBool(D->isCompareMax());
+  Record.writeBool(D->isConditionalCapture());
 #endif // INTEL_COLLAB
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }

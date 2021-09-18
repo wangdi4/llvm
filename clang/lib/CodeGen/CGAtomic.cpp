@@ -267,11 +267,12 @@ namespace {
     /// \param IsPostCapture True if capturing the new value.
     /// \param IsVolatile True if the atomic variable is volatile.
     /// \returns Loaded value for capture, either the value before the
-    /// operation, or after depending on \p IsPostCapture.
-    RValue EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO, RValue Desired,
-                                    RValue Expected,
-                                    llvm::CmpInst::Predicate Op,
-                                    bool IsPostCapture, bool IsVolatile);
+    /// operation, or after depending on \p IsPostCapture. The second
+    /// value in the pair is the Loaded compare result value.
+    std::pair<RValue, RValue>
+    EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO, RValue Desired,
+                             RValue Expected, llvm::CmpInst::Predicate Op,
+                             bool IsPostCapture, bool IsVolatile);
 #endif // INTEL_COLLAB
 
     /// Materialize an atomic r-value in atomic-layout memory.
@@ -2566,11 +2567,9 @@ llvm::Value *AtomicInfo::GetRValueFromAtomicTemp(llvm::Value *AtomicVal) {
   return RV.getScalarVal();
 }
 
-RValue AtomicInfo::EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO,
-                                            RValue Expected, RValue Desired,
-                                            llvm::CmpInst::Predicate Op,
-                                            bool IsVolatile,
-                                            bool IsPostCapture) {
+std::pair<RValue, RValue> AtomicInfo::EmitAtomicCompareAndSwap(
+    llvm::AtomicOrdering AO, RValue Expected, RValue Desired,
+    llvm::CmpInst::Predicate Op, bool IsVolatile, bool IsPostCapture) {
   auto Failure = llvm::AtomicCmpXchgInst::getStrongestFailureOrdering(AO);
 
   // Do the atomic load.
@@ -2581,6 +2580,9 @@ RValue AtomicInfo::EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO,
   CGF.Builder.CreateStore(LComp, RetValue);
 
   llvm::Value *Cond = GenerateCompare(LComp, Expected, Op);
+  Address CompareValue =  CGF.CreateMemTemp(CGF.getContext().BoolTy);
+  CGF.Builder.CreateStore(CGF.EmitToMemory(Cond, CGF.getContext().BoolTy),
+                          CompareValue);
   auto *ContBB = CGF.createBasicBlock("atomic_cont");
   auto *ExitBB = CGF.createBasicBlock("atomic_exit");
 
@@ -2630,14 +2632,18 @@ RValue AtomicInfo::EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO,
   CGF.EmitBlock(CmpBB);
   LComp = GetRValueFromAtomicTemp(Res.first);
   llvm::Value *Cond2 = GenerateCompare(LComp, Expected, Op);
+  CGF.Builder.CreateStore(CGF.EmitToMemory(Cond2, CGF.getContext().BoolTy),
+                          CompareValue);
   PHI->addIncoming(Res.first, CGF.Builder.GetInsertBlock());
   CGF.Builder.CreateCondBr(Cond2, ContBB, ExitBB);
 
   CGF.EmitBlock(ExitBB, /*IsFinished=*/true);
-  return RValue::get(CGF.Builder.CreateLoad(RetValue));
+  RValue LRetValue = RValue::get(CGF.Builder.CreateLoad(RetValue));
+  RValue LCompareValue = RValue::get(CGF.Builder.CreateLoad(CompareValue));
+  return std::make_pair(LRetValue, LCompareValue);
 }
 
-RValue CodeGenFunction::EmitAtomicCompareAndSwap(
+std::pair<RValue, RValue> CodeGenFunction::EmitAtomicCompareAndSwap(
     RValue Expected, RValue Desired, LValue Lvalue, llvm::CmpInst::Predicate Op,
     llvm::AtomicOrdering AO, bool IsVolatile, bool IsPostCapture) {
   AtomicInfo atomics(*this, Lvalue);

@@ -5852,12 +5852,11 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
 }
 
 #if INTEL_COLLAB
-static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
-                                     llvm::AtomicOrdering AO,
-                                     bool IsPostCapture, const Expr *V,
-                                     const Expr *X, const Expr *E,
-                                     const Expr *Expected, bool IsCompareMin,
-                                     bool IsCompareMax, SourceLocation Loc) {
+static void emitOMPAtomicCompareExpr(
+    CodeGenFunction &CGF, llvm::AtomicOrdering AO, bool IsPostCapture,
+    const Expr *V, const Expr *X, const Expr *E, const Expr *Expected,
+    const Expr *Result, bool IsCompareMin, bool IsCompareMax,
+    bool IsConditionalCapture, SourceLocation Loc) {
   LValue LVal = CGF.EmitLValue(X);
   RValue Desired = CGF.EmitAnyExpr(E);
   RValue Exp;
@@ -5877,10 +5876,31 @@ static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
     else
       Op = llvm::CmpInst::ICMP_EQ;
   }
-  RValue Cap = CGF.EmitAtomicCompareAndSwap(Exp, Desired, LVal, Op, AO,
-                                            LVal.isVolatile(), IsPostCapture);
+  std::pair<RValue, RValue> CASVal = CGF.EmitAtomicCompareAndSwap(
+      Exp, Desired, LVal, Op, AO, LVal.isVolatile(), IsPostCapture);
 
-  if (V) {
+  RValue Cap = CASVal.first;
+  RValue Comp = CASVal.second;
+
+  if (Result) {
+    LValue ResultVal = CGF.EmitLValue(Result);
+    CGF.emitOMPSimpleStore(ResultVal, Comp, CGF.getContext().BoolTy, Loc);
+  }
+
+  if (IsConditionalCapture) {
+    // V is assigned only when r == false;
+    assert(V && "expected non-null V");
+    llvm::BasicBlock *UpdateBB = CGF.createBasicBlock("atomic_capture");
+    llvm::BasicBlock *ContinueBB = CGF.createBasicBlock("atomic_capture_cont");
+
+    CGF.Builder.CreateCondBr(
+        CGF.Builder.CreateTrunc(Comp.getScalarVal(), CGF.Builder.getInt1Ty()),
+        ContinueBB, UpdateBB);
+    CGF.EmitBlock(UpdateBB);
+    LValue VLVal = CGF.EmitLValue(V);
+    CGF.emitOMPSimpleStore(VLVal, Cap, X->getType().getNonReferenceType(), Loc);
+    CGF.EmitBlock(ContinueBB);
+  } else if (V) {
     LValue VLVal = CGF.EmitLValue(V);
     CGF.emitOMPSimpleStore(VLVal, Cap, X->getType().getNonReferenceType(), Loc);
   }
@@ -5892,8 +5912,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               const Expr *X, const Expr *V, const Expr *E,
                               const Expr *UE, bool IsXLHSInRHSPart,
 #if INTEL_COLLAB
-                              const Expr *Expected, bool IsCompareMin,
-                              bool IsCompareMax,
+                              const Expr *Expected, const Expr *Result,
+                              bool IsCompareMin, bool IsCompareMax,
+                              bool IsConditionalCapture,
 #endif // INTEL_COLLAB
                               SourceLocation Loc) {
   switch (Kind) {
@@ -5914,8 +5935,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
 #if INTEL_COLLAB
   case OMPC_compare: {
     bool IsPostUpdate = (V ? !IsPostfixUpdate : false);
-    emitOMPAtomicCompareExpr(CGF, AO, IsPostUpdate, V, X, E, Expected,
-                             IsCompareMin, IsCompareMax, Loc);
+    emitOMPAtomicCompareExpr(CGF, AO, IsPostUpdate, V, X, E, Expected, Result,
+                             IsCompareMin, IsCompareMax, IsConditionalCapture,
+                             Loc);
     break;
   }
 #endif // INTEL_COLLAB
@@ -6077,7 +6099,8 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
                     S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
 #if INTEL_COLLAB
-                    S.getExpected(), S.isCompareMin(), S.isCompareMax(),
+                    S.getExpected(), S.getResult(), S.isCompareMin(),
+                    S.isCompareMax(), S.isConditionalCapture(),
 #endif // INTEL_COLLAB
                     S.getBeginLoc());
 }
