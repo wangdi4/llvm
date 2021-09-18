@@ -4348,9 +4348,8 @@ public:
     // analyze the allocation.
     const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
     auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
-    if (AllocKind == dtrans::AK_NotAlloc &&
-        DTAA.isMallocPostDom(&Call))
-      AllocKind = dtrans::AK_UserMalloc;
+    if (AllocKind == dtrans::AK_NotAlloc)
+      AllocKind = DTAA.getMallocPostDomKind(&Call);
     if (AllocKind != dtrans::AK_NotAlloc) {
       analyzeAllocationCall(&Call, AllocKind);
       collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
@@ -4365,8 +4364,8 @@ public:
                                                          : dtrans::FK_Free)
                         : dtrans::FK_NotFree;
 
-    if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(&Call))
-      FreeKind = dtrans::FK_UserFree;
+    if (FreeKind == dtrans::FK_NotFree)
+      FreeKind = DTAA.getFreePostDomKind(&Call);
 
     if (FreeKind != dtrans::FK_NotFree) {
       analyzeFreeCall(&Call, FreeKind);

@@ -144,13 +144,13 @@ void llvm::dtrans::updateCallSizeOperand(llvm::Instruction *I,
     switch (AK) {
     case dtrans::AK_NotAlloc:
       llvm_unreachable("No AllocCallInfo for AK_NotAlloc!");
-    case dtrans::AK_UserMalloc0:
-      llvm_unreachable("AK_UserMalloc0 not yet supported!");
     case dtrans::AK_New:
     case dtrans::AK_Malloc:
     case dtrans::AK_Realloc:
     case dtrans::AK_Calloc:
-    case dtrans::AK_UserMalloc: {
+    case dtrans::AK_UserMalloc:
+    case dtrans::AK_UserMalloc0:
+    case dtrans::AK_UserMallocThis: {
       unsigned SizeArgPos = 0;
       unsigned CountArgPos = 0;
       getAllocSizeArgs(AK, cast<CallBase>(I), SizeArgPos, CountArgPos, TLI);
