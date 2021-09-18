@@ -8453,6 +8453,8 @@ bool clang::driver::isOptimizationLevelFast(const Driver &D,
 }
 
 bool clang::driver::isObjectFile(std::string FileName) {
+  if (llvm::sys::fs::is_directory(FileName))
+    return false;
   if (!llvm::sys::path::has_extension(FileName))
     // Any file with no extension should be considered an Object. Take into
     // account -lsomelib library filenames.
