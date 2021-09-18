@@ -498,13 +498,17 @@ bool DTransAllocAnalyzer::mallocOffset(Value *V, int64_t *offset) const {
         } else if (auto CI = dyn_cast<ConstantInt>(BI->getOperand(1))) {
           V = BI->getOperand(0);
           Result += CI->getSExtValue();
-        } else
+        } else {
           return false;
+        }
+      } else {
+        return false;
       }
-    } else if (auto SI = dyn_cast<SExtInst>(V))
+    } else if (auto SI = dyn_cast<SExtInst>(V)) {
       V = SI->getOperand(0);
-    else
+    } else {
       return false;
+    }
   }
   *offset = Result;
   return true;
