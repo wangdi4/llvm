@@ -2263,8 +2263,8 @@ void PassManagerBuilder::addVPlanVectorizer(legacy::PassManagerBase &PM) const {
   // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
   // order to put this region back at the code.
   PM.add(createAlwaysInlinerLegacyPass());
+  PM.add(createBarrierNoopPass());
   if (OptLevel > 0) {
-    PM.add(createBarrierNoopPass());
 
     // Clean up any SIMD directives left behind by VPlan vectorizer
     PM.add(createVPODirectiveCleanupPass());
