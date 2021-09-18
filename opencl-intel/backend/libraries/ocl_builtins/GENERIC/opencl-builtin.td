@@ -249,6 +249,7 @@ def sampler_t : OclType<"sampler_t", "sampler_t", 1, 0, 0>;
 def event_t : OclType<"event_t", "event_t", 1, 0, 0>;
 def pevent_t : OclType<"pevent_t", "event_t", 1, 0, 1>;
 def void: OclType<"void", "void", 1, 0, 0>;
+defm atom_v1f16 : _OCLTYPE1_<"atom_v1f16", 1, 16, "atomic_half">;
 defm atom_v1i32 : _OCLTYPE1_<"atom_v1i32", 1, 32, "atomic_int">;
 defm atom_v1u32 : _OCLTYPE1_<"atom_v1u32", 1, 32, "atomic_uint">;
 defm atom_v1f32 : _OCLTYPE1_<"atom_v1f32", 1, 32, "atomic_float">;
@@ -337,6 +338,7 @@ def ocl_types : TypeNameList<[
   pv1f64.TypeName, pv2f64.TypeName, pv3f64.TypeName, pv4f64.TypeName, pv8f64.TypeName, pv16f64.TypeName,
 
   //The following are needed for atom2gentype
+  patom_v1f16.TypeName,
   patom_v1i32.TypeName, patom_v1u32.TypeName, patom_v1f32.TypeName,
   patom_v1i64.TypeName, patom_v1u64.TypeName, patom_v1f64.TypeName,
   patom_intptr_t.TypeName, patom_uintptr_t.TypeName
