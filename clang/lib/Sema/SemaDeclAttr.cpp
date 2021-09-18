@@ -4363,16 +4363,10 @@ SYCLIntelNumSimdWorkItemsAttr *Sema::MergeSYCLIntelNumSimdWorkItemsAttr(
 
 static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
     return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   Expr *E = A.getArgAsExpr(0);
   S.AddSYCLIntelNumSimdWorkItemsAttr(D, A, E);
 }
@@ -4559,16 +4553,10 @@ Sema::MergeSYCLIntelSchedulerTargetFmaxMhzAttr(
 
 static void handleSYCLIntelSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
                                                       const ParsedAttr &AL) {
-<<<<<<< HEAD
-  S.CheckDeprecatedSYCLAttributeSpelling(AL);
-
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
     return;
 #endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   Expr *E = AL.getArgAsExpr(0);
   S.AddSYCLIntelSchedulerTargetFmaxMhzAttr(D, AL, E);
 }
@@ -4694,9 +4682,6 @@ SYCLIntelMaxGlobalWorkDimAttr *Sema::MergeSYCLIntelMaxGlobalWorkDimAttr(
 
 static void handleSYCLIntelMaxGlobalWorkDimAttr(Sema &S, Decl *D,
                                                 const ParsedAttr &AL) {
-<<<<<<< HEAD
-  S.CheckDeprecatedSYCLAttributeSpelling(AL);
-
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
     return;
@@ -4708,8 +4693,6 @@ static void handleSYCLIntelMaxGlobalWorkDimAttr(Sema &S, Decl *D,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   Expr *E = AL.getArgAsExpr(0);
   S.AddSYCLIntelMaxGlobalWorkDimAttr(D, AL, E);
 }
@@ -7369,16 +7352,10 @@ Sema::MergeIntelFPGABankWidthAttr(Decl *D, const IntelFPGABankWidthAttr &A) {
 
 static void handleIntelFPGABankWidthAttr(Sema &S, Decl *D,
                                          const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   S.AddIntelFPGABankWidthAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7468,16 +7445,10 @@ Sema::MergeIntelFPGANumBanksAttr(Decl *D, const IntelFPGANumBanksAttr &A) {
 }
 
 static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   S.AddIntelFPGANumBanksAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7574,16 +7545,10 @@ Sema::MergeIntelFPGAMaxReplicatesAttr(Decl *D,
 
 static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   S.AddIntelFPGAMaxReplicatesAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7756,16 +7721,10 @@ void Sema::AddIntelFPGAPrivateCopiesAttr(Decl *D, const AttributeCommonInfo &CI,
 
 static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
                                              const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   S.AddIntelFPGAPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7838,16 +7797,10 @@ Sema::MergeIntelFPGAForcePow2DepthAttr(Decl *D,
 
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &A) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
-=======
->>>>>>> c8c516399626fca8a938161101713275be4fcbae
   S.AddIntelFPGAForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
 }
 
