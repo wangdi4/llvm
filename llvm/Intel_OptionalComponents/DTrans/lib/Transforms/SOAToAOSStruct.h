@@ -270,7 +270,7 @@ public:
     auto AK = cast<AllocCallInfo>(Info)->getAllocKind();
 
     // Malloc, New, UserMalloc are OK: they return non-initialized memory.
-    if (AK != AK_Malloc && AK != AK_New && AK != AK_UserMalloc)
+    if (AK != AK_Malloc && AK != AK_New && !isUserAllocKind(AK))
       return false;
 
     SmallPtrSet<const Value *, 3> Args;

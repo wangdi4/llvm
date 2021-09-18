@@ -60,14 +60,14 @@ define void @test03(%struct.test03b* %in) {
 
 ; Test with free-like wrapper
 %struct.test04 = type { i32, i32, i32 }
-define void @test04_free_wrapper(i32 %size, i8* %in) {
+define void @test04_free_wrapper(i8* %in, i32 %size) {
   call void @free(i8* %in)
   ret void
 }
 
 define void @test04(i32 %size, %struct.test04* %in) {
   %ptv = bitcast %struct.test04* %in to i8*
-  call void @test04_free_wrapper(i32 %size, i8* %ptv)
+  call void @test04_free_wrapper(i8* %ptv, i32 %size)
   ret void
 }
 ; CHECK: Function: test04
