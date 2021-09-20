@@ -826,6 +826,56 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
             options::OPT_qno_opt_multiple_gather_scatter_by_shuffles))
       addllvmOption("-vplan-vls-level=never");
   }
+
+  // Vectorization options involving peel/remainder loop vectorization
+  // and masked mode execution.
+  // TODO: once defaults have been established, use Args.hasFlag() for
+  //  the opposite and then override the default setting.
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_masked_mode,
+          options::OPT_fno_vectorize_masked_mode)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_masked_mode))
+      addllvmOption("-vplan-enable-masked-variant=true");
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_masked_mode))
+      addllvmOption("-vplan-enable-masked-variant=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_qopt_dynamic_align,
+          options::OPT_qno_opt_dynamic_align)) {
+    if (A->getOption().matches(
+            options::OPT_qopt_dynamic_align))
+      addllvmOption("-vplan-enable-peeling=true");
+    if (A->getOption().matches(
+            options::OPT_qno_opt_dynamic_align))
+      addllvmOption("-vplan-enable-peeling=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_peel_loops,
+          options::OPT_fno_vectorize_peel_loops)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_peel_loops))
+      addllvmOption("-vplan-enable-vectorized-peel=true");
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_peel_loops))
+      addllvmOption("-vplan-enable-vectorized-peel=false");
+  }
+  if (Arg *A = Args.getLastArg(
+          options::OPT_fvectorize_remainder_loops,
+          options::OPT_fno_vectorize_remainder_loops)) {
+    if (A->getOption().matches(
+            options::OPT_fvectorize_remainder_loops)) {
+      addllvmOption("-vplan-enable-masked-vectorized-remainder=true");
+      addllvmOption("-vplan-enable-non-masked-vectorized-remainder=true");
+    }
+    if (A->getOption().matches(
+            options::OPT_fno_vectorize_remainder_loops)) {
+      addllvmOption("-vplan-enable-masked-vectorized-remainder=false");
+      addllvmOption("-vplan-enable-non-masked-vectorized-remainder=false");
+    }
+  }
+
   if (const Arg *A =
           Args.getLastArg(options::OPT_qopt_assume_no_loop_carried_dep_EQ)) {
     StringRef LoopCarriedVal = A->getValue();
