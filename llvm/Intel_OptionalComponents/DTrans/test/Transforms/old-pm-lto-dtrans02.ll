@@ -8,7 +8,7 @@
 ; RUN: opt -disable-verify -debug-pass=Executions -debug-only=dtransanalysis \
 ; RUN:     -whole-program-assume -enable-dtrans-soatoaos                     \
 ; RUN      -enable-dtrans-deletefield -enable-resolve-types                  \
-; RUN:     -std-link-opts -S  %s -enable-dtrans                              \
+; RUN:     -S  %s -enable-dtrans                              \
 ; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
 

@@ -1,7 +1,7 @@
 ; INTEL_FEATURE_SW_ADVANCED
 ; REQUIRES: asserts, intel_feature_sw_advanced
 
-; RUN: opt -enable-new-pm=0 -mtriple=x86_64-- -std-link-opts -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck --check-prefix=CHECK %s
+; RUN: opt -mtriple=x86_64-- -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck --check-prefix=CHECK %s
 
 ; CHECK:     Intel IPO Prefetch
 ; CHECK-NEXT:       FunctionPass Manager

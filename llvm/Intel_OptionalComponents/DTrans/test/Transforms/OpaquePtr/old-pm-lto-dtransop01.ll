@@ -6,7 +6,7 @@
 ; passes are run.
 
 ; RUN: opt -disable-verify -debug-pass=Executions -whole-program-assume    \
-; RUN:     -std-link-opts -disable-output  %s -enable-dtrans               \
+; RUN:     -disable-output  %s -enable-dtrans               \
 ; RUN:     -dtrans-opaque-pointer-pipeline 2>&1 \
 ; RUN:     | FileCheck %s
 
