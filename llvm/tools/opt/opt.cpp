@@ -109,9 +109,6 @@ static cl::opt<bool>
 Force("f", cl::desc("Enable binary output on terminals"));
 
 static cl::opt<bool>
-PrintEachXForm("p", cl::desc("Print module after each transformation"));
-
-static cl::opt<bool>
 NoOutput("disable-output",
          cl::desc("Do not write result bitcode file"), cl::Hidden);
 
@@ -153,17 +150,7 @@ static cl::opt<bool>
     StripNamedMetadata("strip-named-metadata",
                        cl::desc("Strip module-level named metadata"));
 
-static cl::opt<bool>
-    DisableInline("disable-inlining",
-                  cl::desc("Do not run the inliner pass (legacy PM only)"));
 
-static cl::opt<bool>
-DisableOptimizations("disable-opt",
-                     cl::desc("Do not run any optimization passes"));
-
-static cl::opt<bool> StandardLinkOpts(
-    "std-link-opts",
-    cl::desc("Include the standard link time optimizations (legacy PM only)"));
 
 static cl::opt<bool>
     OptLevelO0("O0", cl::desc("Optimization level 0. Similar to clang -O0. "
@@ -391,9 +378,7 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.OptLevel = OptLevel;
   Builder.SizeLevel = SizeLevel;
 
-  if (DisableInline) {
-    // No inlining pass
-  } else if (OptLevel > 1) {
+  if (OptLevel > 1) {
     Builder.Inliner = createFunctionInliningPass(OptLevel, SizeLevel, false);
   } else {
     Builder.Inliner = createAlwaysInlinerLegacyPass();
@@ -446,17 +431,6 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
 
   Builder.populateFunctionPassManager(FPM);
   Builder.populateModulePassManager(MPM);
-}
-
-static void AddStandardLinkPasses(legacy::PassManagerBase &PM) {
-  PassManagerBuilder Builder;
-  Builder.VerifyInput = true;
-  if (DisableOptimizations)
-    Builder.OptLevel = 0;
-
-  if (!DisableInline)
-    Builder.Inliner = createFunctionInliningPass();
-  Builder.populateLTOPassManager(PM);
 }
 
 //===----------------------------------------------------------------------===//
@@ -969,12 +943,6 @@ int main(int argc, char **argv) {
 
   // Create a new optimization pass for each one specified on the command line
   for (unsigned i = 0; i < PassList.size(); ++i) {
-    if (StandardLinkOpts &&
-        StandardLinkOpts.getPosition() < PassList.getPosition(i)) {
-      AddStandardLinkPasses(Passes);
-      StandardLinkOpts = false;
-    }
-
     if (OptLevelO0 && OptLevelO0.getPosition() < PassList.getPosition(i)) {
       AddOptimizationPasses(Passes, *FPasses, TM.get(), 0, 0);
       OptLevelO0 = false;
@@ -1036,15 +1004,6 @@ int main(int argc, char **argv) {
         }
       }
     }
-
-    if (PrintEachXForm)
-      Passes.add(
-          createPrintModulePass(errs(), "", PreserveAssemblyUseListOrder));
-  }
-
-  if (StandardLinkOpts) {
-    AddStandardLinkPasses(Passes);
-    StandardLinkOpts = false;
   }
 
   if (OptLevelO0)
