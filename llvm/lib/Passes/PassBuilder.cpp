@@ -2162,9 +2162,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRLoopDistributionForLoopNestPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
-      if (Level.getSpeedupLevel() > 2 && IsLTO &&
-          (ThroughputModeOpt != ThroughputMode::SingleJob))
-        FPM.addPass(HIRCrossLoopArrayContractionPass());
+      if (Level.getSpeedupLevel() > 2 && IsLTO)
+        FPM.addPass(HIRCrossLoopArrayContractionPass(
+            ThroughputModeOpt != ThroughputMode::SingleJob));
 #endif // INTEL_FEATURE_SW_ADVANCED
       FPM.addPass(HIRLoopInterchangePass());
       FPM.addPass(HIRGenerateMKLCallPass());

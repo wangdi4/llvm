@@ -2409,9 +2409,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRLoopDistributionForLoopNestPass());
 
 #if INTEL_FEATURE_SW_ADVANCED
-      if (OptLevel > 2 && IsLTO &&
-          (ThroughputModeOpt != ThroughputMode::SingleJob))
-        PM.add(createHIRCrossLoopArrayContractionLegacyPass());
+      if (OptLevel > 2 && IsLTO)
+        PM.add(createHIRCrossLoopArrayContractionLegacyPass(
+            ThroughputModeOpt != ThroughputMode::SingleJob));
 #endif // INTEL_FEATURE_SW_ADVANCED
       PM.add(createHIRLoopInterchangePass());
       PM.add(createHIRGenerateMKLCallPass());
