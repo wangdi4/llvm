@@ -720,6 +720,8 @@ void initializeRedundantPhiNodeLegacyPass(PassRegistry &);
 void initializeResolveSubGroupWICallLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
 void initializeSetVectorizationFactorLegacyPass(PassRegistry &);
+void initializeSGBuiltinLegacyPass(PassRegistry &);
+void initializeSGSizeAnalysisLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorLegacyPass(PassRegistry &);
 void initializeSGSizeCollectorIndirectLegacyPass(PassRegistry &);
 void initializeSplitBBonBarrierLegacyPass(PassRegistry &);
