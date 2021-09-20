@@ -9598,17 +9598,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 
   TranslatorArgs.push_back("-o");
   TranslatorArgs.push_back(Output.getFilename());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
        getToolChain().getTriple().isSPIR())) {
 #endif // INTEL_CUSTOMIZATION
-    TranslatorArgs.push_back("-spirv-max-version=1.3");
-=======
-  if (JA.isDeviceOffloading(Action::OFK_SYCL)) {
     TranslatorArgs.push_back("-spirv-max-version=1.4");
->>>>>>> 36a15f40aa6bea656c329fcbf92e1e9a82bcfed3
     // TODO: align debug info for FPGA H/W when its SPIR-V consumer is ready
     if (C.getDriver().isFPGAEmulationMode())
       TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
