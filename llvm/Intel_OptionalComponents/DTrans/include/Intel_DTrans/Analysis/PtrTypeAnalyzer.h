@@ -20,6 +20,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H
 #define INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H
 
+#include "Intel_DTrans/Analysis/MemoryBuiltinsExtras.h"
 #include "llvm//ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include <functional>
