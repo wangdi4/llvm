@@ -1,4 +1,6 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; TODO:
+;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
 ; CHECK:      Running pass: DPCPPPreprocessSPIRVFriendlyIRPass
 ; CHECK-NEXT: Running pass: SPIRV::SPIRVToOCL20Pass

@@ -1,4 +1,6 @@
 ; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; TODO:
+;   check CoerceWin64Types pass when SATest is enabled on Windows.
 
 ; CHECK:        ModulePass Manager
 ; CHECK-NEXT:     DPCPPPreprocessSPIRVFriendlyIRLegacy
