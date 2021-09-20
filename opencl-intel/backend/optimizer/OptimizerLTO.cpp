@@ -93,12 +93,15 @@ void OptimizerLTO::Optimize() {
 
 void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
-      [](ModulePassManager &MPM, OptimizationLevel Level) {
+      [&](ModulePassManager &MPM, OptimizationLevel Level) {
         MPM.addPass(DPCPPPreprocessSPIRVFriendlyIRPass());
         // TODO: SPIRVLowerConstExprPass() is required before SPIRVToOCL20Pass,
         // but the class definition is not exposed in SPIRV header file yet.
         MPM.addPass(SPIRVToOCL20Pass());
         MPM.addPass(DPCPPEqualizerPass());
+        Triple TargetTriple(m_M->getTargetTriple());
+        if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
+          MPM.addPass(CoerceWin64TypesPass());
         MPM.addPass(DuplicateCalledKernelsPass());
         if (Level != OptimizationLevel::O0)
           MPM.addPass(InternalizeNonKernelFuncPass());
