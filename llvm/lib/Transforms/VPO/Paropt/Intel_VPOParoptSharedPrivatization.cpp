@@ -17,6 +17,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -355,9 +356,12 @@ static bool hasWRNUses(WRegionNode *W, Value *V) {
 
   // Check if value V has any uses in these blocks.
   for (const User *U : V->users())
-    if (auto *I = dyn_cast<Instruction>(U))
+    if (auto *I = dyn_cast<Instruction>(U)) {
+      if (I->isLifetimeStartOrEnd())
+        continue;
       if (is_contained(BBs, I->getParent()))
         return true;
+    }
 
   return false;
 }
@@ -498,6 +502,74 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   W->populateBBSet(/*Always=*/true);
 
   return true;
+}
+
+// Remove item's uses from the clause bundles.
+template <typename ItemTy>
+static bool cleanupItem(WRegionNode *W, ItemTy *Item, int ClauseID,
+                        SmallSetVector<Value *, 8> &ToPrivatize, Function *F,
+                        WRegionListTy &WRegionList, OptReportBuilder &ORBuilder,
+                        bool hasOffloadCompilation) {
+  bool Changed = false;
+  Value *V = Item->getOrig();
+
+  StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
+  LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName() << "' on '"
+                    << W->getName() << "' construct is redundant\n");
+
+  // Emit diagnostic in the host compilation only to avoid duplicating
+  // remarks.
+  if (!hasOffloadCompilation)
+    F->getContext().diagnose(
+        OptimizationRemarkAnalysis("openmp", "optimization note",
+                                   W->getEntryDirective())
+        << ClauseName << " clause for variable '" << V->getName() << "' on '"
+        << W->getName() << "' construct is redundant");
+
+  // Do not change target regions so far because we cannot be sure that
+  // both host and device sides will be changed the same way.
+  if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
+    ORBuilder(*W, WRegionList)
+        .addRemark(OptReportVerbosity::Low,
+                   (Twine(ClauseName) + " clause for variable '" +
+                    V->getName() + "' is redundant")
+                       .str());
+    return Changed;
+  }
+
+  ORBuilder(*W, WRegionList)
+      .addRemark(OptReportVerbosity::Low,
+                 (Twine(ClauseName) + " clause for variable '" + V->getName() +
+                  "' has been changed to " +
+                  VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
+                     .str());
+
+  auto *Entry = cast<CallInst>(W->getEntryDirective());
+  for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
+                              Entry->bundle_op_info_end())) {
+    // Get clause ID and check if it is a clause of interest.
+    ClauseSpecifier CS(BOI.Tag->getKey());
+    if (CS.getId() != ClauseID)
+      continue;
+
+    // Check bundle operand uses and zap the ones matching given value.
+    for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+      Use &U = Entry->getOperandUse(I);
+      if (V != U.get())
+        continue;
+
+      // Change item's value to null.
+      Value *NewV = Constant::getNullValue(U->getType());
+      U.set(NewV);
+      Item->setOrig(nullptr);
+      Changed = true;
+    }
+  }
+
+  // And add item to the list that need to be privatized.
+  ToPrivatize.insert(V);
+
+  return Changed;
 }
 
 bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
@@ -674,77 +746,15 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
 
   bool Changed = false;
   if (W->canHavePrivate()) {
-    SmallPtrSet<Value *, 8u> ToPrivatize;
+    SmallSetVector<Value *, 8u> ToPrivatize;
 
-    // Remove item's uses from the clause bundles.
-    auto CleanupItem = [this, &ToPrivatize](WRegionNode *W, auto *Item,
-                                            int ClauseID) {
-      bool Changed = false;
-      Value *V = Item->getOrig();
-
-      StringRef ClauseName = VPOAnalysisUtils::getOmpClauseName(ClauseID);
-      LLVM_DEBUG(dbgs() << ClauseName << " clause for '" << V->getName()
-                        << "' on '" << W->getName()
-                        << "' construct is redundant\n");
-
-      // Emit diagnostic in the host compilation only to avoid duplicating
-      // remarks.
-      if (!hasOffloadCompilation())
-        F->getContext().diagnose(
-            OptimizationRemarkAnalysis("openmp", "optimization note",
-                                       W->getEntryDirective())
-            << ClauseName << " clause for variable '" << V->getName()
-            << "' on '" << W->getName() << "' construct is redundant");
-
-      // Do not change target regions so far because we cannot be sure that
-      // both host and device sides will be changed the same way.
-      if (isa<WRNTargetNode>(W) || !CleanupRedundantClauses) {
-        ORBuilder(*W, WRegionList)
-            .addRemark(OptReportVerbosity::Low,
-                       (Twine(ClauseName) + " clause for variable '" +
-                        V->getName() + "' is redundant")
-                           .str());
-        return Changed;
-      }
-
-      ORBuilder(*W, WRegionList)
-          .addRemark(OptReportVerbosity::Low,
-                     (Twine(ClauseName) + " clause for variable '" +
-                      V->getName() + "' has been changed to " +
-                      VPOAnalysisUtils::getOmpClauseName(QUAL_OMP_PRIVATE))
-                         .str());
-
-      auto *Entry = cast<CallInst>(W->getEntryDirective());
-      for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
-                                  Entry->bundle_op_info_end())) {
-        // Get clause ID and check if it is a clause of interest.
-        ClauseSpecifier CS(BOI.Tag->getKey());
-        if (CS.getId() != ClauseID)
-          continue;
-
-        // Check bundle operand uses and zap the ones matching given value.
-        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
-          Use &U = Entry->getOperandUse(I);
-          if (V != U.get())
-            continue;
-
-          // Change item's value to null.
-          Value *NewV = Constant::getNullValue(U->getType());
-          U.set(NewV);
-          Item->setOrig(nullptr);
-          Changed = true;
-        }
-      }
-
-      // And add item to the list that need to be privatized.
-      ToPrivatize.insert(V);
-
-      return Changed;
-    };
-
-    auto CleanupRedundantItems = [W, &CleanupItem](auto *Clause) {
+    auto CleanupRedundantItems = [this, W, &ToPrivatize](auto *Clause) {
       bool Changed = false;
       for (auto *Item : Clause->items()) {
+        // Do not try to simplify nonPOD items.
+        if (Item->getIsNonPod())
+          continue;
+
         Value *V = Item->getOrig();
         if (!V || hasWRNUses(W, V))
           continue;
@@ -780,7 +790,8 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
         // Item's value is not used inside the region, so it should be safe to
         // turn it into a private. Print a diagnostic that clause is redundant
         // and remove item's uses from clause bundles.
-        Changed |= CleanupItem(W, Item, Clause->getClauseID());
+        Changed |= cleanupItem(W, Item, Clause->getClauseID(), ToPrivatize, F,
+                               WRegionList, ORBuilder, hasOffloadCompilation());
 
         // Special case first-private items which can also be listed in the
         // last-private clause. Item has to be cleaned up in both clauses.
@@ -788,7 +799,9 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
           if (LastprivateClause *LPClause = W->getLprivIfSupported())
             for (auto *LPItem : LPClause->items())
               if (LPItem->getOrig() == V)
-                Changed |= CleanupItem(W, LPItem, LPClause->getClauseID());
+                Changed |= cleanupItem(W, LPItem, LPClause->getClauseID(),
+                                       ToPrivatize, F, WRegionList, ORBuilder,
+                                       hasOffloadCompilation());
       }
       return Changed;
     };
@@ -803,14 +816,162 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
     if (!ToPrivatize.empty()) {
       StringRef PrivateClause =
           VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-      for (Value *V : ToPrivatize) {
-        CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
-            cast<CallInst>(W->getEntryDirective()), {{PrivateClause, {V}}});
-        W->setEntryDirective(NewEntry);
+
+      SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
+      PrivateBundles.reserve(ToPrivatize.size());
+      for (Value *const &V : ToPrivatize) {
+        PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
         W->getPriv().add(V);
       }
+
+      CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+          cast<CallInst>(W->getEntryDirective()), PrivateBundles);
+      W->setEntryDirective(NewEntry);
+
       Changed = true;
     }
+  }
+
+  // This routine does not change CFG, so there is no need to be refresh BB set.
+  return Changed;
+}
+
+bool VPOParoptTransform::simplifyLastprivateClauses(WRegionNode *W) {
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::simplifyLastprivateClauses: "
+             << W->getName() << "\n");
+
+  if (!W->canHavePrivate() || !W->canHaveLastprivate() || W->getLpriv().empty())
+    return false;
+
+  bool Changed = false;
+  SmallSetVector<Value *, 8u> ToPrivatize;
+
+  for (LastprivateItem *Item : W->getLpriv().items()) {
+    // Do not try to simplify byref items because existing analysis is not
+    // sufficient for them.
+    if (Item->getIsByRef())
+      continue;
+
+    // Also skip nonPOD items.
+    if (Item->getIsNonPod())
+      continue;
+
+    Value *V = Item->getOrig();
+    if (!V)
+      continue;
+
+    // So far we will try to simplify locally allocated scalars only.
+    auto *AI = dyn_cast<AllocaInst>(V->stripPointerCasts());
+    if (!AI || AI->isArrayAllocation() ||
+        !AI->getAllocatedType()->isSingleValueType())
+      continue;
+
+    Optional<TypeSize> Size =
+        AI->getAllocationSizeInBits(AI->getModule()->getDataLayout());
+    if (!Size)
+      continue;
+
+    // Collect set of basic blocks where we will be checking if value is used.
+    SmallPtrSet<BasicBlock *, 8u> BBs;
+    if (WRegionNode *PW = W->getParent()) {
+      // If there is a parent work region check how that value is being used. If
+      // value is not privatized by the region assume that it is being
+      // propagated outside of the region.
+      if (!isWRNPrivate(PW, V) &&
+          !(isWRNLastprivate(PW, V) && !isWRNFirstprivate(PW, V)))
+        continue;
+
+      // Start with adding parent region's block to the list excluding its
+      // entry/exit blocks and the blocks which cannot be reached from the work
+      // region (i.e. lastprivate defined by it cannot be used by those blocks).
+      for (BasicBlock *BB : PW->blocks()) {
+        if (BB == PW->getEntryBBlock() || BB == PW->getExitBBlock())
+          continue;
+        if (!isPotentiallyReachable(W->getExitBBlock(), BB, nullptr, DT, LI))
+          continue;
+        BBs.insert(BB);
+      }
+
+      // Also exclude child region's blocks except entry blocks. Entries are
+      // needed for checking how value is used by the child region.
+      for (WRegionNode *CW : PW->getChildren())
+        for (BasicBlock *BB : CW->blocks())
+          if (BB != CW->getEntryBBlock())
+            BBs.erase(BB);
+    } else {
+      // If there is no parent region add all function's blocks to the list
+      // exluding ones that cannot be reached from the directive.
+      for (BasicBlock &BB : *F) {
+        if (!isPotentiallyReachable(W->getExitBBlock(), &BB, nullptr, DT, LI))
+          continue;
+        BBs.insert(&BB);
+      }
+
+      // And similarly exclude all child region's blocks except entries.
+      for (WRegionNode *CW : WRegionList) {
+        if (CW->getParent())
+          continue;
+        for (BasicBlock *BB : CW->blocks())
+          if (BB != CW->getEntryBBlock())
+            BBs.erase(BB);
+      }
+    }
+
+    MemoryLocation Loc{AI, LocationSize::precise(*Size)};
+    if (none_of(BBs, [&](BasicBlock *BB) {
+          if (VPOAnalysisUtils::isBeginDirective(&BB->front())) {
+            // Check if directive uses value in any way other than private or
+            // lastprivate. If so, considered the item being used.
+            auto *Entry = cast<CallInst>(&BB->front());
+            if (any_of(Entry->bundle_op_infos(),
+                       [this, Entry, V](const CallBase::BundleOpInfo &BOI) {
+                         for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+                           Use &U = Entry->getOperandUse(I);
+                           if (AA->isNoAlias(V, U.get()))
+                             continue;
+
+                           ClauseSpecifier CS(BOI.Tag->getKey());
+                           if (CS.getId() != QUAL_OMP_PRIVATE &&
+                               CS.getId() != QUAL_OMP_LASTPRIVATE)
+                             return true;
+                         }
+                         return false;
+                       }))
+              return true;
+            return false;
+          }
+
+          // Check if any block's instruction references the item's memory.
+          for (const Instruction &I : *BB) {
+            if (I.isLifetimeStartOrEnd() || isa<FenceInst>(I))
+              continue;
+            if (isRefSet(AA->getModRefInfo(&I, Loc)))
+              return true;
+          }
+          return false;
+        }))
+      Changed |=
+          cleanupItem(W, Item, W->getLpriv().getClauseID(), ToPrivatize, F,
+                      WRegionList, ORBuilder, hasOffloadCompilation());
+  }
+
+  if (!ToPrivatize.empty()) {
+    StringRef PrivateClause =
+        VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+
+    SmallVector<std::pair<StringRef, ArrayRef<Value *>>, 8> PrivateBundles;
+    PrivateBundles.reserve(ToPrivatize.size());
+    for (Value *const &V : ToPrivatize) {
+      PrivateBundles.push_back({PrivateClause, ArrayRef<Value *>(&V, 1u)});
+      W->getPriv().add(V);
+    }
+
+    CallInst *NewEntry = VPOUtils::addOperandBundlesInCall(
+        cast<CallInst>(W->getEntryDirective()), PrivateBundles);
+    W->setEntryDirective(NewEntry);
+
+    Changed = true;
   }
 
   // This routine does not change CFG, so there is no need to be refresh BB set.
@@ -850,5 +1011,9 @@ bool VPOParoptTransform::privatizeSharedItems() {
       break;
     }
   }
+
+  for (auto *W : reverse(WRegionList))
+    Changed |= simplifyLastprivateClauses(W);
+
   return Changed;
 }
