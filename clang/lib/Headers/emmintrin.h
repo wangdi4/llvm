@@ -10,11 +10,17 @@
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* Turn fp precise on for intrinsics, push state to restore at end. */
 #pragma float_control(push)
 #pragma float_control(precise, on)
 /* end INTEL_CUSTOMIZATION */
+=======
+#if !defined(__i386__) && !defined(__x86_64__)
+#error "This header is only meant to be used on x86 and x64 architecture"
+#endif
+>>>>>>> 9aeecdfa8e9104392b435444a5f978d2eb71e51a
 
 #include <xmmintrin.h>
 
