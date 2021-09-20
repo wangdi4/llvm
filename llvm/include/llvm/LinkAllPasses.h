@@ -416,8 +416,8 @@ namespace {
       (void)llvm::createBuiltinImportLegacyPass();
       (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
-      (void) llvm::createDPCPPKernelVecClonePass();
-      (void) llvm::createDPCPPKernelPostVecPass();
+      (void)llvm::createDPCPPKernelVecClonePass();
+      (void)llvm::createDPCPPKernelPostVecPass();
       (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
       (void)llvm::createDPCPPKernelAnalysisLegacyPass();
       (void)llvm::createDPCPPPreprocessSPIRVFriendlyIRLegacyPass();
@@ -439,6 +439,8 @@ namespace {
       (void)llvm::createAddImplicitArgsLegacyPass();
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createSGBuiltinLegacyPass();
+      (void)llvm::createSGSizeAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
