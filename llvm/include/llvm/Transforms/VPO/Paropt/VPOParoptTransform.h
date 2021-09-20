@@ -1939,7 +1939,13 @@ private:
   /// simplification cannot be performed by the compiler emit diagnostic message
   /// for the user. Return true if work region has been modified.
   bool simplifyRegionClauses(WRegionNode *W);
-#endif  // INTEL_CUSTOMIZATION
+
+  /// Analyse work region's lastprivate clauses and check if they can be
+  /// simplified. If simplification cannot be performed by the compiler emit
+  /// diagnostic message for the user. Return true if work region has been
+  /// modified.
+  bool simplifyLastprivateClauses(WRegionNode *W);
+#endif // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
   /// check, so that only the master thread (id == 0) in the team executes
