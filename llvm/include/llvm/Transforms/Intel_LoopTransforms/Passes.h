@@ -217,7 +217,7 @@ FunctionPass *createHIRArrayScalarizationTestLauncherPass();
 FunctionPass *createHIRInterLoopBlockingPass();
 
 /// Create pass that does array contraction for multiple loops.
-FunctionPass *createHIRCrossLoopArrayContractionLegacyPass();
+FunctionPass *createHIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob);
 #endif // INTEL_FEATURE_SW_ADVANCED
 
 } // namespace llvm

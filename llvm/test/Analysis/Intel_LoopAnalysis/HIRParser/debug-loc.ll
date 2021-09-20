@@ -1,6 +1,7 @@
 ; The test checks the line numbers in HIR
 
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-details-line-num -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-cost-model-throttling=0 | FileCheck %s
+; RUN: opt < %s -force-opaque-pointers -hir-ssa-deconstruction -analyze -hir-framework -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-OPAQUE
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S -hir-cost-model-throttling=0 | FileCheck %s --check-prefix=CHECK-CG
 
 ; Here is a source code for the test:
@@ -45,6 +46,12 @@
 ;37 }
 ;38
 ;39 }
+
+; The bitcast operator on function pointers goes away with opaque pointers.
+
+; CHECK-OPAQUE: :9>        + DO i1 = 0, 99, 1   <DO_LOOP>
+; CHECK-OPAQUE: :11>       |    %call = @bar();
+; CHECK-OPAQUE: :9>        + END LOOP
 
 ; CHECK: <0>          BEGIN REGION { }
 ; CHECK: :9>             + DO i1 = 0, 99, 1   <DO_LOOP>

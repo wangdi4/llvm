@@ -66,9 +66,12 @@ static cl::opt<unsigned> NumPostProcSteps(
 namespace {
 
 class HIRCrossLoopArrayContractionLegacyPass : public HIRTransformPass {
+  bool IsMultiJob;
+
 public:
   static char ID;
-  HIRCrossLoopArrayContractionLegacyPass() : HIRTransformPass(ID) {
+  HIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob = true)
+      : HIRTransformPass(ID), IsMultiJob(IsMultiJob) {
     initializeHIRCrossLoopArrayContractionLegacyPassPass(
         *PassRegistry::getPassRegistry());
   }
@@ -97,8 +100,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
                     OPT_DESC, false, false)
 
-FunctionPass *llvm::createHIRCrossLoopArrayContractionLegacyPass() {
-  return new HIRCrossLoopArrayContractionLegacyPass();
+FunctionPass *
+llvm::createHIRCrossLoopArrayContractionLegacyPass(bool IsMultiJob) {
+  return new HIRCrossLoopArrayContractionLegacyPass(IsMultiJob);
 }
 
 class HIRCrossLoopArrayContraction {
@@ -106,6 +110,7 @@ class HIRCrossLoopArrayContraction {
   HIRDDAnalysis &DDA;
   HIRArraySectionAnalysis &ASA;
   HIRLoopStatistics &HLS;
+  bool IsMultiJob;
 
   // Set of loops which we will run PostProcessors on.
   SmallPtrSet<HLLoop *, 4> PostProcLoops;
@@ -116,8 +121,8 @@ class HIRCrossLoopArrayContraction {
 public:
   HIRCrossLoopArrayContraction(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                                HIRArraySectionAnalysis &ASA,
-                               HIRLoopStatistics &HLS)
-      : HIRF(HIRF), DDA(DDA), ASA(ASA), HLS(HLS) {}
+                               HIRLoopStatistics &HLS, bool IsMultiJob)
+      : HIRF(HIRF), DDA(DDA), ASA(ASA), HLS(HLS), IsMultiJob(IsMultiJob) {}
 
   bool run();
 
@@ -248,6 +253,15 @@ static void markLoopasArrayContracted(HLLoop *Loop) {
 }
 
 bool HIRCrossLoopArrayContraction::run() {
+
+  bool IsAlderLake = HIRF.getFunction()
+                         .getFnAttribute("target-cpu")
+                         .getValueAsString()
+                         .equals("alderlake");
+  if (!IsMultiJob && !IsAlderLake) {
+    return false;
+  }
+
   bool Modified = false;
   for (auto &Reg : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
     Modified = runOnRegion(cast<HLRegion>(Reg)) || Modified;
@@ -1775,7 +1789,7 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
              getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
+             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), IsMultiJob)
       .run();
 }
 
@@ -1783,7 +1797,8 @@ PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
     Function &F, FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRCrossLoopArrayContraction(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                                AM.getResult<HIRArraySectionAnalysisPass>(F),
-                               AM.getResult<HIRLoopStatisticsAnalysis>(F))
+                               AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                               IsMultiJob)
       .run();
   return PreservedAnalyses::all();
 }
