@@ -16,17 +16,11 @@ define void @pluto(i32 %arg) {
 ; CHECK-NEXT:    %tmp1 = add nsw i32 %tmp, 2
 ; CHECK-NEXT:    --> (2 + %tmp)<nsw> U: [1,3) S: [1,3)
 ; CHECK-NEXT:    %tmp3 = phi i32 [ 0, %bb ], [ %tmp4, %bb2 ]
-<<<<<<< HEAD
 ; INTEL - added nsw flag
-; CHECK-NEXT:    --> {0,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [0,3) S: [0,3) Exits: ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nsw> LoopDispositions: { %bb2: Computable }
+; CHECK-NEXT:    --> {0,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [0,3) S: [0,3) Exits: ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nuw><nsw> LoopDispositions: { %bb2: Computable }
 ; CHECK-NEXT:    %tmp4 = add nuw nsw i32 %tmp1, %tmp3
+; CHECK-NEXT:    --> {(2 + %tmp)<nsw>,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [1,5) S: [1,5) Exits: (2 + ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nuw><nsw> + %tmp)<nsw> LoopDispositions: { %bb2: Computable }
 ; INTEL - added nsw flag
-; CHECK-NEXT:    --> {(2 + %tmp)<nsw>,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [1,5) S: [1,5) Exits: (2 + ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nsw> + %tmp)<nsw> LoopDispositions: { %bb2: Computable }
-=======
-; CHECK-NEXT:    --> {0,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [0,3) S: [0,3) Exits: ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nuw> LoopDispositions: { %bb2: Computable }
-; CHECK-NEXT:    %tmp4 = add nuw nsw i32 %tmp1, %tmp3
-; CHECK-NEXT:    --> {(2 + %tmp)<nsw>,+,(2 + %tmp)<nsw>}<nuw><nsw><%bb2> U: [1,5) S: [1,5) Exits: (2 + ((2 + %tmp)<nsw> * (1 /u (2 + %tmp)<nsw>))<nuw> + %tmp) LoopDispositions: { %bb2: Computable }
->>>>>>> 9bdb19cca292f7a8335148e5c1b85f7e9120a1a5
 ; CHECK-NEXT:  Determining loop execution counts for: @pluto
 ; CHECK-NEXT:  Loop %bb2: backedge-taken count is (1 /u (2 + %tmp)<nsw>)
 ; CHECK-NEXT:  Loop %bb2: max backedge-taken count is 1
