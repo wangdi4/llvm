@@ -4056,7 +4056,7 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   Ref->setInBounds(true);
 
   // Set element type when we can unambigously do so based on type of base ptr.
-  if (auto *Global = dyn_cast<GlobalValue>(GEPVal)) {
+  if (auto *Global = dyn_cast<GlobalVariable>(GEPVal)) {
     setSelfRefElementTypeAndStride(Ref, Global->getValueType());
   } else if (auto *Alloca = dyn_cast<AllocaInst>(GEPVal)) {
     setSelfRefElementTypeAndStride(Ref, Alloca->getAllocatedType());
@@ -4094,11 +4094,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     auto Opnd = BCOp->getOperand(0);
     auto OpTy = Opnd->getType();
     if (!RI.isSupported(OpTy, true)) {
-      break;
-    }
-
-    // Suppress tracing back to a function pointer type.
-    if (OpTy->getPointerElementType()->isFunctionTy()) {
       break;
     }
 
@@ -4255,12 +4250,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   auto OpVal = Inst->getOperand(OpNum);
   auto OpTy = OpVal->getType();
 
-  // Parse function pointer rvals as scalars. Pointer arithemetic (GEP) is not
-  // expected on them.
-  if (OpTy->isPointerTy() && OpTy->getPointerElementType()->isFunctionTy()) {
-    Ref = createScalarDDRef(OpVal, Level);
-
-  } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
+  if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
     if (!Ref->getBasePtrElementType()) {
@@ -4682,7 +4672,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
   // For indirect calls, set the function pointer as the last operand.
   if (Call && !Call->getCalledFunction()) {
-    RegDDRef *Ref = createRvalDDRef(Call, NumRvalOp, Level);
+    RegDDRef *Ref = createScalarDDRef(Call->getCalledOperand(), Level);
     HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }
 
@@ -5037,8 +5027,9 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
     assert(!Ref->isTerminalRef() && "Expected non-terminal refs only");
     assert(Ref->isSingleDimension() && "Expected single dimension refs");
 
-    Type *DimType = Ref->getBaseCE()->getDestType();
-    if (DimType->getPointerElementType()->isAggregateType() ||
+    auto *BasePtrElemTy = Ref->getBasePtrElementType();
+
+    if (!BasePtrElemTy || BasePtrElemTy->isAggregateType() ||
         Ref->getDimensionConstLower(1) != 0 ||
         Ref->getDimensionConstStride(1) == 0) {
       return false;

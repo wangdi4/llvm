@@ -564,19 +564,11 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Loop *Lp) {
   assert(Ty && "Type is null!");
 
-  if (IsGEPRelated) {
-    while (isa<ArrayType>(Ty) || isa<VectorType>(Ty)) {
-      if (Ty->isVectorTy()) {
-        printOptReportRemark(
-            Lp, "GEP related vector types currently not supported.");
+  if (IsGEPRelated && isa<VectorType>(Ty)) {
+    printOptReportRemark(
+        Lp, "GEP related vector types currently not supported.");
 
-        return false;
-      } else {
-        assert(Ty->isArrayTy() && "Array type expected!");
-
-        Ty = cast<ArrayType>(Ty)->getElementType();
-      }
-    }
+    return false;
   }
 
   auto IntType = dyn_cast<IntegerType>(Ty);
