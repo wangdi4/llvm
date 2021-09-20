@@ -400,6 +400,7 @@
 #endif // INTEL_FEATURE_SW_DTRANS
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptOptimizeDataSharing.h"
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
+#include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptTargetInline.h"
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // VPO
@@ -595,6 +596,7 @@ extern cl::opt<bool> RunVPOVecopt;
 extern cl::opt<bool> RunPreLoopOptVPOPasses;
 extern cl::opt<bool> RunPostLoopOptVPOPasses;
 extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
+extern cl::opt<bool> EnableVPOParoptTargetInline;
 #endif // INTEL_CUSTOMIZATION
 } // namespace llvm
 
@@ -1698,6 +1700,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
+  if (RunVPOParopt && EnableVPOParoptTargetInline)
+    MPM.addPass(VPOParoptTargetInlinePass());
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

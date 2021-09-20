@@ -368,6 +368,10 @@ cl::opt<bool> EnableVPOParoptSharedPrivatization(
     "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
 
+cl::opt<bool> EnableVPOParoptTargetInline(
+    "enable-vpo-paropt-target-inline", cl::init(false), cl::Hidden,
+    cl::ZeroOrMore, cl::desc("Enable VPO Paropt Target Inline pass."));
+
 static cl::opt<bool> EnableEarlyLSR("enable-early-lsr", cl::init(false),
                                     cl::Hidden, cl::ZeroOrMore,
                                     cl::desc("Add LSR pass before code gen."));
@@ -1338,6 +1342,8 @@ void PassManagerBuilder::populateModulePassManager(
   if (Inliner) {
     MPM.add(createInlineReportSetupPass(getMDInlineReport()));
     MPM.add(createInlineListsPass()); // -[no]inline-list parsing
+    if (RunVPOParopt && EnableVPOParoptTargetInline)
+      MPM.add(createVPOParoptTargetInlinePass());
   }
 #endif  // INTEL_CUSTOMIZATION
 
