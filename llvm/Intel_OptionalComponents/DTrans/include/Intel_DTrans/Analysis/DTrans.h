@@ -20,8 +20,8 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
+#include "Intel_DTrans/Analysis/MemoryBuiltinsExtras.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"

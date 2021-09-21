@@ -21,8 +21,11 @@ namespace loopopt {
 
 class HIRCrossLoopArrayContractionPass
     : public HIRPassInfoMixin<HIRCrossLoopArrayContractionPass> {
+  bool IsMultiJob;
 
 public:
+  HIRCrossLoopArrayContractionPass(bool IsMultiJob = true)
+      : IsMultiJob(IsMultiJob) {}
   static constexpr auto PassName = "hir-cross-loop-array-contraction";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             HIRFramework &HIRF);

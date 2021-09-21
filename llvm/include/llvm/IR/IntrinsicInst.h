@@ -1155,10 +1155,7 @@ public:
     //   call subscript(<rank> 1, ..., [10 x [5 x float]]* %p, ...)
     //   This method will return 3, where indexed type rank is 2.
     unsigned getTypeRank() const {
-      Type *PtrType = getPointerOperandType();
-      assert(PtrType->isPointerTy() && "Pointer type expected");
-
-      Type *MemoryType = PtrType->getPointerElementType();
+      Type *MemoryType = getElementType();
 
       unsigned TypeRank = 0;
       while (MemoryType->isArrayTy()) {

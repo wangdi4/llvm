@@ -321,6 +321,10 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = Builder.CreateCast(
         static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0],
         VPInst->getType());
+  } else if (VPInst->getOpcode() == Instruction::PHI) {
+    assert(Ops.size() == 0 && "No operands expected for serialized PHIs.");
+    SerialInst = Builder.CreatePHI(VPInst->getType(), VPInst->getNumOperands(),
+                                   "serial.phi");
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("Serialization support for opcode is not implemented.");
@@ -3848,19 +3852,25 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
           ? 1
           : VF;
 
+  auto *VPPhiInst = dyn_cast<VPPHINode>(VPInst);
   for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
     SmallVector<Value *, 4> ScalarOperands;
-    // All operands to the serialized Instruction should be scalar Values.
-    for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
-      auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), Lane);
-      assert(ScalarOp && "Operand for serialized instruction not found.");
-      LLVM_DEBUG(dbgs() << "LVCG: Serialize scalar op: "; ScalarOp->dump());
-      ScalarOperands.push_back(ScalarOp);
+    // All operands to the serialized Instruction should be scalar Values. Skip
+    // PHIs since their operands may not be generated yet.
+    if (!VPPhiInst) {
+      for (unsigned Op = 0, e = VPInst->getNumOperands(); Op != e; ++Op) {
+        auto *ScalarOp = getScalarValue(VPInst->getOperand(Op), Lane);
+        assert(ScalarOp && "Operand for serialized instruction not found.");
+        LLVM_DEBUG(dbgs() << "LVCG: Serialize scalar op: "; ScalarOp->dump());
+        ScalarOperands.push_back(ScalarOp);
+      }
     }
 
     Value *SerialInst = generateSerialInstruction(VPInst, ScalarOperands);
     assert(SerialInst && "Instruction not serialized.");
     VPScalarMap[VPInst][Lane] = SerialInst;
+    if (VPPhiInst)
+      PhisToFix[cast<PHINode>(SerialInst)] = std::make_pair(VPPhiInst, Lane);
     LLVM_DEBUG(dbgs() << "LVCG: SerialInst: "; SerialInst->dump());
   }
 }
@@ -3900,6 +3910,14 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
 
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
+  if (!isVectorizableTy(PhiTy)) {
+    // PHIs cannot be predicated so it should be safe to serialize without
+    // predication.
+    assert(!MaskValue && "PHIs cannot be predicated.");
+    serializeInstruction(VPPhi);
+    return;
+  }
+
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
   if (isSOAAccess(VPPhi, Plan) && !isOnlyUsedInLifetimeIntrinsics(VPPhi)) {
@@ -3912,7 +3930,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   if (needScalarCode(VPPhi) || EmitScalarOnly || isSOAUnitStride(VPPhi, Plan)) {
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
     VPScalarMap[VPPhi][0] = NewPhi;
-    ScalarPhisToFix[VPPhi] = NewPhi;
+    PhisToFix[NewPhi] = std::make_pair(VPPhi, 0);
   }
   if (EmitScalarOnly)
     return;
@@ -3920,7 +3938,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
     PhiTy = getWidenedType(PhiTy, VF);
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
     VPWidenMap[VPPhi] = NewPhi;
-    PhisToFix[VPPhi] = NewPhi;
+    PhisToFix[NewPhi] = std::make_pair(VPPhi, -1);
   }
 }
 
@@ -4447,61 +4465,57 @@ void VPOCodeGen::fixPrivateLastVal(VPInstruction *PrivFinal) {
 }
 
 void VPOCodeGen::fixNonInductionVPPhis() {
-  std::function<void(DenseMap<VPPHINode *, PHINode *> &)> fixInductions =
-      [&](DenseMap<VPPHINode *, PHINode *> &Table) -> void {
-    bool IsScalar = &Table == &ScalarPhisToFix;
-    for (auto PhiToFix : Table) {
-      auto *VPPhi = PhiToFix.first;
-      auto *Phi = PhiToFix.second;
-      const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
-      for (unsigned I = 0; I < NumPhiValues; ++I) {
-        auto *VPVal = VPPhi->getIncomingValue(I);
-        auto *VPBB = VPPhi->getIncomingBlock(I);
-        Value *IncValue =
-            IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
-        // We can have a scenario when dealing with SOA pointers
-        // where it is not the same as the targeted type. We have to insert a
-        // bitcast it to an appropriate type.
-        // This is typically on account of phi's inserted by AZB where one of
-        // the argument is of SOA-type and the other is a null. Since DA is
-        // unaware of this, we should typecast the pointer argument to the
-        // PHi-type.
-        // i32* %vp1 = phi  [ i32* %vp2, BB16 ],  [ i32* null, BB17 ]
-        if (isSOAAccess(VPPhi, Plan) && IncValue->getType() != Phi->getType()) {
-          assert(isa<Constant>(IncValue) &&
-                 cast<Constant>(IncValue)->isNullValue() &&
-                 "Expect this argument to be a constant null-value.");
-          // We expect this to be a constant nullptr value, so, no need of
-          // setting up builder's insertion point.
-          IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
-        }
-        BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
-        if (Plan->hasExplicitRemainder()) {
-          auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
-          if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
-            // Add outgoing from the scalar loop.
-            Loop *L =
-                cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
-            BB = L->getLoopLatch();
-            if (!any_of(predecessors(Phi->getParent()),
-                        [BB](auto Pred) { return Pred == BB; })) {
-              // If the latch is not a predecessor of the phi-block
-              // try its non-loop-header successor.
-              auto *Br = cast<BranchInst>(BB->getTerminator());
-              BB = Br->getOperand(1) == L->getHeader()
-                       ? cast<BasicBlock>(Br->getOperand(2))
-                       : cast<BasicBlock>(Br->getOperand(1));
-            }
-            assert(any_of(predecessors(Phi->getParent()),
-                          [BB](auto Pred) { return Pred == BB; }) &&
-                   "can't find correct incoming block");
-          }
-        }
-        Phi->addIncoming(IncValue, BB);
+  auto fixPHI = [&](VPPHINode *VPPhi, PHINode *Phi, int Lane = -1) -> void {
+    const unsigned NumPhiValues = VPPhi->getNumIncomingValues();
+    for (unsigned I = 0; I < NumPhiValues; ++I) {
+      auto *VPVal = VPPhi->getIncomingValue(I);
+      auto *VPBB = VPPhi->getIncomingBlock(I);
+      bool IsScalar = Lane != -1;
+      Value *IncValue =
+          IsScalar ? getScalarValue(VPVal, Lane) : getVectorValue(VPVal);
+      // We can have a scenario when dealing with SOA pointers
+      // where it is not the same as the targeted type. We have to insert a
+      // bitcast it to an appropriate type.
+      // This is typically on account of phi's inserted by AZB where one of
+      // the argument is of SOA-type and the other is a null. Since DA is
+      // unaware of this, we should typecast the pointer argument to the
+      // PHi-type.
+      // i32* %vp1 = phi  [ i32* %vp2, BB16 ],  [ i32* null, BB17 ]
+      if (isSOAAccess(VPPhi, Plan) && IncValue->getType() != Phi->getType()) {
+        assert(isa<Constant>(IncValue) &&
+               cast<Constant>(IncValue)->isNullValue() &&
+               "Expect this argument to be a constant null-value.");
+        // We expect this to be a constant nullptr value, so, no need of
+        // setting up builder's insertion point.
+        IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
       }
+      BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
+      if (Plan->hasExplicitRemainder()) {
+        auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
+        if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
+          // Add outgoing from the scalar loop.
+          Loop *L = cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
+          BB = L->getLoopLatch();
+          if (!any_of(predecessors(Phi->getParent()),
+                      [BB](auto Pred) { return Pred == BB; })) {
+            // If the latch is not a predecessor of the phi-block
+            // try its non-loop-header successor.
+            auto *Br = cast<BranchInst>(BB->getTerminator());
+            BB = Br->getOperand(1) == L->getHeader()
+                     ? cast<BasicBlock>(Br->getOperand(2))
+                     : cast<BasicBlock>(Br->getOperand(1));
+          }
+          assert(any_of(predecessors(Phi->getParent()),
+                        [BB](auto Pred) { return Pred == BB; }) &&
+                 "can't find correct incoming block");
+        }
+      }
+      Phi->addIncoming(IncValue, BB);
     }
-    return;
   };
-  fixInductions(ScalarPhisToFix);
-  fixInductions(PhisToFix);
+
+  for (auto &MapIt : PhisToFix) {
+    int Lane = MapIt.second.second;
+    fixPHI(MapIt.second.first, MapIt.first, Lane);
+  }
 }
