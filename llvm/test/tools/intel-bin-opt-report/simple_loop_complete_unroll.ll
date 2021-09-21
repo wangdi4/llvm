@@ -1,5 +1,5 @@
 ; REQUIRES: proto_bor
-; RUN: llc %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
+; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
 ; Check reader tool's correctness for a simple loop which is completely unrolled.
@@ -22,7 +22,7 @@
 ; CHECK-NEXT: Number of reports: 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT: === Loop Begin ===
-; CHECK-NEXT: Anchor ID: b872981369bec6a71028b6890b9ca9a6
+; CHECK-NEXT: Anchor ID: e9a3f5d79e7ea2f824577e5b6b1e4d85
 ; CHECK-NEXT: Number of remarks: 1
 ; CHECK-NEXT:   Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-NEXT: ==== Loop End ====
