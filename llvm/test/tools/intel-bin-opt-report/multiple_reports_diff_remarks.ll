@@ -1,5 +1,5 @@
 ; REQUIRES: proto_bor
-; RUN: llc %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
+; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
 ; CHECK:      --- Start Intel Binary Optimization Report ---
@@ -11,40 +11,40 @@
 ; CHECK-NEXT: Number of reports: 7
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: c864ff3d59aec4ef1d6bb8d4f068c8f0
+; CHECK-DAG:  Anchor ID: 17c264a03c74ab4ffdb033981dff60d2
 ; CHECK-DAG:  Number of remarks: 2
 ; CHECK-DAG:    Property: C_LOOP_VECTORIZED, Remark ID: 15300, Remark Args:
 ; CHECK-DAG:    Property: C_LOOP_VEC_VL, Remark ID: 15305, Remark Args: 8
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 95a7a6a55e83231e8462f39c030e1f79
+; CHECK-DAG:  Anchor ID: 7570d5ba2a865bcde3ab13af9e215a98
 ; CHECK-DAG:  Number of remarks: 1
 ; CHECK-DAG:    Property: C_LOOP_COMPLETE_UNROLL_FACTOR, Remark ID: 25436, Remark Args: 4
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 1a53322992e2353a23678c2abab62895
+; CHECK-DAG:  Anchor ID: 59782deec23e72e34ee8c4f37ad91514
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 511ab4d8922f4c3ab040c9c4200ebb7a
+; CHECK-DAG:  Anchor ID: b5ce33333e51ead41791f54805249447
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: a2ee78f3f8d33add2277cebb4dbe9603
+; CHECK-DAG:  Anchor ID: 63763e85a72f0bbe9041efd74d0475c5
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: a8227cb734df8b42df43f7fa479c960e
+; CHECK-DAG:  Anchor ID: fa1bbf46649ed0a2ce779d054e268257
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: a457605956dbcbb3ea9996b4c1a8fd10
+; CHECK-DAG:  Anchor ID: e1a04b16fd921e22f9b82ca245f3f57b
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 

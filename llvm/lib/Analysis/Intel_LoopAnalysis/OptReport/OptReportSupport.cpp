@@ -90,6 +90,7 @@ static void printProtoBinOptReport(opt_report_proto::BinOptReport &BOR) {
         dbgs() << "  "
                << opt_report_proto::BinOptReport::Property_Name(MapIt.first)
                << " --> " << MapIt.second << "\n");
+    (void)MapIt;
   }
   LLVM_DEBUG(dbgs() << "Number of reports: " << BOR.opt_reports_size() << "\n");
   for (auto I = 0; I < BOR.opt_reports_size(); ++I) {
@@ -377,6 +378,7 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
   int UncompressedBytes = BOR.ByteSizeLong();
   LLVM_DEBUG(dbgs() << "Uncompressed protobuf msg size: " << UncompressedBytes
                     << " bytes\n");
+  (void)UncompressedBytes;
   google::protobuf::io::StringOutputStream SOS(&BinOptRptStream);
   google::protobuf::io::GzipOutputStream::Options GzipOptions;
   GzipOptions.format = google::protobuf::io::GzipOutputStream::ZLIB;
@@ -389,6 +391,7 @@ std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
       auto CompressedBytes = SOS.ByteCount();
       LLVM_DEBUG(dbgs() << "Compressed protobuf msg size: " << CompressedBytes
                         << " bytes\n");
+      (void)CompressedBytes;
     } else {
       std::string ZlibErrorMsg(GOS.ZlibErrorMessage());
       report_fatal_error("Failed to compress protobuf message (zlib error:" +
