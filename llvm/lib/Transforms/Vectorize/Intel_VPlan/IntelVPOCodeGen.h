@@ -481,11 +481,12 @@ private:
   // in a different way (see fixNonInductionVPPhis()).
   bool OrigLoopUsed = false;
 
-  /// Holds a mapping between the VPPHINode and the corresponding vector LLVM
-  /// IR PHI node that needs fix up. The operands of the VPPHINode are used
+  /// Holds a mapping between the VPPHINode and the corresponding vector/scalar
+  /// LLVM IR PHI node that needs fix up. The operands of the VPPHINode are used
   /// to setup the operands of the LLVM IR PHI node.
-  DenseMap<VPPHINode *, PHINode *> PhisToFix;
-  DenseMap<VPPHINode *, PHINode *> ScalarPhisToFix;
+  DenseMap<PHINode *,
+           std::pair<VPPHINode *, int /*Lane will be -1 for vectorized PHI*/>>
+      PhisToFix;
 
   // Map of scalar VPValue and widened LLVM IR value.
   DenseMap<VPValue *, Value *> VPWidenMap;
