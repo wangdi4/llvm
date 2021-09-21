@@ -1578,7 +1578,6 @@ Instruction *InstCombinerImpl::visitInsertElementInst(InsertElementInst &IE) {
   if (Instruction *IdentityShuf = foldInsEltIntoIdentityShuffle(IE))
     return IdentityShuf;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Check for a potential computation of a complex instruction.
   ElementCount Count = IE.getType()->getElementCount();
@@ -1591,10 +1590,9 @@ Instruction *InstCombinerImpl::visitInsertElementInst(InsertElementInst &IE) {
       return &IE;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   if (Instruction *Ext = narrowInsElt(IE, Builder))
     return Ext;
->>>>>>> e5a32d720ef2d8989442a533e1dd2d7e667155c1
 
   return nullptr;
 }
