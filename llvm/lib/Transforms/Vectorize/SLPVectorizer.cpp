@@ -718,6 +718,37 @@ static Optional<int> getInsertIndex(Value *InsertInst, unsigned Offset) {
   return Index;
 }
 
+<<<<<<< HEAD
+=======
+/// Reorders the list of scalars in accordance with the given \p Order and then
+/// the \p Mask. \p Order - is the original order of the scalars, need to
+/// reorder scalars into an unordered state at first according to the given
+/// order. Then the ordered scalars are shuffled once again in accordance with
+/// the provided mask.
+static void reorderScalars(SmallVectorImpl<Value *> &Scalars,
+                           ArrayRef<int> Mask) {
+  assert(!Mask.empty() && "Expected non-empty mask.");
+  SmallVector<Value *> Prev(Scalars.size(),
+                            UndefValue::get(Scalars.front()->getType()));
+  Prev.swap(Scalars);
+  for (unsigned I = 0, E = Prev.size(); I < E; ++I)
+    if (Mask[I] != UndefMaskElem)
+      Scalars[Mask[I]] = Prev[I];
+}
+
+#if INTEL_CUSTOMIZATION
+namespace {
+/// Tracks the state we can represent the loads in the given sequence.
+enum class LoadsState {
+  Gather,
+  Vectorize,
+  ScatterVectorize,
+  SplitLoadVectorize
+};
+} // anonymous namespace
+#endif // INTEL_CUSTOMIZATION
+
+>>>>>>> 10f15606ad5b578717aedc37be54efbbabe2d7e1
 namespace slpvectorizer {
 
 /// Bottom Up SLP Vectorizer.
@@ -783,6 +814,17 @@ public:
 
   /// Restore the code to the original condition, by unswapping instructions.
   void undoMultiNodeReordering();
+<<<<<<< HEAD
+=======
+
+  /// Checks if the given array of loads can be represented as a vectorized,
+  /// scatter or just simple gather.
+  LoadsState canVectorizeLoads(
+      ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
+      const DataLayout &DL, ScalarEvolution &SE,
+      SmallVectorImpl<unsigned> &Order, SmallVectorImpl<Value *> &PointerOps,
+      SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups);
+>>>>>>> 10f15606ad5b578717aedc37be54efbbabe2d7e1
 #endif // INTEL_CUSTOMIZATION
 
   /// Construct a vectorizable tree that starts at \p Roots, ignoring users for
@@ -3569,6 +3611,164 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
   }
 }
 
+<<<<<<< HEAD
+=======
+void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
+                        ArrayRef<Value *> UserIgnoreLst) {
+  deleteTree();
+  UserIgnoreList = UserIgnoreLst;
+  if (!allSameType(Roots))
+    return;
+  buildTree_rec(Roots, 0, EdgeInfo());
+}
+
+#if INTEL_CUSTOMIZATION
+LoadsState BoUpSLP::canVectorizeLoads(
+    ArrayRef<Value *> VL, const Value *VL0, const TargetTransformInfo &TTI,
+    const DataLayout &DL, ScalarEvolution &SE, SmallVectorImpl<unsigned> &Order,
+    SmallVectorImpl<Value *> &PointerOps,
+    SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> &LoadGroups) {
+#endif // INTEL_CUSTOMIZATION
+  // Check that a vectorized load would load the same memory as a scalar
+  // load. For example, we don't want to vectorize loads that are smaller
+  // than 8-bit. Even though we have a packed struct {<i2, i2, i2, i2>} LLVM
+  // treats loading/storing it as an i8 struct. If we vectorize loads/stores
+  // from such a struct, we read/write packed bits disagreeing with the
+  // unvectorized version.
+  Type *ScalarTy = VL0->getType();
+
+  if (DL.getTypeSizeInBits(ScalarTy) != DL.getTypeAllocSizeInBits(ScalarTy))
+    return LoadsState::Gather;
+
+  // Make sure all loads in the bundle are simple - we can't vectorize
+  // atomic or volatile loads.
+  PointerOps.clear();
+  PointerOps.resize(VL.size());
+  auto *POIter = PointerOps.begin();
+  for (Value *V : VL) {
+    auto *L = cast<LoadInst>(V);
+    if (!L->isSimple())
+      return LoadsState::Gather;
+    *POIter = L->getPointerOperand();
+    ++POIter;
+  }
+
+  Order.clear();
+  // Check the order of pointer operands.
+  if (llvm::sortPtrAccesses(PointerOps, ScalarTy, DL, SE, Order)) {
+    Value *Ptr0;
+    Value *PtrN;
+    if (Order.empty()) {
+      Ptr0 = PointerOps.front();
+      PtrN = PointerOps.back();
+    } else {
+      Ptr0 = PointerOps[Order.front()];
+      PtrN = PointerOps[Order.back()];
+    }
+    Optional<int> Diff =
+        getPointersDiff(ScalarTy, Ptr0, ScalarTy, PtrN, DL, SE);
+    // Check that the sorted loads are consecutive.
+    if (static_cast<unsigned>(*Diff) == VL.size() - 1)
+      return LoadsState::Vectorize;
+#if INTEL_CUSTOMIZATION
+    // We might want to issue gather load only if split load fails.
+    // Do not consider to issue gather for vectors having
+    // less then MinGatherLoadSize elements.
+    bool CandidateForGatherLoad = false;
+    if (CompatibilitySLPMode ||
+        (VL.size() >= MinGatherLoadSize &&
+         TTI.isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
+                                 DL.getABITypeAlign(ScalarTy))))
+      CandidateForGatherLoad = true;
+
+    // Check whether we can issue smaller-wide loads to build up the entire
+    // vector (split-load).
+    if (MaxSplitLoads > 0 &&
+        (Order.empty() || Order.size() == VL.size())) {
+      // Each consecutive group is represented by
+      // starting index, load size (number of consecutive scalar
+      // elements) and re-ordering information (if any).
+      unsigned VF = VL.size();
+      unsigned MaxSplitNums = Log2_32(MaxSplitLoads);
+      uint64_t ScalarSize = DL.getTypeAllocSize(ScalarTy);
+
+      auto IsConsecutive = [this, ScalarSize](Value *Ptr0, Value *PtrN,
+                                              int Size) -> bool {
+        const SCEV *Scev0 = this->SE->getSCEV(Ptr0);
+        const SCEV *ScevN = this->SE->getSCEV(PtrN);
+        const auto *Diff =
+            dyn_cast<SCEVConstant>(this->SE->getMinusSCEV(ScevN, Scev0));
+        return Diff && Diff->getAPInt() == (Size - 1) * ScalarSize;
+      };
+
+      // Find out if we are able to build up the entire vector load with
+      // multiple smaller size vector loads (of GroupSize elements each).
+      // Populates LoadGroups with loads information.
+      auto TryGroupSize = [this, &ScalarTy, VF, &LoadGroups,
+                           IsConsecutive](ArrayRef<Value *> Pointers,
+                                          ArrayRef<unsigned> PointersOrder,
+                                          unsigned GroupSize) {
+        LoadGroups.clear();
+        for (unsigned N = 0; N < VF / GroupSize; N++) {
+          OrdersType GroupOrder;
+          unsigned First = N * GroupSize;
+          unsigned Idx0, IdxN;
+          if (!PointersOrder.empty()) {
+            Idx0 = PointersOrder[First];
+            IdxN = PointersOrder[First + GroupSize - 1];
+          } else {
+            ArrayRef<Value *> Slice =
+                makeArrayRef(Pointers).slice(First, GroupSize);
+            if (!llvm::sortPtrAccesses(Slice, ScalarTy, *this->DL, *this->SE, GroupOrder) ||
+                (!GroupOrder.empty() && GroupOrder.size() != GroupSize))
+              return false;
+
+            Idx0 = First + (GroupOrder.empty() ? 0 : GroupOrder[0]);
+            IdxN = First + (GroupOrder.empty() ? GroupSize - 1
+                                               : GroupOrder[GroupSize - 1]);
+          }
+          Value *Ptr0 = Pointers[Idx0];
+          Value *PtrN = Pointers[IdxN];
+          if (!IsConsecutive(Ptr0, PtrN, GroupSize))
+            return false;
+          LoadGroups.emplace_back(First, GroupSize, GroupOrder);
+        }
+        return true;
+      };
+
+      bool UseSplitLoad = false;
+      for (unsigned Split = 1; Split <= MaxSplitNums; ++Split) {
+        unsigned GroupSize = VF / (1 << Split);
+        if (GroupSize < 2)
+          break;
+        if (TryGroupSize(PointerOps, Order, GroupSize)) {
+          UseSplitLoad = true;
+          break;
+        }
+      }
+
+      if (UseSplitLoad)
+        return LoadsState::SplitLoadVectorize;
+    }
+    if (CandidateForGatherLoad) {
+      SmallVector<int, 4> OpDirection(VL.size(), 0);
+#endif // INTEL_CUSTOMIZATION
+    Align CommonAlignment = cast<LoadInst>(VL0)->getAlign();
+    for (Value *V : VL)
+      CommonAlignment =
+          commonAlignment(CommonAlignment, cast<LoadInst>(V)->getAlign());
+    if (TTI.isLegalMaskedGather(FixedVectorType::get(ScalarTy, VL.size()),
+                                CommonAlignment))
+      return LoadsState::ScatterVectorize;
+#if INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
+  }
+
+  return LoadsState::Gather;
+}
+
+>>>>>>> 10f15606ad5b578717aedc37be54efbbabe2d7e1
 #if INTEL_CUSTOMIZATION
 // Undo the instruction reordering performed before MultiNodeReordering, the one
 // that moves the instructions towards the root of the Multi-Node.
@@ -5034,8 +5234,52 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
       // unvectorized version.
       Type *ScalarTy = VL0->getType();
 
+<<<<<<< HEAD
       if (DL->getTypeSizeInBits(ScalarTy) !=
           DL->getTypeAllocSizeInBits(ScalarTy)) {
+=======
+#if INTEL_CUSTOMIZATION
+      SmallVector<int> OpDirection(VL.size(), 0);
+      SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
+      switch (canVectorizeLoads(VL, VL0, *TTI, *DL, *SE, CurrentOrder,
+                                PointerOps, LoadGroups)) {
+      case LoadsState::SplitLoadVectorize:
+        LLVM_DEBUG(dbgs() << "SLP: found a split load group of size "
+                          << LoadGroups.size() << ".\n");
+        TE = newTreeEntry(VL, Bundle, S, UserTreeIdx, ReuseShuffleIndicies);
+        TE->setOperandsInOrder();
+        VectorizableTree.back()->SplitLoadGroups = LoadGroups;
+        if (!CurrentOrder.empty())
+          VectorizableTree.back()->SplitLoadOrder = CurrentOrder;
+
+        LLVM_DEBUG(dbgs() << "SLP: added a vector of split-loads.\n");
+        break;
+#endif // INTEL_CUSTOMIZATION
+      case LoadsState::Vectorize:
+        if (CurrentOrder.empty()) {
+          // Original loads are consecutive and does not require reordering.
+          TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                            ReuseShuffleIndicies);
+          LLVM_DEBUG(dbgs() << "SLP: added a vector of loads.\n");
+        } else {
+          fixupOrderingIndices(CurrentOrder);
+          // Need to reorder.
+          TE = newTreeEntry(VL, Bundle /*vectorized*/, S, UserTreeIdx,
+                            ReuseShuffleIndicies, CurrentOrder);
+          LLVM_DEBUG(dbgs() << "SLP: added a vector of jumbled loads.\n");
+        }
+        TE->setOperandsInOrder();
+        break;
+      case LoadsState::ScatterVectorize:
+        // Vectorizing non-consecutive loads with `llvm.masked.gather`.
+        TE = newTreeEntry(VL, TreeEntry::ScatterVectorize, Bundle, S,
+                          UserTreeIdx, ReuseShuffleIndicies);
+        TE->setOperandsInOrder();
+        buildTree_rec(PointerOps, Depth + 1, {TE, 0, OpDirection}); // INTEL
+        LLVM_DEBUG(dbgs() << "SLP: added a vector of non-consecutive loads.\n");
+        break;
+      case LoadsState::Gather:
+>>>>>>> 10f15606ad5b578717aedc37be54efbbabe2d7e1
         BS.cancelScheduling(VL, VL0);
         newTreeEntry(VL, None /*not vectorized*/, S, UserTreeIdx,
                      ReuseShuffleIndicies);
@@ -6032,6 +6276,94 @@ InstructionCost BoUpSLP::getEntryCost(const TreeEntry *E,
     if (NeedToShuffleReuses)
       ReuseShuffleCost = TTI->getShuffleCost(
           TTI::SK_PermuteSingleSrc, FinalVecTy, E->ReuseShuffleIndices);
+<<<<<<< HEAD
+=======
+    // Improve gather cost for gather of loads, if we can group some of the
+    // loads into vector loads.
+    if (VL.size() > 2 && E->getOpcode() == Instruction::Load &&
+        !E->isAltShuffle()) {
+      BoUpSLP::ValueSet VectorizedLoads;
+      unsigned StartIdx = 0;
+      unsigned VF = VL.size() / 2;
+      unsigned VectorizedCnt = 0;
+      unsigned ScatterVectorizeCnt = 0;
+      const unsigned Sz = DL->getTypeSizeInBits(E->getMainOp()->getType());
+      for (unsigned MinVF = getMinVF(2 * Sz); VF >= MinVF; VF /= 2) {
+        for (unsigned Cnt = StartIdx, End = VL.size(); Cnt + VF <= End;
+             Cnt += VF) {
+          ArrayRef<Value *> Slice = VL.slice(Cnt, VF);
+          if (!VectorizedLoads.count(Slice.front()) &&
+              !VectorizedLoads.count(Slice.back()) && allSameBlock(Slice)) {
+            SmallVector<Value *> PointerOps;
+            OrdersType CurrentOrder;
+#if INTEL_CUSTOMIZATION
+            SmallVector<std::tuple<unsigned, unsigned, OrdersType>, 1> LoadGroups;
+            LoadsState LS = canVectorizeLoads(Slice, Slice.front(), *TTI, *DL,
+                                              *SE, CurrentOrder, PointerOps,
+                                              LoadGroups);
+            switch (LS) {
+            case LoadsState::SplitLoadVectorize:
+#endif // INTEL_CUSTOMIZATION
+            case LoadsState::Vectorize:
+            case LoadsState::ScatterVectorize:
+              // Mark the vectorized loads so that we don't vectorize them
+              // again.
+              if (LS == LoadsState::Vectorize)
+                ++VectorizedCnt;
+              else
+                ++ScatterVectorizeCnt;
+              VectorizedLoads.insert(Slice.begin(), Slice.end());
+              // If we vectorized initial block, no need to try to vectorize it
+              // again.
+              if (Cnt == StartIdx)
+                StartIdx += VF;
+              break;
+            case LoadsState::Gather:
+              break;
+            }
+          }
+        }
+        // Check if the whole array was vectorized already - exit.
+        if (StartIdx >= VL.size())
+          break;
+        // Found vectorizable parts - exit.
+        if (!VectorizedLoads.empty())
+          break;
+      }
+      if (!VectorizedLoads.empty()) {
+        InstructionCost GatherCost = 0;
+        // Get the cost for gathered loads.
+        for (unsigned I = 0, End = VL.size(); I < End; I += VF) {
+          if (VectorizedLoads.contains(VL[I]))
+            continue;
+          GatherCost += getGatherCost(VL.slice(I, VF));
+        }
+        // The cost for vectorized loads.
+        InstructionCost ScalarsCost = 0;
+        for (Value *V : VectorizedLoads) {
+          auto *LI = cast<LoadInst>(V);
+          ScalarsCost += TTI->getMemoryOpCost(
+              Instruction::Load, LI->getType(), LI->getAlign(),
+              LI->getPointerAddressSpace(), CostKind, LI);
+        }
+        auto *LI = cast<LoadInst>(E->getMainOp());
+        auto *LoadTy = FixedVectorType::get(LI->getType(), VF);
+        Align Alignment = LI->getAlign();
+        GatherCost +=
+            VectorizedCnt *
+            TTI->getMemoryOpCost(Instruction::Load, LoadTy, Alignment,
+                                 LI->getPointerAddressSpace(), CostKind, LI);
+        GatherCost += ScatterVectorizeCnt *
+                      TTI->getGatherScatterOpCost(
+                          Instruction::Load, LoadTy, LI->getPointerOperand(),
+                          /*VariableMask=*/false, Alignment, CostKind, LI);
+        // Add the cost for the subvectors shuffling.
+        GatherCost += ((VL.size() - VF) / VF) *
+                      TTI->getShuffleCost(TTI::SK_Select, VecTy);
+        return ReuseShuffleCost + GatherCost - ScalarsCost;
+      }
+    }
+>>>>>>> 10f15606ad5b578717aedc37be54efbbabe2d7e1
     return ReuseShuffleCost + getGatherCost(VL);
   }
   InstructionCost CommonCost = 0;
