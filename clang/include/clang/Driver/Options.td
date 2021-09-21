@@ -729,9 +729,9 @@ def device_math_lib_EQ : CommaJoined<["-"], "device-math-lib=">,
 def no_device_math_lib_EQ : CommaJoined<["-"], "no-device-math-lib=">,
   Flags<[NoXarchOption]>, Values<"fp32,fp64">;
 def no_intel_lib_EQ : CommaJoined<["-"], "no-intel-lib=">,
-  Values<"libirc,libimf,libirng,libsvml,libifport">, HelpText<"Restrict "
+  Values<"libirc,libimf,libirng,libsvml">, HelpText<"Restrict "
   "linking of Intel specific libraries. Valid arguments are libirc, libimf, "
-  "libirng, libsvml,">;
+  "libirng, libsvml">;
 def no_intel_lib : Flag<["-"], "no-intel-lib">,
   HelpText<"Restrict linking of all Intel specific libraries.">;
 #endif // INTEL_CUSTOMIZATION
@@ -2749,6 +2749,8 @@ def fopenmp_target_buffers_EQ : Joined<["-"], "fopenmp-target-buffers=">,
 def fopenmp_target_simd : Flag<["-"], "fopenmp-target-simd">, Flags<[NoXarchOption,
   HelpHidden, CC1Option]>, Group<f_Group>,
   MarshallingInfoFlag<LangOpts<"OpenMPTargetSimd">>;
+def fopenmp_target_fast_atomics : Flag<["-"], "fopenmp-target-fast-atomics">,
+  Flags<[HelpHidden, NoArgumentUnused]>, Group<f_Group>;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_enable_irbuilder : Flag<["-"], "fopenmp-enable-irbuilder">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
   HelpText<"Use the experimental OpenMP-IR-Builder codegen path.">;
@@ -7311,6 +7313,7 @@ def _SLASH_Qopenmp_target_buffers_COL : CLJoined<"Qopenmp-target-buffers:">,
   Alias<fopenmp_target_buffers_EQ>, HelpText<"Allow access to target objects "
   "of 4GB or larger in target code.">;
 def _SLASH_Qopenmp_target_simd : CLFlag<"Qopenmp-target-simd">, Alias<fopenmp_target_simd>;
+def _SLASH_Qopenmp_target_fast_atomics : CLFlag<"Qopenmp-target-fast-atomics">, Alias<fopenmp_target_fast_atomics>;
 def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
 def _SLASH_Qiopenmp_vec_at_O0 : CLFlag<"Qiopenmp-vec-at-O0">, Alias<fiopenmp_vec_at_O0>;

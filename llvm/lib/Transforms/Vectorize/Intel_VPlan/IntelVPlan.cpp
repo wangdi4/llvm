@@ -1487,7 +1487,7 @@ void VPlanVector::computeDA() {
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.
-    // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
+    // TODO: Consider moving SOA-analysis to VPAnalysesFactoryBase.
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
@@ -1512,7 +1512,7 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
 }
 
 // Common functionality to do a deep-copy when cloning VPlans.
-void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
+void VPlanVector::copyData(VPAnalysesFactoryBase &VPAF, UpdateDA UDA,
                            VPlanVector *TargetPlan) {
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
@@ -1576,7 +1576,7 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   }
 }
 
-VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanVector *VPlanMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {
   // Create new masked VPlan
   auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
@@ -1585,7 +1585,7 @@ VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   return ClonedVPlan;
 }
 
-VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanVector *VPlanNonMasked::clone(VPAnalysesFactoryBase &VPAF, UpdateDA UDA) {
   // Create new non-masked VPlan
   auto *ClonedVPlan = new VPlanNonMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
@@ -1594,7 +1594,7 @@ VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   return ClonedVPlan;
 }
 
-VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
+VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactoryBase &VPAF,
                                          UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
   auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());

@@ -579,6 +579,12 @@ void HIRArrayContractionUtil::contract(RegDDRef *Ref,
   //   for each dimension, set LB, Stride, and Index need to happen after it.
   AfterRef->setBaseCE(NewBaseCE);
   AfterRef->setAlignment(Ref->getAlignment());
+
+  // Update BasePtrElementType of ref using allocated type.
+  auto *Blob = CEU.getBlobUtils().getBlob(AllocaBlobIndex);
+  auto *Alloca = cast<AllocaInst>(cast<SCEVUnknown>(Blob)->getValue());
+  AfterRef->setBasePtrElementType(Alloca->getAllocatedType());
+
   LLVM_DEBUG({
     dbgs() << "\nAfterRef (Before updateBlobDDRefs):\t";
     AfterRef->dump(1);

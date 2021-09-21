@@ -2600,7 +2600,8 @@ enum CXCursorKind {
   CXCursor_OMPParallelGenericLoopDirective = 298,
   CXCursor_OMPTargetParallelGenericLoopDirective = 299,
   CXCursor_OMPPrefetchDirective = 300,
-  CXCursor_LastStmt = CXCursor_OMPPrefetchDirective,
+  CXCursor_OMPScopeDirective = 301,
+  CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPUnrollDirective,
 #endif /* INTEL_COLLAB */

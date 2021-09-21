@@ -2562,6 +2562,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
   case OMPD_target_variant_dispatch:
+  case OMPD_scope:
 #endif // INTEL_COLLAB
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
@@ -2724,7 +2725,12 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///         simd' | 'teams distribute parallel for simd' | 'teams distribute
 ///         parallel for' | 'target teams' | 'target teams distribute' | 'target
 ///         teams distribute parallel for' | 'target teams distribute parallel
-///         for simd' | 'target teams distribute simd' | 'masked' {clause}
+#if INTEL_COLLAB
+///         for simd' | 'target teams distribute simd' | 'masked' | 'scope' |
+///         {clause}
+#else // INTEL_COLLAB
+///         for simd' | 'target teams distribute simd' | 'masked' | {clause}
+#endif // INTEL_COLLAB
 ///         annot_pragma_openmp_end
 ///
 StmtResult
@@ -2890,6 +2896,16 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_parallel_loop:
   case OMPD_target_parallel_loop:
   case OMPD_target_variant_dispatch:
+  case OMPD_scope:
+    // Not yet implemented with FE outlining. BE outlining only.
+    if (!getLangOpts().OpenMPLateOutline && DKind == OMPD_scope) {
+      Diag(Tok, diag::err_omp_unexpected_directive)
+          << 1 << getOpenMPDirectiveName(DKind);
+      SkipUntil(tok::annot_pragma_openmp_end);
+      break;
+    }
+    // Fall through for further analysis.
+    LLVM_FALLTHROUGH;
 #endif // INTEL_COLLAB
   case OMPD_taskloop:
   case OMPD_taskloop_simd:

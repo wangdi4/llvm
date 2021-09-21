@@ -199,6 +199,8 @@ private:
     // This was the previous implementation. An example where it didn't work-
     //   %gep = getelementptr [20 x i32], [20 x i32]* @t, i64 0, i64 1
     //   %bc = bitcast i32* %gep to [20 x i32]*
+    //
+    // TODO: Investigate how this field should change with opaque ptrs.
     Type *BitCastDestTy;
     bool InBounds;
     // This is set if this DDRef represents an address computation (GEP) instead
@@ -228,6 +230,9 @@ private:
     CanonExprsTy LowerBounds;
     CanonExprsTy Strides;
     SmallVector<Type *, 3> DimTypes;
+    // Dimension element types need to be stored explicitly in the presence of
+    // opaque ptrs.
+    SmallVector<Type *, 3> DimElementTypes;
 
     // TODO: Atomic attribute is missing. Should we even build regions with
     // atomic load/stores since optimizing multi-threaded code might be
@@ -358,8 +363,8 @@ private:
   void addDimensionHighest(CanonExpr *IndexCE,
                            ArrayRef<unsigned> TrailingOffsets = {},
                            CanonExpr *LowerBoundCE = nullptr,
-                           CanonExpr *StrideCE = nullptr,
-                           Type *DimTy = nullptr);
+                           CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
+                           Type *DimElemTy = nullptr);
 
   /// Returns true if the GEP ref has a 'known' location (address range). An
   /// unattached or fake ref's location is unknown.
@@ -404,7 +409,16 @@ public:
   /// Returns the element type of base ptr GEP DDRefs.
   /// For example, will return [10 x i32] for a base ptr type of [10 x i32]*.
   Type *getBasePtrElementType() const { return getGEPInfo()->BasePtrElementTy; }
-  void setBasePtrElementType(Type *Ty) { getGEPInfo()->BasePtrElementTy = Ty; }
+  void setBasePtrElementType(Type *Ty) {
+    getGEPInfo()->BasePtrElementTy = Ty;
+
+    // Set dimension element type of highest dimension (if it exists) to be the
+    // same as BasePtrElementType.
+    unsigned NumDims = getNumDimensions();
+    if (NumDims != 0) {
+      GepInfo->DimElementTypes[NumDims - 1] = Ty;
+    }
+  }
 
   /// Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
@@ -524,7 +538,12 @@ public:
   /// Dimension1 - [100 x %struct.S1]
   /// Dimension2 - [50 x %struct.S2]
   /// Dimension3 - [50 x %struct.S2]*
-  Type *getDimensionType(unsigned DimensionNum) const;
+  Type *getDimensionType(unsigned DimensionNum) const {
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->DimTypes[DimensionNum - 1];
+  }
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they
@@ -533,9 +552,10 @@ public:
   /// Dimension2 - %struct.S2
   /// Dimension3 - [50 x %struct.S2]
   Type *getDimensionElementType(unsigned DimensionNum) const {
-    auto DimTy = getDimensionType(DimensionNum);
-    return DimTy->isPointerTy() ? DimTy->getPointerElementType()
-                                : DimTy->getArrayElementType();
+    assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+    return GepInfo->DimElementTypes[DimensionNum - 1];
   }
 
   /// Returns true if the Ref accesses a structure.
@@ -937,7 +957,8 @@ public:
   /// adding a zero canon expr as an additional dimension.
   void addDimension(CanonExpr *IndexCE, ArrayRef<unsigned> TrailingOffsets = {},
                     CanonExpr *LowerBoundCE = nullptr,
-                    CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr);
+                    CanonExpr *StrideCE = nullptr, Type *DimTy = nullptr,
+                    Type *DimElemTy = nullptr);
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,

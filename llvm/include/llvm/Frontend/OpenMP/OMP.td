@@ -1907,6 +1907,15 @@ def OMP_DeclareTargetFunction : Directive<"declare target function"> {
     VersionedClause<OMPC_DeviceType>,
   ];
 }
+def OMP_scope : Directive<"scope"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Private>,
+    VersionedClause<OMPC_Reduction>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_NoWait>
+  ];
+}
 #endif // INTEL_COLLAB
 
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {

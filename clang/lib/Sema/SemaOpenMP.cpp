@@ -3549,6 +3549,9 @@ class DSAAttrChecker final : public StmtVisitor<DSAAttrChecker, void> {
         S->getDirectiveKind() == OMPD_section ||
         S->getDirectiveKind() == OMPD_master ||
         S->getDirectiveKind() == OMPD_masked ||
+#if INTEL_COLLAB
+        S->getDirectiveKind() == OMPD_scope ||
+#endif // INTEL_COLLAB
         isOpenMPLoopTransformationDirective(S->getDirectiveKind())) {
       Visit(S->getAssociatedStmt());
       return;
@@ -4115,6 +4118,7 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_ordered:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
+  case OMPD_scope:
 #endif // INTEL_COLLAB
   case OMPD_target_data:
   case OMPD_dispatch: {
@@ -5030,7 +5034,14 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
                        diag::note_omp_previous_critical_region);
         return true;
       }
+#if INTEL_COLLAB
+    } else if (CurrentRegion == OMPD_barrier || CurrentRegion == OMPD_scope) {
+      // OpenMP 5.1 [2.22, Nesting of Regions]
+      // A scope region may not be closely nested inside a worksharing, loop,
+      // task, taskloop, critical, ordered, atomic, or masked region.
+#else // INTEL_COLLAB
     } else if (CurrentRegion == OMPD_barrier) {
+#endif // INTEL_COLLAB
       // OpenMP 5.1 [2.22, Nesting of Regions]
       // A barrier region may not be closely nested inside a worksharing, loop,
       // task, taskloop, critical, ordered, atomic, or masked region.
@@ -6294,6 +6305,10 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
     assert(AStmt == nullptr &&
            "No associated statement allowed for 'omp prefetch' directive");
     Res = ActOnOpenMPPrefetchDirective(ClausesWithImplicit, StartLoc, EndLoc);
+    break;
+  case OMPD_scope:
+    Res = ActOnOpenMPScopeDirective(ClausesWithImplicit, AStmt, StartLoc,
+                                    EndLoc);
     break;
 #endif // INTEL_COLLAB
   case OMPD_parallel_master:
@@ -23374,6 +23389,18 @@ OMPClause *Sema::ActOnOpenMPDataClause(ArrayRef<Expr *> Addrs,
   }
   return OMPDataClause::Create(Context, StartLoc, EndLoc,
                                PrefetchArgs);
+}
+
+StmtResult Sema::ActOnOpenMPScopeDirective(ArrayRef<OMPClause *> Clauses,
+                                           Stmt *AStmt,
+                                           SourceLocation StartLoc,
+                                           SourceLocation EndLoc) {
+  if (!AStmt)
+    return StmtError();
+
+  setFunctionHasBranchProtectedScope();
+
+  return OMPScopeDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

@@ -808,6 +808,23 @@ OMPPrefetchDirective *OMPPrefetchDirective::CreateEmpty(const ASTContext &C,
   return createEmptyDirective<OMPPrefetchDirective>(C, NumClauses,
                                                     /*NumChildren=*/0);
 }
+
+OMPScopeDirective *OMPScopeDirective::Create(const ASTContext &C,
+                                             SourceLocation StartLoc,
+                                             SourceLocation EndLoc,
+                                             ArrayRef<OMPClause *> Clauses,
+                                             Stmt *AssociatedStmt) {
+  return createDirective<OMPScopeDirective>(C, Clauses, AssociatedStmt,
+                                            /*NumChildren=*/0, StartLoc,
+                                            EndLoc);
+}
+
+OMPScopeDirective *OMPScopeDirective::CreateEmpty(const ASTContext &C,
+                                                  unsigned NumClauses,
+                                                  EmptyShell) {
+  return createEmptyDirective<OMPScopeDirective>(C, NumClauses,
+                                                 /*HasAssociatedStmt=*/true);
+}
 #endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,

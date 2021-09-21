@@ -82,8 +82,7 @@ public:
   static void createPlans(LoopVectorizationPlanner &Planner,
                           const SingleLoopVecScenario &Scen,
                           std::list<CfgMergerPlanDescr> &Plans, Loop *OrigLoop,
-                          VPlan &MainPlan,
-                          VPAnalysesFactory &VPAF);
+                          VPlan &MainPlan, VPAnalysesFactoryBase &VPAF);
 
   // The first pass of the universal CFG merger. Creates merged CFG by scenario
   // \p Scen and the prepared list of VPlans \p Plans. It goes through the list
