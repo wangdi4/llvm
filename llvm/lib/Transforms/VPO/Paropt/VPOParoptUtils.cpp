@@ -5828,8 +5828,18 @@ Function *VPOParoptUtils::genOutlineFunction(
   // and Paropt ignores any subsequent constructs, and leaves them in the IR
   // to be removed by other optimization passes (done in
   // VPOParoptTransform::paroptTransforms()).
+  //
+  // Similarly, for cases with nested regions that are to be outlined (see
+  // unreachable_end_infinite_loop_par_masked_par.ll), if an inner region has
+  // unreachable exit directive, outlining it may cause insertion of an early
+  // return after the outlined function call, making the parent region
+  // non-conforming as that now has an early return call, making it
+  // non-single-entry-single-exit. When attempting to handle such parent region
+  // later, Paropt/code-extractor may crash. To avoid this, we ensure that inner
+  // regions being outlined, that have a parent region, pull in all unreachable
+  // blocks into the outlined function.
   bool MoveUnreachableRegionBlocksToExtractedFunction =
-      (IsTarget || WRegionUtils::hasParentTarget(&W)) &&
+      (IsTarget || W.getParent()) &&
       (SuccOfExitBB && !DT->isReachableFromEntry(SuccOfExitBB));
 
   // Fix "escaping" EH edges that go outside the region, and dead predecessors.
