@@ -7835,6 +7835,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString("-paropt=" + Twine(paroptVal)));
     }
   }
+
+  if (IsOpenMPDevice && Triple.isSPIR()) {
+    // We should try to gradually update the effect of spirv-opt
+    // to match the effect of sycl-opt, but this requires
+    // careful performance testing. We also need to let AEs
+    // give us feedback on each change. So spirv-opt is currently
+    // a very limited version of sycl-opt.
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-spirv-opt");
+  }
 #endif // INTEL_COLLAB
 
   if (Triple.isAMDGPU()) {
