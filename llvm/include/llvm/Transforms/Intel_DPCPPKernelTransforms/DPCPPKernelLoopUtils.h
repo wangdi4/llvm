@@ -18,14 +18,9 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 using namespace llvm;
+using namespace DPCPPKernelCompilationUtils;
 
 namespace llvm {
-
-/// Helpful shortcuts for structures.
-using ValueVec = SmallVector<Value *, 4>;
-using InstVec = SmallVector<Instruction *, 4>;
-using InstVecVec = SmallVector<InstVec, 4>;
-using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
 
 /// Struct that represent loop Region in the CFG.
 struct LoopRegion {
