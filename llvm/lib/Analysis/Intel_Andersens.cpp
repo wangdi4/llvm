@@ -4149,10 +4149,33 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
     if (SDT[Second] >= 0) {
       if (SDT[First] < 0)
         SDT[First] = SDT[Second];
+#if 0
+      // CMPLRLLVM-30376 & CMPLRLLVM-30436:
+      // Offline cycle detection (HCD) finds possible cycles and saves
+      // the info in SDT map. Mapping of N1 and N2 nodes in SDT indicates
+      // that *N1 and N2 are in cycles. This cycle information is used during
+      // solving the constrains (i.e in SolveConstraints) to detect cycles
+      // without computation. UniteNodes function is called from many places
+      // to collapse given First and Second nodes and return the
+      // representative First node. After merging information, UniteNodes
+      // function frees up information like PointsTo, Edges etc in Second
+      // node as the info is no longer needed. When SDT has valid mapping
+      // data, UniteNodes collapses SDT[N1] and SDT[N2] nodes also.
+      // UniteNodes is also called from SolveConstraints when doing DFS
+      // search to detect cycles online. Merging SDT[N1] and SDT[N2] in
+      // UniteNodes is messing up DFS search since it is freeing up a node
+      // that is still being processed by DFS search. There are two possible
+      // solutions to fix this issue.
+      // 1. Stop collapsing SDT[N1] and SDT[N2] nodes in UniteNodes
+      // 2. Don’t free up memory in Second node during the UniteNodes
+      //    so that DFS search still uses the data.
+      // Decided to go with first solution and keep the below commented
+      // for future reference.
       else {
         UniteNodes( FindNode(SDT[First]), FindNode(SDT[Second]) );
         First = FindNode(First);
       }
+#endif
     }
 
   return First;
