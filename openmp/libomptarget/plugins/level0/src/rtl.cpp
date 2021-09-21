@@ -713,6 +713,7 @@ public:
 
 class KernelInfoTy {
   uint32_t Version = 0;
+  uint64_t Attributes1 = 0;
 
   struct KernelArgInfoTy {
     bool IsLiteral = false;
@@ -745,6 +746,12 @@ public:
   uint32_t getArgSize(uint32_t Idx) const {
     checkVersion(1);
     return ArgsInfo[Idx].Size;
+  }
+  void setAttributes1(uint64_t Val) {
+    Attributes1 = Val;
+  }
+  bool getHasTeamsReduction() const {
+    return (Attributes1 & 1);
   }
 };
 
@@ -1464,6 +1471,7 @@ public:
   int32_t TargetAllocKind = TARGET_ALLOC_DEFAULT;
 
   uint32_t SubscriptionRate = 4;
+  uint32_t ReductionSubscriptionRate = 8;
   uint32_t ForcedKernelWidth = 0;
   int32_t DeviceMode = DEVICE_MODE_TOP;
 #if INTEL_INTERNAL_BUILD
@@ -1780,6 +1788,17 @@ public:
       int32_t value = std::stoi(env);
       if (value > 0 && value <= 0xFFFF)
         SubscriptionRate = value;
+    }
+
+    // Reduction subscription rate: number of computed WGs is reduced
+    // by this factor.
+    if (char *env =
+            readEnvVar("LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE")) {
+      int32_t value = std::stoi(env);
+      // '0' is a special value meaning to use regular default ND-range
+      // for kernels with reductions.
+      if (value >= 0 && value <= 0xFFFF)
+        ReductionSubscriptionRate = value;
     }
 
     // Forced kernel width
@@ -3068,7 +3087,7 @@ bool RTLDeviceInfoTy::readKernelInfo(
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 1) {
+  if (Version > 2) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
@@ -3077,18 +3096,28 @@ bool RTLDeviceInfoTy::readKernelInfo(
   ReadPtr += 4;
   uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
   size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
+  // Support Attributes1 since version 2.
+  if (Version > 1)
+    ExpectedInfoVarSize += 8;
   if (InfoVarSize != ExpectedInfoVarSize) {
     DP("Error: expected kernel info variable size %zu - got %zu\n",
        ExpectedInfoVarSize, InfoVarSize);
     return false;
   }
   KernelInfoTy Info(Version);
+  ReadPtr += 4;
   for (uint64_t I = 0; I < KernelArgsNum; ++I) {
-    ReadPtr += 4;
     bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
     ReadPtr += 4;
     uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
+    ReadPtr += 4;
     Info.addArgInfo(ArgIsLiteral, ArgSize);
+  }
+
+  if (Version > 1) {
+    // Read 8-byte Attributes1 since version 2.
+    uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
+    Info.setAttributes1(Attributes1);
   }
 
   FuncGblEntries[DeviceId].back().KernelInfo.emplace(
@@ -4548,6 +4577,7 @@ static void decideKernelGroupArguments(
     ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
     ze_group_count_t &GroupCounts) {
 
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
   auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
   uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
@@ -4634,11 +4664,19 @@ static void decideKernelGroupArguments(
           (numThreadsPerSubslice + numThreadsPerGroup - 1) / numThreadsPerGroup;
       maxGroupCount = numGroupsPerSubslice * numSubslices;
     } else {
+      // For kernels with cross-WG reductions use LWS equal
+      // to kernelWidth. This is just a performance heuristic.
+      if (KInfo->getHasTeamsReduction() &&
+          // Only do this for discrete devices.
+          DeviceInfo->isDiscreteDevice(DeviceId) &&
+          DeviceInfo->ReductionSubscriptionRate)
+        maxGroupSize = kernelWidth;
+
       assert(!maxGroupSizeForced && !maxGroupCountForced);
       assert((maxGroupSize <= kernelWidth ||
              maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
       // Maximize group size
-      while (maxGroupSize > kernelWidth) {
+      while (maxGroupSize >= kernelWidth) {
         uint32_t numThreadsPerGroup = maxGroupSize / kernelWidth;
         if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
           uint32_t numGroupsPerSubslice =
@@ -4653,8 +4691,21 @@ static void decideKernelGroupArguments(
 
   uint32_t groupCounts[3] = {maxGroupCount, 1, 1};
   uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
-  if (!maxGroupCountForced)
-    groupCounts[0] *= DeviceInfo->SubscriptionRate;
+  if (!maxGroupCountForced) {
+    if (KInfo->getHasTeamsReduction() &&
+        DeviceInfo->ReductionSubscriptionRate) {
+      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+        // Do not apply ReductionSubscriptionRate for non-discrete devices.
+        // But we have to avoid the regular SubscriptionRate in the else
+        // clause. Basically, for non-discrete devices, the reduction
+        // subscription rate is 1.
+        groupCounts[0] /= DeviceInfo->ReductionSubscriptionRate;
+        groupCounts[0] = (std::max)(groupCounts[0], 1u);
+      }
+    } else {
+      groupCounts[0] *= DeviceInfo->SubscriptionRate;
+    }
+  }
 
   GroupCounts.groupCountX = groupCounts[0];
   GroupCounts.groupCountY = groupCounts[1];

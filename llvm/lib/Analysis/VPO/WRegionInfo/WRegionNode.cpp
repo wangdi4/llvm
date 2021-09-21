@@ -771,6 +771,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
     getWRNLoopInfo().setKnownNDRange();
     break;
+  case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
+    setHasTeamsReduction();
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }

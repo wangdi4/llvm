@@ -235,7 +235,8 @@ public:
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
 
   /// Return nullptr if W has no parent of the specified kind.
-  static WRegionNode *getParentRegion(WRegionNode *W, unsigned WRegionKind);
+  static WRegionNode *getParentRegion(const WRegionNode *W,
+                                      unsigned WRegionKind);
 
   /// Traverse ancestors of \p W and return the one, for which
   /// \p IsMatch predicate is true. If \p ProcessNext returns
@@ -246,9 +247,9 @@ public:
   /// If there is no processed ancestor, for which \p IsMatch
   /// is true, then return nullptr.
   static WRegionNode *getParentRegion(
-      WRegionNode *W,
-      std::function<bool(WRegionNode *)> IsMatch,
-      std::function<bool(WRegionNode *)> ProcessNext);
+      const WRegionNode *W,
+      std::function<bool(const WRegionNode *)> IsMatch,
+      std::function<bool(const WRegionNode *)> ProcessNext);
 
   /// Get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);

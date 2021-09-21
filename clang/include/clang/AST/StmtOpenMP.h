@@ -3574,6 +3574,7 @@ class OMPAtomicDirective : public OMPExecutableDirective {
     POS_UpdateExpr,
 #if INTEL_COLLAB
     POS_Expected,
+    POS_Result,
 #endif
   };
 
@@ -3598,6 +3599,11 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   void setExpected(Expr *E) {
     Data->getChildren()[DataPositionTy::POS_Expected] = E;
   }
+  /// Set 'result' part of the associated expression/statement.
+  /// This is used in two 'compare capture' forms.
+  void setResult(Expr *E) {
+    Data->getChildren()[DataPositionTy::POS_Result] = E;
+  }
 #endif // INTEL_COLLAB
 
 public:
@@ -3615,6 +3621,7 @@ public:
   /// \param E 'expr' part of the associated expression/statement.
 #if INTEL_COLLAB
   /// \param Expected 'expected' part of the associated expression/statement.
+  /// \param Result 'result' part of the associated expression/statement.
 #endif // INTEL_COLLAB
   /// \param UE Helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
@@ -3631,7 +3638,7 @@ public:
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
 #if INTEL_COLLAB
-         Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
+         Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
          bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax);
 #else // INTEL_COLLAB
          Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
@@ -3706,6 +3713,13 @@ public:
   const Expr *getExpected() const {
     return cast_or_null<Expr>(
         Data->getChildren()[DataPositionTy::POS_Expected]);
+  }
+  /// Get 'result' part of the associated expression/statement.
+  Expr *getResult() {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_Result]);
+  }
+  const Expr *getResult() const {
+    return cast_or_null<Expr>(Data->getChildren()[DataPositionTy::POS_Result]);
   }
 #endif // INTEL_COLLAB
 

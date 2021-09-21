@@ -1963,7 +1963,7 @@ private:
   /// Set the kernel arguments' address space as ADDRESS_SPACE_GLOBAL.
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
-  Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
+  Function *finalizeKernelFunction(WRNTargetNode *WT, Function *Fn,
       CallInst *&Call, const SmallVectorImpl<uint64_t> &MapTypes,
 #if INTEL_CUSTOMIZATION
       const SmallVectorImpl<bool> &IsWILocalFirstprivate,
@@ -2233,6 +2233,11 @@ private:
   /// which result's range is known - omp_get_num_threads, omp_get_thread_num,
   /// omp_get_num_teams, omp_get_team_num.
   bool addRangeMetadataToOmpCalls() const;
+
+  // If the given teams region \p WT has reduction clauses, then
+  // set HasTeamsReduction attribute for the enclosing target region
+  // (if any).
+  void updateKernelHasTeamsReduction(const WRNTeamsNode *WT) const;
 };
 
 } /// namespace vpo

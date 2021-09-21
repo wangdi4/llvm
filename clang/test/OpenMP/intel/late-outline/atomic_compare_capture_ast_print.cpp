@@ -31,7 +31,7 @@ T foo(T t) {
   T expr = T();
   T e = T();
   T d = T();
-  T r = T();
+  int r = 0;
 
   //PRINT:#pragma omp atomic compare capture
   //PRINT:    {
@@ -272,6 +272,86 @@ T foo(T t) {
   //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
   #pragma omp atomic compare capture
   { if (x == e) { x = d; } v = x; }
+
+  //PRINT:#pragma omp atomic compare capture
+  //PRINT:      if (x == e) {
+  //PRINT:          x = d;
+  //PRINT:      } else {
+  //PRINT:          v = x;
+  //PRINT:      }
+  //DUMP:OMPAtomicDirective
+  //DUMP:OMPCompareClause
+  //DUMP:OMPCaptureClause
+  //DUMP:IfStmt
+  //DUMP:BinaryOperator {{.*}}'bool' '=='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  #pragma omp atomic compare capture
+  if (x == e) { x = d; } else { v = x; }
+
+  //PRINT:  #pragma omp atomic compare capture
+  //PRINT:      {
+  //PRINT:          r = x == e;
+  //PRINT:          if (r) {
+  //PRINT:              x = d;
+  //PRINT:          }
+  //PRINT:      }
+  //DUMP:OMPAtomicDirective
+  //DUMP:OMPCompareClause
+  //DUMP:OMPCaptureClause
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'int' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'r' 'int'
+  //DUMP:BinaryOperator {{.*}}'bool' '=='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:IfStmt
+  //DUMP:DeclRefExpr {{.*}}'r' 'int'
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  #pragma omp atomic compare capture
+  { r = x == e; if (r) { x = d; } }
+
+  //PRINT:  #pragma omp atomic compare capture
+  //PRINT:      {
+  //PRINT:          r = x == e;
+  //PRINT:          if (r) {
+  //PRINT:              x = d;
+  //PRINT:          } else {
+  //PRINT:              v = x;
+  //PRINT:          }
+  //PRINT:      }
+  //DUMP:OMPAtomicDirective
+  //DUMP:OMPCompareClause
+  //DUMP:OMPCaptureClause
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'int' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'r' 'int'
+  //DUMP:BinaryOperator {{.*}}'bool' '=='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'e' 'float':'float'
+  //DUMP:IfStmt
+  //DUMP:DeclRefExpr {{.*}}'r' 'int'
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'d' 'float':'float'
+  //DUMP:CompoundStmt
+  //DUMP:BinaryOperator {{.*}}'float':'float' lvalue '='
+  //DUMP:DeclRefExpr {{.*}}'v' 'float':'float'
+  //DUMP:DeclRefExpr {{.*}}'x' 'float':'float'
+  #pragma omp atomic compare capture
+  { r = x == e; if (r) { x = d; } else { v = x; } }
 
   return T();
 }

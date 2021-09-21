@@ -587,6 +587,8 @@ bool HIRMVForVariableStride::run() {
         continue;
       if (!cast<HLLoop>(Node)->isInnermost())
         continue;
+      if (cast<HLLoop>(Node)->isInSIMDRegion())
+        continue;
 
       MVAnalyzer.checkAndAddIfCandidate(cast<HLLoop>(Node));
     }

@@ -4772,6 +4772,8 @@ void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   BasicBlock::iterator InsertPt = Builder.GetInsertPoint();
   if (Builder.GetInsertBlock()->end() != InsertPt)
     Call->setDebugLoc((&*InsertPt)->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-constructor"));
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
 }
 
@@ -4786,6 +4788,8 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
   Call->setDebugLoc(InsertAfterPt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-constructor"));
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4806,6 +4810,8 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   CallInst *Call = genCall(Dtor->getParent(), Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-destructor"));
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4823,6 +4829,8 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
       genCall(Cctor->getParent(), Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-copyconstructor"));
   LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4840,6 +4848,8 @@ CallInst *VPOParoptUtils::genCopyAssignCall(Function *Cp, Value *D, Value *S,
   CallInst *Call = genCall(Cp->getParent(), Cp, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
   Call->setDebugLoc(InsertBeforePt->getDebugLoc());
+  Call->addFnAttr(Attribute::get(Call->getContext(),
+                                 "openmp-privatization-copyassign"));
   LLVM_DEBUG(dbgs() << "COPY ASSIGN: " << *Call << "\n");
   return Call;
 }

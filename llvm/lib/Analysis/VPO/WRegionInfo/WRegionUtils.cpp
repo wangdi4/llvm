@@ -876,7 +876,7 @@ bool WRegionUtils::hasCancelConstruct(WRegionNode *W) {
 }
 
 // Return nullptr if W has no parent of the specified kind.
-WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
+WRegionNode *WRegionUtils::getParentRegion(const WRegionNode *W,
                                            unsigned WRegionKind) {
   while (W) {
     WRegionNode *ParentRegion = W->getParent();
@@ -890,9 +890,9 @@ WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
 }
 
 WRegionNode *WRegionUtils::getParentRegion(
-    WRegionNode *W,
-    std::function<bool(WRegionNode *)> IsMatch,
-    std::function<bool(WRegionNode *)> ProcessNext) {
+    const WRegionNode *W,
+    std::function<bool(const WRegionNode *)> IsMatch,
+    std::function<bool(const WRegionNode *)> ProcessNext) {
   while (W) {
     WRegionNode *ParentRegion = W->getParent();
     if (!ParentRegion)

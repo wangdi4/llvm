@@ -1192,14 +1192,14 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
 #if INTEL_COLLAB
-    Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
+    Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
     bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax) {
 #else // INTEL_COLLAB
     Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate) {
 #endif // INTEL_COLLAB
   auto *Dir = createDirective<OMPAtomicDirective>(
 #if INTEL_COLLAB
-      C, Clauses, AssociatedStmt, /*NumChildren=*/5, StartLoc, EndLoc);
+      C, Clauses, AssociatedStmt, /*NumChildren=*/6, StartLoc, EndLoc);
 #else // INTEL_COLLAB
       C, Clauses, AssociatedStmt, /*NumChildren=*/4, StartLoc, EndLoc);
 #endif // INTEL_COLLAB
@@ -1208,6 +1208,7 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
   Dir->setExpr(E);
 #if INTEL_COLLAB
   Dir->setExpected(Expected);
+  Dir->setResult(Result);
 #endif // INTEL_COLLAB
   Dir->setUpdateExpr(UE);
   Dir->IsXLHSInRHSPart = IsXLHSInRHSPart;
@@ -1224,7 +1225,7 @@ OMPAtomicDirective *OMPAtomicDirective::CreateEmpty(const ASTContext &C,
                                                     EmptyShell) {
   return createEmptyDirective<OMPAtomicDirective>(
 #if INTEL_COLLAB
-      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/5);
+      C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/6);
 #else // INTEL_COLLAB
       C, NumClauses, /*HasAssociatedStmt=*/true, /*NumChildren=*/4);
 #endif // INTEL_COLLAB

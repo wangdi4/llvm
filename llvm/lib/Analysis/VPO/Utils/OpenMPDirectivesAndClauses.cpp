@@ -826,6 +826,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_BIND_THREAD:
     case QUAL_OMP_ORDER_CONCURRENT:
     case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
+    case QUAL_OMP_OFFLOAD_HAS_TEAMS_REDUCTION:
       return 0;
 
     // Clauses that take one argument

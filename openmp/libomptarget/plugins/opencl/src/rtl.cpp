@@ -200,6 +200,7 @@ getAllocMemProperties(size_t Size, cl_ulong MaxSize) {
 
 class KernelInfoTy {
   uint32_t Version = 0;
+  uint64_t Attributes1 = 0;
 
   struct KernelArgInfoTy {
     bool IsLiteral = false;
@@ -232,6 +233,12 @@ public:
   uint32_t getArgSize(uint32_t Idx) const {
     checkVersion(1);
     return ArgsInfo[Idx].Size;
+  }
+  void setAttributes1(uint64_t Val) {
+    Attributes1 = Val;
+  }
+  bool getHasTeamsReduction() const {
+    return (Attributes1 & 1);
   }
 };
 
@@ -702,6 +709,9 @@ public:
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 1;
+  // For kernels that compute cross-WG reductions the number of computed WGs
+  // is reduced by this factor.
+  size_t ReductionSubscriptionRate = 1;
 #if INTEL_INTERNAL_BUILD
   size_t ForcedLocalSizes[3] = {0, 0, 0};
   size_t ForcedGlobalSizes[3] = {0, 0, 0};
@@ -781,6 +791,7 @@ public:
       // It only matters for the default ND-range parallelization,
       // i.e. when the global size is unknown on the host.
       SubscriptionRate = 4;
+      ReductionSubscriptionRate = 8;
     }
 #endif  // INTEL_CUSTOMIZATION
 
@@ -790,6 +801,16 @@ public:
       // Set some reasonable limits.
       if (value > 0 && value <= 0xFFFF)
         SubscriptionRate = value;
+    }
+
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE"))) {
+      int32_t value = std::stoi(env);
+
+      // Set some reasonable limits.
+      // '0' is a special value meaning to use regular default ND-range
+      // for kernels with reductions.
+      if (value >= 0 && value <= 0xFFFF)
+        ReductionSubscriptionRate = value;
     }
 
     // Read LIBOMPTARGET_PROFILE
@@ -1061,6 +1082,11 @@ public:
   /// that was previously read by readKernelInfo().
   const KernelInfoTy *
       getKernelInfo(int32_t DeviceId, const cl_kernel &Kernel) const;
+#if INTEL_CUSTOMIZATION
+
+  /// Check if the device is discrete.
+  bool isDiscreteDevice(int32_t DeviceId) const;
+#endif // INTEL_CUSTOMIZATION
 };
 
 #ifdef _WIN32
@@ -1718,7 +1744,7 @@ bool RTLDeviceInfoTy::readKernelInfo(
     DP("Error: version 0 of kernel info structure is illegal.\n");
     return false;
   }
-  if (Version > 1) {
+  if (Version > 2) {
     DP("Error: unsupported version (%" PRIu32 ") of kernel info structure.\n",
        Version);
     DP("Error: please use newer OpenMP offload runtime.\n");
@@ -1727,18 +1753,28 @@ bool RTLDeviceInfoTy::readKernelInfo(
   ReadPtr += 4;
   uint32_t KernelArgsNum = llvm::support::endian::read32le(ReadPtr);
   size_t ExpectedInfoVarSize = static_cast<size_t>(KernelArgsNum) * 8 + 8;
+  // Support Attributes1 since version 2.
+  if (Version > 1)
+    ExpectedInfoVarSize += 8;
   if (InfoVarSize != ExpectedInfoVarSize) {
     DP("Error: expected kernel info variable size %zu - got %zu\n",
        ExpectedInfoVarSize, InfoVarSize);
     return false;
   }
   KernelInfoTy Info(Version);
+  ReadPtr += 4;
   for (uint64_t I = 0; I < KernelArgsNum; ++I) {
-    ReadPtr += 4;
     bool ArgIsLiteral = (llvm::support::endian::read32le(ReadPtr) != 0);
     ReadPtr += 4;
     uint32_t ArgSize = llvm::support::endian::read32le(ReadPtr);
+    ReadPtr += 4;
     Info.addArgInfo(ArgIsLiteral, ArgSize);
+  }
+
+  if (Version > 1) {
+    // Read 8-byte Attributes1 since version 2.
+    uint64_t Attributes1 = llvm::support::endian::read64le(ReadPtr);
+    Info.setAttributes1(Attributes1);
   }
 
   FuncGblEntries[DeviceId].back().KernelInfo.emplace(
@@ -1757,6 +1793,21 @@ const KernelInfoTy *RTLDeviceInfoTy::getKernelInfo(
 
   return nullptr;
 }
+#if INTEL_CUSTOMIZATION
+bool RTLDeviceInfoTy::isDiscreteDevice(int32_t DeviceId) const {
+  switch (DeviceArchs[DeviceId]) {
+  case DeviceArch_XeHP:
+    return true;
+
+  case DeviceArch_Gen9:
+  // FIXME: if needed, we should handle discrete cards from XeLP family
+  //        properly. XeLP is currently a mix.
+  case DeviceArch_XeLP:
+  default:
+    return false;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 void SpecConstantsTy::setProgramConstants(
     int32_t DeviceId, cl_program Program) const {
@@ -3601,6 +3652,7 @@ static void decideKernelGroupArguments(
     DPI("totalEUs: %zu\n", numEUs);
   }
 #endif // INTEL_CUSTOMIZATION
+  const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
   size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
   bool maxGroupSizeForced = false;
   bool maxGroupCountForced = false;
@@ -3687,11 +3739,21 @@ static void decideKernelGroupArguments(
             numThreadsPerGroup;
         maxGroupCount = numGroupsPerSubslice * numSubslices;
       } else {
+        // For kernels with cross-WG reductions use LWS equal
+        // to kernelWidth. This is just a performance heuristic.
+        if (KInfo->getHasTeamsReduction() &&
+#if INTEL_CUSTOMIZATION
+            // Only do this for discrete devices.
+            DeviceInfo->isDiscreteDevice(DeviceId) &&
+#endif // INTEL_CUSTOMIZATION
+            DeviceInfo->ReductionSubscriptionRate)
+          maxGroupSize = kernelWidth;
+
         assert(!maxGroupSizeForced && !maxGroupCountForced);
         assert((maxGroupSize <= kernelWidth ||
                 maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
         // Maximize group size
-        while (maxGroupSize > kernelWidth) {
+        while (maxGroupSize >= kernelWidth) {
           size_t numThreadsPerGroup = maxGroupSize / kernelWidth;
           if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
             size_t numGroupsPerSubslice =
@@ -3711,8 +3773,21 @@ static void decideKernelGroupArguments(
 
   GroupCounts[0] = maxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
-  if (!maxGroupCountForced)
-    GroupCounts[0] *= DeviceInfo->SubscriptionRate;
+  if (!maxGroupCountForced) {
+    if (KInfo->getHasTeamsReduction() &&
+        DeviceInfo->ReductionSubscriptionRate) {
+#if INTEL_CUSTOMIZATION
+      if (DeviceInfo->isDiscreteDevice(DeviceId)) {
+#endif // INTEL_CUSTOMIZATION
+      GroupCounts[0] /= DeviceInfo->ReductionSubscriptionRate;
+      GroupCounts[0] = (std::max)(GroupCounts[0], size_t(1));
+#if INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
+    } else {
+      GroupCounts[0] *= DeviceInfo->SubscriptionRate;
+    }
+  }
 }
 
 static inline int32_t run_target_team_nd_region(

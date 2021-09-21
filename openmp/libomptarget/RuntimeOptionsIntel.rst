@@ -306,6 +306,18 @@ size/counts for a target region.
 
 **Default**: 4
 
+``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets under-subscription parameter that is used when computing the team
+counts for a target region that requires cross-team reduction updates.
+
+  <Num> is a number greater than or equal to 0.
+
+'0' disables special handling for kernels with reductions, so
+``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE`` takes the effect.
+
+**Default**: 8 for discrete devices, 1 for non-discrete devices
+
 ``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: rst
@@ -376,6 +388,18 @@ Sets over-subscription parameter that is used when computing the team
 size/counts for a target region.
 
 **Default**: 4
+
+``LIBOMPTARGET_ONEAPI_REDUCTION_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets under-subscription parameter that is used when computing the team
+counts for a target region that requires cross-team reduction updates.
+
+  <Num> is a number greater than or equal to 0.
+
+'0' disables special handling for kernels with reductions, so
+``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE`` takes the effect.
+
+**Default**: 8 for discrete devices, 1 for non-discrete devices
 
 ``LIBOMPTARGET_ENABLE_SIMD=<Enable>``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
