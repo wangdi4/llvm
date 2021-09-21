@@ -26,13 +26,16 @@
 ; CHECK-NOT:      SGSizeCollectorLegacy
 ; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
+; CHECK:          ResolveSubGroupWICallLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK:          WGLoopCreatorLegacy
+; CHECK-NOT:      ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization
 ; CHECK-NEXT:         Intel Kernel RedundantPhiNode
 ; CHECK-NEXT:     GroupBuiltin
 ; CHECK-NEXT:     Intel Kernel BarrierInFunction
+; CHECK-NEXT:     ResolveSubGroupWICallLegacy
 ; CHECK-NEXT:     Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT:     Intel Kernel DataPerBarrier Analysis
 ; CHECK-NEXT:     Intel Kernel WIRelatedValue Analysis

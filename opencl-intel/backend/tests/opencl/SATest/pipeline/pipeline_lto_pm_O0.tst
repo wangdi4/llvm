@@ -15,7 +15,8 @@
 ; CHECK-NOT:  Running pass: VecClonePass
 
 ; CHECK:      Running pass: UnifyFunctionExitNodesPass
-; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
+; CHECK:      Running pass: ResolveSubGroupWICallPass
+; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
 
 ; CHECK:      Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: PhiCanonicalization
@@ -24,6 +25,7 @@
 ; CHECK-NEXT: Running pass: Intel Kernel RedundantPhiNode
 ; CHECK-NEXT: Running pass: GroupBuiltin
 ; CHECK-NEXT: Running pass: Intel Kernel BarrierInFunction
+; CHECK: Running pass: ResolveSubGroupWICallPass
 ; CHECK:      Running pass: Intel Kernel SplitBBonBarrier
 ; CHECK-NEXT: Running pass: Intel Kernel Barrier
 ; CHECK-NEXT: Running analysis: Intel Kernel DataPerBarrier Analysis

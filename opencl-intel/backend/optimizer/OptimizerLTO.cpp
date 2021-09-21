@@ -119,12 +119,25 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
   PB.registerOptimizerLastEPCallback([&](ModulePassManager &MPM,
                                          OptimizationLevel Level) {
+    MPM.addPass(
+        ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
     // Barrier passes begin.
+    if (Level != OptimizationLevel::O0) {
+      // TODO: insert ReplaceScalarWithMask pass here
+
+      // Resolve subgreoup call introduced by ReplaceScalarWithMask pass.
+      MPM.addPass(
+          ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ false));
+    }
     MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
     MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
     MPM.addPass(GroupBuiltinPass(m_RtlModules));
     MPM.addPass(BarrierInFunction());
+
+    // Resolve subgroup barriers after subgroup emulation passes
+    MPM.addPass(
+        ResolveSubGroupWICallPass(m_RtlModules, /*ResolveSGBarrier*/ true));
     MPM.addPass(SplitBBonBarrier());
     MPM.addPass(
         KernelBarrier(m_debugType == intel::Native, /*UseTLSGlobals*/ false));

@@ -36,7 +36,6 @@ extern "C" {
   Pass *createImplicitGIDPass(bool HandleBarrier);
   void* createReplaceScalarWithMaskPass();
   Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
-  Pass *createResolveSubGroupWICallPass(bool ResolveSGBarrier);
   FunctionPass *createReduceCrossBarrierValuesPass();
 
   // subgroup emulation passes
@@ -71,8 +70,9 @@ namespace intel {
       // Currently, vectorizer is enabled only when m_optLevel > 0.
       barrierModulePM.add((ModulePass*)createReplaceScalarWithMaskPass());
       // Reslove sub_group call introduced by ReplaceScalarWithMask pass.
-      barrierModulePM.add(
-          createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ false));
+      barrierModulePM.add(createResolveSubGroupWICallLegacyPass(
+          getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
+          /*ResolveSGBarrier*/ false));
 
       barrierModulePM.add(createDeadCodeEliminationPass());
       barrierModulePM.add(createCFGSimplificationPass());
@@ -119,8 +119,9 @@ namespace intel {
 
     // Since previous passes didn't resolve sub-group barriers, we need to
     // resolve them here.
-    barrierModulePM.add(
-        createResolveSubGroupWICallPass(/*ResolveSGBarrier*/ true));
+    barrierModulePM.add(createResolveSubGroupWICallLegacyPass(
+        getAnalysis<BuiltinLibInfo>().getBuiltinModules(),
+        /*ResolveSGBarrier*/ true));
 
     barrierModulePM.add(createSplitBBonBarrierLegacyPass());
 
