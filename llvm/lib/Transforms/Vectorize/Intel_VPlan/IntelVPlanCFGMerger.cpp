@@ -49,6 +49,9 @@ static LoopVPlanDumpControl
 static LoopVPlanDumpControl
     MergePass2DumpControl("merge-pass2", "final merge pass");
 
+static LoopVPlanDumpControl CfgMergeDumpControl("cfg-merge",
+                                                "CFG merge before CG");
+
 // Forward declaration.
 static bool isMergeBlock(VPBasicBlock *BB);
 
@@ -919,6 +922,7 @@ void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
   MainUF = Scen.getMainUF();
   emitSkeleton(Plans);
   mergeVPlans(Plans);
+  VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 
 void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,

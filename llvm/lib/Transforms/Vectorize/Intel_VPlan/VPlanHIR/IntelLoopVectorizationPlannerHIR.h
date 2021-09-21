@@ -44,10 +44,6 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  /// A list of other additional VPlans, created during peel/remainders
-  /// creation and cloning.
-  std::list<CfgMergerPlanDescr> MergerVPlans;
-
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
@@ -151,6 +147,8 @@ public:
   }
 
   void createMergerVPlans(VPAnalysesFactoryBase &VPAF) override;
+
+  void emitPeelRemainderVPLoops(unsigned VF, unsigned UF) override;
 };
 
 } // namespace vpo
