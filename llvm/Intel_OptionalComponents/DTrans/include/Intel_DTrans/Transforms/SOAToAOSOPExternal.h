@@ -334,6 +334,8 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy,
 
   // Actually array of pointers to vararg functions.
   auto IsVTable = [&ExtractPointeeTy](DTransType *DFTy) -> bool {
+    if (!DFTy)
+      return false;
     if (auto *ElementTy = ExtractPointeeTy(ExtractPointeeTy(DFTy)))
       if (ElementTy->isFunctionTy())
         return true;
@@ -356,6 +358,8 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy,
   // No access to these fields are allowed in
   // SOAToAOSOPArrays.h/SOAToAOSOPStruct.h
   auto IsPaddingFieldCandidate = [](DTransType *DTy) -> bool {
+    if (!DTy)
+      return false;
     auto *Ty = DTy->getLLVMType();
     if (!Ty->isArrayTy())
       return false;
@@ -369,7 +373,7 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy,
       [&IsPaddingFieldCandidate](DTransStructType *STy) -> DTransStructType * {
     auto *I = STy;
     for (; I && I->getNumFields() >= 1 && I->getNumFields() <= 2;
-         I = dyn_cast<DTransStructType>(I->getFieldType(0))) {
+         I = dyn_cast_or_null<DTransStructType>(I->getFieldType(0))) {
       if (I->getNumFields() == 2)
         if (!IsPaddingFieldCandidate(I->getFieldType(1)))
           return I;
@@ -430,10 +434,9 @@ bool SOAToAOSOPLayoutInfo::populateLayoutInformation(DTransType *DTy,
 
   // Outer struct set.
   DStruct = ExtractStructTy(DTy);
+  if (!DStruct)
+    return FALSE("not valid struct.");
   auto *Struct = cast<StructType>(DStruct->getLLVMType());
-
-  if (!Struct)
-    return FALSE("not struct.");
 
   if (Struct->getNumElements() < 2)
     return FALSE("struct has 0 or 1 field.");

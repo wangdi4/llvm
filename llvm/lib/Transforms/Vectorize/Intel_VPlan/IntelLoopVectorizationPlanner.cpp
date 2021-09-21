@@ -231,6 +231,7 @@ bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = false;
 bool EnableNewCFGMerge = true;
+bool EnableNewCFGMergeHIR = false;
 bool VPlanEnablePeeling = false;
 } // namespace vpo
 } // namespace llvm

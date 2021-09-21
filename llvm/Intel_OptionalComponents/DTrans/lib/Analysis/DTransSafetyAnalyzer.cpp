@@ -5097,6 +5097,29 @@ DTransSafetyInfo::getStructInfo(llvm::StructType *STy) const {
   return StInfo;
 }
 
+bool DTransSafetyInfo::isPtrToStruct(Argument *A) {
+  Function *F = A->getParent();
+  DTransType *FormalType = MDReader->getDTransTypeFromMD(F);
+  auto FormalFType = dyn_cast_or_null<DTransFunctionType>(FormalType);
+  if (!FormalFType)
+    return false;
+  DTransType *FormalArgType = FormalFType->getArgType(A->getArgNo());
+  if (!FormalArgType->isPointerTy())
+    return false;
+  DTransType *FormalArgElementType = FormalArgType->getPointerElementType();
+  return FormalArgElementType->isStructTy();
+}
+
+bool DTransSafetyInfo::isFunctionPtr(StructType *STy, unsigned Idx) {
+  dtrans::StructInfo *StInfo = getStructInfo(STy);
+  dtrans::FieldInfo &FI = StInfo->getField(Idx);
+  DTransType *FTy = FI.getDTransType();
+  if (!FTy->isPointerTy())
+    return false;
+  DTransType *PEFTy = FTy->getPointerElementType();
+  return PEFTy->isFunctionTy();
+}
+
 void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
                                         DTransType *Ty) {
   DEBUG_WITH_TYPE(SAFETY_VERBOSE, {
@@ -5217,6 +5240,22 @@ DTransSafetyInfo::getInfoFromLoad(LoadInst *Load) {
     return std::make_pair(nullptr, 0);
 
   return std::make_pair(StInfo, StructField.second);
+}
+
+// Interface routine to check if the field that is supposed to be loaded in the
+// instruction is only read and its parent structure has no safety data
+// violations.
+//
+bool DTransSafetyInfo::isReadOnlyFieldAccess(LoadInst *Load) {
+  std::pair<dtrans::StructInfo *, uint64_t> Res = getInfoFromLoad(Load);
+  if (!Res.first)
+    return false;
+
+  if (testSafetyData(Res.first, dtrans::DT_ElimROFieldAccess))
+    return false;
+
+  dtrans::FieldInfo &FI = Res.first->getField(Res.second);
+  return FI.isRead() && !FI.isWritten();
 }
 
 std::pair<llvm::StructType *, uint64_t>

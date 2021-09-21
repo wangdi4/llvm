@@ -2515,6 +2515,7 @@ void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
 #if INTEL_COLLAB
   D->IsCompareMin = Record.readBool();
   D->IsCompareMax = Record.readBool();
+  D->IsConditionalCapture = Record.readBool();
 #endif // INTEL_COLLAB
 }
 

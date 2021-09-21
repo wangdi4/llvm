@@ -2007,12 +2007,24 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     if (!I.IsChain && I.Var) {
       QualType Ty = I.Var->getType();
       if (isImplicitTask(OMPD_task)) {
-        // Variables used in the "QUAL.OMP.MAP" clause on the
-        // "DIR.OMP.TARGET" should be marked as shared on the
-        // "DIR.OMP.TASK"
+        // OpenMP 5.1 target Construct:
+        // If a variable or part of a variable is mapped by the target
+        // construct and does not appear as a list item in an
+        // in_reduction clause on the construct, the variable has a
+        // default data-sharing attribute of shared in the data
+        // environment of the target task.
+        // Note: no need to check in_reduction, since it is alread added
+        // as explicit clause and implicit map gets skipped.
         if (isImplicit(I.Var))
           ImplicitMap.erase(ImplicitMap.find(I.Var));
-        ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
+        // For whole variable map eliminate implicit map with pointer type.
+        // For part of varable map include varible with array or record
+        // type.
+        if ((I.Base == I.Pointer &&
+             !(I.IsImplicit && I.Var->getType()->isPointerType())) ||
+            I.Base != I.Pointer && (I.Var->getType()->isArrayType() ||
+                                    I.Var->getType()->isRecordType()))
+          ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
       } else
         addExplicit(I.Var, OMPC_map);
       if (FirstPrivateVars.find(I.Var) != FirstPrivateVars.end() &&

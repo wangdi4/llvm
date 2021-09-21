@@ -209,6 +209,12 @@ VALUE_CODEGENOPT(OptimizeSize, 2, 0) ///< If -Os (==1) or -Oz (==2) is specified
 CODEGENOPT(AtomicProfileUpdate , 1, 0) ///< Set -fprofile-update=atomic
 /// Choose profile instrumenation kind or no instrumentation.
 ENUM_CODEGENOPT(ProfileInstr, ProfileInstrKind, 2, ProfileNone)
+
+#if INTEL_CUSTOMIZATION
+/// Choose LoopOpt pipeline.
+ENUM_CODEGENOPT(LoopOptPipeline, LoopOptPipelineKind, 2, LoopOptNone)
+#endif // INTEL_CUSTOMIZATION
+
 /// Choose profile kind for PGO use compilation.
 ENUM_CODEGENOPT(ProfileUse, ProfileInstrKind, 2, ProfileNone)
 CODEGENOPT(CoverageMapping , 1, 0) ///< Generate coverage mapping regions to

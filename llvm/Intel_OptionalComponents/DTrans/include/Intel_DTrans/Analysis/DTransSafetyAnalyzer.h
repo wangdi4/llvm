@@ -251,6 +251,15 @@ public:
   uint64_t getMaxTotalFrequency() const { return MaxTotalFrequency; }
   void setMaxTotalFrequency(uint64_t MTFreq) { MaxTotalFrequency = MTFreq; }
 
+  // Interface routine to check if the field that supposed to be loaded in the
+  // instruction is only read and its parent structure has no safety data
+  // violations.
+  bool isReadOnlyFieldAccess(LoadInst *Load);
+
+  bool isFunctionPtr(llvm::StructType *STy, unsigned Idx);
+
+  bool isPtrToStruct(Argument *A);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
   void printCallInfo();

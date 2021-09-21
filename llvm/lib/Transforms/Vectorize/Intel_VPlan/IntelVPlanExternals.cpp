@@ -389,19 +389,27 @@ void VPLiveInOutCreator::restoreLiveIns() {
   }
 }
 
+template <typename InOutListTy>
 void VPLiveInOutCreator::createLiveInsForScalarVPlan(
-    const ScalarInOutList &ScalarInOuts, int Count) {
+    const InOutListTy &ScalarInOuts, int Count) {
 
   Plan.allocateLiveInValues(Count);
   for (auto Item : ScalarInOuts.list()) {
     int MergeId = Item->getId();
-    VPLiveInValue *LIV = createLiveInValue(MergeId, Item->getLiveOut()->getType());
+    VPLiveInValue *LIV = createLiveInValue(MergeId, Item->getValueType());
     Plan.setLiveInValue(LIV, MergeId);
   }
 }
 
+template void VPLiveInOutCreator::createLiveInsForScalarVPlan<ScalarInOutList>(
+    const ScalarInOutList &, int);
+template void
+VPLiveInOutCreator::createLiveInsForScalarVPlan<ScalarInOutListHIR>(
+    const ScalarInOutListHIR &, int);
+
+template <typename InOutListTy>
 void VPLiveInOutCreator::createLiveOutsForScalarVPlan(
-    const ScalarInOutList &ScalarInOuts, int Count,
+    const InOutListTy &ScalarInOuts, int Count,
     DenseMap<int, VPValue *> &Outgoing) {
 
   Plan.allocateLiveOutValues(Count);
@@ -413,6 +421,12 @@ void VPLiveInOutCreator::createLiveOutsForScalarVPlan(
     Plan.setLiveOutValue(LOV, MergeId);
   }
 }
+
+template void VPLiveInOutCreator::createLiveOutsForScalarVPlan<ScalarInOutList>(
+    const ScalarInOutList &, int, DenseMap<int, VPValue *> &);
+template void
+VPLiveInOutCreator::createLiveOutsForScalarVPlan<ScalarInOutListHIR>(
+    const ScalarInOutListHIR &, int, DenseMap<int, VPValue *> &);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPExternalValues::dumpExternalDefs(raw_ostream &FOS) const {

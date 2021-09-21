@@ -414,6 +414,7 @@ namespace {
       // DPCPP Kernel Transformations
       (void)llvm::createAddFunctionAttrsLegacyPass();
       (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createCoerceWin64TypesLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void) llvm::createDPCPPKernelVecClonePass();
       (void) llvm::createDPCPPKernelPostVecPass();
@@ -464,6 +465,7 @@ namespace {
   #endif  // INTEL_FEATURE_CSA
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
+      (void) llvm::createVPOParoptTargetInlinePass();
       (void) llvm::createIntelVTableFixupPass();
   #endif // INTEL_CUSTOMIZATION
 

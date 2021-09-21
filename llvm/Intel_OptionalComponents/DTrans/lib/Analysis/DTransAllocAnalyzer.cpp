@@ -55,6 +55,8 @@ StringRef AllocKindName(AllocKind Kind) {
     return "UserMalloc";
   case AK_UserMalloc0:
     return "UserMalloc0";
+  case AK_UserMallocThis:
+    return "UserMallocThis";
   case AK_New:
     return "new/new[]";
   }
@@ -69,10 +71,23 @@ StringRef FreeKindName(FreeKind Kind) {
     return "Free";
   case FK_UserFree:
     return "UserFree";
+  case FK_UserFree0:
+    return "UserFree0";
+  case FK_UserFreeThis:
+    return "UserFreeThis";
   case FK_Delete:
     return "delete/delete[]";
   }
   llvm_unreachable("Unexpected continuation past FreeKind switch.");
+}
+
+bool isUserAllocKind(AllocKind Kind) {
+  return Kind == AK_UserMalloc || Kind == AK_UserMalloc0 ||
+         Kind == AK_UserMallocThis;
+}
+
+bool isUserFreeKind(FreeKind Kind) {
+  return Kind == FK_UserFree || Kind == FK_UserFree0 || Kind == FK_UserFreeThis;
 }
 
 AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI) {
@@ -90,36 +105,25 @@ AllocKind getAllocFnKind(const CallBase *Call, const TargetLibraryInfo &TLI) {
   return AK_NotAlloc;
 }
 
-void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
-                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
-                      const TargetLibraryInfo &TLI) {
-  assert(Kind != AK_NotAlloc && Kind != AK_UserMalloc0 &&
+static void getAllocSizeArgsImpl(AllocKind Kind, const CallBase *Call,
+                                 unsigned &AllocSizeInd,
+                                 unsigned &AllocCountInd,
+                                 const TargetLibraryInfo &TLI) {
+  assert(Kind != AK_NotAlloc &&
          "Unexpected alloc kind passed to getAllocSizeArgs");
   switch (Kind) {
-  case AK_UserMalloc: {
-    // User-defined malloc with two arguments comes from the operator new which
-    // was re-defined by user in some class. In this case the first argument is
-    // always 'this' pointer and the second argument is 'size' argument.
-    // Indirect call means that devirtualization on this call site didn't
-    // happen.
-    if (Call->arg_size() == 2 || !dtrans::getCalledFunction(*Call)) {
-      // Allow user-defined malloc with 'this' ptr argument.
-      Type *ZeroArgType = Call->getArgOperand(0)->getType();
-      Type *FirstArgType = Call->getArgOperand(1)->getType();
-      // TODO: OpaquePtr: Need to implement a way to get the pointer type for
-      // the argument when opaque pointers are in use.
-      if (ZeroArgType->isPointerTy() &&
-          ZeroArgType->getPointerElementType()->isStructTy() &&
-          FirstArgType->isIntegerTy()) {
-        AllocSizeInd = 1;
-        AllocCountInd = -1U;
-        return;
-      }
-    }
+  case AK_UserMalloc:
     AllocSizeInd = 0;
     AllocCountInd = -1U;
     return;
-  }
+  case AK_UserMalloc0:
+    AllocSizeInd = 0;
+    AllocCountInd = -1U;
+    return;
+  case AK_UserMallocThis:
+    AllocSizeInd = 1;
+    AllocCountInd = -1U;
+    return;
   case AK_New:
     AllocSizeInd = 0;
     AllocCountInd = -1U;
@@ -142,6 +146,26 @@ void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
   default:
     llvm_unreachable("Unexpected alloc kind passed to getAllocSizeArgs");
   }
+}
+
+void getAllocSizeArgs(AllocKind Kind, const CallBase *Call,
+                      unsigned &AllocSizeInd, unsigned &AllocCountInd,
+                      const TargetLibraryInfo &TLI) {
+  getAllocSizeArgsImpl(Kind, Call, AllocSizeInd, AllocCountInd, TLI);
+  LLVM_DEBUG({
+    bool Direct = true;
+    if (!dtrans::getCalledFunction(*Call))
+      Direct = false;
+
+    dbgs() << "AllocSizeArgs: [Kind=" << AllocKindName(Kind)
+           << " Direct=" << Direct << " ArgsCount=" << Call->arg_size()
+           << " SizeInd=" << AllocSizeInd << " CountInd=" << AllocCountInd
+           << " :" << *Call << "\n";
+  });
+
+  if (AllocSizeInd != -1U)
+    assert(Call->getArgOperand(AllocSizeInd)->getType()->isIntegerTy() &&
+           "Size argument should be an integer");
 }
 
 // Should be kept in sync with DTransInstVisitor::DTanalyzeAllocationCall.
@@ -169,30 +193,42 @@ bool isDeleteFn(const CallBase *Call, const TargetLibraryInfo &TLI) {
   return isDeleteCall(Call, &TLI, false);
 }
 
-void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
-                   const TargetLibraryInfo &TLI) {
+static void getFreePtrArgImpl(FreeKind Kind, const CallBase *Call,
+                              unsigned &PtrArgInd,
+                              const TargetLibraryInfo &TLI) {
   assert(Kind != FK_NotFree && "Unexpected free kind passed to getFreePtrArg");
 
   if (!dtrans::getCalledFunction(*Call)) {
-    assert(Kind == FK_UserFree);
+    assert(Kind == FK_UserFreeThis &&
+           "Indirect call only supports \"this\" and \"ptr\" argument");
     PtrArgInd = 1;
     return;
   }
 
-  if ((Kind == FK_UserFree) && (Call->arg_size() == 2)) {
-    // Allow user-defined free with 'this' ptr argument.
-    Type *ZeroArgType = Call->getArgOperand(0)->getType();
-    Type *FirstArgType = Call->getArgOperand(1)->getType();
-    // TODO: OpaquePtr: Need to implement a way to get the pointer type for the
-    // argument when opaque pointers are in use.
-    if (ZeroArgType->isPointerTy() &&
-        ZeroArgType->getPointerElementType()->isStructTy() &&
-        FirstArgType->isPointerTy()) {
-      PtrArgInd = 1;
-      return;
-    }
+  if (Kind == FK_UserFreeThis) {
+    PtrArgInd = 1;
+    return;
   }
+
   PtrArgInd = 0;
+}
+
+void getFreePtrArg(FreeKind Kind, const CallBase *Call, unsigned &PtrArgInd,
+                   const TargetLibraryInfo &TLI) {
+  getFreePtrArgImpl(Kind, Call, PtrArgInd, TLI);
+  LLVM_DEBUG({
+    bool Direct = true;
+    if (!dtrans::getCalledFunction(*Call))
+      Direct = false;
+
+    dbgs() << "FreeSizeArgs: [Kind=" << FreeKindName(Kind)
+           << " Direct=" << Direct << " ArgsCount=" << Call->arg_size()
+           << " ArgInd=" << PtrArgInd << " :" << *Call << "\n";
+  });
+
+  if (PtrArgInd != -1U)
+    assert(Call->getArgOperand(PtrArgInd)->getType()->isPointerTy() &&
+           "Free argument should be a pointer");
 }
 
 void collectSpecialFreeArgs(FreeKind Kind, const CallBase *Call,
@@ -234,56 +270,69 @@ bool DTransAllocAnalyzer::isVisitedBlock(BasicBlock *BB) const {
 }
 
 //
-// Return true if 'CS' is post-dominated by a call to malloc() on all paths
-// that do not include skip blocks.
+// Return the AllocKind, if 'Call' is post-dominated by a call to malloc() on
+// all paths that do not include skip blocks. Otherwise, return AK_NotAlloc.
 // Trivial wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isMallocPostDom(const CallBase *Call) {
+AllocKind DTransAllocAnalyzer::getMallocPostDomKind(const CallBase *Call) {
   // Try to find the called function, stripping away Bitcasts or looking
   // through GlobalAlias definitions, if necessary.
   const Function *F = dtrans::getCalledFunction(*Call);
 
   if (!F)
     // Check for allocation routine.
-    return analyzeForIndirectStatus(Call, true);
+    // Indirect calls only support AK_UserMallocThis.
+    return analyzeForIndirectStatus(Call, true) ? AK_UserMallocThis : AK_NotAlloc;
 
   auto IT = LocalMap.find(F);
-  AllocStatus AS = IT == LocalMap.end() ? AKS_Unknown : IT->second;
+  if (IT == LocalMap.end())
+    return AK_NotAlloc;
 
-  switch (AS) {
+  switch (IT->second) {
+  default:
+    return AK_NotAlloc;
   case AKS_Malloc:
-    return true;
-  case AKS_Free:
-  case AKS_Unknown:
-    return false;
+    return AK_UserMalloc;
+  case AKS_Malloc0:
+    return AK_UserMalloc0;
+  case AKS_MallocThis:
+    return AK_UserMallocThis;
   }
-  return false;
+  llvm_unreachable("Fully covered switch");
 }
 
 //
-// Return true if 'CS' is post-dominated by a call to free() on all paths that
-// do not include skip blocks.
-// Trivial wrappers are important special cases.
+// Return FreeKind, if 'Call' is post-dominated by a call to free() on all paths
+// that do not include skip blocks. Otherwise, return FK_NotFree. Trivial
+// wrappers are important special cases.
 //
-bool DTransAllocAnalyzer::isFreePostDom(const CallBase *Call) {
+FreeKind DTransAllocAnalyzer::getFreePostDomKind(const CallBase *Call) {
   // Try to find the called function, stripping away Bitcasts or looking
   // through GlobalAlias definitions, if necessary.
   const Function *F = dtrans::getCalledFunction(*Call);
 
   if (!F)
     // Check for deallocation routine.
-    return analyzeForIndirectStatus(Call, false);
+    // Indirect calls only support FK_UserFreeThis.
+    return analyzeForIndirectStatus(Call, false) ? FK_UserFreeThis : FK_NotFree;
 
-  auto it = LocalMap.find(F);
-  AllocStatus AS = it == LocalMap.end() ? AKS_Unknown : it->second;
-  switch (AS) {
+  auto IT = LocalMap.find(F);
+  if (IT == LocalMap.end())
+    return FK_NotFree;
+
+  switch (IT->second) {
+  default:
+    return FK_NotFree;
+
   case AKS_Free:
-    return true;
-  case AKS_Malloc:
-  case AKS_Unknown:
-    return false;
+    return FK_UserFree;
+  case AKS_Free0:
+    return FK_UserFree0;
+  case AKS_FreeThis:
+    return FK_UserFreeThis;
   }
-  return false;
+
+  llvm_unreachable("Fully covered switch");
 }
 
 //
@@ -449,13 +498,17 @@ bool DTransAllocAnalyzer::mallocOffset(Value *V, int64_t *offset) const {
         } else if (auto CI = dyn_cast<ConstantInt>(BI->getOperand(1))) {
           V = BI->getOperand(0);
           Result += CI->getSExtValue();
-        } else
+        } else {
           return false;
+        }
+      } else {
+        return false;
       }
-    } else if (auto SI = dyn_cast<SExtInst>(V))
+    } else if (auto SI = dyn_cast<SExtInst>(V)) {
       V = SI->getOperand(0);
-    else
+    } else {
       return false;
+    }
   }
   *offset = Result;
   return true;
@@ -620,12 +673,15 @@ bool DTransAllocAnalyzer::returnValueIsMallocAddress(Value *RV,
 }
 
 //
-// Return true if 'F' is isMallocPostDom().
+// Return an appropriate AllocStatus based on which argument is the allocation
+// size if 'F' is isMallocPostDom(). Otherwise, return AKS_Unknown.
 //
-bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
-  if (F == nullptr)
-    return false;
+DTransAllocAnalyzer::AllocStatus
+DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
+  if (F == nullptr || F->arg_size() == 0)
+    return AKS_Unknown;
   LLVM_DEBUG(dbgs() << "Analyzing for MallocPostDom " << F->getName() << "\n");
+
   // Make sure that VisitedBlocks and SkipTestBlocks are clear before
   // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
   // return from this function.  VisitedBlocks can be cleared immediately
@@ -634,6 +690,7 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   SkipTestBlocks.clear();
   // Allow user-defined allocation function with 'this' pointer as a first
   // argument.
+
   auto IsThisPtrAndSizeArgs = [&](Function *F) {
     if (F->arg_size() != 2)
       return false;
@@ -648,9 +705,17 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
     return true;
   };
 
-  if (F->arg_size() != 1 || !F->arg_begin()->getType()->isIntegerTy())
-    if (!IsThisPtrAndSizeArgs(F))
-      return false;
+  // Identify the type of user allocation. AKS_Malloc0 could also be
+  // supported as an allowed type here, but for now that type is only
+  // used for a special case when the set is expanded to include callers of the
+  // user allocation functions.
+  AllocStatus AllocType = AKS_Unknown;
+  if (F->arg_size() == 1 && F->arg_begin()->getType()->isIntegerTy())
+    AllocType = AKS_Malloc;
+  else if (IsThisPtrAndSizeArgs(F))
+    AllocType = AKS_MallocThis;
+  else
+    return AKS_Unknown;
 
   visitNullPtrBlocks(F);
   VisitedBlocks.clear();
@@ -661,12 +726,12 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
       if (RV == nullptr) {
         LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
                           << " Return is nullptr\n");
-        return false;
+        return AKS_Unknown;
       }
       if (!returnValueIsMallocAddress(RV, &BB)) {
         LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
                           << " Return is not malloc address\n");
-        return false;
+        return AKS_Unknown;
       }
       rv = true;
     }
@@ -675,7 +740,7 @@ bool DTransAllocAnalyzer::analyzeForMallocStatus(Function *F) {
   else
     LLVM_DEBUG(dbgs() << "Not MallocPostDom " << F->getName()
                       << " No malloc address returned\n");
-  return rv;
+  return rv ? AllocType : AKS_Unknown;
 }
 
 //  Indirect calls through vtable. Matched sequence for 'allocate' is as
@@ -805,8 +870,9 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
           // Function calling F.
           auto *FreeCand =
               cast<Instruction>(U.getUser())->getParent()->getParent();
-          if (analyzeForFreeStatus(FreeCand))
-            LocalMap[FreeCand] = AKS_Free;
+          AllocStatus Kind = analyzeForFreeStatus(FreeCand);
+          if (Kind != AKS_Unknown)
+            LocalMap[FreeCand] = Kind;
         }
       continue;
     }
@@ -820,8 +886,9 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
           // Function calling F.
           auto *MallocCand =
               cast<Instruction>(U.getUser())->getParent()->getParent();
-          if (analyzeForMallocStatus(MallocCand))
-            LocalMap[MallocCand] = AKS_Malloc;
+          AllocStatus Kind = analyzeForMallocStatus(MallocCand);
+          if (Kind != AKS_Unknown)
+            LocalMap[MallocCand] = Kind;
         }
       continue;
     }
@@ -831,24 +898,24 @@ void DTransAllocAnalyzer::populateAllocDeallocTable(const Module &M) {
   // of alloc/free functions.
   std::map<const Function *, AllocStatus> TempLocalMap;
   for (auto &IT : LocalMap) {
-    if (IT.second == AKS_Malloc) {
-      TempLocalMap[IT.first] = AKS_Malloc;
+    if (isAllocation(IT.second)) {
+      TempLocalMap[IT.first] = IT.second;
       // Check all functions, calling user malloc/new function.
       for (auto &U : IT.first->uses()) {
         if (auto *I = dyn_cast<Instruction>(U.getUser())) {
           auto *SpecialMallocCand = I->getParent()->getParent();
           if (isMallocWithStoredMMPtr(SpecialMallocCand))
-            TempLocalMap[SpecialMallocCand] = AKS_Malloc;
+            TempLocalMap[SpecialMallocCand] = AKS_Malloc0;
         }
       }
-    } else if (IT.second == AKS_Free) {
-      TempLocalMap[IT.first] = AKS_Free;
+    } else if (isFree(IT.second)) {
+      TempLocalMap[IT.first] = IT.second;
       // Check all functions, calling user free function.
       for (auto &U : IT.first->uses()) {
         if (auto *I = dyn_cast<Instruction>(U.getUser())) {
           auto *SpecialFreeCand = I->getParent()->getParent();
           if (isFreeWithStoredMMPtr(SpecialFreeCand))
-            TempLocalMap[SpecialFreeCand] = AKS_Free;
+            TempLocalMap[SpecialFreeCand] = AKS_Free0;
         }
       }
     }
@@ -882,22 +949,50 @@ bool DTransAllocAnalyzer::isPostDominatedByFreeCall(BasicBlock *BB,
 }
 
 //
-// Return true if 'F' is isFreePostDom().
+// Return an appropriate AllocStatus based on which argument is the pointer
+// to be freed if 'F' is isFreePostDom(). Otherwise, return AKS_Unknown.
 //
-bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
-  if (F == nullptr)
-    return false;
+DTransAllocAnalyzer::AllocStatus
+DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
+  if (F == nullptr || F->arg_size() == 0)
+    return AKS_Unknown;
+
   // Make sure that VisitedBlocks and SkipTestBlocks are clear before
   // visitNullPtrBlocks() is called. SkipTestBlocks are valid until we
   // return from this function.  VisitedBlocks can be cleared immediately
   // after visitNullPtrBlocks() is run.
   VisitedBlocks.clear();
   SkipTestBlocks.clear();
-  if (std::distance(F->arg_begin(), F->arg_end()) == 1 &&
-      F->arg_begin()->getType()->isPointerTy()) {
+
+  AllocStatus FreeType = AKS_Unknown;
+  switch (F->arg_size()) {
+  default:
+    return AKS_Unknown;
+
+  case 1:
+    if (!F->arg_begin()->getType()->isPointerTy())
+      return AKS_Unknown;
+
     visitNullPtrBlocks(F);
     VisitedBlocks.clear();
+    FreeType = AKS_Free;
+    break;
+
+  case 2: {
+    Type *ZeroArgType = F->getArg(0)->getType();
+    Type *FirstArgType = F->getArg(1)->getType();
+    if (ZeroArgType->isPointerTy() &&
+        ZeroArgType->getPointerElementType()->isStructTy() &&
+        FirstArgType->isPointerTy())
+      FreeType = AKS_FreeThis;
+    else if (ZeroArgType->isPointerTy())
+      FreeType = AKS_Free0;
+    else
+      return AKS_Unknown;
+    break;
   }
+  }
+
   LLVM_DEBUG(dbgs() << "Analyzing for FreePostDom " << F->getName() << "\n");
   bool rv = false;
   for (BasicBlock &BB : *F)
@@ -905,13 +1000,13 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
       if (Ret->getReturnValue() != nullptr) {
         LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
                           << " Return is not nullptr\n");
-        return false;
+        return AKS_Unknown;
       }
       bool SeenFree = false;
       if (!isPostDominatedByFreeCall(&BB, SeenFree)) {
         LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
                           << " Return is not post-dominated by call to free\n");
-        return false;
+        return AKS_Unknown;
       }
       rv = SeenFree;
     }
@@ -920,7 +1015,7 @@ bool DTransAllocAnalyzer::analyzeForFreeStatus(Function *F) {
   else
     LLVM_DEBUG(dbgs() << "Not FreePostDom " << F->getName()
                       << " No return post-dominated by free\n");
-  return rv;
+  return rv ? FreeType : AKS_Unknown;
 }
 
 // Check that function is a special kind of user-defined malloc which stores
@@ -1414,8 +1509,8 @@ void DTransAllocAnalyzer::parseListOptions(const Module &M) {
     }
   };
 
-  F(DTransFreeFunctions, AKS_Free, false, "free");
-  F(DTransMallocFunctions, AKS_Malloc, true, "malloc");
+  F(DTransFreeFunctions, AKS_Free0, false, "free");
+  F(DTransMallocFunctions, AKS_Malloc0, true, "malloc");
 }
 #endif
 

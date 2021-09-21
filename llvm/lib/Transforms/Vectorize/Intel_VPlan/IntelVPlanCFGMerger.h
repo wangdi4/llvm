@@ -79,10 +79,12 @@ public:
 
   // Create a list of VPlan descriptors (along with the needed VPlans) by
   // vectorization scenario \p Scen.
+  template <class LoopTy>
   static void createPlans(LoopVectorizationPlanner &Planner,
                           const SingleLoopVecScenario &Scen,
-                          std::list<CfgMergerPlanDescr> &Plans, Loop *OrigLoop,
-                          VPlan &MainPlan, VPAnalysesFactoryBase &VPAF);
+                          std::list<CfgMergerPlanDescr> &Plans,
+                          LoopTy *OrigLoop, VPlan &MainPlan,
+                          VPAnalysesFactoryBase &VPAF);
 
   // The first pass of the universal CFG merger. Creates merged CFG by scenario
   // \p Scen and the prepared list of VPlans \p Plans. It goes through the list

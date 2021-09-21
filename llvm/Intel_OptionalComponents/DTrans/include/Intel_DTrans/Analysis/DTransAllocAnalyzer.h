@@ -37,22 +37,42 @@ enum AllocKind : uint8_t {
   AK_Malloc,
   AK_Calloc,
   AK_Realloc,
-  AK_UserMalloc,
-  AK_UserMalloc0,
+  AK_UserMalloc,  // Allocation with just a size argument.
+  AK_UserMalloc0, // Allocation with multiple arguments, size is first argument.
+  AK_UserMallocThis, // Allocation with "this" pointer and size argument.
   AK_New
 };
 
 /// Kind of free function call.
-/// - FK_Free represents a direct call to the standard library function 'free'
-/// - FK_UserFree represents a call to a user-wrapper function of 'free''
-/// - FK_Delete represents a call to C++ delete/deletep[] functions.
-enum FreeKind { FK_NotFree, FK_Free, FK_UserFree, FK_Delete };
+/// - FK_Free         - a direct call to the standard library function 'free'
+/// - FK_UserFree     - a call to a user-wrapper function of 'free' which
+///                     just takes a single pointer argument.
+/// - FK_UserFree0    - a call to a user-wrapper function of 'free' which
+///                     takes multiple arguments, the pointer to free is the
+///                     first argument.
+/// - FK_UserFreeThis - a call to a user-wrapper function of 'free' which
+///                     takes a 'this' pointer and a pointer to be freed.
+/// - FK_Delete       - a call to C++ delete/delete[] functions.
+enum FreeKind : uint8_t {
+  FK_NotFree,
+  FK_Free,
+  FK_UserFree,
+  FK_UserFree0,
+  FK_UserFreeThis,
+  FK_Delete
+};
 
 /// Get a printable string for the AllocKind
 StringRef AllocKindName(AllocKind Kind);
 
 /// Get a printable string for the FreeKind
 StringRef FreeKindName(FreeKind Kind);
+
+/// Return 'true' if 'Kind' is one of the user allocation types.
+bool isUserAllocKind(AllocKind Kind);
+
+/// Return 'true' if 'Kind' is one of the user free types.
+bool isUserFreeKind(FreeKind Kind);
 
 /// Determine whether the specified \p Call is a call to allocation function,
 /// and if so what kind of allocation function it is and the size of the
@@ -137,8 +157,15 @@ public:
   DTransAllocAnalyzer(
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       const Module &M);
-  bool isMallocPostDom(const CallBase *Call);
-  bool isFreePostDom(const CallBase *Call);
+  AllocKind getMallocPostDomKind(const CallBase *Call);
+  FreeKind getFreePostDomKind(const CallBase *Call);
+  bool isMallocPostDom(const CallBase *Call) {
+    return getMallocPostDomKind(Call) != AK_NotAlloc;
+  }
+  bool isFreePostDom(const CallBase *Call) {
+    return getFreePostDomKind(Call) != FK_NotFree;
+  }
+
   void populateAllocDeallocTable(const Module &M);
   bool isMallocWithStoredMMPtr(const Function *F);
   bool isFreeWithStoredMMPtr(const Function *F);
@@ -150,7 +177,23 @@ private:
 
   // An enum recording the status of a function. The status is
   // updated in populateAllocDeallocTable.
-  enum AllocStatus { AKS_Unknown, AKS_Malloc, AKS_Free };
+  // Note: The specific 'malloc'/'free' types in this enumeration have a 1-1
+  // correspondence to the DTrans AllocKind/FreeKind enumerations.
+  enum AllocStatus {
+    AKS_Unknown,
+    AKS_Malloc,
+    AKS_Malloc0,
+    AKS_MallocThis,
+    AKS_Free,
+    AKS_Free0,
+    AKS_FreeThis
+  };
+  bool isAllocation(AllocStatus Kind) {
+    return Kind >= AKS_Malloc && Kind <= AKS_MallocThis;
+  }
+  bool isFree(AllocStatus Kind) {
+    return Kind >= AKS_Free && Kind <= AKS_FreeThis;
+  }
 
   // Mapping for the AllocStatus of each Function we have queried.
   std::map<const Function *, AllocStatus> LocalMap;
@@ -188,11 +231,11 @@ private:
   bool mallocLimit(GetElementPtrInst *GBV, GetElementPtrInst *GV,
                    int64_t Offset, int64_t *Result) const;
   bool returnValueIsMallocAddress(Value *RV, BasicBlock *BB);
-  bool analyzeForMallocStatus(Function *F);
+  AllocStatus analyzeForMallocStatus(Function *F);
 
   bool hasFreeCall(BasicBlock *BB) const;
   bool isPostDominatedByFreeCall(BasicBlock *BB, bool &IsFreeSeen);
-  bool analyzeForFreeStatus(Function *F);
+  AllocStatus analyzeForFreeStatus(Function *F);
 
   bool analyzeForIndirectStatus(const CallBase *Call, bool Alloc);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

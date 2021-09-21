@@ -1793,6 +1793,9 @@ private:
 
   /// Emit the Intel DTrans type/function metadata.
   void EmitIntelDTransMetadata();
+
+  /// Emit compiler options as llvm.ident metadata.
+  void EmitSoxIdentMetadata();
 #endif // INTEL_CUSTOMIZATION
 
   /// Determine whether the definition must be emitted; if this returns \c

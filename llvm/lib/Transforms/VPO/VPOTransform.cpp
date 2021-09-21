@@ -20,6 +20,7 @@ void llvm::initializeVPOTransforms(PassRegistry &Registry) {
   initializeVPODirectiveCleanupPass(Registry);
   initializeVPOParoptOptimizeDataSharingPass(Registry);
   initializeVPOParoptSharedPrivatizationPass(Registry);
+  initializeVPOParoptTargetInlinePass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeVPOParoptLoopCollapsePass(Registry);
   initializeVPOParoptPreparePass(Registry);

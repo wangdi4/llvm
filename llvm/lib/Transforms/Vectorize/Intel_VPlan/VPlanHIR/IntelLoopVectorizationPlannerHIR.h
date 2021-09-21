@@ -44,6 +44,10 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
+  /// A list of other additional VPlans, created during peel/remainders
+  /// creation and cloning.
+  std::list<CfgMergerPlanDescr> MergerVPlans;
+
   std::shared_ptr<VPlanVector>
   buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
                     std::string VPlanName,
@@ -142,7 +146,11 @@ public:
     // FIXME: Implement this!
     return {8, 64};
   }
-  virtual bool isNewCFGMergeEnabled() const override { return false;}
+  virtual bool isNewCFGMergeEnabled() const override {
+    return EnableNewCFGMergeHIR;
+  }
+
+  void createMergerVPlans(VPAnalysesFactoryBase &VPAF) override;
 };
 
 } // namespace vpo

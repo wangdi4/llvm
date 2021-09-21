@@ -1440,7 +1440,7 @@ public:
         unsigned S1 = -1U;
         unsigned S2 = -1U;
         auto AllocKind = isDummyFunc
-                             ? AK_UserMalloc
+                             ? AK_UserMallocThis
                              : cast<AllocCallInfo>(Info)->getAllocKind();
         getAllocSizeArgs(AllocKind, Call, S1, S2, TLI);
         assert((S1 == -1U) != (S2 == -1U) && "Unexpected allocation routine");

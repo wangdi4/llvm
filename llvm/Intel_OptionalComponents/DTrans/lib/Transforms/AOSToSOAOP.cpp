@@ -774,6 +774,8 @@ void AOSCollector::visitCallBase(CallBase &I) {
     return;
 
   Function *CloneFn = Transform.getClonedFunction(F);
+  assert(CloneFn &&
+         "FnClonedForIndex set out of sync with OrigFuncToCloneFuncMap map");
   auto *OrigFnType = cast<llvm::FunctionType>(F->getValueType());
   auto *CloneFnType = cast<llvm::FunctionType>(CloneFn->getValueType());
   llvm::Type *RetTy = OrigFnType->getReturnType();
@@ -2700,6 +2702,7 @@ void AOSToSOAOPTransformImpl::convertDepMemfuncCall(MemfuncCallInfo *CInfo,
 void AOSToSOAOPTransformImpl::convertDepBinaryOperator(
     BinaryOperator *I, DTransStructType *StructTy) {
   auto *OrigLLVMTy = dyn_cast<llvm::StructType>(StructTy->getLLVMType());
+  assert(OrigLLVMTy && "Failed to get LLVMType for DTransStructTy");
   llvm::Type *ReplTy = getDependentTypeReplacement(OrigLLVMTy);
   dtrans::updatePtrSubDivUserSizeOperand(I, OrigLLVMTy, ReplTy, DL);
 }
@@ -2722,8 +2725,10 @@ void AOSToSOAOPTransformImpl::updateCallAttributes(CallBase *Call) {
   Function *Callee = dyn_cast<Function>(CallOp->stripPointerCasts());
   assert(Callee && "Expect to identify called function");
   auto *OrigFnType = cast<llvm::FunctionType>(Callee->getValueType());
-  auto *CloneFnType =
-      cast<llvm::FunctionType>(getClonedFunction(Callee)->getValueType());
+  Function *CalleeClone = getClonedFunction(Callee);
+  assert(CalleeClone &&
+         "updateCallAttributes only needed for functions being cloned");
+  auto *CloneFnType = cast<llvm::FunctionType>(CalleeClone->getValueType());
   AttributeList Attrs = Call->getAttributes();
   if (updateAttributeList(OrigFnType, CloneFnType, Attrs))
     Call->setAttributes(Attrs);

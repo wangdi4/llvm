@@ -2554,7 +2554,7 @@ bool MemManageTransImpl::identifyAllocCall(BasicBlock *BB, Value *Obj,
     if (CallInfo->getCallInfoKind() != dtrans::CallInfo::CIK_Alloc)
       return false;
     auto AKind = cast<AllocCallInfo>(CallInfo)->getAllocKind();
-    if (AKind != AK_Malloc && AKind != AK_UserMalloc)
+    if (AKind != AK_Malloc && !isUserAllocKind(AKind))
       return false;
 
     if (!isListMemManagerLoad(CB->getArgOperand(0), Obj))

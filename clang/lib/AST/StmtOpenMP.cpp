@@ -1193,7 +1193,8 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
 #if INTEL_COLLAB
     Expr *E, Expr *Expected, Expr *Result, Expr *UE, bool IsXLHSInRHSPart,
-    bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax) {
+    bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax,
+    bool IsConditionalCapture) {
 #else // INTEL_COLLAB
     Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate) {
 #endif // INTEL_COLLAB
@@ -1216,6 +1217,7 @@ OMPAtomicDirective *OMPAtomicDirective::Create(
 #if INTEL_COLLAB
   Dir->IsCompareMin = IsCompareMin;
   Dir->IsCompareMax = IsCompareMax;
+  Dir->IsConditionalCapture = IsConditionalCapture;
 #endif // INTEL_COLLAB
   return Dir;
 }

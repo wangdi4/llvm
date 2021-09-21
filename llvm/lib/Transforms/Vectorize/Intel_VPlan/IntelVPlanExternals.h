@@ -52,6 +52,7 @@ public:
                    unsigned Id)
       : Phi(PN), StartValOpNum(StartOp), LiveOut(LiveOutInst), MergeId(Id) {}
 
+  Type *getValueType() const { return LiveOut->getType(); }
   PHINode *getPhi() const { return Phi; }
   int getStartOpNum() const { return StartValOpNum; }
   const Value *getLiveOut() const { return LiveOut; }
@@ -74,6 +75,7 @@ public:
                       unsigned Id)
       : MergeId(Id), HIRRef(HIRRef), IsMainLoopIV(IsMainLoopIV) {}
 
+  Type *getValueType() const { return HIRRef->getDestType(); }
   unsigned getId() const { return MergeId; }
   const loopopt::DDRef *getHIRRef() const { return HIRRef; }
   bool isMainLoopIV() const { return IsMainLoopIV; }
@@ -208,13 +210,6 @@ class VPExternalValues {
   /// uniquely identifies each external definition.
   FoldingSet<VPExternalDef> VPExternalDefsHIR;
 
-  /// Return the iterator range for external defs in VPExternalDefsHIR.
-  decltype(auto) getVPExternalDefsHIR() const {
-    return map_range(
-        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
-        [](const VPExternalDef &Def) { return &Def; });
-  }
-
   /// Holds all the external uses in this VPlan.
   using ExternalUsesListTy = SmallVector<std::unique_ptr<VPExternalUse>, 16>;
   ExternalUsesListTy VPExternalUses;
@@ -253,6 +248,13 @@ class VPExternalValues {
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
+
+  /// Return the iterator range for external defs in VPExternalDefsHIR.
+  decltype(auto) getVPExternalDefsHIR() const {
+    return map_range(
+        make_range(VPExternalDefsHIR.begin(), VPExternalDefsHIR.end()),
+        [](const VPExternalDef &Def) { return &Def; });
+  }
 
   ~VPExternalValues() {
     // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.
@@ -616,16 +618,16 @@ public:
   /// Create VPLiveInValue-s list for VPlan that represents
   /// scalar loop. Going through the list of descriptors for a scalar loop,
   /// create live-ins of the appropriate type and update live-in list of VPlan.
-  void createLiveInsForScalarVPlan(const ScalarInOutList &ScalarInOuts,
-                                   int Count);
+  template <typename InOutListTy>
+  void createLiveInsForScalarVPlan(const InOutListTy &ScalarInOuts, int Count);
 
   /// Create VPLiveOutValue-s list for VPlan that represents
   /// scalar loop. Going through the list of descriptors for a scalar loop,
   /// create live-outs with corresponding operands from \p Outgoing and update
   /// the live-out list in VPlan.
-  void createLiveOutsForScalarVPlan(
-      const ScalarInOutList &ScalarInOuts, int Count,
-      DenseMap<int, VPValue *> &Outgoing);
+  template <typename InOutListTy>
+  void createLiveOutsForScalarVPlan(const InOutListTy &ScalarInOuts, int Count,
+                                    DenseMap<int, VPValue *> &Outgoing);
 
 private:
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.

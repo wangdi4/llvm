@@ -12,6 +12,7 @@
 
 ; CHECK: Executing Pass 'DTrans delete field with opaque pointer support'
 ; CHECK: Executing Pass 'DTrans array of structures to structure of arrays with opaque pointer support'
+; CHECK: Executing Pass 'DTrans eliminate read only field access'
 ; CHECK: Executing Pass 'DTrans dynamic cloning with opaque pointer support'
 ; CHECK: Executing Pass 'DTrans annotator cleaner'
 

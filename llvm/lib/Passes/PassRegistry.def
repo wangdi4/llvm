@@ -66,6 +66,7 @@ MODULE_PASS("vec-clone",VecClonePass());
 MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
 MODULE_PASS("dpcpp-kernel-add-function-attrs", AddFunctionAttrsPass())
 MODULE_PASS("dpcpp-kernel-builtin-import", BuiltinImportPass())
+MODULE_PASS("dpcpp-kernel-coerce-win64-types", CoerceWin64TypesPass())
 MODULE_PASS("dpcpp-kernel-equalizer", DPCPPEqualizerPass())
 MODULE_PASS("dpcpp-kernel-analysis", DPCPPKernelAnalysisPass())
 MODULE_PASS("dpcpp-kernel-wgloop-creator", DPCPPKernelWGLoopCreatorPass())
@@ -128,6 +129,8 @@ MODULE_PASS("dtrans-paddedmalloc", dtrans::PaddedMallocPass())   // INTEL
 MODULE_PASS("padded-pointer-prop", PaddedPtrPropPass())          // INTEL
 MODULE_PASS("dtrans-elim-ro-field-access",                       // INTEL
             dtrans::EliminateROFieldAccessPass())                // INTEL
+MODULE_PASS("dtrans-elim-ro-field-access-op",                    // INTEL
+            dtransOP::EliminateROFieldAccessPass())              // INTEL
 MODULE_PASS("dtrans-meminittrimdown", dtrans::MemInitTrimDownPass()) // INTEL
 MODULE_PASS("dtrans-memmanagetrans", dtrans::MemManageTransPass()) // INTEL
 MODULE_PASS("dtrans-codealign", dtrans::CodeAlignPass())         // INTEL
@@ -265,6 +268,7 @@ MODULE_PASS("vtable-fixup", IntelVTableFixupPass()) // INTEL
 MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
 #endif // INTEL_COLLAB
+MODULE_PASS("vpo-paropt-target-inline", VPOParoptTargetInlinePass()) // INTEL
 #undef MODULE_PASS
 
 #ifndef MODULE_PASS_WITH_PARAMS

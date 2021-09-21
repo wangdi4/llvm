@@ -3653,6 +3653,10 @@ static void decideKernelGroupArguments(
   }
 #endif // INTEL_CUSTOMIZATION
   const KernelInfoTy *KInfo = DeviceInfo->getKernelInfo(DeviceId, Kernel);
+  if (!KInfo) {
+    DP("Warning: Cannot find kernel information for kernel " DPxMOD ".\n",
+       DPxPTR(Kernel));
+  }
   size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
   bool maxGroupSizeForced = false;
   bool maxGroupCountForced = false;
@@ -3741,7 +3745,7 @@ static void decideKernelGroupArguments(
       } else {
         // For kernels with cross-WG reductions use LWS equal
         // to kernelWidth. This is just a performance heuristic.
-        if (KInfo->getHasTeamsReduction() &&
+        if (KInfo && KInfo->getHasTeamsReduction() &&
 #if INTEL_CUSTOMIZATION
             // Only do this for discrete devices.
             DeviceInfo->isDiscreteDevice(DeviceId) &&
@@ -3774,7 +3778,7 @@ static void decideKernelGroupArguments(
   GroupCounts[0] = maxGroupCount;
   GroupCounts[1] = GroupCounts[2] = 1;
   if (!maxGroupCountForced) {
-    if (KInfo->getHasTeamsReduction() &&
+    if (KInfo && KInfo->getHasTeamsReduction() &&
         DeviceInfo->ReductionSubscriptionRate) {
 #if INTEL_CUSTOMIZATION
       if (DeviceInfo->isDiscreteDevice(DeviceId)) {

@@ -15,9 +15,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanCFGMerger.h"
 #include "../IntelVPlanCallVecDecisions.h"
-#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
 
@@ -33,6 +34,11 @@ static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
 static cl::opt<bool>
     EnableInMemoryEntities("vplan-enable-inmemory-entities", cl::init(false),
                            cl::Hidden, cl::desc("Enable in memory entities."));
+
+static cl::opt<bool, true>
+    EnableNewCFGMergeHIROpt("vplan-enable-new-cfg-merge-hir", cl::Hidden,
+                            cl::location(EnableNewCFGMergeHIR),
+                            cl::desc("Enable the new CFG merger for HIR."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
                                                   unsigned UF) {
@@ -228,6 +234,20 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
   }
 
   return Result;
+}
+
+void LoopVectorizationPlannerHIR::createMergerVPlans(
+    VPAnalysesFactoryBase &VPAF) {
+  assert(MergerVPlans.empty() && "Non-empty list of VPlans");
+  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
+    assert(getBestVF() > 1 && "Unexpected VF");
+
+    VPlanVector *Plan = getBestVPlan();
+    assert(Plan && "No best VPlan found.");
+
+    VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
+                                *Plan, VPAF);
+  }
 }
 
 void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
