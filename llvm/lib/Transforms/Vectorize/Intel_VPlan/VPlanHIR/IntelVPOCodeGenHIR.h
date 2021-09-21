@@ -91,8 +91,9 @@ public:
   void dumpFinalHIR();
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
-  void finalizeGotos(void);
+  // Eliminate redundant gotos in GotosVector and redundant labels in
+  // VPBBLabelMap
+  void eliminateRedundantGotosLabels(void);
 
   // Check if loop is currently suported by CodeGen.
   bool loopIsHandled(HLLoop *Loop, unsigned int VF);
@@ -504,9 +505,8 @@ public:
   void emitBlockLabel(const VPBasicBlock *VPBB);
 
   // Emit the needed gotos to appropriate labels if the block is inside
-  // the loop being vectorized. Add the gotos generated to
-  // GotoTargetVPBBPairVector so that the gotos are fixed up at the end of
-  // vector code generation.
+  // the loop being vectorized. Add the gotos generated to GotosVector
+  // so that the gotos are fixed up at the end of vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
 
   // Return the Lval temp that was generated to represent the deconstructed PHI
@@ -660,9 +660,9 @@ private:
   // control flow.
   bool UniformControlFlowSeen = false;
 
-  // Vector of <HLGoto, target basic block> pairs.
-  SmallVector<std::pair<HLGoto *, const VPBasicBlock *>, 8>
-      GotoTargetVPBBPairVector;
+  // Vector used to contain HLGotos created during vector code generation.
+  // This vector is setup to be used in the call to eliminate redundant gotos.
+  SmallVector<HLGoto *, 8> GotosVector;
 
   // Map from a basic block to its starting label.
   SmallDenseMap<const VPBasicBlock *, HLLabel *> VPBBLabelMap;
@@ -888,6 +888,17 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  // Return HLLabel corresponding to VPBB in VPBBLabelMap if found, otherwise,
+  // return nullptr.
+  HLLabel *getBlockLabel(const VPBasicBlock *VPBB);
+
+  // Create a new HLLabel corresponding to VPBB and add it to the VPBBLabelMap
+  // before returning the same.
+  HLLabel *createBlockLabel(const VPBasicBlock *VPBB);
+
+  // Get or create HLLabel corresponding to VPBB and return the same.
+  HLLabel *getOrCreateBlockLabel(const VPBasicBlock *VPBB);
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 

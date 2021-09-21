@@ -1011,7 +1011,7 @@ void VPOCodeGenHIR::dumpFinalHIR() {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 void VPOCodeGenHIR::finalizeVectorLoop(void) {
-  finalizeGotos();
+  eliminateRedundantGotosLabels();
 
   LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
   LLVM_DEBUG(dumpFinalHIR());
@@ -5082,12 +5082,36 @@ void VPOCodeGenHIR::serializeInstruction(const VPInstruction *VPInst,
              dbgs() << "\n");
 }
 
+HLLabel *VPOCodeGenHIR::getBlockLabel(const VPBasicBlock *VPBB) {
+  auto Itr = VPBBLabelMap.find(VPBB);
+  if (Itr != VPBBLabelMap.end())
+    return Itr->second;
+  else
+    return nullptr;
+}
+
+HLLabel *VPOCodeGenHIR::createBlockLabel(const VPBasicBlock *VPBB) {
+  assert(!VPBBLabelMap.count(VPBB) && "Unexpected block with existing label");
+  HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
+  VPBBLabelMap[VPBB] = Label;
+  return Label;
+}
+
+HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
+  HLLabel *Label;
+  if (Label = getBlockLabel(VPBB))
+    return Label;
+
+  Label = createBlockLabel(VPBB);
+  return Label;
+}
+
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   // TODO - search loop representation is currently not explicit.
   if (isSearchLoop())
     return;
 
-  HLLabel *Label = HLNodeUtilities.createHLLabel(VPBB->getName());
+  HLLabel *Label = getOrCreateBlockLabel(VPBB);
 
   // NOTE - the implementation here still assumes few things
   // --  We are dealing with inner-most loop vectorization and that the blocks
@@ -5110,7 +5134,6 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
     HLNodeUtilities.insertAfter(InsertPoint, Label);
 
   InsertPoint = Label;
-  VPBBLabelMap[VPBB] = Label;
 }
 
 void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
@@ -5118,20 +5141,23 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   if (isSearchLoop())
     return;
 
-  // Create a HLGoto that is expected to jump to the start of the specified
-  // Block and add it to the needed vectors. Return the created HLGoto.
-  auto createGoto = [this](const VPBasicBlock *Block) {
-    HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
-    GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Block));
+  // Get or create the label corresponding to Block start and create a HLGoto
+  // with target set to this label. Return the created HLGoto after adding it
+  // to the needed vector.
+  auto createGotoAndSetTargetLabel = [this](const VPBasicBlock *Block) {
+    HLLabel *Label = getOrCreateBlockLabel(Block);
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(Label);
+    GotosVector.push_back(Goto);
     return Goto;
   };
 
   // The loop backedge/exit is implicit in the vector loop. Do not emit
-  // gotos in the latch block. TODO - look into why we need to suppress
-  // goto in PreHeader.
-  bool Latch = VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
+  // gotos in the main vector loop latch block. TODO - look into why we need
+  // to suppress goto in PreHeader.
+  bool MainLoopLatch =
+      VLoop->contains(SourceBB) && VLoop->isLoopLatch(SourceBB);
   bool IsPH = VLoop->getLoopPreheader() == SourceBB;
-  if (SourceBB->getNumSuccessors() && !Latch && !IsPH) {
+  if (SourceBB->getNumSuccessors() && !MainLoopLatch && !IsPH) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
     // If the block has two successors, we emit the following sequence
@@ -5146,9 +5172,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     // 'SourceBB: Successors: Succ1'.
     //
     //     goto Succ1_Label.
-    // The gotos are created initially with a null target label. These are
-    // fixed up at the end of vector code generation when the labels
-    // are available for all basic blocks.
+    // The gotos are created with appropriate target label.
     if (SourceBB->getNumSuccessors() == 2) {
       const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
       const VPValue *CondBit = SourceBB->getCondBit();
@@ -5163,39 +5187,26 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
           DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
       addInst(If, nullptr /* Mask */);
 
-      HLGoto *ThenGoto = createGoto(Succ1);
+      HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
 
-      HLGoto *ElseGoto = createGoto(Succ2);
+      HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
       HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
-      HLGoto *Goto = createGoto(Succ1);
+      HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);
       addInst(Goto, nullptr /* Mask */);
     }
   }
 }
 
-void VPOCodeGenHIR::finalizeGotos(void) {
-  // Vector used to contain HLGotos created during vector code generation.
-  // This vector is setup to be used in the call to eliminate redundant
-  // gotos.
-  SmallVector<HLGoto *, 8> Gotos;
-
-  for (auto It : GotoTargetVPBBPairVector) {
-    HLGoto *Goto = It.first;
-    const VPBasicBlock *TargetBB = It.second;
-
-    Goto->setTargetLabel(VPBBLabelMap[TargetBB]);
-    Gotos.push_back(Goto);
-  }
-
+void VPOCodeGenHIR::eliminateRedundantGotosLabels(void) {
   LLVM_DEBUG(dbgs() << "Loop before redundant gotos/labels removal: \n");
   LLVM_DEBUG(MainLoop->getParent()->dump());
 
   // Eliminate redundant Gotos.
   HLNodeUtils::RequiredLabelsTy RequiredLabels;
-  HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
+  HLNodeUtils::eliminateRedundantGotos(GotosVector, RequiredLabels);
 
   // Eliminate redundant labels.
   for (auto It : VPBBLabelMap) {
