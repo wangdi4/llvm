@@ -28,6 +28,7 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_long_constant_composite
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_memory_access_aliasing
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_token_type
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_bfloat16_conversion"
 // CHECK-SIMD: llvm-spirv{{.*}}"-spirv-ext=-all
