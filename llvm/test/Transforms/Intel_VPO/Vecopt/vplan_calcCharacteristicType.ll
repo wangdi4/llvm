@@ -41,7 +41,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_MASK_COND]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v__Z3barPif [x 1] [@CurrMask]
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
@@ -93,7 +93,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP1]] to <4 x i32>
-; CHECK-NEXT:    [[TMP3:%.*]] = call <4 x i32> @_ZGVbM4v_Z3barPif(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i32> [[MASKEXT0]])
+; CHECK-NEXT:    [[TMP3:%.*]] = call <4 x i32> @_ZGVbM4v__Z3barPif(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i32> [[MASKEXT0]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
@@ -142,5 +142,5 @@ return:                                           ; preds = %simd.end.region
 }
 
 attributes #1 = { "vector-variants"="_ZGVbM4_direct,_ZGVbN4_direct" }
-attributes #2 = { "vector-variants"="_ZGVbM4v_Z3barPif,_ZGVbN4v_Z3barPif" }
+attributes #2 = { "vector-variants"="_ZGVbM4v__Z3barPif,_ZGVbN4v__Z3barPif" }
 attributes #3 = { nounwind }
