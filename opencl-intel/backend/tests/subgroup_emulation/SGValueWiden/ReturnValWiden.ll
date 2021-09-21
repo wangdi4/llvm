@@ -57,7 +57,8 @@ sg.dummy.bb.2:                                    ; preds = %sg.dummy.bb.
 ; CHECK: %w.ret = alloca <16 x i32>, align 64
 
 ; CHECK: %sg.lid.1 = call i32 @_Z22get_sub_group_local_idv()
-; CHECK-NEXT: %[[#OP1:]] = getelementptr <16 x i32>, <16 x i32>* %w.ret, i32 0, i32 %sg.lid.1
+; CHECK-NEXT: %[[#OP0:]] = mul i32 %sg.lid.1, 1
+; CHECK-NEXT: %[[#OP1:]] = getelementptr <16 x i32>, <16 x i32>* %w.ret, i32 0, i32 %[[#OP0]]
 ; CHECK-NEXT: %[[#OP2:]] = load i32, i32* %u.call, align 4
 ; CHECK-NEXT: store i32 %[[#OP2]], i32* %[[#OP1]], align 4
 

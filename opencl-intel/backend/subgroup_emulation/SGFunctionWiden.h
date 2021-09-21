@@ -25,11 +25,6 @@ using namespace llvm;
 
 namespace intel {
 
-/// This function is intended to fix the load from <VF x iN>*. We need to cast
-/// the pointer to <VF x i<store size of iN>>* and then trunc the value loaded
-/// from the casted pointer.
-Value *fixIntNVector(Type *VType, Value *VPtr, Instruction *IP);
-
 class FunctionWidener {
 private:
   bool EnableDebug;
