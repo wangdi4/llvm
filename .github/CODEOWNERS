@@ -1,5 +1,10 @@
-* @bader @xmain/llvm-generic-owner # INTEL
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence
+# NOTE: will add Chenyang Liu once his access is set up
+#
+* @mlychkov
 
+<<<<<<< HEAD
 # Front-end compiler
 clang/ @premanandrao @elizabethandrews @AaronBallman @xmain/llvm-clang-front-end # INTEL
 
@@ -613,5 +618,7 @@ llvm/lib/Analysis/CFG.cpp @xmain/llvm-scalaropt
 llvm/lib/Analysis/BasicAliasAnalysis.cpp @xmain/llvm-scalaropt
 llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @xmain/llvm-scalaropt
 llvm/lib/Analysis/ConstraintSystem.cpp @xmain/llvm-scalaropt
+=======
+>>>>>>> 80a525a17341206cfb3b396547e7fbbae6b5d03e
 
 # end INTEL_CUSTOMIZATION
