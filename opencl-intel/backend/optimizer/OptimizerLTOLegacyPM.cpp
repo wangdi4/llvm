@@ -105,9 +105,12 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
                 : PassManagerBuilder::EP_ModuleOptimizerEarly;
   PMBuilder.addExtension(
-      EP, [](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
+      EP, [&](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
+        Triple TargetTriple(m_M->getTargetTriple());
+        if (TargetTriple.isArch64Bit() && TargetTriple.isOSWindows())
+          MPM.add(createCoerceWin64TypesLegacyPass());
         MPM.add(createDuplicateCalledKernelsLegacyPass());
         if (PMB.OptLevel > 0)
           MPM.add(createInternalizeNonKernelFuncLegacyPass());
