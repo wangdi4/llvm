@@ -74,11 +74,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG,
 
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
-  // TODO: Update to use runForMergedCFG when CFGMerger is available for HIR
-  // path.
-  CallVecDecisions.runForVF(BestVF, TLI, TTI);
-  std::string Label("CallVecDecisions analysis for VF=" +
-                    std::to_string(BestVF));
+  std::string Label;
+  if (EnableNewCFGMerge && EnableNewCFGMergeHIR) {
+    CallVecDecisions.runForMergedCFG(TLI, TTI);
+    Label = "CallVecDecisions analysis for merged CFG";
+  } else {
+    CallVecDecisions.runForVF(BestVF, TLI, TTI);
+    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
+  }
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
@@ -234,6 +237,20 @@ bool LoopVectorizationPlannerHIR::unroll(VPlanVector &Plan) {
   }
 
   return Result;
+}
+
+void LoopVectorizationPlannerHIR::emitPeelRemainderVPLoops(unsigned VF,
+                                                           unsigned UF) {
+  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR)
+    return;
+  assert(getBestVF() > 1 && "Unexpected VF");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
+
+  VPlanCFGMerger CFGMerger(*Plan, VF, UF);
+
+  // Run CFGMerger.
+  CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
 }
 
 void LoopVectorizationPlannerHIR::createMergerVPlans(

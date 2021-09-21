@@ -9645,9 +9645,16 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_arithmetic_fence"
         ",+SPV_INTEL_runtime_aligned";
 #if INTEL_CUSTOMIZATION
-    // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
-    if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd))
+    if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd)) {
+      // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
       INTELExtArg += ",+SPV_INTEL_optnone";
+      if (JA.isDeviceOffloading(Action::OFK_OpenMP))
+        // Enable SPV_INTEL_memory_access_aliasing exclusively during non-ESIMD
+        // OpenMP offloading
+        // TODO: once all issues in vector GPU compiler are resolved - need
+        // to enable this extension by default for both DPCPP and OpenMP
+        INTELExtArg += ",+SPV_INTEL_memory_access_aliasing";
+    }
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
 #if INTEL_CUSTOMIZATION

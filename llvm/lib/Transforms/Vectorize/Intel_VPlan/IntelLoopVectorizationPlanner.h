@@ -331,7 +331,7 @@ public:
   // (peel/remainder of different kinds) and merging them into flattened
   // cfg. \p UF and \p VF are selected unroll factor and vector factor,
   // correspondingly, for main VPlan.
-  void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
+  virtual void emitPeelRemainderVPLoops(unsigned VF, unsigned UF);
 
   // Create VPlans that are needed for CFG merge by the selected scenario.
   virtual void createMergerVPlans(VPAnalysesFactoryBase &VPAF);
@@ -577,6 +577,10 @@ protected:
   VPlanVLSAnalysis *VLSA;
 #endif // INTEL_CUSTOMIZATION
 
+  /// A list of other additional VPlans, created during peel/remainders
+  /// creation and cloning.
+  std::list<CfgMergerPlanDescr> MergerVPlans;
+
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with \p
@@ -642,7 +646,6 @@ private:
   /// A list of other additional VPlans, created during peel/remainders
   /// creation and cloning.
   SmallVector<std::unique_ptr<VPlan>, 2> AuxVPlans;
-  std::list<CfgMergerPlanDescr> MergerVPlans;
 };
 
 } // namespace vpo

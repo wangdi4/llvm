@@ -1250,9 +1250,15 @@ list(APPEND features_enabled_by_default
   endif()
 
   # Add knob to enable/disable Protobuf-based binary opt-report feature during
-  # compiler's build.
-  option(INTEL_ENABLE_PROTO_BIN_OPTRPT
-         "Enable Protobuf-based binary opt-report feature" OFF)
+  # compiler's build. Feature is currently enabled by default only for
+  # Linux/Unix environment.
+  if (WIN32 AND NOT UNIX)
+    option(INTEL_ENABLE_PROTO_BIN_OPTRPT
+           "Enable Protobuf-based binary opt-report feature" OFF)
+  else()
+    option(INTEL_ENABLE_PROTO_BIN_OPTRPT
+           "Enable Protobuf-based binary opt-report feature" ON)
+  endif()
 endif(INTEL_CUSTOMIZATION)
 
 # Configure all of the various header file fragments LLVM uses which depend on

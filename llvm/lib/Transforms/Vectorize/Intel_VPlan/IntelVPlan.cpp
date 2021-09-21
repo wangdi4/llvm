@@ -992,22 +992,66 @@ VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
     : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
       Plan(P) {}
 
-VPScalarPeel *VPlanPeelAdapter::getPeelLoop() const {
-  for (auto &BB : Plan)
-    for (auto &I : BB)
+VPValue *VPlanPeelAdapter::getPeelLoop() const {
+  for (auto &BB : Plan) {
+    for (auto &I : BB) {
       if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
         return PeelLoop;
+      if (auto *PeelHLoop = dyn_cast<VPPeelRemainderHIR>(&I)) {
+        if (!PeelHLoop->getLowerBoundTemp())
+          return PeelHLoop;
+      }
+    }
+  }
   llvm_unreachable("can't find scalar peel");
 }
 
+// Visit all orig-liveout-hir instructions and update original loop UB.
+// Transform looks like -
+// Before:
+//  PeelBlk:
+//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %N + -1
+//   br PostPeel
+// After:
+//  PeelBlk:
+//   token %hir-loop = scalar-hir-loop NeedsCloning: 1, UBTemp: %ub
+//   i64 %live-out-1 = orig-live-out-hir token %hir-loop, liveout: %ub
+//   br PostPeel
+void VPlanPeelAdapter::updateHIROrigLiveOut() {
+  auto *PeelHLp = cast<VPPeelRemainderHIR>(getPeelLoop());
+  loopopt::DDRef *OrigUB = PeelHLp->getLoop()->getUpperDDRef();
+  loopopt::DDRef *NewUB = PeelHLp->getUpperBoundTemp();
+
+  // Iterate over instruction in the scalar VPlan and update all
+  // VPOrigLiveOutHIR that use OrigUB.
+  for (auto &BB : Plan) {
+    for (auto &I : BB) {
+      if (auto *HIRLiveOut = dyn_cast<VPOrigLiveOutHIR>(&I)) {
+        // TODO: Use HIR's equal interfaces instead?
+        if (HIRLiveOut->getLiveOutVal() == OrigUB)
+          HIRLiveOut->setClonedLiveOutVal(NewUB);
+      }
+    }
+  }
+}
+
 const VPValue *VPlanPeelAdapter::getUpperBound() const {
-  return getPeelLoop()->getUpperBound();
+  VPValue *PeelLp = getPeelLoop();
+  if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
+    return IRPeel->getUpperBound();
+  return cast<VPPeelRemainderHIR>(PeelLp)->getUpperBound();
 }
 
 void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   if (isa<VPlanScalarPeel>(Plan)) {
-    VPScalarPeel *PeelLoop = getPeelLoop();
-    PeelLoop->setUpperBound(TC);
+    VPValue *PeelLp = getPeelLoop();
+    if (auto *IRPeel = dyn_cast<VPScalarPeel>(PeelLp))
+      IRPeel->setUpperBound(TC);
+    else {
+      cast<VPPeelRemainderHIR>(PeelLp)->setUpperBound(TC);
+      updateHIROrigLiveOut();
+    }
     return;
   }
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");

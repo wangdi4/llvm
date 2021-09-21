@@ -125,9 +125,6 @@ static LoopVPlanDumpControl
     InitialTransformsDumpControl("initial-transforms",
                                  "initial VPlan transforms");
 
-static LoopVPlanDumpControl CfgMergeDumpControl("cfg-merge",
-                                                "CFG merge before CG");
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
@@ -1659,8 +1656,6 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
     CFGMerger.createSimpleVectorRemainderChain(TheLoop);
   else
     CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
-
-  VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactoryBase &VPAF) {

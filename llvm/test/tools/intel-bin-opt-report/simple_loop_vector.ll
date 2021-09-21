@@ -1,5 +1,5 @@
 ; REQUIRES: proto_bor
-; RUN: llc %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
+; RUN: llc < %s -O3 -intel-loop-optreport=high -opt-report-embed -enable-protobuf-opt-report --filetype=obj -o %t.o
 ; RUN: intel-bin-opt-report %t.o | FileCheck %s
 
 ; Check reader tool's correctness for simple loop that is vectorized.
@@ -23,14 +23,14 @@
 ; CHECK-NEXT: Number of reports: 2
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: 7d1204e9ed9d9b33c5cc609e94c59c89
+; CHECK-DAG:  Anchor ID: e9a3f5d79e7ea2f824577e5b6b1e4d85
 ; CHECK-DAG:  Number of remarks: 2
 ; CHECK-DAG:    Property: C_LOOP_VECTORIZED, Remark ID: 15300, Remark Args:
 ; CHECK-DAG:    Property: C_LOOP_VEC_VL, Remark ID: 15305, Remark Args: 8
 ; CHECK-DAG:  ==== Loop End ====
 
 ; CHECK-DAG:  === Loop Begin ===
-; CHECK-DAG:  Anchor ID: e3ef7442916ddba71b9f9e5cb61aae53
+; CHECK-DAG:  Anchor ID: acaeb5319062b23bfbf47f58b6360c4b
 ; CHECK-DAG:  Number of remarks: 0
 ; CHECK-DAG:  ==== Loop End ====
 

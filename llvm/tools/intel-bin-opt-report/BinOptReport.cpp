@@ -92,7 +92,7 @@ struct NotifyTabHeader {
 
 // Structure to represent anchor table entry.
 struct AnchorTabEntry {
-  std::string AnchorID;
+  char AnchorID[32];
   uint64_t AnchorAddr;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -213,7 +213,7 @@ static void parseSection(const SectionRef *Scn) {
       auto EntryAnchorIDBegin = CurrSubScn + EntryOffset;
       auto EntryAnchorIDEnd = EntryAnchorIDBegin + Header.AnchorIDLen;
       std::string AnchorID(EntryAnchorIDBegin, EntryAnchorIDEnd);
-      Entry.AnchorID = AnchorID;
+      std::strcpy(Entry.AnchorID, AnchorID.c_str());
       // Compute anchor address offset for current entry.
       unsigned EntryAnchorAddrOffset = EntryOffset + Header.AnchorIDLen;
       std::memcpy(&Entry.AnchorAddr, &*CurrSubScn + EntryAnchorAddrOffset,
