@@ -171,8 +171,7 @@ bool SGBuiltinPass::insertSGBarrierForSGCalls(Module &M,
 
       AttributeList AL = CI->getAttributes();
       // All sub-group built-ins have mask argument.
-      AL = AL.addAttribute(M.getContext(), AttributeList::FunctionIndex,
-                           KernelAttribute::HasVPlanMask);
+      AL = AL.addFnAttribute(M.getContext(), KernelAttribute::HasVPlanMask);
       CI->setAttributes(AL);
 
       // Insert sg_barrier before, dummy_sg_barrier after to exclude the
