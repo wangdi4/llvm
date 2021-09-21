@@ -940,10 +940,54 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                      options::OPT_i_no_use_libirc) &&
         TC.CheckAddIntelLib("libirc", Args))
       addllvmOption("-intel-libirc-allowed");
+
+    bool LoopOptPipelineExplicitOption = llvm::any_of(
+        Args.getAllArgValues(options::OPT_Xclang), [](StringRef Option) {
+          bool Ret = Option.startswith("-floopopt-pipeline=");
+          if (Ret)
+            llvm::dbgs() << Option;
+          return Ret;
+        });
+    auto AddLoopOptPipeline = [LoopOptPipelineExplicitOption, IsLink,
+                               &CmdArgs](const char *Option) -> void {
+      if (LoopOptPipelineExplicitOption)
+        return;
+      if (IsLink)
+        // This is FE option, cannot pass to the linker.
+        return;
+
+      CmdArgs.push_back(Option);
+    };
+
     bool AddLoopOpt = true;
-    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm))
-      if (AV.startswith("-loopopt=") || AV.equals("-loopopt"))
+    for (StringRef AV : Args.getAllArgValues(options::OPT_mllvm)) {
+      if (AV.startswith("-loopopt=")) {
         AddLoopOpt = false;
+        int Value;
+        auto ValueStr = AV.substr(9);
+        bool Failure = ValueStr.getAsInteger(10, Value);
+        (void)Failure;
+        assert(!Failure);
+        if (!IsLink)
+          switch (Value) {
+          default:
+            llvm_unreachable("Wrong value for -loopopt= option!");
+          case 0:
+            AddLoopOptPipeline("-floopopt-pipeline=none");
+            break;
+          case 1:
+            AddLoopOptPipeline("-floopopt-pipeline=light");
+            break;
+          case 2:
+            AddLoopOptPipeline("-floopopt-pipeline=full");
+            break;
+          }
+      }
+      if (AV.equals("-loopopt")) {
+        AddLoopOpt = false;
+        AddLoopOptPipeline("-floopopt-pipeline=full");
+      }
+    }
     if (AddLoopOpt) {
       // Add loopopt default values.  Full loopopt is enabled when -x is
       // provided otherwise, we enable lightweight loopopt dependent on various
@@ -962,18 +1006,25 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
         if (A->getOption().matches(options::OPT__SLASH_Qx) &&
             x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
           FullLoopOpt = true;
-      if (FullLoopOpt)
+      if (FullLoopOpt) {
         addllvmOption("-loopopt");
-      else {
+        AddLoopOptPipeline("-floopopt-pipeline=full");
+      } else {
         int MLTInt = 0;
         MLTVal.getAsInteger(0, MLTInt);
         bool OfastSet = false;
         if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
           OfastSet = A->getOption().matches(options::OPT_Ofast);
+<<<<<<< HEAD
         if (MLTInt >= 4 && Args.hasArg(options::OPT_flto_EQ) && OfastSet)
+=======
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet) {
+>>>>>>> 7132abf5760f99f6db9618be7057655f956e4cbb
           addllvmOption("-loopopt=1");
-        else {
+          AddLoopOptPipeline("-floopopt-pipeline=light");
+        } else {
           addllvmOption("-loopopt=0");
+          AddLoopOptPipeline("-floopopt-pipeline=none");
           if (!TC.getTriple().isSPIR())
             addllvmOption("-enable-lv");
         }
