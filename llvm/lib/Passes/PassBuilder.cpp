@@ -1,4 +1,4 @@
-//===- Parsing, selection, and construction of pass pipelines -------------===//
+//===- Parsing and selection of pass pipelines ----------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -429,6 +429,7 @@ static cl::opt<bool>
                        cl::desc("Run LTO Partial inlinining pass"));
 #endif // INTEL_CUSTOMIZATION
 
+<<<<<<< HEAD
 static cl::opt<InliningAdvisorMode> UseInlineAdvisor(
     "enable-ml-inliner", cl::init(InliningAdvisorMode::Default), cl::Hidden,
     cl::desc("Enable ML policy for inliner. Currently trained for -Oz only"),
@@ -549,6 +550,11 @@ extern cl::opt<bool> ConvertToSubs;
 enum class ThroughputMode { None, SingleJob, MultipleJob };
 extern cl::opt<ThroughputMode> ThroughputModeOpt;
 #endif // INTEL_CUSTOMIZATION
+=======
+static const Regex DefaultAliasRegex(
+    "^(default|thinlto-pre-link|thinlto|lto-pre-link|lto)<(O[0123sz])>$");
+
+>>>>>>> c3ddc13d7d631a29b55f82c7cc7a9008bf89b1f4
 namespace llvm {
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> RunLoopOptFrameworkOnly;
@@ -560,6 +566,7 @@ cl::opt<bool> PrintPipelinePasses(
     "print-pipeline-passes",
     cl::desc("Print a '-passes' compatible string describing the pipeline "
              "(best-effort only)."));
+<<<<<<< HEAD
 
 extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableConstraintElimination;
@@ -603,26 +610,9 @@ extern cl::opt<bool> RunPostLoopOptVPOPasses;
 extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
 extern cl::opt<bool> EnableVPOParoptTargetInline;
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> c3ddc13d7d631a29b55f82c7cc7a9008bf89b1f4
 } // namespace llvm
-
-const OptimizationLevel OptimizationLevel::O0 = {
-    /*SpeedLevel*/ 0,
-    /*SizeLevel*/ 0};
-const OptimizationLevel OptimizationLevel::O1 = {
-    /*SpeedLevel*/ 1,
-    /*SizeLevel*/ 0};
-const OptimizationLevel OptimizationLevel::O2 = {
-    /*SpeedLevel*/ 2,
-    /*SizeLevel*/ 0};
-const OptimizationLevel OptimizationLevel::O3 = {
-    /*SpeedLevel*/ 3,
-    /*SizeLevel*/ 0};
-const OptimizationLevel OptimizationLevel::Os = {
-    /*SpeedLevel*/ 2,
-    /*SizeLevel*/ 1};
-const OptimizationLevel OptimizationLevel::Oz = {
-    /*SpeedLevel*/ 2,
-    /*SizeLevel*/ 2};
 
 namespace {
 
@@ -775,12 +765,6 @@ PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
 #endif // INTEL_CUSTOMIZATION
 }
 
-void PassBuilder::invokePeepholeEPCallbacks(FunctionPassManager &FPM,
-                                            OptimizationLevel Level) {
-  for (auto &C : PeepholeEPCallbacks)
-    C(FPM, Level);
-}
-
 void PassBuilder::registerModuleAnalyses(ModuleAnalysisManager &MAM) {
 #define MODULE_ANALYSIS(NAME, CREATE_PASS)                                     \
   MAM.registerPass([&] { return CREATE_PASS; });
@@ -817,6 +801,7 @@ void PassBuilder::registerLoopAnalyses(LoopAnalysisManager &LAM) {
     C(LAM);
 }
 
+<<<<<<< HEAD
 // Helper to add AnnotationRemarksPass.
 static void addAnnotationRemarksPass(ModulePassManager &MPM) {
   FunctionPassManager FPM;
@@ -3336,6 +3321,8 @@ AAManager PassBuilder::buildDefaultAAPipeline() {
   return AA;
 }
 
+=======
+>>>>>>> c3ddc13d7d631a29b55f82c7cc7a9008bf89b1f4
 static Optional<int> parseRepeatPassName(StringRef Name) {
   if (!Name.consume_front("repeat<") || !Name.consume_back(">"))
     return None;
