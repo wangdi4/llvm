@@ -10,9 +10,9 @@ struct fptr_test {
   fptr m_func;
 };
 
-// CHECK: define dso_local void @foo(i64 %x, %struct.points* "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
+// CHECK: define dso_local void @foo(i64 %x, %struct._ZTS6points.points* "intel_dtrans_func_index"="1" %array) {{.*}}!intel.dtrans.func.type ![[FOO_MD:[0-9]+]]
 void foo(long x, struct points *array) {
-  // CHECK: alloca %struct.points*, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
+  // CHECK: alloca %struct._ZTS6points.points*, align 8, !intel_dtrans_type ![[POINTS_PTR:[0-9]+]]
 }
 
 int main() {
@@ -24,12 +24,12 @@ int main() {
 
 // CHECK: !intel.dtrans.types = !{![[POINTS:[0-9]+]], ![[FPTR_TEST:[0-9]+]]}
 
-// CHECK: ![[POINTS]] = !{!"S", %struct.points zeroinitializer, i32 2, ![[INT:[0-9]+]], ![[INT]]}
+// CHECK: ![[POINTS]] = !{!"S", %struct._ZTS6points.points zeroinitializer, i32 2, ![[INT:[0-9]+]], ![[INT]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
-// CHECK: ![[FPTR_TEST]] = !{!"S", %struct.fptr_test zeroinitializer, i32 1, ![[FPTR:[0-9]+]]}
+// CHECK: ![[FPTR_TEST]] = !{!"S", %struct._ZTS9fptr_test.fptr_test zeroinitializer, i32 1, ![[FPTR:[0-9]+]]}
 // CHECK: ![[FPTR]] = !{![[FUNC:[0-9]+]], i32 1}
 // CHECK: ![[FUNC]] = !{!"F", i1 false, i32 2, ![[VOID:[0-9]+]], ![[LONG_PARAM:[0-9]+]], ![[POINTS_PTR]]}
 // CHECK: ![[VOID]] = !{!"void", i32 0}
 // CHECK: ![[LONG_PARAM]] = !{i64 0, i32 0}
-// CHECK: ![[POINTS_PTR]] = !{%struct.points zeroinitializer, i32 1}
+// CHECK: ![[POINTS_PTR]] = !{%struct._ZTS6points.points zeroinitializer, i32 1}
 // CHECK: ![[FOO_MD]] = distinct !{![[POINTS_PTR]]}

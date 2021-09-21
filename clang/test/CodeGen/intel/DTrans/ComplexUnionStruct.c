@@ -77,32 +77,32 @@ HasPointerPointer FuncPP(PointerPointer a, HasPointerPointer b) { return b; }
 
 
 // CHECK: !intel.dtrans.types = !{![[AlsoPassedAsi64:[0-9]+]], ![[PassedAsi64:[0-9]+]], ![[AlsoPassedAs2i64:[0-9]+]], ![[PassedAs2i64:[0-9]+]], ![[AlsoPassedAsi64i32:[0-9]+]], ![[PassedAsi64i32:[0-9]+]], ![[AlsoAlsoPassedAsi64i32Union:[0-9]+]], ![[AlsoAlsoPassedAsi64i32:[0-9]+]], ![[AlsoPassedAsPtrfloat:[0-9]+]], ![[PassedAsPtrfloat:[0-9]+]], ![[HasPointerPointer:[0-9]+]], ![[PointerPointer:[0-9]+]], ![[Pointer:[0-9]+]]}
-// CHECK: ![[AlsoPassedAsi64]] = !{!"S", %struct.AlsoPassedAsi64 zeroinitializer, i32 1, ![[PassedAsi64Ref:[0-9]+]]}
-// CHECK: ![[PassedAsi64Ref]] = !{%struct.PassedAsi64 zeroinitializer, i32 0}
-// CHECK: ![[PassedAsi64]] = !{!"S", %struct.PassedAsi64 zeroinitializer, i32 1, ![[LONGLONG:[0-9]+]]}
+// CHECK: ![[AlsoPassedAsi64]] = !{!"S", %struct._ZTS15AlsoPassedAsi64.AlsoPassedAsi64 zeroinitializer, i32 1, ![[PassedAsi64Ref:[0-9]+]]}
+// CHECK: ![[PassedAsi64Ref]] = !{%struct._ZTS11PassedAsi64.PassedAsi64 zeroinitializer, i32 0}
+// CHECK: ![[PassedAsi64]] = !{!"S", %struct._ZTS11PassedAsi64.PassedAsi64 zeroinitializer, i32 1, ![[LONGLONG:[0-9]+]]}
 // CHECK: ![[LONGLONG]] = !{i64 0, i32 0}
-// CHECK: ![[AlsoPassedAs2i64]] = !{!"S", %struct.AlsoPassedAs2i64 zeroinitializer, i32 1, ![[PassedAs2i64Ref:[0-9]+]]
-// CHECK: ![[PassedAs2i64Ref]] = !{%struct.PassedAs2i64 zeroinitializer, i32 0}
-// CHECK: ![[PassedAs2i64]] = !{!"S", %struct.PassedAs2i64 zeroinitializer, i32 2, ![[LONGLONG]], ![[LONGLONG]]}
-// CHECK: ![[AlsoPassedAsi64i32]] = !{!"S", %struct.AlsoPassedAsi64i32 zeroinitializer, i32 1, ![[PassedAsi64i32Ref:[0-9]+]]}
-// CHECK: ![[PassedAsi64i32Ref]] = !{%struct.PassedAsi64i32 zeroinitializer, i32 0}
-// CHECK: ![[PassedAsi64i32]] = !{!"S", %struct.PassedAsi64i32 zeroinitializer, i32 2, ![[LONGLONG]], ![[INT:[0-9]+]]}
+// CHECK: ![[AlsoPassedAs2i64]] = !{!"S", %struct._ZTS16AlsoPassedAs2i64.AlsoPassedAs2i64 zeroinitializer, i32 1, ![[PassedAs2i64Ref:[0-9]+]]
+// CHECK: ![[PassedAs2i64Ref]] = !{%struct._ZTS12PassedAs2i64.PassedAs2i64 zeroinitializer, i32 0}
+// CHECK: ![[PassedAs2i64]] = !{!"S", %struct._ZTS12PassedAs2i64.PassedAs2i64 zeroinitializer, i32 2, ![[LONGLONG]], ![[LONGLONG]]}
+// CHECK: ![[AlsoPassedAsi64i32]] = !{!"S", %struct._ZTS18AlsoPassedAsi64i32.AlsoPassedAsi64i32 zeroinitializer, i32 1, ![[PassedAsi64i32Ref:[0-9]+]]}
+// CHECK: ![[PassedAsi64i32Ref]] = !{%struct._ZTS14PassedAsi64i32.PassedAsi64i32 zeroinitializer, i32 0}
+// CHECK: ![[PassedAsi64i32]] = !{!"S", %struct._ZTS14PassedAsi64i32.PassedAsi64i32 zeroinitializer, i32 2, ![[LONGLONG]], ![[INT:[0-9]+]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
-// CHECK: ![[AlsoAlsoPassedAsi64i32Union]] = !{!"S", %union.AlsoAlsoPassedAsi64i32Union zeroinitializer, i32 1, ![[AlsoAlsoPassedAsi64i32Ref:[0-9]+]]}
-// CHECK: ![[AlsoAlsoPassedAsi64i32Ref]] = !{%struct.AlsoAlsoPassedAsi64i32 zeroinitializer, i32 0}
-// CHECK: ![[AlsoAlsoPassedAsi64i32]] = !{!"S", %struct.AlsoAlsoPassedAsi64i32 zeroinitializer, i32 1, ![[AlsoPassedAsi64i32Ref:[0-9]+]]}
-// CHECK: ![[AlsoPassedAsi64i32Ref]] = !{%struct.AlsoPassedAsi64i32 zeroinitializer, i32 0}
-// CHECK: ![[AlsoPassedAsPtrfloat]] = !{!"S", %struct.AlsoPassedAsPtrfloat zeroinitializer, i32 1, ![[PassedAsPtrFloatRef:[0-9]+]]}
-// CHECK: ![[PassedAsPtrFloatRef]] = !{%struct.PassedAsPtrfloat zeroinitializer, i32 0}
-// CHECK: ![[PassedAsPtrfloat]] = !{!"S", %struct.PassedAsPtrfloat zeroinitializer, i32 2, ![[LONGLONGPTR:[0-9]+]], ![[FLOAT:[0-9]+]]}
+// CHECK: ![[AlsoAlsoPassedAsi64i32Union]] = !{!"S", %union._ZTS27AlsoAlsoPassedAsi64i32Union.AlsoAlsoPassedAsi64i32Union zeroinitializer, i32 1, ![[AlsoAlsoPassedAsi64i32Ref:[0-9]+]]}
+// CHECK: ![[AlsoAlsoPassedAsi64i32Ref]] = !{%struct._ZTS22AlsoAlsoPassedAsi64i32.AlsoAlsoPassedAsi64i32 zeroinitializer, i32 0}
+// CHECK: ![[AlsoAlsoPassedAsi64i32]] = !{!"S", %struct._ZTS22AlsoAlsoPassedAsi64i32.AlsoAlsoPassedAsi64i32 zeroinitializer, i32 1, ![[AlsoPassedAsi64i32Ref:[0-9]+]]}
+// CHECK: ![[AlsoPassedAsi64i32Ref]] = !{%struct._ZTS18AlsoPassedAsi64i32.AlsoPassedAsi64i32 zeroinitializer, i32 0}
+// CHECK: ![[AlsoPassedAsPtrfloat]] = !{!"S", %struct._ZTS20AlsoPassedAsPtrfloat.AlsoPassedAsPtrfloat zeroinitializer, i32 1, ![[PassedAsPtrFloatRef:[0-9]+]]}
+// CHECK: ![[PassedAsPtrFloatRef]] = !{%struct._ZTS16PassedAsPtrfloat.PassedAsPtrfloat zeroinitializer, i32 0}
+// CHECK: ![[PassedAsPtrfloat]] = !{!"S", %struct._ZTS16PassedAsPtrfloat.PassedAsPtrfloat zeroinitializer, i32 2, ![[LONGLONGPTR:[0-9]+]], ![[FLOAT:[0-9]+]]}
 // CHECK: ![[LONGLONGPTR]] = !{i64 0, i32 1}
 // CHECK: ![[FLOAT]] = !{float 0.00{{.+}}, i32 0}
-// CHECK: ![[HasPointerPointer]] = !{!"S", %struct.HasPointerPointer zeroinitializer, i32 1, ![[PointerPointerRef:[0-9]+]]}
-// CHECK: ![[PointerPointerRef]] = !{%struct.PointerPointer zeroinitializer, i32 0}
-// CHECK: ![[PointerPointer]] = !{!"S", %struct.PointerPointer zeroinitializer, i32 2, ![[PointerRef:[0-9]+]], ![[FLOAT_PTR:[0-9]+]]}
-// CHECK: ![[PointerRef]] = !{%struct.Pointer zeroinitializer, i32 0}
+// CHECK: ![[HasPointerPointer]] = !{!"S", %struct._ZTS17HasPointerPointer.HasPointerPointer zeroinitializer, i32 1, ![[PointerPointerRef:[0-9]+]]}
+// CHECK: ![[PointerPointerRef]] = !{%struct._ZTS14PointerPointer.PointerPointer zeroinitializer, i32 0}
+// CHECK: ![[PointerPointer]] = !{!"S", %struct._ZTS14PointerPointer.PointerPointer zeroinitializer, i32 2, ![[PointerRef:[0-9]+]], ![[FLOAT_PTR:[0-9]+]]}
+// CHECK: ![[PointerRef]] = !{%struct._ZTS7Pointer.Pointer zeroinitializer, i32 0}
 // CHECK: ![[FLOAT_PTR]] = !{float 0.00{{.+}}, i32 1}
-// CHECK: ![[Pointer]] = !{!"S", %struct.Pointer zeroinitializer, i32 1, ![[INT_PTR:[0-9]+]]}
+// CHECK: ![[Pointer]] = !{!"S", %struct._ZTS7Pointer.Pointer zeroinitializer, i32 1, ![[INT_PTR:[0-9]+]]}
 // CHECK: ![[INT_PTR]] = !{i32 0, i32 1}
 
 // Function Infos.

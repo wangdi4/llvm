@@ -13,7 +13,7 @@ typedef union {
   XOP *xop_ptr;
 } XOPRETANY;
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct.op* "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local "intel_dtrans_func_index"="1" i8* @Perl_custom_op_get_field(%struct._ZTS2op.op* "intel_dtrans_func_index"="2" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[PERL_FUNC_MD:[0-9]+]]
 XOPRETANY Perl_custom_op_get_field(const OP *o) {
   XOPRETANY local;
   local.xop_class = 1;
@@ -29,21 +29,21 @@ typedef union {
   Complex a;
 } ComplexRep;
 
-// CHECK: define dso_local "intel_dtrans_func_index"="1" { i64, %struct.op* } @f() {{.*}}!intel.dtrans.func.type ![[F_FUNC_MD:[0-9]+]]
+// CHECK: define dso_local "intel_dtrans_func_index"="1" { i64, %struct._ZTS2op.op* } @f() {{.*}}!intel.dtrans.func.type ![[F_FUNC_MD:[0-9]+]]
 ComplexRep f() {
   ComplexRep r = {};
   return r;
 }
 
 // CHECK: !intel.dtrans.types = !{![[XOP:[0-9]+]], ![[OP:[0-9]+]], ![[COMPLEXREP:[0-9]+]], ![[COMPLEX:[0-9]+]]}
-// CHECK: ![[XOP]] = !{!"S", %union.XOPRETANY zeroinitializer, i32 1, ![[CHAR_PTR:[0-9]+]]}
+// CHECK: ![[XOP]] = !{!"S", %union._ZTS9XOPRETANY.XOPRETANY zeroinitializer, i32 1, ![[CHAR_PTR:[0-9]+]]}
 // CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
-// CHECK: ![[OP]] = !{!"S", %struct.op zeroinitializer, i32 -1}
-// CHECK: ![[COMPLEXREP]] = !{!"S", %union.ComplexRep zeroinitializer, i32 1, ![[COMPLEX_REF:[0-9]+]]}
-// CHECK: ![[COMPLEX_REF]] = !{%struct.Complex zeroinitializer, i32 0}
-// CHECK: ![[COMPLEX]] = !{!"S", %struct.Complex zeroinitializer, i32 2, ![[LONGLONG:[0-9]+]], ![[OP_PTR:[0-9]+]]}
+// CHECK: ![[OP]] = !{!"S", %struct._ZTS2op.op zeroinitializer, i32 -1}
+// CHECK: ![[COMPLEXREP]] = !{!"S", %union._ZTS10ComplexRep.ComplexRep zeroinitializer, i32 1, ![[COMPLEX_REF:[0-9]+]]}
+// CHECK: ![[COMPLEX_REF]] = !{%struct._ZTS7Complex.Complex zeroinitializer, i32 0}
+// CHECK: ![[COMPLEX]] = !{!"S", %struct._ZTS7Complex.Complex zeroinitializer, i32 2, ![[LONGLONG:[0-9]+]], ![[OP_PTR:[0-9]+]]}
 // CHECK: ![[LONGLONG]] = !{i64 0, i32 0}
-// CHECK: ![[OP_PTR]] = !{%struct.op zeroinitializer, i32 1}
+// CHECK: ![[OP_PTR]] = !{%struct._ZTS2op.op zeroinitializer, i32 1}
 
 // Function infos:
 // CHECK: ![[PERL_FUNC_MD]] = distinct !{![[CHAR_PTR]], ![[OP_PTR]]}

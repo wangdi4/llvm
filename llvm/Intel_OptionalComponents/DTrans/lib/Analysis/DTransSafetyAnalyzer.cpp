@@ -5367,6 +5367,13 @@ void DTransSafetyInfo::computeStructFrequency(dtrans::StructInfo *StInfo) {
   StInfo->setTotalFrequency(StructFreq);
 }
 
+/// Handle invalidation events in the new pass manager.
+bool DTransSafetyInfo::invalidate(Module &M, const PreservedAnalyses &PA,
+                                  ModuleAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<DTransSafetyAnalyzer>();
+  return !PAC.preservedWhenStateless();
+}
+
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransSafetyAnalyzer::Key;

@@ -28,7 +28,7 @@ char h[] = {0, 1, 1, 1, 1, 1, sizeof(int), 100, 0, 0, 0, 0, 0, 0, 0, 0};
 
 struct i {
 } j[2] = {};
-// CHECK: @j = global [2 x %struct.i] zeroinitializer{{.+}}!intel_dtrans_type ![[J:[0-9]+]]
+// CHECK: @j = global [2 x %struct._ZTS1i.i] zeroinitializer{{.+}}!intel_dtrans_type ![[J:[0-9]+]]
 
 // CHECK: ![[A]] = !{![[CHAR_LITERAL:[0-9]+]], i32 0}
 // CHECK: ![[CHAR_LITERAL]] = !{!"L", i32 2, ![[CHAR:[0-9]+]], ![[CHAR_ARR:[0-9]+]]}
@@ -68,4 +68,4 @@ struct i {
 // CHECK: ![[H_LITERAL]] = !{!"L", i32 2, ![[CHAR_ARR]], ![[CHAR_ARR]]}
 
 // CHECK: ![[J]] = !{!"A", i32 2, ![[I_REF:[0-9]+]]}
-// CHECK: ![[I_REF]] = !{%struct.i zeroinitializer, i32 0}
+// CHECK: ![[I_REF]] = !{%struct._ZTS1i.i zeroinitializer, i32 0}

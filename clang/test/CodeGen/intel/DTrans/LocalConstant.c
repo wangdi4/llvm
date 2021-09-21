@@ -9,8 +9,8 @@ const char *const g[14] = {
                      };
 // CHECK: @g = constant [14 x i8*] [i8* getelementptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
 // CHECK: constant [14 x i8*] [i8* getelementptr {{.*}} !intel_dtrans_type ![[CHAR14_ARRAY:[0-9]+]]
-// CHECK: @[[FOO_NAME:.+]] = internal global %struct.S {{{.+}}}, align 8
-// CHECK: internal global %struct.S* @[[FOO_NAME]], align 8, !intel_dtrans_type ![[STRUCT_PTR:[0-9]+]]
+// CHECK: @[[FOO_NAME:.+]] = internal global %struct._ZTS1S.S {{{.+}}}, align 8
+// CHECK: internal global %struct._ZTS1S.S* @[[FOO_NAME]], align 8, !intel_dtrans_type ![[STRUCT_PTR:[0-9]+]]
 
 int main() {
     const char *l[14] = {
@@ -25,5 +25,5 @@ int main() {
 
 // CHECK: [[CHAR14_ARRAY]] = !{!"A", i32 14, ![[CHAR_PTR:[0-9]+]]}
 // CHECK: [[CHAR_PTR]] = !{i8 0, i32 1}
-// CHECK: [[STRUCT_PTR]] = !{%struct.S zeroinitializer, i32 1}
-// CHECK: [[STRUCT]] = !{!"S", %struct.S zeroinitializer, i32 1, ![[CHAR_PTR]]}
+// CHECK: [[STRUCT_PTR]] = !{%struct._ZTS1S.S zeroinitializer, i32 1}
+// CHECK: [[STRUCT]] = !{!"S", %struct._ZTS1S.S zeroinitializer, i32 1, ![[CHAR_PTR]]}

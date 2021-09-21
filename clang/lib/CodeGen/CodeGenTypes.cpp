@@ -59,7 +59,12 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
   //
   // For SYCL, the mangled type name is attached, so it can be
   // reflown to proper name later.
-  if (getContext().getLangOpts().SYCLIsDevice) {
+#if INTEL_CUSTOMIZATION
+  // For DTrans info emission, these mangling names are useful for merging
+  // struct types, so do it for DTrans Info emission as well.
+  if (getContext().getLangOpts().SYCLIsDevice ||
+      getCodeGenOpts().EmitDTransInfo) {
+#endif // INTEL_CUSTOMIZATION
     std::unique_ptr<MangleContext> MC(getContext().createMangleContext());
     auto RDT = getContext().getRecordType(RD);
     MC->mangleCXXRTTIName(RDT, OS);

@@ -81,7 +81,7 @@
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=6
-; OPTREPORT:     remark #25019: Number of spatial prefetches=6, dist=7
+; OPTREPORT:     remark #25019: Number of spatial prefetches=6, default dist=7
 ; OPTREPORT: LOOP END
 ;
 ;Module Before HIR

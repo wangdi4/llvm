@@ -20,7 +20,7 @@ int main() {
 }
 
 // CHECK: !intel.dtrans.types = !{![[OUTER:[0-9]+]], ![[INNER:[0-9]+]]}
-// CHECK: ![[OUTER]] = !{!"S", %struct.outer_state_t zeroinitializer, i32 2, ![[INT:[0-9]+]], ![[INNER_STRUCT:[0-9]+]]}
+// CHECK: ![[OUTER]] = !{!"S", %struct._ZTS13outer_state_t.outer_state_t zeroinitializer, i32 2, ![[INT:[0-9]+]], ![[INNER_STRUCT:[0-9]+]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
-// CHECK: ![[INNER_STRUCT]] = !{%struct.inner_state_t zeroinitializer, i32 0}
-// CHECK: ![[INNER]] = !{!"S", %struct.inner_state_t zeroinitializer, i32 3, ![[INT]], ![[INT]], ![[INT]]}
+// CHECK: ![[INNER_STRUCT]] = !{%struct._ZTS13inner_state_t.inner_state_t zeroinitializer, i32 0}
+// CHECK: ![[INNER]] = !{!"S", %struct._ZTS13inner_state_t.inner_state_t zeroinitializer, i32 3, ![[INT]], ![[INT]], ![[INT]]}

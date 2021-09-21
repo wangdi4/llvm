@@ -26,13 +26,13 @@ int main() {
 }
 
 // CHECK: !intel.dtrans.types = !{![[HASARRAYS:[0-9]+]], ![[SIMPLE:[0-9]+]]}
-// CHECK: ![[HASARRAYS]] = !{!"S", %struct.test_array zeroinitializer, i32 2, ![[STRUCT_ARRAY:[0-9]+]], ![[STRUCT_PTR_ARRAY:[0-9]+]]}
+// CHECK: ![[HASARRAYS]] = !{!"S", %struct._ZTS10test_array.test_array zeroinitializer, i32 2, ![[STRUCT_ARRAY:[0-9]+]], ![[STRUCT_PTR_ARRAY:[0-9]+]]}
 // CHECK: ![[STRUCT_ARRAY]] = !{!"A", i32 100, ![[STRUCT:[0-9]+]]}
-// CHECK: ![[STRUCT]] = !{%struct.test_simple zeroinitializer, i32 0}
+// CHECK: ![[STRUCT]] = !{%struct._ZTS11test_simple.test_simple zeroinitializer, i32 0}
 // CHECK: ![[STRUCT_PTR_ARRAY]] = !{!"A", i32 100, ![[STRUCT_PTR:[0-9]+]]}
-// CHECK: ![[STRUCT_PTR]] = !{%struct.test_simple zeroinitializer, i32 1}
+// CHECK: ![[STRUCT_PTR]] = !{%struct._ZTS11test_simple.test_simple zeroinitializer, i32 1}
 
-// CHECK: ![[SIMPLE]] = !{!"S", %struct.test_simple zeroinitializer, i32 5, ![[INT:[0-9]+]], ![[LONG:[0-9]+]], ![[SHORT:[0-9]+]], ![[DOUBLE:[0-9]+]], ![[LONG]]}
+// CHECK: ![[SIMPLE]] = !{!"S", %struct._ZTS11test_simple.test_simple zeroinitializer, i32 5, ![[INT:[0-9]+]], ![[LONG:[0-9]+]], ![[SHORT:[0-9]+]], ![[DOUBLE:[0-9]+]], ![[LONG]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}
 // CHECK: ![[SHORT]] = !{i16 0, i32 0}

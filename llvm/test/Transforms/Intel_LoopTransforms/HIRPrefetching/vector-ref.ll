@@ -46,7 +46,7 @@
 ; OPTREPORT:     remark #15300: LOOP WAS VECTORIZED
 ; OPTREPORT:     remark #15305: vectorization support: vector length 4
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=4
-; OPTREPORT:     remark #25019: Number of spatial prefetches=4, dist=64
+; OPTREPORT:     remark #25019: Number of spatial prefetches=4, default dist=64
 ; OPTREPORT: LOOP END
 ;
 ; OPTREPORT: LOOP BEGIN

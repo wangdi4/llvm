@@ -48,7 +48,7 @@
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    remark #25018: Total number of lines prefetched=4
-; OPTREPORT:    remark #25020: Number of spatial prefetches=3
+; OPTREPORT:    remark #25019: Number of spatial prefetches=3,  default dist=31
 ; OPTREPORT:    remark #25033: Number of indirect prefetches=1
 ; OPTREPORT:    remark #25147: Using directive-based hint=1, distance=40 for prefetching spatial memory reference
 ; OPTREPORT: LOOP END

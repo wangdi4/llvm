@@ -9,6 +9,6 @@ g my_g;
 
 // CHECK: !intel.dtrans.types = !{![[G:[0-9]+]]}
 
-// CHECK: ![[G]] = !{!"S", %class.g zeroinitializer, i32 1, ![[LITERAL_REF:[0-9]+]]}
+// CHECK: ![[G]] = !{!"S", %class._ZTS1g.g zeroinitializer, i32 1, ![[LITERAL_REF:[0-9]+]]}
 // CHECK: ![[LITERAL_REF]] = !{![[LITERAL:[0-9]+]], i32 0}
 // CHECK: ![[LITERAL]] = !{!"L", i32 2, ![[I64:[0-9]+]], ![[I64]]}

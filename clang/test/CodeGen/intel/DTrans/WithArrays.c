@@ -19,7 +19,7 @@ int main() {
 }
 
 // CHECK: !intel.dtrans.types = !{![[TAM:[0-9]+]]}
-// CHECK: [[TAM]] = !{!"S",  %struct.test_array_member zeroinitializer, i32 4, ![[CHAR_200_ARRAY:[0-9]+]], ![[CHAR_200_ARRAY]], ![[LONG:[0-9]+]], ![[LONG_50_ARRAY:[0-9]+]]}
+// CHECK: [[TAM]] = !{!"S",  %struct._ZTS17test_array_member.test_array_member zeroinitializer, i32 4, ![[CHAR_200_ARRAY:[0-9]+]], ![[CHAR_200_ARRAY]], ![[LONG:[0-9]+]], ![[LONG_50_ARRAY:[0-9]+]]}
 // CHECK: ![[CHAR_200_ARRAY]]  = !{!"A", i32 200, ![[CHAR:[0-9]+]]}
 // CHECK: ![[CHAR]] = !{i8 0, i32 0}
 // CHECK: ![[LONG]] = !{i64 0, i32 0}

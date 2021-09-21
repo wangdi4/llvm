@@ -28,13 +28,13 @@ int main() {
 
 // CHECK: intel.dtrans.types = !{![[TP2P:[0-9]+]], ![[ARC:[0-9]+]], ![[TD:[0-9]+]]}
 
-// CHECK: ![[TP2P]] = !{!"S", %struct.test_ptr2ptr zeroinitializer, i32 4, ![[ARC_PTR:[0-9]+]], ![[SELF_PTR:[0-9]+]], ![[TD_PTR_PTR:[0-9]+]], ![[STRUCT:[0-9]+]]}
-// CHECK: ![[ARC_PTR]] = !{%struct.arc_t zeroinitializer, i32 1}
-// CHECK: ![[SELF_PTR]] = !{%struct.test_ptr2ptr zeroinitializer, i32 1}
-// CHECK: ![[TD_PTR_PTR]] = !{%struct.test_data zeroinitializer, i32 2}
-// CHECK: ![[STRUCT]] = !{%struct.test_data zeroinitializer, i32 0}
+// CHECK: ![[TP2P]] = !{!"S", %struct._ZTS12test_ptr2ptr.test_ptr2ptr zeroinitializer, i32 4, ![[ARC_PTR:[0-9]+]], ![[SELF_PTR:[0-9]+]], ![[TD_PTR_PTR:[0-9]+]], ![[STRUCT:[0-9]+]]}
+// CHECK: ![[ARC_PTR]] = !{%struct._ZTS5arc_t.arc_t zeroinitializer, i32 1}
+// CHECK: ![[SELF_PTR]] = !{%struct._ZTS12test_ptr2ptr.test_ptr2ptr zeroinitializer, i32 1}
+// CHECK: ![[TD_PTR_PTR]] = !{%struct._ZTS9test_data.test_data zeroinitializer, i32 2}
+// CHECK: ![[STRUCT]] = !{%struct._ZTS9test_data.test_data zeroinitializer, i32 0}
 
-// CHECK: ![[ARC]] = !{!"S", %struct.arc_t zeroinitializer, i32 -1}
+// CHECK: ![[ARC]] = !{!"S", %struct._ZTS5arc_t.arc_t zeroinitializer, i32 -1}
 
-// CHECK: ![[TD]] = !{!"S", %struct.test_data zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
+// CHECK: ![[TD]] = !{!"S", %struct._ZTS9test_data.test_data zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}

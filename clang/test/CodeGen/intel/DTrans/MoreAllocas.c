@@ -16,9 +16,9 @@ void test() {
                              //type will be obvious even with opaque ponters
 
   struct point *local_struct_ptr;
-  // CHECK: %local_struct_ptr = alloca %struct.point*, align 8, !intel_dtrans_type ![[POINT_PTR:[0-9]+]]
+  // CHECK: %local_struct_ptr = alloca %struct._ZTS5point.point*, align 8, !intel_dtrans_type ![[POINT_PTR:[0-9]+]]
   struct point **local_array_ptrptr[100];
-  // CHECK: %local_array_ptrptr = alloca [100 x %struct.point**], align 16, !intel_dtrans_type ![[PTRPTR_ARRAY:[0-9]+]]
+  // CHECK: %local_array_ptrptr = alloca [100 x %struct._ZTS5point.point**], align 16, !intel_dtrans_type ![[PTRPTR_ARRAY:[0-9]+]]
 }
 
 int main() {
@@ -27,11 +27,11 @@ int main() {
 }
 
 // CHECK: !intel.dtrans.types = !{![[POINTS:[0-9]+]]}
-// CHECK: ![[POINTS]] = !{!"S", %struct.point zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
+// CHECK: ![[POINTS]] = !{!"S", %struct._ZTS5point.point zeroinitializer, i32 3, ![[INT:[0-9]+]], ![[INT]], ![[INT]]}
 // CHECK: ![[INT]] = !{i32 0, i32 0}
 // CHECK: ![[ARRAY]] = !{!"A", i32 200, ![[CHAR_PTR:[0-9]+]]}
 // CHECK: ![[CHAR_PTR]] = !{i8 0, i32 1}
 // CHECK: ![[INT_PTR]] = !{i32 0, i32 1}
-// CHECK: ![[POINT_PTR]] = !{%struct.point zeroinitializer, i32 1}
+// CHECK: ![[POINT_PTR]] = !{%struct._ZTS5point.point zeroinitializer, i32 1}
 // CHECK: ![[PTRPTR_ARRAY]] = !{!"A", i32 100, ![[POINT_PTRPTR:[0-9]+]]
-// CHECK: ![[POINT_PTRPTR]] = !{%struct.point zeroinitializer, i32 2}
+// CHECK: ![[POINT_PTRPTR]] = !{%struct._ZTS5point.point zeroinitializer, i32 2}

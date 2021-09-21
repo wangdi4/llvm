@@ -34,37 +34,37 @@ int test() {
 }
 
 // Data constructor:
-// CHECK: define linkonce_odr void @_ZN4DataC1Ev(%class.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN4DataC1Ev(%class._ZTS4Data.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR_FUNC_MD:[0-9]+]]
 //
 // Data::offset:
-// CHECK: define linkonce_odr void @_ZNK4Data6offsetEi(%class.Vector* noalias sret(%class.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="2" %{{.+}}, i32 %{{.+}}) {{.*}}!intel.dtrans.func.type ![[OFFSET_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZNK4Data6offsetEi(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class._ZTS4Data.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="2" %{{.+}}, i32 %{{.+}}) {{.*}}!intel.dtrans.func.type ![[OFFSET_FUNC_MD:[0-9]+]]
 //
 // Data constructor 2:
-// CHECK: define linkonce_odr void @_ZN4DataC2Ev(%class.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN4DataC2Ev(%class._ZTS4Data.Data* nonnull align 8 dereferenceable(72) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[DATA_CTOR2_FUNC_MD:[0-9]+]]
 //
 // Vector constructors 1 and 2:
-// CHECK: define linkonce_odr void @_ZN6VectorC1Ev(%class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR_FUNC_MD:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN6VectorC2Ev(%class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC1Ev(%class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC2Ev(%class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_CTOR2_FUNC_MD:[0-9]+]]
 //
 // Vector operator+, operator*:
-// CHECK: define linkonce_odr void @_ZplRK6VectorS1_(%class.Vector* noalias sret(%class.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="2" %{{.+}}, %class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_PLUS_FUNC_MD:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZmlRKdRK6Vector(%class.Vector* noalias sret(%class.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, double* nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %{{.+}}, %class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_MUL_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZplRK6VectorS1_(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, %class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="2" %{{.+}}, %class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_PLUS_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZmlRKdRK6Vector(%class._ZTS6Vector.Vector* noalias sret(%class._ZTS6Vector.Vector) align 8 "intel_dtrans_func_index"="1" %{{.+}}, double* nonnull align 8 dereferenceable(8) "intel_dtrans_func_index"="2" %{{.+}}, %class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="3" %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_MUL_FUNC_MD:[0-9]+]]
 
 // Vector constructor (3 doubles) 1 and 2:
-// CHECK: define linkonce_odr void @_ZN6VectorC1Eddd(%class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR_FUNC_MD:[0-9]+]]
-// CHECK: define linkonce_odr void @_ZN6VectorC2Eddd(%class.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR2_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC1Eddd(%class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR_FUNC_MD:[0-9]+]]
+// CHECK: define linkonce_odr void @_ZN6VectorC2Eddd(%class._ZTS6Vector.Vector* nonnull align 8 dereferenceable(24) "intel_dtrans_func_index"="1" %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}) {{.*}}!intel.dtrans.func.type ![[VECTOR_DDD_CTOR2_FUNC_MD:[0-9]+]]
 
 // CHECK: !intel.dtrans.types = !{![[DATA:[0-9]+]], ![[VECTOR:[0-9]+]]}
 
-// CHECK: ![[DATA]] = !{!"S", %class.Data zeroinitializer, i32 3, ![[VECTOR_NP:[0-9]+]], ![[VECTOR_NP]], ![[VECTOR_NP]]}
-// CHECK: ![[VECTOR_NP]] = !{%class.Vector zeroinitializer, i32 0}
-// CHECK: ![[VECTOR]] = !{!"S", %class.Vector zeroinitializer, i32 3, ![[DOUBLE:[0-9]+]], ![[DOUBLE]], ![[DOUBLE]]}
+// CHECK: ![[DATA]] = !{!"S", %class._ZTS4Data.Data zeroinitializer, i32 3, ![[VECTOR_NP:[0-9]+]], ![[VECTOR_NP]], ![[VECTOR_NP]]}
+// CHECK: ![[VECTOR_NP]] = !{%class._ZTS6Vector.Vector zeroinitializer, i32 0}
+// CHECK: ![[VECTOR]] = !{!"S", %class._ZTS6Vector.Vector zeroinitializer, i32 3, ![[DOUBLE:[0-9]+]], ![[DOUBLE]], ![[DOUBLE]]}
 // CHECK: ![[DOUBLE]] = !{double 0.0{{.+}}, i32 0}
 
 // CHECK: ![[DATA_CTOR_FUNC_MD]] = distinct !{![[DATA_PTR:[0-9]+]]}
-// CHECK: ![[DATA_PTR]] = !{%class.Data zeroinitializer, i32 1}
+// CHECK: ![[DATA_PTR]] = !{%class._ZTS4Data.Data zeroinitializer, i32 1}
 // CHECK: ![[OFFSET_FUNC_MD]] = distinct !{![[VECTOR_PTR:[0-9]+]], ![[DATA_PTR]]}
-// CHECK: ![[VECTOR_PTR]] = !{%class.Vector zeroinitializer, i32 1}
+// CHECK: ![[VECTOR_PTR]] = !{%class._ZTS6Vector.Vector zeroinitializer, i32 1}
 // CHECK: ![[DATA_CTOR2_FUNC_MD]] = distinct !{![[DATA_PTR]]}
 // CHECK: ![[VECTOR_CTOR_FUNC_MD]] = distinct !{![[VECTOR_PTR]]}
 // CHECK: ![[VECTOR_CTOR2_FUNC_MD]] = distinct !{![[VECTOR_PTR]]}
