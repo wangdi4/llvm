@@ -35,6 +35,8 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SetVectorizationFactor.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGBuiltin.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SubgroupEmulation/SGSizeAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VFAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/CreateSimdVariantPropagation.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariant/IndirectCallLowering.h"

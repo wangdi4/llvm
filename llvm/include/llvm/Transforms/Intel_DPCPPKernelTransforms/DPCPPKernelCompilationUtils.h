@@ -25,6 +25,12 @@
 
 namespace llvm {
 
+// A tuple of three strings:
+// 1. scalar variant name
+// 2. "kernel-call-once" | ""
+// 3. mangled vector variant name
+using VectItem = std::tuple<const char *, const char *, const char *>;
+
 enum class SyncType { None, Barrier, DummyBarrier, Fiber };
 
 namespace KernelAttribute {
@@ -125,8 +131,16 @@ enum {
 };
 } // namespace OclVersion
 
+/// Helpful shortcuts for structures.
 /// We use a SetVector to ensure determinstic iterations.
+using BBSet = SetVector<BasicBlock *>;
 using FuncSet = SetVector<Function *>;
+using InstSet = SetVector<Instruction *>;
+using BBVec = SmallVector<BasicBlock *, 16>;
+using FuncVec = SmallVector<Function *, 16>;
+using InstVec = SmallVector<Instruction *, 4>;
+using InstVecVec = SmallVector<InstVec, 4>;
+using ValueVec = SmallVector<Value *, 4>;
 
 /// Return true if this alloca instruction is created by ImplicitGID Pass.
 bool isImplicitGID(AllocaInst *AI);
@@ -518,6 +532,11 @@ bool hasFunctionCallInCGNodeSatisfiedWith(
 
 bool hasWorkGroupBoundariesPrefix(StringRef S);
 std::string appendWorkGroupBoundariesPrefix(StringRef S);
+
+void initializeVectInfoOnce(
+    ArrayRef<VectItem> VectInfos,
+    std::vector<std::tuple<std::string, std::string, std::string>>
+        &ExtendedVectInfos);
 
 } // namespace DPCPPKernelCompilationUtils
 } // namespace llvm
