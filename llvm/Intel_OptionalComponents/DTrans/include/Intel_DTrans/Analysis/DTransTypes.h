@@ -135,6 +135,12 @@ public:
   bool isVectorTy() const { return getTypeID() == DTransVectorTypeID; }
   bool isFunctionTy() const { return getTypeID() == DTransFunctionTypeID; }
   bool isAggregateType() const { return isStructTy() || isArrayTy(); }
+  bool isIntegerTy() const {
+    return isAtomicTy() && getLLVMType()->isIntegerTy();
+  }
+  bool isFloatingPointTy() const {
+    return isAtomicTy() && getLLVMType()->isFloatingPointTy();
+  }
 
   // Helper method that casts this object to a pointer type, and returns
   // the type pointed to. Derived object must be DTransPointer.
@@ -225,6 +231,8 @@ public:
   llvm::Type *getLLVMType() const { return LLVMType; }
   bool isVoidTy() const { return LLVMType->isVoidTy(); }
   bool isMetadataTy() const { return LLVMType->isMetadataTy(); }
+  bool isIntegerTy() const { return LLVMType->isIntegerTy(); }
+  bool isFloatingPointTy() const { return LLVMType->isFloatingPointTy(); }
 
   // Return a metadata node that describes the type.
   MDNode *createMetadataReference(unsigned PtrLevel = 0) const;
