@@ -471,6 +471,7 @@ public:
   void emitOMPGenericLoopDirective();
   void emitOMPInteropDirective();
   void emitOMPPrefetchDirective();
+  void emitOMPScopeDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();

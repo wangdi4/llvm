@@ -5102,8 +5102,7 @@ HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
   if (Label = getBlockLabel(VPBB))
     return Label;
 
-  Label = createBlockLabel(VPBB);
-  return Label;
+  return createBlockLabel(VPBB);
 }
 
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
@@ -5111,7 +5110,15 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   if (isSearchLoop())
     return;
 
-  HLLabel *Label = getOrCreateBlockLabel(VPBB);
+  HLLabel *Label = getBlockLabel(VPBB);
+  // If we have a block label and it is already attached, just update the
+  // instruction insertion point and return.
+  if (Label && Label->getParent()) {
+    InsertPoint = Label;
+    return;
+  }
+  if (!Label)
+    Label = createBlockLabel(VPBB);
 
   // NOTE - the implementation here still assumes few things
   // --  We are dealing with inner-most loop vectorization and that the blocks
@@ -5151,6 +5158,14 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
     return Goto;
   };
 
+  // Insert the target label of Goto immediately after Goto if the label
+  // has not been inserted already.
+  auto insertUnlinkedGotoLabel = [](HLGoto *Goto) {
+    HLLabel *Label = Goto->getTargetLabel();
+    if (!Label->getParent())
+      HLNodeUtils::insertAfter(Goto, Label);
+  };
+
   // The loop backedge/exit is implicit in the vector loop. Do not emit
   // gotos in the main vector loop latch block. TODO - look into why we need
   // to suppress goto in PreHeader.
@@ -5160,21 +5175,57 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   if (SourceBB->getNumSuccessors() && !MainLoopLatch && !IsPH) {
     const VPBasicBlock *Succ1 = SourceBB->getSuccessor(0);
 
-    // If the block has two successors, we emit the following sequence
-    // of code for 'SourceBB: (condbit: C1) Successors: Succ1, Succ2'.
-    //
-    //    Cond = extractelement C1_VEC, 0
-    //    if (Cond == 1)
-    //       goto Succ1_Label
-    //    else
-    //       goto Succ2_Label
-    // If the block has a single succesor, we emit the following for
-    // 'SourceBB: Successors: Succ1'.
-    //
-    //     goto Succ1_Label.
-    // The gotos are created with appropriate target label.
+    // Generate an appropriate if/else or goto target block depending on the
+    // block's successor node(s).
     if (SourceBB->getNumSuccessors() == 2) {
       const VPBasicBlock *Succ2 = SourceBB->getSuccessor(1);
+
+      // We are not dealing with backedges at this point as we only vectorize
+      // inner loops. Check and set flags to see if then or else successors are
+      // fall through.
+      //
+      // -- neither fall through
+      // br cond succ1 succ2
+      // succ1
+      //   ...
+      //   br ifmerge
+      // succ2
+      //   ...
+      //   br ifmerge
+      // ifmerge:
+      //   ...
+      //
+      // -- then successor falls through
+      // br cond ifmerge succ2
+      // succ2:
+      //    ...
+      //    br ifmerge
+      // ifmerge:
+      //    ...
+      //
+      // - else successor falls through
+      // br cond succ1 ifmerge
+      // succ1:
+      //    ...
+      //    br ifmerge
+      // ifmerge:
+      //    ...
+      auto *PDT = cast<VPlanVector>(Plan)->getPDT();
+      bool ThenFallThru = PDT->dominates(Succ1, SourceBB);
+      bool ElseFallThru = PDT->dominates(Succ2, SourceBB);
+
+      // Predicate to use in if condition
+      PredicateTy Pred = PredicateTy::ICMP_EQ;
+
+      // Swap the successors for the case where then successor falls through to
+      // avoid ifs like:  if (cond) {} else { ... }
+      if (ThenFallThru && !ElseFallThru) {
+        ThenFallThru = false;
+        ElseFallThru = true;
+        std::swap(Succ1, Succ2);
+        Pred = PredicateTy::ICMP_NE;
+      }
+
       const VPValue *CondBit = SourceBB->getCondBit();
       auto *CondRef = getWideRefForVPVal(CondBit);
       assert(CondRef && "Missind widened DDRef!");
@@ -5183,15 +5234,33 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
       addInst(Extract, nullptr /* Mask */);
       CondRef = Extract->getLvalDDRef()->clone();
       HLIf *If = HLNodeUtilities.createHLIf(
-          PredicateTy::ICMP_EQ, CondRef,
+          Pred, CondRef,
           DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
       addInst(If, nullptr /* Mask */);
 
       HLGoto *ThenGoto = createGotoAndSetTargetLabel(Succ1);
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
+      // If then does not fall through, insert Succ1 label after then
+      // goto if the label has not been inserted earlier.
+      if (!ThenFallThru)
+        insertUnlinkedGotoLabel(ThenGoto);
 
-      HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
-      HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+      // If else does not fall through generate the else part
+      if (!ElseFallThru) {
+        HLGoto *ElseGoto = createGotoAndSetTargetLabel(Succ2);
+        HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
+        assert(!ThenFallThru && "if-else with unexpected empty if-then");
+        insertUnlinkedGotoLabel(ElseGoto);
+      }
+
+      // Insert the if-merge block label after the if/else if not inserted
+      // already
+      auto *IfSuccBlock =
+          ElseFallThru ? Succ2 : PDT->getNode(SourceBB)->getIDom()->getBlock();
+      HLNode *IfSuccLabel = getOrCreateBlockLabel(IfSuccBlock);
+      if (!IfSuccLabel->getParent())
+        HLNodeUtils::insertAfter(If, IfSuccLabel);
+
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
       HLGoto *Goto = createGotoAndSetTargetLabel(Succ1);

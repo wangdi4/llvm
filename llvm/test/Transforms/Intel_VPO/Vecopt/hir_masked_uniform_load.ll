@@ -75,15 +75,10 @@ define void @foo_uniform_if(i64 %n, i64* nocapture readonly %lp, double* nocaptu
 ; CHECK-NEXT:       %unifcond = extractelement %.vec,  0;
 ; CHECK-NEXT:       if (%unifcond == 1)
 ; CHECK-NEXT:       {
+; CHECK-NEXT:          %.vec1 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
+; CHECK-NEXT:          %.unifload = (%lp)[0];
+; CHECK-NEXT:          (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec1;
 ; CHECK-NEXT:       }
-; CHECK-NEXT:       else
-; CHECK-NEXT:       {
-; CHECK-NEXT:          goto [[BB12:BB12.*]];
-; CHECK-NEXT:       }
-; CHECK-NEXT:       %.vec1 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
-; CHECK-NEXT:       %.unifload = (%lp)[0];
-; CHECK-NEXT:       (<4 x double>*)(%darr)[i1 + %.unifload] = %.vec1;
-; CHECK-NEXT:       [[BB12]]:
 ; CHECK-NEXT:  END LOOP
 ;
 entry:
