@@ -84,11 +84,7 @@ void query_dpas() {
   std::cout << "sizes of DPAS tpu_params chosen by the user are: M " << dmsize
             << " N " << dnsize << " K " << dksize << std::endl;
 
-<<<<<<< HEAD
-  // types are given, generate default sizes
-=======
   // sizes-only query: types are given, generate default sizes
->>>>>>> 9468f66ea38df388d57e339ea844a1caacb4ca31
   using myparams2 = tpu_params<tpu::dpas, int8_t, int8_t, int>;
   myparams2 p;
   dmsize = myparams2::defaultM;
@@ -98,10 +94,6 @@ void query_dpas() {
             << " K " << dksize << "\n DPAS int8 num combinations is "
             << p.num_combinations << std::endl;
 
-<<<<<<< HEAD
-  // general query: types are not given
-  constexpr tpu_params myparams3 = tpu_params<tpu::dpas>();
-=======
   dmsize = myparams2::combinations[0].msize;
   dnsize = myparams2::combinations[0].nsize;
   dksize = myparams2::combinations[0].ksize;
@@ -110,7 +102,6 @@ void query_dpas() {
 
   // general query: types are not given
   tpu_params<tpu::dpas> myparams3;
->>>>>>> 9468f66ea38df388d57e339ea844a1caacb4ca31
   std::cout << "DPAS query num combinations: " << myparams3.num_combinations
             << std::endl;
 
