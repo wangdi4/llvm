@@ -19,7 +19,12 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK:          DPCPPKernelAnalysisLegacy
+; CHECK-NOT:      VFAnalysisLegacy
 ; CHECK-NOT:      SetVectorizationFactorLegacy
+; CHECK-NOT:      VectorVariantLoweringLegacy
+; CHECK-NOT:      CreateSimdVariantPropagationLegacy
+; CHECK-NOT:      SGSizeCollectorLegacy
+; CHECK-NOT:      SGSizeCollectorIndirectLegacy
 ; CHECK-NOT:      DPCPPKernelVecCloneLegacy
 ; CHECK-NOT:      VecClone
 ; CHECK:          WGLoopCreatorLegacy

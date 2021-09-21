@@ -127,7 +127,15 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
           return;
         VectorVariant::ISAClass ISA =
             Intel::VectorizerCommon::getCPUIdISA(Config->GetCpuId());
+        // Analyze and set VF for kernels.
         MPM.add(createSetVectorizationFactorLegacyPass(ISA));
+
+        // Create and materialize "vector-variants" attribute.
+        MPM.add(createVectorVariantLoweringLegacyPass(ISA));
+        MPM.add(createCreateSimdVariantPropagationLegacyPass());
+        MPM.add(createSGSizeCollectorLegacyPass(ISA));
+        MPM.add(createSGSizeCollectorIndirectLegacyPass(ISA));
+
         MPM.add(createDPCPPKernelVecClonePass(VectInfos, ISA,
                                               !m_IsSYCL && !m_IsOMP));
         MPM.add(createVectorVariantFillInLegacyPass());

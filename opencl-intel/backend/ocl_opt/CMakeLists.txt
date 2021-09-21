@@ -41,7 +41,6 @@ set(OCL_BE_PASSES
     ResolveWICall
     ResolveSubGroupWICall
     SetPreferVectorWidth
-    ShiftZeroUpperBits
     SinCosFold
     SmartGVN
     StripIntelIP
