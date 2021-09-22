@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPOCodeGenHIR.h"
+#include "../IntelLoopVectorizationPlanner.h"
 #include "../IntelVPlanCallVecDecisions.h"
 #include "../IntelVPlanUtils.h"
 #include "../IntelVPlanVLSAnalysis.h"
@@ -123,6 +124,10 @@ static cl::opt<bool> PrintHIRAfterVPlan(
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace llvm {
+
+// Helper method to check if we are dealing with merged CFG in CG. This is
+// decided based on status of compiler options that control CFGMerger.
+static bool isMergedCFG() { return EnableNewCFGMerge && EnableNewCFGMergeHIR; }
 
 static RegDDRef *getConstantSplatDDRef(DDRefUtils &DDRU, Constant *ConstVal,
                                        unsigned VF) {
@@ -975,10 +980,18 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
                 false /*OrigLoop will also executed peeled its.*/);
   }
 
-  auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
-      OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
-      OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
-      &RTChecks);
+  HLLoop *MainLoop = nullptr;
+  // For merged CFG just create an empty clone of original scalar loop to
+  // correspond to the main vector loop. For legacy CFG continue to use
+  // HIRTransformUtils to emit implicit peel, vector and remainder loops.
+  if (isMergedCFG()) {
+    MainLoop = OrigLoop->cloneEmpty();
+  } else {
+    MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
+        OrigLoop, VF * UF, NeedRemainderLoop, ORBuilder,
+        OptimizationType::Vectorizer, &PeelLoop, SearchLoopPeelArrayRef,
+        &RTChecks);
+  }
 
   if (!MainLoop) {
     assert(false && "Main loop could not be setup.");
@@ -2744,6 +2757,10 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
   // Check if VPValue already has scalar Ref for lane 0. Uniform instructions
   // that are scalarized are expected to be handled here.
   RegDDRef *ScalarRef = nullptr;
+
+  if (auto *LiveOut = dyn_cast<VPLiveOutValue>(VPVal))
+    return getUniformScalarRef(LiveOut->getOperand(0));
+
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
 
@@ -2821,6 +2838,11 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
 RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   RegDDRef *WideRef = nullptr;
 
+  // TODO: Probable improvement is to "inline" liveouts after CFG merge. Then we
+  // don't need this code. Same for getUniformScalarRef.
+  if (auto *LiveOut = dyn_cast<VPLiveOutValue>(VPVal))
+    return widenRef(LiveOut->getOperand(0), VF);
+
   // If the DDREF has a widened counterpart, return the same.
   if ((WideRef = getWideRefForVPVal(VPVal)))
     return WideRef->clone();
@@ -2832,6 +2854,11 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   LLVM_DEBUG(WideRef->dump(true));
   LLVM_DEBUG(errs() << "\n");
   addVPValueWideRefMapping(VPVal, WideRef);
+
+  // Keep the VPValue for dropping when we switch VF. TODO: Move it to
+  // addVPValueWideRefMapping instead?
+  if (!isa<VPInstruction>(VPVal))
+    VPValsToFlushForVF.insert(VPVal);
 
   // Clients can potentially modify the returned value. Return the cloned value.
   return WideRef->clone();
@@ -3164,8 +3191,6 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   // Get DDRef for parent reduced value.
   RegDDRef *ParentFinal =
       widenRef(RedFinal->getParentFinalValOperand(), getVF());
-  // Get broadcasted DDRef.
-  ParentFinal = widenRef(ParentFinal, getVF());
   assert(ParentFinal && "trying to broadcast Lval?");
   unsigned Opc = RedFinal->getBinOpcode();
   PredicateTy Pred = ParentFinal->getDestType()->isFPOrFPVectorTy()
@@ -3424,7 +3449,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     }
 
     insertReductionFinal(&RedTail);
-    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+    addVPValueScalRefMapping(VPInst, WInst->getLvalDDRef(), 0);
     return;
   }
 
@@ -3894,10 +3919,17 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         VPInst->HIR().isMaster()
             ? VPInst->HIR().getUnderlyingNode()
             : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
-    if (isa<HLLoop>(HNode) && HNode == OrigLoop)
-      if (VPInst->getOpcode() != Instruction::Add ||
-          !MainLoopIVInsts.count(VPInst))
+    if (isa<HLLoop>(HNode) && HNode == OrigLoop) {
+      if (isMergedCFG()) {
+        // For merged CFG we can only ignore the backedge cmp. Other main loop
+        // IV associated instructions like vector-tc needs to be handled
+        // explicitly.
+        if (VPInst->getOpcode() == Instruction::ICmp)
+          return;
+      } else if (VPInst->getOpcode() != Instruction::Add ||
+                 !MainLoopIVInsts.count(VPInst))
         return;
+    }
   }
 
   auto Opcode = VPInst->getOpcode();
@@ -4105,6 +4137,106 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Br:
     // Do nothing.
     return;
+
+  case VPInstruction::VectorTripCountCalculation: {
+    // TODO: Revisit for constant TC.
+    auto *VPVectorTC = cast<VPVectorTripCountCalculation>(VPInst);
+    RegDDRef *OrigTC = getUniformScalarRef(VPVectorTC->getOperand(0));
+    RegDDRef *UBRef = OrigTC->clone();
+    // HLLoop upper bounds are normalized, so increment by 1 to get actual UB.
+    UBRef->getSingleCanonExpr()->addConstant(1, true);
+    // The following call is required because self-blobs do not have BlobDDRefs.
+    // +1 operation could make non-self blob a self-blob and vice-versa.
+    // For example if UB is (%b - 1) or (%b).
+    SmallVector<const RegDDRef *, 1> Aux = {OrigTC};
+    UBRef->makeConsistent(Aux,
+                          OrigTC->getSingleCanonExpr()->getDefinedAtLevel());
+
+    // For given original loop TC say %N, we emit following sequence of
+    // instructions to compute vector TC -
+    // %tgu = %N /u VF*UF
+    // %vec.tc = %tgu * VF*UF
+
+    assert(!Mask && "Vector TC calculation should not be masked.");
+    RegDDRef *VFUFDD = DDRefUtilities.createConstDDRef(VPVectorTC->getType(),
+                                                       getVF() * getUF());
+    auto *DivInst = HLNodeUtilities.createUDiv(UBRef, VFUFDD, "tgu");
+    addInstUnmasked(DivInst);
+
+    auto *MulInst = HLNodeUtilities.createMul(DivInst->getLvalDDRef()->clone(),
+                                              VFUFDD->clone(), "vec.tc");
+    addInstUnmasked(MulInst);
+    addVPValueScalRefMapping(VPVectorTC, MulInst->getLvalDDRef(), 0);
+    return;
+  }
+
+  case VPInstruction::ScalarPeelRemainderHIR: {
+    auto *VPScalarLp = cast<VPPeelRemainderHIR>(VPInst);
+    HLLoop *ScalarLoop = VPScalarLp->getLoop()->clone();
+
+    // Emit scalar loop at current insertion point and initialize required
+    // live-in temps before the loop. We also set scalar loop's lower/upper
+    // bound based on temps captured in corresponding VPScalarRemainderHIR
+    // instruction. For example simple scalar remainder that looks like -
+    // %scal.rem = scalar-hir-loop <HLLoop>, LBTemp: %rem.lb, TempInitMap:
+    //   { Initialize temp %rem.lb with -> i64 %vp.rem.lb }
+    //   { Initialize temp %red.var with -> i32 %vp.red.var }
+    //
+    // is lowered into HIR as -
+    //
+    // %rem.lb = %extract.vec.rem.lb;
+    // %red.var = %extract.vec.red.var;
+    // + DO i1 = %rem.lb, %N - 1, 1   <DO_LOOP> <vectorize>
+    // |   %A.i = (%A)[i1];
+    // |   %red.var = %A.i  +  %red.var;
+    // + END LOOP
+
+    for (unsigned I = 0; I < VPScalarLp->getNumOperands(); ++I) {
+      RegDDRef *TempToInit = cast<RegDDRef>(VPScalarLp->getTemp(I));
+      RegDDRef *InitValue = getOrCreateScalarRef(VPScalarLp->getOperand(I), 0);
+      HLInst *InitInst = HLNodeUtilities.createCopyInst(InitValue, "temp.init",
+                                                        TempToInit->clone());
+      addInstUnmasked(InitInst);
+      // Initialized temp will be live-in to scalar loop.
+      ScalarLoop->addLiveInTemp(TempToInit);
+    }
+
+    // Track bound refs whose def@level needs to be updated after attaching the
+    // scalar loop.
+    SmallVector<RegDDRef *, 2> BoundRefsToFixDefLevel;
+
+    if (auto *LB = VPScalarLp->getLowerBoundTemp()) {
+      auto *LBRef = cast<RegDDRef>(LB);
+      ScalarLoop->setLowerDDRef(LBRef);
+      BoundRefsToFixDefLevel.push_back(LBRef);
+    }
+
+    if (auto *UB = VPScalarLp->getUpperBoundTemp()) {
+      auto *UBRef = cast<RegDDRef>(UB);
+      UBRef->setSymbase(GenericRvalSymbase);
+      ScalarLoop->setUpperDDRef(UBRef);
+      BoundRefsToFixDefLevel.push_back(UBRef);
+    }
+
+    LLVM_DEBUG(dbgs() << "[VPOCGHIR] ScalarLoop:\n"; ScalarLoop->dump();
+               dbgs() << "\n");
+    addInst(ScalarLoop, nullptr /*Mask*/);
+
+    // Sets the defined at level of new bounds to (nesting level - 1) as the
+    // bound temp is defined just before the loop.
+    for (auto *Bound : BoundRefsToFixDefLevel)
+      Bound->getSingleCanonExpr()->setDefinedAtLevel(
+          ScalarLoop->getNestingLevel() - 1);
+
+    return;
+  }
+
+  case VPInstruction::OrigLiveOutHIR: {
+    auto *LiveOut = cast<VPOrigLiveOutHIR>(VPInst);
+    auto *LiveOutRef = cast<RegDDRef>(LiveOut->getLiveOutVal());
+    addVPValueScalRefMapping(LiveOut, const_cast<RegDDRef *>(LiveOutRef), 0);
+    return;
+  }
   }
 
   // Skip widening the first select operand. The select instruction is generated
@@ -4839,6 +4971,28 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::PushVF: {
+    assert(isMergedCFG() && "PushVF expected only for merged CFG.");
+    unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
+    unsigned NewUF = cast<VPPushVF>(VPInst)->getUF();
+    assert((NewVF != 0 && NewUF != 0) && "expected nonzero VF and UF");
+    VFStack.emplace_back(getVF(), getUF());
+    dropExternalValsFromMaps();
+    setVF(NewVF);
+    setUF(NewUF);
+    return;
+  }
+
+  case VPInstruction::PopVF: {
+    assert(isMergedCFG() && "PopVF expected only for merged CFG.");
+    assert(!VFStack.empty() && "unexpected PopVF");
+    auto V = VFStack.pop_back_val();
+    dropExternalValsFromMaps();
+    setVF(V.first);
+    setUF(V.second);
+    return;
+  }
+
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");
@@ -5252,6 +5406,44 @@ HLLabel *VPOCodeGenHIR::getOrCreateBlockLabel(const VPBasicBlock *VPBB) {
   return createBlockLabel(VPBB);
 }
 
+void VPOCodeGenHIR::setUBForVectorLoop(VPLoop *VPLp) {
+  HLLoop *VecLoop = VPLoopHLLoopMap[VPLp];
+
+  // Upper bound for the vectorized HLLoop is obtained from the vector-tc
+  // VPInstruction that is generated for every vectorized VPLoop in its
+  // corresponding preheader block.
+  VPBasicBlock *VPLpPreheader = VPLp->getLoopPreheader();
+  VPInstruction *VectorTC = nullptr;
+  for (auto &I : *VPLpPreheader)
+    if (auto *TC = dyn_cast<VPVectorTripCountCalculation>(&I))
+      VectorTC = TC;
+
+  assert(VectorTC && "Vector TC computation expected in PH of vector loop.");
+  RegDDRef *UBRef = getOrCreateScalarRef(VectorTC, 0 /*Lane*/);
+  assert(UBRef && "Non-null ref expected to compute TC.");
+  UBRef = UBRef->clone();
+
+  // Add blobs and adjust def@level since UB is defined outside the loop.
+  auto *UBCanonExpr = UBRef->getSingleCanonExpr();
+  unsigned LoopLevel = VecLoop->getNestingLevel();
+  UBRef->addBlobDDRef(UBCanonExpr->getSingleBlobIndex(), LoopLevel - 1);
+  UBCanonExpr->setDefinedAtLevel(LoopLevel - 1);
+  // Subtract 1
+  UBCanonExpr->addConstant(-1, true);
+  UBRef->setSymbase(GenericRvalSymbase);
+  VecLoop->setUpperDDRef(UBRef);
+
+  // TODO: Use PH induction-init-step to set stride? Currently we are assuming
+  // VF*UF by default.
+  VecLoop->getStrideDDRef()->getSingleCanonExpr()->setConstant(getVF() *
+                                                               getUF());
+
+  // TODO: Dirty hack to map induction-final -> vector HLLoop's UB.
+  for (auto &I : *VPLp->getExitBlock())
+    if (isa<VPInductionFinal>(&I))
+      addVPValueScalRefMapping(&I, getScalRefForVPVal(VectorTC, 0), 0);
+}
+
 void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   // TODO - search loop representation is currently not explicit.
   if (isSearchLoop())
@@ -5277,15 +5469,27 @@ void VPOCodeGenHIR::emitBlockLabel(const VPBasicBlock *VPBB) {
   // -- We still rely on MainLoop/Remainder loops being created implicitly.
   // This will be changed once we have CFG merger working for HIR path
   // and the remainder loop is made explicit.
-  if (!InsertPoint)
-    HLNodeUtilities.insertBefore(MainLoop, Label);
-  else if (LoopHeaderBlocks.count(VPBB)) {
+  if (!InsertPoint) {
+    if (isMergedCFG()) {
+      // We are encountering the first VPBB in merged CFG, insert its label
+      // before the original scalar loop.
+      // TODO: This is a good spot to remove OrigLoop from its parent. Remainder
+      // loop is represented explicitly in CFG and we don't need to repurpose
+      // OrigLoop as remainder.
+      HLNodeUtilities.insertBefore(OrigLoop, Label);
+    } else {
+      HLNodeUtilities.insertBefore(MainLoop, Label);
+    }
+  } else if (LoopHeaderBlocks.count(VPBB)) {
     auto *CurVPLoop = Plan->getVPLoopInfo()->getLoopFor(VPBB);
     auto *CurHLLoop = VPLoopHLLoopMap[CurVPLoop];
-    // Main vector loop is already linked in
-    if (CurVPLoop != getVPLoop())
+    // Main vector loop is already linked in (except in case merged CFG)
+    if (isMergedCFG() || CurVPLoop != getVPLoop())
       HLNodeUtilities.insertAfter(InsertPoint, CurHLLoop);
     HLNodeUtilities.insertAsFirstChild(CurHLLoop, Label);
+    // Setup upper bound and stride for vectorized loop.
+    if (isMergedCFG())
+      setUBForVectorLoop(CurVPLoop);
   } else if (LoopExitBlocks.count(VPBB)) {
     auto *CurVPLoop =
         Plan->getVPLoopInfo()->getLoopFor(VPBB->getSinglePredecessor());
@@ -5366,7 +5570,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   // needed when CFG merger is enabled as we need further improvements in how we
   // pull in code into the then and else parts in the presence of
   // unstructured control flow.
-  if (EnableNaiveIfElseGeneration) {
+  if (EnableNaiveIfElseGeneration || isMergedCFG()) {
     emitBlockTerminatorNaive(SourceBB);
     return;
   }

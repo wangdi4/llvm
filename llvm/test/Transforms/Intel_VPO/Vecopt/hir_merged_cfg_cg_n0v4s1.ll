@@ -1,0 +1,100 @@
+; Test for basic functionality of HIR vectorizer CG for merged CFG.
+
+; Input HIR
+; BEGIN REGION { }
+;       %tok = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
+;       %sum.07 = %init;
+;
+;       + DO i1 = 0, %N + -1, 1   <DO_LOOP> <simd>
+;       |   %A.i = (%A)[i1];
+;       |   %sum.07 = %A.i  +  %sum.07;
+;       + END LOOP
+;
+;       @llvm.directive.region.exit(%tok); [ DIR.OMP.END.SIMD() ]
+; END REGION
+
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-enable-new-cfg-merge-hir -vplan-vec-scenario="n0;v4;s1" -print-after=hir-vplan-vec -disable-output < %s 2>&1 | FileCheck %s
+
+; CHECK-LABEL: Function: foo
+; CHECK:          BEGIN REGION { }
+; CHECK-NEXT:           %sum.07 = %init;
+; CHECK-NEXT:           %tgu = %N  /u  4;
+; CHECK-NEXT:           %vec.tc = %tgu  *  4;
+; CHECK-NEXT:           %.vec = 0 == %vec.tc;
+; CHECK-NEXT:           %phi.temp = %sum.07;
+; CHECK-NEXT:           %phi.temp2 = 0;
+; CHECK-NEXT:           %unifcond = extractelement %.vec,  0;
+; CHECK-NEXT:           if (%unifcond == 1)
+; CHECK-NEXT:           {
+; CHECK-NEXT:              goto merge.blk10.31;
+; CHECK-NEXT:           }
+; CHECK-NEXT:           %tgu4 = %N  /u  4;
+; CHECK-NEXT:           %vec.tc5 = %tgu4  *  4;
+; CHECK-NEXT:           %red.var = 0;
+; CHECK-NEXT:           %red.var = insertelement %red.var,  %sum.07,  0;
+
+; CHECK:                + DO i1 = 0, %vec.tc5 + -1, 4   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:           |   %.vec6 = (<4 x i32>*)(%A)[i1];
+; CHECK-NEXT:           |   %red.var = %.vec6  +  %red.var;
+; CHECK-NEXT:           + END LOOP
+
+; CHECK:                %sum.07 = @llvm.vector.reduce.add.v4i32(%red.var);
+; CHECK-NEXT:           %.vec8 = %N + -1 == %vec.tc5;
+; CHECK-NEXT:           %phi.temp = %sum.07;
+; CHECK-NEXT:           %phi.temp2 = %vec.tc5;
+; CHECK-NEXT:           %phi.temp11 = %sum.07;
+; CHECK-NEXT:           %phi.temp13 = %vec.tc5;
+; CHECK-NEXT:           %unifcond15 = extractelement %.vec8,  0;
+; CHECK-NEXT:           if (%unifcond15 == 1)
+; CHECK-NEXT:           {
+; CHECK-NEXT:              goto final.merge.57;
+; CHECK-NEXT:           }
+; CHECK-NEXT:           merge.blk10.31:
+; CHECK-NEXT:           %extract.0. = extractelement %phi.temp2,  0;
+; CHECK-NEXT:           %lb.tmp = %extract.0.;
+; CHECK-NEXT:           %extract.0.16 = extractelement %phi.temp,  0;
+; CHECK-NEXT:           %sum.07 = %extract.0.16;
+
+; CHECK:                + DO i1 = %lb.tmp, %N + -1, 1   <DO_LOOP> <vectorize>
+; CHECK-NEXT:           |   %A.i = (%A)[i1];
+; CHECK-NEXT:           |   %sum.07 = %A.i  +  %sum.07;
+; CHECK-NEXT:           + END LOOP
+
+; CHECK:                %phi.temp11 = %sum.07;
+; CHECK-NEXT:           %phi.temp13 = %N + -1;
+; CHECK-NEXT:           final.merge.57:
+; CHECK-NEXT:     END REGION
+
+
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+define i32 @foo(i32* nocapture readonly %A, i64 %N, i32 %init) {
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %for.body
+
+for.body:                                           ; preds = %for.body.preheader, %for.body
+  %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
+  %sum.07 = phi i32 [ %add, %for.body ], [ %init, %entry ]
+  %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
+  %A.i = load i32, i32* %arrayidx, align 4
+  %add = add nsw i32 %A.i, %sum.07
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %N
+  br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
+
+for.cond.cleanup.loopexit:                             ; preds = %for.body
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  br label %end.simd
+
+end.simd:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
+  ret i32 %add.lcssa
+
+}
+declare token @llvm.directive.region.entry()
+declare void @llvm.directive.region.exit(token)

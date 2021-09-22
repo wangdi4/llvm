@@ -324,8 +324,8 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     //   --------------- Beginning of notify table ---------------------
     //   Notify table header.
     //      char      ident[];        // ".itt_notify_tab\0"
-    //      uint16_t  version;        // Major version 1 in the upper byte,
-    //                                // minor version 2 in the lower byte
+    //      uint16_t  version;        // Major version 2 in the upper byte,
+    //                                // minor version 0 in the lower byte
     //      uint16_t  header_size;    // byte size of this header structure
     //      uint32_t  num_reports;    // number of opt-report entries
     //      uint32_t  ancid_length;   // length of anchor ID (1->32)
@@ -371,8 +371,8 @@ bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
     NullTerminatedIdentString.push_back('\0');
     getOS().emitBytes(NullTerminatedIdentString);
 
-    getOS().AddComment("Table Version 1.2");
-    getOS().emitIntValue(0x0102, 2);
+    getOS().AddComment("Table Version 2.0");
+    getOS().emitIntValue(0x0200, 2);
     getOS().AddComment("Header Size");
     getOS().emitAbsoluteSymbolDiff(HeaderEndLabel, HeaderStartLabel, 2);
     getOS().AddComment("Number Of Reports");

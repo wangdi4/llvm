@@ -224,8 +224,11 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       SourceElementType =
           GepBasePtr->getType()->getScalarType()->getPointerElementType();
 
-    SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
-    cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
+    if (VPGEP->isInBounds())
+      SerialInst =
+          Builder.CreateInBoundsGEP(SourceElementType, GepBasePtr, Ops);
+    else
+      SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
     StringRef GepName =
         isSOAAccess(VPGEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
     SerialInst->setName(GepName);
