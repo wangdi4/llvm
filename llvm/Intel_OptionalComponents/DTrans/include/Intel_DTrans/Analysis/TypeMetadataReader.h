@@ -87,7 +87,7 @@ public:
 
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
-  DTransType *getDTransTypeFromMD(Value *V);
+  DTransType *getDTransTypeFromMD(const Value *V);
 private:
   // This method returns a DTransType* by decoding the information in the
   // metadata node. Returns nullptr, if an error occurs during decoding.
@@ -102,7 +102,7 @@ private:
   DTransType *decodeMDVectorNode(MDNode *MD);
 
   // Lookup a value from the FunctionToDTransTypeMap table.
-  DTransFunctionType *getDTransType(Function *F) const;
+  DTransFunctionType *getDTransType(const Function *F) const;
 
   // Build of cache of DTransFunctionType objects to map Functions to a
   // DTransFunctionType for each function that has DTrans metadata tags.

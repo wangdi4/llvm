@@ -10,7 +10,7 @@
 
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 
-#include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransAllocCollector.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
@@ -279,6 +279,28 @@ public:
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
 
+  void addAllocationCall(CallBase *Call, dtrans::AllocKind Kind) {
+    AllocationCalls.insert({Call, Kind});
+  }
+
+  void addFreeCall(CallBase *Call, dtrans::FreeKind Kind) {
+    FreeCalls.insert({Call, Kind});
+  }
+
+  dtrans::AllocKind getAllocationCallKind(CallBase *Call) const {
+    auto It = AllocationCalls.find(Call);
+    if (It == AllocationCalls.end())
+      return dtrans::AK_NotAlloc;
+    return It->second;
+  }
+
+  dtrans::FreeKind getFreeCallKind(CallBase *Call) const {
+    auto It = FreeCalls.find(Call);
+    if (It == FreeCalls.end())
+      return dtrans::FK_NotFree;
+    return It->second;
+  }
+
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
@@ -388,6 +410,13 @@ private:
       DenseMap<GEPOperator *, std::pair<DTransType *, size_t>>;
   ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
 
+  // Map of calls identified as being memory allocation calls to the allocation
+  // kind.
+  DenseMap<CallBase *, dtrans::AllocKind> AllocationCalls;
+
+  // Map of calls identified as being memory free calls to the free kind.
+  DenseMap<CallBase *, dtrans::FreeKind> FreeCalls;
+
   // LLVM Type for 'i8'
   llvm::Type *LLVMI8Type;
 
@@ -446,9 +475,11 @@ class PtrTypeAnalyzerInstVisitor
 public:
   PtrTypeAnalyzerInstVisitor(
       PtrTypeAnalyzerImpl &PTA, DTransTypeManager &TM,
-      TypeMetadataReader &MDReader, LLVMContext &Ctx, const DataLayout &DL,
+      TypeMetadataReader &MDReader, DTransAllocCollector &DTAC,
+      LLVMContext &Ctx, const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
-      : PTA(PTA), TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
+      : PTA(PTA), TM(TM), MDReader(MDReader), DTAC(DTAC), DL(DL),
+        GetTLI(GetTLI) {
 
     // If the metadata contained a description of the system object type for
     // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
@@ -2015,8 +2046,13 @@ private:
     // instructions that won't exist once there are opaque pointers and
     // getPointerElementType() so cannot be used yet.
     const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-    auto AllocKind = dtrans::getAllocFnKind(Call, TLI);
-    if (AllocKind != dtrans::AK_NotAlloc) {
+    dtrans::FreeKind FKind = DTAC.getFreeFnKind(Call, TLI);
+    if (FKind != dtrans::FK_NotFree)
+      PTA.addFreeCall(Call, FKind);
+
+    dtrans::AllocKind AKind = DTAC.getAllocFnKind(Call, TLI);
+    if (AKind != dtrans::AK_NotAlloc) {
+      PTA.addAllocationCall(Call, AKind);
       inferTypeFromUse(Call, ResultInfo);
 
       // Track the VAT_Decl type of the allocation as the type the
@@ -2025,6 +2061,23 @@ private:
       if (It != ValueToInferredTypes.end())
         for (auto Ty : It->second)
           ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
+    } else if (OptRetType.second &&
+               OptRetType.second == PTA.getDTransI8PtrType()) {
+      // Check if the return type should have a pointer type. If so, infer the
+      // type.
+
+      // Any call that returns an i8* should be checked for the type it gets
+      // used as to support handling IR with non-opaque pointer type casts.
+      // For example:
+      //   1)  %val1 = call i8* @creator()
+      //   2)  %val2 = bitcast i8* %val1 to %struct.type2*
+      //   3)  <some instruction using %val2 as %struct.type2*>
+      //
+      // Note: Once opaque pointers are introduced, the bitcast will no
+      // longer exist, and instruction 3 will directly use %ty1 as a
+      // %struct.type2* value, so this inference should no longer be
+      // necessary because %val1 will be used directly as a different type.
+      inferTypeFromUse(Call, ResultInfo);
     }
 
     // Set the usage type for the call arguments.
@@ -3349,6 +3402,7 @@ private:
   PtrTypeAnalyzerImpl &PTA;
   DTransTypeManager &TM;
   TypeMetadataReader &MDReader;
+  DTransAllocCollector &DTAC;
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
@@ -3717,8 +3771,10 @@ PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
-  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, M.getContext(),
-                                          DL, GetTLI);
+  DTransAllocCollector DTAC(MDReader, GetTLI);
+  DTAC.populateAllocDeallocTable(M);
+  PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, DTAC,
+                                          M.getContext(), DL, GetTLI);
   InstAnalyzer.visit(M);
 }
 
@@ -4134,6 +4190,14 @@ bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
 std::pair<DTransType *, size_t>
 PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
   return Impl->getByteFlattenedGEPElement(GEP);
+}
+
+dtrans::AllocKind PtrTypeAnalyzer::getAllocationCallKind(CallBase *Call) const {
+  return Impl->getAllocationCallKind(Call);
+}
+
+dtrans::FreeKind PtrTypeAnalyzer::getFreeCallKind(CallBase *Call) const {
+  return Impl->getFreeCallKind(Call);
 }
 
 bool PtrTypeAnalyzer::getUnsupportedAddressSpaceSeen() const {

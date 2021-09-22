@@ -28,6 +28,7 @@
 #include <set>
 
 namespace llvm {
+class CallBase;
 class DataLayout;
 class Function;
 class GEPOperator;
@@ -486,6 +487,14 @@ public:
   // return the type and field number that is indexed by the GEP.
   std::pair<DTransType *, size_t>
   getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
+  // If the call is to a function identified as returning allocated memory,
+  // return the AllocKind of the call. Otherwise, return AK_NotAlloc.
+  dtrans::AllocKind getAllocationCallKind(CallBase *Call) const;
+
+  // If the call is to a function identified as freeing allocated memory,
+  // return the FreeKind of the call. Otherwise, return FK_NotFree.
+  dtrans::FreeKind getFreeCallKind(CallBase *Call) const;
 
   // Return 'true' if pointers were seen that are not part of the supported
   // address space for DTrans.
