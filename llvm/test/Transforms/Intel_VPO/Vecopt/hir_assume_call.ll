@@ -12,9 +12,6 @@
 ; CHECK:        BEGIN REGION { modified }
 ; CHECK-NEXT:         + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:         |   @llvm.assume(%arg);
-; CHECK-NEXT:         |   @llvm.assume(%arg);
-; CHECK-NEXT:         |   @llvm.assume(%arg);
-; CHECK-NEXT:         |   @llvm.assume(%arg);
 ; CHECK-NEXT:         |   %.vec = (<4 x i32>*)(@arr.i32.1)[0][i1];
 ; CHECK-NEXT:         |   %.vec1 = (<4 x i32>*)(@arr.i32.3)[0][i1];
 ; CHECK-NEXT:         |   (<4 x i32>*)(@arr.i32.2)[0][i1] = %.vec + %.vec1;

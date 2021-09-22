@@ -100,8 +100,8 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
                                        std::unique_ptr<Command> InputCommand,
                                        const InputInfoList &InputFiles,
                                        const InputInfo &Output, const Tool *T,
-                                       StringRef Increment,
-                                       StringRef Ext = "out") {
+                                       StringRef Increment, StringRef Ext,
+                                       StringRef ParallelJobs) {
   // Construct llvm-foreach command.
   // The llvm-foreach command looks like this:
   // llvm-foreach --in-file-list=a.list --in-replace='{}' -- echo '{}'
@@ -123,6 +123,9 @@ void SYCL::constructLLVMForeachCommand(Compilation &C, const JobAction &JA,
   if (!Increment.empty())
     ForeachArgs.push_back(
         C.getArgs().MakeArgString("--out-increment=" + Increment));
+  if (!ParallelJobs.empty())
+    ForeachArgs.push_back(C.getArgs().MakeArgString("--jobs=" + ParallelJobs));
+
   ForeachArgs.push_back(C.getArgs().MakeArgString("--"));
   ForeachArgs.push_back(
       C.getArgs().MakeArgString(InputCommand->getExecutable()));
@@ -472,10 +475,12 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "", ForeachExt);
-  else
+                                this, "", ForeachExt, ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -644,10 +649,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
   addFPGATimingDiagnostic(Cmd, C);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, ReportOptArg, ForeachExt);
-  else
+                                this, ReportOptArg, ForeachExt, ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -689,10 +696,12 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "");
-  else
+                                this, "", "out", ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 
@@ -728,10 +737,12 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
   auto Cmd = std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
                                        Exec, CmdArgs, None);
-  if (!ForeachInputs.empty())
+  if (!ForeachInputs.empty()) {
+    StringRef ParallelJobs =
+        Args.getLastArgValue(options::OPT_fsycl_max_parallel_jobs_EQ);
     constructLLVMForeachCommand(C, JA, std::move(Cmd), ForeachInputs, Output,
-                                this, "");
-  else
+                                this, "", "out", ParallelJobs);
+  } else
     C.addCommand(std::move(Cmd));
 }
 

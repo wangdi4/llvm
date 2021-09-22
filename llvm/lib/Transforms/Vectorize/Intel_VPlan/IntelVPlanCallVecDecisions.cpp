@@ -337,7 +337,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // Deterministic function calls with no side effects that operate on uniform
   // operands need to be marked as DoNotWiden.
   if (!Plan.getVPlanDA()->isDivergent(*VPCall) &&
-      !VPCall->mayHaveSideEffects()) {
+      (!VPCall->mayHaveSideEffects() ||
+       VPCall->isIntrinsicFromList({Intrinsic::assume}))) {
     // NOTE: If assert is triggered, it implies that DA has been updated to
     // allow non-uniform operands for uniform call. This would require some
     // additional updates to handling of different cases in this analysis

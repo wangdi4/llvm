@@ -23,6 +23,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 namespace llvm {
 
@@ -101,6 +102,7 @@ public:
     OS << "}\n";
   }
 
+  virtual StringRef getName() const { return ""; }
   unsigned char getSubclassID() const { return SubclassID; }
 };
 
@@ -126,6 +128,18 @@ public:
     assert((BlobIndex == loopopt::InvalidBlobIndex ||
             isa<loopopt::RegDDRef>(Operand)) &&
            "Expected a RegDDRef for valid blob index");
+  }
+
+  StringRef getName() const override {
+    if (!OperandBlob->isSelfBlob())
+      return "";
+
+    loopopt::BlobTy BlobScev =
+        OperandBlob->getBlobUtils().getBlob(OperandBlob->getSelfBlobIndex());
+    assert(BlobScev && OperandBlob->getBlobUtils().isTempBlob(BlobScev) &&
+           "Unexpected blob scev");
+    auto *UBlobScev = cast<SCEVUnknown>(BlobScev);
+    return UBlobScev->getValue()->getName();
   }
 
   /// Return true if the blob is unitary.

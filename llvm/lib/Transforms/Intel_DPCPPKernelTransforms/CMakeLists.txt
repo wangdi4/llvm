@@ -52,11 +52,13 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
+  Utils/LoopPeeling.cpp
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
   Utils/RuntimeService.cpp
   Utils/TypeAlignment.cpp
   Utils/VectorizerUtils.cpp
+  Utils/WGBoundDecoder.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

@@ -219,18 +219,14 @@ class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
   enum FieldWriteType { FWT_ZeroValue, FWT_NonZeroValue, FWT_ExistingValue };
 
 public:
-  // TODO: Making this public temporarily to avoid an unused variable warning
-  // because the variable is not used yet. Change to private when it is used.
-  dtrans::DTransAllocAnalyzer &DTAA;
   DTransSafetyInstVisitor(
       LLVMContext &Ctx, const DataLayout &DL,
       DTransSafetyInfo::GetTLIFnType GetTLI,
       function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
       DTransSafetyInfo &DTInfo, PtrTypeAnalyzer &PTA, DTransTypeManager &TM,
-      TypeMetadataReader &MDReader, dtrans::DTransAllocAnalyzer &DTAA,
-      DTransSafetyLogger &Log)
-      : DTAA(DTAA), DL(DL), GetTLI(GetTLI), GetBFI(GetBFI), DTInfo(DTInfo),
-        PTA(PTA), MDReader(MDReader), TM(TM), Log(Log) {
+      TypeMetadataReader &MDReader, DTransSafetyLogger &Log)
+      : DL(DL), GetTLI(GetTLI), GetBFI(GetBFI), DTInfo(DTInfo), PTA(PTA),
+        MDReader(MDReader), TM(TM), Log(Log) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
     LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
@@ -2691,41 +2687,32 @@ public:
       return false;
     };
 
-    // If the called function is a known allocation function, we need to
-    // analyze the allocation to determine the type allocated, and whether
-    // the size allocated is appropriate.
+    // If the called function is a known allocation function, we need to check
+    // that it only gets used as at most 1 aggregate type, and the size is a
+    // multiple of the aggregate. Also construct the CallInfo object for the
+    // transformations.
     SmallPtrSet<const Value *, 3> SpecialArguments;
     const TargetLibraryInfo &TLI = GetTLI(*Call.getFunction());
-    auto AllocKind = dtrans::getAllocFnKind(&Call, TLI);
+    dtrans::AllocKind AKind = PTA.getAllocationCallKind(&Call);
+    if (AKind != dtrans::AK_NotAlloc) {
+      analyzeAllocationCall(&Call, AKind);
 
-    // TODO: Enable the following code to check for user allocation/free wrapper
-    // functions after the DTransAllocAnalyzer is updated to work with opaque
-    // pointers:
-    // if (AllocKind == dtrans::AK_NotAlloc && DTAA.isMallocPostDom(&Call))
-    //   AllocKind = dtrans::AK_UserMalloc;
-    if (AllocKind != dtrans::AK_NotAlloc) {
-      analyzeAllocationCall(&Call, AllocKind);
-      collectSpecialAllocArgs(AllocKind, &Call, SpecialArguments, TLI);
+      // Get the list of arguments that don't need to be checked for type
+      // compatibility.
+      dtrans::collectSpecialAllocArgs(AKind, &Call, SpecialArguments, TLI);
     }
 
     // If this is a call to the "free" lib function,  the call is safe, but
     // we analyze the instruction for the purpose of capturing the argument
     // TypeInfo, which will be needed by some of the transformations when
     // rewriting allocations and frees.
-    auto FreeKind = dtrans::isFreeFn(&Call, TLI)
-                        ? (dtrans::isDeleteFn(&Call, TLI) ? dtrans::FK_Delete
-                                                          : dtrans::FK_Free)
-                        : dtrans::FK_NotFree;
+    dtrans::FreeKind FKind = PTA.getFreeCallKind(&Call);
+    if (FKind != dtrans::FK_NotFree) {
+      analyzeFreeCall(&Call, FKind);
 
-    // TODO: Enable the following code to check for user allocation/free wrapper
-    // functions after the DTransAllocAnalyzer is updated to work with opaque
-    // pointers:
-    // if (FreeKind == dtrans::FK_NotFree && DTAA.isFreePostDom(&Call))
-    //   FreeKind = dtrans::FK_UserFree;
-
-    if (FreeKind != dtrans::FK_NotFree) {
-      analyzeFreeCall(&Call, FreeKind);
-      collectSpecialFreeArgs(FreeKind, &Call, SpecialArguments, TLI);
+      // Get the list of arguments that don't need to be checked for type
+      // compatibility.
+      dtrans::collectSpecialFreeArgs(FKind, &Call, SpecialArguments, TLI);
     }
 
     // If the call returns a type of interest, then we need to analyze the
@@ -2755,7 +2742,7 @@ public:
         // used.
         if (PTA.getDominantType(*Info, ValueTypeInfo::VAT_Decl) ==
                 getDTransI8PtrType() &&
-            AllocKind == dtrans::AK_NotAlloc)
+            AKind == dtrans::AK_NotAlloc)
           setAllAliasedTypeSafetyData(
               Info, dtrans::BadCasting,
               "i8* type returned by call used as aggregate pointer type",
@@ -2763,7 +2750,7 @@ public:
 
         // Types returned by non-local functions should be treated as
         // system objects since we cannot transform them.
-        if ((!IsFnLocal || IsLibFunc) && AllocKind == dtrans::AK_NotAlloc)
+        if ((!IsFnLocal || IsLibFunc) && AKind == dtrans::AK_NotAlloc)
           setAllAliasedTypeSafetyData(Info, dtrans::SystemObject,
                                       "Type returned by non-local function",
                                       &Call);
@@ -3104,8 +3091,8 @@ public:
     // is to ensure that any new allocation types handled are also considered
     // here.
     assert((Kind == dtrans::AK_Malloc || Kind == dtrans::AK_Calloc ||
-            Kind == dtrans::AK_Realloc || Kind == dtrans::AK_UserMalloc ||
-            Kind == dtrans::AK_UserMalloc0 || Kind == dtrans::AK_New) &&
+            Kind == dtrans::AK_Realloc || dtrans::isUserAllocKind(Kind) ||
+            Kind == dtrans::AK_New) &&
            "Only functions that use return value of call for allocation "
            "supported");
 
@@ -3221,8 +3208,7 @@ public:
     getFreePtrArg(FK, Call, PtrArgInd, TLI);
     assert(PtrArgInd != -1U && "getFreePtrArg failed to set PtrArgInd");
 
-    Value *Arg = Call->getArgOperand(PtrArgInd);
-    ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(Call, PtrArgInd);
     assert(Info && "Expected PtrTypeAnalyzer to have ValueTypeInfo for "
                    "free call argument");
 
@@ -4907,15 +4893,9 @@ void DTransSafetyInfo::analyzeModule(
     return;
   }
 
-  dtrans::DTransAllocAnalyzer DTAA(GetTLI, M);
-
-  // TODO: Enable the following code to check for user allocation/free wrapper
-  // functions after the DTransAllocAnalyzer is updated to work with opaque
-  // pointers:
-  // DTAA.populateAllocDeallocTable(M);
   DTransSafetyLogger Log;
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, GetBFI, *this, *PtrAnalyzer,
-                                  *TM, *MDReader, DTAA, Log);
+                                  *TM, *MDReader, Log);
   checkLanguages(M);
   Visitor.visit(M);
   PostProcessFieldValueInfo();

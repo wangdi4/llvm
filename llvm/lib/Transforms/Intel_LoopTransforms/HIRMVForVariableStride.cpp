@@ -77,6 +77,10 @@ static cl::opt<int>
                        cl::desc("Maximum number of predicates allowd for a "
                                 "candidate to be MVed through " OPT_DESCR "."));
 
+static cl::opt<bool>
+    AllowFakeRefs("hir-mv-allow-fake-refs", cl::init(false), cl::Hidden,
+                  cl::desc("Allow fake refs in candidates for " OPT_DESCR "."));
+
 STATISTIC(LoopsMultiversioned,
           "Number of innermost loops multiversioned by MV for variable stride");
 STATISTIC(OuterLoopsMultiversioned,
@@ -531,6 +535,9 @@ bool HIRMVForVariableStride::Analyzer::checkAndAddIfCandidate(
     LLVM_DEBUG(Ref->dumpDims(1); dbgs() << "\n");
     LLVM_DEBUG(getStrideCE(Ref)->dump(1); dbgs() << "\n");
     LLVM_DEBUG(getLowerCE(Ref)->dump(1); dbgs() << "\n");
+
+    if (!AllowFakeRefs && Ref->isFake())
+      return false;
 
     if (HIRMVForVariableStride::getStrideCE(Ref)->isNonLinear() ||
         HIRMVForVariableStride::getLowerCE(Ref)->isNonLinear())
