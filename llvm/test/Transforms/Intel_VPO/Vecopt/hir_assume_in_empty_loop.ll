@@ -20,9 +20,6 @@
 ; CHECK-NEXT:        {
 ; CHECK-NEXT:           + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:           |   @llvm.assume(undef);
-; CHECK-NEXT:           |   @llvm.assume(undef);
-; CHECK-NEXT:           |   @llvm.assume(undef);
-; CHECK-NEXT:           |   @llvm.assume(undef);
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:        }
 ; CHECK:             + DO i1 = 4 * %tgu, %arg + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>

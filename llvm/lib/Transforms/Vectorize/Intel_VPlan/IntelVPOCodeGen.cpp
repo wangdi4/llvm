@@ -192,7 +192,23 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
            "Call VPInstruction should have atleast one operand.");
     if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
       Ops = Ops.drop_back();
-      SerialInst = Builder.CreateCall(ScalarF, Ops);
+      if (ScalarF->getIntrinsicID() == Intrinsic::assume) {
+        SmallVector<OperandBundleDef, 1> OpBundles;
+        auto *VPCall = cast<VPCallInstruction>(VPInst);
+        auto UnderlyingCI = VPCall->getUnderlyingCallInst();
+        assert (UnderlyingCI && "Underlying call instruction expected here");
+        UnderlyingCI->getOperandBundlesAsDefs(OpBundles);
+        int CurrentIndex = 1;
+        for (OperandBundleDef &BD : OpBundles) {
+          StringRef ClauseString = BD.getTag();
+          BD = OperandBundleDef(ClauseString.str(),
+                                makeArrayRef(Ops).slice(CurrentIndex, BD.input_size()));
+          CurrentIndex += BD.input_size();
+        }
+        SerialInst = Builder.CreateAssumption(Ops.front(), OpBundles);
+      } else {
+        SerialInst = Builder.CreateCall(ScalarF, Ops);
+      }
     } else {
       // Indirect call (via function pointer).
       Value *FuncPtr = Ops.back();

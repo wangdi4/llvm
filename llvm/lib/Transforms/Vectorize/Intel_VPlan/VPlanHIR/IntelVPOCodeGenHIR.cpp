@@ -4748,6 +4748,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       // serializeInstruction.
       return;
     }
+    case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
+      // TODO: Support for DoNotWiden in HIR path(similar to LLVM path).
+      generateHIR(VPInst, Mask, false /*Widen*/, 0 /*LaneID*/);
+      return;
+    }
     default: {
       llvm_unreachable("VPCallInstruction does not have a valid decision for "
                        "HIR vectorizer.");
