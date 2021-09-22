@@ -83,9 +83,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
   };
 
   for (auto &Fn : M) {
-    if (Fn.hasFnAttribute("vector_function_ptrs")) {
-      Attribute Attr = Fn.getFnAttribute("vector_function_ptrs");
-
+    Attribute Attr = Fn.getFnAttribute(Attribute::VectorFunctionPtrsStrAttr);
+    if (Attr.isValid()) {
       SmallVector<StringRef, 4> Ptrs;
       Attr.getValueAsString().split(Ptrs, ",");
 
@@ -126,8 +125,8 @@ bool SGSizeCollectorIndirectPass::runImpl(Module &M, CallGraph &CG) {
       }
 
       if (PtrsModified) {
-        Fn.removeFnAttr("vector_function_ptrs");
-        Fn.addFnAttr("vector_function_ptrs", join(Strs, ","));
+        Fn.removeFnAttr(Attribute::VectorFunctionPtrsStrAttr);
+        Fn.addFnAttr(Attribute::VectorFunctionPtrsStrAttr, join(Strs, ","));
         Fn.addFnAttr("vector-variants", join(VectorVariants, ","));
         Modified = true;
       }

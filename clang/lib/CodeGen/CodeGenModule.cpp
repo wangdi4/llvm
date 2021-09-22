@@ -5267,8 +5267,7 @@ CodeGenModule::CreateSIMDFnTableVar(llvm::Constant *FnPtr) {
     if (auto *IFn = dyn_cast<llvm::GlobalIFunc>(FnPtr))
       FnPtr = IFn->getResolver();
     if (auto *Fn = dyn_cast<llvm::Function>(FnPtr))
-      Fn->addFnAttr(llvm::Attribute::get(getLLVMContext(),
-                                            "vector_functions_ptrs", Name));
+      Fn->addFnAttr(llvm::Attribute::VectorFunctionPtrsStrAttr, Name);
   }
   return GV;
 }
