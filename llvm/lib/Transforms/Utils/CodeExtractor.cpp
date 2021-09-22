@@ -979,6 +979,22 @@ static DILocalVariable *createAutoVariableForParam(
         DILV->getAlignInBits());
 }
 
+static DILocalVariable *createAutoVariableForGlobal(
+    DIBuilder& DIB,
+    DIGlobalVariable *DIGV,
+    DILocalScope *Scope) {
+  assert(DIGV && "Expected valid global variable!");
+  return DIB.createAutoVariable(
+        Scope,            // Cannot use DIGV->getScope() global scope!
+        DIGV->getName(),
+        DIGV->getFile(),
+        DIGV->getLine(),
+        DIGV->getType(),
+        false,
+        DINode::FlagZero,
+        DIGV->getAlignInBits());
+}
+
 // Employ heuristics for some known cases to help locate debug information
 // metadata for an input value to a code extracted region. This is not a
 // general solution.
@@ -1039,11 +1055,48 @@ void CodeExtractor::constructDebugParameters(
   // Process all of the input values for debug information.
   for (Value *OS : inputs) {
     LLVM_DEBUG(dbgs() << "\nInput: [" << OS << "] " << *OS << "\n");
+
+    auto OSI = RewrittenValues.find(OS);
+    if (OSI == RewrittenValues.end()) {
+      LLVM_DEBUG(dbgs() << "  Skipping DVI... no rewritten value found.\n");
+      continue;
+    }
+    Value *NS = OSI->second;
+
     Value *DS;
     SmallVector<DbgVariableIntrinsic *, 1> DVIs;
     findValueWithDebug(OS, DS, DVIs);
-    LLVM_DEBUG(dbgs() << "  Number of debug users: " << DVIs.size() << "\n");
 
+    if (GlobalVariable *GV = dyn_cast_or_null<GlobalVariable>(DS)) {
+      SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+      GV->getDebugInfo(GVEs);
+      for (auto *GVE : GVEs) {
+        LLVM_DEBUG(dbgs() << "  GVE [" << GVE << "]: " << *GVE << "\n");
+        DIGlobalVariable *OV = GVE->getVariable();
+        LLVM_DEBUG(dbgs() << "  GV  [" << GV << "]: " << *GV << "\n");
+        DIExpression *OE = GVE->getExpression();
+        SmallVector<uint64_t, 1> NEO; // New Expression Opcodes
+        // Globals are addressed by pointer, so an llvm.dbg.value will require
+        // an additional deref.
+        NEO.push_back(dwarf::DW_OP_deref);
+        if (OE)
+          NEO.append(OE->elements_begin(), OE->elements_end());
+        DILocalVariable *NV = createAutoVariableForGlobal(DIB, OV, OSP);
+        LLVM_DEBUG(dbgs() << "  CREATED [" << NV << "]: " << *NV << "\n");
+        Instruction *IB = NF->begin()->getTerminator();
+        LLVMContext &Ctx = M->getContext();
+        DILocation *NL = DeclLoc
+          ? DILocation::get(Ctx, DeclLoc->getLine(), DeclLoc->getColumn(), OSP)
+          : DILocation::get(Ctx, OV->getLine(), 0, OSP);
+        DIExpression *NE = DIExpression::get(NF->getContext(), NEO);
+        Instruction *NDVI = DIB.insertDbgValueIntrinsic(NS, NV, NE, NL, IB);
+        LLVM_DEBUG(dbgs() << "  CREATED [" << NDVI << "]: " << *NDVI << "\n");
+        (void)NDVI;
+      }
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "  Number of debug users: " << DVIs.size() << "\n");
     for (DbgVariableIntrinsic *ODVI : DVIs) {
       LLVM_DEBUG(dbgs() << "  DVI: [" << ODVI << "] " << *ODVI << "\n");
 
@@ -1057,13 +1110,6 @@ void CodeExtractor::constructDebugParameters(
         LLVM_DEBUG(dbgs() << "  Skipping DVI... multiple location opts.\n");
         continue;
       }
-
-      auto OSI = RewrittenValues.find(OS);
-      if (OSI == RewrittenValues.end()) {
-        LLVM_DEBUG(dbgs() << "  Skipping DVI... no rewritten value found.\n");
-        continue;
-      }
-      Value *NS = OSI->second;
 
       Instruction *IB;
       if (Instruction *I = dyn_cast_or_null<Instruction>(NS))

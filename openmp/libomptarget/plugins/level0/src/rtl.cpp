@@ -1250,31 +1250,102 @@ public:
   }
 };
 
-/// Memory ranges for tracking allocated memory region
-class MemRangeTy {
-  std::multimap<void *, size_t> Ranges;
+struct MemAllocInfoTy {
+  /// Base address allocated from compute runtime
+  void *Base = nullptr;
+  /// Allocation size known to users/libomptarget
+  size_t Size = 0;
+  /// TARGET_ALLOC kind
+  int32_t Kind = TARGET_ALLOC_DEFAULT;
+  /// Allocation from pool?
+  bool InPool = false;
+  /// Is implicit argument
+  bool ImplicitArg = false;
+
+  MemAllocInfoTy() = default;
+
+  MemAllocInfoTy(void *_Base, size_t _Size, int32_t _Kind, bool _InPool,
+                 bool _ImplicitArg) :
+      Base(_Base), Size(_Size), Kind(_Kind), InPool(_InPool),
+      ImplicitArg(_ImplicitArg) {}
+};
+
+/// Allocation information maintained in RTL
+class MemAllocInfoMapTy {
+  /// Map from allocated pointer to allocation information
+  std::map<void *, MemAllocInfoTy> Map;
+  /// Map from target alloc kind to number of implicit arguments
+  std::map<int32_t, uint32_t> NumImplicitArgs;
+  /// Mutex for guarding the internal data
   std::mutex Mtx;
 
 public:
-  void add(void *Ptr, size_t Size) {
+  void add(void *Ptr, void *_Base, size_t _Size, int32_t _Kind,
+           bool _InPool = false, bool _ImplicitArg = false) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    Ranges.insert({Ptr, Size});
+    auto Inserted = Map.emplace(
+        Ptr, MemAllocInfoTy{_Base, _Size, _Kind, _InPool, _ImplicitArg});
+#if INTEL_INTERNAL_BUILD
+    // Check if we keep valid disjoint memory ranges.
+    bool Valid = Inserted.second;
+    if (Valid) {
+      if (Inserted.first != Map.begin()) {
+        auto I = std::prev(Inserted.first, 1);
+        Valid = Valid && (uintptr_t)I->first + I->second.Size <= (uintptr_t)Ptr;
+      }
+      if (Valid) {
+        auto I = std::next(Inserted.first, 1);
+        if (I != Map.end())
+          Valid = Valid && (uintptr_t)Ptr + _Size <= (uintptr_t)I->first;
+      }
+    }
+    assert(Valid && "Invalid overlapping memory allocation");
+#else // INTEL_INTERNAL_BUILD
+    (void)Inserted;
+#endif // INTEL_INTERNAL_BUILD
+    if (_ImplicitArg)
+      NumImplicitArgs[_Kind]++;
   }
 
-  void remove(void *Ptr) {
+  bool remove(void *Ptr, MemAllocInfoTy *Removed = nullptr) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    Ranges.erase(Ptr);
+    auto AllocInfo = Map.find(Ptr);
+    if (AllocInfo == Map.end())
+      return false;
+    if (AllocInfo->second.ImplicitArg)
+      NumImplicitArgs[AllocInfo->second.Kind]--;
+    if (Removed)
+      *Removed = AllocInfo->second;
+    Map.erase(AllocInfo);
+    return true;
+  }
+
+  const MemAllocInfoTy *find(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    auto AllocInfo = Map.find(Ptr);
+    if (AllocInfo == Map.end())
+      return nullptr;
+    else
+      return &AllocInfo->second;
   }
 
   bool contains(const void *Ptr, size_t Size) {
     std::lock_guard<std::mutex> Lock(Mtx);
-    auto I = Ranges.insert({const_cast<void *>(Ptr), 0});
-    auto J = I--;
+    if (Map.size() == 0)
+      return false;
+    auto I = Map.upper_bound(const_cast<void *>(Ptr));
+    if (I == Map.begin())
+      return false;
+    --I;
     bool Ret = (uintptr_t)I->first <= (uintptr_t)Ptr &&
         (uintptr_t)Ptr + (uintptr_t)Size <=
-        (uintptr_t)I->first + (uintptr_t)I->second;
-    Ranges.erase(J);
+        (uintptr_t)I->first + (uintptr_t)I->second.Size;
     return Ret;
+  }
+
+  size_t getNumImplicitArgs(int32_t Kind) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    return NumImplicitArgs[Kind];
   }
 };
 
@@ -1405,9 +1476,6 @@ public:
   // Memory owned by the plugin
   std::vector<std::vector<void *>> OwnedMemory;
 
-  std::vector<std::set<void *>> ImplicitArgsDevice;
-  std::vector<std::set<void *>> ImplicitArgsHost;
-  std::vector<std::set<void *>> ImplicitArgsShared;
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
@@ -1427,9 +1495,8 @@ public:
   std::map<ze_device_handle_t, MemStatTy> MemStatShared;
   std::map<ze_device_handle_t, MemStatTy> MemStatDevice;
 
-  /// Allocated USM host/shared memory range
-  /// We need to track the valid address ranges known to libomptarget and users.
-  std::map<ze_device_handle_t, std::unique_ptr<MemRangeTy>> MemHostAccessible;
+  /// Internal allocation information
+  std::vector<std::unique_ptr<MemAllocInfoMapTy>> MemAllocInfo;
 
   /// GITS function address for notifying indirect accesses
   void *GitsIndirectAllocationOffsets = nullptr;
@@ -2037,12 +2104,6 @@ public:
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
 
-  /// Add implicit arguments
-  void addImplicitArgs(int32_t DeviceId, void *Ptr, int32_t Kind);
-
-  /// Remove implicit argumnets
-  void removeImplicitArgs(int32_t DeviceId, void *Ptr);
-
   /// Get kernel indirect access flags
   ze_kernel_indirect_access_flags_t getKernelIndirectAccessFlags(
       ze_kernel_handle_t Kernel, uint32_t DeviceId);
@@ -2064,8 +2125,7 @@ public:
   void initMemoryStat();
 
   /// Allocate data
-  void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr, void *HstBase,
-                  bool *PoolAllocated = nullptr);
+  void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr, void *HstBase);
 
   /// Return memory allocation type
   uint32_t getMemAllocType(const void *Ptr);
@@ -2075,13 +2135,6 @@ public:
 
   /// Get thread-local staging buffer for copying
   StagingBufferTy &getStagingBuffer();
-
-  /// Add host-accessible memory range
-  void addHostAccessible(int32_t DeviceId, void *Ptr, size_t Size,
-                         int32_t Kind = TARGET_ALLOC_DEFAULT);
-
-  /// Remove host-accessible memory range
-  void removeHostAccessible(int32_t DeviceId, void *Ptr);
 
   /// Read KernelInfo auxiliary information for the specified kernel.
   /// The information is stored in FuncGblEntries array.
@@ -2875,42 +2928,21 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   return enqueueMemCopy(DeviceId, dataPtr, &hostData, sizeof(hostData));
 }
 
-/// Add implicit arguments
-void RTLDeviceInfoTy::addImplicitArgs(
-    int32_t DeviceId, void *Ptr, int32_t Kind) {
-  if (Kind == TARGET_ALLOC_DEVICE)
-    ImplicitArgsDevice[DeviceId].insert(Ptr);
-  else if (Kind == TARGET_ALLOC_HOST)
-    ImplicitArgsHost[DeviceId].insert(Ptr);
-  else
-    ImplicitArgsShared[DeviceId].insert(Ptr);
-}
-
-/// Remove implicit arguments
-void RTLDeviceInfoTy::removeImplicitArgs(int32_t DeviceId, void *Ptr) {
-  if (ImplicitArgsDevice[DeviceId].erase(Ptr) > 0)
-    return;
-  if (ImplicitArgsHost[DeviceId].erase(Ptr) > 0)
-    return;
-  if (ImplicitArgsShared[DeviceId].erase(Ptr) > 0)
-    return;
-}
-
 /// Get kernel indirect access flags
 ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
     ze_kernel_handle_t Kernel, uint32_t DeviceId) {
   // Kernel-dependent flags
-  auto flags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
+  auto KernelFlags = KernelProperties[DeviceId][Kernel].IndirectAccessFlags;
 
   // Other flags due to users' memory allocation
-  if (!ImplicitArgsDevice[DeviceId].empty())
-    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
-  if (!ImplicitArgsHost[DeviceId].empty())
-    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
-  if (!ImplicitArgsShared[DeviceId].empty())
-    flags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  if (MemAllocInfo[DeviceId]->getNumImplicitArgs(TARGET_ALLOC_DEVICE) > 0)
+    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_DEVICE;
+  if (MemAllocInfo[DeviceId]->getNumImplicitArgs(TARGET_ALLOC_SHARED) > 0)
+    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_SHARED;
+  if (MemAllocInfo[NumDevices]->getNumImplicitArgs(TARGET_ALLOC_HOST) > 0)
+    KernelFlags |= ZE_KERNEL_INDIRECT_ACCESS_FLAG_HOST;
 
-  return flags;
+  return KernelFlags;
 }
 
 /// Enqueue memory copy
@@ -3034,27 +3066,6 @@ StagingBufferTy &RTLDeviceInfoTy::getStagingBuffer() {
   return Buffer;
 }
 
-void RTLDeviceInfoTy::addHostAccessible(
-    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
-  uint32_t MemType = ZE_MEMORY_TYPE_UNKNOWN;
-  if (Kind == TARGET_ALLOC_DEFAULT)
-    MemType = getMemAllocType(Ptr);
-
-  if (Kind == TARGET_ALLOC_HOST || MemType == ZE_MEMORY_TYPE_HOST)
-    MemHostAccessible.at(nullptr)->add(Ptr, Size);
-  else if (Kind == TARGET_ALLOC_SHARED || MemType == ZE_MEMORY_TYPE_SHARED)
-    MemHostAccessible.at(Devices[DeviceId])->add(Ptr, Size);
-}
-
-void RTLDeviceInfoTy::removeHostAccessible(int32_t DeviceId, void *Ptr) {
-  auto MemType = getMemAllocType(Ptr);
-
-  if (MemType == ZE_MEMORY_TYPE_HOST)
-    MemHostAccessible.at(nullptr)->remove(Ptr);
-  else if (MemType == ZE_MEMORY_TYPE_SHARED)
-    MemHostAccessible.at(Devices[DeviceId])->remove(Ptr);
-}
-
 bool RTLDeviceInfoTy::readKernelInfo(
     int32_t DeviceId, const __tgt_offload_entry &KernelEntry) {
   const ze_kernel_handle_t *KernelPtr =
@@ -3154,30 +3165,38 @@ int32_t RTLDeviceInfoTy::getInternalDeviceId(int32_t DeviceId) {
 }
 
 int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
-  void *Base = nullptr;
-  size_t Size = 0;
+  MemAllocInfoTy Info;
+  auto Removed = MemAllocInfo[DeviceId]->remove(Ptr, &Info);
+  // Try again with device-independent allocation information (host USM)
+  if (!Removed)
+    Removed = MemAllocInfo[NumDevices]->remove(Ptr, &Info);
+  if (!Removed) {
+    DP("Error: Cannot find memory allocation information for " DPxMOD "\n",
+       DPxPTR(Ptr));
+    return OFFLOAD_FAIL;
+  }
 
-  auto &Mtx = Mutexes[DeviceId];
-
-  Mtx.lock();
-  removeImplicitArgs(DeviceId, Ptr);
-  Mtx.unlock();
-
-  removeHostAccessible(DeviceId, Ptr);
-
-  if (Flags.UseMemoryPool) {
+  if (Flags.UseMemoryPool && Info.InPool) {
     bool Deallocated = poolFree(DeviceId, Ptr);
     if (Deallocated) {
       DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(Ptr));
       return OFFLOAD_SUCCESS;
+    } else {
+      DP("Error: Cannot return memory " DPxMOD " to memory pool\n",
+         DPxPTR(Ptr));
+      return OFFLOAD_FAIL;
     }
   }
-  CALL_ZE_RET_FAIL(zeMemGetAddressRange, Context, Ptr, &Base, &Size);
-  LOG_MEM_USAGE(Devices[DeviceId], 0, Base);
-  CALL_ZE_RET_FAIL_MTX(zeMemFree, Mtx, Context, Base);
+
+  if (!Info.Base) {
+    DP("Error: Cannot find base address of " DPxMOD "\n", DPxPTR(Ptr));
+    return OFFLOAD_FAIL;
+  }
+  LOG_MEM_USAGE(Devices[DeviceId], 0, Info.Base);
+  CALL_ZE_RET_FAIL_MTX(zeMemFree, Mutexes[DeviceId], Context, Info.Base);
 
   DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
-     DPxPTR(Ptr), DPxPTR(Base), Size);
+     DPxPTR(Ptr), DPxPTR(Info.Base), Info.Size);
 
   return OFFLOAD_SUCCESS;
 }
@@ -3565,9 +3584,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ImplicitArgsDevice.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ImplicitArgsHost.resize(DeviceInfo->NumDevices);
-  DeviceInfo->ImplicitArgsShared.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
   DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
@@ -3579,11 +3595,9 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->RTLMutex = new std::mutex();
 
-  // null-key for host memory type
-  DeviceInfo->MemHostAccessible.emplace(nullptr,
-                                        std::make_unique<MemRangeTy>());
-  for (auto D : DeviceInfo->Devices)
-    DeviceInfo->MemHostAccessible.emplace(D, std::make_unique<MemRangeTy>());
+  // Host allocation information needs one additional slot
+  for (uint32_t I = 0; I < DeviceInfo->NumDevices + 1; I++)
+    DeviceInfo->MemAllocInfo.emplace_back(new MemAllocInfoMapTy());
 
   if (DebugLevel > 0)
     DeviceInfo->initMemoryStat();
@@ -3946,14 +3960,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
         tgtAddr = DeviceInfo->getOffloadVarDeviceAddr(DeviceId, name, size);
 
       if (!tgtAddr) {
-        bool poolAllocated = false;
-        tgtAddr = DeviceInfo->allocData(DeviceId, size, hstAddr, hstAddr,
-                                        &poolAllocated);
+        tgtAddr = allocDataExplicit(DeviceId, size,
+                                    DeviceInfo->AllocKinds[DeviceId]);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        if (!poolAllocated) {
-          std::unique_lock<std::mutex> lock(DeviceInfo->DataMutexes[DeviceId]);
-          DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
-        }
+        std::unique_lock<std::mutex> lock(DeviceInfo->DataMutexes[DeviceId]);
+        DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
         DP("Warning: global variable '%s' allocated. "
            "Direct references will not work properly.\n", name);
       }
@@ -4082,57 +4093,56 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 }
 
 void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
-                                 void *HstBase, bool *PoolAllocated) {
-#if !SUBDEVICE_USE_ROOT_MEMORY
-  auto SubDeviceCode = getSubDeviceCode();
-  if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
-    auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
-    auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
-    DeviceId = SubDeviceIds[DeviceId][subLevel][subStart];
-  }
-#endif
+                                 void *HstBase) {
+  DeviceId = getInternalDeviceId(DeviceId);
 
   // TODO: this seems necessary for now -- check with L0 driver team for details
-  std::unique_lock<std::mutex> allocLock(Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> AllocLock(Mutexes[DeviceId]);
 
-  ScopedTimerTy tmDataAlloc(DeviceId, "DataAlloc");
-  intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
-  size_t size = (offset < 0 && ABS(offset) >= Size) ? ABS(offset) + 1 : Size;
+  ScopedTimerTy TmDataAlloc(DeviceId, "DataAlloc");
+  intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
+  size_t AllocSize =
+      (Offset < 0 && ABS(Offset) >= Size) ? ABS(Offset) + 1 : Size;
 
-  offset = (offset >= 0) ? offset : 0;
-  size += offset;
+  Offset = (Offset >= 0) ? Offset : 0;
+  AllocSize += Offset;
 
-  void *base = nullptr;
-  void *mem = nullptr;
+  void *Base = nullptr;
+  void *Mem = nullptr;
+  auto AllocKind = AllocKinds[DeviceId];
+  auto ID = (AllocKind != TARGET_ALLOC_HOST) ? DeviceId : NumDevices;
+
   if (Flags.UseMemoryPool) {
-    base = DeviceInfo->poolAlloc(DeviceId, size, AllocKinds[DeviceId], offset);
-    if (base != nullptr) {
-      mem = (void *)((intptr_t)base + offset);
+    Base = DeviceInfo->poolAlloc(DeviceId, AllocSize, AllocKind, Offset);
+    if (Base != nullptr) {
+      Mem = (void *)((intptr_t)Base + Offset);
       DP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
-         "from memory pool for host ptr " DPxMOD "\n", DPxPTR(mem),
-         DPxPTR(base), size, DPxPTR(HstPtr));
-      if (PoolAllocated)
-        *PoolAllocated = true;
-      return mem;
+         "from memory pool for host ptr " DPxMOD "\n", DPxPTR(Mem),
+         DPxPTR(Base), AllocSize, DPxPTR(HstPtr));
+      MemAllocInfo[ID]->add(Mem, nullptr /* Base */, Size, AllocKind,
+                            true /* InPool */);
+      return Mem;
     }
   }
 
   // Use device-specific allocation type
-  base = allocDataExplicit(DeviceId, size, AllocKinds[DeviceId]);
-  mem = (void *)((intptr_t)base + offset);
-
-  if (DebugLevel > 0) {
-    void *actualBase = nullptr;
-    size_t actualSize = 0;
-    CALL_ZE_RET_NULL(zeMemGetAddressRange, Context, mem, &actualBase,
-                     &actualSize);
-    assert(base == actualBase && "Invalid memory address range!");
-    DP("Allocated target memory " DPxMOD " (Base: " DPxMOD
-       ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem),
-       DPxPTR(actualBase), actualSize, DPxPTR(HstPtr));
+  Base = allocDataExplicit(DeviceId, AllocSize, AllocKind);
+  if (Base) {
+    Mem = (void *)((intptr_t)Base + Offset);
+    MemAllocInfo[ID]->add(Mem, Base, Size, AllocKind);
+    if (DebugLevel > 0) {
+      void *ActualBase = nullptr;
+      size_t ActualSize = 0;
+      CALL_ZE_RET_NULL(zeMemGetAddressRange, Context, Mem, &ActualBase,
+                       &ActualSize);
+      assert(Base == ActualBase && "Invalid memory address range!");
+      DP("Allocated target memory " DPxMOD " (Base: " DPxMOD
+         ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(Mem),
+         DPxPTR(ActualBase), ActualSize, DPxPTR(HstPtr));
+    }
   }
 
-  return mem;
+  return Mem;
 }
 
 static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
@@ -4141,12 +4151,19 @@ static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
   if (DeviceInfo->Flags.UseMemoryPool)
     Mem = DeviceInfo->poolAlloc(DeviceId, Size, Kind);
 
-  if (Mem == nullptr)
+  bool InPool = false;
+  void *Base = nullptr;
+  if (Mem) {
+    InPool = true;
+  } else {
     Mem = allocDataExplicit(DeviceId, Size, Kind);
+    Base = Mem;
+  }
 
   if (Mem) {
-    std::unique_lock<std::mutex>(DeviceInfo->DataMutexes[DeviceId]);
-    DeviceInfo->addImplicitArgs(DeviceId, Mem, Kind);
+    auto ID = (Kind == TARGET_ALLOC_HOST) ? DeviceInfo->NumDevices : DeviceId;
+    DeviceInfo->MemAllocInfo[ID]->add(Mem, Base, Size, Kind, InPool,
+                                      true /* IsImplicitArg */);
   }
 
   return Mem;
@@ -4170,8 +4187,6 @@ EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
     }
     Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
   }
-  if (Mem)
-    DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
 
   return Mem;
 }
@@ -4179,9 +4194,6 @@ EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
 EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
                                        void *HstPtr, void *HstBase) {
   void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
-  if (Mem)
-    DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
-
   return Mem;
 }
 
@@ -4189,8 +4201,6 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   int32_t Kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
                                                     : TARGET_ALLOC_SHARED;
   void *Mem = dataAllocExplicit(DeviceId, Size, Kind);
-  if (Mem)
-    DeviceInfo->addHostAccessible(DeviceId, Mem, Size, Kind);
 
   return Mem;
 }
@@ -5418,13 +5428,13 @@ EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
     return 0;
 
   auto MemType = DeviceInfo->getMemAllocType(Ptr);
-  auto Device = DeviceInfo->Devices[DeviceId];
+  auto ID = DeviceId;
   if (MemType == ZE_MEMORY_TYPE_HOST)
-    Device = nullptr;
+    ID = DeviceInfo->NumDevices;
   else if (MemType != ZE_MEMORY_TYPE_SHARED)
     return 0;
 
-  if (DeviceInfo->MemHostAccessible.at(Device)->contains(Ptr, Size))
+  if (DeviceInfo->MemAllocInfo[ID]->contains(Ptr, Size))
     return 1;
   else
     return 0;

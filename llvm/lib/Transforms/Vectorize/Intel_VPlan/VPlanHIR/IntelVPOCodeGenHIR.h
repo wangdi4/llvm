@@ -312,6 +312,16 @@ public:
     return Itr->second;
   }
 
+  void dropExternalValsFromMaps() {
+    for (auto V : VPValsToFlushForVF) {
+      assert((isa<VPExternalDef>(V) || isa<VPConstant>(V)) &&
+             "Unknown external VPValue.");
+
+      VPValWideRefMap.erase(V);
+      VPValScalRefMap.erase(V);
+    }
+  }
+
   // Add WideVal as the widened vector value corresponding  to SCVal
   void addSCEVWideRefMapping(const SCEV *SCVal, RegDDRef *WideVal) {
     SCEVWideRefMap[SCVal] = WideVal;
@@ -599,6 +609,17 @@ private:
 
   // Unroll factor which was applied to VPlan before code generation.
   unsigned UF;
+
+  // Stack of pair <vector factor, unroll vactor>
+  SmallVector<std::pair<unsigned, unsigned>, 2> VFStack;
+
+  // Set of VPValues which we should erase from the maps of already generated
+  // values when we encounter VPPushVF/VPPopVF instructions. The same
+  // VPConstants and VPExternalDefs can be used in different VPlans. But when
+  // generating code for a VPlan we can't use the values generated in another
+  // VPlan, due to VFs mismatch and/or domination reasons. The VPPushVF/VPPopVF
+  // define the bounds between VPlans so we use them to drop those maps
+  SmallSet<const VPValue *, 16> VPValsToFlushForVF;
 
   OptReportBuilder &ORBuilder;
   OptReportStatsTracker OptRptStats;
@@ -912,6 +933,10 @@ private:
 
   // Get or create HLLabel corresponding to VPBB and return the same.
   HLLabel *getOrCreateBlockLabel(const VPBasicBlock *VPBB);
+
+  // Helper method to set upper bound and stride for vectorized HLLoops. The
+  // corresponding VPLoop is provided as input.
+  void setUBForVectorLoop(VPLoop *VPLp);
 
   RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
