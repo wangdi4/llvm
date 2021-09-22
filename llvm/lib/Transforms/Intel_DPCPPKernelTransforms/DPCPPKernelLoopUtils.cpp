@@ -10,11 +10,13 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 namespace llvm {
 namespace DPCPPKernelLoopUtils {
@@ -61,7 +63,7 @@ CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
   return getWICall(M, FuncName, RetTy, DimConst, IP, CallName);
 }
 
-Type *getIntTy(Module *M) {
+Type *getIndTy(Module *M) {
   unsigned PointerSizeInBits = M->getDataLayout().getPointerSizeInBits(0);
   assert((32 == PointerSizeInBits || 64 == PointerSizeInBits) &&
          "Unsopported pointer size");
@@ -83,9 +85,8 @@ void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
 }
 
 void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
-  const unsigned MAX_OCL_NUM_DIM = 3;
   InstVec EmptyVec;
-  TidCalls.assign(MAX_OCL_NUM_DIM, EmptyVec);
+  TidCalls.assign(MAX_WORK_DIM, EmptyVec);
   SmallVector<CallInst *, 4> AllDimTIDCalls;
   getAllCallInFunc(TIDName, F, AllDimTIDCalls);
 
@@ -109,7 +110,7 @@ void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
       if (!C)
         continue;
       Dim = C->getValue().getZExtValue();
-      assert(Dim < MAX_OCL_NUM_DIM && "tid not in range");
+      assert(Dim < MAX_WORK_DIM && "tid not in range");
     }
     TidCalls[Dim].push_back(CI);
   }
@@ -231,5 +232,66 @@ void fillInstructionUsers(Function *F,
   }
 }
 
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
+                             Module *M) {
+  auto *IndTy = getIndTy(M);
+  auto *MaskTy = FixedVectorType::get(Builder.getInt32Ty(), VF);
+
+  // Generate sequential vector 0, ..., VF-1.
+  SmallVector<Constant *, 16> IndVec;
+  for (unsigned I = 0; I < VF; ++I)
+    IndVec.push_back(ConstantInt::get(IndTy, I));
+  Constant *SequenceVec = ConstantVector::get(IndVec);
+
+  // Generate splat vector LoopLen, ..., LoopLen.
+  if (LoopLen->getType() != IndTy)
+    LoopLen = Builder.CreateZExtOrTrunc(LoopLen, IndTy);
+  auto *SplatVec = Builder.CreateVectorSplat(VF, LoopLen);
+
+  // Generate mask.
+  auto *VecCmp = Builder.CreateICmpULT(SequenceVec, SplatVec, "mask.i1");
+  auto *Mask = Builder.CreateSExt(VecCmp, MaskTy, "mask.i32");
+  return Mask;
+}
+
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, BasicBlock *BB) {
+  IRBuilder<> Builder(BB);
+  return generateRemainderMask(VF, LoopLen, Builder, BB->getModule());
+}
+
+void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
+  auto *M = ScalarKernel->getParent();
+  assert(M == MaskedKernel->getParent() &&
+         "Scalar and masked kernel are not in the same module");
+  LLVMContext &Ctx = M->getContext();
+
+  // Prepare args for masked kernel.
+  SmallVector<Value *, 4> Args;
+  for (auto &Arg : ScalarKernel->args())
+    Args.push_back(&Arg);
+
+  // Mask argument is handled in generateRemainderMask.
+  auto DummyMaskArg = UndefValue::get((MaskedKernel->arg_end() - 1)->getType());
+  Args.push_back(DummyMaskArg);
+
+  auto *Entry =
+      BasicBlock::Create(Ctx, "", ScalarKernel, &ScalarKernel->getEntryBlock());
+
+  // Call the masked kernel.
+  auto *CI = CallInst::Create(MaskedKernel, Args, "", Entry);
+  // Set debug scope which should be in ScalarKernel's DISubprogram.
+  if (DISubprogram *SP = ScalarKernel->getSubprogram())
+    CI->setDebugLoc(DILocation::get(Ctx, SP->getScopeLine(), 0, SP));
+
+  // Let DCE deletes the scalar kernel body.
+  ReturnInst::Create(Ctx, Entry);
+
+  // Inline the masked kernel into scalar kernel.
+  InlineFunctionInfo InlineInfo;
+  InlineFunction(*CI, InlineInfo);
+
+  // Erase the masked kernel.
+  MaskedKernel->eraseFromParent();
+}
 } // namespace DPCPPKernelLoopUtils
 } // namespace llvm

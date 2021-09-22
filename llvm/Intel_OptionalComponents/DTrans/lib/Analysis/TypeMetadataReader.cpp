@@ -412,7 +412,7 @@ TypeMetadataReader::populateDTransStructType(Module &M, MDNode *MD,
 // This method is the publicly visible method that will check whether a Value
 // has DTransType metadata, and returns it if available.
 // Otherwise, returns nullptr.
-DTransType *TypeMetadataReader::getDTransTypeFromMD(Value *V) {
+DTransType *TypeMetadataReader::getDTransTypeFromMD(const Value *V) {
   if (auto *F = dyn_cast<Function>(V)) {
     // Functions that had metadata were decoded during the initialize() method,
     // and the results stored in a table.
@@ -852,7 +852,7 @@ TypeMetadataReader::decodeDTransFuncType(Function &F,
   return DTransFuncTy;
 }
 
-DTransFunctionType *TypeMetadataReader::getDTransType(Function *F) const {
+DTransFunctionType *TypeMetadataReader::getDTransType(const Function *F) const {
   auto It = FunctionToDTransTypeMap.find(F);
   if (It != FunctionToDTransTypeMap.end())
     return It->second;

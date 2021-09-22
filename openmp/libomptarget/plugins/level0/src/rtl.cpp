@@ -4609,8 +4609,10 @@ static void decideKernelGroupArguments(
   DPI("totalEUs: %" PRIu32 "\n", numEUsPerSubslice * numSubslices);
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   uint32_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
+  uint32_t simdWidth = KernelProperty.SIMDWidth;
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", simdWidth);
   DP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
+  assert(simdWidth <= kernelWidth && "Invalid SIMD width.");
 
   uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
@@ -4673,7 +4675,7 @@ static void decideKernelGroupArguments(
     if (maxGroupSizeForced) {
       // Set group size for the HW capacity
       uint32_t numThreadsPerGroup =
-          (maxGroupSize + kernelWidth - 1) / kernelWidth;
+          (maxGroupSize + simdWidth - 1) / simdWidth;
       uint32_t numGroupsPerSubslice =
           (numThreadsPerSubslice + numThreadsPerGroup - 1) / numThreadsPerGroup;
       maxGroupCount = numGroupsPerSubslice * numSubslices;
@@ -4688,10 +4690,11 @@ static void decideKernelGroupArguments(
 
       assert(!maxGroupSizeForced && !maxGroupCountForced);
       assert((maxGroupSize <= kernelWidth ||
-             maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+              maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
       // Maximize group size
       while (maxGroupSize >= kernelWidth) {
-        uint32_t numThreadsPerGroup = maxGroupSize / kernelWidth;
+        uint32_t numThreadsPerGroup =
+            (maxGroupSize + simdWidth - 1) / simdWidth;
         if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
           uint32_t numGroupsPerSubslice =
               numThreadsPerSubslice / numThreadsPerGroup;

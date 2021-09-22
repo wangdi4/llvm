@@ -2744,6 +2744,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                      CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(size_t),
                      &KernelProperty.SIMDWidth, sizeof(size_t),
                      &KernelProperty.SIMDWidth, nullptr);
+    assert(KernelProperty.SIMDWidth <= KernelProperty.Width &&
+           "Invalid preferred group size multiple.");
+
     CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i], Device,
                      CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
                      &KernelProperty.MaxThreadGroupSize, nullptr);
@@ -3667,7 +3670,8 @@ static void decideKernelGroupArguments(
 
   auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
   size_t kernelWidth = KernelProperty.Width;
-  DP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
+  size_t simdWidth = KernelProperty.SIMDWidth;
+  DP("Assumed kernel SIMD width is %zu\n", simdWidth);
   DP("Preferred group size is multiple of %zu\n", kernelWidth);
 
   size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
@@ -3741,7 +3745,7 @@ static void decideKernelGroupArguments(
       if (maxGroupSizeForced) {
         // Set group size for the HW capacity
         size_t numThreadsPerGroup =
-            (maxGroupSize + kernelWidth - 1) / kernelWidth;
+            (maxGroupSize + simdWidth - 1) / simdWidth;
         size_t numGroupsPerSubslice =
             (numThreadsPerSubslice + numThreadsPerGroup - 1) /
             numThreadsPerGroup;
@@ -3762,7 +3766,8 @@ static void decideKernelGroupArguments(
                 maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
         // Maximize group size
         while (maxGroupSize >= kernelWidth) {
-          size_t numThreadsPerGroup = maxGroupSize / kernelWidth;
+          size_t numThreadsPerGroup =
+              (maxGroupSize + simdWidth - 1) / simdWidth;
           if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
             size_t numGroupsPerSubslice =
                 numThreadsPerSubslice / numThreadsPerGroup;
