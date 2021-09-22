@@ -113,7 +113,6 @@ extern void qoo(func pt) {
   pt(1,1);
 }
 
-
-//CHECK: attributes #[[ATT4]] = {{.*}}"vector_functions_ptrs"="_Z3zooi$SIMDTable()"
-//CHECK: attributes #[[ATT5]] = {{.*}}"vector_functions_ptrs"="_Z3barii$SIMDTable()"
-//CHECK: attributes #[[ATT6]] = {{.*}}"vector_functions_ptrs"="_Z3mooi$SIMDTable()"
+//CHECK: attributes #[[ATT4]] = {{.*}}"vector_function_ptrs"="_Z3zooi$SIMDTable()"
+//CHECK: attributes #[[ATT5]] = {{.*}}"vector_function_ptrs"="_Z3barii$SIMDTable()"
+//CHECK: attributes #[[ATT6]] = {{.*}}"vector_function_ptrs"="_Z3mooi$SIMDTable()"

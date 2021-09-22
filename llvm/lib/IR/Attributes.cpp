@@ -2123,6 +2123,10 @@ struct StrBoolAttr {
   struct ENUM_NAME##Attr : StrBoolAttr {                                       \
     static StringRef getKind() { return #DISPLAY_NAME; }                       \
   };
+#if INTEL_CUSTOMIZATION
+#define ATTRIBUTE_STRING(SYMBOLIC_NAME, DISPLAY_NAME)                          \
+constexpr StringRef Attribute::SYMBOLIC_NAME##StrAttr;
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Attributes.inc"
 
 #define GET_ATTR_COMPAT_FUNC

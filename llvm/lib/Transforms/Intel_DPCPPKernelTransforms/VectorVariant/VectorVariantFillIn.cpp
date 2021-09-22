@@ -68,10 +68,9 @@ bool VectorVariantFillIn::runImpl(Module &M) {
   DenseSet<GlobalVariable *> UpdatedGV;
 
   for (auto &Fn : M) {
-    if (Fn.hasFnAttribute("vector_function_ptrs")) {
+    Attribute Attr = Fn.getFnAttribute(Attribute::VectorFunctionPtrsStrAttr);
+    if (Attr.isValid()) {
       LLVM_DEBUG(dbgs() << "Process function: " << Fn.getName() << "\n");
-
-      Attribute Attr = Fn.getFnAttribute("vector_function_ptrs");
       StringRef Var = Attr.getValueAsString();
 
       while (!Var.empty()) {
