@@ -20,6 +20,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include <map>
 #include <utility>
 
@@ -96,7 +97,7 @@ bool ResolveSubGroupWICallPass::runImpl(Module &M) {
 
   for (Function *Kernel : Kernels) {
     std::string EarlyExitFuncName =
-        appendWorkGroupBoundariesPrefix(Kernel->getName());
+        WGBoundDecoder::encodeWGBound(Kernel->getName());
     auto *EarlyExitFunc = M.getFunction(EarlyExitFuncName);
     if (EarlyExitFunc) {
       EarlyExitFuncToKernelMap[EarlyExitFunc] = Kernel;

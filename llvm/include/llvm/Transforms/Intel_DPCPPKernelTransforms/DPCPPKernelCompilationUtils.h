@@ -490,8 +490,10 @@ void getImplicitArgs(Function *F, Value **LocalMem, Value **WorkDim,
 /// \param Idx The ImplicitArgsUtils::ImplicitArg index of the requested global.
 GlobalVariable *getTLSGlobal(Module *M, unsigned Idx);
 
-/// This function can only be used when ToBB is Entry block.
-void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB);
+/// Move instructions, which meets the requirements of Predicate, from FromBB to
+/// ToBB.
+void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
+                       function_ref<bool(Instruction &)> Predicate);
 
 /// Fills a vector of KernelArgument with arguments representing F's SYCL/OpenCL
 /// level arguments.
@@ -529,9 +531,6 @@ inline bool hasByvalByrefArgs(Function *F) {
 /// directly/indirectly.
 bool hasFunctionCallInCGNodeSatisfiedWith(
     CallGraphNode *Node, function_ref<bool(Function *)> Condition);
-
-bool hasWorkGroupBoundariesPrefix(StringRef S);
-std::string appendWorkGroupBoundariesPrefix(StringRef S);
 
 void initializeVectInfoOnce(
     ArrayRef<VectItem> VectInfos,

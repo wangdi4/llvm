@@ -51,8 +51,6 @@ namespace OclLanguage {
 static const unsigned OpenCL_CPP = 4;
 }
 
-const StringRef NAME_WG_BOUNDARIES_FUNCTION_PREFIX = "WG.boundaries.";
-
 const StringRef NAME_GET_GID = "get_global_id";
 const StringRef NAME_GET_LID = "get_local_id";
 const StringRef NAME_GET_LINEAR_GID = "get_global_linear_id";
@@ -561,14 +559,6 @@ bool hasWorkGroupFinalizePrefix(StringRef S) {
   return stripName(S).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
 }
 
-bool hasWorkGroupBoundariesPrefix(StringRef S) {
-  return S.find(NAME_WG_BOUNDARIES_FUNCTION_PREFIX) != S.npos;
-}
-
-std::string appendWorkGroupBoundariesPrefix(StringRef S) {
-  return (NAME_WG_BOUNDARIES_FUNCTION_PREFIX + S).str();
-}
-
 std::string appendWorkGroupFinalizePrefix(StringRef S) {
   assert(isMangledName(S) && "expected mangled name of work group built-in");
   reflection::FunctionDescriptor FD = demangle(S);
@@ -959,27 +949,16 @@ StringRef getFnAttributeStringInList(Function &F, StringRef AttrKind,
   return AttrVec[Idx];
 }
 
-void moveAllocaToEntry(BasicBlock *FromBB, BasicBlock *EntryBB) {
-  // This implementation is only correct when ToBB is an entry block.
-  SmallVector<AllocaInst *, 8> Allocas;
+void moveInstructionIf(BasicBlock *FromBB, BasicBlock *ToBB,
+                       function_ref<bool(Instruction &)> Predicate) {
+  SmallVector<Instruction *, 8> ToMove;
   for (auto &I : *FromBB)
-    if (auto *AI = dyn_cast<AllocaInst>(&I))
-      Allocas.push_back(AI);
+    if (Predicate(I))
+      ToMove.push_back(&I);
 
-  if (EntryBB->empty()) {
-    IRBuilder<> Builder(EntryBB);
-    for (auto *AI : Allocas) {
-      AI->removeFromParent();
-      Builder.Insert(AI);
-    }
-    return;
-  }
-
-  Instruction *InsPt = EntryBB->getFirstNonPHI();
-  assert(InsPt && "At least one non-PHI insruction is expected in ToBB");
-  for (auto *AI : Allocas) {
-    AI->moveBefore(InsPt);
-  }
+  auto MovePos = ToBB->getFirstInsertionPt();
+  for (auto *I : ToMove)
+    I->moveBefore(*ToBB, MovePos);
 }
 
 FuncSet getAllSyncBuiltinsDecls(Module &M, bool IsWG) {
