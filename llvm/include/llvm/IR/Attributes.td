@@ -41,6 +41,11 @@ class TypeAttr<string S, list<AttrProperty> P> : Attr<S, P>;
 /// StringBool attribute.
 class StrBoolAttr<string S> : Attr<S, []>;
 
+// if INTEL_CUSTOMIZATION
+/// String attribute.
+class StrAttr<string S> : Attr<S, []>;
+// endif INTEL_CUSTOMIZATION
+
 /// Target-independent enum attributes.
 
 /// Alignment of parameter (5 bits) stored as log2 of alignment with +1 bias.
@@ -348,6 +353,8 @@ def ComplexLimitedRange : StrBoolAttr<"complex-limited-range">;
 /// the trivial mathematical expression to be computed. Unlike
 /// complex-limited-range, however, the NaN processing is still required.
 def ComplexNoScale : StrBoolAttr<"complex-no-scale">;
+
+def VectorFunctionPtrs : StrAttr<"vector_function_ptrs">;
 // endif INTEL_CUSTOMIZATION
 
 class CompatRule<string F> {
