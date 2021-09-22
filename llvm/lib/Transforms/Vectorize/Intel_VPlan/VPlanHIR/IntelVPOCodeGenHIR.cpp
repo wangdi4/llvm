@@ -4355,7 +4355,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       if (CI->getBitWidth() <= 64) {
         SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
 
-        CE1->setDenominator(CI->getSExtValue());
+        if (Opcode == Instruction::UDiv)
+          CE1->setDenominator(CI->getZExtValue());
+        else
+          CE1->setDenominator(CI->getSExtValue());
+
         CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
         makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen, ScalarLaneID);
         return;
