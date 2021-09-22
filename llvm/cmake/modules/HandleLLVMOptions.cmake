@@ -836,6 +836,13 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
   check_cxx_compiler_flag("-Wnoexcept-type" CXX_SUPPORTS_NOEXCEPT_TYPE_FLAG)
   append_if(CXX_SUPPORTS_NOEXCEPT_TYPE_FLAG "-Wno-noexcept-type" CMAKE_CXX_FLAGS)
 
+#if INTEL_CUSTOMIZATION
+  # CMPLRLLVM-31389: Adding of -Wnon-virtual-dtor was disabled for Windows
+  # until the community commit 4bb5f44c70140.
+  # After 4bb5f44c70140, xmain build fails. We need to keep avoiding
+  # -Wnon-virtual-dtor for xmain's MSVC environment for now.
+  if (NOT MSVC)
+#endif INTEL_CUSTOMIZATION
   # Check if -Wnon-virtual-dtor warns for a class marked final, when it has a
   # friend declaration. If it does, don't add -Wnon-virtual-dtor. The case is
   # considered unhelpful (https://gcc.gnu.org/PR102168).
@@ -847,6 +854,9 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
                             CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR)
   set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
   append_if(CXX_WONT_WARN_ON_FINAL_NONVIRTUALDTOR "-Wnon-virtual-dtor" CMAKE_CXX_FLAGS)
+#if INTEL_CUSTOMIZATION
+  endif()
+#endif INTEL_CUSTOMIZATION
 
   append("-Wdelete-non-virtual-dtor" CMAKE_CXX_FLAGS)
 
