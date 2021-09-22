@@ -398,7 +398,13 @@ llvm::Type *CodeGenTypes::ConvertFunctionTypeInternal(QualType QFT) {
   // don't recurse into it again.
   if (FunctionsBeingProcessed.count(FI)) {
 
-    ResultType = llvm::StructType::get(getLLVMContext());
+#if INTEL_CUSTOMIZATION
+    if (getCodeGenOpts().EmitDTransInfo)
+      ResultType =
+          llvm::StructType::create(getLLVMContext(), "__Intel$Empty$Struct");
+    else
+      ResultType = llvm::StructType::get(getLLVMContext());
+#endif // INTEL_CUSTOMIZATION
     SkippedLayout = true;
   } else {
 

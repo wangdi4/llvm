@@ -1278,16 +1278,33 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
-  // All-zero bypass is added after best plan selection because cost model
-  // tuning is not yet implemented and we don't want to prevent vectorization.
-  LVP.insertAllZeroBypasses(Plan, VF);
+  // If new CFG merger is not enabled, run AZB at this point in pipeline.
+  if (!EnableNewCFGMerge || !EnableNewCFGMergeHIR) {
+    LVP.insertAllZeroBypasses(Plan, VF);
+  }
 
   unsigned UF = LVP.getLoopUnrollFactor();
 
   // Start preparations to generate auxiliary loops.
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
-    // TODO: Merge all VPlans into one CFG.
+
+    // Run some VPlan-to-VPlan transforms for each new auxiliary loop created by
+    // CFGMerger.
+    for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+      VPlan *Plan = PlanDescr.getVPlan();
+
+      if (isa<VPlanVector>(Plan)) {
+        // All-zero bypass is added after best plan selection because cost model
+        // tuning is not yet implemented and we don't want to prevent
+        // vectorization.
+        LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
+      }
+
+      // TODO: Unroller and SOA transform missing here.
+    }
+
+    LVP.emitPeelRemainderVPLoops(VF, UF);
   }
 
   bool ModifiedLoop = false;
@@ -1311,6 +1328,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
+      // TODO: Is this placement of unroller correct? It is being run for the
+      // final VPlan before CG. Potentially problematic for merged CFG.
       LVP.unroll(*cast<VPlanNonMasked>(Plan));
       if (LVP.executeBestPlan(&VCodeGen, UF)) {
         ModifiedLoop = true;

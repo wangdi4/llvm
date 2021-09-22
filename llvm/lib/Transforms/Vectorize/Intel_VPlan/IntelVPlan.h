@@ -2954,6 +2954,11 @@ class VPPeelRemainderHIR : public VPInstruction {
   // peel loop.
   loopopt::DDRef *LowerBoundTmp = nullptr;
 
+  // Temp that defines the upper bound of the scalar loop. Will be nullptr for
+  // remainder loop. It can be set indirectly only via the setUpperBound
+  // interface.
+  loopopt::DDRef *UpperBoundTmp = nullptr;
+
 protected:
   using VPInstruction::addOperand;
   using VPInstruction::removeAllOperands;
@@ -3001,9 +3006,37 @@ public:
   }
 
   // Set lower bound temp for the loop.
-  void setLowerBoundTemp(loopopt::DDRef *Tmp) { LowerBoundTmp = Tmp; }
+  void setLowerBoundTemp(loopopt::DDRef *Tmp) {
+    assert(!UpperBoundTmp && "Setting lower bound for peel loop?");
+    LowerBoundTmp = Tmp;
+  }
 
   loopopt::DDRef *getLowerBoundTemp() const { return LowerBoundTmp; }
+
+  // Set upper bound for the loop. It creates a new temp and adds it to
+  // temp-initialization map.
+  void setUpperBound(VPValue *UB) {
+    assert(!LowerBoundTmp && "Setting upper bound for remainder loop?");
+    loopopt::RegDDRef *UBTmp =
+        HLp->getHLNodeUtils().createTemp(HLp->getIVType(), "ub.tmp");
+    addTemp(UB, UBTmp);
+    UpperBoundTmp = UBTmp;
+  }
+
+  // Helper to get the operand that defines the upper bound of this scalar loop.
+  // Obtained indirectly by looking up index of UpperBoundTmp in TempInitMap.
+  VPValue *getUpperBound() const {
+    if (!UpperBoundTmp)
+      return nullptr;
+
+    auto UBIter = llvm::find(TempInitMap, UpperBoundTmp);
+    assert(UBIter != TempInitMap.end() &&
+           "Upper bound temp not found in TempInitMap.");
+    unsigned UBIdx = std::distance(TempInitMap.begin(), UBIter);
+    return getOperand(UBIdx);
+  }
+
+  loopopt::DDRef *getUpperBoundTemp() const { return UpperBoundTmp; }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const VPInstruction *V) {
@@ -3024,6 +3057,11 @@ public:
        << ", NeedsCloning: " << isCloningRequired() << ", LBTemp: ";
     if (auto *LB = getLowerBoundTemp())
       LB->print(FO);
+    else
+      FO << "none";
+    FO << ", UBTemp: ";
+    if (auto *UB = getUpperBoundTemp())
+      UB->print(FO);
     else
       FO << "none";
     FO << ", TempInitMap:";
@@ -3262,7 +3300,11 @@ public:
   }
 
 private:
-  VPScalarPeel *getPeelLoop() const;
+  VPValue *getPeelLoop() const;
+
+  // Peel loop specific utility for HIR path where we update orig-live-out-hir
+  // created for main loop IV when upper bound of peel loop is set.
+  void updateHIROrigLiveOut();
 };
 
 // VPInstruction to allocate private memory. This is translated into
