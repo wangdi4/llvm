@@ -157,9 +157,4 @@ __kernel void test_store_half(__global float *in,
   vstore_half_rtz(*in, 0, dst + 2);
   vstore_half_rtp(*in, 0, dst + 3);
   vstore_half_rtn(*in, 0, dst + 4);
-  vstorea_half(*in, 0, dst + 5);
-  vstorea_half_rte(*in, 0, dst + 6);
-  vstorea_half_rtz(*in, 0, dst + 7);
-  vstorea_half_rtp(*in, 0, dst + 8);
-  vstorea_half_rtn(*in, 0, dst + 9);
 }
