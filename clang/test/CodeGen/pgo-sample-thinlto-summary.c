@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // INTEL -- xmain inlining logic prefers cloning foo() to inlining, so this test
 //          fails.  To work around that, disable xmain-specific inlining logic.
 // INTEL -- loopopt significantly changes the pass pipeline and makes the test
@@ -8,6 +9,12 @@
 // RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -jump-thread-loop-header=false -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
+=======
+// RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO-OLDPM
+// RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO-OLDPM
+// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
+// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
+>>>>>>> 005fc11ebdd6e1af29efee3d7c5da86f56138414
 
 int baz(int);
 int g;
@@ -17,6 +24,27 @@ void foo(int n) {
     g += baz(i);
 }
 
+// Checks that loop unroll and icp are invoked by normal compile, but not thinlto compile.
+
+// SAMPLEPGO:               Running pass: PGOIndirectCallPromotion on [module]
+// SAMPLEPGO:               Running pass: LoopUnrollPass on bar
+
+// SAMPLEPGO-OLDPM:         PGOIndirectCallPromotion
+// SAMPLEPGO-OLDPM:         Unroll loops
+// SAMPLEPGO-OLDPM:         Unroll loops
+
+// THINLTO-NOT:             Running pass: PGOIndirectCallPromotion on [module]
+// THINLTO-NOT:             Running pass: LoopUnrollPass on bar
+
+// THINLTO-OLDPM-NOT:       PGOIndirectCallPromotion
+// The first Unroll loop pass is the createSimpleLoopUnrollPass that unrolls and peels
+// loops with small constant trip counts. The second one is skipped by ThinLTO.
+// THINLTO-OLDPM:           Unroll loops
+// THINLTO-OLDPM-NOT:       Unroll loops
+
+
+// Checks if hot call is inlined by normal compile, but not inlined by
+// thinlto compile.
 // SAMPLEPGO-LABEL: define {{(dso_local )?}}void @bar
 // THINLTO-LABEL: define {{(dso_local )?}}void @bar
 // SAMPLEPGO-NOT: call{{.*}}foo
@@ -24,27 +52,4 @@ void foo(int n) {
 void bar(int n) {
   for (int i = 0; i < n; i++)
     foo(i);
-}
-
-// Checks if loop unroll is invoked by normal compile, but not thinlto compile.
-// SAMPLEPGO-LABEL: define {{(dso_local )?}}void @unroll
-// THINLTO-LABEL: define {{(dso_local )?}}void @unroll
-// SAMPLEPGO: call{{.*}}baz
-// SAMPLEPGO: call{{.*}}baz
-// THINLTO: call{{.*}}baz
-// THINLTO-NOT: call{{.*}}baz
-void unroll() {
-  for (int i = 0; i < 2; i++)
-    baz(i);
-}
-
-// Checks that icp is not invoked for ThinLTO, but invoked for normal samplepgo.
-// SAMPLEPGO-LABEL: define {{(dso_local )?}}void @icp
-// THINLTO-LABEL: define {{(dso_local )?}}void @icp
-// SAMPLEPGO: if.true.direct_targ
-// FIXME: the following condition needs to be reversed once
-//        LTOPreLinkDefaultPipeline is customized.
-// THINLTO-NOT: if.true.direct_targ
-void icp(void (*p)()) {
-  p();
 }
