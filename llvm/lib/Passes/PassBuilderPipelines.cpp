@@ -467,6 +467,7 @@ extern cl::opt<int> PreInlineThreshold;
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
 extern cl::opt<unsigned> RunVPOOpt;
 extern cl::opt<unsigned> RunVPOParopt;
+extern cl::opt<bool> SPIRVOptimizationMode;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableVPlanDriver;
@@ -580,6 +581,12 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // basic mathematical properties. For example, this will form (nearly)
   // minimal multiplication trees.
   FPM.addPass(ReassociatePass());
+#if INTEL_COLLAB
+  if (!SPIRVOptimizationMode)
+    FPM.addPass(ReassociatePass());
+#else // INTEL_COLLAB
+  FPM.addPass(ReassociatePass());
+#endif // INTEL_COLLAB
 
   // Add the primary loop simplification pipeline.
   // FIXME: Currently this is split into two loop pass pipelines because we run
