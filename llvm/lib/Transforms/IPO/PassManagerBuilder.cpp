@@ -205,7 +205,9 @@ cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
 //       so we need to fix it soon.
 cl::opt<unsigned> RunVPOParopt("paropt", cl::init(0x00000000), cl::Hidden,
                                cl::desc("Run VPO Paropt Pass"));
-
+cl::opt<bool>
+    SPIRVOptimizationMode("spirv-opt", cl::init(false), cl::Hidden,
+                          cl::desc("Enable SPIR-V optimization mode."));
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
@@ -814,8 +816,13 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   MPM.add(createCFGSimplificationPass());      // Merge & remove BBs
   // FIXME: re-association increases variables liveness and therefore register
   // pressure.
+#if INTEL_COLLAB
+  if (!SYCLOptimizationMode && !SPIRVOptimizationMode)
+    MPM.add(createReassociatePass()); // Reassociate expressions
+#else // INTEL_COLLAB
   if (!SYCLOptimizationMode)
     MPM.add(createReassociatePass()); // Reassociate expressions
+#endif // INTEL_COLLAB
 
   // Do not run loop pass pipeline in "SYCL Optimization Mode". Loop
   // optimizations rely on TTI, which is not accurate for SPIR target.
