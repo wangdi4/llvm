@@ -111,12 +111,9 @@ void LLDJITBuilder::adjustFunctionAttributes(llvm::Module *M) {
   for (llvm::Function &F : M->functions()) {
     F.setAttributes(
         F.getAttributes()
-            .addAttribute(F.getContext(), AttributeList::FunctionIndex,
-                          Attribute::UWTable)
-            .addAttribute(F.getContext(), AttributeList::FunctionIndex,
-                          Attribute::OptimizeNone)
-            .addAttribute(F.getContext(), AttributeList::FunctionIndex,
-                          Attribute::NoInline));
+            .addFnAttribute(F.getContext(), Attribute::UWTable)
+            .addFnAttribute(F.getContext(), Attribute::OptimizeNone)
+            .addFnAttribute(F.getContext(), Attribute::NoInline));
   }
 }
 void LLDJITBuilder::exportKernelSymbols(llvm::Module *M) {

@@ -1,6 +1,7 @@
 ; TODO: This test should be moved to llvm project after we move
 ; ocl-tblgen'ed OpenCL built-in clbltfnz0.rtl to llvm project.
 
+; REQUIRES: 64bit
 ; RUN: %oclopt -S -dpcpp-kernel-builtin-lib=%libdir/clbltfnz0.rtl -dpcpp-kernel-group-builtin %s | FileCheck %s
 
 declare i32 @_Z20work_group_broadcastim(i32 %src, i64 %local_id)

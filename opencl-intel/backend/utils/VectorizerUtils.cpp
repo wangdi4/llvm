@@ -553,7 +553,7 @@ CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string
     F->addFnAttr(attrs[i]);
   CallInst *newCall = CallInst::Create(new_f, ArrayRef<Value*>(args), "", insertBefore);
   for (unsigned i=0; i < attrs.size(); ++i)
-    newCall->addAttribute(~0, attrs[i]);
+    newCall->addFnAttr(attrs[i]);
 
   // Set debug location
   SetDebugLocBy(newCall, insertBefore);

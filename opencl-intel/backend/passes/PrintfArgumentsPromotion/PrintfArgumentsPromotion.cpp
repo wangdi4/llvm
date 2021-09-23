@@ -98,8 +98,7 @@ namespace intel {
 
       // Set NoBuiltin attribute to avoid replacements by 'puts'/'putc'.
       if (!printfCI->isNoBuiltin())
-        printfCI->addAttribute(AttributeList::FunctionIndex,
-                               Attribute::NoBuiltin);
+        printfCI->addFnAttr(Attribute::NoBuiltin);
 
       Builder.SetInsertPoint(printfCI);
       for(Use & use: printfCI->arg_operands()) {

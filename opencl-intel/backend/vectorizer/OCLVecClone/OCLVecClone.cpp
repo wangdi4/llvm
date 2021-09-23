@@ -795,21 +795,20 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 
     AttributeList AL = Call->getAttributes();
 
-    AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                         "vector-variants", Variants);
+    AL = AL.addFnAttribute(Call->getContext(), "vector-variants", Variants);
     // TODO: So far the functions that have their vector variants assigned here
     // are essentially "kernel-call-once" functions.
     if (KernelCallOnce) {
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                         CompilationUtils::ATTR_KERNEL_CALL_ONCE);
+      AL = AL.addFnAttribute(Call->getContext(),
+                             CompilationUtils::ATTR_KERNEL_CALL_ONCE);
     }
     if (HasMask)
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           CompilationUtils::ATTR_HAS_VPLAN_MASK);
+      AL = AL.addFnAttribute(Call->getContext(),
+                             CompilationUtils::ATTR_HAS_VPLAN_MASK);
     else if (!NotHasMask) {
       unsigned ParamsNum = Call->arg_size();
-      AL = AL.addAttribute(Call->getContext(), AttributeList::FunctionIndex,
-                           "call-params-num", std::to_string(ParamsNum));
+      AL = AL.addFnAttribute(Call->getContext(), "call-params-num",
+                             std::to_string(ParamsNum));
     }
     Call->setAttributes(AL);
   }
@@ -899,8 +898,8 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   for (auto *F : oclSyncBuiltins) {
     for (auto *U : F->users()) {
       if (auto *CI = dyn_cast<CallInst>(U)) {
-        CI->setAttributes(CI->getAttributes()
-          .addAttribute(CI->getContext(), AttributeList::FunctionIndex, "kernel-uniform-call"));
+        CI->setAttributes(CI->getAttributes().addFnAttribute(
+            CI->getContext(), "kernel-uniform-call"));
       }
     }
   }
