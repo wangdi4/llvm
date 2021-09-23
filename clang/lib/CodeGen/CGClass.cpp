@@ -2515,40 +2515,26 @@ void CodeGenFunction::InitializeVTablePointer(const VPtr &Vptr) {
   unsigned GlobalsAS = CGM.getDataLayout().getDefaultGlobalsAddressSpace();
   unsigned ProgAS = CGM.getDataLayout().getProgramAddressSpace();
 #if INTEL_COLLAB
-  unsigned TAS = CGM.getContext().getTargetAddressSpace(LangAS::Default);
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
-          ->getPointerTo(GlobalsAS ? GlobalsAS : TAS);
+          ->getPointerTo(GlobalsAS ? GlobalsAS : ThisAddrSpace);
 #else  // INTEL_COLLAB
   llvm::Type *VTablePtrTy =
       llvm::FunctionType::get(CGM.Int32Ty, /*isVarArg=*/true)
           ->getPointerTo(ProgAS)
           ->getPointerTo(GlobalsAS);
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
   // vtable field is is derived from `this` pointer, therefore it should be in
   // default address space.
-#if INTEL_COLLAB
-  if (GlobalsAS)
-    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
-        VTableField, VTablePtrTy->getPointerTo());
-  else
-    VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
-        VTableField, VTablePtrTy->getPointerTo(TAS));
-#else  // INTEL_COLLAB
-  VTableField = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      VTableField, VTablePtrTy->getPointerTo());
-#endif // INTEL_COLLAB
-  VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
-      VTableAddressPoint, VTablePtrTy);
-=======
-  // vtable field is is derived from `this` pointer, therefore they should be in
-  // the same addr space. Note that this might not be LLVM address space 0.
   VTableField = Builder.CreateBitCast(VTableField,
                                       VTablePtrTy->getPointerTo(ThisAddrSpace));
+#if INTEL_COLLAB
+  VTableAddressPoint = Builder.CreatePointerBitCastOrAddrSpaceCast(
+      VTableAddressPoint, VTablePtrTy);
+#else  // INTEL_COLLAB
   VTableAddressPoint = Builder.CreateBitCast(VTableAddressPoint, VTablePtrTy);
->>>>>>> abe8b354e37d8d6a163a6402d8e68ddcfc462dfc
+#endif // INTEL_COLLAB
 
   llvm::StoreInst *Store = Builder.CreateStore(VTableAddressPoint, VTableField);
   TBAAAccessInfo TBAAInfo = CGM.getTBAAVTablePtrAccessInfo(VTablePtrTy);
