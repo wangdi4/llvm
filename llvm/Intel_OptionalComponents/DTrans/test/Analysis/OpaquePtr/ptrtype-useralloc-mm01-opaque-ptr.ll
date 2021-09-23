@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt  < %s -force-opaque-pointers -whole-program-assume -debug-only=dtrans-alloc-collector -dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -force-opaque-pointers -whole-program-assume -debug-only=dtrans-alloc-collector -passes=dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -debug-only=dtrans-alloc-collector -dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -opaque-pointers -whole-program-assume -debug-only=dtrans-alloc-collector -passes=dtrans-ptrtypeanalyzertest -disable-output 2>&1 | FileCheck %s
 
 ; Test for special kinds of user allocation and free functions.
 ; This case is the same as ptrtype-useralloc-mm01.ll, but pointer types and bitcasts
