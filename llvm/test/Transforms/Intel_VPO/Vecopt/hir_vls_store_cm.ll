@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
-; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 4:
+; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 4:
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CMCHECK-NEXT:  [[BB0]]: base cost: 0
