@@ -31,6 +31,7 @@ class Function;
 class Type;
 class Value;
 class Instruction;
+class TargetLibraryInfo;
 class StructType;
 
 namespace dtrans {
@@ -147,6 +148,21 @@ bool analyzePartialStructUse(const DataLayout &DL, StructType *StructTy,
 // \p SetSize - Parameter for the size operand of the MemIntrinsic call.
 bool analyzePartialAccessNestedStructures(const DataLayout &DL,
                                           StructType *StructTy, Value *SetSize);
+
+/// Check if the called function has only one basic block that ends with
+/// 'unreachable' instruction.
+bool isDummyFuncWithUnreachable(const CallBase *Call,
+                                const TargetLibraryInfo &TLI);
+
+/// Check if the called function has two arguments ('this' pointer and an
+/// integer size) and is dummy.
+bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
+                                   const TargetLibraryInfo &TLI);
+
+/// Check if the called function has two arguments ('this' pointer and a
+/// pointer) and is dummy.
+bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
+                                   const TargetLibraryInfo &TLI);
 
 } // namespace dtrans
 } // namespace llvm
