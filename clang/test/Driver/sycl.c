@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// CMPLRLLVM-31392
+// UNSUPPORTED: intel_opencl && i686-pc-windows
+// end INTEL_CUSTOMIZATION
+
 // RUN: %clang -### -fsycl -c %s 2>&1 | FileCheck %s --check-prefix=ENABLED
 // RUN: %clang -### -fsycl %s 2>&1 | FileCheck %s --check-prefix=ENABLED
 // RUN: %clang -### -fsycl -sycl-std=1.2.1 %s 2>&1 | FileCheck %s --check-prefix=ENABLED

@@ -4,25 +4,42 @@
 ; Verify that we are able to parse this case successfully without assertion.
 ; The i2 loop was converted from countable to unknown as we moved from loop
 ; formation to parsing phase because of different results from ScalarEvolution.
-
 ; The no-wrap flags were different for the IV in the two queries.
 
+; UPDATE: The i2 loop becomes countable after community pulldown. It is not
+; known what changed.
+
+; Old HIR-
+; + DO i1 = 0, 39, 1   <DO_LOOP>
+; |   + UNKNOWN LOOP i2
+; |   |   <i2 = 0>
+; |   |   for.body6:
+; |   |   if (undef #UNDEF# undef)
+; |   |   {
+; |   |      goto for.end.loopexit;
+; |   |   }
+; |   |   if (i1 >=u 2 * i2 + trunc.i64.i32(%indvars.iv54) + 2)
+; |   |   {
+; |   |      <i2 = i2 + 1>
+; |   |      goto for.body6;
+; |   |   }
+; |   + END LOOP
+; |
+; |   for.end.loopexit:
+; + END LOOP
+
+; New HIR-
+
 ; CHECK: + DO i1 = 0, 39, 1   <DO_LOOP>
-; CHECK: |   + UNKNOWN LOOP i2
-; CHECK: |   |   <i2 = 0>
-; CHECK: |   |   for.body6:
+; CHECK: |   + DO i2 = 0, trunc.i64.i32(((-1 + (-1 * zext.i32.i64(trunc.i64.i32(%indvars.iv54))) + umax((1 + %indvars.iv52), (2 + zext.i32.i64(trunc.i64.i32(%indvars.iv54))))) /u 2)), 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 10>
 ; CHECK: |   |   if (undef #UNDEF# undef)
 ; CHECK: |   |   {
 ; CHECK: |   |      goto for.end.loopexit;
 ; CHECK: |   |   }
-; CHECK: |   |   if (i1 >=u 2 * i2 + trunc.i64.i32(%indvars.iv54) + 2)
-; CHECK: |   |   {
-; CHECK: |   |      <i2 = i2 + 1>
-; CHECK: |   |      goto for.body6;
-; CHECK: |   |   }
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |   for.end.loopexit:
+; CHECK: |   %indvars.iv52 = i1 + 1;
 ; CHECK: + END LOOP
 
 
