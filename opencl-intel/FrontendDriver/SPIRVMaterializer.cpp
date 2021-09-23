@@ -28,22 +28,6 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
-<<<<<<< HEAD
-// Function functor, to be applied for every function in the module.
-// SPIRV translator is designed to consume LLVM IR compiled with O0
-// optimization level, thus clang generates NoInline attributes
-// for every function. It blocks inline optimizations.
-// The function removes this attribute.
-static void removeNoInlineAttr(Function &F) {
-  F.removeFnAttr(Attribute::AttrKind::NoInline);
-  for (auto *U : F.users()) {
-    if (auto *CI = dyn_cast<CallInst>(U))
-      CI->removeFnAttr(Attribute::NoInline);
-  }
-}
-
-=======
->>>>>>> 30b745b2db4657433dafbe37ef690aa5b8003134
 // Function functor, to be applied for every function in the module when it's
 // BIsRepresentation == SPIRVFriendlyIR.
 // User may define their own function of the same name as OpenCL builtins
