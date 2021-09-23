@@ -228,8 +228,10 @@ class HIRParser {
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;
 
-  /// Returns the integer constant contained in ConstSCEV.
-  int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
+  /// Returns the integer constant contained in ConstSCEV in either signed or
+  /// unsigned form based on \p IsSigned flag.
+  int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV,
+                               bool IsSigned = true) const;
 
   /// Parses a SCEVConstant expr into CE's constant or denominator field based
   /// on IsDenom flag.
