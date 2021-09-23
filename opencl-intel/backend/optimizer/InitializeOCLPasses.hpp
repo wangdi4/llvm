@@ -28,7 +28,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeCLBuiltinLICMPass(Registry);
-    intel::initializeCLWGLoopCreatorPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
     intel::initializeCLStreamSamplerPass(Registry);
     intel::initializeCleanupWrappedKernelsPass(Registry);

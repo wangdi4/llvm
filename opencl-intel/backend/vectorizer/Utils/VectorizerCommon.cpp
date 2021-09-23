@@ -10,8 +10,8 @@
 
 #include "VectorizerCommon.h"
 
-#include "LoopHandler/CLWGBoundDecoder.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 extern cl::opt<VectorVariant::ISAClass> IsaEncodingOverride;
 
@@ -35,8 +35,7 @@ VectorVariant::ISAClass getCPUIdISA(
 
 bool skipFunction(Function *F) {
   return !F || F->isIntrinsic() || F->isDeclaration() ||
-    intel::CLWGBoundDecoder::isWGBoundFunction(
-      F->getName().str());
+         llvm::WGBoundDecoder::isWGBoundFunction(F->getName().str());
 }
 
 } // namespace VectorizerCommon

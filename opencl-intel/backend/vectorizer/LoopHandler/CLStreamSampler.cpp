@@ -12,7 +12,6 @@
 
 #include "CLStreamSampler.h"
 #include "LoopUtils/LoopUtils.h"
-#include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
@@ -25,6 +24,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 
 #define MAX_LOOP_SIZE 1024
 
@@ -160,12 +160,12 @@ unsigned CLStreamSampler::getTripCountUpperBound(Value *tripCount) {
   // Now check if the trip count is Extract from the WG boundaries vector.
   if (ExtractValueInst *EVI = dyn_cast<ExtractValueInst>(tripCount)) {
     if (EVI->getNumIndices() == 1 &&
-        *(EVI->idx_begin()) == CLWGBoundDecoder::getIndexOfSizeAtDim(0)) {
+        *(EVI->idx_begin()) == WGBoundDecoder::getIndexOfSizeAtDim(0)) {
       if (CallInst *eeCall = dyn_cast<CallInst>(EVI->getAggregateOperand())) {
         assert(eeCall->getCalledFunction() &&
                "Unexpected indirect function invocation");
         std::string funcName = eeCall->getCalledFunction()->getName().str();
-        if (CLWGBoundDecoder::isWGBoundFunction(funcName)) {
+        if (WGBoundDecoder::isWGBoundFunction(funcName)) {
           // Trip is get_local_size(0) return known bound.
           return MAX_LOOP_SIZE / divideBy;
         }

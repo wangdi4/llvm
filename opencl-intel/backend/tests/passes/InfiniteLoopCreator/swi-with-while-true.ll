@@ -15,9 +15,9 @@
 ; ----------------------------------------------------
 ; Clang options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl
 ; ----------------------------------------------------
-; Opt passes: -dpcpp-kernel-equalizer -dpcpp-kernel-analysis -cl-loop-bound -cl-loop-creator
+; Opt passes: -dpcpp-kernel-equalizer -dpcpp-kernel-analysis -cl-loop-bound -dpcpp-kernel-wgloop-creator
 ; ----------------------------------------------------
-; -cl-loop-creator creates early exit, we can create infinite loop inside a kernel
+; -dpcpp-kernel-wgloop-creator creates early exit, we can create infinite loop inside a kernel
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -infinite-loop-creator -verify %s -S | FileCheck %s
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

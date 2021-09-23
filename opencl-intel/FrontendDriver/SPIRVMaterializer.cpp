@@ -28,19 +28,6 @@ namespace Intel {
 namespace OpenCL {
 namespace ClangFE {
 
-// Function functor, to be applied for every function in the module.
-// SPIRV translator is designed to consume LLVM IR compiled with O0
-// optimization level, thus clang generates NoInline attributes
-// for every function. It blocks inline optimizations.
-// The function removes this attribute.
-static void removeNoInlineAttr(Function &F) {
-  F.removeFnAttr(Attribute::AttrKind::NoInline);
-  for (auto *U : F.users()) {
-    if (auto *CI = dyn_cast<CallInst>(U))
-      CI->removeFnAttr(Attribute::NoInline);
-  }
-}
-
 // Function functor, to be applied for every function in the module when it's
 // BIsRepresentation == SPIRVFriendlyIR.
 // User may define their own function of the same name as OpenCL builtins
@@ -63,30 +50,7 @@ static void renameUserFunctionConflictingWithBI(Function &F) {
   }
 }
 
-// Checks if the program was compiled with optimization.
-bool ClangFECompilerMaterializeSPIRVTask::ifOptEnable() {
-  std::vector<std::string> BuildOptionsSeparated;
-  std::stringstream OptionsStrstream(m_pProgDesc->pszOptions);
-  std::copy(std::istream_iterator<std::string>(OptionsStrstream),
-            std::istream_iterator<std::string>(),
-            std::back_inserter(BuildOptionsSeparated));
-  for (auto Option : BuildOptionsSeparated) {
-    if (Option == "-g")
-      return false;
-    if (Option == "-cl-opt-disable")
-      return false;
-  }
-  return true;
-}
-
 bool ClangFECompilerMaterializeSPIRVTask::MaterializeSPIRV(llvm::Module *&pM) {
-  if (ifOptEnable()) {
-    std::for_each(pM->begin(), pM->end(), [&](llvm::Function &F) {
-      if (!F.hasOptNone())
-        removeNoInlineAttr(F);
-    });
-  }
-
   if (m_opts.getDesiredBIsRepresentation() ==
       SPIRV::BIsRepresentation::SPIRVFriendlyIR) {
     // Rename those user functions conflicting with OpenCL builtins

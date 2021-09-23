@@ -70,7 +70,8 @@ static void CheckOutput(int fd) {
   static const int TEST_NUM = 2;
   static char *refs[TEST_NUM] = {
       "*** IR Dump Before Simplify the CFG (simplifycfg) ***",
-      "*** IR Dump After CLWGLoopCreator (cl-loop-creator) ***"};
+      "*** IR Dump After WGLoopCreatorLegacy (dpcpp-kernel-wgloop-creator) "
+      "***"};
 
   size_t size = 256;
   char *buf = (char *)malloc(size);
@@ -96,8 +97,9 @@ static void CheckOutput(int fd) {
 void cl_DumpIRBeforeAndAfterPasses() {
   int rc;
 
-  rc = setenv("VOLCANO_LLVM_OPTIONS",
-              "-print-before=simplifycfg -print-after=cl-loop-creator", 1);
+  rc = setenv(
+      "VOLCANO_LLVM_OPTIONS",
+      "-print-before=simplifycfg -print-after=dpcpp-kernel-wgloop-creator", 1);
   ASSERT_EQ(rc, 0) << "setenv: " << strerror(errno);
 
   int pipe_fds[2];

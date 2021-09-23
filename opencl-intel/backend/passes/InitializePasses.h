@@ -38,7 +38,6 @@ void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
 void initializeCLBuiltinLICMPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
-void initializeCLWGLoopCreatorPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
 void initializeCleanupWrappedKernelsPass(llvm::PassRegistry&);
 void initializeIRInjectModulePass(llvm::PassRegistry&);

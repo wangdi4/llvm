@@ -15,7 +15,6 @@
 #define DEBUG_TYPE "Vectorizer"
 
 #include "CLWGLoopBoundaries.h"
-#include "CLWGBoundDecoder.h"
 #include "LoopUtils/LoopUtils.h"
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
@@ -30,6 +29,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/WGBoundDecoder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -231,9 +231,9 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
 }
 
 Function *CLWGLoopBoundaries::createLoopBoundariesFunctionDcl() {
-  unsigned numEntries = CLWGBoundDecoder::getNumWGBoundArrayEntries(m_numDim);
+  unsigned numEntries = WGBoundDecoder::getNumWGBoundArrayEntries(m_numDim);
   std::string funcName = m_F->getName().str();
-  std::string EEFuncName = CLWGBoundDecoder::encodeWGBound(funcName);
+  std::string EEFuncName = WGBoundDecoder::encodeWGBound(funcName);
   Type *retTy = ArrayType::get(m_indTy, numEntries);
 
   // Check if argTypes was already initialized, if not create it.
@@ -1348,15 +1348,15 @@ void CLWGLoopBoundaries::createWGLoopBoundariesFunction() {
   // Insert Boundaries into the array return value.
   Value *retVal = UndefValue::get(BoundFunc->getReturnType());
   for (unsigned dim = 0; dim < m_numDim; ++dim) {
-    unsigned loopSizeInd = CLWGBoundDecoder::getIndexOfSizeAtDim(dim);
+    unsigned loopSizeInd = WGBoundDecoder::getIndexOfSizeAtDim(dim);
     retVal =
         InsertValueInst::Create(retVal, m_loopSizes[dim], loopSizeInd, "", BB);
-    unsigned lowerInd = CLWGBoundDecoder::getIndexOfInitGIDAtDim(dim);
+    unsigned lowerInd = WGBoundDecoder::getIndexOfInitGidAtDim(dim);
     retVal =
         InsertValueInst::Create(retVal, m_lowerBounds[dim], lowerInd, "", BB);
   }
   // Insert the uniform early exit value to the array retrun value, and return.
-  unsigned uniInd = CLWGBoundDecoder::getUniformIndex();
+  unsigned uniInd = WGBoundDecoder::getUniformIndex();
   retVal = InsertValueInst::Create(retVal, uniformCond, uniInd, "", BB);
   ReturnInst::Create(*m_context, retVal, BB);
 }

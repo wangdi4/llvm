@@ -113,7 +113,6 @@ llvm::ModulePass* createIndirectCallLoweringPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();
-llvm::ModulePass *createCLWGLoopCreatorPass();
 llvm::ModulePass *createCLWGLoopBoundariesPass();
 llvm::Pass *createCLBuiltinLICMPass();
 llvm::Pass *createLoopStridedCodeMotionPass();
@@ -692,7 +691,7 @@ static void populatePassesPostFailCheck(
       PM.add(createAddNTAttrPass());
     if (debugType == Native)
       PM.add(createImplicitGIDPass(/*HandleBarrier*/ false));
-    PM.add(createCLWGLoopCreatorPass());
+    PM.add(llvm::createDPCPPKernelWGLoopCreatorLegacyPass());
   }
   PM.add(createIndirectCallLoweringPass());
 
