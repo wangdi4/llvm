@@ -17,7 +17,7 @@
 ; ----------------------------------------------------
 ; Opt passes: -dpcpp-kernel-equalizer
 ; ----------------------------------------------------
-; without -cl-loop-creator there are no ret instructions (or all of them are
+; without -dpcpp-kernel-wgloop-creator there are no ret instructions (or all of them are
 ; unreachable), check that pass doesn't change the ir
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -dpcpp-kernel-analysis -infinite-loop-creator -verify %s -S > %t1.ll

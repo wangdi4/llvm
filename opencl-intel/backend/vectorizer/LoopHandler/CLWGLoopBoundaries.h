@@ -79,7 +79,7 @@
 //    retrun [uni, dim0_lower, dim0_size];
 //
 //  This pass and Loop Generator agree on the indices of the array using
-//  interface implemented in CLWGBoundDecoder Class.
+//  interface implemented in WGBoundDecoder Class.
 //-----------------------------------------------------------------------------
 
 namespace intel {

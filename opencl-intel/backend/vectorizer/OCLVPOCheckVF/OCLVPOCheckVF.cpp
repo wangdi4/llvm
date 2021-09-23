@@ -44,7 +44,6 @@
 #include "OCLVPOCheckVF.h"
 
 #include "CompilationUtils.h"
-#include "LoopHandler/CLWGBoundDecoder.h"
 #include "LoopUtils.h"
 #include "VectorizerCommon.h"
 #include "cpu_dev_limits.h"

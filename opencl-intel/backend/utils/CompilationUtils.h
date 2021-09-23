@@ -475,8 +475,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_GET_BASE_GID;
     static const std::string NAME_GET_SPECIAL_BUFFER;
 
-    static const std::string WG_BOUND_PREFIX;
-
     // Kernel vectorization attributes strings
     static const std::string ATTR_KERNEL_CALL_ONCE;
     static const std::string ATTR_KERNEL_UNIFORM_CALL;
