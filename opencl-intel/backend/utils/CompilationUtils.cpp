@@ -40,8 +40,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   //TODO-MERGE: update value of CompilationUtils::NUM_IMPLICIT_ARGS wherever it is now
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
-  const std::string CompilationUtils::WG_BOUND_PREFIX = "WG.boundaries.";
-
   const std::string CompilationUtils::ATTR_KERNEL_CALL_ONCE = "kernel-call-once";
   const std::string CompilationUtils::ATTR_KERNEL_UNIFORM_CALL = "kernel-uniform-call";
   const std::string CompilationUtils::ATTR_KERNEL_CONVERGENT_CALL = "kernel-convergent-call";
