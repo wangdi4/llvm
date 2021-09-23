@@ -1,6 +1,6 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework  | FileCheck %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
-; RUN: opt < %s -force-opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt < %s -opaque-pointers -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that store with linear phi base is parsed correctly.
 ; CHECK: DO i1 = 0, 999
