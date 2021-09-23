@@ -440,6 +440,7 @@ namespace {
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBuiltinLegacyPass();
+      (void)llvm::createSGLoopConstructLegacyPass();
       (void)llvm::createSGSizeAnalysisLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
