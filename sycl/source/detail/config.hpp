@@ -292,7 +292,7 @@ template <> class SYCLConfig<SYCL_ENABLE_DEFAULT_CONTEXTS> {
 
 public:
   static bool get() {
-#ifdef WIN32
+#ifdef _WIN32
     constexpr bool DefaultValue = false;
 #else
     constexpr bool DefaultValue = true;
