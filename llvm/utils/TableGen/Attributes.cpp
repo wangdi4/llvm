@@ -57,6 +57,7 @@ void Attributes::emitTargetIndependentNames(raw_ostream &OS) {
   // Emit attribute enums in the same order llvm::Attribute::operator< expects.
   Emit({"EnumAttr", "TypeAttr", "IntAttr"}, "ATTRIBUTE_ENUM");
   Emit({"StrBoolAttr"}, "ATTRIBUTE_STRBOOL");
+  Emit({"StrAttr"}, "ATTRIBUTE_STRING"); // INTEL
 
   OS << "#undef ATTRIBUTE_ALL\n";
   OS << "#endif\n\n";
