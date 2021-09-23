@@ -38,6 +38,7 @@ namespace coff {
 
 class BitcodeFile;
 class InputFile;
+class COFFLinkerContext;
 
 class BitcodeCompiler {
 public:
@@ -45,10 +46,14 @@ public:
   ~BitcodeCompiler();
 
   void add(BitcodeFile &f);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   std::vector<InputFile *>
   compile(std::vector<StringRef> *buffersOut = nullptr);
 #endif // INTEL_CUSTOMIZATION
+=======
+  std::vector<InputFile *> compile(COFFLinkerContext &ctx);
+>>>>>>> b4fa71eed34d967195514fe9b0a5211fca2bc5bc
 
 private:
   std::unique_ptr<llvm::lto::LTO> ltoObj;
