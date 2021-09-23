@@ -27,7 +27,11 @@ config.test_format = lit.formats.ShTest()
 config.suffixes = ['.c', '.cpp', '.dump'] #add .spv. Currently not clear what to do with those
 
 # feature tests are considered not so lightweight, so, they are excluded by default
-config.excludes = ['Inputs', 'feature-tests']
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: on-device was removed upstream. Need to keep this here
+# until intel-fptr* tests are moved elsewhere.
+config.excludes = ['Inputs', 'feature-tests', 'on-device']
+# end INTEL_CUSTOMIZATION
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)

@@ -1015,7 +1015,11 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
         bool OfastSet = false;
         if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
           OfastSet = A->getOption().matches(options::OPT_Ofast);
+<<<<<<< HEAD
         if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet) {
+=======
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto_EQ) && OfastSet){
+>>>>>>> 7e21e9bfa628cda09468b6e8121bc31b1340711c
           addllvmOption("-loopopt=1");
           AddLoopOptPipeline("-floopopt-pipeline=light");
         } else {
