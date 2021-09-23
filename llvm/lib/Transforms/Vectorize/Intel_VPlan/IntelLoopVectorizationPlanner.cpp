@@ -168,7 +168,6 @@ static cl::opt<std::string> VecScenarioStr(
         "Format: peel-kindVF;main-kindVF;rem-kindVF[rem-kindVF]. kind=n,s,v,m, "
         "VF=number. E.g. n0;v4;v2s1 means no peel, main vector loop with VF=4, "
         "vector remainder with VF=2, scalar remainder"));
-
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -362,6 +361,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       std::string VPlanName,
                                                       ScalarEvolution *SE) {
   ++VPlanOrderNumber;
+  // Concatenate VPlan order number into VPlanName which allows to align
+  // VPlans in all different VPlan internal dumps.
+  VPlanName += ".#" + std::to_string(VPlanOrderNumber);
+
   setDefaultVectorFactors();
   if (VFs[0] == 0)
     return 0;
@@ -657,9 +660,11 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (VPlanEnablePeeling)
    selectBestPeelingVariants();
 
-  LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
   VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
+  LLVM_DEBUG(dbgs() << "Selecting VF for VPlan " <<
+             ScalarPlan->getName() << '\n');
+
   // FIXME: Without peel and remainder vectorization, it's ok to get trip count
   // from the original loop. Has to be revisited after enabling of
   // peel/remainder vectorization.
@@ -1381,8 +1386,7 @@ void LoopVectorizationPlanner::printAndVerifyAfterInitialTransforms(
   // Run verifier after initial transforms in debug build.
   std::unique_ptr<VPlanVerifier> Verifier(new VPlanVerifier(TheLoop, *DL));
 
-  LLVM_DEBUG(Plan->setName("Planner: After initial VPlan transforms\n");
-             dbgs() << *Plan);
+  LLVM_DEBUG(dbgs() << *Plan);
 
   if (auto *VPlanVec = dyn_cast<VPlanVector>(Plan)) {
 

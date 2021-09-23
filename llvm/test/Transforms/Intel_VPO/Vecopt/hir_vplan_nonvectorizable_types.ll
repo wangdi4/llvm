@@ -4,7 +4,7 @@
 
 ; Cost of serializing select instruction with non-vectorizable operand types
 ; Here cost of serializing select instruction = cost of n extracts from vec cond + cost of n selects, where n = VF
-;CHECK-LABEL: Cost Model for VPlan extent_mp_foo_nd_:HIR with VF = 2:
+;CHECK-LABEL: Cost Model for VPlan extent_mp_foo_nd_:HIR.#{{[0-9]+}} with VF = 2:
 ;CHECK-NEXT: Analyzing VPBasicBlock [[BB1:BB[0-9]+]]
 ;CHECK-NEXT:  Cost 0 for br [[BB2:BB[0-9]+]]
 ;CHECK-NEXT: [[BB1]]: base cost: 0

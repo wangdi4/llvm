@@ -1507,19 +1507,6 @@ StringRef getStructName(llvm::Type *Ty);
 /// type is zero-size array itself.
 bool hasZeroSizedArrayAsLastField(llvm::Type *Ty);
 
-/// Check if the called function has only one basic block that ends with
-/// 'unreachable' instruction.
-bool isDummyFuncWithUnreachable(const CallBase *Call,
-                                const TargetLibraryInfo &TLI);
-/// Check if the called function has two arguments ('this' pointer and an
-/// integer size) and is dummy.
-bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
-/// Check if the called function has two arguments ('this' pointer and a
-/// pointer) and is dummy.
-bool isDummyFuncWithThisAndPtrArgs(const CallBase *Call,
-                                   const TargetLibraryInfo &TLI);
-
 // Returns true if Ty is either StructType or SequentialType.
 bool dtransIsCompositeType(llvm::Type *Ty);
 

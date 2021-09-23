@@ -24,7 +24,7 @@ target triple = "i586-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
 
 define dso_local void @foo() {
-; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan foo:HIR with VF = 16:
+; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 16:
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
@@ -71,7 +71,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 176000
 ; VPLAN-CM-AVX2-NEXT:  Total Cost: 1260876
 ;
-; VPLAN-CM-AVX512-LABEL:  Cost Model for VPlan foo:HIR with VF = 16:
+; VPLAN-CM-AVX512-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 16:
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  [[BB0]]: base cost: 0

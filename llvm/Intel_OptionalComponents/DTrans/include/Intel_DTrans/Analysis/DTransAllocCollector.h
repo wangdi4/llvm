@@ -51,6 +51,17 @@ public:
   dtrans::FreeKind getFreeFnKind(const CallBase *Call,
                                  const TargetLibraryInfo &TLI);
 
+  bool isUserAllocOrDummyFunc(const CallBase *Call);
+  bool isUserFreeOrDummyFunc(const CallBase *Call);
+
+  static bool isDummyFuncWithThisAndIntArgs(const CallBase *Call,
+                                            const TargetLibraryInfo &TLI,
+                                            TypeMetadataReader &MDReader);
+
+  static bool isDummyFuncWithThisAndInt8PtrArgs(const CallBase *Call,
+                                                const TargetLibraryInfo &TLI,
+                                                TypeMetadataReader &MDReader);
+
 private:
   // An enum recording the status of a function. The status is
   // computed in populateAllocDeallocTable.
@@ -78,6 +89,9 @@ private:
 
   AllocStatus analyzeForMallocStatus(const Function *F);
   AllocStatus analyzeForFreeStatus(const Function *F);
+
+  bool isMallocWithStoredMMPtr(const Function *F);
+  bool isFreeWithStoredMMPtr(const Function *F);
 
   TypeMetadataReader &MDReader;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;

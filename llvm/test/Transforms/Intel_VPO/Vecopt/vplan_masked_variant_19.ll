@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @main(i32 %N) {
 ; CHECK-LABEL:  VPlan after emitting masked variant:
-; CHECK-NEXT:  VPlan IR for: main:for.body.cloned.masked
+; CHECK-NEXT:  VPlan IR for: main:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
