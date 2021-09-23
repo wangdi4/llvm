@@ -240,6 +240,40 @@ void llvm::simplifyLoopAfterUnroll(Loop *L, bool SimplifyIVs, LoopInfo *LI,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// Restores the opt report loop metadata present on \p OrigLatch to \p NewLatch
+/// to counteract that metadata being deleted during cloning.
+static void restoreOptReport(Instruction *OrigLatch, Instruction *ClonedLatch) {
+  assert(OrigLatch);
+  assert(ClonedLatch);
+
+  // Locate the loop metadata for the original and cloned latches.
+  const MDNode *const LoopIDOrig = OrigLatch->getMetadata(LLVMContext::MD_loop);
+  if (!LoopIDOrig)
+    return;
+  const MDNode *const LoopIDCloned =
+      ClonedLatch->getMetadata(LLVMContext::MD_loop);
+  if (!LoopIDCloned)
+    return;
+
+  // Find the opt report metadata in the original latch.
+  const auto OptReportMD =
+      find_if(LoopIDOrig->operands(), OptReport::isOptReportMetadata);
+  if (OptReportMD == LoopIDOrig->op_end())
+    return;
+
+  // Construct a new loop metadata node by appending the opt report metadata
+  // from the original latch to the loop metadata of the new latch.
+  SmallVector<Metadata *, 4> Ops(LoopIDCloned->operands());
+  Ops.push_back(*OptReportMD);
+  MDTuple *NewLoopID = MDTuple::get(ClonedLatch->getContext(), Ops);
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+
+  // Replace the metadata of the cloned latch.
+  ClonedLatch->setMetadata(LLVMContext::MD_loop, NewLoopID);
+}
+#endif // INTEL_CUSTOMIZTION
+
 /// Unroll the given loop by Count. The loop must be in LCSSA form.  Unrolling
 /// can only fail when the loop's latch block is not terminated by a conditional
 /// branch instruction. However, if the trip count (and multiple) are not known,
@@ -543,6 +577,14 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
       Header->getParent()->getBasicBlockList().push_back(New);
+
+#if INTEL_CUSTOMIZATION
+      // Restore the opt report metadata that gets dropped during cloning to New
+      // if BB is the loop latch.
+      if (*BB == LatchBlock) {
+        restoreOptReport((*BB)->getTerminator(), New->getTerminator());
+      }
+#endif // INTEL_CUSTOMIZATION
 
       assert((*BB != Header || LI->getLoopFor(*BB) == L) &&
              "Header should not be in a sub-loop");
