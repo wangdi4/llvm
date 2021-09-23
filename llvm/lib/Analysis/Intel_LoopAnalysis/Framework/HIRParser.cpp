@@ -1485,13 +1485,15 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
   return false;
 }
 
-int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
-  return ConstSCEV->getValue()->getSExtValue();
+int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV,
+                                        bool IsSigned) const {
+  return IsSigned ? ConstSCEV->getValue()->getSExtValue()
+                  : ConstSCEV->getValue()->getZExtValue();
 }
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
-  auto Const = getSCEVConstantValue(ConstSCEV);
+  int64_t Const = getSCEVConstantValue(ConstSCEV, !IsDenom);
 
   if (IsDenom) {
     assert((CE->getDenominator() == 1) &&
@@ -2231,12 +2233,25 @@ bool HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS());
 
-    // If the denominator is constant and is not minimum 64 bit signed value,
-    // move it into CE's denominator. Negative denominators are negated and
-    // stored as positive integers but we cannot negate INT_MIN so we make it
-    // a blob.
+    // If the denominator is constant and is not negative 64 bit value, we move
+    // it into CE's denominator(int64_t value). CE does not allow negative
+    // denominators to be stored. Negative denominators of smaller bitwidth are
+    // zero-extended and stored as positive integers but we cannot do that for
+    // 64 bit negative values so they are parsed as blob.
+    //
+    // When a negative value is passed to CanonExpr::setDenominator(), it
+    // negates the numerator to make the denominator positive but this has two
+    // problems-
+    //
+    // 1) Negation is incorrect for unsigned division (SCEVUDivExpr).
+    //
+    // 2) We haven't parsed the numerator portion of the SCEV at this point.
+    // CE's numerator is set to zero making negation incorrect even if the
+    // division was signed.
+    //
+    // TODO: Fix negation logic in setDenominator().
     if (ConstDenomSCEV && ((ConstDenomSCEV->getValue()->getBitWidth() < 64) ||
-                           !ConstDenomSCEV->getValue()->isMinValue(true))) {
+                           !ConstDenomSCEV->getValue()->isNegative())) {
       parseDenominator(ConstDenomSCEV, CE);
       return parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast,
                             IndicateFailure);
