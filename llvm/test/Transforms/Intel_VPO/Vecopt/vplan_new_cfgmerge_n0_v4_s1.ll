@@ -14,7 +14,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:   PeelLoop: none
 ; CHECK-NEXT:   Remainders: scalar,
 ; CHECK-NEXT:  VPlan after adding existing one during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -31,8 +31,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD]] i64* [[VP_PTR]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
@@ -45,7 +45,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.ScalarRemainder
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 live-in0 }
@@ -60,12 +60,12 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_ORIG_LIVEOUT]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.ScalarRemainder
 ; CHECK-NEXT:    Kind: remainder VF:1
-; CHECK-NEXT:  VPlan: test_store:for.body
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    Kind: main VF:4
 ; CHECK-NEXT:  VPlan after merge skeleton creation:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = vector-trip-count i64 1024, UF = 1
@@ -89,8 +89,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB3]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
@@ -109,7 +109,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder} i64 [[VP1]]
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.#{{[0-9]+}}.ScalarRemainder} i64 [[VP1]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB8]], [[BB7]]
@@ -121,7 +121,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after final merge pass:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0]] = vector-trip-count i64 1024, UF = 1
@@ -145,8 +145,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB3]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1

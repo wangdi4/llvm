@@ -14,7 +14,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:   PeelLoop: none
 ; CHECK-NEXT:   Remainders: none,
 ; CHECK-NEXT:  VPlan after adding existing one during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br Cloned.[[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -53,10 +53,10 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
-; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Kind: main VF:4
 ; CHECK-NEXT:  VPlan after merge skeleton creation:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
@@ -103,7 +103,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after final merge pass:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1

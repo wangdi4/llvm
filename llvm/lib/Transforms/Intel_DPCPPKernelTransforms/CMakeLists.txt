@@ -39,6 +39,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   SetVectorizationFactor.cpp
   SubgroupEmulation/SGBuiltin.cpp
   SubgroupEmulation/SGHelper.cpp
+  SubgroupEmulation/SGLoopConstruct.cpp
   SubgroupEmulation/SGSizeAnalysis.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/IndirectCallLowering.cpp

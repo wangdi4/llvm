@@ -57,7 +57,6 @@ OPT_FUNCTION_RE = re.compile(
     flags=(re.M | re.S))
 CHECK_PREFIX_RE = re.compile('--?check-prefix(?:es)?=(\S+)')
 CHECK_RE = re.compile(r'^\s*;\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL|-EMPTY)?:')
-CHECK_LABEL_RE = re.compile(r'Cost Model')
 # Match things that look at identifiers, but only if they are followed by
 # spaces, commas, paren, or end of the string
 IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)\}]|\Z)')
@@ -66,6 +65,7 @@ VP_NAMED_VALUE_RE = re.compile(r'vp\.[\w\.]+\.[0-9]+')
 VPBB_RE = re.compile(r'\b(BB[0-9]+|blend\.bb[0-9]+|intermediate\.bb[0-9]+|new.loop.latch[0-9]+|cascaded.if.block[0-9]+|PeelBlk[0-9]+|RemBlk[0-9]+|merge\.blk[0-9]+|peel\.check[lzv][0-9]+)')
 REGION_RE = re.compile(r'(region[0-9]+)')
 VPLOOP_RE = re.compile(r'(loop[0-9]+)')
+VPLAN_NAME_RE = re.compile(r'(\s[^\s]+:[^\s]+\.#)[0-9]+')
 PREDICATOR_IF_STMT_RE = re.compile(r'(If[FT][0-9]+)')
 PREDICATOR_BLOCK_PREDICATE_RE = re.compile(r'(BP[0-9]+)')
 ANALYSIS_PRINTING_RE = re.compile(r'Pass::print not implemented|Printing analysis')
@@ -194,6 +194,8 @@ def genericize_check_lines(lines):
   def transform_predicator_block_predicate(match):
     return transform_cfg_vars(match, 'BP')
 
+  def transform_vplan_name(match):
+    return match.group(1) + '{{[0-9]+}}'
 
   vars_seen = dict() # variable -> match_name mapping
 
@@ -230,6 +232,7 @@ def genericize_check_lines(lines):
     tmp = VPBB_RE.sub(transform_vpbb, tmp)
     tmp = REGION_RE.sub(transform_region, tmp)
     tmp = VPLOOP_RE.sub(transform_vploop, tmp)
+    tmp = VPLAN_NAME_RE.sub(transform_vplan_name, tmp)
     tmp = PREDICATOR_IF_STMT_RE.sub(transform_predicator_if_stmt, tmp)
     tmp = PREDICATOR_BLOCK_PREDICATE_RE.sub(transform_predicator_block_predicate, tmp)
 

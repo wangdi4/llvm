@@ -11,7 +11,7 @@
 @arr.i32.3 = external local_unnamed_addr global [1024 x i32], align 16
 
 define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
-; VPLAN-HIR-CM-VF8-LABEL:  Cost Model for VPlan test_fit_32bitindex_gather:HIR with VF = 8:
+; VPLAN-HIR-CM-VF8-LABEL:  Cost Model for VPlan test_fit_32bitindex_gather:HIR.#{{[0-9]+}} with VF = 8:
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  [[BB0]]: base cost: 0

@@ -5,7 +5,7 @@
 ; RUN:     | FileCheck %s
 
 define void @test(i8 *%p) local_unnamed_addr {
-; CHECK-LABEL:  Cost Model for VPlan test:HIR with VF = 8:
+; CHECK-LABEL:  Cost Model for VPlan test:HIR.#{{[0-9]+}} with VF = 8:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0

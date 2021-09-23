@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; basic case of psadbw pattern.  should not be vectorized.
 define dso_local i32 @_Z3foov(i32 %t) {
 ;
-; CHECK-LABEL:  Cost Model for VPlan _Z3foov:HIR with VF = 1:
+; CHECK-LABEL:  Cost Model for VPlan _Z3foov:HIR.#{{[0-9]+}} with VF = 1:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0
@@ -81,7 +81,7 @@ for.body:                                         ; preds = %for.body, %entry
 ; should not be vectorized.
 define dso_local i32 @_Z3goov() {
 ;
-; CHECK-LABEL:  Cost Model for VPlan _Z3goov:HIR with VF = 1:
+; CHECK-LABEL:  Cost Model for VPlan _Z3goov:HIR.#{{[0-9]+}} with VF = 1:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0
@@ -240,7 +240,7 @@ for.end:                                          ; preds = %for.body
 ; full unroll case: trip count is known and it is 8 or 16. No SLP is possible.
 ; vectorization should not be blocked for such case.
 define dso_local i32 @_Z3toov(i32 %t) {
-; CHECK-LABEL:  Cost Model for VPlan _Z3toov:HIR with VF = 1:
+; CHECK-LABEL:  Cost Model for VPlan _Z3toov:HIR.#{{[0-9]+}} with VF = 1:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0
@@ -308,7 +308,7 @@ for.body:                                         ; preds = %for.body, %entry
 ; to trigger.  The loop is fully unrolled by after VPlan but before SLP.
 ; Should not be vectorized.
 define dso_local i32 @full_unroll_with_slp(i32 %t) {
-; CHECK-LABEL:  Cost Model for VPlan full_unroll_with_slp:HIR with VF = 1:
+; CHECK-LABEL:  Cost Model for VPlan full_unroll_with_slp:HIR.#{{[0-9]+}} with VF = 1:
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; CHECK-NEXT:  [[BB0]]: base cost: 0

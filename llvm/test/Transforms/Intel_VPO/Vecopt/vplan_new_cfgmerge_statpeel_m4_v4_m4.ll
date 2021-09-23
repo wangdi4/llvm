@@ -15,7 +15,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:   PeelLoop: masked, VF=4
 ; CHECK-NEXT:   Remainders: masked, VF=4,
 ; CHECK-NEXT:  VPlan after adding existing one during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Cloned.[[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -54,7 +54,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after adding existing one during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
@@ -71,8 +71,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD_1:%.*]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]] (SVAOpBits 0->V 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP]], [[BB8]], [[BB9:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB8]], [[BB9:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
@@ -85,7 +85,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked.cloned
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}.cloned.masked.cloned
 ; CHECK-NEXT:    Cloned.Cloned.[[BB11:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br Cloned.Cloned.[[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -124,14 +124,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
-; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked.cloned
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.cloned.masked.cloned
 ; CHECK-NEXT:    Kind: remainder VF:4
-; CHECK-NEXT:  VPlan: test_store:for.body
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    Kind: main VF:4
-; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan: test_store:for.body.#{{[0-9]+}}.cloned.masked
 ; CHECK-NEXT:    Kind: peel VF:4
 ; CHECK-NEXT:  VPlan after merge skeleton creation:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[PEEL_CHECKZ0:peel.checkz[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[PEEL_CHECKV0:peel.checkv[0-9]+]]
@@ -142,7 +142,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK]], [[MERGE_BLK0:merge.blk[0-9]+]], [[BB17:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB17]]: # preds: [[PEEL_CHECKV0]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_PEEL_ADAPTER:%.*]] = vplan-peel-adapter for VPlan {test_store:for.body.cloned.masked}
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_PEEL_ADAPTER:%.*]] = vplan-peel-adapter for VPlan {test_store:for.body.#{{[0-9]+}}.cloned.masked}
 ; CHECK-NEXT:       [DA: Uni] br [[MERGE_BLK1:merge.blk[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB17]]
@@ -171,8 +171,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD_1]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB8]], [[BB9]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB8]], [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
@@ -191,7 +191,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB19:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB19]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned.masked.cloned} i64 [[VP17]]
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.#{{[0-9]+}}.cloned.masked.cloned} i64 [[VP17]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB19]], [[BB18]]
@@ -203,7 +203,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after final merge pass:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.#{{[0-9]+}}
 ; CHECK-NEXT:    [[PEEL_CHECKZ0]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[PEEL_CHECKV0]]
@@ -275,8 +275,8 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_ADD_1]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:       [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB8]], [[BB9]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB8]], [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1

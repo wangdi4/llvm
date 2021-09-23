@@ -34,7 +34,7 @@
 @arr.i64.3 = external local_unnamed_addr global [1024 x i64], align 16
 
 define void @foo() local_unnamed_addr {
-; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan foo:for.body with VF = 8:
+; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan foo:for.body.#{{[0-9]+}} with VF = 8:
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
@@ -67,7 +67,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-AVX2-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-CM-AVX2-NEXT:  Base Cost: 14000
 ;
-; VPLAN-CM-SSE2-LABEL:  Cost Model for VPlan foo:for.body with VF = 8:
+; VPLAN-CM-SSE2-LABEL:  Cost Model for VPlan foo:for.body.#{{[0-9]+}} with VF = 8:
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-CM-SSE2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-SSE2-NEXT:  [[BB0]]: base cost: 0
@@ -100,7 +100,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-CM-SSE2-NEXT:  Base Cost: 81000
 ;
-; VPLAN-HIR-CM-AVX2-LABEL:  Cost Model for VPlan foo:HIR with VF = 8:
+; VPLAN-HIR-CM-AVX2-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 8:
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-AVX2-NEXT:  [[BB0]]: base cost: 0
@@ -133,7 +133,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-AVX2-NEXT:  [[BB4]]: base cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:  Base Cost: 14752
 ;
-; VPLAN-HIR-CM-SSE2-LABEL:  Cost Model for VPlan foo:HIR with VF = 8:
+; VPLAN-HIR-CM-SSE2-LABEL:  Cost Model for VPlan foo:HIR.#{{[0-9]+}} with VF = 8:
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-HIR-CM-SSE2-NEXT:  [[BB0]]: base cost: 0
