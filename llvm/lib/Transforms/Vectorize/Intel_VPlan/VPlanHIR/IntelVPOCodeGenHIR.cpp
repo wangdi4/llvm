@@ -3765,6 +3765,18 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
     Mask = RevInst->getLvalDDRef();
   }
 
+  // If the load/store element type is a vector, we need to replicate mask
+  // vector elements if non-null.
+  if (Mask) {
+    auto *ValueTy = VPLoadStore->getValueType();
+    if (auto *ValueVecTy = dyn_cast<VectorType>(ValueTy)) {
+      HLInst *ReplMaskInst =
+          replicateVectorElts(Mask, ValueVecTy->getNumElements());
+      addInstUnmasked(ReplMaskInst);
+      Mask = ReplMaskInst->getLvalDDRef();
+    }
+  }
+
   if (Opcode == Instruction::Load) {
     if (IsUnitStride)
       ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
