@@ -244,7 +244,7 @@ MODULE_PASS("verify", VerifierPass())
 MODULE_PASS("wholeprogramdevirt", WholeProgramDevirtPass())
 MODULE_PASS("dfsan", DataFlowSanitizerPass())
 MODULE_PASS("asan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/false, false, true, false))
-MODULE_PASS("msan-module", MemorySanitizerPass({}))
+MODULE_PASS("msan-module", ModuleMemorySanitizerPass({}))
 MODULE_PASS("tsan-module", ThreadSanitizerPass())
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
 MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
@@ -545,6 +545,7 @@ FUNCTION_PASS("verify<scalar-evolution>", ScalarEvolutionVerifierPass())
 FUNCTION_PASS("view-cfg", CFGViewerPass())
 FUNCTION_PASS("view-cfg-only", CFGOnlyViewerPass())
 FUNCTION_PASS("transform-warning", WarnMissedTransformationsPass())
+<<<<<<< HEAD
 FUNCTION_PASS("msan", MemorySanitizerPass({}))
 
 #if INTEL_CUSTOMIZATION
@@ -651,6 +652,8 @@ FUNCTION_PASS("vpo-restore-operands", VPORestoreOperandsPass())
 FUNCTION_PASS("vpo-paropt-loop-collapse", VPOParoptLoopCollapsePass())
 FUNCTION_PASS("vpo-paropt-prepare", VPOParoptPreparePass())
 #endif // INTEL_COLLAB
+=======
+>>>>>>> ab41eef9aca3ad5e9321e045a57d36e288a75d17
 FUNCTION_PASS("tsan", ThreadSanitizerPass())
 FUNCTION_PASS("memprof", MemProfilerPass())
 FUNCTION_PASS("LowerWGScope", SYCLLowerWGScopePass())
