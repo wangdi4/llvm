@@ -1663,12 +1663,17 @@ SDValue SITargetLowering::lowerKernArgParameterPtr(SelectionDAG &DAG,
   const ArgDescriptor *InputPtrReg;
   const TargetRegisterClass *RC;
   LLT ArgTy;
+  MVT PtrVT = getPointerTy(DL, AMDGPUAS::CONSTANT_ADDRESS);
 
   std::tie(InputPtrReg, RC, ArgTy) =
       Info->getPreloadedValue(AMDGPUFunctionArgInfo::KERNARG_SEGMENT_PTR);
 
+  // We may not have the kernarg segment argument if we have no kernel
+  // arguments.
+  if (!InputPtrReg)
+    return DAG.getConstant(0, SL, PtrVT);
+
   MachineRegisterInfo &MRI = DAG.getMachineFunction().getRegInfo();
-  MVT PtrVT = getPointerTy(DL, AMDGPUAS::CONSTANT_ADDRESS);
   SDValue BasePtr = DAG.getCopyFromReg(Chain, SL,
     MRI.getLiveInVirtReg(InputPtrReg->getRegister()), PtrVT);
 
@@ -1814,6 +1819,14 @@ SDValue SITargetLowering::getPreloadedValue(SelectionDAG &DAG,
   LLT Ty;
 
   std::tie(Reg, RC, Ty) = MFI.getPreloadedValue(PVID);
+  if (!Reg) {
+    // It's possible for a kernarg intrinsic call to appear in a kernel with no
+    // allocated segment, in which case we do not add the user sgpr argument, so
+    // just return null.
+    assert(PVID == AMDGPUFunctionArgInfo::PreloadedValue::KERNARG_SEGMENT_PTR);
+    return DAG.getConstant(0, SDLoc(), VT);
+  }
+
   return CreateLiveInRegister(DAG, RC, Reg->getRegister(), VT);
 }
 
@@ -8285,6 +8298,16 @@ SDValue SITargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   SDValue Cond = Op.getOperand(0);
 
+  if (Subtarget->hasScalarCompareEq64() && Op->getOperand(0)->hasOneUse() &&
+      !Op->isDivergent()) {
+    if (VT == MVT::i64)
+      return Op;
+    SDValue LHS = DAG.getNode(ISD::BITCAST, DL, MVT::i64, Op.getOperand(1));
+    SDValue RHS = DAG.getNode(ISD::BITCAST, DL, MVT::i64, Op.getOperand(2));
+    return DAG.getNode(ISD::BITCAST, DL, VT,
+                       DAG.getSelect(DL, MVT::i64, Cond, LHS, RHS));
+  }
+
   SDValue Zero = DAG.getConstant(0, DL, MVT::i32);
   SDValue One = DAG.getConstant(1, DL, MVT::i32);
 
@@ -12196,7 +12219,7 @@ SITargetLowering::shouldExpandAtomicRMWInIR(AtomicRMWInst *RMW) const {
     // DS FP atomics do repect the denormal mode, but the rounding mode is fixed
     // to round-to-nearest-even.
     // The only exception is DS_ADD_F64 which never flushes regardless of mode.
-    if (AS == AMDGPUAS::LOCAL_ADDRESS && Subtarget->hasLDSFPAtomics()) {
+    if (AS == AMDGPUAS::LOCAL_ADDRESS && Subtarget->hasLDSFPAtomicAdd()) {
       if (!Ty->isDoubleTy())
         return AtomicExpansionKind::None;
 

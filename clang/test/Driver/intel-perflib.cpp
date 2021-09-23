@@ -125,7 +125,7 @@
 // CHECK-MKL-WIN-CLUSTER: clang{{.*}} "--dependent-lib=mkl_intel_lp64" "--dependent-lib=mkl_cdft_core" "--dependent-lib=mkl_scalapack_lp64" "--dependent-lib=mkl_blacs_intelmpi_lp64" "--dependent-lib=mkl_sequential" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SYCL-NOT: clang-offload-bundler{{.*}} "-type=o" {{.*}} "-inputs=libmkl_sycl"
 // CHECK-MKL-LIN-SYCL: "-DMKL_ILP64"
-// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-outputs=[[LISTA:.+\.a]]" "-unbundle"
+// CHECK-MKL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown" "-inputs={{.*}}mkl{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libmkl_sycl.a" "-outputs=[[LISTA:.+\.a]]" "-unbundle"
 // CHECK-MKL-WIN-SYCL: clang{{.*}} "--dependent-lib=mkl_sycl" "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SYCLD: clang{{.*}} "--dependent-lib=mkl_sycld" "--dependent-lib=mkl_intel_ilp64" "--dependent-lib=mkl_intel_thread" "--dependent-lib=mkl_core" {{.*}} "-internal-isystem" "{{.*}}mkl{{/|\\\\}}include{{/|\\\\}}intel64{{/|\\\\}}lp64"
 // CHECK-MKL-WIN-SYCLD: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}mkl_sycld.lib" "-outputs=[[LISTWIN:.+\.a]]" "-unbundle"
@@ -201,7 +201,7 @@
 // CHECK-DAAL: "-internal-isystem" "{{.*}}tbb{{/|\\\\}}include" "-internal-isystem" "{{.*}}dal{{/|\\\\}}include"
 // CHECK-DAAL-WIN-SYCL: clang-offload-bundler{{.*}} "-inputs={{.*}}lib{{/|\\\\}}intel64{{/|\\\\}}onedal_sycl.lib" "-outputs=[[WINLIB:.+\.a]]" "-unbundle"
 // CHECK-DAAL-WIN-SYCL: llvm-link{{.*}} "[[WINLIB]]"
-// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown-sycldevice" "-inputs={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LINLIB:.+\.a]]" "-unbundle"
+// CHECK-DAAL-LIN-SYCL: clang-offload-bundler{{.*}} "-type=a" "-targets=sycl-spir64-unknown-unknown" "-inputs={{.*}}dal{{/|\\\\}}lib{{/|\\\\}}intel64{{/|\\\\}}libonedal_sycl.a" "-outputs=[[LINLIB:.+\.a]]" "-unbundle"
 // CHECK-DAAL-LIN-SYCL: llvm-link{{.*}} "[[LINLIB]]"
 // CHECK-DAAL-SYCL: llvm-spirv{{.*}}
 // CHECK-DAAL-SYCL: clang-offload-wrapper{{.*}}
@@ -225,7 +225,7 @@
 // MKL-SHARED-OBJ-PHASES: 6: llvm-spirv, {5}, tempfilelist, (device-sycl)
 // MKL-SHARED-OBJ-PHASES: 7: file-table-tform, {4, 6}, tempfiletable, (device-sycl)
 // MKL-SHARED-OBJ-PHASES: 8: clang-offload-wrapper, {7}, object, (device-sycl)
-// MKL-SHARED-OBJ-PHASES: 9: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown-sycldevice)" {8}, image
+// MKL-SHARED-OBJ-PHASES: 9: offload, "host-sycl (x86_64-unknown-linux-gnu)" {2}, "device-sycl (spir64-unknown-unknown)" {8}, image
 
 // AC Types tests (-qactypes)
 // RUN: env INTELFPGAOCLSDKROOT=/dummy/actypes \

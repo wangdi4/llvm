@@ -57,7 +57,7 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
 }
 #endif // INTEL_CUSTOMIZATION
 unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
-                                          unsigned OpenMPVersion) {
+                                          const LangOptions &LangOpts) {
   switch (Kind) {
   case OMPC_default:
     return llvm::StringSwitch<unsigned>(Str)
@@ -102,7 +102,9 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   .Case(#Name, static_cast<unsigned>(OMPC_MAP_MODIFIER_##Name))
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_MAP_unknown);
-    if (OpenMPVersion < 51 && Type == OMPC_MAP_MODIFIER_present)
+    if (LangOpts.OpenMP < 51 && Type == OMPC_MAP_MODIFIER_present)
+      return OMPC_MAP_MODIFIER_unknown;
+    if (!LangOpts.OpenMPExtensions && Type == OMPC_MAP_MODIFIER_ompx_hold)
       return OMPC_MAP_MODIFIER_unknown;
     return Type;
   }
@@ -113,7 +115,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   .Case(#Name, static_cast<unsigned>(OMPC_MOTION_MODIFIER_##Name))
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_MOTION_MODIFIER_unknown);
-    if (OpenMPVersion < 51 && Type == OMPC_MOTION_MODIFIER_present)
+    if (LangOpts.OpenMP < 51 && Type == OMPC_MOTION_MODIFIER_present)
       return OMPC_MOTION_MODIFIER_unknown;
     return Type;
   }

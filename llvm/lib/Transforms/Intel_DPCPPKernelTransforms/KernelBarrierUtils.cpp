@@ -277,8 +277,8 @@ Instruction *BarrierUtils::createBarrier(Instruction *InsertBefore) {
         DPCPPKernelCompilationUtils::mangledWGBarrier(
             DPCPPKernelCompilationUtils::BarrierType::NoScope),
         Result, FuncTyArgs);
-    BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
-        BarrierFunc->getContext(), AttributeList::FunctionIndex,
+    BarrierFunc->setAttributes(BarrierFunc->getAttributes().addFnAttribute(
+        BarrierFunc->getContext(),
         Attribute::Convergent));
   }
   if (!LocalMemFenceValue) {

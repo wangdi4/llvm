@@ -8494,8 +8494,10 @@ def err_ref_bad_target_global_initializer : Error<
   "function %1 in global initializer">;
 def err_capture_bad_target : Error<
   "capture host variable %0 by reference in device or host device lambda function">;
-def err_capture_bad_target_this_ptr : Error<
-  "capture host side class data member by this pointer in device or host device lambda function">;
+def warn_maybe_capture_bad_target_this_ptr : Warning<
+  "capture host side class data member by this pointer in device or host device lambda function "
+  "may result in invalid memory access if this pointer is not accessible on device side">,
+  InGroup<DiagGroup<"gpu-maybe-wrong-side">>;
 def warn_kern_is_method : Extension<
   "kernel function %0 is a member function; this may not be accepted by nvcc">,
   InGroup<CudaCompat>;
@@ -10685,6 +10687,8 @@ def err_omp_map_shared_storage : Error<
   "variable already marked as mapped in current construct">;
 def err_omp_invalid_map_type_for_directive : Error<
   "%select{map type '%1' is not allowed|map type must be specified}0 for '#pragma omp %2'">;
+def err_omp_invalid_map_type_modifier_for_directive : Error<
+  "map type modifier '%0' is not allowed for '#pragma omp %1'">;
 def err_omp_no_clause_for_directive : Error<
   "expected at least one %0 clause for '#pragma omp %1'">;
 def err_omp_threadprivate_in_clause : Error<

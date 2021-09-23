@@ -237,8 +237,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     // info is used later on in OpenCLAliasAnalysis to overcome the fact that
     // inlining does not maintain the restrict information.
     Instruction *ArgInst = cast<Instruction>(Arg);
-    if (WrappedKernel->getAttributes().hasAttribute(ArgNo + 1,
-                                                    Attribute::NoAlias)) {
+    if (WrappedKernel->getAttributes().hasAttributeAtIndex(ArgNo + 1,
+                                                          Attribute::NoAlias)) {
       ArgInst->setMetadata("restrict", MDNode::get(M->getContext(), 0));
     }
 

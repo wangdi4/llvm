@@ -1337,8 +1337,8 @@ def err_omp_extension_mismatch : Error<
 def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
-  "incorrect map type modifier, expected 'always', 'close', "
-  "%select{or 'mapper'|'mapper', or 'present'}0">;
+  "incorrect map type modifier, expected one of: 'always', 'close', 'mapper'"
+  "%select{|, 'present'}0%select{|, 'ompx_hold'}1">;
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;

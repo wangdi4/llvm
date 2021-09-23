@@ -649,6 +649,10 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Processor supports User Level Interrupt instructions
   bool HasUINTR = false;
 
+  /// Enable SSE4.2 CRC32 instruction (Used when SSE4.2 is supported but
+  /// function is GPR only)
+  bool HasCRC32 = false;
+
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
 
@@ -1042,6 +1046,7 @@ public:
   bool hasSERIALIZE() const { return HasSERIALIZE; }
   bool hasTSXLDTRK() const { return HasTSXLDTRK; }
   bool hasUINTR() const { return HasUINTR; }
+  bool hasCRC32() const { return HasCRC32; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;

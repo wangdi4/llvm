@@ -142,6 +142,7 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw___bf16:
   case tok::kw__Float16:
   case tok::kw___float128:
+  case tok::kw___ibm128:
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
@@ -2711,6 +2712,10 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.MergeSYCLIntelMaxGlobalWorkDimAttr(D, *A);
   else if (const auto *BTFA = dyn_cast<BTFTagAttr>(Attr))
     NewAttr = S.mergeBTFTagAttr(D, *BTFA);
+  else if (const auto *A = dyn_cast<IntelFPGABankWidthAttr>(Attr))
+    NewAttr = S.MergeIntelFPGABankWidthAttr(D, *A);
+  else if (const auto *A = dyn_cast<IntelFPGANumBanksAttr>(Attr))
+    NewAttr = S.MergeIntelFPGANumBanksAttr(D, *A);
   else if (Attr->shouldInheritEvenIfAlreadyPresent() || !DeclHasAttr(D, Attr))
     NewAttr = cast<InheritableAttr>(Attr->clone(S.Context));
 #if INTEL_CUSTOMIZATION
@@ -9081,8 +9086,7 @@ static void checkIsValidOpenCLKernelParameter(
     // OpenCL v3.0 s6.11.a:
     // A kernel function argument cannot be declared as a pointer to a pointer
     // type. [...] This restriction only applies to OpenCL C 1.2 or below.
-    if (S.getLangOpts().OpenCLVersion <= 120 &&
-        !S.getLangOpts().OpenCLCPlusPlus) {
+    if (S.getLangOpts().getOpenCLCompatibleVersion() <= 120) {
       S.Diag(Param->getLocation(), diag::err_opencl_ptrptr_kernel_param);
       D.setInvalidType();
       return;
@@ -10231,8 +10235,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   if (getLangOpts().OpenCL && NewFD->hasAttr<OpenCLKernelAttr>()) {
     // OpenCL v1.2 s6.8 static is invalid for kernel functions.
-    if ((getLangOpts().OpenCLVersion >= 120)
-        && (SC == SC_Static)) {
+    if (SC == SC_Static) {
       Diag(D.getIdentifierLoc(), diag::err_static_kernel);
       D.setInvalidType();
     }

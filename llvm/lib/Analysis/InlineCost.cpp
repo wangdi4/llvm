@@ -182,6 +182,31 @@ static cl::opt<bool> DisableGEPConstOperand(
 namespace {
 class InlineCostCallAnalyzer;
 
+/// This function behaves more like CallBase::hasFnAttr: when it looks for the
+/// requested attribute, it check both the call instruction and the called
+/// function (if it's available and operand bundles don't prohibit that).
+Attribute getFnAttr(CallBase &CB, StringRef AttrKind) {
+  Attribute CallAttr = CB.getFnAttr(AttrKind);
+  if (CallAttr.isValid())
+    return CallAttr;
+
+  // Operand bundles override attributes on the called function, but don't
+  // override attributes directly present on the call instruction.
+  if (!CB.isFnAttrDisallowedByOpBundle(AttrKind))
+    if (const Function *F = CB.getCalledFunction())
+      return F->getFnAttribute(AttrKind);
+
+  return {};
+}
+
+Optional<int> getStringFnAttrAsInt(CallBase &CB, StringRef AttrKind) {
+  Attribute Attr = getFnAttr(CB, AttrKind);
+  int AttrValue;
+  if (Attr.getValueAsString().getAsInteger(10, AttrValue))
+    return None;
+  return AttrValue;
+}
+
 // This struct is used to store information about inline cost of a
 // particular instruction
 struct InstructionCostDetail {
@@ -293,6 +318,10 @@ protected:
   /// Called the analysis engine determines load elimination won't happen.
   virtual void onDisableLoadElimination() {}
 
+  /// Called when we visit a CallBase, before the analysis starts. Return false
+  /// to stop further processing of the instruction.
+  virtual bool onCallBaseVisitStart(CallBase &Call) { return true; }
+
   /// Called to account for a call.
   virtual void onCallPenalty() {}
 
@@ -396,6 +425,10 @@ protected:
   /// whenever we simplify away the stores that would otherwise cause them to be
   /// loads.
   bool EnableLoadElimination;
+
+  /// Whether we allow inlining for recursive call.
+  bool AllowRecursiveCall;
+
   SmallPtrSet<Value *, 16> LoadAddrSet;
 
 #if INTEL_CUSTOMIZATION
@@ -493,7 +526,8 @@ public:
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
-        CandidateCall(Call), EnableLoadElimination(true), SingleBB(true)
+        CandidateCall(Call), EnableLoadElimination(true), AllowRecursiveCall(false),
+        SingleBB(true)
 #if INTEL_FEATURE_SW_ADVANCED
         , FoundForgivable(false)
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -633,6 +667,22 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     addCost(LoadEliminationCost);
     LoadEliminationCost = 0;
   }
+
+  bool onCallBaseVisitStart(CallBase &Call) override {
+    if (Optional<int> AttrCallThresholdBonus =
+            getStringFnAttrAsInt(Call, "call-threshold-bonus"))
+      Threshold += *AttrCallThresholdBonus;
+
+    if (Optional<int> AttrCallCost =
+            getStringFnAttrAsInt(Call, "call-inline-cost")) {
+      addCost(*AttrCallCost);
+      // Prevent further processing of the call since we want to override its
+      // inline cost, not just add to it.
+      return false;
+    }
+    return true;
+  }
+
   void onCallPenalty() override { addCost(CallPenalty); }
   void onCallArgumentSetup(const CallBase &Call) override {
     // Pay the price of the argument setup. We account for the average 1
@@ -952,18 +1002,18 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       Threshold -= VectorBonus;
     else if (NumVectorInstructions <= NumInstructions / 2)
       Threshold -= VectorBonus / 2;
-
 #if INTEL_CUSTOMIZATION
     if (NumVectorInstructions > NumInstructions / 10)
       YesReasonVector.push_back(InlrVectorBonus);
-    bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
-    InlineReason Reason =
-        IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
-                     : bestInlineReason(NoReasonVector, NinlrNotProfitable);
-    if (!IsProfitable)
-      return InlineResult::failure("not profitable").setIntelInlReason(Reason);
-    return InlineResult::success().setIntelInlReason(Reason);
 #endif // INTEL_CUSTOMIZATION
+
+    if (Optional<int> AttrCost =
+            getStringFnAttrAsInt(CandidateCall, "function-inline-cost"))
+      Cost = *AttrCost;
+
+    if (Optional<int> AttrThreshold =
+            getStringFnAttrAsInt(CandidateCall, "function-inline-threshold"))
+      Threshold = *AttrThreshold;
 
     if (auto Result = costBenefitAnalysis()) {
       DecidedByCostBenefit = true;
@@ -973,6 +1023,15 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         return InlineResult::failure("Cost over threshold.");
     }
 
+#if INTEL_CUSTOMIZATION
+    bool IsProfitable = IgnoreThreshold || Cost < std::max(1, Threshold);
+    InlineReason Reason =
+        IsProfitable ? bestInlineReason(YesReasonVector, InlrProfitable)
+                     : bestInlineReason(NoReasonVector, NinlrNotProfitable);
+    if (!IsProfitable)
+      return InlineResult::failure("not profitable").setIntelInlReason(Reason);
+    return InlineResult::success().setIntelInlReason(Reason);
+#endif // INTEL_CUSTOMIZATION
     if (IgnoreThreshold || Cost < std::max(1, Threshold))
       return InlineResult::success();
     return InlineResult::failure("Cost over threshold.");
@@ -1106,6 +1165,7 @@ public:
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
         ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
+    AllowRecursiveCall = Params.AllowRecursiveCall.getValue();
   }
 
   // The cost and the threshold used for early exit during usual
@@ -2261,6 +2321,9 @@ bool CallAnalyzer::simplifyCallSite(Function *F, CallBase &Call) {
 }
 
 bool CallAnalyzer::visitCallBase(CallBase &Call) {
+  if (!onCallBaseVisitStart(Call))
+    return true;
+
   if (Call.hasFnAttr(Attribute::ReturnsTwice) &&
       !F.hasFnAttribute(Attribute::ReturnsTwice)) {
     // This aborts the entire analysis.
@@ -2332,7 +2395,8 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
     // This flag will fully abort the analysis, so don't bother with anything
     // else.
     IsRecursiveCall = true;
-    return false;
+    if (!AllowRecursiveCall)
+      return false;
   }
 
   if (TTI.isLoweredToCall(F)) {
@@ -2570,7 +2634,7 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     using namespace ore;
     // If the visit this instruction detected an uninlinable pattern, abort.
     InlineResult IR = InlineResult::success();
-    if (IsRecursiveCall)
+    if (IsRecursiveCall && !AllowRecursiveCall)
       IR = InlineResult::failure("recursive")      // INTEL
                .setIntelInlReason(NinlrRecursive); // INTEL
     else if (ExposesReturnsTwice)

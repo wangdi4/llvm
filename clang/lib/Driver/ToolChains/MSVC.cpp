@@ -745,7 +745,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Windows compilation paths.
   if (Linker.equals_insensitive("lld-link") && (C.getDriver().isUsingLTO())) {
     // Handle flags for selecting CPU variants.
-    std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
+    std::string CPU = getCPUName(C.getDriver(), Args, C.getDefaultToolChain().getTriple());
     if (!CPU.empty())
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
     // Add optimization level

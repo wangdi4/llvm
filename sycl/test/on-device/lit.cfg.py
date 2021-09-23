@@ -1,4 +1,6 @@
 # -*- Python -*-
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: The file was removed upstream. Need to accomodate intel tests
 
 import os
 import platform
@@ -327,3 +329,4 @@ try:
     lit_config.maxIndividualTestTime = 600
 except ImportError:
     pass
+# end INTEL_CUSTOMIZATION

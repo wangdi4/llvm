@@ -28,18 +28,14 @@
 #include "impl_runtime.h"
 
 #include "internal.h"
+#include "rt.h"
 
-#include "Debug.h"
 #include "get_elf_mach_gfx_name.h"
 #include "omptargetplugin.h"
 #include "print_tracing.h"
 
 #include "llvm/Frontend/OpenMP/OMPGridValues.h"
 
-#ifndef TARGET_NAME
-#error "Missing TARGET_NAME macro"
-#endif
-#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 // hostrpc interface, FIXME: consider moving to its own include these are
 // statically linked into amdgpu/plugin if present from hostrpc_services.a,
@@ -83,16 +79,6 @@ int print_kernel_trace;
 #endif
 
 #include "elf_common.h"
-
-namespace core {
-hsa_status_t RegisterModuleFromMemory(
-    std::map<std::string, atl_kernel_info_t> &KernelInfo,
-    std::map<std::string, atl_symbol_info_t> &SymbolInfoTable, void *, size_t,
-    hsa_agent_t agent,
-    hsa_status_t (*on_deserialized_data)(void *data, size_t size,
-                                         void *cb_state),
-    void *cb_state, std::vector<hsa_executable_t> &HSAExecutables);
-}
 
 namespace hsa {
 template <typename C> hsa_status_t iterate_agents(C cb) {
@@ -435,8 +421,9 @@ struct EnvironmentVariables {
   int MaxTeamsDefault;
 };
 
+template <uint32_t wavesize>
 static constexpr const llvm::omp::GV &getGridValue() {
-  return llvm::omp::AMDGPUGridValues;
+  return llvm::omp::getAMDGPUGridValues<wavesize>();
 }
 
 /// Class containing all the device information
@@ -507,10 +494,24 @@ public:
   static const unsigned HardTeamLimit =
       (1 << 16) - 1; // 64K needed to fit in uint16
   static const int DefaultNumTeams = 128;
-  static const int Max_Teams = getGridValue().GV_Max_Teams;
-  static const int Warp_Size = getGridValue().GV_Warp_Size;
-  static const int Max_WG_Size = getGridValue().GV_Max_WG_Size;
-  static const int Default_WG_Size = getGridValue().GV_Default_WG_Size;
+
+  // These need to be per-device since different devices can have different
+  // wave sizes, but are currently the same number for each so that refactor
+  // can be postponed.
+  static_assert(getGridValue<32>().GV_Max_Teams ==
+                    getGridValue<64>().GV_Max_Teams,
+                "");
+  static const int Max_Teams = getGridValue<64>().GV_Max_Teams;
+
+  static_assert(getGridValue<32>().GV_Max_WG_Size ==
+                    getGridValue<64>().GV_Max_WG_Size,
+                "");
+  static const int Max_WG_Size = getGridValue<64>().GV_Max_WG_Size;
+
+  static_assert(getGridValue<32>().GV_Default_WG_Size ==
+                    getGridValue<64>().GV_Default_WG_Size,
+                "");
+  static const int Default_WG_Size = getGridValue<64>().GV_Default_WG_Size;
 
   using MemcpyFunc = hsa_status_t (*)(hsa_signal_t, void *, const void *,
                                       size_t size, hsa_agent_t,
@@ -698,7 +699,7 @@ public:
       return;
     }
 
-    // Init hostcall soon after initializing ATMI
+    // Init hostcall soon after initializing hsa
     hostrpc_init();
 
     err = FindAgents([&](hsa_device_type_t DeviceType, hsa_agent_t Agent) {
@@ -760,8 +761,9 @@ public:
           DP("HSA query QUEUE_MAX_SIZE failed for agent %d\n", i);
           return;
         }
-        if (queue_size > core::Runtime::getInstance().getMaxQueueSize()) {
-          queue_size = core::Runtime::getInstance().getMaxQueueSize();
+        enum { MaxQueueSize = 4096 };
+        if (queue_size > MaxQueueSize) {
+          queue_size = MaxQueueSize;
         }
       }
 
@@ -804,7 +806,7 @@ public:
     // impl_finalize removes access to it
     deviceStateStore.clear();
     KernelArgPoolMap.clear();
-    // Terminate hostrpc before finalizing ATMI
+    // Terminate hostrpc before finalizing hsa
     hostrpc_terminate();
 
     hsa_status_t Err;
@@ -1059,8 +1061,9 @@ int32_t __tgt_rtl_init_device(int device_id) {
     DP("Queried wavefront size: %d\n", wavefront_size);
     DeviceInfo.WarpSize[device_id] = wavefront_size;
   } else {
-    DP("Default wavefront size: %d\n", getGridValue().GV_Warp_Size);
-    DeviceInfo.WarpSize[device_id] = getGridValue().GV_Warp_Size;
+    // TODO: Burn the wavefront size into the code object
+    DP("Warning: Unknown wavefront size, assuming 64\n");
+    DeviceInfo.WarpSize[device_id] = 64;
   }
 
   // Adjust teams to the env variables
@@ -1514,7 +1517,7 @@ __tgt_target_table *__tgt_rtl_load_binary_locked(int32_t device_id,
     }
   }
 
-  DP("ATMI module successfully loaded!\n");
+  DP("AMDGPU module successfully loaded!\n");
 
   {
     // the device_State array is either large value in bss or a void* that
@@ -1885,9 +1888,10 @@ struct launchVals {
   int WorkgroupSize;
   int GridSize;
 };
-launchVals getLaunchVals(EnvironmentVariables Env, int ConstWGSize,
-                         int ExecutionMode, int num_teams, int thread_limit,
-                         uint64_t loop_tripcount, int DeviceNumTeams) {
+launchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
+                         int ConstWGSize, int ExecutionMode, int num_teams,
+                         int thread_limit, uint64_t loop_tripcount,
+                         int DeviceNumTeams) {
 
   int threadsPerGroup = RTLDeviceInfoTy::Default_WG_Size;
   int num_groups = 0;
@@ -1900,7 +1904,7 @@ launchVals getLaunchVals(EnvironmentVariables Env, int ConstWGSize,
   if (print_kernel_trace & STARTUP_DETAILS) {
     DP("RTLDeviceInfoTy::Max_Teams: %d\n", RTLDeviceInfoTy::Max_Teams);
     DP("Max_Teams: %d\n", Max_Teams);
-    DP("RTLDeviceInfoTy::Warp_Size: %d\n", RTLDeviceInfoTy::Warp_Size);
+    DP("RTLDeviceInfoTy::Warp_Size: %d\n", WarpSize);
     DP("RTLDeviceInfoTy::Max_WG_Size: %d\n", RTLDeviceInfoTy::Max_WG_Size);
     DP("RTLDeviceInfoTy::Default_WG_Size: %d\n",
        RTLDeviceInfoTy::Default_WG_Size);
@@ -1913,8 +1917,8 @@ launchVals getLaunchVals(EnvironmentVariables Env, int ConstWGSize,
     threadsPerGroup = thread_limit;
     DP("Setting threads per block to requested %d\n", thread_limit);
     if (ExecutionMode == GENERIC) { // Add master warp for GENERIC
-      threadsPerGroup += RTLDeviceInfoTy::Warp_Size;
-      DP("Adding master wavefront: +%d threads\n", RTLDeviceInfoTy::Warp_Size);
+      threadsPerGroup += WarpSize;
+      DP("Adding master wavefront: +%d threads\n", WarpSize);
     }
     if (threadsPerGroup > RTLDeviceInfoTy::Max_WG_Size) { // limit to max
       threadsPerGroup = RTLDeviceInfoTy::Max_WG_Size;
@@ -1950,7 +1954,7 @@ launchVals getLaunchVals(EnvironmentVariables Env, int ConstWGSize,
   // So we only handle constant thread_limits.
   if (threadsPerGroup >
       RTLDeviceInfoTy::Default_WG_Size) //  256 < threadsPerGroup <= 1024
-    // Should we round threadsPerGroup up to nearest RTLDeviceInfoTy::Warp_Size
+    // Should we round threadsPerGroup up to nearest WarpSize
     // here?
     num_groups = (Max_Teams * RTLDeviceInfoTy::Max_WG_Size) / threadsPerGroup;
 
@@ -2099,12 +2103,13 @@ int32_t __tgt_rtl_run_target_team_region_locked(
   /*
    * Set limit based on ThreadsPerGroup and GroupsPerDevice
    */
-  launchVals LV = getLaunchVals(DeviceInfo.Env, KernelInfo->ConstWGSize,
-                                KernelInfo->ExecutionMode,
-                                num_teams,      // From run_region arg
-                                thread_limit,   // From run_region arg
-                                loop_tripcount, // From run_region arg
-                                DeviceInfo.NumTeams[KernelInfo->device_id]);
+  launchVals LV =
+      getLaunchVals(DeviceInfo.WarpSize[device_id], DeviceInfo.Env,
+                    KernelInfo->ConstWGSize, KernelInfo->ExecutionMode,
+                    num_teams,      // From run_region arg
+                    thread_limit,   // From run_region arg
+                    loop_tripcount, // From run_region arg
+                    DeviceInfo.NumTeams[KernelInfo->device_id]);
   const int GridSize = LV.GridSize;
   const int WorkgroupSize = LV.WorkgroupSize;
 
@@ -2179,8 +2184,7 @@ int32_t __tgt_rtl_run_target_team_region_locked(
         memcpy((char *)kernarg + sizeof(void *) * i, args[i], sizeof(void *));
       }
 
-      // Initialize implicit arguments. ATMI seems to leave most fields
-      // uninitialized
+      // Initialize implicit arguments. TODO: Which of these can be dropped
       impl_implicit_args_t *impl_args =
           reinterpret_cast<impl_implicit_args_t *>(
               static_cast<char *>(kernarg) + ArgPool->kernarg_segment_size);

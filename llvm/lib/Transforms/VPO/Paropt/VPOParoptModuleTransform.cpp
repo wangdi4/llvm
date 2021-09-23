@@ -631,14 +631,12 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
     Instruction *User = RewriteIns.pop_back_val();
 
     Function *F = User->getParent()->getParent();
-    if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                        "mt-func")) {
+    if (F->getAttributes().hasFnAttr("mt-func")) {
       auto IT = F->arg_begin();
       if (!IsTid)
         IT++;
       User->replaceUsesOfWith(PtrHolder, &*IT);
-    } else if (IsTid && F->getAttributes().hasAttribute(
-                            AttributeList::FunctionIndex, "task-mt-func")) {
+    } else if (IsTid && F->getAttributes().hasFnAttr("task-mt-func")) {
       BasicBlock *EntryBB = &F->getEntryBlock();
       IRBuilder<> Builder(EntryBB->getFirstNonPHI());
       AllocaInst *TidPtr =
@@ -708,10 +706,8 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     if (isa<GlobalValue>(A.getAliasee())) {
       auto *F = dyn_cast<Function>(A.getAliasee());
       if (F && !UsedSet.count(F) &&
-          !F->getAttributes().hasAttribute(
-                 AttributeList::FunctionIndex, "openmp-target-declare") &&
-          !F->getAttributes().hasAttribute(
-        AttributeList::FunctionIndex, "target.declare")) {
+          !F->getAttributes().hasFnAttr("openmp-target-declare") &&
+          !F->getAttributes().hasFnAttr("target.declare")) {
         DeadAlias.insert(&A);
       }
     }
@@ -770,13 +766,10 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
     //
     // If F has neither of these attributes, then it is not needed by the
     // target device and we remove it here.
-    bool IsFETargetDeclare = F.getAttributes().hasAttribute(
-        AttributeList::FunctionIndex, "openmp-target-declare");
-    bool IsBETargetDeclare = F.getAttributes().hasAttribute(
-        AttributeList::FunctionIndex, "target.declare");
+    bool IsFETargetDeclare = F.getAttributes().hasFnAttr("openmp-target-declare");
+    bool IsBETargetDeclare = F.getAttributes().hasFnAttr("target.declare");
     // unused for now
-    // bool HasTargetConstruct = F.getAttributes().hasAttribute(
-    //     AttributeList::FunctionIndex, "contains-openmp-target");
+    // bool HasTargetConstruct = F.getAttributes().hasFnAttr("contains-openmp-target");
     if (IsFETargetDeclare) {
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Emit " << F.getName()
                         << ": IsFETargetDeclare == true\n");

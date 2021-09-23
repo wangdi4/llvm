@@ -1468,14 +1468,11 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     A->render(Args, CmdArgs);
   }
 
-  Args.AddAllArgs(CmdArgs,
-                  {options::OPT_D, options::OPT_U, options::OPT_I_Group,
-                   options::OPT_F, options::OPT_index_header_map});
-
   // The file being compiled that contains the integration footer is not being
   // compiled in the directory of the original source.  Add that directory
-  // as an -internal-isystem option so we can properly find potential headers
-  // there.
+  // as an -I option so we can properly find potential headers there.  The
+  // original source search directory should also be placed before any user
+  // search directories.
   if (ContainsAppendFooterAction(&JA)) {
     SmallString<128> SourcePath(Inputs[0].getBaseInput());
     llvm::sys::path::remove_filename(SourcePath);
@@ -1488,6 +1485,10 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(*CWD));
     }
   }
+
+  Args.AddAllArgs(CmdArgs,
+                  {options::OPT_D, options::OPT_U, options::OPT_I_Group,
+                   options::OPT_F, options::OPT_index_header_map});
 
   // Add -Wp, and -Xpreprocessor if using the preprocessor.
 
@@ -1741,8 +1742,8 @@ void AddAAPCSVolatileBitfieldArgs(const ArgList &Args, ArgStringList &CmdArgs) {
 }
 
 namespace {
-void RenderARMABI(const llvm::Triple &Triple, const ArgList &Args,
-                  ArgStringList &CmdArgs) {
+void RenderARMABI(const Driver &D, const llvm::Triple &Triple,
+                  const ArgList &Args, ArgStringList &CmdArgs) {
   // Select the ABI to use.
   // FIXME: Support -meabi.
   // FIXME: Parts of this are duplicated in the backend, unify this somehow.
@@ -1750,7 +1751,7 @@ void RenderARMABI(const llvm::Triple &Triple, const ArgList &Args,
   if (Arg *A = Args.getLastArg(options::OPT_mabi_EQ)) {
     ABIName = A->getValue();
   } else {
-    std::string CPU = getCPUName(Args, Triple, /*FromAs*/ false);
+    std::string CPU = getCPUName(D, Args, Triple, /*FromAs*/ false);
     ABIName = llvm::ARM::computeDefaultTargetABI(Triple, CPU).data();
   }
 
@@ -1761,7 +1762,7 @@ void RenderARMABI(const llvm::Triple &Triple, const ArgList &Args,
 
 void Clang::AddARMTargetArgs(const llvm::Triple &Triple, const ArgList &Args,
                              ArgStringList &CmdArgs, bool KernelOrKext) const {
-  RenderARMABI(Triple, Args, CmdArgs);
+  RenderARMABI(getToolChain().getDriver(), Triple, Args, CmdArgs);
 
   // Determine floating point ABI from the options & target defaults.
   arm::FloatABI ABI = arm::getARMFloatABI(getToolChain(), Args);
@@ -2813,8 +2814,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   StringRef FPModel = "";
   // -ffp-exception-behavior options: strict, maytrap, ignore
   StringRef FPExceptionBehavior = "";
-  // -ffp-eval-method options: double, extended, source
-  StringRef FPEvalMethod = "";
   const llvm::DenormalMode DefaultDenormalFPMath =
       TC.getDefaultDenormalModeForType(Args, JA);
   const llvm::DenormalMode DefaultDenormalFP32Math =
@@ -3050,18 +3049,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       break;
     }
 
-    // Validate and pass through -ffp-eval-method option.
-    case options::OPT_ffp_eval_method_EQ: {
-      StringRef Val = A->getValue();
-      if (Val.equals("double") || Val.equals("extended") ||
-          Val.equals("source"))
-        FPEvalMethod = Val;
-      else
-        D.Diag(diag::err_drv_unsupported_option_argument)
-            << A->getOption().getName() << Val;
-      break;
-    }
-
     case options::OPT_ffinite_math_only:
       HonorINFs = false;
       HonorNaNs = false;
@@ -3216,9 +3203,6 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   if (!FPExceptionBehavior.empty())
     CmdArgs.push_back(Args.MakeArgString("-ffp-exception-behavior=" +
                       FPExceptionBehavior));
-
-  if (!FPEvalMethod.empty())
-    CmdArgs.push_back(Args.MakeArgString("-ffp-eval-method=" + FPEvalMethod));
 
   ParseMRecip(D, Args, CmdArgs);
 
@@ -5264,28 +5248,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-emit-llvm-uselists");
 
     if (IsUsingLTO) {
-      if (!IsDeviceOffloadAction) {
-        if (Args.hasArg(options::OPT_flto))
-          CmdArgs.push_back("-flto");
-        else {
-          if (D.getLTOMode() == LTOK_Thin)
-            CmdArgs.push_back("-flto=thin");
-          else
-            CmdArgs.push_back("-flto=full");
-        }
-        CmdArgs.push_back("-flto-unit");
-      } else if (Triple.isAMDGPU()) {
-        // Only AMDGPU supports device-side LTO
-        assert(LTOMode == LTOK_Full || LTOMode == LTOK_Thin);
-        CmdArgs.push_back(Args.MakeArgString(
-            Twine("-flto=") + (LTOMode == LTOK_Thin ? "thin" : "full")));
-        CmdArgs.push_back("-flto-unit");
-      } else {
+      // Only AMDGPU supports device-side LTO.
+      if (IsDeviceOffloadAction && !Triple.isAMDGPU()) {
         D.Diag(diag::err_drv_unsupported_opt_for_target)
             << Args.getLastArg(options::OPT_foffload_lto,
                                options::OPT_foffload_lto_EQ)
                    ->getAsString(Args)
             << Triple.getTriple();
+      } else {
+        assert(LTOMode == LTOK_Full || LTOMode == LTOK_Thin);
+        CmdArgs.push_back(Args.MakeArgString(
+            Twine("-flto=") + (LTOMode == LTOK_Thin ? "thin" : "full")));
+        CmdArgs.push_back("-flto-unit");
       }
     }
   }
@@ -5426,7 +5400,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     case llvm::Triple::arm:
     case llvm::Triple::armeb:
     case llvm::Triple::thumbeb:
-      RenderARMABI(Triple, Args, CmdArgs);
+      RenderARMABI(D, Triple, Args, CmdArgs);
       break;
     case llvm::Triple::aarch64:
     case llvm::Triple::aarch64_32:
@@ -6024,7 +5998,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     const ArgList &HostArgs =
         C.getArgsForToolChain(nullptr, StringRef(), Action::OFK_None);
     std::string HostCPU =
-        getCPUName(HostArgs, *TC.getAuxTriple(), /*FromAs*/ false);
+        getCPUName(D, HostArgs, *TC.getAuxTriple(), /*FromAs*/ false);
     if (!HostCPU.empty()) {
       CmdArgs.push_back("-aux-target-cpu");
       CmdArgs.push_back(Args.MakeArgString(HostCPU));
@@ -6066,7 +6040,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   // Add the target cpu
-  std::string CPU = getCPUName(Args, Triple, /*FromAs*/ false);
+  std::string CPU = getCPUName(D, Args, Triple, /*FromAs*/ false);
   if (!CPU.empty()) {
     CmdArgs.push_back("-target-cpu");
     CmdArgs.push_back(Args.MakeArgString(CPU));
@@ -6791,6 +6765,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       options::OPT_fno_openmp_simd);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_enable_irbuilder);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_version_EQ);
+      if (!Args.hasFlag(options::OPT_fopenmp_extensions,
+                        options::OPT_fno_openmp_extensions, /*Default=*/true))
+        CmdArgs.push_back("-fno-openmp-extensions");
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_number_of_sm_EQ);
       Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_cuda_blocks_per_sm_EQ);
       Args.AddAllArgs(CmdArgs,
@@ -6827,6 +6804,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Args.AddLastArg(CmdArgs, options::OPT_fopenmp_simd,
                       options::OPT_fno_openmp_simd);
     Args.AddAllArgs(CmdArgs, options::OPT_fopenmp_version_EQ);
+    if (!Args.hasFlag(options::OPT_fopenmp_extensions,
+                      options::OPT_fno_openmp_extensions, /*Default=*/true))
+      CmdArgs.push_back("-fno-openmp-extensions");
   }
 
   const SanitizerArgs &Sanitize = TC.getSanitizerArgs();
@@ -8412,9 +8392,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
                            bool *EmitCodeView) const {
   unsigned RTOptionID = options::OPT__SLASH_MT;
   bool isNVPTX = getToolChain().getTriple().isNVPTX();
-  bool isSYCLDevice =
-      getToolChain().getTriple().getEnvironment() == llvm::Triple::SYCLDevice;
-  bool isSYCL = Args.hasArg(options::OPT_fsycl) || isSYCLDevice;
+  bool isSPIR = getToolChain().getTriple().isSPIR();
+  // FIXME: isSYCL should not be enabled by "isSPIR"
+  bool isSYCL = Args.hasArg(options::OPT_fsycl) || isSPIR;
   // For SYCL Windows, /MD is the default.
   if (isSYCL)
     RTOptionID = options::OPT__SLASH_MD;
@@ -8426,7 +8406,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
 
   if (Arg *A = Args.getLastArg(options::OPT__SLASH_M_Group)) {
     RTOptionID = A->getOption().getID();
-    if (isSYCL && !isSYCLDevice &&
+    if (isSYCL && !isSPIR &&
         (RTOptionID == options::OPT__SLASH_MT ||
          RTOptionID == options::OPT__SLASH_MTd))
       // Use of /MT or /MTd is not supported for SYCL.
@@ -8438,9 +8418,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   auto addPreDefines = [&](unsigned Defines) {
     if (Defines & addDEBUG)
       CmdArgs.push_back("-D_DEBUG");
-    if (Defines & addMT && !isSYCLDevice)
+    if (Defines & addMT && !isSPIR)
       CmdArgs.push_back("-D_MT");
-    if (Defines & addDLL && !isSYCLDevice)
+    if (Defines & addDLL && !isSPIR)
       CmdArgs.push_back("-D_DLL");
   };
   StringRef FlagForCRT;
@@ -8843,7 +8823,7 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back(Clang::getBaseInputName(Args, Input));
 
   // Add the target cpu
-  std::string CPU = getCPUName(Args, Triple, /*FromAs*/ true);
+  std::string CPU = getCPUName(D, Args, Triple, /*FromAs*/ true);
   if (!CPU.empty()) {
     CmdArgs.push_back("-target-cpu");
     CmdArgs.push_back(Args.MakeArgString(CPU));
@@ -9079,16 +9059,12 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
       });
     }
     Triples += Action::GetOffloadKindName(CurKind);
-    Triples += "-";
-    std::string NormalizedTriple = CurTC->getTriple().normalize();
-    Triples += NormalizedTriple;
-
-    if (CurDep->getOffloadingArch() != nullptr) {
-      // If OffloadArch is present it can only appear as the 6th hypen
-      // sepearated field of Bundle Entry ID. So, pad required number of
-      // hyphens in Triple.
-      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
-        Triples += "-";
+    Triples += '-';
+    Triples += CurTC->getTriple().normalize();
+    if ((CurKind == Action::OFK_HIP || CurKind == Action::OFK_OpenMP ||
+         CurKind == Action::OFK_Cuda) &&
+        CurDep->getOffloadingArch()) {
+      Triples += '-';
       Triples += CurDep->getOffloadingArch();
     }
   }
@@ -9216,7 +9192,6 @@ void OffloadBundler::ConstructJobMultipleOutputs(
           TT.setArchName(types::getTypeName(InputType));
           TT.setVendorName("intel");
           TT.setOS(getToolChain().getTriple().getOS());
-          TT.setEnvironment(llvm::Triple::SYCLDevice);
           Triples += "sycl-";
           Triples += TT.normalize();
           continue;
@@ -9241,17 +9216,13 @@ void OffloadBundler::ConstructJobMultipleOutputs(
     if (J++)
       Triples += ',';
     Triples += Action::GetOffloadKindName(Dep.DependentOffloadKind);
-    Triples += "-";
-    std::string NormalizedTriple =
-        Dep.DependentToolChain->getTriple().normalize();
-    Triples += NormalizedTriple;
-
-    if (!Dep.DependentBoundArch.empty()) {
-      // If OffloadArch is present it can only appear as the 6th hypen
-      // sepearated field of Bundle Entry ID. So, pad required number of
-      // hyphens in Triple.
-      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
-        Triples += "-";
+    Triples += '-';
+    Triples += Dep.DependentToolChain->getTriple().normalize();
+    if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
+         Dep.DependentOffloadKind == Action::OFK_OpenMP ||
+         Dep.DependentOffloadKind == Action::OFK_Cuda) &&
+        !Dep.DependentBoundArch.empty()) {
+      Triples += '-';
       Triples += Dep.DependentBoundArch;
     }
   }
@@ -9378,7 +9349,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     llvm::Triple TT = getToolChain().getTriple();
     SmallString<128> TargetTripleOpt = TT.getArchName();
     // When wrapping an FPGA device binary, we need to be sure to apply the
-    // appropriate triple that corresponds (fpga_aoc[xr]-intel-<os>-sycldevice)
+    // appropriate triple that corresponds (fpga_aoc[xr]-intel-<os>)
     // to the target triple setting.
     if (TT.getSubArch() == llvm::Triple::SPIRSubArch_fpga &&
         TCArgs.hasArg(options::OPT_fsycl_link_EQ)) {
@@ -9390,7 +9361,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
         FPGAArch += "_emu";
       TT.setArchName(FPGAArch);
       TT.setVendorName("intel");
-      TT.setEnvironment(llvm::Triple::SYCLDevice);
       TargetTripleOpt = TT.str();
       // When wrapping an FPGA aocx binary to archive, do not emit registration
       // functions
@@ -9554,10 +9524,19 @@ void OffloadDeps::constructJob(Compilation &C, const JobAction &JA,
       Targets += ',';
     Targets += Action::GetOffloadKindName(Dep.DependentOffloadKind);
     Targets += '-';
-    Targets += Dep.DependentToolChain->getTriple().normalize();
-    if (Dep.DependentOffloadKind == Action::OFK_HIP &&
+    std::string NormalizedTriple =
+        Dep.DependentToolChain->getTriple().normalize();
+    Targets += NormalizedTriple;
+    if ((Dep.DependentOffloadKind == Action::OFK_HIP ||
+         Dep.DependentOffloadKind == Action::OFK_SYCL) &&
         !Dep.DependentBoundArch.empty()) {
-      Targets += '-';
+      // If OffloadArch is present it can only appear as the 6th hyphen
+      // separated field of Bundle Entry ID. So, pad required number of
+      // hyphens in Triple.
+      // e.g. if NormalizedTriple is nvptx64-nvidia-cuda, 2 more - to
+      // generate nvptx64-nvidia-cuda--
+      for (int i = 4 - StringRef(NormalizedTriple).count("-"); i > 0; i--)
+        Targets += '-';
       Targets += Dep.DependentBoundArch;
     }
   }
@@ -9617,7 +9596,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   TranslatorArgs.push_back("-o");
   TranslatorArgs.push_back(Output.getFilename());
 #if INTEL_CUSTOMIZATION
-  if (getToolChain().getTriple().isSYCLDeviceEnvironment() ||
+  if (JA.isDeviceOffloading(Action::OFK_SYCL) ||
       (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
        getToolChain().getTriple().isSPIR())) {
 #endif // INTEL_CUSTOMIZATION
@@ -9705,7 +9684,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
     else
       // Don't enable several freshly added extensions on FPGA H/W
-      ExtArg += ",+SPV_INTEL_token_type,+SPV_INTEL_bfloat16_conversion";
+      ExtArg += ",+SPV_INTEL_token_type"
+                ",+SPV_INTEL_bfloat16_conversion"
+                ",+SPV_INTEL_joint_matrix";
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
@@ -9904,13 +9885,8 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     // Symbol file and specialization constant info generation is mandatory -
     // add options unconditionally
     addArgs(CmdArgs, TCArgs, {"-symbols"});
-    // By default we split SYCL and ESIMD kernels into separate modules
-    if (TCArgs.hasFlag(options::OPT_fsycl_device_code_split_esimd,
-                       options::OPT_fno_sycl_device_code_split_esimd, true))
-      addArgs(CmdArgs, TCArgs, {"-split-esimd"});
-    if (TCArgs.hasFlag(options::OPT_fsycl_device_code_lower_esimd,
-                       options::OPT_fno_sycl_device_code_lower_esimd, true))
-      addArgs(CmdArgs, TCArgs, {"-lower-esimd"});
+    addArgs(CmdArgs, TCArgs, {"-split-esimd"});
+    addArgs(CmdArgs, TCArgs, {"-lower-esimd"});
   }
   addArgs(CmdArgs, TCArgs,
           {StringRef(getSYCLPostLinkOptimizationLevel(TCArgs))});

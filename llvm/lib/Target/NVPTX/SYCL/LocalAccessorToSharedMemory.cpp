@@ -154,7 +154,7 @@ public:
 
     // Create new function type.
     AttributeList NAttrs =
-        AttributeList::get(F->getContext(), FAttrs.getFnAtts(),
+        AttributeList::get(F->getContext(), FAttrs.getFnAttrs(),
                            FAttrs.getRetAttrs(), ArgumentAttributes);
     FunctionType *NFTy =
         FunctionType::get(FTy->getReturnType(), Arguments, FTy->isVarArg());

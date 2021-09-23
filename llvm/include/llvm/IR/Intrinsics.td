@@ -755,14 +755,6 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn] in {
   def int_set_rounding  : DefaultAttrsIntrinsic<[], [llvm_i32_ty]>;
 }
 
-//===--------------- Floating Point Test Intrinsics -----------------------===//
-//
-
-def int_isnan
-    : DefaultAttrsIntrinsic<[LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>],
-                            [llvm_anyfloat_ty],
-                            [IntrNoMem, IntrWillReturn]>;
-
 //===--------------- Constrained Floating Point Intrinsics ----------------===//
 //
 
@@ -1563,6 +1555,12 @@ let IntrProperties =
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                 llvm_i32_ty]>;
 }
+// Shuffles.
+def int_vp_select : DefaultAttrsIntrinsic<[ llvm_anyvector_ty ],
+                              [ LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                llvm_i32_ty]>;
 
 // Reductions
 let IntrProperties = [IntrSpeculatable, IntrNoMem, IntrNoSync, IntrWillReturn] in {

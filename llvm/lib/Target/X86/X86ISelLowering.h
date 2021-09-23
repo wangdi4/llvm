@@ -566,8 +566,7 @@ namespace llvm {
     FMADDSUB_RND,
     FMSUBADD_RND,
 
-#if INTEL_CUSTOMIZATION
-    // AVX-512-FP16 complex addition and multiplication
+    // AVX512-FP16 complex addition and multiplication.
     VFMADDC,
     VFMADDC_RND,
     VFCMADDC,
@@ -587,7 +586,6 @@ namespace llvm {
     VFMULCSH_RND,
     VFCMULCSH,
     VFCMULCSH_RND,
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS

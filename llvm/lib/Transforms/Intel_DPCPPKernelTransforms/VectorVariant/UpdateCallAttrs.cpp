@@ -43,7 +43,7 @@ bool UpdateCallAttrs::runImpl(Module &M) {
 
       CallInst &Call = cast<CallInst>(Inst);
       AttributeList Attrs = Call.getAttributes();
-      if (Attrs.hasAttribute(AttributeList::FunctionIndex, "vector-variants"))
+      if (Attrs.hasFnAttr("vector-variants"))
         continue;
 
       Function *Fn = Call.getCalledFunction();
@@ -52,8 +52,8 @@ bool UpdateCallAttrs::runImpl(Module &M) {
 
       // Update attributes.
       Attribute Attr = Fn->getFnAttribute("vector-variants");
-      Attrs = Attrs.addAttribute(M.getContext(), AttributeList::FunctionIndex,
-                                 "vector-variants", Attr.getValueAsString());
+      Attrs = Attrs.addFnAttribute(M.getContext(),
+                                   "vector-variants", Attr.getValueAsString());
       Call.setAttributes(Attrs);
 
       Modified = true;

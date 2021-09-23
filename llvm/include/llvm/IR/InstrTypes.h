@@ -1490,23 +1490,24 @@ public:
   Attribute getFnAttr(StringRef Kind) const { return getFnAttrImpl(Kind); }
 #endif // INTEL_CUSTOMIZATION
 
+  // TODO: remove non-AtIndex versions of these methods.
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, Attribute::AttrKind Kind) {
-    Attrs = Attrs.addAttribute(getContext(), i, Kind);
+  void addAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
+    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Kind);
   }
 
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, Attribute Attr) {
-    Attrs = Attrs.addAttribute(getContext(), i, Attr);
+  void addAttributeAtIndex(unsigned i, Attribute Attr) {
+    Attrs = Attrs.addAttributeAtIndex(getContext(), i, Attr);
   }
 
 #if INTEL_CUSTOMIZATION
   /// adds the attribute to the list of attributes.
-  void addAttribute(unsigned i, StringRef Kind) {
+  /*void addAttribute(unsigned i, StringRef Kind) {
     AttributeList PAL = getAttributes();
     PAL = PAL.addAttribute(getContext(), i, Kind);
     setAttributes(PAL);
-  }
+  }*/
 #endif // INTEL_CUSTOMIZATION
 
   /// Adds the attribute to the function.
@@ -1517,6 +1518,11 @@ public:
   /// Adds the attribute to the function.
   void addFnAttr(Attribute Attr) {
     Attrs = Attrs.addFnAttribute(getContext(), Attr);
+  }
+
+  /// Adds the attribute to the function
+  void addFnAttr(StringRef Kind) {
+    Attrs = Attrs.addFnAttribute(getContext(), Kind);
   }
 
   /// Adds the attribute to the return value.
@@ -1542,13 +1548,13 @@ public:
   }
 
   /// removes the attribute from the list of attributes.
-  void removeAttribute(unsigned i, Attribute::AttrKind Kind) {
-    Attrs = Attrs.removeAttribute(getContext(), i, Kind);
+  void removeAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
 
   /// removes the attribute from the list of attributes.
-  void removeAttribute(unsigned i, StringRef Kind) {
-    Attrs = Attrs.removeAttribute(getContext(), i, Kind);
+  void removeAttributeAtIndex(unsigned i, StringRef Kind) {
+    Attrs = Attrs.removeAttributeAtIndex(getContext(), i, Kind);
   }
 
   /// Removes the attributes from the function
@@ -1558,6 +1564,11 @@ public:
 
   /// Removes the attribute from the function
   void removeFnAttr(Attribute::AttrKind Kind) {
+    Attrs = Attrs.removeFnAttribute(getContext(), Kind);
+  }
+
+  /// Removes the attribute from the function
+  void removeFnAttr(StringRef Kind) {
     Attrs = Attrs.removeFnAttribute(getContext(), Kind);
   }
 
@@ -1609,13 +1620,13 @@ public:
   bool paramHasAttr(unsigned ArgNo, Attribute::AttrKind Kind) const;
 
   /// Get the attribute of a given kind at a position.
-  Attribute getAttribute(unsigned i, Attribute::AttrKind Kind) const {
-    return getAttributes().getAttribute(i, Kind);
+  Attribute getAttributeAtIndex(unsigned i, Attribute::AttrKind Kind) const {
+    return getAttributes().getAttributeAtIndex(i, Kind);
   }
 
   /// Get the attribute of a given kind at a position.
-  Attribute getAttribute(unsigned i, StringRef Kind) const {
-    return getAttributes().getAttribute(i, Kind);
+  Attribute getAttributeAtIndex(unsigned i, StringRef Kind) const {
+    return getAttributes().getAttributeAtIndex(i, Kind);
   }
 
   /// Get the attribute of a given kind for the function.
@@ -1639,42 +1650,35 @@ public:
   /// A.
   ///
   /// Data operands include call arguments and values used in operand bundles,
-  /// but does not include the callee operand.  This routine dispatches to the
-  /// underlying AttributeList or the OperandBundleUser as appropriate.
+  /// but does not include the callee operand.
   ///
   /// The index \p i is interpreted as
   ///
-  ///  \p i == Attribute::ReturnIndex  -> the return value
-  ///  \p i in [1, arg_size + 1)  -> argument number (\p i - 1)
-  ///  \p i in [arg_size + 1, data_operand_size + 1) -> bundle operand at index
-  ///     (\p i - 1) in the operand list.
+  ///  \p i in [0, arg_size)  -> argument number (\p i)
+  ///  \p i in [arg_size, data_operand_size) -> bundle operand at index
+  ///     (\p i) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
     // Note that we have to add one because `i` isn't zero-indexed.
-    assert(i < (getNumArgOperands() + getNumTotalBundleOperands() + 1) &&
+    assert(i < getNumArgOperands() + getNumTotalBundleOperands() &&
            "Data operand index out of bounds!");
 
     // The attribute A can either be directly specified, if the operand in
     // question is a call argument; or be indirectly implied by the kind of its
     // containing operand bundle, if the operand is a bundle operand.
 
-    if (i == AttributeList::ReturnIndex)
-      return hasRetAttr(Kind);
+    if (i < getNumArgOperands())
+      return paramHasAttr(i, Kind);
 
-    // FIXME: Avoid these i - 1 calculations and update the API to use
-    // zero-based indices.
-    if (i < (getNumArgOperands() + 1))
-      return paramHasAttr(i - 1, Kind);
-
-    assert(hasOperandBundles() && i >= (getBundleOperandsStartIndex() + 1) &&
+    assert(hasOperandBundles() && i >= getBundleOperandsStartIndex() &&
            "Must be either a call argument or an operand bundle!");
-    return bundleOperandHasAttr(i - 1, Kind);
+    return bundleOperandHasAttr(i, Kind);
   }
 
   /// Determine whether this data operand is not captured.
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotCapture(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::NoCapture);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::NoCapture);
   }
 
   /// Determine whether this argument is passed by value.
@@ -1715,21 +1719,21 @@ public:
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotAccessMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool onlyReadsMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadOnly) ||
-           dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::ReadOnly) ||
+           dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
   bool doesNotReadMemory(unsigned OpNo) const {
-    return dataOperandHasImpliedAttr(OpNo + 1, Attribute::WriteOnly) ||
-           dataOperandHasImpliedAttr(OpNo + 1, Attribute::ReadNone);
+    return dataOperandHasImpliedAttr(OpNo, Attribute::WriteOnly) ||
+           dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   /// Extract the alignment of the return value.
@@ -1935,6 +1939,13 @@ public:
   bool isBundleOperand(unsigned Idx) const {
     return hasOperandBundles() && Idx >= getBundleOperandsStartIndex() &&
            Idx < getBundleOperandsEndIndex();
+  }
+
+  /// Return true if the operand at index \p Idx is a bundle operand that has
+  /// tag ID \p ID.
+  bool isOperandBundleOfType(uint32_t ID, unsigned Idx) const {
+    return isBundleOperand(Idx) &&
+           getOperandBundleForOperand(Idx).getTagID() == ID;
   }
 
   /// Returns true if the use is a bundle operand.
@@ -2299,15 +2310,14 @@ private:
 
 #if INTEL_CUSTOMIZATION
   template <typename AttrKind> Attribute getFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
-      return Attrs.getAttribute(AttributeList::FunctionIndex, Kind);
+    if (Attrs.hasFnAttr(Kind))
+      return Attrs.getFnAttr(Kind);
 
     if (isFnAttrDisallowedByOpBundle(Kind))
       return Attribute();
 
     if (const Function *F = getCalledFunction())
-      return F->getAttributes().getAttribute(AttributeList::FunctionIndex,
-                                             Kind);
+      return F->getAttributes().getFnAttr(Kind);
 
     return Attribute();
   }

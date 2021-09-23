@@ -2763,8 +2763,7 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
   if (OrigRetTy->isPointerTy() && !CloneRetTy->isPointerTy()) {
     AttributeSet RetAttrs = Attrs.getAttributes(AttributeList::ReturnIndex);
     if (AttrBuilder(RetAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
-      Attrs = Attrs.removeAttributes(Ctx, AttributeList::ReturnIndex,
-                                     IndexInfo.IncompatibleTypeAttrs);
+      Attrs = Attrs.removeRetAttributes(Ctx, IndexInfo.IncompatibleTypeAttrs);
       Changed = true;
     }
   }
@@ -2778,8 +2777,9 @@ bool AOSToSOAOPTransformImpl::updateAttributeList(
           Attrs.getAttributes(ArgIdx + AttributeList::FirstArgIndex);
       if (AttrBuilder(ParamAttrs).overlaps(IndexInfo.IncompatibleTypeAttrs)) {
         Attrs =
-            Attrs.removeAttributes(Ctx, ArgIdx + AttributeList::FirstArgIndex,
-                                   IndexInfo.IncompatibleTypeAttrs);
+            Attrs.removeAttributesAtIndex(Ctx,
+                                        ArgIdx + AttributeList::FirstArgIndex,
+                                        IndexInfo.IncompatibleTypeAttrs);
         Changed = true;
       }
     }

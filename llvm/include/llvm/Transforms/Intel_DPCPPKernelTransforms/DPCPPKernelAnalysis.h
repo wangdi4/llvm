@@ -30,7 +30,7 @@ namespace llvm {
 //
 // This pass also analyzes whether function/kernel contains subgroup builtin
 // calls.
-class DPCPPKernelAnalysisPass : PassInfoMixin<DPCPPKernelAnalysisPass> {
+class DPCPPKernelAnalysisPass : public PassInfoMixin<DPCPPKernelAnalysisPass> {
 public:
   static StringRef name() { return "DPCPPKernelAnalysisPass"; }
 

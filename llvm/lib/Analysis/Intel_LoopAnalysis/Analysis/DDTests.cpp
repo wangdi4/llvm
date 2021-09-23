@@ -60,6 +60,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Delinearization.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -4437,17 +4438,17 @@ bool DependenceAnalysis::tryDelinearize(const SCEV *SrcSCEV,
 
   // First step: collect parametric terms in both array references.
   SmallVector<const SCEV *, 4> Terms;
-  SrcAR->collectParametricTerms(SE, Terms);
-  DstAR->collectParametricTerms(SE, Terms);
+  collectParametricTerms(*SrcAR, SE, Terms);
+  collectParametricTerms(*DstAR, SE, Terms);
 
   // Second step: find subscript sizes.
   SmallVector<const SCEV *, 4> Sizes;
-  SE->findArrayDimensions(Terms, Sizes, ElementSize);
+  findArrayDimensions(*SE, Terms, Sizes, ElementSize);
 
   // Third step: compute the access functions for each subscript.
   SmallVector<const SCEV *, 4> SrcSubscripts, DstSubscripts;
-  SrcAR->computeAccessFunctions(SE, SrcSubscripts, Sizes);
-  DstAR->computeAccessFunctions(SE, DstSubscripts, Sizes);
+  computeAccessFunctions(*SrcAR, SE, SrcSubscripts, Sizes);
+  computeAccessFunctions(*DstAr, SE, DstSubscripts, Sizes);
 
   // Fail when there is only a subscript: that's a linearized access function.
   if (SrcSubscripts.size() < 2 || DstSubscripts.size() < 2 ||

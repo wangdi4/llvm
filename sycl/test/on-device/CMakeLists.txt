@@ -1,3 +1,5 @@
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: The file was removed upstream. Need to accomodate intel tests
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
@@ -54,3 +56,4 @@ if(SYCL_BUILD_PI_ROCM)
     add_dependencies(check-sycl-rocm check-sycl-rocm-on-device)
   endif()
 endif()
+# end INTEL_CUSTOMIZATION

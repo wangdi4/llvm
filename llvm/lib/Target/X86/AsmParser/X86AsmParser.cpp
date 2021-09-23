@@ -3923,6 +3923,7 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
     break;
   }
 #endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#endif // INTEL_CUSTOMIZATION
   case X86::VFCMADDCPHZ128m:
   case X86::VFCMADDCPHZ256m:
   case X86::VFCMADDCPHZm:
@@ -4093,7 +4094,6 @@ bool X86AsmParser::validateInstruction(MCInst &Inst, const OperandVector &Ops) {
                                               "distinct from source registers");
     break;
   }
-#endif // INTEL_CUSTOMIZATION
   }
 
   const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
@@ -4936,7 +4936,7 @@ bool X86AsmParser::parseDirectiveArch() {
 bool X86AsmParser::parseDirectiveNops(SMLoc L) {
   int64_t NumBytes = 0, Control = 0;
   SMLoc NumBytesLoc, ControlLoc;
-  const MCSubtargetInfo STI = getSTI();
+  const MCSubtargetInfo& STI = getSTI();
   NumBytesLoc = getTok().getLoc();
   if (getParser().checkForValidSection() ||
       getParser().parseAbsoluteExpression(NumBytes))
@@ -4962,7 +4962,7 @@ bool X86AsmParser::parseDirectiveNops(SMLoc L) {
   }
 
   /// Emit nops
-  getParser().getStreamer().emitNops(NumBytes, Control, L);
+  getParser().getStreamer().emitNops(NumBytes, Control, L, STI);
 
   return false;
 }
@@ -4975,11 +4975,11 @@ bool X86AsmParser::parseDirectiveEven(SMLoc L) {
 
   const MCSection *Section = getStreamer().getCurrentSectionOnly();
   if (!Section) {
-    getStreamer().InitSections(false);
+    getStreamer().initSections(false, getSTI());
     Section = getStreamer().getCurrentSectionOnly();
   }
   if (Section->UseCodeAlign())
-    getStreamer().emitCodeAlignment(2, 0);
+    getStreamer().emitCodeAlignment(2, &getSTI(), 0);
   else
     getStreamer().emitValueToAlignment(2, 0, 1, 0);
   return false;

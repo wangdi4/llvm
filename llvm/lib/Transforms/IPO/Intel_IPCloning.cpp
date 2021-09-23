@@ -4576,8 +4576,7 @@ void Splitter::markForInlining() {
     Function *Caller = CB->getCaller();
     Function *Callee = CB->getCalledFunction();
     if (Callee == F1 && Caller != F && Caller != Callee && Caller != F2) {
-      CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                       "prefer-inline-mrc-split");
+      CB->addFnAttr("prefer-inline-mrc-split");
       LLVM_DEBUG(dbgs() << "MRCS: Inline " << Caller->getName() << " TO "
                         << F1->getName() << "\n");
     }
@@ -4605,8 +4604,7 @@ void Splitter::markForInlining() {
         Function *NCallee = CBB->getCalledFunction();
         if (NCallee && NCallee == Caller && NCaller != F &&
             NCaller != NCallee) {
-          CBB->addAttribute(llvm::AttributeList::FunctionIndex,
-                            "prefer-inline-mrc-split");
+          CBB->addFnAttr("prefer-inline-mrc-split");
           LLVM_DEBUG(dbgs() << "MRCS: Inline " << NCaller->getName() << " TO "
                             << NCallee->getName() << "\n");
         }

@@ -7680,14 +7680,12 @@ void AAMemoryLocationImpl::categorizePtrValue(
     assert(!isa<GEPOperator>(Obj) && "GEPs should have been stripped.");
     if (isa<UndefValue>(Obj))
       continue;
-#if INTEL_CUSTOMIZATION
     if (isa<Argument>(Obj)) {
-#endif // INTEL_CUSTOMIZATION
       // TODO: For now we do not treat byval arguments as local copies performed
       // on the call edge, though, we should. To make that happen we need to
       // teach various passes, e.g., DSE, about the copy effect of a byval. That
       // would also allow us to mark functions only accessing byval arguments as
-      // readnone again, arguably their accesses have no effect outside of the
+      // readnone again, atguably their acceses have no effect outside of the
       // function, like accesses to allocas.
       MLK = NO_ARGUMENT_MEM;
     } else if (auto *GV = dyn_cast<GlobalValue>(Obj)) {

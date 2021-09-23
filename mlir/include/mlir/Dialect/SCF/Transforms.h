@@ -111,6 +111,24 @@ void naivelyFuseParallelOps(Region &region);
 LogicalResult peelAndCanonicalizeForLoop(RewriterBase &rewriter, ForOp forOp,
                                          scf::IfOp &ifOp);
 
+/// Try to simplify a min/max operation `op` after loop peeling. This function
+/// can simplify min/max operations such as (ub is the previous upper bound of
+/// the unpeeled loop):
+/// ```
+/// #map = affine_map<(d0)[s0, s1] -> (s0, -d0 + s1)>
+/// %r = affine.min #affine.min #map(%iv)[%step, %ub]
+/// ```
+/// and rewrites them into (in the case the peeled loop):
+/// ```
+/// %r = %step
+/// ```
+/// min/max operations inside the partial iteration are rewritten in a similar
+/// way.
+LogicalResult rewritePeeledMinMaxOp(RewriterBase &rewriter, Operation *op,
+                                    AffineMap map, ValueRange operands,
+                                    bool isMin, Value iv, Value ub, Value step,
+                                    bool insideLoop);
+
 /// Tile a parallel loop of the form
 ///   scf.parallel (%i0, %i1) = (%arg0, %arg1) to (%arg2, %arg3)
 ///                                             step (%arg4, %arg5)
@@ -179,7 +197,7 @@ void populateSCFLoopPipeliningPatterns(RewritePatternSet &patterns,
 /// Populate patterns for canonicalizing operations inside SCF loop bodies.
 /// At the moment, only affine.min/max computations with iteration variables,
 /// loop bounds and loop steps are canonicalized.
-void populateSCFLoopBodyCanonicalizationPatterns(RewritePatternSet &patterns);
+void populateSCFForLoopCanonicalizationPatterns(RewritePatternSet &patterns);
 
 } // namespace scf
 } // namespace mlir

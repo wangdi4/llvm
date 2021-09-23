@@ -1,3 +1,5 @@
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-31399: The file was removed upstream. Need to accomodate intel tests
 @LIT_SITE_CFG_IN_HEADER@
 
 import sys
@@ -35,3 +37,4 @@ lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@SYCL_SOURCE_DIR@/test/on-device/lit.cfg.py")
+# end INTEL_CUSTOMIZATION

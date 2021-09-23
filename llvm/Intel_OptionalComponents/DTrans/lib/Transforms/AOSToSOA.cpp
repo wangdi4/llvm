@@ -2418,7 +2418,8 @@ private:
     if (OrigRetTy->isPointerTy() &&
         isTypeToTransform(OrigRetTy->getPointerElementType())) {
       // Argument index 0 is used for return type attributes
-      Attrs = Attrs.removeAttributes(Context, 0, IncompatiblePeelTypeAttrs);
+      Attrs = Attrs.removeAttributesAtIndex(Context, 0,
+                                            IncompatiblePeelTypeAttrs);
       Changed = true;
     }
 
@@ -2428,7 +2429,8 @@ private:
       Type *ArgTy = Arg->getType();
       if (ArgTy->isPointerTy() &&
           isTypeToTransform(ArgTy->getPointerElementType())) {
-        Attrs = Attrs.removeAttributes(Context, Idx, IncompatiblePeelTypeAttrs);
+        Attrs = Attrs.removeAttributesAtIndex(Context, Idx,
+                                              IncompatiblePeelTypeAttrs);
         Changed = true;
       }
       ++Idx;

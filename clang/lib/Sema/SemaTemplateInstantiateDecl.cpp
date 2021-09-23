@@ -674,8 +674,7 @@ static void instantiateIntelFPGABankWidthAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(
-        New, *Attr, Result.getAs<Expr>());
+    S.AddIntelFPGABankWidthAttr(New, *Attr, Result.getAs<Expr>());
 }
 
 static void instantiateIntelFPGANumBanksAttr(
@@ -685,8 +684,7 @@ static void instantiateIntelFPGANumBanksAttr(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.AddOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(
-        New, *Attr, Result.getAs<Expr>());
+    S.AddIntelFPGANumBanksAttr(New, *Attr, Result.getAs<Expr>());
 }
 
 static void instantiateIntelFPGABankBitsAttr(
@@ -1524,7 +1522,7 @@ Decl *TemplateDeclInstantiator::VisitVarDecl(VarDecl *D,
 
   SemaRef.BuildVariableInstantiation(Var, D, TemplateArgs, LateAttrs, Owner,
                                      StartingScope, InstantiatingVarTemplate);
-  if (D->isNRVOVariable()) {
+  if (D->isNRVOVariable() && !Var->isInvalidDecl()) {
     QualType RT;
     if (auto *F = dyn_cast<FunctionDecl>(DC))
       RT = F->getReturnType();

@@ -423,6 +423,7 @@ set(files
   cet.h
   cldemoteintrin.h
   clzerointrin.h
+  crc32intrin.h
   cpuid.h
   clflushoptintrin.h
   clwbintrin.h

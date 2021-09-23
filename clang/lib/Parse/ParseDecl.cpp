@@ -4054,6 +4054,10 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
+    case tok::kw___ibm128:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_ibm128, Loc, PrevSpec,
+                                     DiagID, Policy);
+      break;
     case tok::kw_wchar_t:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_wchar, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -4111,8 +4115,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
     case tok::kw_pipe:
 #if INTEL_CUSTOMIZATION
-      if (!getLangOpts().OpenCL || (getLangOpts().OpenCLVersion < 200 &&
-                                    !getLangOpts().OpenCLCPlusPlus &&
+      if (!getLangOpts().OpenCL || (getLangOpts().getOpenCLCompatibleVersion() < 200 &&
           !getTargetInfo().getTriple().isINTELFPGAEnvironment())) {
 #endif // INTEL_CUSTOMIZATION
         // OpenCL 2.0 and later define this keyword. OpenCL 1.2 and earlier
@@ -5157,6 +5160,7 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw__Fract:
   case tok::kw__Float16:
   case tok::kw___float128:
+  case tok::kw___ibm128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -5238,6 +5242,7 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw__Fract:
   case tok::kw__Float16:
   case tok::kw___float128:
+  case tok::kw___ibm128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -5326,8 +5331,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 
   // OpenCL 2.0 and later define this keyword.
   case tok::kw_pipe:
-    return (getLangOpts().OpenCL && getLangOpts().OpenCLVersion >= 200) ||
-           getLangOpts().OpenCLCPlusPlus;
+    return getLangOpts().OpenCL &&
+           getLangOpts().getOpenCLCompatibleVersion() >= 200;
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
@@ -5419,6 +5424,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw__Fract:
   case tok::kw__Float16:
   case tok::kw___float128:
+  case tok::kw___ibm128:
   case tok::kw_bool:
   case tok::kw__Bool:
   case tok::kw__Decimal32:
@@ -5878,8 +5884,8 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 
   // OpenCL 2.0 and later define this keyword.
-  if (Kind == tok::kw_pipe &&
-      ((Lang.OpenCL && Lang.OpenCLVersion >= 200) || Lang.OpenCLCPlusPlus))
+  if (Kind == tok::kw_pipe && Lang.OpenCL &&
+      Lang.getOpenCLCompatibleVersion() >= 200)
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&

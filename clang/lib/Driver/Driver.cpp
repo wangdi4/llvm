@@ -560,14 +560,11 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (!Opt.contains("O")) {
       if (!hasXOpt)
         addClaim(IsCLMode() ? options::OPT__SLASH_Qx : options::OPT_x, "HOST");
-      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                        options::OPT_fno_lto, false)) {
+      if (!Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
         // check to make sure that if LTO is disabled, it is done after fast.
         if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
-          if (A->getOption().matches(options::OPT_Ofast)) {
-            addClaim(options::OPT_flto);
+          if (A->getOption().matches(options::OPT_Ofast))
             isIntelLTO = true;
-          }
       }
     }
   }
@@ -593,9 +590,8 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
           addClaim(options::OPT_fno_slp_vectorize);
     }
     // For LTO on Windows, use -fuse-ld=lld when /Qipo or /fast is used.
-    if (Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                     options::OPT_fno_lto, false)) {
-      if (Arg *A = Args.getLastArg(options::OPT_flto)) {
+    if (Args.hasFlag(options::OPT_flto_EQ, options::OPT_fno_lto, false)) {
+      if (Arg *A = Args.getLastArg(options::OPT_flto_EQ)) {
         StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
         if (Opt.contains("Qipo"))
           isIntelLTO = true;
@@ -989,16 +985,12 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // Parse the LTO options and record the type of LTO compilation
 // based on which -f(no-)?lto(=.*)? or -f(no-)?offload-lto(=.*)?
 // option occurs last.
-static llvm::Optional<driver::LTOKind>
-parseLTOMode(Driver &D, const llvm::opt::ArgList &Args, OptSpecifier OptPos,
-             OptSpecifier OptNeg, OptSpecifier OptEq, bool IsOffload) {
-  driver::LTOKind LTOMode = LTOK_None;
+static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
+                                    OptSpecifier OptEq, OptSpecifier OptNeg) {
 #if INTEL_CUSTOMIZATION
-  if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                    options::OPT_fno_lto, false) &&
-      !Args.hasFlag(options::OPT_flto_EQ_auto, options::OPT_fno_lto, false) &&
-      !Args.hasFlag(options::OPT_flto_EQ_jobserver, options::OPT_fno_lto,
-                    false)) {
+  if (!Args.hasFlag(OptEq, OptNeg, false) && D.IsIntelMode() &&
+      Args.hasArgNoClaim(options::OPT_Ofast)) {
+    driver::LTOKind LTOMode = LTOK_None;
     // When dealing with -fast, the behavior is the same as -Ofast, except
     // that -flto is implied
     if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
@@ -1010,49 +1002,32 @@ parseLTOMode(Driver &D, const llvm::opt::ArgList &Args, OptSpecifier OptPos,
     return LTOMode;
   }
 #endif // INTEL_CUSTOMIZATION
-  // Non-offload LTO allows -flto=auto and -flto=jobserver. Offload LTO does
-  // not support those options.
-  if (!Args.hasFlag(OptPos, OptEq, OptNeg, false) &&
-      (IsOffload ||
-       (!Args.hasFlag(options::OPT_flto_EQ_auto, options::OPT_fno_lto, false) &&
-        !Args.hasFlag(options::OPT_flto_EQ_jobserver, options::OPT_fno_lto,
-                      false))))
-    return None;
-
-  StringRef LTOName("full");
+  if (!Args.hasFlag(OptEq, OptNeg, false))
+    return LTOK_None;
 
   const Arg *A = Args.getLastArg(OptEq);
-  if (A)
-    LTOName = A->getValue();
+  StringRef LTOName = A->getValue();
 
-  LTOMode = llvm::StringSwitch<LTOKind>(LTOName)
-                .Case("full", LTOK_Full)
-                .Case("thin", LTOK_Thin)
-                .Default(LTOK_Unknown);
+  driver::LTOKind LTOMode = llvm::StringSwitch<LTOKind>(LTOName)
+                                .Case("full", LTOK_Full)
+                                .Case("thin", LTOK_Thin)
+                                .Default(LTOK_Unknown);
 
   if (LTOMode == LTOK_Unknown) {
-    assert(A);
     D.Diag(diag::err_drv_unsupported_option_argument)
         << A->getOption().getName() << A->getValue();
-    return None;
+    return LTOK_None;
   }
   return LTOMode;
 }
 
 // Parse the LTO options.
 void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
-  LTOMode = LTOK_None;
-  if (auto M = parseLTOMode(*this, Args, options::OPT_flto,
-                            options::OPT_fno_lto, options::OPT_flto_EQ,
-                            /*IsOffload=*/false))
-    LTOMode = M.getValue();
+  LTOMode =
+      parseLTOMode(*this, Args, options::OPT_flto_EQ, options::OPT_fno_lto);
 
-  OffloadLTOMode = LTOK_None;
-  if (auto M = parseLTOMode(*this, Args, options::OPT_foffload_lto,
-                            options::OPT_fno_offload_lto,
-                            options::OPT_foffload_lto_EQ,
-                            /*IsOffload=*/true))
-    OffloadLTOMode = M.getValue();
+  OffloadLTOMode = parseLTOMode(*this, Args, options::OPT_foffload_lto_EQ,
+                                options::OPT_fno_offload_lto);
 }
 
 /// Compute the desired OpenMP runtime from the flags provided.
@@ -1341,6 +1316,27 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
             continue;
           }
 
+          // Warn about deprecated `sycldevice` environment component.
+          if (TT.getEnvironmentName() == "sycldevice") {
+            // Build a string with suggested target triple.
+            std::string SuggestedTriple = TT.getArchName().str();
+            if (TT.getOS() != llvm::Triple::UnknownOS) {
+              SuggestedTriple += '-';
+              if (TT.getVendor() != llvm::Triple::UnknownVendor)
+                SuggestedTriple += TT.getVendorName();
+              SuggestedTriple += Twine("-" + TT.getOSName()).str();
+            } else if (TT.getVendor() != llvm::Triple::UnknownVendor)
+              SuggestedTriple += Twine("-" + TT.getVendorName()).str();
+            Diag(clang::diag::warn_drv_deprecated_arg)
+                << TT.str() << SuggestedTriple;
+            // Drop environment component.
+            std::string EffectiveTriple =
+                Twine(TT.getArchName() + "-" + TT.getVendorName() + "-" +
+                      TT.getOSName())
+                    .str();
+            TT.setTriple(EffectiveTriple);
+          }
+
           // Store the current triple so that we can check for duplicates in
           // the following iterations.
           FoundNormalizedTriples[NormalizedName] = Val;
@@ -1403,7 +1399,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       else
         SYCLTargetArch = "spir64";
     else if (HasValidSYCLRuntime)
-      // Triple for -fintelfpga is spir64_fpga-unknown-unknown-sycldevice.
+      // Triple for -fintelfpga is spir64_fpga.
       SYCLTargetArch = SYCLfpga ? "spir64_fpga" : "spir64";
     if (!SYCLTargetArch.empty()) {
       UniqueSYCLTriplesVec.push_back(MakeSYCLDeviceTriple(SYCLTargetArch));
@@ -1736,7 +1732,8 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   setTitle(Title);
 #endif // INTEL_CUSTOMIZATION
 
-  // -no-canonical-prefixes is used very early in main.
+  // -canonical-prefixes, -no-canonical-prefixes are used very early in main.
+  Args.ClaimAllArgs(options::OPT_canonical_prefixes);
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);
 
   // f(no-)integated-cc1 is also used very early in main.
@@ -2349,7 +2346,6 @@ llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
     TT.setArchName(TargetArch);
     TT.setVendor(llvm::Triple::UnknownVendor);
     TT.setOS(llvm::Triple::UnknownOS);
-    TT.setEnvironment(llvm::Triple::SYCLDevice);
     return TT;
   }
   return llvm::Triple(TargetArch);
@@ -3244,7 +3240,6 @@ bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   TT.setArchName(types::getTypeName(Type));
   TT.setVendorName("intel");
   TT.setOS(llvm::Triple::UnknownOS);
-  TT.setEnvironment(llvm::Triple::SYCLDevice);
 
   // Checking uses -check-section option with the input file, no output
   // file and the target triple being looked for.
@@ -3779,7 +3774,7 @@ class OffloadingActionBuilder final {
       assert(CudaDeviceActions.size() == GpuArchList.size() &&
              "Expecting one action per GPU architecture.");
       assert(ToolChains.size() == 1 &&
-             "Expecting to have a sing CUDA toolchain.");
+             "Expecting to have a single CUDA toolchain.");
       for (unsigned I = 0, E = GpuArchList.size(); I != E; ++I)
         AddTopLevel(CudaDeviceActions[I], GpuArchList[I]);
 
@@ -4817,10 +4812,11 @@ class OffloadingActionBuilder final {
         return;
 
       OffloadAction::DeviceDependences Dep;
-      Dep.add(*SYCLLinkBinary, *ToolChains.front(), /*BoundArch=*/nullptr,
-              Action::OFK_SYCL);
-      AL.push_back(C.MakeAction<OffloadAction>(Dep,
-                                               SYCLLinkBinary->getType()));
+      withBoundArchForToolChain(ToolChains.front(), [&](const char *BoundArch) {
+        Dep.add(*SYCLLinkBinary, *ToolChains.front(), BoundArch,
+                Action::OFK_SYCL);
+      });
+      AL.push_back(C.MakeAction<OffloadAction>(Dep, SYCLLinkBinary->getType()));
       SYCLLinkBinary = nullptr;
     }
 
@@ -4915,7 +4911,7 @@ class OffloadingActionBuilder final {
 
           for (StringRef Val : A->getValues()) {
             if (Val == "all") {
-              for (auto &K : devicelib_link_info.keys())
+              for (const auto &K : devicelib_link_info.keys())
                 devicelib_link_info[K] = true && !NoDeviceLibs;
               break;
             }
@@ -5270,8 +5266,10 @@ class OffloadingActionBuilder final {
     void addDeviceLinkDependencies(OffloadDepsJobAction *DA) override {
       for (unsigned I = 0; I < ToolChains.size(); ++I) {
         // Register dependent toolchain.
-        DA->registerDependentActionInfo(
-            ToolChains[I], /*BoundArch=*/StringRef(), Action::OFK_SYCL);
+        withBoundArchForToolChain(ToolChains[I], [&](const char *BoundArch) {
+          DA->registerDependentActionInfo(ToolChains[I], BoundArch,
+                                          Action::OFK_SYCL);
+        });
 
         // Add deps output to linker inputs.
         DeviceLinkerInputs[I].push_back(DA);
@@ -5385,7 +5383,7 @@ class OffloadingActionBuilder final {
       auto *DeviceCodeSplitArg =
           Args.getLastArg(options::OPT_fsycl_device_code_split_EQ);
       // -fsycl-device-code-split is an alias to
-      // -fsycl-device-code-split=per_source
+      // -fsycl-device-code-split=auto
       DeviceCodeSplit = DeviceCodeSplitArg &&
                         DeviceCodeSplitArg->getValue() != StringRef("off");
       // Gather information about the SYCL Ahead of Time targets.  The targets
@@ -6652,7 +6650,7 @@ void Driver::BuildJobs(Compilation &C) const {
             << '\n';
         Out.flush();
         std::error_code EC;
-        llvm::raw_fd_ostream OS(CCPrintStatReportFilename.c_str(), EC,
+        llvm::raw_fd_ostream OS(CCPrintStatReportFilename, EC,
                                 llvm::sys::fs::OF_Append |
                                     llvm::sys::fs::OF_Text);
         if (EC)
@@ -7403,7 +7401,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
       // Get the unique string identifier for this dependence and cache the
       // result.
       StringRef Arch;
-      if (TargetDeviceOffloadKind == Action::OFK_HIP) {
+      if (TargetDeviceOffloadKind == Action::OFK_HIP ||
+          TargetDeviceOffloadKind == Action::OFK_SYCL) {
         if (UI.DependentOffloadKind == Action::OFK_Host)
           Arch = StringRef();
         else
@@ -8134,7 +8133,6 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
         break;
       case llvm::Triple::MSVC:
       case llvm::Triple::UnknownEnvironment:
-      case llvm::Triple::SYCLDevice:
         if (Args.getLastArgValue(options::OPT_fuse_ld_EQ)
                 .startswith_insensitive("bfd"))
           TC = std::make_unique<toolchains::CrossWindowsToolChain>(
@@ -8492,7 +8490,6 @@ llvm::StringRef clang::driver::getDriverMode(StringRef ProgName,
     if (!Arg.startswith(OptName))
       continue;
     Opt = Arg;
-    break;
   }
   if (Opt.empty())
     Opt = ToolChain::getTargetAndModeFromProgramName(ProgName).DriverMode;

@@ -1669,11 +1669,6 @@ def : Flag<["-"], "fextended-identifiers">, Group<clang_ignored_f_Group>;
 def : Flag<["-"], "fno-extended-identifiers">, Group<f_Group>, Flags<[Unsupported]>;
 def fhosted : Flag<["-"], "fhosted">, Group<f_Group>;
 def fdenormal_fp_math_EQ : Joined<["-"], "fdenormal-fp-math=">, Group<f_Group>, Flags<[CC1Option]>;
-def ffp_eval_method_EQ : Joined<["-"], "ffp-eval-method=">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Specifies the evaluation method to use for floating-point arithmetic.">,
-  Values<"source,double,extended">, NormalizedValuesScope<"LangOptions">,
-  NormalizedValues<["FEM_Source", "FEM_Double", "FEM_Extended"]>,
-  MarshallingInfoEnum<LangOpts<"FPEvalMethod">, "FEM_TargetDefault">;
 def ffp_model_EQ : Joined<["-"], "ffp-model=">, Group<f_Group>, Flags<[NoXarchOption]>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<f_Group>, Flags<[CC1Option]>,
@@ -2275,16 +2270,18 @@ def fapple_link_rtlib : Flag<["-"], "fapple-link-rtlib">, Group<f_Group>,
   HelpText<"Force linking the clang builtins runtime library">;
 def flto_EQ : Joined<["-"], "flto=">, Flags<[CoreOption, CC1Option]>, Group<f_Group>,
   HelpText<"Set LTO mode to either 'full' or 'thin'">, Values<"thin,full">;
-def flto_EQ_jobserver : Flag<["-"], "flto=jobserver">, Group<f_Group>;
-def flto_EQ_auto : Flag<["-"], "flto=auto">, Group<f_Group>;
+def flto_EQ_jobserver : Flag<["-"], "flto=jobserver">, Group<f_Group>,
+  Alias<flto_EQ>, AliasArgs<["full"]>, HelpText<"Enable LTO in 'full' mode">;
+def flto_EQ_auto : Flag<["-"], "flto=auto">, Group<f_Group>,
+  Alias<flto_EQ>, AliasArgs<["full"]>, HelpText<"Enable LTO in 'full' mode">;
 def flto : Flag<["-"], "flto">, Flags<[CoreOption, CC1Option]>, Group<f_Group>,
-  HelpText<"Enable LTO in 'full' mode">;
+  Alias<flto_EQ>, AliasArgs<["full"]>, HelpText<"Enable LTO in 'full' mode">;
 def fno_lto : Flag<["-"], "fno-lto">, Flags<[CoreOption, CC1Option]>, Group<f_Group>,
   HelpText<"Disable LTO mode (default)">;
 def foffload_lto_EQ : Joined<["-"], "foffload-lto=">, Flags<[CoreOption]>, Group<f_Group>,
   HelpText<"Set LTO mode to either 'full' or 'thin' for offload compilation">, Values<"thin,full">;
 def foffload_lto : Flag<["-"], "foffload-lto">, Flags<[CoreOption]>, Group<f_Group>,
-  HelpText<"Enable LTO in 'full' mode for offload compilation">;
+  Alias<foffload_lto_EQ>, AliasArgs<["full"]>, HelpText<"Enable LTO in 'full' mode for offload compilation">;
 def fno_offload_lto : Flag<["-"], "fno-offload-lto">, Flags<[CoreOption]>, Group<f_Group>,
   HelpText<"Disable LTO mode (default) for offload compilation">;
 def flto_jobs_EQ : Joined<["-"], "flto-jobs=">,
@@ -2692,7 +2689,15 @@ def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
   HelpText<"Choose which OpenMP version to link with.">;
+#endif // INTEL_CUSTOMIZATION
+defm openmp_extensions: BoolFOption<"openmp-extensions",
+  LangOpts<"OpenMPExtensions">, DefaultTrue,
+  PosFlag<SetTrue, [CC1Option, NoArgumentUnused],
+          "Enable all Clang extensions for OpenMP directives and clauses">,
+  NegFlag<SetFalse, [CC1Option, NoArgumentUnused],
+          "Disable all Clang extensions for OpenMP directives and clauses">>;
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
+#if INTEL_CUSTOMIZATION
 def qopenmp_threadprivate_EQ: Joined<["-"], "qopenmp-threadprivate=">,
   HelpText<"Choose which threadprivate implementation to use: compat or legacy.">;
 defm intel_pragma_prefetch : BoolFOption<"intel-pragma-prefetch",
@@ -3013,14 +3018,6 @@ def fsycl_device_code_split_EQ : Joined<["-"], "fsycl-device-code-split=">,
 def fsycl_device_code_split : Flag<["-"], "fsycl-device-code-split">, Alias<fsycl_device_code_split_EQ>,
   AliasArgs<["auto"]>, Flags<[CC1Option, CoreOption, DpcppOption]>,
   HelpText<"Perform SYCL device code split in the 'auto' mode, i.e. use heuristic to distribute device code across modules">;
-def fsycl_device_code_split_esimd : Flag<["-"], "fsycl-device-code-split-esimd">,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Split SYCL and ESIMD kernels into separate modules">;
-def fno_sycl_device_code_split_esimd : Flag<["-"], "fno-sycl-device-code-split-esimd">,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Don't split SYCL and ESIMD kernels into separate modules">;
-def fsycl_device_code_lower_esimd : Flag<["-"], "fsycl-device-code-lower-esimd">,
-  Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Lower ESIMD-specific constructs">;
-def fno_sycl_device_code_lower_esimd : Flag<["-"], "fno-sycl-device-code-lower-esimd">,
-  Flags<[CC1Option, CoreOption]>, HelpText<"Do not lower ESIMD-specific constructs">;
 defm sycl_instrument_device_code : BoolOption<"f", "sycl-instrument-device-code",
   CodeGenOpts<"SPIRITTAnnotations">, DefaultFalse,
   PosFlag<SetTrue, [], "Add ITT instrumentation intrinsics calls">,
@@ -3528,7 +3525,7 @@ def install__name : Separate<["-"], "install_name">;
 def iprefix : JoinedOrSeparate<["-"], "iprefix">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Set the -iwithprefix/-iwithprefixbefore prefix">, MetaVarName<"<dir>">;
 //if INTEL_CUSTOMIZATION
-def ipo : Flag<["-"], "ipo">, Alias<flto>,
+def ipo : Flag<["-"], "ipo">, Alias<flto_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable LTO in 'full' mode">;
 def no_ipo : Flag<["-"], "no-ipo">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
@@ -4238,8 +4235,10 @@ def ansi_alias : Flag<["-"], "ansi-alias">, Alias<fstrict_aliasing>,
 def no_ansi_alias : Flag<["-"], "no-ansi-alias">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
 #endif //INTEL_CUSTOMIZATION
+def canonical_prefixes : Flag<["-"], "canonical-prefixes">, Flags<[HelpHidden, CoreOption]>,
+  HelpText<"Use absolute paths for invoking subcommands (default)">;
 def no_canonical_prefixes : Flag<["-"], "no-canonical-prefixes">, Flags<[HelpHidden, CoreOption]>,
-  HelpText<"Use relative instead of canonical paths">;
+  HelpText<"Use relative paths for invoking subcommands">;
 def no_cpp_precomp : Flag<["-"], "no-cpp-precomp">, Group<clang_ignored_f_Group>;
 def no_integrated_cpp : Flag<["-", "--"], "no-integrated-cpp">, Flags<[NoXarchOption]>;
 def no_pedantic : Flag<["-", "--"], "no-pedantic">, Group<pedantic_Group>;
@@ -5035,6 +5034,8 @@ def mwbnoinvd : Flag<["-"], "mwbnoinvd">, Group<m_x86_Features_Group>;
 def mno_wbnoinvd : Flag<["-"], "mno-wbnoinvd">, Group<m_x86_Features_Group>;
 def mclzero : Flag<["-"], "mclzero">, Group<m_x86_Features_Group>;
 def mno_clzero : Flag<["-"], "mno-clzero">, Group<m_x86_Features_Group>;
+def mcrc32 : Flag<["-"], "mcrc32">, Group<m_x86_Features_Group>;
+def mno_crc32 : Flag<["-"], "mno-crc32">, Group<m_x86_Features_Group>;
 def mcx16 : Flag<["-"], "mcx16">, Group<m_x86_Features_Group>;
 def mno_cx16 : Flag<["-"], "mno-cx16">, Group<m_x86_Features_Group>;
 def menqcmd : Flag<["-"], "menqcmd">, Group<m_x86_Features_Group>;
@@ -6298,6 +6299,8 @@ def ast_dump_filter : Separate<["-"], "ast-dump-filter">,
            " nodes having a certain substring in a qualified name. Use"
            " -ast-list to list all filterable declaration node names.">,
   MarshallingInfoString<FrontendOpts<"ASTDumpFilter">>;
+def ast_dump_filter_EQ : Joined<["-"], "ast-dump-filter=">,
+  Alias<ast_dump_filter>;
 def fno_modules_global_index : Flag<["-"], "fno-modules-global-index">,
   HelpText<"Do not automatically generate or update the global module index">,
   MarshallingInfoNegativeFlag<FrontendOpts<"UseGlobalModuleIndex">>;
@@ -7331,7 +7334,7 @@ def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   "function entry and exit">;
 def _SLASH_Qinstrument_functions_ : CLFlag<"Qinstrument-functions-">,
   Alias<fno_instrument_functions>;
-def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
+def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_QdD : CLFlag<"QdD">, Alias<dD>,
   HelpText<"Print macro definitions in -E mode in addition to normal output.">;

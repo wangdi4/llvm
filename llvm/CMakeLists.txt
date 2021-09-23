@@ -536,7 +536,7 @@ set(LLVM_LIB_FUZZING_ENGINE "" CACHE PATH
   "Path to fuzzing library for linking with fuzz targets")
 
 option(LLVM_USE_SPLIT_DWARF
-  "Use -gsplit-dwarf when compiling llvm." OFF)
+  "Use -gsplit-dwarf when compiling llvm and --gdb-index when linking." OFF)
 
 # Define an option controlling whether we should build for 32-bit on 64-bit
 # platforms, where supported.
@@ -704,12 +704,7 @@ endif()
 set(LLVM_TARGET_TRIPLE_ENV CACHE STRING "The name of environment variable to override default target. Disabled by blank.")
 mark_as_advanced(LLVM_TARGET_TRIPLE_ENV)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-  set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default ON)
-else()
-  set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default OFF)
-endif()
-set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ${LLVM_ENABLE_PER_TARGET_RUNTIME_DIR_default} CACHE BOOL
+set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR OFF CACHE BOOL
   "Enable per-target runtimes directory")
 
 set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
@@ -1715,6 +1710,7 @@ endif()
 # after all targets are created.
 llvm_distribution_add_targets()
 process_llvm_pass_plugins(GEN_CONFIG)
+include(CoverageReport)
 
 # This allows us to deploy the Universal CRT DLLs by passing -DCMAKE_INSTALL_UCRT_LIBRARIES=ON to CMake
 if (MSVC AND CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_INSTALL_UCRT_LIBRARIES)

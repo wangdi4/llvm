@@ -48,6 +48,9 @@ def FeatureCMOV    : SubtargetFeature<"cmov","HasCMov", "true",
 def FeatureCMPXCHG8B : SubtargetFeature<"cx8", "HasCmpxchg8b", "true",
                                         "Support CMPXCHG8B instructions">;
 
+def FeatureCRC32   : SubtargetFeature<"crc32", "HasCRC32", "true",
+                                      "Enable SSE 4.2 CRC32 instruction">;
+
 def FeaturePOPCNT   : SubtargetFeature<"popcnt", "HasPOPCNT", "true",
                                        "Support POPCNT instruction">;
 
@@ -949,6 +952,7 @@ include "X86ScheduleBdVer2.td"
 include "X86ScheduleBtVer2.td"
 include "X86SchedSkylakeClient.td"
 include "X86SchedSkylakeServer.td"
+include "X86SchedIceLake.td"
 
 //===----------------------------------------------------------------------===//
 // X86 Processor Feature Lists
@@ -960,9 +964,10 @@ def ProcessorFeatures {
     FeatureX87, FeatureCMPXCHG8B, FeatureCMOV, FeatureMMX, FeatureSSE2,
     FeatureFXSR, FeatureNOPL, Feature64Bit
   ];
-  list<SubtargetFeature> X86_64V2Features = !listconcat(
-      X86_64V1Features,
-      [FeatureCMPXCHG16B, FeatureLAHFSAHF, FeaturePOPCNT, FeatureSSE42]);
+  list<SubtargetFeature> X86_64V2Features = !listconcat(X86_64V1Features, [
+    FeatureCMPXCHG16B, FeatureLAHFSAHF, FeatureCRC32, FeaturePOPCNT,
+    FeatureSSE42
+  ]);
   list<SubtargetFeature> X86_64V3Features = !listconcat(X86_64V2Features, [
     FeatureAVX2, FeatureBMI, FeatureBMI2, FeatureF16C, FeatureFMA, FeatureLZCNT,
     FeatureMOVBE, FeatureXSAVE
@@ -1289,6 +1294,7 @@ def ProcessorFeatures {
 
   // Silvermont
   list<SubtargetFeature> SLMAdditionalFeatures = [FeatureSSE42,
+                                                  FeatureCRC32,
                                                   FeaturePOPCNT,
                                                   FeaturePCLMUL,
                                                   FeaturePRFCHW,
@@ -1399,6 +1405,7 @@ def ProcessorFeatures {
                                         FeatureNOPL,
                                         Feature64Bit,
                                         FeatureCMPXCHG16B,
+                                        FeatureCRC32,
                                         FeaturePOPCNT,
                                         FeaturePCLMUL,
                                         FeatureXSAVE,
@@ -1475,6 +1482,7 @@ def ProcessorFeatures {
   // Jaguar
   list<SubtargetFeature> BtVer2AdditionalFeatures = [FeatureAVX,
                                                      FeatureAES,
+                                                     FeatureCRC32,
                                                      FeaturePCLMUL,
                                                      FeatureBMI,
                                                      FeatureF16C,
@@ -1500,6 +1508,7 @@ def ProcessorFeatures {
                                            Feature64Bit,
                                            FeatureCMPXCHG16B,
                                            FeatureAES,
+                                           FeatureCRC32,
                                            FeaturePRFCHW,
                                            FeaturePCLMUL,
                                            FeatureMMX,
@@ -1557,6 +1566,7 @@ def ProcessorFeatures {
                                        FeatureCMOV,
                                        Feature64Bit,
                                        FeatureCMPXCHG16B,
+                                       FeatureCRC32,
                                        FeatureF16C,
                                        FeatureFMA,
                                        FeatureFSGSBase,
@@ -1826,13 +1836,13 @@ def : ProcModel<"cooperlake", SkylakeServerModel,
                 ProcessorFeatures.CPXFeatures, ProcessorFeatures.CPXTuning>;
 def : ProcModel<"cannonlake", SkylakeServerModel,
                 ProcessorFeatures.CNLFeatures, ProcessorFeatures.CNLTuning>;
-def : ProcModel<"icelake-client", SkylakeServerModel,
+def : ProcModel<"icelake-client", IceLakeModel,
                 ProcessorFeatures.ICLFeatures, ProcessorFeatures.ICLTuning>;
-def : ProcModel<"rocketlake", SkylakeServerModel,
+def : ProcModel<"rocketlake", IceLakeModel,
                 ProcessorFeatures.ICLFeatures, ProcessorFeatures.ICLTuning>;
-def : ProcModel<"icelake-server", SkylakeServerModel,
+def : ProcModel<"icelake-server", IceLakeModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
-def : ProcModel<"tigerlake", SkylakeServerModel,
+def : ProcModel<"tigerlake", IceLakeModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
 def : ProcModel<"sapphirerapids", SkylakeServerModel,
                 ProcessorFeatures.SPRFeatures, ProcessorFeatures.SPRTuning>;

@@ -4316,8 +4316,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmaddsubph512_maskz:
   case X86::BI__builtin_ia32_vfmaddsubph512_mask3:
   case X86::BI__builtin_ia32_vfmsubaddph512_mask3:
-
-#if INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vfmaddcsh_mask:
   case X86::BI__builtin_ia32_vfmaddcph512_mask:
   case X86::BI__builtin_ia32_vfmaddcph512_maskz:
@@ -4328,7 +4326,6 @@ bool Sema::CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_vfmulcph512_mask:
   case X86::BI__builtin_ia32_vfcmulcsh_mask:
   case X86::BI__builtin_ia32_vfcmulcph512_mask:
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
   case X86::BI__builtin_ia32_vdpphps512_mask:

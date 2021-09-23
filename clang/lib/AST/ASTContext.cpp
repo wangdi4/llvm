@@ -101,7 +101,14 @@
 using namespace clang;
 
 enum FloatingRank {
-  BFloat16Rank, Float16Rank, HalfRank, FloatRank, DoubleRank, LongDoubleRank, Float128Rank
+  BFloat16Rank,
+  Float16Rank,
+  HalfRank,
+  FloatRank,
+  DoubleRank,
+  LongDoubleRank,
+  Float128Rank,
+  Ibm128Rank
 };
 
 /// \returns location that is relevant when searching for Doc comments related
@@ -1311,6 +1318,9 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   // GNU extension, __float128 for IEEE quadruple precision
   InitBuiltinType(Float128Ty,          BuiltinType::Float128);
 
+  // __ibm128 for IBM extended precision
+  InitBuiltinType(Ibm128Ty, BuiltinType::Ibm128);
+
   // C11 extension ISO/IEC TS 18661-3
   InitBuiltinType(Float16Ty,           BuiltinType::Float16);
 
@@ -1717,6 +1727,8 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
     return Target->getHalfFormat();
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
+  case BuiltinType::Ibm128:
+    return Target->getIbm128Format();
   case BuiltinType::LongDouble:
     if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)
 #if INTEL_COLLAB
@@ -1879,7 +1891,7 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
     Width = llvm::alignTo(Width, Align);
   return TypeInfoChars(CharUnits::fromQuantity(Width),
                        CharUnits::fromQuantity(Align),
-                       EltInfo.AlignIsRequired);
+                       EltInfo.AlignRequirement);
 }
 
 TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
@@ -1887,8 +1899,7 @@ TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
   return TypeInfoChars(toCharUnitsFromBits(Info.Width),
-                       toCharUnitsFromBits(Info.Align),
-                       Info.AlignIsRequired);
+                       toCharUnitsFromBits(Info.Align), Info.AlignRequirement);
 }
 
 TypeInfoChars ASTContext::getTypeInfoInChars(QualType T) const {
@@ -1896,7 +1907,7 @@ TypeInfoChars ASTContext::getTypeInfoInChars(QualType T) const {
 }
 
 bool ASTContext::isAlignmentRequired(const Type *T) const {
-  return getTypeInfo(T).AlignIsRequired;
+  return getTypeInfo(T).AlignRequirement != AlignRequirementKind::None;
 }
 
 bool ASTContext::isAlignmentRequired(QualType T) const {
@@ -1948,7 +1959,7 @@ TypeInfo ASTContext::getTypeInfo(const Type *T) const {
 TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   uint64_t Width = 0;
   unsigned Align = 8;
-  bool AlignIsRequired = false;
+  AlignRequirementKind AlignRequirement = AlignRequirementKind::None;
   unsigned AS = 0;
   switch (T->getTypeClass()) {
 #define TYPE(Class, Base)
@@ -1982,7 +1993,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
     Align = EltInfo.Align;
-    AlignIsRequired = EltInfo.AlignIsRequired;
+    AlignRequirement = EltInfo.AlignRequirement;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
         getTargetInfo().getPointerWidth(0) == 64)
       Width = llvm::alignTo(Width, Align);
@@ -2150,6 +2161,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Double:
       Width = Target->getDoubleWidth();
       Align = Target->getDoubleAlign();
+      break;
+    case BuiltinType::Ibm128:
+      Width = Target->getIbm128Width();
+      Align = Target->getIbm128Align();
       break;
     case BuiltinType::LongDouble:
       if ((getLangOpts().SYCLIsDevice ||
@@ -2340,7 +2355,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
           getTypeInfo(ED->getIntegerType()->getUnqualifiedDesugaredType());
       if (unsigned AttrAlign = ED->getMaxAlignment()) {
         Info.Align = AttrAlign;
-        Info.AlignIsRequired = true;
+        Info.AlignRequirement = AlignRequirementKind::RequiredByEnum;
       }
       return Info;
     }
@@ -2350,7 +2365,9 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     const ASTRecordLayout &Layout = getASTRecordLayout(RD);
     Width = toBits(Layout.getSize());
     Align = toBits(Layout.getAlignment());
-    AlignIsRequired = RD->hasAttr<AlignedAttr>();
+    AlignRequirement = RD->hasAttr<AlignedAttr>()
+                           ? AlignRequirementKind::RequiredByRecord
+                           : AlignRequirementKind::None;
     break;
   }
 
@@ -2384,10 +2401,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     // attribute(aligned) can only round up) but matches its implementation.
     if (unsigned AttrAlign = Typedef->getMaxAlignment()) {
       Align = AttrAlign;
-      AlignIsRequired = true;
+      AlignRequirement = AlignRequirementKind::RequiredByTypedef;
     } else {
       Align = Info.Align;
-      AlignIsRequired = Info.AlignIsRequired;
+      AlignRequirement = Info.AlignRequirement;
     }
     Width = Info.Width;
     break;
@@ -2442,7 +2459,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   }
 
   assert(llvm::isPowerOf2_32(Align) && "Alignment must be power of 2");
-  return TypeInfo(Width, Align, AlignIsRequired);
+  return TypeInfo(Width, Align, AlignRequirement);
 }
 
 unsigned ASTContext::getTypeUnadjustedAlign(const Type *T) const {
@@ -2531,8 +2548,10 @@ unsigned ASTContext::getPreferredTypeAlign(const Type *T) const {
     const RecordDecl *RD = RT->getDecl();
 
     // When used as part of a typedef, or together with a 'packed' attribute,
-    // the 'aligned' attribute can be used to decrease alignment.
-    if ((TI.AlignIsRequired && T->getAs<TypedefType>() != nullptr) ||
+    // the 'aligned' attribute can be used to decrease alignment. Note that the
+    // 'packed' case is already taken into consideration when computing the
+    // alignment, we only need to handle the typedef case here.
+    if (TI.AlignRequirement == AlignRequirementKind::RequiredByTypedef ||
         RD->isInvalidDecl())
       return ABIAlign;
 
@@ -2557,7 +2576,7 @@ unsigned ASTContext::getPreferredTypeAlign(const Type *T) const {
        Target->defaultsToAIXPowerAlignment()))
     // Don't increase the alignment if an alignment attribute was specified on a
     // typedef declaration.
-    if (!TI.AlignIsRequired)
+    if (!TI.isAlignRequired())
       return std::max(ABIAlign, (unsigned)getTypeSize(T));
 
   return ABIAlign;
@@ -6390,6 +6409,7 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::LongDouble: return LongDoubleRank;
   case BuiltinType::Float128:   return Float128Rank;
   case BuiltinType::BFloat16:   return BFloat16Rank;
+  case BuiltinType::Ibm128:     return Ibm128Rank;
   }
 }
 
@@ -6405,6 +6425,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case BFloat16Rank: llvm_unreachable("Complex bfloat16 is not supported");
     case Float16Rank:
     case HalfRank: llvm_unreachable("Complex half is not supported");
+    case Ibm128Rank: llvm_unreachable("Complex __ibm128 is not supported");
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
@@ -6421,6 +6442,8 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
   case DoubleRank:     return DoubleTy;
   case LongDoubleRank: return LongDoubleTy;
   case Float128Rank:   return Float128Ty;
+  case Ibm128Rank:
+    return Ibm128Ty;
   }
   llvm_unreachable("getFloatingRank(): illegal value for rank");
 }
@@ -7404,6 +7427,7 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
 
     case BuiltinType::BFloat16:
     case BuiltinType::Float16:
+    case BuiltinType::Ibm128:
     case BuiltinType::Half:
     case BuiltinType::ShortAccum:
     case BuiltinType::Accum:
@@ -9802,11 +9826,19 @@ static QualType mergeEnumWithInteger(ASTContext &Context, const EnumType *ET,
 QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
                                 bool OfBlockPointer,
                                 bool Unqualified, bool BlockReturnType) {
+  // For C++ we will not reach this code with reference types (see below),
+  // for OpenMP variant call overloading we might.
+  //
   // C++ [expr]: If an expression initially has the type "reference to T", the
   // type is adjusted to "T" prior to any further analysis, the expression
   // designates the object or function denoted by the reference, and the
   // expression is an lvalue unless the reference is an rvalue reference and
   // the expression is a function call (possibly inside parentheses).
+  if (LangOpts.OpenMP && LHS->getAs<ReferenceType>() &&
+      RHS->getAs<ReferenceType>() && LHS->getTypeClass() == RHS->getTypeClass())
+    return mergeTypes(LHS->getAs<ReferenceType>()->getPointeeType(),
+                      RHS->getAs<ReferenceType>()->getPointeeType(),
+                      OfBlockPointer, Unqualified, BlockReturnType);
   if (LHS->getAs<ReferenceType>() || RHS->getAs<ReferenceType>())
     return {};
 
@@ -11386,6 +11418,8 @@ QualType ASTContext::getRealTypeForBitwidth(unsigned DestWidth,
     return LongDoubleTy;
   case TargetInfo::Float128:
     return Float128Ty;
+  case TargetInfo::Ibm128:
+    return Ibm128Ty;
   case TargetInfo::NoFloat:
     return {};
   }

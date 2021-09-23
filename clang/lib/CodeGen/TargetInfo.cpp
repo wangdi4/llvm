@@ -1207,7 +1207,8 @@ public:
       IsRetSmallStructInRegABI(RetSmallStructInRegABI),
       IsWin32StructABI(Win32StructABI), IsSoftFloatABI(SoftFloatABI),
       IsMCUABI(CGT.getTarget().getTriple().isOSIAMCU()),
-      IsLinuxABI(CGT.getTarget().getTriple().isOSLinux()),
+      IsLinuxABI(CGT.getTarget().getTriple().isOSLinux() ||
+                 CGT.getTarget().getTriple().isOSCygMing()),
       DefaultNumRegisterParameters(NumRegisterParameters) {}
 
   bool shouldPassIndirectlyForSwift(ArrayRef<llvm::Type*> scalars,
@@ -1875,7 +1876,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
     // Pass over-aligned aggregates on Windows indirectly. This behavior was
     // added in MSVC 2015.
-    if (IsWin32StructABI && TI.AlignIsRequired && TI.Align > 32)
+    if (IsWin32StructABI && TI.isAlignRequired() && TI.Align > 32)
       return getIndirectResult(Ty, /*ByVal=*/false, State);
 
     // Expand small (<= 128-bit) record types when we know that the stack layout
@@ -5291,8 +5292,9 @@ bool PPC64_SVR4_ABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
         BT->getKind() == BuiltinType::LongDouble ||
+        BT->getKind() == BuiltinType::Ibm128 ||
         (getContext().getTargetInfo().hasFloat128Type() &&
-          (BT->getKind() == BuiltinType::Float128))) {
+         (BT->getKind() == BuiltinType::Float128))) {
       if (IsSoftFloatABI)
         return false;
       return true;
@@ -7061,7 +7063,7 @@ Address ARMABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
     TyAlignForABI = CharUnits::fromQuantity(4);
   }
 
-  TypeInfoChars TyInfo(TySize, TyAlignForABI, false);
+  TypeInfoChars TyInfo(TySize, TyAlignForABI, AlignRequirementKind::None);
   return emitVoidPtrVAArg(CGF, VAListAddr, Ty, IsIndirect, TyInfo,
                           SlotSize, /*AllowHigherAlign*/ true);
 }

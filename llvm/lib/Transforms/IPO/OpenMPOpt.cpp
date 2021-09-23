@@ -97,6 +97,11 @@ static cl::opt<bool> PrintModuleAfterOptimizations(
     cl::desc("Print the current module after OpenMP optimizations."),
     cl::Hidden, cl::init(false));
 
+static cl::opt<bool> AlwaysInlineDeviceFunctions(
+    "openmp-opt-inline-device", cl::ZeroOrMore,
+    cl::desc("Inline all applicible functions on the device."), cl::Hidden,
+    cl::init(false));
+
 STATISTIC(NumOpenMPRuntimeCallsDeduplicated,
           "Number of OpenMP runtime calls deduplicated");
 STATISTIC(NumOpenMPParallelRegionsDeleted,
@@ -592,6 +597,12 @@ struct KernelInfoState : AbstractState {
     if (ReachingKernelEntries != RHS.ReachingKernelEntries)
       return false;
     return true;
+  }
+
+  /// Returns true if this kernel contains any OpenMP parallel regions.
+  bool mayContainParallelRegion() {
+    return !ReachedKnownParallelRegions.empty() ||
+           !ReachedUnknownParallelRegions.empty();
   }
 
   /// Return empty set as the best state of potential values.
@@ -2998,7 +3009,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
 
     // If we can we change the execution mode to SPMD-mode otherwise we build a
     // custom state machine.
-    if (!changeToSPMDMode(A))
+    if (!mayContainParallelRegion() || !changeToSPMDMode(A))
       buildCustomStateMachine(A);
 
     return ChangeStatus::CHANGED;
@@ -3303,8 +3314,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
     // happen if there simply are no parallel regions. In the resulting kernel
     // all worker threads will simply exit right away, leaving the main thread
     // to do the work alone.
-    if (ReachedKnownParallelRegions.empty() &&
-        ReachedUnknownParallelRegions.empty()) {
+    if (!mayContainParallelRegion()) {
       ++NumOpenMPTargetRegionKernelsWithoutStateMachine;
 
       auto Remark = [&](OptimizationRemark OR) {
@@ -4480,6 +4490,13 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
 
   OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
   bool Changed = OMPOpt.run(true);
+
+  // Optionally inline device functions for potentially better performance.
+  if (AlwaysInlineDeviceFunctions && isOpenMPDevice(M))
+    for (Function &F : M)
+      if (!F.isDeclaration() && !Kernels.contains(&F) &&
+          !F.hasFnAttribute(Attribute::NoInline))
+        F.addFnAttr(Attribute::AlwaysInline);
 
   if (PrintModuleAfterOptimizations)
     LLVM_DEBUG(dbgs() << TAG << "Module after OpenMPOpt Module Pass:\n" << M);
