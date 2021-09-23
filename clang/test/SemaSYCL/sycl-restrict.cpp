@@ -1,5 +1,3 @@
-// FIXME: Temporarily disabled test to enable xmain-cand pull-down. Reported in CMPLRLLVM-31333
-// XFAIL: *
 // RUN: %clang_cc1 -fsycl-is-device -fcxx-exceptions -triple spir64 \
 // RUN:  -aux-triple x86_64-unknown-linux-gnu -Wno-return-type -verify     \
 // RUN:  -Wno-sycl-2017-compat -fsyntax-only -std=c++17 %s

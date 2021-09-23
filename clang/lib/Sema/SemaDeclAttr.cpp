@@ -7356,12 +7356,6 @@ static void handleIntelFPGABankWidthAttr(Sema &S, Decl *D,
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-=======
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
->>>>>>> 7e21e9bfa628cda09468b6e8121bc31b1340711c
   S.AddIntelFPGABankWidthAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7455,12 +7449,6 @@ static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   if (checkValidSYCLSpelling(S, A))
    return;
 #endif // INTEL_CUSTOMIZATION
-<<<<<<< HEAD
-=======
-
-  S.CheckDeprecatedSYCLAttributeSpelling(A);
-
->>>>>>> 7e21e9bfa628cda09468b6e8121bc31b1340711c
   S.AddIntelFPGANumBanksAttr(D, A, A.getArgAsExpr(0));
 }
 
