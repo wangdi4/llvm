@@ -2590,8 +2590,6 @@ void OMPTraitInfo::getAsVariantMatchInfo(ASTContext &ASTCtx,
                  getOpenMPContextTraitPropertyForSelector(
                      Selector.Kind) &&
              "Ill-formed construct selector!");
-
-      VMI.ConstructTraits.push_back(Selector.Properties.front().Kind);
     }
   }
 }
@@ -2722,7 +2720,8 @@ llvm::raw_ostream &clang::operator<<(llvm::raw_ostream &OS,
 
 TargetOMPContext::TargetOMPContext(
     ASTContext &ASTCtx, std::function<void(StringRef)> &&DiagUnknownTrait,
-    const FunctionDecl *CurrentFunctionDecl)
+    const FunctionDecl *CurrentFunctionDecl,
+    ArrayRef<llvm::omp::TraitProperty> ConstructTraits)
     : OMPContext(ASTCtx.getLangOpts().OpenMPIsDevice,
                  ASTCtx.getTargetInfo().getTriple()),
       FeatureValidityCheck([&](StringRef FeatureName) {
@@ -2730,6 +2729,9 @@ TargetOMPContext::TargetOMPContext(
       }),
       DiagUnknownTrait(std::move(DiagUnknownTrait)) {
   ASTCtx.getFunctionFeatureMap(FeatureMap, CurrentFunctionDecl);
+
+  for (llvm::omp::TraitProperty Property : ConstructTraits)
+    addTrait(Property);
 }
 
 bool TargetOMPContext::matchesISATrait(StringRef RawString) const {
