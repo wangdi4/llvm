@@ -39,10 +39,6 @@ public:
   bool MaterializeSPIRV(llvm::Module *&pM);
 
 private:
-  /// If the program was compiled with optimization.
-  bool ifOptEnable();
-
-private:
   Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
   SPIRV::TranslatorOpts m_opts;
 };
