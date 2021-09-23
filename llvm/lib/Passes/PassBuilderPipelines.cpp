@@ -580,7 +580,6 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Form canonically associated expression trees, and simplify the trees using
   // basic mathematical properties. For example, this will form (nearly)
   // minimal multiplication trees.
-  FPM.addPass(ReassociatePass());
 #if INTEL_COLLAB
   if (!SPIRVOptimizationMode)
     FPM.addPass(ReassociatePass());
@@ -801,7 +800,12 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Form canonically associated expression trees, and simplify the trees using
   // basic mathematical properties. For example, this will form (nearly)
   // minimal multiplication trees.
+#if INTEL_COLLAB
+  if (!SPIRVOptimizationMode)
+    FPM.addPass(ReassociatePass());
+#else // INTEL_COLLAB
   FPM.addPass(ReassociatePass());
+#endif // INTEL_COLLAB
 
   // Add the primary loop simplification pipeline.
   // FIXME: Currently this is split into two loop pass pipelines because we run
