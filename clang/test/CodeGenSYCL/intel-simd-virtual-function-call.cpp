@@ -48,6 +48,5 @@ int main()
   });
 }
 
-
-//CHECK: attributes #[[ATT4]] = {{.*}}"vector_functions_ptrs"="_ZN1B3fooEi$SIMDTable()" }
-//CHECK: attributes #[[ATT5]] = {{.*}}"vector_functions_ptrs"="_ZN1A3fooEi$SIMDTable()" }
+//CHECK: attributes #[[ATT4]] = {{.*}}"vector_function_ptrs"="_ZN1B3fooEi$SIMDTable()" }
+//CHECK: attributes #[[ATT5]] = {{.*}}"vector_function_ptrs"="_ZN1A3fooEi$SIMDTable()" }

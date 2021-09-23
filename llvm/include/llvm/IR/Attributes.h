@@ -68,6 +68,16 @@ public:
   ///                      an exception might pass by.
   /// uwtable + nounwind = Needs an entry because the ABI says so.
 
+#if INTEL_CUSTOMIZATION
+  /// Expose symbolic names for string attribute names, so that we don't have
+  /// to use hardcoded string literals everywhere.
+  /// Typos in hardcoded string literals are not easy to be identified.
+  #define GET_ATTR_NAMES
+  #define ATTRIBUTE_STRING(SYMBOLIC_NAME, DISPLAY_NAME)                        \
+  static constexpr StringRef SYMBOLIC_NAME##StrAttr = #DISPLAY_NAME;
+  #include "llvm/IR/Attributes.inc"
+#endif
+
   enum AttrKind {
     // IR-Level Attributes
     None,                  ///< No attributes have been set
