@@ -12,7 +12,7 @@ struct A structVar2;
 void foo0()
 {
 //CHECK: br{{.*}}!llvm.loop [[MD3:![0-9]+]]
-[[intelfpga::ivdep()]]
+[[intel::ivdep()]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -21,7 +21,7 @@ for (int i = 0; i < 10; ++i) {}
 void foo1()
 {
 //CHECK: br{{.*}}!llvm.loop [[MD5:![0-9]+]]
-[[intelfpga::ivdep(4)]]
+[[intel::ivdep(4)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -34,7 +34,7 @@ void foo2()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD7:![0-9]+]]
-[[intelfpga::ivdep(ucharVar)]]
+[[intel::ivdep(ucharVar)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -47,7 +47,7 @@ void foo2a()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD10:![0-9]+]]
-[[intelfpga::ivdep(ucharVar, 4)]]
+[[intel::ivdep(ucharVar, 4)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -60,8 +60,8 @@ void foo3()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD13:![0-9]+]]
-[[intelfpga::ivdep(structVar, 8)]]
-[[intelfpga::ivdep(ucharVar, 8)]]
+[[intel::ivdep(structVar, 8)]]
+[[intel::ivdep(ucharVar, 8)]]
 for (int i = 0; i < 10; ++i) {}
 }
 // multiple ivdep with array specified and different safelen specified
@@ -73,8 +73,8 @@ void foo4()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD17:![0-9]+]]
-[[intelfpga::ivdep(structVar, 8)]]
-[[intelfpga::ivdep(ucharVar, 4)]]
+[[intel::ivdep(structVar, 8)]]
+[[intel::ivdep(ucharVar, 4)]]
 for (int i = 0; i < 10; ++i) {}
 }
 // multiple ivdep with array specified, not all safelen specified
@@ -86,8 +86,8 @@ void foo5()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD22:![0-9]+]]
-[[intelfpga::ivdep(structVar, 8)]]
-[[intelfpga::ivdep(ucharVar)]]
+[[intel::ivdep(structVar, 8)]]
+[[intel::ivdep(ucharVar)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -100,8 +100,8 @@ void foo6()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD27:![0-9]+]]
-[[intelfpga::ivdep(ucharVar, 4)]]
-[[intelfpga::ivdep()]]
+[[intel::ivdep(ucharVar, 4)]]
+[[intel::ivdep()]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -114,8 +114,8 @@ void foo7()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD28:![0-9]+]]
-[[intelfpga::ivdep(structVar2.tmp, 8)]]
-[[intelfpga::ivdep(ucharVar, 4)]]
+[[intel::ivdep(structVar2.tmp, 8)]]
+[[intel::ivdep(ucharVar, 4)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -128,8 +128,8 @@ void foo8()
 //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD33:![0-9]+]]
-[[intelfpga::ivdep(ucharVar, 8)]]
-[[intelfpga::ivdep(4)]]
+[[intel::ivdep(ucharVar, 8)]]
+[[intel::ivdep(4)]]
 for (int i = 0; i < 10; ++i) {}
 }
 
@@ -141,7 +141,7 @@ void foo9(long* buffer1)
 //CHECK: buffer1.addr.ascast = addrspacecast i64 addrspace(4)** %buffer1.addr to i64 addrspace(4)* addrspace(4)*
 //CHECK: store i64 addrspace(4)* %buffer1, i64 addrspace(4)* addrspace(4)* %buffer1.addr.ascast, align 8
 //CHECK: br label %while.body, !llvm.loop [[MD36:![0-9]+]]
-[[intelfpga::ivdep(buffer1)]]
+[[intel::ivdep(buffer1)]]
 while (1) { }
 }
 
@@ -160,7 +160,7 @@ int do_stuff(int N) {
   //CHECK: store i32 0, i32 addrspace(4)* %temp.ascast, align 4
   //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
   //CHECK: br{{.*}}!llvm.loop [[MD39:![0-9]+]]
-  [[intelfpga::ivdep(LEN)]]
+  [[intel::ivdep(LEN)]]
   for (int i = 0; i < N; ++i) {
     temp += i;
   }
