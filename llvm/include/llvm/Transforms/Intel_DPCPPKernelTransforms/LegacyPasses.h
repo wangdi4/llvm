@@ -10,6 +10,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
 
+#include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_VectorVariant.h" // for VectorVariant::ISAClass
 
 namespace llvm {
@@ -78,6 +79,8 @@ ModulePass *createSGSizeCollectorIndirectLegacyPass(VectorVariant::ISAClass);
 ModulePass *createSetVectorizationFactorLegacyPass(
     VectorVariant::ISAClass ISA = VectorVariant::XMM);
 ModulePass *createVFAnalysisLegacyPass();
+ModulePass *
+createHandleVPlanMaskLegacyPass(const StringSet<> *VPlanMaskedFuncs);
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
