@@ -209,6 +209,8 @@ private:
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
+    // Set to true for fake pointer DD ref which access type is known.  
+    bool CanUsePointeeSize;
 
     // Stores trailing structure element offsets for each dimension of the ref.
     // Consider the following structure GEP as an example-
@@ -664,6 +666,20 @@ public:
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
+  }
+
+  /// Returns true if fake mem ref has known access type.
+  bool canUsePointeeSize() const {
+    assert (isFake() && "Fake ref expected");
+    if (!hasGEPInfo())
+      return false;
+    return getGEPInfo()->CanUsePointeeSize;
+  }
+
+  /// Sets CanUsePointeeSize for this ref
+  void setCanUsePointeeSize(bool Val) {
+    assert (isFake() && "Fake ref expected");
+    getGEPInfo()->CanUsePointeeSize = Val;
   }
 
   /// \brief Returns true if this is a collapsed ref.

@@ -4397,13 +4397,18 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
 }
 
 void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
-                           bool IsRval) {
+                           bool IsRval, Type *PointeeType) {
   auto FakeRef = AddressRef->clone();
 
   // Reset AddressOf property as we want it to be a memref.
   FakeRef->setAddressOf(false);
 
   IsRval ? HInst->addFakeRvalDDRef(FakeRef) : HInst->addFakeLvalDDRef(FakeRef);
+
+  // Set 'CanUsePointeeSize'
+  if (PointeeType) {
+    FakeRef->setCanUsePointeeSize(true);
+  }
 
   // Copy ref -> value mapping for symbase assignment.
   GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
@@ -4670,9 +4675,18 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
         !Ref->accessesConstantArray() &&
         // Add fake DDRefs for bundle operands.
         (IsBundleOperand || !Call->paramHasAttr(I, Attribute::ReadNone))) {
-      addFakeRef(HInst, Ref,
-                 (!IsBundleOperand &&
-                  (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
+      bool CanUsePointeeSize =
+          !IsBundleOperand ? Call->paramHasAttr(I, Attribute::ByVal) : false;
+      bool IsRval =
+          (!IsBundleOperand &&
+           (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly) ||
+            CanUsePointeeSize));
+      Type *PointeeType =
+          CanUsePointeeSize ? Call->getParamByValType(I) : nullptr;
+      if (PointeeType && Ref->isSelfAddressOf(true))
+        setSelfRefElementTypeAndStride(Ref, PointeeType);
+
+      addFakeRef(HInst, Ref, IsRval, PointeeType);
     }
   }
 
