@@ -2318,6 +2318,8 @@ bool VPOParoptTransform::paroptTransforms() {
           }
           Changed |= sinkSIMDDirectives(W);
           Changed |= genParallelAccessMetadata(W);
+          Changed |= removeDistributeLoopBackedge(W);
+
           RemoveDirectives = true;
         }
         break;
@@ -7208,6 +7210,53 @@ bool VPOParoptTransform::genParallelAccessMetadata(WRegionNode *W) {
   Modified = true;
 
   return Modified;
+}
+
+bool VPOParoptTransform::removeDistributeLoopBackedge(WRegionNode *W) {
+  // For SPIRV target distribute loop can be eliminated if ND-range is known
+  // and distribute schedule is not static (or in other words is implementation
+  // defined). In this case each work group executes at most one iteration of
+  // the distribute loop, therefore we can safely remove the loop's back edge.
+  // This transformation is done at opt-levels >= 2.
+  if (OptLevel < 2 || !isTargetSPIRV() || !isa<WRNDistributeNode>(W) ||
+      !VPOParoptUtils::useSPMDMode(W) ||
+      W->getDistSchedule().getKind() == WRNScheduleDistributeStatic)
+    return false;
+
+  Loop *L = W->getWRNLoopInfo().getLoop();
+  assert(L && "Expect non-empty loop.");
+
+  BasicBlock *Header = L->getHeader();
+  BasicBlock *Latch = L->getLoopLatch();
+  assert(Header && Latch);
+
+  // Can it be anything other than conditional branch?
+  auto *BI = dyn_cast<BranchInst>(Latch->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+
+  // Remove back edge.
+  Header->removePredecessor(Latch);
+
+  // Replace conditional branch with unconditional.
+  BranchInst *NewBI =
+      BranchInst::Create(BI->getSuccessor(BI->getSuccessor(0) == Header), BI);
+  BI->eraseFromParent();
+
+  // Update dominator tree.
+  if (NewBI->getSuccessor(0) != Latch)
+    DT->deleteEdge(Latch, Header);
+
+  // Update loop info.
+  W->getWRNLoopInfo().setLoop(nullptr);
+  SE->forgetLoop(L);
+  LI->erase(L);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Removed distribute loop back edge for WRegion '"
+                    << W->getNumber() << "'.\n";);
+
+  return true;
 }
 
 void VPOParoptTransform::simplifyLoopPHINodes(
