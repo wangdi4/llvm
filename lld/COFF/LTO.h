@@ -38,7 +38,6 @@ namespace coff {
 
 class BitcodeFile;
 class InputFile;
-class COFFLinkerContext;
 
 class BitcodeCompiler {
 public:
@@ -48,8 +47,7 @@ public:
   void add(BitcodeFile &f);
 #if INTEL_CUSTOMIZATION
   std::vector<InputFile *>
-  compile(COFFLinkerContext &ctx,
-          std::vector<StringRef> *buffersOut = nullptr);
+  compile(std::vector<StringRef> *buffersOut = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
 private:
