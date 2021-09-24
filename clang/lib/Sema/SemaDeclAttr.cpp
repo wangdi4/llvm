@@ -4366,7 +4366,10 @@ static void handleSYCLIntelNumSimdWorkItemsAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
     return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   Expr *E = A.getArgAsExpr(0);
   S.AddSYCLIntelNumSimdWorkItemsAttr(D, A, E);
 }
@@ -4556,7 +4559,10 @@ static void handleSYCLIntelSchedulerTargetFmaxMhzAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
     return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
+
   Expr *E = AL.getArgAsExpr(0);
   S.AddSYCLIntelSchedulerTargetFmaxMhzAttr(D, AL, E);
 }
@@ -7193,6 +7199,8 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<AttrType>(S, D, A);
@@ -7211,6 +7219,8 @@ static void handleIntelFPGAMemoryAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAMemoryAttr>(S, D, AL);
@@ -7265,6 +7275,8 @@ static void handleIntelFPGARegisterAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGARegisterAttr>(S, D, A);
@@ -7355,7 +7367,10 @@ static void handleIntelFPGABankWidthAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   S.AddIntelFPGABankWidthAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7448,7 +7463,10 @@ static void handleIntelFPGANumBanksAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   S.AddIntelFPGANumBanksAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7457,6 +7475,8 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGASimpleDualPortAttr>(S, D, AL);
@@ -7548,7 +7568,10 @@ static void handleIntelFPGAMaxReplicatesAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   S.AddIntelFPGAMaxReplicatesAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7561,7 +7584,9 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, AL))
    return;
-#endif // INTEL
+
+  S.CheckDeprecatedSYCLAttributeSpelling(AL);
+#endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, AL);
 
@@ -7598,6 +7623,8 @@ static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<IntelFPGABankBitsAttr>(S, D, A);
@@ -7724,7 +7751,10 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   S.AddIntelFPGAPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
 }
 
@@ -7800,7 +7830,10 @@ static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
    return;
+
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
 #endif // INTEL_CUSTOMIZATION
+
   S.AddIntelFPGAForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
 }
 

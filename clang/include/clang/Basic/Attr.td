@@ -2215,7 +2215,8 @@ def IntelFPGASinglePump : Attr {
 }
 
 def IntelFPGAMemory : Attr {
-  let Spellings = [CXX11<"intel", "fpga_memory">];
+  let Spellings = [GNU<"memory">, // INTEL
+                   CXX11<"intel", "fpga_memory">];
   let Args = [EnumArgument<"Kind", "MemoryKind",
                            ["MLAB", "BLOCK_RAM", ""],
                            ["MLAB", "BlockRAM", "Default"], 1>];
@@ -2235,7 +2236,8 @@ def IntelFPGAMemory : Attr {
 }
 
 def IntelFPGARegister : Attr {
-  let Spellings = [CXX11<"intel", "fpga_register">];
+  let Spellings = [GNU<"register">, // INTEL
+                   CXX11<"intel", "fpga_register">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
@@ -2246,7 +2248,8 @@ def : MutualExclusions<[IntelFPGADoublePump, IntelFPGASinglePump,
 
 // One integral argument.
 def IntelFPGABankWidth : InheritableAttr {
-  let Spellings = [CXX11<"intel", "bankwidth">];
+  let Spellings = [GNU<"bankwidth">, // INTEL
+                   CXX11<"intel", "bankwidth">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
@@ -2256,7 +2259,8 @@ def IntelFPGABankWidth : InheritableAttr {
 def : MutualExclusions<[IntelFPGARegister, IntelFPGABankWidth]>;
 
 def IntelFPGANumBanks : InheritableAttr {
-  let Spellings = [CXX11<"intel", "numbanks">];
+  let Spellings = [GNU<"numbanks">, // INTEL
+                   CXX11<"intel", "numbanks">];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
@@ -2276,7 +2280,8 @@ def : MutualExclusions<[IntelFPGARegister, IntelFPGAPrivateCopies]>;
 
 // Two string arguments.
 def IntelFPGAMerge : Attr {
-  let Spellings = [CXX11<"intel", "merge">];
+  let Spellings = [GNU<"merge">, // INTEL
+                   CXX11<"intel", "merge">];
   let Args = [StringArgument<"Name">, StringArgument<"Direction">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalOrStaticVar,
                               Field], ErrorDiag>;
@@ -2323,7 +2328,8 @@ def SYCLIntelPipeIO : Attr {
 
 // Variadic integral arguments.
 def IntelFPGABankBits : Attr {
-  let Spellings = [CXX11<"intel", "bank_bits">];
+  let Spellings = [GNU<"bank_bits">, // INTEL
+                   CXX11<"intel", "bank_bits">];
   let Args = [VariadicExprArgument<"Args">];
   let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
