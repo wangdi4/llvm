@@ -642,16 +642,11 @@ void Writer::run() {
   }
   writeBuildId();
 
-<<<<<<< HEAD
-  writeLLDMapFile(outputSections);
-  writeMapFile(outputSections);
-#ifdef INTEL_CUSTOMIZATION
-  outputSections.clear();
-#endif // INTEL_CUSTOMIZATION
-=======
   writeLLDMapFile(ctx);
   writeMapFile(ctx);
->>>>>>> b4fa71eed34d967195514fe9b0a5211fca2bc5bc
+#ifdef INTEL_CUSTOMIZATION
+  ctx.outputSections.clear();
+#endif // INTEL_CUSTOMIZATION
 
   if (errorCount())
     return;

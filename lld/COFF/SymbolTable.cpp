@@ -461,7 +461,7 @@ void SymbolTable::reportUnresolvable() {
 #if INTEL_CUSTOMIZATION
     // If LTO is enabled then skip SVML intrinsics, these will
     // be emitted by CodeGen.
-    if (!BitcodeFile::instances.empty() && IsSVMLSymbol(name))
+    if (!ctx.bitcodeFileInstances.empty() && IsSVMLSymbol(name))
       continue;
 #endif // INTEL_CUSTOMIZATION
     if (name.contains("_PchSym_"))
@@ -577,11 +577,11 @@ Symbol *SymbolTable::addUndefined(StringRef name, InputFile *f,
 // This is kept here so as to support calling runMSVCLinker from Driver.cpp.
 std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
   lto.reset(new BitcodeCompiler);
-  for (BitcodeFile *f : BitcodeFile::instances)
+  for (BitcodeFile *f : ctx.bitcodeFileInstances)
     lto->add(*f);
 
   std::vector<StringRef> objFiles;
-  lto->compile(&objFiles);
+  lto->compile(ctx, &objFiles);
   return objFiles;
 }
 #endif //  INTEL_CUSTOMIZATION
