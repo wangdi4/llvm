@@ -9,11 +9,9 @@
 // thinlto compile.
 // RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO-OLDPM
 // RUN: %clang_cc1 -mllvm -debug-pass=Structure -O2 -fno-experimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO-OLDPM
-// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 =======
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
+// RUN: %clang_cc1 -fexperimental-new-pass-manager -fdebug-pass-manager -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 >>>>>>> 8a7a28075b7fa70d56b131c10a4d1add777d5830
 
 int baz(int);
