@@ -1,11 +1,13 @@
 ; RUN: opt < %s -force-hir-cg -S -hir-ssa-deconstruction -hir-cg | FileCheck %s
 ; RUN: opt < %s -force-hir-cg -S -passes="hir-ssa-deconstruction,hir-cg" 2>&1 | FileCheck %s
+; RUN: opt < %s -force-opaque-pointers -force-hir-cg -S -passes="hir-ssa-deconstruction,hir-cg" 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: region.0
 ; CHECK: loop{{.*}}:
-; CHECK-NEXT: %[[IV:.*]] = load i64, i64* %i1.i64
-; CHECK-NEXT: %[[P:.*]] = getelementptr inbounds [100 x float], [100 x float]* %"foo_$X", i64 0, i64 %[[IV]]
-; CHECK-NEXT: store float 1.500000e+01, float* %[[P]]
+; CHECK-NEXT: %[[IV:.*]] = load i64, {{.*}} %i1.i64
+; CHECK-NEXT: %[[P:.*]] = getelementptr inbounds [100 x float], {{.*}} %"foo_$X", i64 0, i64 %[[IV]]
+; CHECK-NEXT: store float 1.500000e+01, {{.*}} %[[P]]
+
 
 source_filename = "fortran-simple.f"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
