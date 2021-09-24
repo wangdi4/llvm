@@ -521,29 +521,6 @@ static const MDNode *getLeastCommonType(const MDNode *A, const MDNode *B) {
   return Ret;
 }
 
-<<<<<<< HEAD
-void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
-  if (Merge) {
-    N.TBAA =
-        MDNode::getMostGenericTBAA(N.TBAA, getMetadata(LLVMContext::MD_tbaa));
-    N.TBAAStruct = nullptr;
-    N.Scope = MDNode::getMostGenericAliasScope(
-        N.Scope, getMetadata(LLVMContext::MD_alias_scope));
-    N.NoAlias =
-        MDNode::intersect(N.NoAlias, getMetadata(LLVMContext::MD_noalias));
-  } else {
-    N.TBAA = getMetadata(LLVMContext::MD_tbaa);
-    N.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
-    N.Scope = getMetadata(LLVMContext::MD_alias_scope);
-    N.NoAlias = getMetadata(LLVMContext::MD_noalias);
-  }
-
-#if INTEL_CUSTOMIZATION
-  N.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
-
-  N.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
-#endif // INTEL_CUSTOMIZATION
-=======
 AAMDNodes AAMDNodes::merge(const AAMDNodes &Other) const {
   AAMDNodes Result;
   Result.TBAA = MDNode::getMostGenericTBAA(TBAA, Other.TBAA);
@@ -559,8 +536,13 @@ AAMDNodes Instruction::getAAMetadata() const {
   Result.TBAAStruct = getMetadata(LLVMContext::MD_tbaa_struct);
   Result.Scope = getMetadata(LLVMContext::MD_alias_scope);
   Result.NoAlias = getMetadata(LLVMContext::MD_noalias);
+
+#if INTEL_CUSTOMIZATION
+  Result.StdContainerPtr = getMetadata(LLVMContext::MD_std_container_ptr);
+
+  Result.StdContainerPtrIter = getMetadata(LLVMContext::MD_std_container_ptr_iter);
+#endif // INTEL_CUSTOMIZATION
   return Result;
->>>>>>> 0fc624f029f568e91caf74d90abc5d8d971151c2
 }
 
 static const MDNode *createAccessTag(const MDNode *AccessType) {

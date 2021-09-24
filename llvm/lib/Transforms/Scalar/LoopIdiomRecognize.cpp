@@ -1385,9 +1385,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
       StrStart, Builder.getInt8PtrTy(StrAS), Preheader->getTerminator());
 
 #if INTEL_CUSTOMIZATION
-  AAMDNodes AAInfo;
   // Pass the tbaa metadata for the store location to the alias queries.
-  TheStore->getAAMetadata(AAInfo);
+  AAMDNodes AAInfo = TheStore->getAAMetadata();
 #endif // INTEL_CUSTOMIZATION
 
   // From here on out, conservatively report to the pass manager that we've
