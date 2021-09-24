@@ -5702,6 +5702,7 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
       // Insert the if-merge block label if not inserted already. This is
       // placed after the if or after the loop if the conditional branch
       // is in a loop latch(check that Succ1 is a loop header block).
+      assert(PDT->getNode(SourceBB) && "SourceBB should be in PDT");
       auto *IfSuccBlock =
           ElseFallThru ? Succ2 : PDT->getNode(SourceBB)->getIDom()->getBlock();
       HLNode *IfSuccLabel = getOrCreateBlockLabel(IfSuccBlock);

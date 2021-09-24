@@ -238,6 +238,7 @@ class StagingBufferTy {
 public:
   ~StagingBufferTy() {
     ze_result_t Rc;
+    (void)Rc; // GCC build compiler thinks Rc is unused for some reason.
     for (auto Ptr : Buffers)
       CALL_ZE(Rc, zeMemFree, Context, Ptr);
   }
