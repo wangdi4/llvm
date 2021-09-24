@@ -2815,8 +2815,8 @@ bool VPOParoptTransform::genFastGPUReductionScalarFini(WRegionNode *W,
   // assert(UpdateBB->getFirstInsertionPt() == UpdateBB->begin());
   GPURedUpdateBBs[W] = UpdateBB;
   auto *ExitBB = UpdateBB->getSingleSuccessor();
-  ExitBB->setName("fast.red.gpu.update.exit");
   assert(ExitBB);
+  ExitBB->setName("fast.red.gpu.update.exit");
   Builder.SetInsertPoint(UpdateBB, UpdateBB->begin());
   auto *LocalSize = VPOParoptUtils::genOCLGenericCall(
       "_Z14get_local_sizej", SizeTy, Builder.getInt32(0),
