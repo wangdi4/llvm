@@ -253,6 +253,7 @@ void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
   llvm::copy(A, getFinalsConditions().begin());
 }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #define DEFINE_UNCOLLAPSED_SET(Name)                                                   \
   void OMPLoopDirective::setUncollapsed##Name(ArrayRef<Expr *> A) {            \
@@ -270,6 +271,27 @@ void OMPLoopDirective::setFinalsConditions(ArrayRef<Expr *> A) {
   DEFINE_UNCOLLAPSED_SET(Updates)
 #undef DEFINE_UNCOLLAPSED_SET
 #endif // INTEL_COLLAB
+=======
+OMPMetaDirective *OMPMetaDirective::Create(const ASTContext &C,
+                                           SourceLocation StartLoc,
+                                           SourceLocation EndLoc,
+                                           ArrayRef<OMPClause *> Clauses,
+                                           Stmt *AssociatedStmt, Stmt *IfStmt) {
+  auto *Dir = createDirective<OMPMetaDirective>(
+      C, Clauses, AssociatedStmt, /*NumChildren=*/1, StartLoc, EndLoc);
+  Dir->setIfStmt(IfStmt);
+  return Dir;
+}
+
+OMPMetaDirective *OMPMetaDirective::CreateEmpty(const ASTContext &C,
+                                                unsigned NumClauses,
+                                                EmptyShell) {
+  return createEmptyDirective<OMPMetaDirective>(C, NumClauses,
+                                                /*HasAssociatedStmt=*/true,
+                                                /*NumChildren=*/1);
+}
+
+>>>>>>> 347f3c186d3fd86628904450d2f4ee0ffd428150
 OMPParallelDirective *OMPParallelDirective::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
     ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *TaskRedRef,

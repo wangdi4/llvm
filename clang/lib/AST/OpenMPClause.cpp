@@ -178,6 +178,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+  case OMPC_when:
     break;
   default:
     break;
@@ -278,6 +279,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_bind:
 #endif //INTEL_COLLAB
@@ -287,6 +289,9 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_when:
+>>>>>>> 347f3c186d3fd86628904450d2f4ee0ffd428150
     break;
   default:
     break;
