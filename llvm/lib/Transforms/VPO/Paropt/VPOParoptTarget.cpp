@@ -4422,16 +4422,68 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   if (InteropObj != nullptr && W->getNowait() == false)
     VPOParoptUtils::genTgtReleaseInterop(InteropObj, BaseCall, true); //    (9)
 
+  // BaseCall's original arguments before outlining the call in WrapperFn are
+  // used to find corresponding arguments in VariantWrapperCall in order to
+  // propagate the ByVal and alignment attributes.
+  SmallVector<Value *, 4> BaseArgs(BaseCall->arg_operands());
+
   BaseCall->replaceAllUsesWith(VariantCall);
   assert(BaseCall->use_empty());
-  BaseCall->eraseFromParent();
 
   Function *WrapperFn = VPOParoptUtils::genOutlineFunction(
       *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
   CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
-  getAndReplaceDevicePtrs(W, VariantWrapperCall);
+  // BaseCall may have arguments with the ByVal attribute, with or without an
+  // alignment attribute. Propagate such attributes to the corresponding
+  // arguments in VariantWrapperCall and the corresponding formal parameters in
+  // WrapperFn. Example:
+  // - BaseCall:
+  //          call void @foo1(%struct.A* byval(%struct.A) align 8 %AAA)
+  // - WrapperCall before:
+  //          call void @foo2.wrapper(%struct.A* %AAA)
+  // - WrapperCall after:
+  //          call void @foo2.wrapper(%struct.A* byval(%struct.A) align 8 %AAA)
+  LLVMContext &C = Builder.getContext();
+  FunctionType *WrapperFnTy = VariantWrapperCall->getFunctionType();
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+    if (BaseCall->isByValArgument(ArgNum)) {
+      Value *BaseArg = BaseArgs[ArgNum];
+      MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
+      Align Aln = MayAln.valueOrOne();
+      unsigned Alignment = Aln.value();
+      // Find BaseArg in VariantWrapperCall to propagate its ByVal and Alignment
+      // attributes to both the wrapper call and the wrapper function.
+      for (unsigned WrapperArgNum = 0;
+           WrapperArgNum < VariantWrapperCall->getNumArgOperands();
+           ++WrapperArgNum) {
+        Value *WrapperArg = VariantWrapperCall->getArgOperand(WrapperArgNum);
+        if (BaseArg == WrapperArg) {
+          Type *ArgType = WrapperFnTy->getParamType(WrapperArgNum);
+          assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
+          VariantWrapperCall->addParamAttr(
+              WrapperArgNum,
+              Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+          WrapperFn->addParamAttr(
+              WrapperArgNum,
+              Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+          if (Alignment > 1) {
+            VariantWrapperCall->addParamAttr(
+                WrapperArgNum,
+                Attribute::getWithAlignment(C, Align(Alignment)));
+            WrapperFn->addParamAttr(WrapperArgNum, Attribute::getWithAlignment(
+                                                       C, Align(Alignment)));
+          }
+          break; // skip remaining args in VariantWrapperCall
+        }
+      } // for WrapperArgNum
+    }   // if
+  }     // for ArgNum
 
+  BaseCall->eraseFromParent();
+  getAndReplaceDevicePtrs(W, VariantWrapperCall);
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Wrapper Call:" << *VariantWrapperCall
+                    << "\n");
   LLVM_DEBUG(
       dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
   W->resetBBSet(); // Invalidate BBSet after transformations
