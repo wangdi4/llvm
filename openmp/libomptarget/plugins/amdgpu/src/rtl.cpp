@@ -365,7 +365,11 @@ isValidMemoryPool(hsa_amd_memory_pool_t MemoryPool) {
 template <typename AccumulatorFunc>
 hsa_status_t collectMemoryPools(const std::vector<hsa_agent_t> &Agents,
                                 AccumulatorFunc Func) {
+#if INTEL_COLLAB
+  for (int DeviceId = 0; (size_t)DeviceId < Agents.size(); DeviceId++) {
+#else // INTEL_COLLAB
   for (int DeviceId = 0; DeviceId < Agents.size(); DeviceId++) {
+#endif // INTEL_COLLAB
     hsa_status_t Err = hsa::amd_agent_iterate_memory_pools(
         Agents[DeviceId], [&](hsa_amd_memory_pool_t MemoryPool) {
           hsa_status_t Err;
@@ -596,7 +600,12 @@ public:
 
   hsa_status_t addDeviceMemoryPool(hsa_amd_memory_pool_t MemoryPool,
                                    int DeviceId) {
+#if INTEL_COLLAB
+    assert((size_t)DeviceId < DeviceFineGrainedMemoryPools.size() &&
+           "Error here.");
+#else // INTEL_COLLAB
     assert(DeviceId < DeviceFineGrainedMemoryPools.size() && "Error here.");
+#endif // INTEL_COLLAB
     uint32_t GlobalFlags = 0;
     hsa_status_t Err = hsa_amd_memory_pool_get_info(
         MemoryPool, HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS, &GlobalFlags);
@@ -660,8 +669,14 @@ public:
   }
 
   hsa_amd_memory_pool_t getDeviceMemoryPool(int DeviceId) {
+#if INTEL_COLLAB
+    assert(DeviceId >= 0 &&
+           (size_t)DeviceId < DeviceCoarseGrainedMemoryPools.size() &&
+           "Invalid device Id");
+#else // INTEL_COLLAB
     assert(DeviceId >= 0 && DeviceId < DeviceCoarseGrainedMemoryPools.size() &&
            "Invalid device Id");
+#endif // INTEL_COLLAB
     return DeviceCoarseGrainedMemoryPools[DeviceId];
   }
 
@@ -1898,7 +1913,11 @@ launchVals getLaunchVals(int WarpSize, EnvironmentVariables Env,
 
   int Max_Teams =
       Env.MaxTeamsDefault > 0 ? Env.MaxTeamsDefault : DeviceNumTeams;
+#if INTEL_COLLAB
+  if ((unsigned)Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
+#else // INTEL_COLLAB
   if (Max_Teams > RTLDeviceInfoTy::HardTeamLimit)
+#endif // INTEL_COLLAB
     Max_Teams = RTLDeviceInfoTy::HardTeamLimit;
 
   if (print_kernel_trace & STARTUP_DETAILS) {
