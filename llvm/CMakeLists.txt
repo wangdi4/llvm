@@ -94,8 +94,20 @@ set(LLVM_ALL_PROJECTS "clang;clang-tools-extra;compiler-rt;cross-project-tests;l
 set(LLVM_EXTRA_PROJECTS "flang")
 # List of all known projects in the mono repo
 set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
+if (INTEL_CUSTOMIZATION)
+  # List of Intel specific projects
+  set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
+  # List of all known projects in the mono repo
+  set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
+endif (INTEL_CUSTOMIZATION)
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_KNOWN_PROJECTS}), or \"all\".")
+foreach(proj ${LLVM_ENABLE_PROJECTS})
+  if (NOT proj STREQUAL "all" AND NOT proj STREQUAL "llvm" AND NOT "${proj}" IN_LIST LLVM_KNOWN_PROJECTS)
+     MESSAGE(FATAL_ERROR "${proj} isn't a know project: ${LLVM_KNOWN_PROJECTS}")
+  endif()
+endforeach()
+
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
   set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})
 endif()
