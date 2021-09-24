@@ -323,7 +323,6 @@ void HIRLoopCollapse::setupEnvLoopNest(HLLoop *OutermostLp,
 }
 
 bool HIRLoopCollapse::doAnalysis(HLLoop *InnermostLp) {
-
   if (!doPreliminaryChecks()) {
     LLVM_DEBUG(dbgs() << "HIRLoopCollapse::doPreliminaryChecks() failed\n");
     return false;
@@ -462,6 +461,54 @@ bool HIRLoopCollapse::areGEPRefsLegal(HLLoop *InnerLp) {
   return NumCollapsableLoops > 1;
 }
 
+// For any partial match: check for anomaly in any unmatched dimension(s).
+//
+// E.g.
+// |i1:
+// ||i2:
+// ||    . = A[i1][i2][i1][i2];
+// ||          ^   ^
+// ||         (1)  (2)
+// ||    ...
+//
+// This function should return false.
+//
+// Return: bool
+// - true: if there is NO anomaly in any un-match dimension
+//         - the unmatched dimensions are all good.
+// - false: otherwise.
+//
+static bool hasValidUnmatchedDims(RegDDRef *Ref, unsigned MatchedDims,
+                                  const unsigned OutermostLoopLevel) {
+  const unsigned DimMax = Ref->getNumDimensions();
+  assert((MatchedDims >= 2) && (MatchedDims <= DimMax));
+
+  // Check: in any non-matched dimension index -- CE, expect any call to
+  // CE->isInvariantAtLevel(OutermostLoopLevel) is true.
+  //
+  // E.g.
+  // | i1
+  // || i2
+  // ||    . = A[i1][i2][i1][i2];
+  //             ^   ^
+  //            (1) (2)
+  // The partial match recognized 2 dimensions (dim1-dim2). Consider the
+  // high-dimension CEs in both (1) and (2), if any CE->isInvariantAtLevel(1)
+  // is not true, bail out and return 0 as the final result.
+  //
+  // [Note]
+  // - 1 is the outermost loop level (i1).
+  //
+  for (unsigned I = MatchedDims + 1; I <= DimMax; ++I) {
+    if (Ref->getDimensionIndex(I)->isInvariantAtLevel(OutermostLoopLevel) ==
+        false) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // ------------------------------
 // GEPRef        |CollapseLevel |
 // ------------------------------
@@ -524,25 +571,19 @@ unsigned HIRLoopCollapse::getNumCollapsableLevels(RegDDRef *GEPRef) {
     return 0;
   }
 
-  // Check for the dimensions outside [1, Idx], i.e. [idx + 1,
-  // getNumDimensions()], These dimensions should not have IV in the range of
-  // collapsed loop levels. I.e. [OutermostCollapsableLevel, InnermostLevel].
+  // Check the dimensions outside [1, Idx], i.e. [idx+1, getNumDimensions()].
+  // These dimensions should not have IV in the range of collapsed loop levels.
+  // I.e. [OutermostCollapsableLevel, InnermostLevel].
   // E.g. [i2][i2][i3] is not valid when two innermost loops are collapsed.
   // Note that in a ref [3rd dim][2nd dim][1st dim], but in loop-level
   // [i1][i2][i3].
-  unsigned OutermostCollapsableLevel =
+  const unsigned OutermostCollapsableLevel =
       InnermostLevel - NewNumCollapsableLevels + 1;
 
-  for (unsigned I = Idx, E = GEPRef->getNumDimensions(); I <= E; I++) {
-    CanonExpr *CE = GEPRef->getDimensionIndex(I);
-    for (unsigned K = InnermostLevel; K >= OutermostCollapsableLevel; K--) {
-      if (CE->hasIV(K)) {
-        return 0;
-      }
-    }
-  }
-
-  return NewNumCollapsableLevels;
+  return hasValidUnmatchedDims(GEPRef, NewNumCollapsableLevels,
+                               OutermostCollapsableLevel)
+             ? NewNumCollapsableLevels
+             : 0;
 }
 
 unsigned HIRLoopCollapse::getNumMatchedDimensions(RegDDRef *GEPRef) {
@@ -913,7 +954,7 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
   //[Note]
   // - the pattern is accumulating multiplications in blob form.
   LLVM_DEBUG({
-    dbgs() << "\nCarryBlob - index: " << CarryBlob << ",\tBlob Print: ";
+    dbgs() << "CarryBlob - index: " << CarryBlob << ",\tBlob Print: ";
     BU->printBlob(dbgs(), BU->getBlob(CarryBlob));
     dbgs() << "\n";
   });
@@ -951,7 +992,7 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
 
     unsigned StrideBlobIndex = StrideCE->getSingleBlobIndex();
     LLVM_DEBUG({
-      dbgs() << "\nStrideBlobIndex - index: " << StrideBlobIndex
+      dbgs() << "StrideBlobIndex - index: " << StrideBlobIndex
              << ",\tBlob Print: ";
       BU->printBlob(dbgs(), BU->getBlob(StrideBlobIndex));
       dbgs() << "\n";
@@ -993,7 +1034,16 @@ unsigned HIRLoopCollapse::matchMultiDimDynShapeArray(RegDDRef *Ref,
     CarryBlob = NewBlobIndex;
   }
 
-  return Dim - 1;
+  // For a potential partial match, check any un-matched dimension(s):
+  const unsigned MatchedDimNum = Dim - 1;
+  if (MatchedDimNum < 2) {
+    return 0;
+  }
+
+  const unsigned OutermostLoopLevel = Level - Dim + 2;
+  return hasValidUnmatchedDims(Ref, MatchedDimNum, OutermostLoopLevel)
+             ? MatchedDimNum
+             : 0;
 }
 
 unsigned HIRLoopCollapse::matchCEOnIVLevels(CanonExpr *CE) const {
