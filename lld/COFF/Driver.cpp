@@ -289,16 +289,12 @@ void LinkerDriver::addArchiveBuffer(MemoryBufferRef mb, StringRef symName,
   if (magic == file_magic::coff_object) {
     obj = make<ObjFile>(ctx, mb);
   } else if (magic == file_magic::bitcode) {
-<<<<<<< HEAD
-    obj = make<BitcodeFile>(mb, parentName, offsetInArchive);
-  #if INTEL_CUSTOMIZATION
+    obj = make<BitcodeFile>(ctx, mb, parentName, offsetInArchive);
+#if INTEL_CUSTOMIZATION
   } else if (magic == file_magic::coff_cl_gl_object) {
     msGLFilesFound = true;
     return;
   #endif // INTEL_CUSTOMIZATION
-=======
-    obj = make<BitcodeFile>(ctx, mb, parentName, offsetInArchive);
->>>>>>> 6f7483b1ece4747f2aafe4baa05fc07e7dc9ed9d
   } else {
     error("unknown file type: " + mb.getBufferIdentifier());
     return;
@@ -1032,7 +1028,7 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
   // Write out archive members that we used in symbol resolution and pass these
   // to MSVC before any archives, so that MSVC uses the same objects to satisfy
   // references.
-  for (ObjFile *obj : ObjFile::instances) {
+  for (ObjFile *obj : ctx.objFileInstances) {
     if (obj->parentName.empty())
       continue;
     SmallString<128> s;
@@ -1073,9 +1069,8 @@ void LinkerDriver::invokeMSVC(opt::InputArgList &args) {
   }
 
   std::vector<StringRef> objFiles;
-  if (!BitcodeFile::instances.empty())
-    objFiles = symtab->compileBitcodeFiles();
-
+  if (!ctx.bitcodeFileInstances.empty())
+    objFiles = ctx.symtab.compileBitcodeFiles();
 
   runMSVCLinker(rsp, objFiles);
 

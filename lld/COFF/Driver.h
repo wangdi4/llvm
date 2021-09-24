@@ -162,16 +162,12 @@ private:
   std::vector<MemoryBufferRef> resources;
 
   llvm::StringSet<> directivesExports;
-<<<<<<< HEAD
+  COFFLinkerContext &ctx;
 #if INTEL_CUSTOMIZATION
   // Return true if argv contains an response file (@) and the file
   // contains /lib, else return false.
   bool processLibInResponseFile(llvm::ArrayRef<const char *> argv);
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  COFFLinkerContext &ctx;
->>>>>>> 6f7483b1ece4747f2aafe4baa05fc07e7dc9ed9d
 };
 
 // Functions below this line are defined in DriverUtils.cpp.

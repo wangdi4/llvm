@@ -49,9 +49,9 @@ public:
 private:
   void print(int depth, double totalDuration, bool recurse = true) const;
 
+  std::string name;
   std::atomic<std::chrono::nanoseconds::rep> total;
   std::vector<Timer *> children;
-  std::string name;
 };
 
 } // namespace lld
