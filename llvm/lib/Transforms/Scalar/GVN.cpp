@@ -1388,8 +1388,7 @@ void GVN::eliminatePartiallyRedundantLoad(
     }
 
     // Transfer the old load's AA tags to the new load.
-    AAMDNodes Tags;
-    Load->getAAMetadata(Tags);
+    AAMDNodes Tags = Load->getAAMetadata();
     if (Tags)
       NewLoad->setAAMetadata(Tags);
 
