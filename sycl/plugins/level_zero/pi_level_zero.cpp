@@ -6168,7 +6168,9 @@ static pi_result USMFreeHelper(pi_context Context, void *Ptr) {
           (Context->ZeContext, Ptr, &ZeMemoryAllocationProperties,
            &ZeDeviceHandle));
 
-  if (ZeDeviceHandle) {
+  // The below assumtions are only valid for shared and device allocations.
+  if (ZeDeviceHandle &&
+      ZeMemoryAllocationProperties.type != ZE_MEMORY_TYPE_HOST) {
     pi_device Device;
     if (Context->Devices.size() == 1) {
       Device = Context->Devices[0];
