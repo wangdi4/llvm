@@ -38,40 +38,40 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP1:%.*]] = icmp sgt i32 [[VP0]] i32 7
-; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin11
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin24
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.begin11: # preds: [[BB2]]
+; CHECK-NEXT:    all.zero.bypass.begin24: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP1]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end13, [[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end26, [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin11
+; CHECK-NEXT:      [[BB4]]: # preds: all.zero.bypass.begin24
 ; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[ADD20:%.*]] i32* [[VP_ARRAYIDX4]]
-; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end13
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end26
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.end13: # preds: [[BB4]], all.zero.bypass.begin11
+; CHECK-NEXT:    all.zero.bypass.end26: # preds: [[BB4]], all.zero.bypass.begin24
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: all.zero.bypass.end13
+; CHECK-NEXT:    [[BB5]]: # preds: all.zero.bypass.end26
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[DIV0:%.*]] i32* [[VP_ARRAYIDX6]]
-; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin15
+; CHECK-NEXT:     [DA: Uni] br all.zero.bypass.begin28
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.begin15: # preds: [[BB5]]
+; CHECK-NEXT:    all.zero.bypass.begin28: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK_1:%.*]] = all-zero-check i1 [[VP_CMP1]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK_1]], all.zero.bypass.end17, [[BB6:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK_1]], all.zero.bypass.end30, [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.begin15
+; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.begin28
 ; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_CMP1]]
 ; CHECK-NEXT:       [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[D0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[MUL110:%.*]] i32* [[VP_ARRAYIDX13]]
-; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end17
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.end30
 ; CHECK-EMPTY:
-; CHECK-NEXT:    all.zero.bypass.end17: # preds: [[BB6]], all.zero.bypass.begin15
+; CHECK-NEXT:    all.zero.bypass.end30: # preds: [[BB6]], all.zero.bypass.begin28
 ; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end17
+; CHECK-NEXT:    [[BB3]]: # preds: all.zero.bypass.end30
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]

@@ -1558,18 +1558,24 @@ void VPlanVector::computeDA() {
 }
 
 void VPlan::cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  allocateLiveInValues(OrigPlan.getLiveInValuesSize());
   for (auto OrigLI : OrigPlan.liveInValues()) {
-    auto ClonedLI = OrigLI->clone();
-    addLiveInValue(ClonedLI);
-    Mapper.registerClone(OrigLI, ClonedLI);
+    if (OrigLI) {
+      auto ClonedLI = OrigLI->clone();
+      setLiveInValue(ClonedLI, ClonedLI->getMergeId());
+      Mapper.registerClone(OrigLI, ClonedLI);
+    }
   }
 }
 
 void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  allocateLiveOutValues(OrigPlan.getLiveOutValuesSize());
   for (auto OrigLO : OrigPlan.liveOutValues()) {
-    auto ClonedLO = OrigLO->clone();
-    addLiveOutValue(ClonedLO);
-    Mapper.registerClone(OrigLO, ClonedLO);
+    if (OrigLO) {
+      auto ClonedLO = OrigLO->clone();
+      setLiveOutValue(ClonedLO, ClonedLO->getMergeId());
+      Mapper.registerClone(OrigLO, ClonedLO);
+    }
   }
 }
 

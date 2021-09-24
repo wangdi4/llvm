@@ -316,8 +316,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
     for (auto &Pair : LVP.getAllVPlans()) {
       std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
+      VPLoop *VLoop = Plan->getMainLoop(true);
       // Masked variant is not generated for loops without normalized induction.
-      if ((*(Plan->getVPLoopInfo())->begin())->hasNormalizedInduction())
+      if (VLoop->hasNormalizedInduction())
         if (!Pair.second.MaskedModeLoop) {
           auto It = OrigClonedVPlans.find(Plan.get());
           if (It != OrigClonedVPlans.end()) {
@@ -325,6 +326,23 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
                                                 Plan, It->second});
             continue;
           }
+          // Check whether we have a known TC and it's a power of two and is
+          // less than maximum VF. In such cases the masked mode loop will be
+          // most likely not used. (Peeling will be unprofitable and remainder
+          // can be created unmasked.) This will allow us saving compile time
+          // e.g. during function vectorization.
+          // TODO: implement target check, i.e. whether target has instructions
+          // to implement masked operations. If there are no such insructions we
+          // don't enable masked variants. Though, that probably better to leave
+          // for cost modeling.
+          uint64_t TripCount = VLoop->getTripCountInfo().TripCount;
+          if (!VLoop->getTripCountInfo().IsEstimated) {
+            auto Max = *(std::max_element(LVP.getVectorFactors().begin(),
+                                          LVP.getVectorFactors().end()));
+            if (isPowerOf2_64(TripCount) && TripCount <= Max)
+              continue;
+          }
+
           MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
           std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
           OrigClonedVPlans[Plan.get()] = MaskedPlan;

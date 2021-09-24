@@ -15,13 +15,13 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK:       DIR.OMP.SIMD.2:
 ; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(double* [[A:%.*]], i64 64) ]
 ; CHECK-NEXT:    br label [[PEEL_CHECKZ11:%.*]]
-; CHECK:       peel.checkz11:
+; CHECK:       peel.checkz18:
 ; CHECK-NEXT:    br label [[PEELBLK6:%.*]]
-; CHECK:       PeelBlk6:
+; CHECK:       PeelBlk13:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[MERGE_BLK9:%.*]]
-; CHECK:       merge.blk9:
+; CHECK:       merge.blk16:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ [[ADD:%.*]], [[VPLANNEDBB:%.*]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:

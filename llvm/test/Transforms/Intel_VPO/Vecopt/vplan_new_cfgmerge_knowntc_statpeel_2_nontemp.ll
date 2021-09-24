@@ -15,15 +15,15 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK:       DIR.OMP.SIMD.2:
 ; CHECK-NEXT:    call void @llvm.assume(i1 true) [ "align"(double* [[A:%.*]], i64 64) ]
 ; CHECK-NEXT:    br label [[PEEL_CHECKZ16:%.*]]
-; CHECK:       peel.checkz16:
+; CHECK:       peel.checkz23:
 ; CHECK-NEXT:    br label [[PEEL_CHECKV17:%.*]]
-; CHECK:       peel.checkv17:
+; CHECK:       peel.checkv24:
 ; CHECK-NEXT:    br i1 false, label [[MERGE_BLK12:%.*]], label [[PEELBLK6:%.*]]
-; CHECK:       PeelBlk6:
+; CHECK:       PeelBlk13:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY_SL_CLONE:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[MERGE_BLK14:%.*]]
-; CHECK:       merge.blk14:
+; CHECK:       merge.blk21:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ [[ADD_SL_CLONE:%.*]], [[VPLANNEDBB:%.*]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
@@ -54,10 +54,10 @@ define dso_local void @_Z7ntstorePd(double* %A) local_unnamed_addr #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    br i1 false, label [[FINAL_MERGE:%.*]], label [[MERGE_BLK12]]
-; CHECK:       merge.blk12:
+; CHECK:       merge.blk19:
 ; CHECK-NEXT:    [[UNI_PHI9:%.*]] = phi i64 [ 131071, [[VPLANNEDBB8]] ], [ 0, [[PEEL_CHECKV17]] ], [ [[UNI_PHI]], [[VPLANNEDBB1]] ]
 ; CHECK-NEXT:    br label [[REMBLK8:%.*]]
-; CHECK:       RemBlk8:
+; CHECK:       RemBlk15:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY:%.*]]
 ; CHECK:       VPlannedBB10:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]

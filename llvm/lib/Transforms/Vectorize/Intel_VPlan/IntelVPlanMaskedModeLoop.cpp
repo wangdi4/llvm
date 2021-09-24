@@ -25,7 +25,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 cl::opt<bool> EnableMaskedVariant("vplan-enable-masked-variant",
-                                  cl::init(false), cl::Hidden,
+                                  cl::init(true), cl::Hidden,
                                   cl::desc("Enable masked variant"));
 
 static LoopVPlanDumpControl
