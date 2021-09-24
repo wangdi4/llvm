@@ -2940,6 +2940,7 @@ pi_result rocm_piextProgramGetNativeHandle(pi_program program,
 /// \return TBD
 pi_result rocm_piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
                                                   pi_context context,
+                                                  bool ownNativeHandle,
                                                   pi_program *program) {
   cl::sycl::detail::pi::die(
       "Creation of PI program from native handle not implemented");

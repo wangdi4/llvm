@@ -2495,18 +2495,33 @@ pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
                                             pi_device *Device) {
   PI_ASSERT(Device, PI_INVALID_DEVICE);
   PI_ASSERT(NativeHandle, PI_INVALID_VALUE);
-  PI_ASSERT(Platform, PI_INVALID_PLATFORM);
 
   auto ZeDevice = pi_cast<ze_device_handle_t>(NativeHandle);
 
   // The SYCL spec requires that the set of devices must remain fixed for the
   // duration of the application's execution. We assume that we found all of the
-  // Level Zero devices when we initialized the device cache, so the
+  // Level Zero devices when we initialized the platforms/devices cache, so the
   // "NativeHandle" must already be in the cache. If it is not, this must not be
   // a valid Level Zero device.
-  pi_device Dev = Platform->getDeviceFromNativeHandle(ZeDevice);
+  //
+  // TODO: maybe we should populate cache of platforms if it wasn't already.
+  // For now assert that is was populated.
+  PI_ASSERT(PiPlatformCachePopulated, PI_INVALID_VALUE);
+  const std::lock_guard<sycl::detail::SpinLock> Lock{*PiPlatformsCacheMutex};
+
+  pi_device Dev = nullptr;
+  for (auto &ThePlatform : *PiPlatformsCache) {
+    Dev = ThePlatform->getDeviceFromNativeHandle(ZeDevice);
+    if (Dev) {
+      // Check that the input Platform, if was given, matches the found one.
+      PI_ASSERT(!Platform || Platform == ThePlatform, PI_INVALID_PLATFORM);
+      break;
+    }
+  }
+
   if (Dev == nullptr)
     return PI_INVALID_VALUE;
+
   *Device = Dev;
   return PI_SUCCESS;
 }
@@ -3575,8 +3590,9 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
           if (res != PI_SUCCESS) {
             return res;
           }
-          Input = new _pi_program(Input->Context, ZeModule, _pi_program::Object,
-                                  Input->HasImports);
+          Input =
+              new _pi_program(Input->Context, ZeModule, true /*own ZeModule*/,
+                              _pi_program::Object, Input->HasImports);
           Input->HasImportsAndIsLinked = true;
         }
       } else {
@@ -3831,6 +3847,7 @@ pi_result piextProgramGetNativeHandle(pi_program Program,
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
                                              pi_context Context,
+                                             bool ownNativeHandle,
                                              pi_program *Program) {
   PI_ASSERT(Program, PI_INVALID_PROGRAM);
   PI_ASSERT(NativeHandle, PI_INVALID_VALUE);
@@ -3843,7 +3860,8 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
   // executable (state Object).
 
   try {
-    *Program = new _pi_program(Context, ZeModule, _pi_program::Exe);
+    *Program =
+        new _pi_program(Context, ZeModule, ownNativeHandle, _pi_program::Exe);
   } catch (const std::bad_alloc &) {
     return PI_OUT_OF_HOST_MEMORY;
   } catch (...) {
@@ -3860,7 +3878,7 @@ _pi_program::~_pi_program() {
     ZE_CALL_NOCHECK(zeModuleBuildLogDestroy, (ZeBuildLog));
   }
 
-  if (ZeModule) {
+  if (ZeModule && OwnZeModule) {
     ZE_CALL_NOCHECK(zeModuleDestroy, (ZeModule));
   }
 }
