@@ -4522,10 +4522,13 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_declare_variant:
   case OMPD_begin_declare_variant:
   case OMPD_end_declare_variant:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPD_prefetch:
 #endif // INTEL_COLLAB
   case OMPD_metadirective:
+=======
+>>>>>>> 31cca215654ac5eca01796248696b8d710a5cffc
     llvm_unreachable("OpenMP Directive is not allowed");
   case OMPD_unknown:
   default:
@@ -6747,7 +6750,6 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_atomic_default_mem_order:
       case OMPC_device_type:
       case OMPC_match:
-      case OMPC_when:
       default:
         llvm_unreachable("Unexpected clause");
       }
@@ -15364,7 +15366,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
-  case OMPC_when:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -15534,7 +15535,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_teams_distribute:
     case OMPD_requires:
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with if-clause");
     case OMPD_unknown:
     default:
@@ -15629,7 +15629,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_teams_distribute:
     case OMPD_teams_distribute_simd:
     case OMPD_requires:
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with num_threads-clause");
     case OMPD_unknown:
     default:
@@ -15722,7 +15721,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with num_teams-clause");
     case OMPD_unknown:
     default:
@@ -15815,7 +15813,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with thread_limit-clause");
     case OMPD_unknown:
     default:
@@ -16086,8 +16083,12 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
+<<<<<<< HEAD
     case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with device-clause");
+=======
+      llvm_unreachable("Unexpected OpenMP directive with schedule clause");
+>>>>>>> 31cca215654ac5eca01796248696b8d710a5cffc
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");
@@ -16173,8 +16174,12 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
+<<<<<<< HEAD
     case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with subdevice clause");
+=======
+      llvm_unreachable("Unexpected OpenMP directive with dist_schedule clause");
+>>>>>>> 31cca215654ac5eca01796248696b8d710a5cffc
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");
@@ -16255,9 +16260,13 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_simd:
     case OMPD_target_teams:
     case OMPD_requires:
+<<<<<<< HEAD
     case OMPD_allocate:
     case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with dataflow clause");
+=======
+      llvm_unreachable("Unexpected OpenMP directive with device-clause");
+>>>>>>> 31cca215654ac5eca01796248696b8d710a5cffc
     case OMPD_unknown:
       llvm_unreachable("Unknown OpenMP directive");
     }
@@ -16348,7 +16357,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with grainsize-clause");
     case OMPD_unknown:
     default:
@@ -16367,15 +16375,6 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     break;
   case OMPC_filter:
     // Do not capture filter-clause expressions.
-    break;
-  case OMPC_when:
-    if (DKind == OMPD_metadirective) {
-      CaptureRegion = OMPD_metadirective;
-    } else if (DKind == OMPD_unknown) {
-      llvm_unreachable("Unknown OpenMP directive");
-    } else {
-      llvm_unreachable("Unexpected OpenMP directive with when clause");
-    }
     break;
   case OMPC_firstprivate:
   case OMPC_lastprivate:
@@ -16974,7 +16973,6 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
-  case OMPC_when:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -17276,7 +17274,6 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
-  case OMPC_when:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -17540,7 +17537,6 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_affinity:
-  case OMPC_when:
   default:
     llvm_unreachable("Clause is not allowed.");
   }
@@ -18098,6 +18094,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_bind:
 #endif // INTEL_COLLAB
@@ -18108,6 +18105,8 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   case OMPC_when:
+=======
+>>>>>>> 31cca215654ac5eca01796248696b8d710a5cffc
   default:
     llvm_unreachable("Clause is not allowed.");
   }
