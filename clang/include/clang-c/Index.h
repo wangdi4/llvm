@@ -2592,26 +2592,19 @@ enum CXCursorKind {
    */
   CXCursor_OMPUnrollDirective = 293,
 
-<<<<<<< HEAD
-  /** OpenMP metadirective directive.
-   */
-  CXCursor_OMPMetaDirective = 294,
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 295,
-  CXCursor_OMPGenericLoopDirective = 296,
-  CXCursor_OMPTeamsGenericLoopDirective = 297,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 298,
-  CXCursor_OMPParallelGenericLoopDirective = 299,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 300,
-  CXCursor_OMPPrefetchDirective = 301,
-  CXCursor_OMPScopeDirective = 302,
+  CXCursor_OMPTargetVariantDispatchDirective = 294,
+  CXCursor_OMPGenericLoopDirective = 295,
+  CXCursor_OMPTeamsGenericLoopDirective = 296,
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 297,
+  CXCursor_OMPParallelGenericLoopDirective = 298,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
+  CXCursor_OMPPrefetchDirective = 300,
+  CXCursor_OMPScopeDirective = 301,
   CXCursor_LastStmt = CXCursor_OMPScopeDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPMetaDirective,
-#endif /* INTEL_COLLAB */
-=======
   CXCursor_LastStmt = CXCursor_OMPUnrollDirective,
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
+#endif /* INTEL_COLLAB */
 
   /**
    * Cursor that represents the translation unit itself.

@@ -10961,9 +10961,6 @@ def err_omp_dispatch_statement_call
 def err_omp_unroll_full_variable_trip_count : Error<
   "loop to be fully unrolled must have a constant trip count">;
 def note_omp_directive_here : Note<"'%0' directive found here">;
-<<<<<<< HEAD
-def err_omp_instantiation_not_supported
-    : Error<"instantiation of '%0' not supported yet">;
 #if INTEL_COLLAB
 def err_omp_adjust_arg_multiple_clauses : Error<
   "adjust_arg argument %0 used in multiple clauses">;
@@ -10978,8 +10975,6 @@ def err_omp_depend_type_unsupported_taskwait : Error<
   "unsupported dependency type in 'taskwait' directive; must be one of "
   "'in', 'out', or 'inout'">;
 #endif // INTEL_COLLAB
-=======
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

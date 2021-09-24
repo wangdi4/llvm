@@ -4522,13 +4522,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_declare_variant:
   case OMPD_begin_declare_variant:
   case OMPD_end_declare_variant:
-<<<<<<< HEAD
-  case OMPD_metadirective:
 #if INTEL_COLLAB
   case OMPD_prefetch:
 #endif // INTEL_COLLAB
-=======
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
     llvm_unreachable("OpenMP Directive is not allowed");
   case OMPD_unknown:
   default:
@@ -16083,12 +16079,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-<<<<<<< HEAD
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with device-clause");
-=======
-      llvm_unreachable("Unexpected OpenMP directive with schedule clause");
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");
@@ -16174,12 +16165,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_atomic:
     case OMPD_distribute_simd:
     case OMPD_requires:
-<<<<<<< HEAD
-    case OMPD_metadirective:
       llvm_unreachable("Unexpected OpenMP directive with subdevice clause");
-=======
-      llvm_unreachable("Unexpected OpenMP directive with dist_schedule clause");
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
     case OMPD_unknown:
     default:
       llvm_unreachable("Unknown OpenMP directive");
@@ -16260,13 +16246,8 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_distribute_simd:
     case OMPD_target_teams:
     case OMPD_requires:
-<<<<<<< HEAD
-    case OMPD_metadirective:
     case OMPD_allocate:
       llvm_unreachable("Unexpected OpenMP directive with dataflow clause");
-=======
-      llvm_unreachable("Unexpected OpenMP directive with device-clause");
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
     case OMPD_unknown:
       llvm_unreachable("Unknown OpenMP directive");
     }
@@ -18094,8 +18075,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_uses_allocators:
-<<<<<<< HEAD
-  case OMPC_when:
 #if INTEL_COLLAB
   case OMPC_bind:
 #endif // INTEL_COLLAB
@@ -18105,8 +18084,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 7efb825382c0a8372597aaf75a319fa379573fd4
   default:
     llvm_unreachable("Clause is not allowed.");
   }
