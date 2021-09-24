@@ -9,7 +9,6 @@
 #ifndef LLD_COFF_DRIVER_H
 #define LLD_COFF_DRIVER_H
 
-#include "COFFLinkerContext.h"
 #include "Config.h"
 #include "SymbolTable.h"
 #include "lld/Common/LLVM.h"
@@ -79,8 +78,6 @@ private:
 
 class LinkerDriver {
 public:
-  LinkerDriver(COFFLinkerContext &c) : ctx(c) {}
-
   void linkerMain(llvm::ArrayRef<const char *> args);
 
   // Used by the resolver to parse .drectve section contents.
@@ -105,8 +102,6 @@ private:
   StringRef doFindFile(StringRef filename);
   StringRef doFindLib(StringRef filename);
   StringRef doFindLibMinGW(StringRef filename);
-
-  bool findUnderscoreMangle(StringRef sym);
 
   // Parses LIB environment which contains a list of search paths.
   void addLibSearchPaths();
@@ -162,6 +157,7 @@ private:
   std::vector<MemoryBufferRef> resources;
 
   llvm::StringSet<> directivesExports;
+<<<<<<< HEAD
 
   COFFLinkerContext &ctx;
 #if INTEL_CUSTOMIZATION
@@ -169,6 +165,8 @@ private:
   // contains /lib, else return false.
   bool processLibInResponseFile(llvm::ArrayRef<const char *> argv);
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a2fd05ada9030eab2258fff25e77a05adccae128
 };
 
 // Functions below this line are defined in DriverUtils.cpp.
