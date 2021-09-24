@@ -4060,10 +4060,36 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
     }
   }
 
-  return genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
-                 IsVarArg,
-                 /*AllowMismatchingPointerArgs=*/true,
-                 /*EmitErrorOnFnTypeMismatch=*/true);
+  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
+                                  InsertPt, IsTail, IsVarArg,
+                                  /*AllowMismatchingPointerArgs=*/true,
+                                  /*EmitErrorOnFnTypeMismatch=*/true);
+
+  // Propagate the ByVal attribute of arguments in the base call to
+  // corresponding arguments in the variant call.
+  // Example:
+  // -Base:           call void @foo1(%struct.A* byval(%struct.A) align 8 %AAA)
+  // -Variant before: call void @foo2(%struct.A* %AAA)
+  // -Variant after:  call void @foo2(%struct.A* byval(%struct.A) align 8 %AAA)
+  for (unsigned ArgNum = 0; ArgNum < BaseCall->getNumArgOperands(); ++ArgNum) {
+    if (BaseCall->isByValArgument(ArgNum)) {
+      Type *ArgType = FnArgTypes[ArgNum];
+      assert(isa<PointerType>(ArgType) && "Byval expects a pointer type");
+      VariantCall->addParamAttr(
+          ArgNum,
+          Attribute::getWithByValType(C, ArgType->getPointerElementType()));
+      // Byval arguments may have an alignment; propagate it too
+      MaybeAlign MayAln = BaseCall->getParamAlign(ArgNum);
+      Align Aln = MayAln.valueOrOne();
+      unsigned Alignment = Aln.value();
+      if (Alignment > 1)
+        VariantCall->addParamAttr(
+            ArgNum, Attribute::getWithAlignment(C, Align(Alignment)));
+    }
+  }
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant Call:" << *VariantCall
+                    << "\n");
+  return VariantCall;
 }
 
 // Creates a call with no parameters
