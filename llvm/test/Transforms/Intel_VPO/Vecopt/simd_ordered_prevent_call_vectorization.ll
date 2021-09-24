@@ -19,7 +19,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret i32 0
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <4 x i32> @_ZGVbN4v__Z3fooi(<4 x i32> [[A0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <4 x i32> @_ZGVbN4v__Z3fooi(<4 x i32> [[A0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[RET_CAST0:%.*]] = bitcast <4 x i32>* [[VEC_RETVAL0]] to i32*
@@ -95,7 +95,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <8 x i32> @_ZGVcN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <8 x i32> @_ZGVcN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <8 x i32>, align 32
 ; CHECK-NEXT:    [[RET_CAST0]] = bitcast <8 x i32>* [[VEC_RETVAL0]] to i32*
@@ -171,7 +171,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <8 x i32> @_ZGVdN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <8 x i32> @_ZGVdN8v__Z3fooi(<8 x i32> [[A0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <8 x i32>, align 32
 ; CHECK-NEXT:    [[RET_CAST0]] = bitcast <8 x i32>* [[VEC_RETVAL0]] to i32*
@@ -247,7 +247,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <16 x i32> @_ZGVeN16v__Z3fooi(<16 x i32> [[A0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <16 x i32> @_ZGVeN16v__Z3fooi(<16 x i32> [[A0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[RET_CAST0]] = bitcast <16 x i32>* [[VEC_RETVAL0]] to i32*
@@ -323,7 +323,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <16 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <4 x i32> @_ZGVbM4v__Z3fooi(<4 x i32> [[A0]], <4 x i32> [[MASK0:%.*]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <4 x i32> @_ZGVbM4v__Z3fooi(<4 x i32> [[A0]], <4 x i32> [[MASK0:%.*]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_MASK0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <4 x i32>, align 16
@@ -466,7 +466,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <4 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <8 x i32> @_ZGVcM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <8 x i32> @_ZGVcM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_MASK0]] = alloca <8 x i32>, align 32
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <8 x i32>, align 32
@@ -609,7 +609,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <8 x i32> @_ZGVdM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <8 x i32> @_ZGVdM8v__Z3fooi(<8 x i32> [[A0]], <8 x i32> [[MASK0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_MASK0]] = alloca <8 x i32>, align 32
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <8 x i32>, align 32
@@ -752,7 +752,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <8 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define dso_local <16 x i32> @_ZGVeM16v__Z3fooi(<16 x i32> [[A0]], <16 x i32> [[MASK0]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local <16 x i32> @_ZGVeM16v__Z3fooi(<16 x i32> [[A0]], <16 x i32> [[MASK0]]) local_unnamed_addr #2 {
 ; CHECK-NEXT:  DIR.OMP.END.ORDERED.4:
 ; CHECK-NEXT:    [[VEC_MASK0]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL0]] = alloca <16 x i32>, align 64
@@ -895,7 +895,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret <16 x i32> [[VEC_RET0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region() #3 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10:%.*]]
 ; CHECK-EMPTY:
@@ -911,7 +911,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_1() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_1() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -927,7 +927,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_2() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_2() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -943,7 +943,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_3() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_3() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -959,7 +959,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_4() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_4() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -975,7 +975,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_5() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_5() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -991,7 +991,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_6() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_6() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -1007,7 +1007,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_7() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_7() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:
@@ -1023,7 +1023,7 @@ define dso_local i32 @_Z3fooi(i32 %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    ret void
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define internal void @_Z3fooi.ordered.simd.region_8() #2 {
+; CHECK:  define internal void @_Z3fooi.ordered.simd.region_8() #4 {
 ; CHECK-NEXT:  newFuncRoot:
 ; CHECK-NEXT:    br label [[DIR_OMP_ORDERED_10]]
 ; CHECK-EMPTY:

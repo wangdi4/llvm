@@ -1898,6 +1898,9 @@ bool VecCloneImpl::runImpl(Module &M) {
                                 LoopExitBlock, ReturnBlock);
       PrivateAllocas.clear();
 
+      // Add may-have-openmp-directive attribute since we inserted directives.
+      Clone->addFnAttr("may-have-openmp-directive", "true");
+
       LLVM_DEBUG(dbgs() << "After SIMD Function Cloning\n");
       LLVM_DEBUG(Clone->dump());
 

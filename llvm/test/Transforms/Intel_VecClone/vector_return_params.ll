@@ -11,7 +11,7 @@ define <4 x i32> @foo(<4 x i32> %a, <4 x i32> %b) #0 {
 ; CHECK-NEXT:    ret <4 x i32> [[ADD0]]
 ; CHECK-NEXT:  }
 ;
-; CHECK:  define <16 x i32> @_ZGVbN4vv_foo(<16 x i32> [[A0]], <16 x i32> [[B0]]) #0 {
+; CHECK:  define <16 x i32> @_ZGVbN4vv_foo(<16 x i32> [[A0]], <16 x i32> [[B0]]) #1 {
 ; CHECK-NEXT:    [[VEC_A0:%.*]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[VEC_B0:%.*]] = alloca <16 x i32>, align 64
 ; CHECK-NEXT:    [[VEC_RETVAL0:%.*]] = alloca <16 x i32>, align 64

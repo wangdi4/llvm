@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @a = common dso_local global [4096 x i32] zeroinitializer, align 16
 
-; CHECK:      define dso_local <4 x i32> @_ZGVbN4l_dowork(i32 [[K0:%.*]]) #0 {
+; CHECK:      define dso_local <4 x i32> @_ZGVbN4l_dowork(i32 [[K0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_K0:%.*]] = alloca i32
 ; CHECK-NEXT:    store i32 [[K0]], i32* [[ALLOCA_K0]]

@@ -10,7 +10,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(float* nocapture %p) local_unnamed_addr #0 {
-; CHECK:  define dso_local void @_ZGVbN2v_foo(<2 x float*> nocapture [[P0:%.*]]) local_unnamed_addr #0 {
+; CHECK:  define dso_local void @_ZGVbN2v_foo(<2 x float*> nocapture [[P0:%.*]]) local_unnamed_addr #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_P0:%.*]] = alloca <2 x float*>, align 16
 ; CHECK-NEXT:    [[VEC_P_CAST0:%.*]] = bitcast <2 x float*>* [[VEC_P0]] to float**
