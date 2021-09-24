@@ -40,14 +40,13 @@ attributes #1 = { nounwind }
 !3 = !{i32 7, !"frame-pointer", i32 2}
 
 ; CHECK-LABEL: @_Z1bRPA10_i.DIR.OMP.PARALLEL.{{.*}}(
-; CHECK:         [[A_ADDR_RED:%.*]] = alloca [1 x i32], align 8
+; CHECK:         [[A_ADDR_RED:%.*]] = alloca i32, i64 1, align 8
 ; CHECK-NEXT:    [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR:%.*]] = alloca i32*, align 8
 ; CHECK-NEXT:    [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR_CAST_REF:%.*]] = alloca [10 x i32]**, align 8
 ; CHECK-NEXT:    [[A_ADDR_FAST_RED_GEP_MINUS_OFFSET_ADDR:%.*]] = alloca i32*, align 8
 ; CHECK-NEXT:    [[A_ADDR_FAST_RED_GEP_MINUS_OFFSET_ADDR_CAST_REF:%.*]] = alloca [10 x i32]**, align 8
 
-; CHECK:         [[A_ADDR_RED_GEP:%.*]] = getelementptr inbounds [1 x i32], [1 x i32]* [[A_ADDR_RED]], i32 0, i32 0
-; CHECK-NEXT:    [[A_ADDR_RED_GEP_MINUS_OFFSET:%.*]] = getelementptr i32, i32* [[A_ADDR_RED_GEP]], i64 -4
+; CHECK:         [[A_ADDR_RED_GEP_MINUS_OFFSET:%.*]] = getelementptr i32, i32* [[A_ADDR_RED]], i64 -4
 ; CHECK-NEXT:    store i32* [[A_ADDR_RED_GEP_MINUS_OFFSET]], i32** [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR]], align 8
 ; CHECK-NEXT:    [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR_CAST:%.*]] = bitcast i32** [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR]] to [10 x i32]**
 ; CHECK-NEXT:    store [10 x i32]** [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR_CAST]], [10 x i32]*** [[A_ADDR_RED_GEP_MINUS_OFFSET_ADDR_CAST_REF]], align 8
