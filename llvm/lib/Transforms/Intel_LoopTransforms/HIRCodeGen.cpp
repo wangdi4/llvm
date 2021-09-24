@@ -916,6 +916,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     unsigned NumDims = Ref->getNumDimensions();
     assert(NumDims && "No dimensions");
 
+    Type *BasePtrElementTy = Ref->getBasePtrElementType();
+    Value *PrevGEPVal = GEPVal;
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
     for (unsigned DimNum = NumDims; DimNum > 0; --DimNum) {
@@ -927,20 +929,26 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       // EmitSubsValue.
 
       // Create a GEP offset that corresponds to the current dimension.
-      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
-      GEPVal = EmitSubsValue(&Builder, DL, GEPElementTy, GEPVal, LowerVal,
-                             IndexVal, StrideVal, Ref->isInBounds(), true);
+      Type *DimElementTy = Ref->getDimensionElementType(DimNum);
+
+      GEPVal =
+          EmitSubsValue(&Builder, DL, DimElementTy, GEPVal, BasePtrElementTy,
+                        LowerVal, IndexVal, StrideVal, Ref->isInBounds(), true);
 
       // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
       if (!Offsets.empty()) {
         // Add first zero index to dereference the pointer.
         auto *OffsetTy = DL.getIndexType(GEPVal->getType());
+        auto *GEPElemTy = DimElementTy;
         SmallVector<Value *, 8> IndexV{ConstantInt::get(OffsetTy, 0)};
 
         // Try to merge Struct Offset GEP into previous GEP.
         auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
         if (GepBase) {
+          // We are recreating a new GEP by merging the offsets with a previous
+          // GEP so the element type needs to be updated.
+          GEPElemTy = GepBase->getSourceElementType();
           IndexV.resize(GepBase->getNumOperands() - 1);
           for (int I = 1, E = GepBase->getNumOperands(); I < E; ++I) {
             IndexV[I - 1] = GepBase->getOperand(I);
@@ -960,9 +968,22 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           IndexV.push_back(OffsetIndex);
         }
 
-        GEPVal = Builder.CreateInBoundsGEP(
-            GEPVal->getType()->getScalarType()->getPointerElementType(), GEPVal,
-            IndexV);
+        GEPVal = Builder.CreateInBoundsGEP(GEPElemTy, GEPVal, IndexV);
+      }
+
+      // Update BasePtrElementTy for processing of next dimension if we
+      // generated a new GEP for this dimension. EmitSubsValue() skips
+      // generating new GEP for zero offsets.
+      if ((DimNum != 1) && (PrevGEPVal != GEPVal)) {
+        if (auto *GEPOp = dyn_cast<GEPOperator>(GEPVal)) {
+          BasePtrElementTy = GEPOp->getResultElementType();
+        } else {
+          // In cases where the stride is non-constant, EmitSubsValue() emits
+          // bitcast to/from i8* to do the offset computation in bytes.
+          assert(Offsets.empty() && "Dimension offsets not expected!");
+          BasePtrElementTy = DimElementTy;
+        }
+        PrevGEPVal = GEPVal;
       }
     }
   }
@@ -1015,9 +1036,9 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      auto *GEPValTy = GEPVal->getType()->getPointerElementType();
+      auto *ElemTy = Ref->getDestType();
       LInst = Builder.CreateAlignedLoad(
-          GEPValTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
+          ElemTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
     }
 
     setMetadata(LInst, Ref);

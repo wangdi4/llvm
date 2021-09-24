@@ -318,8 +318,8 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
 /// computed address.
 template <typename IRBuilderTy>
 Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
-                     Value *BasePtr, Value *Lower, Value *Index, Value *Stride,
-                     bool InBounds, bool IsExact) {
+                     Value *BasePtr, Type *BasePtrElemTy, Value *Lower,
+                     Value *Index, Value *Stride, bool InBounds, bool IsExact) {
   ConstantInt *ConstStride = dyn_cast<ConstantInt>(Stride);
 
   // Emit base pointer right away if the stride is known zero.
@@ -345,11 +345,10 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
     // If addressing for the same type - use single index, prepend zero
     // otherwise.
     unsigned IndexLevel = 1;
-    Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+    Type *BaseElTy = BasePtrElemTy;
     while (BaseElTy != ElTy) {
       ++IndexLevel;
-      BaseElTy = BaseElTy->isPointerTy() ? BaseElTy->getPointerElementType()
-                                         : BaseElTy->getArrayElementType();
+      BaseElTy = BaseElTy->getArrayElementType();
     }
 
     // Do not create GEP instruction if the Offset is known zero and no type
@@ -372,13 +371,14 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
         }
 
         BasePtr = BaseGep->getPointerOperand();
+        BasePtrElemTy = BaseGep->getSourceElementType();
         BaseGep->eraseFromParent();
       }
     }
 
     Offsets.back() = ElementOffset;
 
-    Type *Ty = BasePtr->getType()->getScalarType()->getPointerElementType();
+    Type *Ty = BasePtrElemTy;
     return InBounds ? Builder->CreateInBoundsGEP(Ty, BasePtr, Offsets)
                     : Builder->CreateGEP(Ty, BasePtr, Offsets);
   }
@@ -402,8 +402,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   // Do not create GEP instruction if the Offset is known zero and no type
   // change is needed.
   ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ByteOffset);
-  Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
-  if (ConstOffset && ConstOffset->isZero() && BaseElTy == ElTy) {
+  if (ConstOffset && ConstOffset->isZero() && BasePtrElemTy == ElTy) {
     return BasePtr;
   }
 
@@ -424,7 +423,7 @@ Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   // Extract element type.
   Type *ElemTy = CI->getElementType();
 
-  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
+  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(), ElemTy,
                        CI->getLowerBound(), CI->getIndex(), CI->getStride(),
                        true, CI->isExact());
 }
