@@ -279,9 +279,9 @@ void LocalBuffersPass::runOnFunction(Function *F) {
         M, ImplicitArgsUtils::IA_SLM_BUFFER);
     assert(LocalMem && "TLS LocalMem is not found.");
     // Load the LocalMem pointer from TLS GlobalVariable
-    IRBuilder<> builder(InsertPoint);
-    builder.CreateLoad(LocalMem->getType()->getPointerElementType(), LocalMem,
-                       "LocalMemBase");
+    IRBuilder<> Builder(InsertPoint);
+    LocalMem = Builder.CreateLoad(LocalMem->getType()->getPointerElementType(),
+                                  LocalMem, "LocalMemBase");
   } else {
     DPCPPKernelCompilationUtils::getImplicitArgs(F, &LocalMem, nullptr, nullptr,
                                                  nullptr, nullptr, nullptr);
