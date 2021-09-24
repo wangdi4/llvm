@@ -62,6 +62,7 @@ ModulePass *createResolveSubGroupWICallLegacyPass(
     bool ResolveSGBarrier = true);
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
+ModulePass *createSGBarrierPropagateLegacyPass();
 ModulePass *createSGBuiltinLegacyPass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {});

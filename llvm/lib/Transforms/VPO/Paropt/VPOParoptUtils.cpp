@@ -4968,7 +4968,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
   bool MimicArrayAllocation = false;
 
-  if (ConstNumElements > 0) {
+  if (ConstNumElements > 1) {
     // NumElements is a constant
     ElementType = ArrayType::get(ElementType, ConstNumElements);
     NumElements = nullptr;

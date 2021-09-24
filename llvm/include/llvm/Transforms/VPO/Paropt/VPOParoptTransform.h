@@ -1787,6 +1787,11 @@ private:
   /// OpenMP loop region \p W.
   bool genParallelAccessMetadata(WRegionNode *W);
 
+  /// Remove distribute loop back edge on SPIRV target at O2+ when ND-range is
+  /// known and distribute schedule is not specified. Such loops will have at
+  /// most only one iteration, so it is safe to remove loop's back edge.
+  bool removeDistributeLoopBackedge(WRegionNode *W);
+
   /// Transform the given OMP loop into the loop as follows.
   ///         do {
   ///             %omp.iv = phi(%omp.lb, %omp.inc)

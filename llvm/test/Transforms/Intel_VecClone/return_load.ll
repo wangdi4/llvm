@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind optnone uwtable mustprogress
 define dso_local i32 @_Z11shift_rows4ji(i32 %v, i32 %n) #0 {
-; CHECK:  define dso_local <8 x i32> @_ZGVbN8vu__Z11shift_rows4ji(<8 x i32> [[V0:%.*]], i32 [[N0:%.*]]) #0 {
+; CHECK:  define dso_local <8 x i32> @_ZGVbN8vu__Z11shift_rows4ji(<8 x i32> [[V0:%.*]], i32 [[N0:%.*]]) #1 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[ALLOCA_N0:%.*]] = alloca i32, align 4
 ; CHECK-NEXT:    store i32 [[N0]], i32* [[ALLOCA_N0]], align 4
