@@ -195,7 +195,8 @@ void BitcodeCompiler::add(BitcodeFile &f) {
 // and return the resulting objects.
 #if INTEL_CUSTOMIZATION
 std::vector<InputFile *>
-BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
+BitcodeCompiler::compile(COFFLinkerContext &ctx,
+                         std::vector<StringRef> *buffersOut) {
 #endif // INTEL_CUSTOMIZATION
   unsigned maxTasks = ltoObj->getMaxTasks();
   buf.resize(maxTasks);
@@ -264,7 +265,7 @@ BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
 
     if (config->saveTemps)
       saveBuffer(buf[i], ltoObjName);
-    ret.push_back(make<ObjFile>(MemoryBufferRef(objBuf, ltoObjName)));
+    ret.push_back(make<ObjFile>(ctx, MemoryBufferRef(objBuf, ltoObjName)));
 #if INTEL_CUSTOMIZATION
     if (buffersOut)
       buffersOut->push_back(objBuf);
