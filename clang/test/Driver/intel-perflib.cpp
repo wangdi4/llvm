@@ -238,3 +238,14 @@
 // CHECK-ACTYPES: "-internal-isystem" "{{.*}}actypes{{/|\\\\}}include"
 // CHECK-ACTYPES-LIN: ld{{.*}} "-L{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}linux64{{/|\\\\}}lib" {{.*}} "-ldspba_mpir" "-ldspba_mpfr" "-lac_types_fixed_point_math_x86" "-lac_types_vpfp_library"
 // CHECK-ACTYPES-WIN: link{{.*}} "-libpath:{{.*}}actypes{{/|\\\\}}host{{/|\\\\}}windows64{{/|\\\\}}lib"
+
+/// Make sure /Zl works appropriately
+// RUN: %clang_cl /Zl /Qtbb -c %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_DEP_LIB
+// RUN: %clang_cl /Zl /Qmkl -c %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_DEP_LIB
+// RUN: %clang_cl /Zl /Qipp -c %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_DEP_LIB
+// RUN: %clang_cl /Zl /Qdaal -c %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix CHECK_DEP_LIB
+// CHECK_DEP_LIB-NOT: --dependent-lib=

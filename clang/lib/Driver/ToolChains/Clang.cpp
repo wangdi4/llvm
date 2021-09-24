@@ -8501,51 +8501,51 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
       else
         CmdArgs.push_back("--dependent-lib=sycl");
     }
-  }
 
 #if INTEL_CUSTOMIZATION
-  // Add Intel performance libraries
-  if (Args.hasArg(options::OPT_qipp_EQ))
-    getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_qmkl_EQ))
-    getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) &&
-       getToolChain().getDriver().IsDPCPPMode()))
-    getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_qdaal_EQ))
-    getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
-  if (Args.hasArg(options::OPT_qactypes))
-    getToolChain().AddACTypesLibArgs(Args, CmdArgs, "--dependent-lib=");
+    // Add Intel performance libraries
+    if (Args.hasArg(options::OPT_qipp_EQ))
+      getToolChain().AddIPPLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qmkl_EQ))
+      getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
+        (Args.hasArg(options::OPT_qmkl_EQ) &&
+         getToolChain().getDriver().IsDPCPPMode()))
+      getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qdaal_EQ))
+      getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
+    if (Args.hasArg(options::OPT_qactypes))
+      getToolChain().AddACTypesLibArgs(Args, CmdArgs, "--dependent-lib=");
 
-  // Add OpenMP libs
-  bool StubsAdded = false;
-  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
-      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
-    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
-      CmdArgs.push_back("--dependent-lib=libiompstubs5md");
-      StubsAdded = true;
+    // Add OpenMP libs
+    bool StubsAdded = false;
+    if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+        options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+      if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+        CmdArgs.push_back("--dependent-lib=libiompstubs5md");
+        StubsAdded = true;
+      }
     }
-  }
-  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
-                                   options::OPT_fopenmp_EQ,
-                                   options::OPT_fno_openmp, false) ||
-      Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
-    switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
-    case Driver::OMPRT_OMP:
-      CmdArgs.push_back("--dependent-lib=libomp");
-      break;
-    case Driver::OMPRT_IOMP5:
-      CmdArgs.push_back("--dependent-lib=libiomp5md");
-      break;
-    case Driver::OMPRT_GOMP:
-      break;
-    case Driver::OMPRT_Unknown:
-      // Already diagnosed.
-      break;
+    if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+                                     options::OPT_fopenmp_EQ,
+                                     options::OPT_fno_openmp, false) ||
+        Args.hasArg(options::OPT_fiopenmp, options::OPT_qmkl_EQ))) {
+      switch (getToolChain().getDriver().getOpenMPRuntime(Args)) {
+      case Driver::OMPRT_OMP:
+        CmdArgs.push_back("--dependent-lib=libomp");
+        break;
+      case Driver::OMPRT_IOMP5:
+        CmdArgs.push_back("--dependent-lib=libiomp5md");
+        break;
+      case Driver::OMPRT_GOMP:
+        break;
+      case Driver::OMPRT_Unknown:
+        // Already diagnosed.
+        break;
+      }
     }
-  }
 #endif // INTEL_CUSTOMIZATION
+  }
 
   if (Arg *ShowIncludes =
           Args.getLastArg(options::OPT__SLASH_showIncludes,
