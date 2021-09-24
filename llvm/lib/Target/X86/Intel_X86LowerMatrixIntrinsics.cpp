@@ -148,10 +148,14 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
     SizeFactor = 4;
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
-  else
-    assert(false && "Unsupported Type!");
+  else {
+    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+              "float!\n";
+    llvm_unreachable(nullptr);
+  }
   Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(5))->getMetadata();
-  // If it is packed_b/packed_a, the type can only be int8/bf16.
+  // If it is packed_b, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32, Factor can only
   // be 1.
   if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
@@ -160,16 +164,27 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixLoad(IntrinsicInst *II) {
   else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.a") ||
-           cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
     Factor = 1;
-  else
-    assert(false && "Unsupported Layout!");
+  else {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+           << "!\n"
+           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+    llvm_unreachable(nullptr);
+  }
   // Handle cases where it is vxi8 and packedb.
   assert(MRows >= Factor && MRows % Factor == 0 &&
          "Invalid Matrix Rows Value!");
-  Value *Rows = Builder.getInt16(MRows / Factor);
-  Value *Cols = Builder.getInt16(MCols * Factor * SizeFactor);
+  int64_t ResRows = MRows / Factor;
+  int64_t ResCols = MCols * Factor * SizeFactor;
+  if (ResRows > 16 || ResCols > 64) {
+    errs() << "Unsupported Size for tileload! Rows = " << ResRows
+           << "Cols = " << ResCols << "!\n"
+           << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    llvm_unreachable(nullptr);
+  }
+  Value *Rows = Builder.getInt16(ResRows);
+  Value *Cols = Builder.getInt16(ResCols);
   Value *Ptr = II->getOperand(0)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(0),
@@ -214,10 +229,14 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
     SizeFactor = 4;
   else if (MatrixElemType->isIntegerTy(8))
     SizeFactor = 1;
-  else
-    assert(false && "Unsupported Type!");
+  else {
+    errs() << "Unsuppoted MatrixElemType:" << MatrixElemType << "!\n"
+           << "AMX provides support for int8_t, uint8_t, int32_t, bf16 and "
+              "float!\n";
+    llvm_unreachable(nullptr);
+  }
   Metadata *MDLayout = cast<MetadataAsValue>(II->getOperand(6))->getMetadata();
-  // If it is wordpackedb/wordpackeda, the type can only be int8/bf16.
+  // If it is wordpackedb, the type can only be int8/bf16.
   // If it is row_major, the type can be int8/bf16/float/int32.
   if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
       MatrixElemType->isIntegerTy(8))
@@ -225,15 +244,26 @@ bool X86LowerMatrixIntrinsicsPass::ProcessMatrixStore(IntrinsicInst *II) {
   else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.b") &&
            MatrixElemType->isIntegerTy(16))
     Factor = 2;
-  else if (cast<MDString>(MDLayout)->getString().equals("matrix.packed.a") ||
-           cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
+  else if (cast<MDString>(MDLayout)->getString().equals("matrix.rowmajor"))
     Factor = 1;
-  else
-    assert(false && "Unsupported Layout!");
+  else {
+    errs() << "Unsuppoted Layout:" << cast<MDString>(MDLayout)->getString()
+           << "!\n"
+           << "We support layout: matrix.rowmajor and matrix.packed.b!\n";
+    llvm_unreachable(nullptr);
+  }
   assert(MRows >= Factor && MRows % Factor == 0 &&
          "Invalid Matrix Rows Value!");
-  Value *Rows = Builder.getInt16(MRows / Factor);
-  Value *Cols = Builder.getInt16(MCols * Factor * SizeFactor);
+  int64_t ResRows = MRows / Factor;
+  int64_t ResCols = MCols * Factor * SizeFactor;
+  if (ResRows > 16 || ResCols > 64) {
+    errs() << "Unsupported Size for tilestore! Rows = " << ResRows
+           << "Cols = " << ResCols << "!\n"
+           << "We support Size: Rows <= 16 and Cols <= 64!\n";
+    llvm_unreachable(nullptr);
+  }
+  Value *Rows = Builder.getInt16(ResRows);
+  Value *Cols = Builder.getInt16(ResCols);
   Value *Ptr = II->getOperand(1)->getType()->getPointerAddressSpace() == 0
                    ? Builder.CreateBitCast(
                          II->getOperand(1),

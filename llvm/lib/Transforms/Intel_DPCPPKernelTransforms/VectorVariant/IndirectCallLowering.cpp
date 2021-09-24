@@ -179,6 +179,6 @@ INITIALIZE_PASS(IndirectCallLoweringLegacy,
 
 char IndirectCallLoweringLegacy::ID = 0;
 
-ModulePass *createIndirectCallLoweringLegacyPass() {
+ModulePass *llvm::createIndirectCallLoweringLegacyPass() {
   return new IndirectCallLoweringLegacy();
 }

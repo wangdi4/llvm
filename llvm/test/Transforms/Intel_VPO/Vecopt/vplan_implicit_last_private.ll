@@ -75,9 +75,9 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  DIR.OMP.SIMD.2:
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[I_LINEAR_IV0]] to i8*
-; CHECK-NEXT:    br label [[PEEL_CHECKZ0:%.*]]
+; CHECK-NEXT:    br label %[[PEEL_CHECKZ0:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  peel.checkz16:
+; CHECK-NEXT:  [[PEEL_CHECKZ0]]:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x i32*> poison, i32* [[A0]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x i32*> [[BROADCAST_SPLATINSERT0]], <4 x i32*> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1]] = ptrtoint <4 x i32*> [[BROADCAST_SPLAT0]] to <4 x i64>
@@ -86,30 +86,30 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    [[TMP3:%.*]] = mul i64 [[TMP2]], 3
 ; CHECK-NEXT:    [[TMP4:%.*]] = urem i64 [[TMP3]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 0, [[TMP4]]
-; CHECK-NEXT:    br i1 [[TMP5]], label [[MERGE_BLK0:%.*]], label [[PEEL_CHECKV0:%.*]]
+; CHECK-NEXT:    br i1 [[TMP5]], label %[[MERGE_BLK0:.*]], label %[[PEEL_CHECKV0:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  peel.checkv17:
+; CHECK-NEXT:  [[PEEL_CHECKV0]]:
 ; CHECK-NEXT:    [[TMP6:%.*]] = add i64 [[TMP4]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ugt i64 [[TMP6]], 100
-; CHECK-NEXT:    br i1 [[TMP7]], label [[MERGE_BLK1:%.*]], label [[PEELBLK0:%.*]]
+; CHECK-NEXT:    br i1 [[TMP7]], label %[[MERGE_BLK1:.*]], label %[[PEELBLK0:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  PeelBlk6:
+; CHECK-NEXT:  [[PEELBLK0]]:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY_SL_CLONE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    [[DOTLCSSA160:%.*]] = phi i32 [ [[TMP19:%.*]], [[OMP_INNER_FOR_BODY_SL_CLONE0]] ]
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT_SL_CLONE_LCSSA0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT_SL_CLONE0:%.*]], [[OMP_INNER_FOR_BODY_SL_CLONE0]] ]
-; CHECK-NEXT:    br label [[MERGE_BLK0]]
+; CHECK-NEXT:    br label %[[MERGE_BLK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  merge.blk14:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ undef, [[PEEL_CHECKZ0]] ], [ [[DOTLCSSA160]], [[VPLANNEDBB0:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[PEEL_CHECKZ0]] ], [ [[INDVARS_IV_NEXT_SL_CLONE_LCSSA0]], [[VPLANNEDBB0]] ]
+; CHECK-NEXT:  [[MERGE_BLK0]]:
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ undef, %[[PEEL_CHECKZ0]] ], [ [[DOTLCSSA160]], [[VPLANNEDBB0:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, %[[PEEL_CHECKZ0]] ], [ [[INDVARS_IV_NEXT_SL_CLONE_LCSSA0]], [[VPLANNEDBB0]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB2:
 ; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[TMP4]], 4
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ugt i64 [[TMP8]], 100
-; CHECK-NEXT:    br i1 [[TMP9]], label [[MERGE_BLK1]], label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    br i1 [[TMP9]], label %[[MERGE_BLK1]], label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
@@ -154,14 +154,14 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i64 100, [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP17]], label [[FINAL_MERGE0:%.*]], label [[MERGE_BLK1]]
+; CHECK-NEXT:    br i1 [[TMP17]], label [[FINAL_MERGE0:%.*]], label %[[MERGE_BLK1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  merge.blk12:
-; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i32 [ [[EXTRACTED_PRIV0]], [[VPLANNEDBB90]] ], [ undef, [[PEEL_CHECKV0]] ], [ [[UNI_PHI0]], [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    [[UNI_PHI110:%.*]] = phi i64 [ [[TMP16]], [[VPLANNEDBB90]] ], [ 0, [[PEEL_CHECKV0]] ], [ [[UNI_PHI10]], [[VPLANNEDBB20]] ]
-; CHECK-NEXT:    br label [[REMBLK0:%.*]]
+; CHECK-NEXT:  [[MERGE_BLK1]]:
+; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i32 [ [[EXTRACTED_PRIV0]], [[VPLANNEDBB90]] ], [ undef, %[[PEEL_CHECKV0]] ], [ [[UNI_PHI0]], [[VPLANNEDBB20]] ]
+; CHECK-NEXT:    [[UNI_PHI110:%.*]] = phi i64 [ [[TMP16]], [[VPLANNEDBB90]] ], [ 0, %[[PEEL_CHECKV0]] ], [ [[UNI_PHI10]], [[VPLANNEDBB20]] ]
+; CHECK-NEXT:    br label %[[REMBLK0:.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  RemBlk8:
+; CHECK-NEXT:  [[REMBLK0]]:
 ; CHECK-NEXT:    br label [[OMP_INNER_FOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB12:
@@ -175,7 +175,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_2170:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.inner.for.body:
-; CHECK-NEXT:    [[INDVARS_IV0]] = phi i64 [ [[UNI_PHI110]], [[REMBLK0]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_INNER_FOR_BODY0]] ]
+; CHECK-NEXT:    [[INDVARS_IV0]] = phi i64 [ [[UNI_PHI110]], %[[REMBLK0]] ], [ [[INDVARS_IV_NEXT0]], [[OMP_INNER_FOR_BODY0]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
 ; CHECK-NEXT:    [[PTRIDX0]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV0]]
 ; CHECK-NEXT:    [[TMP18]] = load i32, i32* [[PTRIDX0]], align 4
@@ -185,7 +185,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    br i1 [[EXITCOND_NOT0]], label [[VPLANNEDBB120]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !3
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.inner.for.body.sl.clone:
-; CHECK-NEXT:    [[INDVARS_IV_SL_CLONE0:%.*]] = phi i64 [ 0, [[PEELBLK0]] ], [ [[INDVARS_IV_NEXT_SL_CLONE0]], [[OMP_INNER_FOR_BODY_SL_CLONE0]] ]
+; CHECK-NEXT:    [[INDVARS_IV_SL_CLONE0:%.*]] = phi i64 [ 0, %[[PEELBLK0]] ], [ [[INDVARS_IV_NEXT_SL_CLONE0]], [[OMP_INNER_FOR_BODY_SL_CLONE0]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull [[TMP0]])
 ; CHECK-NEXT:    [[PTRIDX_SL_CLONE0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[INDVARS_IV_SL_CLONE0]]
 ; CHECK-NEXT:    [[TMP19]] = load i32, i32* [[PTRIDX_SL_CLONE0]], align 4

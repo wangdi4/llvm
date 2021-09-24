@@ -37,6 +37,7 @@
 #include "llvm/Analysis/Intel_StdContainerAA.h"  // INTEL
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h" // INTEL
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h" // INTEL
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -446,6 +447,17 @@ namespace {
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();
+      (void)llvm::createHandleVPlanMaskLegacyPass(nullptr);
+      (void)llvm::createVectorVariantFillInLegacyPass();
+      (void)llvm::createVectorVariantLoweringLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorLegacyPass(llvm::VectorVariant::XMM);
+      (void)llvm::createSGSizeCollectorIndirectLegacyPass(
+          llvm::VectorVariant::XMM);
+      (void)llvm::createUpdateCallAttrsLegacyPass();
+      (void)llvm::createIndirectCallLoweringLegacyPass();
+      (void)llvm::createCreateSimdVariantPropagationLegacyPass();
+      (void)llvm::createLinearIdResolverPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

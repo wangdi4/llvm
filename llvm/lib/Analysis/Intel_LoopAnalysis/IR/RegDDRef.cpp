@@ -66,16 +66,17 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BasePtrElementTy(nullptr), BitCastDestTy(nullptr),
       InBounds(false), AddressOf(false), IsCollapsed(false), Alignment(0),
-      DummyGepLoc(nullptr) {}
+      CanUsePointeeSize(false), DummyGepLoc(nullptr) {}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BasePtrElementTy(Info.BasePtrElementTy),
       BitCastDestTy(Info.BitCastDestTy), InBounds(Info.InBounds),
       AddressOf(Info.AddressOf), IsCollapsed(Info.IsCollapsed),
-      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      DimTypes(Info.DimTypes), DimElementTypes(Info.DimElementTypes),
-      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
-      MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
+      Alignment(Info.Alignment), CanUsePointeeSize(Info.CanUsePointeeSize),
+      DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
+      DimElementTypes(Info.DimElementTypes), MDNodes(Info.MDNodes),
+      GepDbgLoc(Info.GepDbgLoc), MemDbgLoc(Info.MemDbgLoc),
+      DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
     CanonExpr *LowerClone = Lower->clone();
@@ -299,6 +300,9 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
 
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";
+        }
+        if (Detailed && isFake() && canUsePointeeSize()) {
+          OS << "{canUsePointeeSize}";
         }
       }
 
@@ -1724,7 +1728,8 @@ void RegDDRef::verify() const {
   auto NodeLevel = getNodeLevel();
 
   bool HasGEPInfo = hasGEPInfo();
-  bool IsSelfAddressOfOrFake = (isSelfAddressOf(true) || isFake());
+  bool IsSelfAddressOfOrFake =
+      (isSelfAddressOf(true) || (isFake() && !canUsePointeeSize()));
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     auto *IndexCE = getDimensionIndex(I);
 

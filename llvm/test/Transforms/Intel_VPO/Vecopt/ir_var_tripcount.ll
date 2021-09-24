@@ -20,7 +20,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
 ; CHECK: store {{.*}} <4 x i32>
 ; CHECK: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
-; CHECK: merge.blk10:
+; CHECK: merge.blk17:
 ; CHECK-NEXT: [[UNI_PHI70:%.*]] = phi i64 [ [[TMP9:%.*]], [[VPLANNEDBB60:%.*]] ], [ 0, [[VPLANNEDBB0:%.*]] ]
 ; CHECK: for.body:
 ; CHECK: [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ], [ [[UNI_PHI70]], [[VPLANNEDBB70:%.*]] ]

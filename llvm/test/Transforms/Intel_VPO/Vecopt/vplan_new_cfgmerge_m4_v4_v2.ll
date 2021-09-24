@@ -4,7 +4,7 @@
 ; a static peel(1) is enforced.
 ; RUN: opt -vplan-vec-scenario="m4;v4;v2" \
 ; RUN: -disable-output -vplan-vec -vplan-enable-new-cfg-merge \
-; RUN: -disable-vplan-codegen -vplan-enable-masked-variant \
+; RUN: -disable-vplan-codegen  \
 ; RUN: -vplan-print-after-create-in-merge -vplan-print-after-merge-pass2 \
 ; RUN: -vplan-enable-peeling=0 -vplan-print-after-merge-skeleton %s 2>&1 | FileCheck %s
 

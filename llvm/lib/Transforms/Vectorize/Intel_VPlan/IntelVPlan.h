@@ -2295,7 +2295,8 @@ protected:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
         getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
-        getUnderlyingCallInst() /* Clone gets same underlying Call */);
+        getType());
+    Cloned->OrigCall = getUnderlyingCallInst();
     Cloned->VecScenario = VecScenario;
     Cloned->VecProperties = VecProperties;
     return Cloned;
@@ -3223,6 +3224,11 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+protected:
+  VPInstruction *cloneImpl() const override {
+    llvm_unreachable("not expected to clone");
+    return nullptr;
+  }
 };
 
 /// The VPlanAdapter is a placeholder for a VPlan in CFG of another VPlan.
@@ -3349,6 +3355,17 @@ public:
   /// Return alignment of original alloca/global that this private memory
   /// corresponds to.
   Align getOrigAlignment() const { return OrigAlignment; }
+
+protected:
+
+  VPAllocatePrivate *cloneImpl() const override {
+    auto Ret = new VPAllocatePrivate(getType(), getOrigAlignment());
+    if (isSOASafe())
+      Ret->setSOASafe();
+    if (isSOAProfitable())
+      Ret->setSOAProfitable();
+    return Ret;
+  }
 
 private:
   bool IsSOASafe;

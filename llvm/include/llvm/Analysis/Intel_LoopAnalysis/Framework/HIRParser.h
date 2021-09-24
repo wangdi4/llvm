@@ -496,7 +496,8 @@ class HIRParser {
   unsigned updateTempBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
 
   /// Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
-  void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval);
+  void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval,
+                  Type *PointeeType = nullptr);
 
   /// Clears all the per-region data structures.
   void clearRegionData();

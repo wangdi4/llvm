@@ -707,6 +707,7 @@ void initializeDPCPPKernelWGLoopCreatorLegacyPass(PassRegistry &);
 void initializeDPCPPPreprocessSPIRVFriendlyIRLegacyPass(PassRegistry &);
 void initializeDuplicateCalledKernelsLegacyPass(PassRegistry &);
 void initializeGroupBuiltinLegacyPass(PassRegistry &);
+void initializeHandleVPlanMaskLegacyPass(PassRegistry &);
 void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeIndirectCallLoweringLegacyPass(PassRegistry &);
 void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);
