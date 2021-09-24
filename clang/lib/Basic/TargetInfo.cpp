@@ -413,7 +413,6 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       const auto &OpenCLFeaturesMap = getSupportedOpenCLOpts();
       Opts.OpenCLGenericAddressSpace = hasFeatureEnabled(
           OpenCLFeaturesMap, "__opencl_c_generic_address_space");
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       Opts.Blocks =
           hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_device_enqueue");
@@ -421,10 +420,6 @@ void TargetInfo::adjust(DiagnosticsEngine &Diags, LangOptions &Opts) {
       if (Opts.OpenCLVersion == 300)
 	  Opts.OpenCLPipes =
 	      hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
-=======
-      Opts.OpenCLPipes =
-          hasFeatureEnabled(OpenCLFeaturesMap, "__opencl_c_pipes");
->>>>>>> 37cdc7ebd9a373100cbbe39f5b9be7a4e4f7813d
     }
   }
 
