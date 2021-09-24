@@ -106,6 +106,9 @@
 // CHECK-QOPENMP: "-mllvm" "-paropt=31"
 // CHECK-LD-IOMP5: "-liomp5"
 
+// RUN: %clang_cl -### -c -target x86_64-windows-gnu /Qopenmp /Zl %s 2>&1 | FileCheck -check-prefixes=ZL_OPENMP %s
+// ZL_OPENMP-NOT: --dependent-lib=libiomp5md
+
 // Behavior with Qopt-jump-tables-,qno-opt-jump-tables option
 // RUN: %clang -### -c -qno-opt-jump-tables %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
 // RUN: %clang_cl -### -c /Qopt-jump-tables- %s 2>&1 | FileCheck -check-prefix CHECK-QOPT-JUMP-TABLES %s
