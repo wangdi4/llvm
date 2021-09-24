@@ -2952,16 +2952,9 @@ pi_result hip_piextProgramGetNativeHandle(pi_program program,
 /// \param[out] program Set to the PI program object created from native handle.
 ///
 /// \return TBD
-<<<<<<< HEAD:sycl/plugins/hip/pi_hip.cpp
 pi_result hip_piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
                                                  pi_context context,
                                                  pi_program *program) {
-=======
-pi_result rocm_piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                                  pi_context context,
-                                                  bool ownNativeHandle,
-                                                  pi_program *program) {
->>>>>>> 63a3d6ad66c92c2c66dc7727e265bef2f7746f1d:sycl/plugins/rocm/pi_rocm.cpp
   cl::sycl::detail::pi::die(
       "Creation of PI program from native handle not implemented");
   return {};

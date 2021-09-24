@@ -137,14 +137,9 @@ int main() {
       {ZeEvent, ext::oneapi::level_zero::ownership::keep}, Context);
   kernel_bundle<bundle_state::executable> InteropKernelBundle =
       make_kernel_bundle<backend::ext_oneapi_level_zero,
-<<<<<<< HEAD
-                         bundle_state::executable>(ZeKernelBundle.front(),
-                                                   Context);
-=======
                          bundle_state::executable>(
           {ZeKernelBundle.front(), ext::oneapi::level_zero::ownership::keep},
           Context);
->>>>>>> 63a3d6ad66c92c2c66dc7727e265bef2f7746f1d
 
   // Check deprecated
   // expected-warning@+1 {{'make<sycl::platform, nullptr>' is deprecated: Use SYCL 2020 sycl::make_platform free function}}

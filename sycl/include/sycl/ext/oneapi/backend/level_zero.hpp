@@ -101,15 +101,11 @@ template <> struct BackendInput<backend::level_zero, event> {
 
 template <bundle_state State>
 struct BackendInput<backend::level_zero, kernel_bundle<State>> {
-<<<<<<< HEAD
-  using type = ze_module_handle_t;
-=======
   using type = struct {
     ze_module_handle_t NativeHandle;
     ext::oneapi::level_zero::ownership Ownership{
         ext::oneapi::level_zero::ownership::transfer};
   };
->>>>>>> 63a3d6ad66c92c2c66dc7727e265bef2f7746f1d
 };
 
 template <bundle_state State>
