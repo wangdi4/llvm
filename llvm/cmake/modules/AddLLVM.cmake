@@ -448,12 +448,15 @@ endmacro()
 #      This is used to specify that this is a component library of
 #      LLVM which means that the source resides in llvm/lib/ and it is a
 #      candidate for inclusion into libLLVM.so.
+#   EXCLUDE_FROM_ALL
+#      Do not build this library as part of the default target, only
+#      if explicitly requested or when linked against.
 #   CUSTOM_WIN_VER
 #      Default LLVM versioning on windows is skipped when set
 #   )
 function(llvm_add_library name)
   cmake_parse_arguments(ARG
-    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER"
+    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER;EXCLUDE_FROM_ALL"
 # INTEL_CUSTOMIZATION
     "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH;STDLIB"
 # end INTEL_CUSTOMIZATION
@@ -561,6 +564,9 @@ function(llvm_add_library name)
 
     # FIXME: Add name_static to anywhere in TARGET ${name}'s PROPERTY.
     set(ARG_STATIC)
+    if(ARG_EXCLUDE_FROM_ALL OR EXCLUDE_FROM_ALL)
+      set_target_properties(${name_static} PROPERTIES EXCLUDE_FROM_ALL ON)
+    endif()
   endif()
 
   if(ARG_MODULE)
@@ -570,6 +576,10 @@ function(llvm_add_library name)
     add_library(${name} SHARED ${ALL_FILES})
   else()
     add_library(${name} STATIC ${ALL_FILES})
+  endif()
+
+  if(ARG_EXCLUDE_FROM_ALL OR EXCLUDE_FROM_ALL)
+    set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL ON)
   endif()
 
   if(ARG_COMPONENT_LIB)
