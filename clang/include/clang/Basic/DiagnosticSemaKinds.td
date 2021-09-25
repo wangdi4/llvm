@@ -10975,6 +10975,8 @@ def err_omp_depend_type_unsupported_taskwait : Error<
   "unsupported dependency type in 'taskwait' directive; must be one of "
   "'in', 'out', or 'inout'">;
 #endif // INTEL_COLLAB
+def err_omp_instantiation_not_supported
+    : Error<"instantiation of '%0' not supported yet">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
