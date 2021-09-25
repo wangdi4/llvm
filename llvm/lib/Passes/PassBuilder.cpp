@@ -576,6 +576,8 @@ PassBuilder::PassBuilder(TargetMachine *TM, PipelineTuningOptions PTO,
   PIC->addClassToPassName(decltype(CREATE_PASS)::name(), NAME);
 #define CGSCC_PASS(NAME, CREATE_PASS)                                          \
   PIC->addClassToPassName(decltype(CREATE_PASS)::name(), NAME);
+#define CGSCC_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)       \
+  PIC->addClassToPassName(CLASS, NAME);
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)                                      \
   PIC->addClassToPassName(decltype(CREATE_PASS)::name(), NAME);
 #include "PassRegistry.def"
@@ -753,6 +755,10 @@ Expected<bool> parseSinglePassOption(StringRef Params, StringRef OptionName,
     }
   }
   return Result;
+}
+
+Expected<bool> parseInlinerPassOptions(StringRef Params) {
+  return parseSinglePassOption(Params, "only-mandatory", "InlinerPass");
 }
 
 Expected<bool> parseEarlyCSEPassOptions(StringRef Params) {
@@ -1082,6 +1088,9 @@ static bool isCGSCCPassName(StringRef Name, CallbacksT &Callbacks) {
 #define CGSCC_PASS(NAME, CREATE_PASS)                                          \
   if (Name == NAME)                                                            \
     return true;
+#define CGSCC_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)       \
+  if (checkParametrizedPassName(Name, NAME))                                   \
+    return true;
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)                                      \
   if (Name == "require<" NAME ">" || Name == "invalidate<" NAME ">")           \
     return true;
@@ -1326,6 +1335,15 @@ Error PassBuilder::parseModulePass(ModulePassManager &MPM,
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(CREATE_PASS));         \
     return Error::success();                                                   \
   }
+#define CGSCC_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)       \
+  if (checkParametrizedPassName(Name, NAME)) {                                 \
+    auto Params = parsePassParameters(PARSER, Name, NAME);                     \
+    if (!Params)                                                               \
+      return Params.takeError();                                               \
+    MPM.addPass(                                                               \
+        createModuleToPostOrderCGSCCPassAdaptor(CREATE_PASS(Params.get())));   \
+    return Error::success();                                                   \
+  }
 #define FUNCTION_PASS(NAME, CREATE_PASS)                                       \
   if (Name == NAME) {                                                          \
     MPM.addPass(createModuleToFunctionPassAdaptor(CREATE_PASS));               \
@@ -1418,6 +1436,14 @@ Error PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
 #define CGSCC_PASS(NAME, CREATE_PASS)                                          \
   if (Name == NAME) {                                                          \
     CGPM.addPass(CREATE_PASS);                                                 \
+    return Error::success();                                                   \
+  }
+#define CGSCC_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)       \
+  if (checkParametrizedPassName(Name, NAME)) {                                 \
+    auto Params = parsePassParameters(PARSER, Name, NAME);                     \
+    if (!Params)                                                               \
+      return Params.takeError();                                               \
+    CGPM.addPass(CREATE_PASS(Params.get()));                                   \
     return Error::success();                                                   \
   }
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)                                      \
@@ -1900,6 +1926,11 @@ void PassBuilder::printPassNames(raw_ostream &OS) {
 
   OS << "CGSCC passes:\n";
 #define CGSCC_PASS(NAME, CREATE_PASS) printPassName(NAME, OS);
+#include "PassRegistry.def"
+
+  OS << "CGSCC passes with params:\n";
+#define CGSCC_PASS_WITH_PARAMS(NAME, CLASS, CREATE_PASS, PARSER, PARAMS)       \
+  printPassName(NAME, PARAMS, OS);
 #include "PassRegistry.def"
 
   OS << "CGSCC analyses:\n";
