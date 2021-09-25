@@ -279,7 +279,6 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_bind:
 #endif //INTEL_COLLAB
@@ -289,9 +288,7 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
   case OMPC_when:
->>>>>>> 000875c127c7f2ae10a954bd592c1658e5912cf1
     break;
   default:
     break;

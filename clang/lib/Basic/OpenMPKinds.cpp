@@ -258,13 +258,10 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_append_args:
 #endif // INTEL_COLLAB
-=======
   case OMPC_when:
->>>>>>> 000875c127c7f2ae10a954bd592c1658e5912cf1
     break;
   default:
     break;
@@ -559,13 +556,10 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_append_args:
 #endif // INTEL_COLLAB
-=======
   case OMPC_when:
->>>>>>> 000875c127c7f2ae10a954bd592c1658e5912cf1
     break;
   default:
     break;
