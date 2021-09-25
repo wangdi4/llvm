@@ -124,19 +124,16 @@ public:
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InlineReport *getReport() { return Report; }
   InlineReportBuilder *getMDReport() { return MDReport; }
   bool getIsAlwaysInline() { return IsAlwaysInline; }
   void setIsAlwaysInline(bool AlwaysInline) { IsAlwaysInline = AlwaysInline; }
 #endif // INTEL_CUSTOMIZATION
-=======
 
   void printPipeline(raw_ostream &OS,
                      function_ref<StringRef(StringRef)> MapClassName2PassName);
 
->>>>>>> c8cb7f611fdf4d96c4d23a75aa48c93cca38646f
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
