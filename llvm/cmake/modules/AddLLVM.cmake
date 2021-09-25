@@ -448,26 +448,18 @@ endmacro()
 #      This is used to specify that this is a component library of
 #      LLVM which means that the source resides in llvm/lib/ and it is a
 #      candidate for inclusion into libLLVM.so.
-<<<<<<< HEAD
+#   EXCLUDE_FROM_ALL
+#      Do not build this library as part of the default target, only
+#      if explicitly requested or when linked against.
 #   CUSTOM_WIN_VER
 #      Default LLVM versioning on windows is skipped when set
 #   )
 function(llvm_add_library name)
   cmake_parse_arguments(ARG
-    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER"
+    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER;EXCLUDE_FROM_ALL"
 # INTEL_CUSTOMIZATION
     "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH;STDLIB"
 # end INTEL_CUSTOMIZATION
-=======
-#   EXCLUDE_FROM_ALL
-#      Do not build this library as part of the default target, only
-#      if explicitly requested or when linked against.
-#   )
-function(llvm_add_library name)
-  cmake_parse_arguments(ARG
-    "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;EXCLUDE_FROM_ALL"
-    "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH"
->>>>>>> 6d7b3d6b3a8dbd62650b6c3dae1fe904a8ae9048
     "ADDITIONAL_HEADERS;DEPENDS;LINK_COMPONENTS;LINK_LIBS;OBJLIBS"
     ${ARGN})
   list(APPEND LLVM_COMMON_DEPENDS ${ARG_DEPENDS})
