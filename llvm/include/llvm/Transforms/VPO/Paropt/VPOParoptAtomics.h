@@ -456,70 +456,77 @@ private:
   /// @{
 
   /// \brief Generates a CastInst for \p ValueOpnd depending upon the \p Op, \p
-  /// AtomicOpnd and \p AtomicKind, if needed. A cast is might be needed if:
-  /// * AtomicOpnd and ValueOpnd are integer types, but AtomicOpnd has lesser
-  /// number of bits.
-  /// * AtomicOpnd is integer type and ValueOpnd is floating point type.
-  /// * AtomicOpnd and ValueOpnd are floating point types, but AtomicOpnd has
-  /// lesser number of bits.
+  /// AtomicOpndElemTy and \p AtomicKind, if needed.
+  /// A cast is might be needed if:
+  /// * AtomicOpndElemTy and ValueOpnd are integer types,
+  ///   but AtomicOpndElemTy has lesser number of bits.
+  /// * AtomicOpndElemTy is integer type and ValueOpnd is floating point type.
+  /// * AtomicOpndElemTy and ValueOpnd are floating point types,
+  ///   but AtomicOpndElemTy has lesser number of bits.
   /// \tparam AtomicKind can either be WRNAtomicUpdate or WRNAtomicCapture.
   /// \param [in] Op is the Instruction for the update operation, and is
   /// ignored for capture operation.
   /// \param [in] Reversed is `true` if in a non-commutative update operation,
   /// atomic operand `x` is the second operand. e.g.`x = expr - x`.
-  /// \param [in] AtomicOpnd Atomic operand 'x'.
+  /// \param [in] AtomicOpndElemTy Element type of atomic operand 'x'.
   /// \param [in] ValueOpnd Value operand 'expr'.
   ///
   /// \returns The generated CastInst for \p ValueOpnd. \c nullptr if no
   /// CastInst is generated.
   template <WRNAtomicKind AtomicKind>
   static CastInst *genCastForValueOpnd(const Instruction *Op, bool Reversed,
-                                       const Value *AtomicOpnd,
+                                       Type *AtomicOpndElemTy,
                                        Value *ValueOpnd);
 
   /// \brief Generates a Trunc cast for \p ValueOpnd in case of an update
-  /// operation between integer \p AtomicOpnd and \p ValueOpnd, such that \p
-  /// AtomicOpnd has lesser number of bits than \p ValueOpnd. The CastInst
-  /// generated generated truncates \p ValueOpnd to the size of \p AtomicOpnd.
-  /// \param [in] AtomicOpnd atomic operand.
+  /// operation between an atomic operand with integer element type
+  /// \p AtomicOpndElemTy and \p ValueOpnd, such that \p
+  /// AtomicOpndElemTy has lesser number of bits than \p ValueOpnd. The CastInst
+  /// generated generated truncates \p ValueOpnd to the size of
+  /// \p AtomicOpndElemTy.
+  /// \param [in] AtomicOpndElemTy type.
   /// \param [in] ValueOpnd value operand.
   ///
   /// \returns the Trunc CastInst for \p ValueOpnd, if supported/needed,
   /// `nullptr` otherwise.
-  static CastInst *genTruncForValueOpnd(const Value &AtomicOpnd,
+  static CastInst *genTruncForValueOpnd(Type *AtomicOpndElemTy,
                                         Value &ValueOpnd);
 
   /// \brief Generates FPExt cast for \p ValueOpnd in case of mixed atomic
-  /// update with integer \p AtomicOpnd and floating point \p ValueOpnd, if
-  /// needed. If \p AtomicOpnd is an integer, and \p ValueOpnd is a floating
-  /// point type, such that an intrinsic for the combination would not exist,
-  /// then a CastInst is generated to extend \p ValueOpnd to a higher-precision
-  /// floating point value for which an intrinsic would exist. \p Op is needed
+  /// update with an atomic operand with integer element type
+  /// \p AtomicOpndElemTy and floating point \p ValueOpnd, if
+  /// needed. If \p AtomicOpndElemTy is an integer type,
+  /// and \p ValueOpnd is a floating point type, such that an intrinsic
+  /// for the combination would not exist, then a CastInst is generated
+  /// to extend \p ValueOpnd to a higher-precision floating point value
+  /// for which an intrinsic would exist. \p Op is needed
   /// to obtain the target size of the FPExt cast.
   /// \param [in] Op is the Instruction for the update operation.
   /// \param [in] Reversed is `true` if in a non-commutative update operation,
   /// atomic operand `x` is the second operand. e.g.`x = expr - x`.
-  /// \param [in] AtomicOpnd atomic operand.
+  /// \param [in] AtomicOpndElemTy type.
   /// \param [in] ValueOpnd value operand.
   ///
   /// \returns the FPExt CastInst for \p ValueOpnd, if supported/needed,
   /// `nullptr` otherwise.
   static CastInst *genFPExtForValueOpnd(const Instruction &Op, bool Reversed,
-                                        const Value &AtomicOpnd,
+                                        Type *AtomicOpndElemTy,
                                         Value &ValueOpnd);
 
   /// \brief Generates FPTrunc cast for \p ValueOpnd in case of an update
-  /// operation between floating point \p AtomicOpnd and \p ValueOpnd, such that
-  /// \p AtomicOpnd has lesser number of bits than \p ValueOpnd. The CastInst
-  /// generated truncates \p ValueOpnd to the size of \p AtomicOpnd.
+  /// operation between an atomic operand with floating point element type
+  /// \p AtomicOpndElemTy and \p ValueOpnd, such that \p AtomicOpndElemTy
+  /// has lesser number of bits than \p ValueOpnd.
+  /// The CastInst generated truncates \p ValueOpnd to the size
+  /// of \p AtomicOpndElemTy.
   /// \tparam AtomicKind can either be WRNAtomicUpdate or WRNAtomicCapture.
-  /// \param [in] AtomicOpnd atomic operand.
+  /// \param [in] AtomicOpndElemTy type.
   /// \param [in] ValueOpnd value operand.
   ///
   /// \returns the Trunc CastInst for \p ValueOpnd, if supported/needed,
   /// `nullptr` otherwise.
   template <WRNAtomicKind AtomicKind>
-  static CastInst *genFPTruncForValueOpnd(const Value &AtomicOpnd,
+  static CastInst *genFPTruncForValueOpnd(Type *AtomicOpndElemTy,
                                           Value& ValueOpnd);
 
   /// @}
@@ -563,7 +570,8 @@ private:
   /// \param Reversed is `true` if for a non-commutative operation like sub/div,
   /// the atomic operand is the second one. e.g. x = expr - x. (`true` for (2),
   /// `false` for (1)).
-  /// \param AtomicOpnd is the operand `x` in (1), and `y` in (2).
+  /// \param AtomicOpndElemTy is the element type of operand `x` in (1),
+  /// and `y` in (2).
   /// \param ValueOpnd is `expr` in (1) and (2).
   /// \param [in] IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
@@ -573,7 +581,7 @@ private:
             AtomicCaptureKind CaptureKind = CaptureUnknown>
   static const std::string
   getAtomicUCIntrinsicName(const Instruction &Operation, AtomicUpdateOp OpKind,
-                           bool Reversed, const Value &AtomicOpnd,
+                           bool Reversed, Type *AtomicOpndElemTy,
                            const Value &ValueOpnd,
                            bool IsTargetSPIRV);
 
@@ -594,7 +602,7 @@ private:
   /// \param [in] Reversed (Ignored for CaptureSwap) tells if for a
   /// non-commutative `op` like `sub`, atomic operand is the second operand,
   /// such as `x = expr - x`.
-  /// \param [in] AtomicOpnd is `x`.
+  /// \param [in] AtomicOpndElemTy is element type of `x`.
   /// \param [in] ValueOpnd is `expr`.
   /// \param [in] IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
@@ -603,7 +611,7 @@ private:
   static const std::string getAtomicCaptureIntrinsicName(
       AtomicCaptureKind CaptureKind, const BasicBlock *BB,
       const Instruction *Operation, AtomicUpdateOp OpKind,
-      bool Reversed, const Value *AtomicOpnd,
+      bool Reversed, Type *AtomicOpndElemTy,
       const Value *ValueOpnd, bool IsTargetSPIRV);
 
   /// \brief Adjusts \p IntrinsicName for non-X86 architectures.
