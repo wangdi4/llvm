@@ -2733,7 +2733,7 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
     unsigned PaddedMallocAddrIdx;
     BlobUtilities.createGlobalVarBlob(PaddedMallocVariable, true,
                                       &PaddedMallocAddrIdx);
-    RegDDRef *PaddedMalloc = DDRefUtilities.createMemRef(PaddedMallocAddrIdx);
+    RegDDRef *PaddedMalloc = DDRefUtilities.createMemRef(PaddedMallocVariable->getValueType(), PaddedMallocAddrIdx);
     PaddedMalloc->addDimension(CanonExprUtilities.createCanonExpr(IntTy));
 
     // Construct PaddedMallocLimit.
@@ -2870,7 +2870,7 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
   auto &HIRF = HLNodeUtilities.getHIRFramework();
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   auto Is64Bit = TargetTriple.isArch64Bit();
-  RegDDRef *MemRef = DDRefUtilities.createMemRef(PtrRef->getSelfBlobIndex(),
+  RegDDRef *MemRef = DDRefUtilities.createMemRef(PtrRef->getDestType()->getScalarType()->getPointerElementType(), PtrRef->getSelfBlobIndex(),
                                                  PtrRef->getDefinedAtLevel());
   auto Int32Ty = Type::getInt32Ty(HLNodeUtilities.getContext());
   auto Int64Ty = Type::getInt64Ty(HLNodeUtilities.getContext());
@@ -2943,7 +2943,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
   //
   // &(%ReplWidePtr)[< 0, 1, ..., OriginalVL - 1, ... VF times>]
   RegDDRef *ReplWidePtr = ReplWidePtrInst->getLvalDDRef();
-  RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(
+  RegDDRef *ReplWidePtrAddr = DDRefUtilities.createAddressOfRef(VecType->getElementType(),
       ReplWidePtr->getSelfBlobIndex(), ReplWidePtr->getDefinedAtLevel());
   ReplWidePtrAddr->setInBounds(WidePtr->isInBounds());
   ReplWidePtrAddr->addDimension(IndexCE);
@@ -3261,7 +3261,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // BaseRef = &((i32*)(<VF x i32>* %priv.mem)[i32 0])
   // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
 
-  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(
+  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
       AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
       AllocaMemRefSym);
   BaseRef->setBitCastDestType(PvtTy);
@@ -3290,7 +3290,7 @@ VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
   // Create address-of ref to compute vector of pointers using base-address and
   // vector indices. The base ptr of this address-of ref will be defined in loop
   // preheader always, hence set defined at level as (LoopLevel - 1).
-  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
+  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(PvtTy->getElementType(),
       BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
       OrigLoop->getNestingLevel() - 1, AllocaMemRefSym);
   VecPvtPtrs->addDimension(IndexCE);
@@ -3521,7 +3521,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
     // ScalPvtPtr = &((i32 *)(<VF x i32>* %priv.mem)[i32 0])
     RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
-    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
+    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(AllocaBlob->getDestType()->getScalarType()->getPointerElementType(),
         AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
         AllocaMemRefSym);
     ScalPvtPtr->setBitCastDestType(VPAllocaPriv->getType());
@@ -3826,7 +3826,7 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
     PointerRef = CopyInst->getLvalDDRef();
   }
 
-  auto *NewRef = DDRefUtilities.createAddressOfRef(
+  auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getScalarType()->getPointerElementType(),
       PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
   NewRef->setInBounds(VPSubscript->isInBounds());
   NewRef->setBitCastDestType(ResultRefTy);
@@ -4696,7 +4696,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       addInstUnmasked(CopyInst);
       PointerRef = CopyInst->getLvalDDRef()->clone();
 
-      auto *NewRef = DDRefUtilities.createAddressOfRef(
+      auto *NewRef = DDRefUtilities.createAddressOfRef(PointerRef->getDestType()->getPointerElementType(),
           PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
       RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
       NewRef->addDimension(Idx->getSingleCanonExpr());

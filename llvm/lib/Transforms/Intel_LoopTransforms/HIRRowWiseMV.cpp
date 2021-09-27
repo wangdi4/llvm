@@ -1192,7 +1192,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     RowCases = RowCaseAlloca->getLvalDDRef();
 
     RowCasesRef =
-      DDRU.createMemRef(RowCases->getSingleCanonExpr()->getSingleBlobIndex());
+      DDRU.createMemRef(cast<AllocaInst>(RowCaseAlloca->getLLVMInstruction())->getAllocatedType(), RowCases->getSingleCanonExpr()->getSingleBlobIndex());
     CanonExpr *const RowCasesRefDim =
       CEU.createCanonExpr(NonInvariantCheckLoop->getIVType());
     RowCasesRefDim->addIV(SafeCheckLevel, InvalidBlobIndex, 1);

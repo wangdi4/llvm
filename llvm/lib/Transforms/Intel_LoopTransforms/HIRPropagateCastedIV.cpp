@@ -261,7 +261,7 @@ bool HIRPropagateCastedIV::propagateCastedIV(HLLoop *Lp) {
 
     // Modified ref example-
     // %t118 = (%ptr)[i1 + %t108]
-    RegDDRef *NewRef = DRU.createMemRef(LvalRef->getSelfBlobIndex(),
+    RegDDRef *NewRef = DRU.createMemRef(UseRef->getBasePtrElementType(), LvalRef->getSelfBlobIndex(),
                                         LoopLevel - 1, UseRef->getSymbase());
 
     NewRef->addDimension(CandidateCE->clone(), Offsets);

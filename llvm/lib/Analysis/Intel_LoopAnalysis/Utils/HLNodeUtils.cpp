@@ -1210,7 +1210,7 @@ HLInst *HLNodeUtils::createDbgPuts(const TargetLibraryInfo &TLI,
   Type *IntPtr = getDataLayout().getIntPtrType(Ctx, 0);
 
   RegDDRef *ConstStrRef =
-      DRU.createAddressOfRef(ConstStrBlobIndex, 0, GenericRvalSymbase);
+      DRU.createAddressOfRef(ConstStr->getValueType(), ConstStrBlobIndex, 0, GenericRvalSymbase);
 
   auto &CU = getCanonExprUtils();
   ConstStrRef->addDimension(CU.createCanonExpr(IntPtr, 0));

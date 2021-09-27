@@ -497,7 +497,7 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   // (%.DopeVector1)[0].6 = 500;
   RegDDRef *ExtentRef = TripCountDDRef->clone();
   ExtentRef->makeConsistent({}, Level);
-  RegDDRef *DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  RegDDRef *DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   auto FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   auto StoreInst = HNU.createStore(ExtentRef, ".extent", DopeVectorRef);
@@ -511,7 +511,7 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   RegDDRef *StrideCanonRef =
       DDRU.createScalarRegDDRef(GenericRvalSymbase, StrideCanon);
   StrideCanonRef->makeConsistent(MatrixRef, Level);
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   StoreInst = HNU.createStore(StrideCanonRef, ".stride", DopeVectorRef);
@@ -522,7 +522,7 @@ void HIRGenerateMKLCall::createDopeVectorAssignmentsForDim(
   // instruction
   // (%.DopeVector1)[0].8 = 1;
   RegDDRef *LowerRef = DDRU.createConstDDRef(IntType, 1);
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
   StoreInst = HNU.createStore(LowerRef, ".lower", DopeVectorRef);
@@ -551,7 +551,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'addr_a0' field and create the assignment instruction
   // (%.DopeVector1)[0].0 = &((i8*)(@c)[0][0][0]);
-  RegDDRef *DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  RegDDRef *DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   CanonExpr *FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -574,7 +574,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'addr_length' field and create the assignment instruction
   // (%.DopeVector1)[0].1 = 4;
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -587,7 +587,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'offset' field and create the assignment instruction
   // (%.DopeVector1)[0].2 = 0;
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -598,7 +598,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'flags' field and create the assignment instruction
   // (%.DopeVector1)[0].3 = 0;
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -609,7 +609,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'rank' field and create the assignment instruction
   // (%.DopeVector1)[0].4 = 2;
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -623,7 +623,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
 
   // Compute 'reserved' field and create the assignment instruction
   // (%.DopeVector1)[0].5 = 0;
-  DopeVectorRef = DDRU.createMemRef(AllocaBlobIdx);
+  DopeVectorRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   FirstCE = CEU.createCanonExpr(IntType);
   DopeVectorRef->addDimension(FirstCE, DopeVectorFieldIdx++);
 
@@ -665,7 +665,7 @@ RegDDRef *HIRGenerateMKLCall::createDopeVectorAssignments(
     }
   }
   // Create the dope vector field reference and make it live-in to loop
-  RegDDRef *DopeRef = DDRU.createMemRef(AllocaBlobIdx);
+  RegDDRef *DopeRef = DDRU.createMemRef(DopeVectorType, AllocaBlobIdx);
   auto ZeroCE = CEU.createCanonExpr(IntType);
   DopeRef->setAddressOf(true);
   DopeRef->addDimension(ZeroCE);

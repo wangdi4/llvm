@@ -4951,7 +4951,7 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
 
   const CanonExpr *LinearIndexCE = Ref->getSingleCanonExpr();
 
-  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrBlobIndex(),
+  RegDDRef *NewRef = DRU.createMemRef(Ref->getBasePtrElementType(), Ref->getBasePtrBlobIndex(),
                                       Ref->getBaseCE()->getDefinedAtLevel(),
                                       Ref->getSymbase());
 

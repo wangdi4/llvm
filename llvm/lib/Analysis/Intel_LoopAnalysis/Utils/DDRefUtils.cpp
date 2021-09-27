@@ -49,7 +49,7 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   return RegDD;
 }
 
-RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
+RegDDRef *DDRefUtils::createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex, unsigned Level,
                                    unsigned SB, bool IsMemRef,
                                    bool IsInBounds) {
   if (SB == InvalidSymbase) {
@@ -60,10 +60,9 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
   auto BaseCE =
       getCanonExprUtils().createSelfBlobCanonExpr(BasePtrBlobIndex, Level);
 
+  assert(BaseCE->getDestType()->isOpaquePointerTy() || (BasePtrElementType == BaseCE->getDestType()->getScalarType()->getPointerElementType()) && "Incorrect base ptr element type!");
   Ref->setBaseCE(BaseCE);
-  // TODO: Force callers to pass element type explicitly and remove this check.
-  Ref->setBasePtrElementType(
-      BaseCE->getDestType()->getScalarType()->getPointerElementType());
+  Ref->setBasePtrElementType(BasePtrElementType);
   Ref->setInBounds(IsInBounds);
   Ref->addBlobDDRef(BasePtrBlobIndex, Level);
 
@@ -74,21 +73,21 @@ RegDDRef *DDRefUtils::createGEPRef(unsigned BasePtrBlobIndex, unsigned Level,
   return Ref;
 }
 
-RegDDRef *DDRefUtils::createMemRef(unsigned BasePtrBlobIndex, unsigned Level,
+RegDDRef *DDRefUtils::createMemRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex, unsigned Level,
                                    unsigned SB, bool IsInBounds) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, true, IsInBounds);
+  return createGEPRef(BasePtrElementType, BasePtrBlobIndex, Level, SB, true, IsInBounds);
 }
 
-RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
+RegDDRef *DDRefUtils::createAddressOfRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex,
                                          unsigned Level, unsigned SB,
                                          bool IsInBounds) {
-  return createGEPRef(BasePtrBlobIndex, Level, SB, false, IsInBounds);
+  return createGEPRef(BasePtrElementType, BasePtrBlobIndex, Level, SB, false, IsInBounds);
 }
 
-RegDDRef *DDRefUtils::createSelfAddressOfRef(unsigned BasePtrBlobIndex,
+RegDDRef *DDRefUtils::createSelfAddressOfRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex,
                                              unsigned Level, unsigned SB) {
   auto *SelfAddrRef =
-      createAddressOfRef(BasePtrBlobIndex, Level, SB, true /*IsInBounds*/);
+      createAddressOfRef(BasePtrElementType, BasePtrBlobIndex, Level, SB, true /*IsInBounds*/);
   auto *BlobTy =
       cast<PointerType>(getBlobUtils().getBlob(BasePtrBlobIndex)->getType());
   SelfAddrRef->addDimension(getCanonExprUtils().createCanonExpr(
