@@ -604,7 +604,7 @@ bool BarrierUtils::isCrossedByBarrier(const InstSet &SyncInstructions,
 
 inst_range BarrierUtils::findDummyRegion(Function &F) {
   // Dummy region would only exist at the beginning of a function,
-  // so we do greedy search from the FIrst instruction.
+  // so we do greedy search from the First instruction.
   inst_iterator FirstIt;
   for (inst_iterator It = inst_begin(F), End = inst_end(F); It != End; ++It) {
     auto *Inst = &*It;

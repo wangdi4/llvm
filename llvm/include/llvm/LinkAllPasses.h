@@ -441,6 +441,7 @@ namespace {
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBarrierPropagateLegacyPass();
+      (void)llvm::createSGBarrierSimplifyLegacyPass();
       (void)llvm::createSGBuiltinLegacyPass();
       (void)llvm::createSGLoopConstructLegacyPass();
       (void)llvm::createSGSizeAnalysisLegacyPass();

@@ -722,6 +722,7 @@ void initializeResolveSubGroupWICallLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
 void initializeSetVectorizationFactorLegacyPass(PassRegistry &);
 void initializeSGBarrierPropagateLegacyPass(PassRegistry &);
+void initializeSGBarrierSimplifyLegacyPass(PassRegistry &);
 void initializeSGBuiltinLegacyPass(PassRegistry &);
 void initializeSGLoopConstructLegacyPass(PassRegistry &);
 void initializeSGSizeAnalysisLegacyPass(PassRegistry &);
