@@ -572,14 +572,10 @@ void X86PassConfig::addPreRegAlloc() {
 
   addPass(createX86SpeculativeLoadHardeningPass());
   addPass(createX86FlagsCopyLoweringPass());
-<<<<<<< HEAD
-  addPass(createX86WinAllocaExpander());
+  addPass(createX86DynAllocaExpander());
 #if INTEL_CUSTOMIZATION
   addPass(createX86PRAExpandPseudoPass());
 #endif // INTEL_CUSTOMIZATION
-=======
-  addPass(createX86DynAllocaExpander());
->>>>>>> 4ceea7740990f5b755a7bb911e92254dd5680921
 
   if (getOptLevel() != CodeGenOpt::None) {
     addPass(createX86PreTileConfigPass());
