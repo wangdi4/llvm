@@ -13,6 +13,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -257,6 +258,23 @@ Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
 Value *generateRemainderMask(unsigned VF, Value *LoopLen, BasicBlock *BB) {
   IRBuilder<> Builder(BB);
   return generateRemainderMask(VF, LoopLen, Builder, BB->getModule());
+}
+
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, BasicBlock *BB) {
+  auto *IndTy = getIndTy(BB->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  return generateRemainderMask(VF, LoopLenVal, BB);
+}
+
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  return generateRemainderMask(VF, LoopLen, Builder, IP->getModule());
+}
+
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP) {
+  auto *IndTy = getIndTy(IP->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  return generateRemainderMask(VF, LoopLenVal, IP);
 }
 
 void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
