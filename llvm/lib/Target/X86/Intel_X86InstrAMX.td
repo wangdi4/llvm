@@ -774,19 +774,19 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
 multiclass m_tgatherrow {
   let Predicates = [HasAMXMEMORY, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def D : I<0x6e, MRMSrcMemFSIB, (outs TILE:$dst),
+      def D : I<0x6a, MRMSrcMemFSIB, (outs TILE:$dst),
                 (ins sibmem:$src),
                 "tgatherrowd\t{$src, $dst|$dst, $src}",
                 []>, VEX, T8XD;
-      def DT1 : I<0x6f, MRMSrcMemFSIB, (outs TILE:$dst),
+      def DT1 : I<0x6b, MRMSrcMemFSIB, (outs TILE:$dst),
                   (ins sibmem:$src),
                   "tgatherrowdt1\t{$src, $dst|$dst, $src}",
                   []>, VEX, T8XD;
-      def Q : I<0x6e, MRMSrcMemFSIB, (outs TILE:$dst),
+      def Q : I<0x6a, MRMSrcMemFSIB, (outs TILE:$dst),
                 (ins sibmem:$src),
                 "tgatherrowq\t{$src, $dst|$dst, $src}",
                 []>, VEX, VEX_W, T8XD;
-      def QT1 : I<0x6f, MRMSrcMemFSIB, (outs TILE:$dst),
+      def QT1 : I<0x6b, MRMSrcMemFSIB, (outs TILE:$dst),
                   (ins sibmem:$src),
                   "tgatherrowqt1\t{$src, $dst|$dst, $src}",
                   []>, VEX, VEX_W, T8XD;
@@ -809,19 +809,19 @@ let Predicates = [HasAMXMEMORY, In64BitMode],
 // TSCATTERROW[D, Q][T1] sibmem2
 let Predicates = [HasAMXMEMORY, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TSCATTERROWD : I<0x6e, MRMDestMemFSIB, (outs),
+    def TSCATTERROWD : I<0x6a, MRMDestMemFSIB, (outs),
                          (ins sibmem:$dst, TILE:$src),
                          "tscatterrowd\t{$src, $dst|$dst, $src}",
                          []>, VEX, T8XS;
-    def TSCATTERROWDT1 : I<0x6f, MRMDestMemFSIB, (outs),
+    def TSCATTERROWDT1 : I<0x6b, MRMDestMemFSIB, (outs),
                            (ins sibmem:$dst, TILE:$src),
                            "tscatterrowdt1\t{$src, $dst|$dst, $src}",
                            []>, VEX, T8XS;
-    def TSCATTERROWQ : I<0x6e, MRMDestMemFSIB, (outs),
+    def TSCATTERROWQ : I<0x6a, MRMDestMemFSIB, (outs),
                          (ins sibmem:$dst, TILE:$src),
                          "tscatterrowq\t{$src, $dst|$dst, $src}",
                          []>, VEX, VEX_W, T8XS;
-    def TSCATTERROWQT1 : I<0x6f, MRMDestMemFSIB, (outs),
+    def TSCATTERROWQT1 : I<0x6b, MRMDestMemFSIB, (outs),
                            (ins sibmem:$dst, TILE:$src),
                            "tscatterrowqt1\t{$src, $dst|$dst, $src}",
                            []>, VEX, VEX_W, T8XS;
@@ -1703,3 +1703,37 @@ let usesCustomInserter = 1 in {
   def PTLDEXPANDWT1 : PseudoI<(outs), (ins u8imm:$dst, sibmem:$src1, GR32:$src2), []>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_SPARSE
+
+#if INTEL_FEATURE_ISA_AMX_V3
+let Predicates = [HasAMXV3, In64BitMode] in
+  class AMX_V3_BASE<bits<8> Opcode, string Opstr> :
+        I<Opcode, MRMSrcMemFSIB, (outs TILE:$dst), (ins sibmem:$src),
+        !strconcat(Opstr, "\t{$src, $dst|$dst, $src}"),
+        []>, VEX;
+
+def TLOADTRANSPOSED   : AMX_V3_BASE<0x5f, "tloadtransposed">, T8XS;
+def TLOADTRANSPOSEDT1 : AMX_V3_BASE<0x5f, "tloadtransposedt1">, T8PS;
+def TRPNTLVWZ0        : AMX_V3_BASE<0x6e, "trpntlvwz0">, T8XD;
+def TRPNTLVWZ0T1      : AMX_V3_BASE<0x6f, "trpntlvwz0t1">, T8XD;
+def TRPNTLVWZ1        : AMX_V3_BASE<0x6e, "trpntlvwz1">, T8XS;
+def TRPNTLVWZ1T1      : AMX_V3_BASE<0x6f, "trpntlvwz1t1">, T8XS;
+
+let Predicates = [HasAMXV3, In64BitMode], usesCustomInserter = 1 in {
+  def PTLOADTRANSPOSED   : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+  def PTLOADTRANSPOSEDT1 : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+  def PTRPNTLVWZ0   : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+  def PTRPNTLVWZ0T1 : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+  def PTRPNTLVWZ1   : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+  def PTRPNTLVWZ1T1 : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+}
+
+let Predicates = [HasAMXV3, In64BitMode] in {
+  def TSTORETRANSPOSED : I<0x5f, MRMDestMemFSIB, (outs),
+                          (ins sibmem:$dst, TILE:$src),
+                          "tstoretransposed\t{$src, $dst|$dst, $src}",
+                          []>, VEX, T8PD;
+
+  let usesCustomInserter = 1 in
+    def PTSTORETRANSPOSED : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_V3

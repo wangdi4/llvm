@@ -37222,6 +37222,66 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_SPARSE
+#if INTEL_FEATURE_ISA_AMX_V3
+  case X86::PTSTORETRANSPOSED: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    assert(MI.getOpcode() == X86::PTSTORETRANSPOSED &&
+           "Unexpected instruction!");
+    unsigned Opc = X86::TSTORETRANSPOSED;
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0)); // base
+    MIB.add(MI.getOperand(1)); // scale
+    MIB.add(MI.getOperand(2)); // index
+    MIB.add(MI.getOperand(3)); // displacement
+    MIB.add(MI.getOperand(4)); // segment
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(5).getImm()), RegState::Undef);
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTLOADTRANSPOSED:
+  case X86::PTLOADTRANSPOSEDT1:
+  case X86::PTRPNTLVWZ0:
+  case X86::PTRPNTLVWZ0T1:
+  case X86::PTRPNTLVWZ1:
+  case X86::PTRPNTLVWZ1T1: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default:
+      llvm_unreachable("Unexpected instruction!");
+    case X86::PTLOADTRANSPOSED:
+      Opc = X86::TLOADTRANSPOSED;
+      break;
+    case X86::PTLOADTRANSPOSEDT1:
+      Opc = X86::TLOADTRANSPOSEDT1;
+      break;
+    case X86::PTRPNTLVWZ0:
+      Opc = X86::TRPNTLVWZ0;
+      break;
+    case X86::PTRPNTLVWZ0T1:
+      Opc = X86::TRPNTLVWZ0T1;
+      break;
+    case X86::PTRPNTLVWZ1:
+      Opc = X86::TRPNTLVWZ1;
+      break;
+    case X86::PTRPNTLVWZ1T1:
+      Opc = X86::TRPNTLVWZ1T1;
+      break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index -- stride
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_V3
 #endif // INTEL_CUSTOMIZATION
   }
 }
