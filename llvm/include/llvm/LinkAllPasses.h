@@ -441,9 +441,11 @@ namespace {
       (void)llvm::createResolveSubGroupWICallLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createSGBarrierPropagateLegacyPass();
+      (void)llvm::createSGBarrierSimplifyLegacyPass();
       (void)llvm::createSGBuiltinLegacyPass();
       (void)llvm::createSGLoopConstructLegacyPass();
       (void)llvm::createSGSizeAnalysisLegacyPass();
+      (void)llvm::createSGValueWidenLegacyPass();
       (void)llvm::createPrepareKernelArgsLegacyPass(false);
       (void)llvm::createCleanupWrappedKernelLegacyPass();
       (void)llvm::createVFAnalysisLegacyPass();

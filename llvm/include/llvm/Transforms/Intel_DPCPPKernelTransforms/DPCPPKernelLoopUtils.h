@@ -117,7 +117,10 @@ void fillInstructionUsers(Function *F,
 /// \param LoopLen max number of active workitems.
 /// \param BB entry basicblock of the masked vectorized kernel.
 Value *generateRemainderMask(unsigned VF, Value *LoopLen, BasicBlock *BB);
-Value *generateRemainderMask(unsigned VF, Value *loopLen, IRBuilder<> &Builder,
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, BasicBlock *BB);
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, Instruction *IP);
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP);
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, IRBuilder<> &Builder,
                              Module *M);
 
 /// Inline the masked kernel into scalar kernel.

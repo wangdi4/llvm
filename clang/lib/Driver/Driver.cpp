@@ -6959,6 +6959,13 @@ class ToolSelector final {
         InputIsBitcode = false;
         break;
       }
+#if INTEL_PRODUCT_RELEASE
+    // For product release builds, we do not allow for .bc generation.
+    // Make sure we collapse bitcode compilation in the toolchain for
+    // -save-temps
+    if (SaveTemps)
+      InputIsBitcode = true;
+#endif // INTEL_PRODUCT_RELEASE
     if (!InputIsBitcode && !canCollapsePreprocessorAction())
       return nullptr;
 

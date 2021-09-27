@@ -5,9 +5,20 @@
 
 ; CHECK-NOT: define void @_ZGVcN4u_test
 ; CHECK-NOT: define void @_ZGVcM4u_test
+
+; CHECK-LABEL: define void @test{{.*}} {
 ; CHECK: masked_vect_if
 ; CHECK: mask_generate
 ; CHECK: masked_kernel_entry
+
+; CHECK: _ZGVcM4u_test.exit:
+; CHECK-NEXT: ret void
+
+;; Original scalar body is removed.
+; CHECK-NOT: entry:
+; CHECK-NOT: store i32 1, i32 addrspace(1)* %a, align 4, !tbaa !13
+; CHECK-NOT: ret void
+; CHECK: }
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -134,4 +145,5 @@ attributes #3 = { nofree nosync nounwind willreturn writeonly }
 ; DEBUGIFY-COUNT-49: WARNING: Instruction with empty DebugLoc in function test
 ; DEBUGIFY: WARNING: Missing line 18
 ; DEBUGIFY: WARNING: Missing line 40
+; DEBUGIFY: WARNING: Missing variable 1
 ; DEBUGIFY-NOT: WARNING

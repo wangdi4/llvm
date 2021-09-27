@@ -90,7 +90,7 @@ class DDRefUtils {
                                    bool RelaxedMode);
 
   /// Implements createMemRef()/createAddressOfRef().
-  RegDDRef *createGEPRef(unsigned BasePtrBlobIndex, unsigned Level, unsigned SB,
+  RegDDRef *createGEPRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex, unsigned Level, unsigned SB,
                          bool IsMemRef, bool IsInBounds);
 
 public:
@@ -122,29 +122,32 @@ public:
   /// Creates a new DDRef with single canon expr CE.
   RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
 
-  /// Create a memref using the \p BasePtrBlobIndex as the blob index of the
+  /// Create a memref using the \p BasePtrElementType as the element type of the
+  /// base pointer. \p BasePtrBlobIndex as the blob index of the
   /// base pointer. \p Level is the defined at level of the base pointer. If no
   /// symbase is supplied by the caller, a new one is assigned to the ref. No
   /// dimensions are added to the ref. Caller is responsible for doing that
   /// using RegDDRef::addDimension().
-  RegDDRef *createMemRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
+  RegDDRef *createMemRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex, unsigned Level = 0,
                          unsigned SB = InvalidSymbase, bool IsInBounds = true);
 
-  /// Create an addressOf ref using the \p BasePtrBlobIndex as the blob index of
+  /// Create an addressOf ref using the \p BasePtrElementType as the element
+  /// type of the base pointer. \p BasePtrBlobIndex as the blob index of
   /// the base pointer. \p Level is the defined at level of the base pointer. If
   /// no symbase is supplied by the caller, a new one is assigned to the ref. No
   /// dimensions are added to the ref. Caller is responsible for doing that
   /// using RegDDRef::addDimension().
-  RegDDRef *createAddressOfRef(unsigned BasePtrBlobIndex, unsigned Level = 0,
+  RegDDRef *createAddressOfRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex, unsigned Level = 0,
                                unsigned SB = InvalidSymbase,
                                bool IsInBounds = true);
 
-  /// Create a self-addressOf ref using the \p BasePtrBlobIndex as the blob
+  /// Create a self-addressOf ref using the \p BasePtrElementType as the element
+  /// type of the base pointer. \p BasePtrBlobIndex as the blob
   /// index of the base pointer. \p Level is the defined at level of the base
   /// pointer. If no symbase is supplied by the caller, a new one is assigned to
   /// the ref. A single dimension (with 0 as index) is added to the ref. For
   /// example, for input %blob it creates &((%blob)[0]).
-  RegDDRef *createSelfAddressOfRef(unsigned BasePtrBlobIndex,
+  RegDDRef *createSelfAddressOfRef(Type *BasePtrElementType, unsigned BasePtrBlobIndex,
                                    unsigned Level = 0,
                                    unsigned SB = InvalidSymbase);
 

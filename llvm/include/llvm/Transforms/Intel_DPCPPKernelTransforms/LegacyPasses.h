@@ -64,11 +64,13 @@ ModulePass *createResolveSubGroupWICallLegacyPass(
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
 ModulePass *createSGBarrierPropagateLegacyPass();
+ModulePass *createSGBarrierSimplifyLegacyPass();
 ModulePass *createSGBuiltinLegacyPass(
     ArrayRef<std::tuple<const char *, const char *, const char *>> VectInfos =
         {});
 ModulePass *createSGLoopConstructLegacyPass();
 ModulePass *createSGSizeAnalysisLegacyPass();
+ModulePass *createSGValueWidenLegacyPass();
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
 ModulePass *createUpdateCallAttrsLegacyPass();

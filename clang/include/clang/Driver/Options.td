@@ -2733,6 +2733,9 @@ defm openmp_target_malloc : BoolFOption<"openmp-target-malloc",
   LangOpts<"OpenMPTargetMalloc">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse, [CC1Option]>,
   BothFlags<[NoArgumentUnused, HelpHidden]>>;
+def fopenmp_typed_clauses : Flag<["-"], "fopenmp-typed-clauses">,
+  Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>,
+  MarshallingInfoFlag<CodeGenOpts<"OpenMPTypedClauses">>;
 // end INTEL_COLLAB
 def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[NoXarchOption, CC1Option]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;

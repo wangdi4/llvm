@@ -305,9 +305,24 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
         Constant *NewCE = ConstantExpr::getPtrToInt(NewF, CE->getType());
         CE->replaceAllUsesWith(NewCE);
       }
-    }
-    // Handle call instruction.
-    else if (CallInst *CI = dyn_cast<CallInst>(U)) {
+    } else if (auto *C = dyn_cast<ConstantAggregate>(U)) {
+      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
+      SmallVector<Constant *, 16> NewVec;
+      for (Value *Op : C->operand_values()) {
+        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
+        NewVec.push_back(NewElt);
+      }
+      Constant *NewC;
+      if (auto *CArray = dyn_cast<ConstantArray>(C))
+        NewC = ConstantArray::get(CArray->getType(), NewVec);
+      else if (auto *CStruct = dyn_cast<ConstantStruct>(C))
+        NewC = ConstantStruct::get(CStruct->getType(), NewVec);
+      else if (isa<ConstantVector>(C))
+        NewC = ConstantVector::get(NewVec);
+      else
+        llvm_unreachable("unexpected ConstantAggregate user");
+      C->replaceAllUsesWith(NewC);
+    } else if (CallInst *CI = dyn_cast<CallInst>(U)) {
       replaceCallInst(CI, NewTypes, NewF);
     } else if (auto *CI = dyn_cast<PtrToIntInst>(U)) {
       auto *NewCE = CastInst::CreatePointerCast(NewF, CI->getType(), "", CI);
@@ -329,14 +344,6 @@ Function *AddImplicitArgsPass::runOnFunction(Function *F) {
       NewSI->setDebugLoc(SI->getDebugLoc());
       SI->replaceAllUsesWith(NewSI);
       SI->eraseFromParent();
-    } else if (auto *C = dyn_cast<ConstantVector>(U)) {
-      Constant *NewFCast = ConstantExpr::getPointerCast(NewF, F->getType());
-      SmallVector<Constant *, 16> NewVec;
-      for (Value *Op : C->operand_values()) {
-        Constant *NewElt = (Op == F) ? NewFCast : cast<Constant>(Op);
-        NewVec.push_back(NewElt);
-      }
-      C->replaceAllUsesWith(ConstantVector::get(NewVec));
     } else {
       // We should not be here.
       // Unhandled case except for SelectInst - they will be handled later.

@@ -13,9 +13,11 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace llvm {
@@ -259,6 +261,23 @@ Value *generateRemainderMask(unsigned VF, Value *LoopLen, BasicBlock *BB) {
   return generateRemainderMask(VF, LoopLen, Builder, BB->getModule());
 }
 
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, BasicBlock *BB) {
+  auto *IndTy = getIndTy(BB->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  return generateRemainderMask(VF, LoopLenVal, BB);
+}
+
+Value *generateRemainderMask(unsigned VF, Value *LoopLen, Instruction *IP) {
+  IRBuilder<> Builder(IP);
+  return generateRemainderMask(VF, LoopLen, Builder, IP->getModule());
+}
+
+Value *generateRemainderMask(unsigned VF, unsigned LoopLen, Instruction *IP) {
+  auto *IndTy = getIndTy(IP->getModule());
+  auto *LoopLenVal = ConstantInt::get(IndTy, LoopLen);
+  return generateRemainderMask(VF, LoopLenVal, IP);
+}
+
 void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
   auto *M = ScalarKernel->getParent();
   assert(M == MaskedKernel->getParent() &&
@@ -274,6 +293,11 @@ void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
   auto DummyMaskArg = UndefValue::get((MaskedKernel->arg_end() - 1)->getType());
   Args.push_back(DummyMaskArg);
 
+  // The scalar kernel body should be removed.
+  SmallVector<BasicBlock *, 16> OriginalBBs;
+  for (auto &BB : *ScalarKernel)
+    OriginalBBs.push_back(&BB);
+
   auto *Entry =
       BasicBlock::Create(Ctx, "", ScalarKernel, &ScalarKernel->getEntryBlock());
 
@@ -283,12 +307,14 @@ void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
   if (DISubprogram *SP = ScalarKernel->getSubprogram())
     CI->setDebugLoc(DILocation::get(Ctx, SP->getScopeLine(), 0, SP));
 
-  // Let DCE deletes the scalar kernel body.
   ReturnInst::Create(Ctx, Entry);
 
   // Inline the masked kernel into scalar kernel.
   InlineFunctionInfo InlineInfo;
   InlineFunction(*CI, InlineInfo);
+
+  // Delete all original BBs of the scalar kernel.
+  DeleteDeadBlocks(OriginalBBs);
 
   // Erase the masked kernel.
   MaskedKernel->eraseFromParent();

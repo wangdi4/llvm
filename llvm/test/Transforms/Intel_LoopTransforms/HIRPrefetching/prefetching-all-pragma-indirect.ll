@@ -24,24 +24,24 @@
 ;*** IR Dump After HIR Prefetching (hir-prefetching) ***
 ;Function: foo
 ;
-; CHECK:     BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; CHECK:           |   %1 = (@B)[0][i1];
-; CHECK:           |   %2 = (@M)[0][i1];
-; CHECK:           |   %3 = (@C)[0][%2];
-; CHECK:           |   (@A)[0][i1] = %1 + %3;
-; CHECK:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
-; CHECK:           |   {
-; CHECK:           |      %Load = (@M)[0][i1 + 20];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  2,  1);
-; CHECK:           |   }
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 20]),  0,  2,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + 20]),  0,  2,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 20]),  0,  2,  1);
-; CHECK:           + END LOOP
+; CHECK:         BEGIN REGION { modified }
+; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK-NEXT:           |   %1 = (@B)[0][i1];
+; CHECK-NEXT:           |   %2 = (@M)[0][i1];
+; CHECK-NEXT:           |   %3 = (@C)[0][%2];
+; CHECK-NEXT:           |   (@A)[0][i1] = %1 + %3;
+; CHECK-NEXT:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
+; CHECK-NEXT:           |   {
+; CHECK-NEXT:           |      %Load = (@M)[0][i1 + 20];
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  2,  1);
+; CHECK-NEXT:           |   }
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 20]),  0,  2,  1);
+; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:           ret undef;
-; CHECK:     END REGION
+; CHECK:                ret undef;
+; CHECK:          END REGION
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-prefetching -print-after=hir-prefetching -hir-cg -force-hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter < %s 2>&1 | FileCheck %s -check-prefix=OPTREPORT
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-prefetching,hir-cg,simplifycfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -force-hir-cg 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT

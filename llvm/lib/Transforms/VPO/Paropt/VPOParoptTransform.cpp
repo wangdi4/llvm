@@ -9578,11 +9578,18 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
            CopyinEndBB->getTerminator(), IdentTy, true);
       }
 
-      uint64_t Size = NDL.getTypeAllocSize(
-          C->getOrig()->getType()->getPointerElementType());
+      Type *CType = C->getIsTyped() ?
+          C->getOrigItemElementTypeFromIR() :
+          C->getOrig()->getType()->getPointerElementType();
+      uint64_t Size = NDL.getTypeAllocSize(CType);
       VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, Size,
                           getAlignmentCopyIn(C->getOrig(), NDL),
                           Term->getParent());
+      if (C->getIsTyped()) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Copyin for '";
+                   C->getOrig()->printAsOperand(dbgs()); dbgs() << "' (Typed)";
+                   dbgs() << ":: Type: "; CType->print(dbgs()); dbgs() << "\n");
+      }
 
       ++NewArgI;
     }

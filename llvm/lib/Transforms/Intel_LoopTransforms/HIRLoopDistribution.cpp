@@ -400,7 +400,7 @@ RegDDRef *HIRLoopDistribution::createTempArrayStore(HLLoop *Lp,
 
   AllocaBlobIdx = HNU.createAlloca(ArrTy, RegionNode, ".TempArray");
 
-  RegDDRef *TmpArrayRef = HNU.getDDRefUtils().createMemRef(AllocaBlobIdx);
+  RegDDRef *TmpArrayRef = HNU.getDDRefUtils().createMemRef(ArrTy, AllocaBlobIdx);
 
   auto IVType = Lp->getIVType();
   CanonExpr *FirstCE = TempRef->getCanonExprUtils().createCanonExpr(IVType);

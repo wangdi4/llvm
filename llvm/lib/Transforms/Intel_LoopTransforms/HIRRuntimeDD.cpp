@@ -1188,7 +1188,7 @@ static void normalizeRefTypes(HLNodeUtils &HNU, HLContainerTy &Nodes,
 
       auto *BaseDDRef = BaseInst->getLvalDDRef();
 
-      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(
+      auto *OffsetDDRef = HNU.getDDRefUtils().createAddressOfRef(Upper->getDereferencedType(),
           BaseDDRef->getSelfBlobIndex(), NonLinearLevel, Upper->getSymbase(),
           true);
 
@@ -1301,7 +1301,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   //   (%dd)[49].0 = &(%Q)[%lower]
   //   (%dd)[49].1 = &(%Q)[%upper]
   for (auto &S : Context.SegmentList) {
-    RegDDRef *LBDDRef = DRU.createMemRef(TestArrayBlobIndex);
+    RegDDRef *LBDDRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
     LBDDRef->addDimension(CEU.createCanonExpr(IVType));
     LBDDRef->addDimension(CEU.createCanonExpr(IVType, 0, TestIdx));
     LBDDRef->setTrailingStructOffsets(1, 0);
@@ -1328,7 +1328,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   FunctionCallee RtddIndep = HNU.getModule().getOrInsertFunction(
       "__intel_rtdd_indep", Attrs, IntPtrType, I8PtrType, IntPtrType);
 
-  RegDDRef *ArrayRef = DRU.createMemRef(TestArrayBlobIndex);
+  RegDDRef *ArrayRef = DRU.createMemRef(SegmentArrayRuntimeTy, TestArrayBlobIndex);
   ArrayRef->setAddressOf(true);
   ArrayRef->addDimension(CEU.createCanonExpr(IVType));
   ArrayRef->setBitCastDestType(I8PtrType);
