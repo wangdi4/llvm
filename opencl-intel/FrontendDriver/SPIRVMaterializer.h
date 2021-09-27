@@ -28,9 +28,8 @@ namespace ClangFE {
 class ClangFECompilerMaterializeSPIRVTask {
 public:
   ClangFECompilerMaterializeSPIRVTask(
-      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
       SPIRV::TranslatorOpts opts)
-      : m_pProgDesc(pProgDesc), m_opts(opts) {}
+      : m_opts(opts) {}
 
   /// \brief Correct the given module to be processed by the BE.
   ///
@@ -39,7 +38,6 @@ public:
   bool MaterializeSPIRV(llvm::Module *&pM);
 
 private:
-  Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
   SPIRV::TranslatorOpts m_opts;
 };
 

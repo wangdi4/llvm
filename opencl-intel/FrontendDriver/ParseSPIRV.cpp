@@ -370,7 +370,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     assert(!verifyModule(*pModule, &llvm::errs()) &&
            "SPIR-V consumer returned a broken module!");
     // Adapts the output of SPIR-V consumer to backend-friendly format.
-    success = ClangFECompilerMaterializeSPIRVTask(m_pProgDesc, opts)
+    success = ClangFECompilerMaterializeSPIRVTask(opts)
                    .MaterializeSPIRV(pModule);
     assert(!verifyModule(*pModule, &llvm::errs()) &&
            "SPIRVMaterializer broke the module!");
