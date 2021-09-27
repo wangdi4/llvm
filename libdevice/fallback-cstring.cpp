@@ -7,10 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "wrapper.h"
+#if INTEL_COLLAB
+#else // INTEL_COLLAB
 #include <cstdint>
+#endif // INTEL_COLLAB
 
 #ifdef __SPIR__
 #if INTEL_COLLAB
+#include <cstdint>
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
