@@ -1063,14 +1063,13 @@ public:
   /// Test if the given expression is known to satisfy the condition described
   /// by Pred, LHS, and RHS in the given Context.
   bool isKnownPredicateAt(ICmpInst::Predicate Pred, const SCEV *LHS,
-                        const SCEV *RHS, const Instruction *Context);
+                          const SCEV *RHS, const Instruction *CtxI);
 
   /// Check whether the condition described by Pred, LHS, and RHS is true or
   /// false in the given \p Context. If we know it, return the evaluation of
   /// this condition. If neither is proved, return None.
   Optional<bool> evaluatePredicateAt(ICmpInst::Predicate Pred, const SCEV *LHS,
-                                     const SCEV *RHS,
-                                     const Instruction *Context);
+                                     const SCEV *RHS, const Instruction *CtxI);
 
   /// Test if the condition described by Pred, LHS, RHS is known to be true on
   /// every iteration of the loop of the recurrency LHS.
@@ -1120,7 +1119,7 @@ public:
   getLoopInvariantExitCondDuringFirstIterations(ICmpInst::Predicate Pred,
                                                 const SCEV *LHS,
                                                 const SCEV *RHS, const Loop *L,
-                                                const Instruction *Context,
+                                                const Instruction *CtxI,
                                                 const SCEV *MaxIter);
 
   /// Simplify LHS and RHS in a comparison with predicate Pred. Return true
@@ -1857,9 +1856,13 @@ protected: // INTEL
                                   const SCEV *RHS,
                                   ICmpInst::Predicate FoundPred,
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
+<<<<<<< HEAD
                                   const Instruction *Context,        // INTEL
                                   const ICmpInst *PredContext,       // INTEL
                                   const ICmpInst *FoundPredContext); // INTEL
+=======
+                                  const Instruction *CtxI);
+>>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1937,7 +1940,7 @@ protected: // INTEL
                                            const SCEV *LHS, const SCEV *RHS,
                                            const SCEV *FoundLHS,
                                            const SCEV *FoundRHS,
-                                           const Instruction *Context);
+                                           const Instruction *CtxI);
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
