@@ -97,6 +97,8 @@ class OpenMPLateOutliner {
     bool Target = false;
     bool TargetSync = false;
     bool Prefer = false;
+    bool IV = false;
+    bool Typed = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -141,6 +143,10 @@ class OpenMPLateOutliner {
         addSeparated("TARGETSYNC");
       if (Prefer)
         addSeparated("PREFER");
+      if (IV)
+        addSeparated("IV");
+      if (Typed)
+        addSeparated("TYPED");
     }
 
   public:
@@ -164,6 +170,8 @@ class OpenMPLateOutliner {
     void setTarget() { Target = true; }
     void setTargetSync() { TargetSync = true; }
     void setPrefer() { Prefer = true; }
+    void setIV() { IV = true; }
+    void setTyped() { Typed = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
@@ -224,9 +232,26 @@ class OpenMPLateOutliner {
                                                  CodeGenFunction &CGF);
   Address emitOMPArraySectionExpr(const Expr *E, ArraySectionTy *AS);
 
-  void addArg(llvm::Value *V, bool Handled = false);
+  // Add the string argument.
   void addArg(StringRef Str);
-  void addArg(const Expr *E, bool IsRef = false);
+
+  // Add a llvm::Value directly.
+  void addArg(llvm::Value *V, bool Handled = false, bool IsTyped = false,
+              bool IsRef = false, unsigned Elements = 0);
+
+  // Add an llvm::Value with extra 'typed' arguments.
+  void addTypedArg(llvm::Value *V, bool Handled = false, bool IsRef = false,
+                   unsigned Elements = 0);
+  void addSinglePtrTypedArg(llvm::Value *V, bool Handled = false,
+                            bool IsRef = false);
+
+  // Add an argument that is the result of emitting an Expr.
+  void addArg(const Expr *E, bool IsRef = false, bool IsTyped = false,
+              unsigned Elements = 0);
+
+  // Add through the Expr with 'typed' arguments.
+  void addTypedArg(const Expr *E, bool IsRef = false, unsigned Elements = 0);
+  void addSinglePtrTypedArg(const Expr *E, bool IsRef = false);
 
   void addFenceCalls(bool IsBegin);
   void getApplicableDirectives(OpenMPClauseKind CK,
@@ -394,6 +419,8 @@ class OpenMPLateOutliner {
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
   llvm::DenseSet<llvm::Value *> HandledValues;
+
+  bool UseTypedClauses = false;
 
 public:
   static const VarDecl *getExplicitVarDecl(const Expr *E);
