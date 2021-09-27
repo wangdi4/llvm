@@ -17,6 +17,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace llvm {
@@ -292,6 +293,11 @@ void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
   auto DummyMaskArg = UndefValue::get((MaskedKernel->arg_end() - 1)->getType());
   Args.push_back(DummyMaskArg);
 
+  // The scalar kernel body should be removed.
+  SmallVector<BasicBlock *, 16> OriginalBBs;
+  for (auto &BB : *ScalarKernel)
+    OriginalBBs.push_back(&BB);
+
   auto *Entry =
       BasicBlock::Create(Ctx, "", ScalarKernel, &ScalarKernel->getEntryBlock());
 
@@ -301,12 +307,14 @@ void inlineMaskedToScalar(Function *ScalarKernel, Function *MaskedKernel) {
   if (DISubprogram *SP = ScalarKernel->getSubprogram())
     CI->setDebugLoc(DILocation::get(Ctx, SP->getScopeLine(), 0, SP));
 
-  // Let DCE deletes the scalar kernel body.
   ReturnInst::Create(Ctx, Entry);
 
   // Inline the masked kernel into scalar kernel.
   InlineFunctionInfo InlineInfo;
   InlineFunction(*CI, InlineInfo);
+
+  // Delete all original BBs of the scalar kernel.
+  DeleteDeadBlocks(OriginalBBs);
 
   // Erase the masked kernel.
   MaskedKernel->eraseFromParent();
