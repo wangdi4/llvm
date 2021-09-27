@@ -3626,6 +3626,11 @@ X86
 .. option:: -mamx-sparse, -mno-amx-sparse
 
 .. end INTEL_FEATURE_ISA_AMX_SPARSE
+
+.. INTEL_FEATURE_ISA_AMX_V3
+.. option:: -mamx-v3, -mno-amx-v3
+
+.. end INTEL_FEATURE_ISA_AMX_V3
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavx, -mno-avx
 

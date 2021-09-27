@@ -167,6 +167,8 @@ void DPCPPKernelWGLoopCreatorPass::processFunction(Function *F,
   this->F = F;
   this->VectorF = VectorF;
   this->VF = VF;
+  MaskedF = nullptr;
+  EECall = nullptr;
   HasSubGroupPath = KIMD.KernelHasSubgroups.hasValue()
                         ? KIMD.KernelHasSubgroups.get()
                         : false;
