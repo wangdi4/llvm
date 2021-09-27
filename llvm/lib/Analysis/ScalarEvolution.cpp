@@ -11870,23 +11870,14 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
 
   // Try to prove (Pred, LHS, RHS) using isImpliedCond.
   auto ProveViaCond = [&](const Value *Condition, bool Inverse) {
-<<<<<<< HEAD
-    const Instruction *Context = &BB->front();
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, Context, // INTEL
+    const Instruction *CtxI = &BB->front();
+    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, CtxI, // INTEL
                       PredContext, ExprToSimplify))                // INTEL
       return true;
     if (ProvingStrictComparison) {
       auto ProofFn = [&](ICmpInst::Predicate P) {
-        return isImpliedCond(P, LHS, RHS, Condition, Inverse, Context, // INTEL
+        return isImpliedCond(P, LHS, RHS, Condition, Inverse, CtxI, // INTEL
                              PredContext); // INTEL
-=======
-    const Instruction *CtxI = &BB->front();
-    if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, CtxI))
-      return true;
-    if (ProvingStrictComparison) {
-      auto ProofFn = [&](ICmpInst::Predicate P) {
-        return isImpliedCond(P, LHS, RHS, Condition, Inverse, CtxI);
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
       };
       if (SplitAndProve(ProofFn))
         return true;
@@ -11963,13 +11954,9 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     const Value *FoundCondValue, bool Inverse,
-<<<<<<< HEAD
-                                    const Instruction *Context,    // INTEL
+                                    const Instruction *CtxI,    // INTEL
                                     const ICmpInst *PredContext,   // INTEL
                                     const SCEV **ExprToSimplify) { // INTEL
-=======
-                                    const Instruction *CtxI) {
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
   // False conditions implies anything. Do not bother analyzing it further.
   if (FoundCondValue ==
       ConstantInt::getBool(FoundCondValue->getContext(), Inverse))
@@ -12007,9 +11994,8 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
   const SCEV *FoundLHS = getSCEV(ICI->getOperand(0));
   const SCEV *FoundRHS = getSCEV(ICI->getOperand(1));
 
-<<<<<<< HEAD
   return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, // INTEL
-                       Context, PredContext, ICI, ExprToSimplify);    // INTEL
+                       CtxI, PredContext, ICI, ExprToSimplify);    // INTEL
 }
 
 #if INTEL_CUSTOMIZATION
@@ -12183,9 +12169,6 @@ static void stripCastsForConstDiffAnalysis(ScalarEvolution &SE,
 
   RHS = SE.getTruncateExpr(RHS, OpTy);
   FoundRHS = SE.getTruncateExpr(FoundRHS, OpTy);
-=======
-  return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, CtxI);
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
 }
 
 /// Tries to prove condition by comparing constant difference between
@@ -12328,8 +12311,7 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
                                     const SCEV *FoundLHS, const SCEV *FoundRHS,
-<<<<<<< HEAD
-                                    const Instruction *Context,         // INTEL
+                                    const Instruction *CtxI,         // INTEL
                                     const ICmpInst *PredContext,        // INTEL
                                     const ICmpInst *FoundPredContext,   // INTEL
                                     const SCEV **ExprToSimplify) {      // INTEL
@@ -12338,9 +12320,6 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
   simplifyUsingFoundPred(*this, &RHS, FoundPred, FoundLHS, FoundRHS);
   simplifyUsingFoundPred(*this, ExprToSimplify, FoundPred, FoundLHS, FoundRHS);
 #endif // INTEL_CUSTOMIZATION
-=======
-                                    const Instruction *CtxI) {
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {
@@ -12358,12 +12337,8 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
         const SCEV *TruncFoundLHS = getTruncateExpr(FoundLHS, NarrowType);
         const SCEV *TruncFoundRHS = getTruncateExpr(FoundRHS, NarrowType);
         if (isImpliedCondBalancedTypes(Pred, LHS, RHS, FoundPred, TruncFoundLHS,
-<<<<<<< HEAD
-                                       TruncFoundRHS, Context, PredContext, // INTEL
+                                       TruncFoundRHS, CtxI, PredContext, // INTEL
                                        FoundPredContext))                   // INTEL
-=======
-                                       TruncFoundRHS, CtxI))
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
           return true;
       }
     }
@@ -12390,23 +12365,15 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
     }
   }
   return isImpliedCondBalancedTypes(Pred, LHS, RHS, FoundPred, FoundLHS,
-<<<<<<< HEAD
-                                    FoundRHS, Context, PredContext, // INTEL
+                                    FoundRHS, CtxI, PredContext, // INTEL
                                     FoundPredContext);              // INTEL
-=======
-                                    FoundRHS, CtxI);
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
 }
 
 bool ScalarEvolution::isImpliedCondBalancedTypes(
     ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
     ICmpInst::Predicate FoundPred, const SCEV *FoundLHS, const SCEV *FoundRHS,
-<<<<<<< HEAD
-    const Instruction *Context, const ICmpInst *PredContext, // INTEL
+    const Instruction *CtxI, const ICmpInst *PredContext, // INTEL
     const ICmpInst *FoundPredContext) {                      // INTEL
-=======
-    const Instruction *CtxI) {
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
   assert(getTypeSizeInBits(LHS->getType()) ==
              getTypeSizeInBits(FoundLHS->getType()) &&
          "Types should be balanced!");
@@ -12464,7 +12431,6 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
     if (!isa<SCEVConstant>(FoundRHS) && !isa<SCEVAddRecExpr>(FoundLHS))
       return isImpliedCondOperands(Pred, LHS, RHS, FoundRHS, FoundLHS, CtxI);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // If we negate the SCEV and we are using unsigned comparisons, the
     // range analysis may be incorrect.
@@ -12485,28 +12451,13 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
       // not legal.
       if (!LHS->getType()->isPointerTy() && !RHS->getType()->isPointerTy() &&
           isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
-                                FoundLHS, FoundRHS, Context))
+                                FoundLHS, FoundRHS, CtxI))
         return true;
-=======
-    // There's no clear preference between forms 3. and 4., try both.  Avoid
-    // forming getNotSCEV of pointer values as the resulting subtract is
-    // not legal.
-    if (!LHS->getType()->isPointerTy() && !RHS->getType()->isPointerTy() &&
-        isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
-                              FoundLHS, FoundRHS, CtxI))
-      return true;
-
-    if (!FoundLHS->getType()->isPointerTy() &&
-        !FoundRHS->getType()->isPointerTy() &&
-        isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
-                              getNotSCEV(FoundRHS), CtxI))
-      return true;
->>>>>>> a06db78fd99014993b62b99c305c7b374c1579fc
 
       if (!FoundLHS->getType()->isPointerTy() &&
           !FoundRHS->getType()->isPointerTy() &&
           isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
-                                getNotSCEV(FoundRHS), Context))
+                                getNotSCEV(FoundRHS), CtxI))
         return true;
     }
     // llorg returns false below, rest of code may not work with swapped preds.
