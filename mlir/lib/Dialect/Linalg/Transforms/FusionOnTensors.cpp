@@ -181,6 +181,9 @@ static LinalgOp getTiledProducer(OpBuilder &b, OpResult producerResult,
                               .getTypes();
   LinalgOp clonedOp = producerOp.clone(b, loc, resultTypes, tiledOperands);
 
+  // Shift all IndexOp results by the tile offset.
+  addTileLoopIvsToIndexOpResults(b, clonedOp, allIvs);
+
   return clonedOp;
 }
 
@@ -325,10 +328,6 @@ FailureOr<LinalgOp> TileLoopNest::fuseProducer(OpBuilder &b,
   if (!producerResult || !isa<LinalgOp>(producerResult.getOwner()))
     return failure();
 
-  // TODO: support producers that have index semantics.
-  if (cast<LinalgOp>(producerResult.getOwner()).hasIndexSemantics())
-    return failure();
-
   // Compute the slice dimensions tiled by `tileLoopNest`.
   SmallVector<int64_t> tiledSliceDims =
       getTiledSliceDims(producerResult, rootOpOperand, loopDims);
@@ -416,7 +415,7 @@ struct LinalgTileAndFuseTensorOps
     FuncOp funcOp = getFunction();
     OpBuilder b(funcOp.getContext());
 
-    // Heuristic to find a goor operation to tile and start fusion. Walk all
+    // Heuristic to find a good operation to tile and start fusion. Walk all
     // operations and select the one with the maximal backward slice of fusion
     // candidates.
     LinalgOp rootOp = nullptr;
