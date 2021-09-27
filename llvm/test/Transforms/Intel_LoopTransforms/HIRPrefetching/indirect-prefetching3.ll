@@ -33,7 +33,6 @@
 ; CHECK-NEXT:            |      %Load = (@M)[0][i1 + 42];
 ; CHECK-NEXT:            |      @llvm.prefetch.p0i8(&((i8*)(@A)[0][%Load]),  0,  3,  1);
 ; CHECK-NEXT:            |   }
-; CHECK-NEXT:            |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + 42]),  0,  3,  1);
 ; CHECK-NEXT:            + END LOOP
 ;
 ; CHECK:            ret undef;

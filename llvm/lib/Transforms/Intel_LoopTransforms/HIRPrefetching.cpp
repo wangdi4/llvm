@@ -625,18 +625,31 @@ bool HIRPrefetching::doAnalysis(
     }
 
     Stride = std::abs(ConstStride);
-    // When Stride is a non-zero constant, we will go through the RefGroup and
-    // check whether they are in the same memory streams
-    // When two refs in the same RefGroup are located in the different memory
-    // streams because the distance between them is larger than the product of
-    // loop stride and loop trip count, we need to create more scalar refs,
-    // such as A[i] and A[i + 10000]
-    collectPrefetchCandidates(RefGroup, TripCount, Stride, Level, Dist, Hint,
-                              HasSpecifiedHintOrDist,
-                              SpatialPrefetchCandidates);
+
+    // We only handle prefetching for refs where pragma info is specified.
+    // For example,
+    // #pragma  prefetch A
+    // #pragma  prefetch B:2:20
+    // for (i=0; i< N; i++) {
+    //      A[i] = B[M[i]] + C[i];
+    // }
+    // prefetch is generated for A and B, but not C and M
+    if (!HasPragmaInfo || HasPrefetchAll ||
+        CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
+
+      // When Stride is a non-zero constant, we will go through the RefGroup and
+      // check whether they are in the same memory streams
+      // When two refs in the same RefGroup are located in the different memory
+      // streams because the distance between them is larger than the product of
+      // loop stride and loop trip count, we need to create more scalar refs,
+      // such as A[i] and A[i + 10000]
+      collectPrefetchCandidates(RefGroup, TripCount, Stride, Level, Dist, Hint,
+                                HasSpecifiedHintOrDist,
+                                SpatialPrefetchCandidates);
+    }
   }
 
-  if (SpatialPrefetchCandidates.empty()) {
+  if (SpatialPrefetchCandidates.empty() && IndirectPrefetchCandidates.empty()) {
     return false;
   }
 

@@ -60,7 +60,7 @@
 ; OPTREPORT:  LOOP BEGIN
 ; OPTREPORT:     remark #25018: Total number of lines prefetched=4
 ; OPTREPORT:     remark #25019: Number of spatial prefetches=3, default dist=32
-; OPTREPORT:     remark #25033: Number of indirect prefetches=1
+; OPTREPORT:     remark #25033: Number of indirect prefetches=1, default dist=32
 ; OPTREPORT:  LOOP END
 ;
 ;Module Before HIR

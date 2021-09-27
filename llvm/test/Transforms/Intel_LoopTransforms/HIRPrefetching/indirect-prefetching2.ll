@@ -27,24 +27,23 @@
 ;*** IR Dump After HIR Prefetching (hir-prefetching) ***
 ;Function: sub
 ;
-; CHECK:    BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>
-; CHECK:           |   %1 = (@B)[0][i1];
-; CHECK:           |   %2 = (%M)[i1];
-; CHECK:           |   %3 = (@C)[0][%2 + 5];
-; CHECK:           |   (@A)[0][i1] = %1 + %3;
-; CHECK:           |   if (i1 + 30 <=u zext.i32.i64(%N) + -1)
-; CHECK:           |   {
-; CHECK:           |      %Load = (%M)[i1 + 30];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load + 5]),  0,  0,  1);
-; CHECK:           |   }
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40]),  0,  2,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 31]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(%M)[i1 + 31]),  0,  3,  1);
-; CHECK:           + END LOOP
+; CHECK:          BEGIN REGION { modified }
+; CHECK-NEXT:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 10000>
+; CHECK-NEXT:           |   %1 = (@B)[0][i1];
+; CHECK-NEXT:           |   %2 = (%M)[i1];
+; CHECK-NEXT:           |   %3 = (@C)[0][%2 + 5];
+; CHECK-NEXT:           |   (@A)[0][i1] = %1 + %3;
+; CHECK-NEXT:           |   if (i1 + 30 <=u zext.i32.i64(%N) + -1)
+; CHECK-NEXT:           |   {
+; CHECK-NEXT:           |      %Load = (%M)[i1 + 30];
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load + 5]),  0,  0,  1);
+; CHECK-NEXT:           |   }
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 40]),  0,  2,  1);
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 31]),  0,  3,  1);
+; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:           ret &((undef)[0]);
-; CHECK:     END REGION
+; CHECK:                ret &((undef)[0]);
+; CHECK:          END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

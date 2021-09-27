@@ -35,19 +35,19 @@
 ;*** IR Dump After HIR Prefetching ***
 ;Function: sub
 ;
-; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, 999, 1   <DO_LOOP>
-; CHECK:           |   %conv = fpext.float.double((@B)[0][2 * i1]);
-; CHECK:           |   %conv3 = fpext.float.double((@C)[0][i1]);
-; CHECK:           |   %mul4 = %conv3  *  2.000000e+00;
-; CHECK:           |   %add = %mul4  +  %conv;
-; CHECK:           |   %conv5 = fptrunc.double.float(%add);
-; CHECK:           |   (@A)[0][i1] = %conv5;
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10]),  0,  1,  1);
-; CHECK:           + END LOOP
+; CHECK:          BEGIN REGION { modified }
+; CHECK-NEXT:           + DO i1 = 0, 999, 1   <DO_LOOP>
+; CHECK-NEXT:           |   %conv = fpext.float.double((@B)[0][2 * i1]);
+; CHECK-NEXT:           |   %conv3 = fpext.float.double((@C)[0][i1]);
+; CHECK-NEXT:           |   %mul4 = %conv3  *  2.000000e+00;
+; CHECK-NEXT:           |   %add = %mul4  +  %conv;
+; CHECK-NEXT:           |   %conv5 = fptrunc.double.float(%add);
+; CHECK-NEXT:           |   (@A)[0][i1] = %conv5;
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 10]),  0,  1,  1);
+; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:           ret &((undef)[0]);
-; CHECK:     END REGION
+; CHECK:                ret &((undef)[0]);
+; CHECK:          END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'

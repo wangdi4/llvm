@@ -32,33 +32,31 @@
 ;*** IR Dump After HIR Prefetching (hir-prefetching) ***
 ;Function: foo
 ;
-; CHECK:    BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
-; CHECK:           |   %2 = (@M)[0][i1];
-; CHECK:           |   %5 = (@M)[0][i1 + -1];
-; CHECK:           |   %add = (@B)[0][%5]  +  (@B)[0][%2];
-; CHECK:           |   %8 = (@M)[0][i1 + sext.i32.i64(%K)];
-; CHECK:           |   %add12 = %add  +  (@B)[0][%8];
-; CHECK:           |   (@A)[0][i1] = %add12;
-; CHECK:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
-; CHECK:           |   {
-; CHECK:           |      %Load = (@M)[0][i1 + 20];
-; CHECK:           |      %Load2 = (@M)[0][i1 + 19];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load]),  0,  1,  1);
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load2]),  0,  1,  1);
-; CHECK:           |   }
-; CHECK:           |   if (i1 + sext.i32.i64(%K) + 20 <=u zext.i32.i64(%N) + sext.i32.i64(%K) + -1)
-; CHECK:           |   {
-; CHECK:           |      %Load3 = (@M)[0][i1 + sext.i32.i64(%K) + 20];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load3]),  0,  1,  1);
-; CHECK:           |   }
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 16]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + 15]),  0,  3,  1);
-; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@M)[0][i1 + sext.i32.i64(%K) + 16]),  0,  3,  1);
-; CHECK:           + END LOOP
+; CHECK:           BEGIN REGION { modified }
+; CHECK-NEXT:           + DO i1 = 0, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK-NEXT:           |   %2 = (@M)[0][i1];
+; CHECK-NEXT:           |   %5 = (@M)[0][i1 + -1];
+; CHECK-NEXT:           |   %add = (@B)[0][%5]  +  (@B)[0][%2];
+; CHECK-NEXT:           |   %8 = (@M)[0][i1 + sext.i32.i64(%K)];
+; CHECK-NEXT:           |   %add12 = %add  +  (@B)[0][%8];
+; CHECK-NEXT:           |   (@A)[0][i1] = %add12;
+; CHECK-NEXT:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
+; CHECK-NEXT:           |   {
+; CHECK-NEXT:           |      %Load = (@M)[0][i1 + 20];
+; CHECK-NEXT:           |      %Load2 = (@M)[0][i1 + 19];
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load]),  0,  1,  1);
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load2]),  0,  1,  1);
+; CHECK-NEXT:           |   }
+; CHECK-NEXT:           |   if (i1 + sext.i32.i64(%K) + 20 <=u zext.i32.i64(%N) + sext.i32.i64(%K) + -1)
+; CHECK-NEXT:           |   {
+; CHECK-NEXT:           |      %Load3 = (@M)[0][i1 + sext.i32.i64(%K) + 20];
+; CHECK-NEXT:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load3]),  0,  1,  1);
+; CHECK-NEXT:           |   }
+; CHECK-NEXT:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 16]),  0,  3,  1);
+; CHECK-NEXT:           + END LOOP
 ;
-; CHECK:           ret ;
-; CHECK:     END REGION
+; CHECK:                ret ;
+; CHECK:          END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 't.c'
