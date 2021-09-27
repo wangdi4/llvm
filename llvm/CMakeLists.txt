@@ -95,16 +95,12 @@ set(LLVM_ALL_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTERNAL_PROJECTS}")
 set(LLVM_EXTRA_PROJECTS "flang")
 # List of all known projects in the mono repo
 set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS}")
-<<<<<<< HEAD
 if (INTEL_CUSTOMIZATION)
   # List of Intel specific projects
   set(LLVM_INTEL_EXTRA_PROJECTS "opencl;aocl-ioc64;libdevice")
   # List of all known projects in the mono repo
   set(LLVM_KNOWN_PROJECTS "${LLVM_ALL_PROJECTS};${LLVM_EXTRA_PROJECTS};${LLVM_INTEL_EXTRA_PROJECTS}")
 endif (INTEL_CUSTOMIZATION)
-=======
-message("TEST: ${LLVM_EXTRA_PROJECTS}")
->>>>>>> bd7b5b469626abe2c2a389d89b288845d15fdb0b
 set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 	"Semicolon-separated list of projects to build (${LLVM_KNOWN_PROJECTS}), or \"all\".")
 foreach(proj ${LLVM_ENABLE_PROJECTS})
