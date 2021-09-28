@@ -534,8 +534,6 @@ public:
     OVLSOperand *Op1 = new OVLSUndef(T);
     OVLSOperand *Op2 = new OVLSUndef(T);
 
-    OVLSConstant *ShuffleMask = nullptr;
-
     // Use 'Type' which is the type of this result node to define the
     // instruction
     uint32_t ElemSize = Type.getElementSize();
@@ -586,9 +584,8 @@ public:
     if (isa<OVLSUndef>(Op2))
       Op2->setType(Op1->getType());
 
-    ShuffleMask =
-        new OVLSConstant(OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
-    Inst = new OVLSShuffle(Op1, Op2, ShuffleMask);
+    Inst = new OVLSShuffle(Op1, Op2, OVLSType(32, NumElems),
+                           (int8_t *)IntShuffleMask);
   } // end of genShuffle()
 
 }; // end of GraphNode
@@ -1453,8 +1450,6 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   OVLSOperand *Op1 = new OVLSAddress(&Mrf, 0);
   OVLSOperand *Op2 = new OVLSUndef(Ty);
 
-  OVLSConstant *ShuffleMask = nullptr;
-
   uint32_t ElemSize = Ty.getElementSize();
   uint32_t ElemSizeInByte = ElemSize / BYTE;
   uint32_t NumElems = Ty.getNumElements();
@@ -1471,10 +1466,7 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
     Index += *Stride / ElemSizeInByte;
   }
 
-  ShuffleMask =
-      new OVLSConstant(OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
-
-  return new OVLSShuffle(Op1, Op2, ShuffleMask);
+  return new OVLSShuffle(Op1, Op2, OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
 }
 
 /// This function returns a vector of contiguous loads/stores for a group of
@@ -1809,13 +1801,10 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
 
   Op2->printAsOperand(OS);
   OS << ", ";
-
-  OS << *Op3;
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
-                                   OVLSOperand *Mask) const {
+bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2) const {
   assert(Op1 != nullptr && "A minimum of one defined input vector required!!!");
   if (!Op1->getType().isValid())
     return false;
@@ -1825,14 +1814,14 @@ bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
     return false;
 
   // Mask needs to be a vector of constants.
-  if (!Mask || !Mask->getType().isValid() || !isa<OVLSConstant>(Mask))
+  if (!Mask.getType().isValid())
     return false;
 
   uint32_t MaxNumElems = Op1->getType().getNumElements();
 
   MaxNumElems *= 2;
 
-  if (Mask->getType().getNumElements() > MaxNumElems)
+  if (Mask.getType().getNumElements() > MaxNumElems)
     return false;
 
   return true;
@@ -2009,12 +1998,10 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   // %t15=shufflevector <4 x i32> %t12,<4 x i32> %t14, <8 x i32> <i32 0, i32 1,
   //       i32 2, i32 3, i32 4, i32 5,  i32 6, i32 7>
   const int32_t IntShuffleMask[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-  OVLSConstant *ShuffleMask = new OVLSConstant(
-      OVLSType(32, 8),
-      reinterpret_cast<const int8_t *>(IntShuffleMask));
   for (int i = 0; i < 4; i++) {
     ShuffleOnLoad[i] =
-        new OVLSShuffle(LoadInst[i], LoadInst[4 + i], ShuffleMask);
+        new OVLSShuffle(LoadInst[i], LoadInst[4 + i], OVLSType(32, 8),
+                        reinterpret_cast<const int8_t *>(IntShuffleMask));
     InstVector.emplace_back(ShuffleOnLoad[i]);
   }
 
@@ -2037,25 +2024,19 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   const int32_t IntShuffleMask3[8] = {0, 3, 10, 9, 4, 7, 14, 13};
   const int32_t IntShuffleMask4[8] = {1, 2, 11, 8, 5, 6, 15, 12};
 
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask1));
   ShuffleOnShuffles[0] =
-      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], ShuffleMask);
-
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask2));
+      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
+                      reinterpret_cast<const int8_t *>(IntShuffleMask1));
   ShuffleOnShuffles[1] =
-      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], ShuffleMask);
+      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
+                      reinterpret_cast<const int8_t *>(IntShuffleMask2));
 
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask3));
-  ShuffleOnShuffles[2] =
-      new OVLSShuffle(ShuffleOnShuffles[0], ShuffleOnShuffles[1], ShuffleMask);
-
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask4));
-  ShuffleOnShuffles[3] =
-      new OVLSShuffle(ShuffleOnShuffles[0], ShuffleOnShuffles[1], ShuffleMask);
+  ShuffleOnShuffles[2] = new OVLSShuffle(
+      ShuffleOnShuffles[0], ShuffleOnShuffles[1], OVLSType(32, 8),
+      reinterpret_cast<const int8_t *>(IntShuffleMask3));
+  ShuffleOnShuffles[3] = new OVLSShuffle(
+      ShuffleOnShuffles[0], ShuffleOnShuffles[1], OVLSType(32, 8),
+      reinterpret_cast<const int8_t *>(IntShuffleMask4));
 
   Results[0] = ShuffleOnShuffles[2];
   Results[1] = ShuffleOnShuffles[3];
@@ -2077,25 +2058,19 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   const int32_t IntShuffleMask7[8] = {0, 3, 10, 9, 4, 7, 14, 13};
   const int32_t IntShuffleMask8[8] = {1, 2, 11, 8, 5, 6, 15, 12};
 
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask5));
   ShuffleOnShuffles[4] =
-      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], ShuffleMask);
-
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask6));
+      new OVLSShuffle(ShuffleOnLoad[0], ShuffleOnLoad[1], OVLSType(32, 8),
+                      reinterpret_cast<const int8_t *>(IntShuffleMask5));
   ShuffleOnShuffles[5] =
-      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], ShuffleMask);
+      new OVLSShuffle(ShuffleOnLoad[3], ShuffleOnLoad[2], OVLSType(32, 8),
+                      reinterpret_cast<const int8_t *>(IntShuffleMask6));
 
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask7));
-  ShuffleOnShuffles[6] =
-      new OVLSShuffle(ShuffleOnShuffles[4], ShuffleOnShuffles[5], ShuffleMask);
-
-  ShuffleMask = new OVLSConstant(OVLSType(32, 8),
-                                 reinterpret_cast<const int8_t *>(IntShuffleMask8));
-  ShuffleOnShuffles[7] =
-      new OVLSShuffle(ShuffleOnShuffles[4], ShuffleOnShuffles[5], ShuffleMask);
+  ShuffleOnShuffles[6] = new OVLSShuffle(
+      ShuffleOnShuffles[4], ShuffleOnShuffles[5], OVLSType(32, 8),
+      reinterpret_cast<const int8_t *>(IntShuffleMask7));
+  ShuffleOnShuffles[7] = new OVLSShuffle(
+      ShuffleOnShuffles[4], ShuffleOnShuffles[5], OVLSType(32, 8),
+      reinterpret_cast<const int8_t *>(IntShuffleMask8));
 
   Results[2] = ShuffleOnShuffles[6];
   Results[3] = ShuffleOnShuffles[7];
@@ -2178,30 +2153,19 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
       /*IntShuffleMask[5][8] =*/{2, 3, 10, 11, 6, 7, 14, 15}};
 
   for (int i = 0; i < 2; ++i) {
-
-    OVLSConstant *ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8),
+    ShuffleOnShuffles[4 * i] = new OVLSShuffle(
+        MemrefAddresses[0], MemrefAddresses[1], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
-    ShuffleOnShuffles[4 * i] =
-        new OVLSShuffle(MemrefAddresses[0], MemrefAddresses[1], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8),
+    ShuffleOnShuffles[4 * i + 1] = new OVLSShuffle(
+        MemrefAddresses[2], MemrefAddresses[3], OVLSType(32, 8),
         reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i]));
-    ShuffleOnShuffles[4 * i + 1] =
-        new OVLSShuffle(MemrefAddresses[2], MemrefAddresses[3], ShuffleMask);
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8),
-        reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 1]));
     ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
-        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8),
-        reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 2]));
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 1]));
     ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
-        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], ShuffleMask);
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 1], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask[3 * i + 2]));
   }
   // %t12= shufflevector <8 x i32> %t6, <8 x i32> %t6, <4 x i32> <i32 0, i32 1,
   //        i32 2, i32 3>
@@ -2226,25 +2190,21 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   };
 
   for (int i = 0; i < 2; i++) {
-    OVLSConstant *ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
     ShuffleOnShuffles[4 * i + 8] = new OVLSShuffle(
-        ShuffleOnShuffles[2], ShuffleOnShuffles[2], ShuffleMask);
+        ShuffleOnShuffles[2], ShuffleOnShuffles[2], OVLSType(32, 4),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
     ShuffleOnShuffles[4 * i + 9] = new OVLSShuffle(
-        ShuffleOnShuffles[3], ShuffleOnShuffles[3], ShuffleMask);
+        ShuffleOnShuffles[3], ShuffleOnShuffles[3], OVLSType(32, 4),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
     ShuffleOnShuffles[4 * i + 10] = new OVLSShuffle(
-        ShuffleOnShuffles[6], ShuffleOnShuffles[6], ShuffleMask);
+        ShuffleOnShuffles[6], ShuffleOnShuffles[6], OVLSType(32, 4),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 4), reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
     ShuffleOnShuffles[4 * i + 11] = new OVLSShuffle(
-        ShuffleOnShuffles[7], ShuffleOnShuffles[7], ShuffleMask);
+        ShuffleOnShuffles[7], ShuffleOnShuffles[7], OVLSType(32, 4),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2[i]));
   }
 
   // Pushback all Shuffle instructions into InstVec.
@@ -2342,20 +2302,16 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   //        <i32 0, i32 8,  i32 1, i32 9,  i32 2, i32 10, i32 3, i32 11>
   // %a2 = shufflevector <8 x i16> %t48, <8 x i16> %t54, <8 x i32>
   //        <i32 4, i32 12, i32 5, i32 13, i32 6, i32 14, i32 7, i32 15>
-  OVLSConstant *ShuffleMask;
   const int32_t IntShuffleMask0[8] = {0, 8, 1, 9, 2, 10, 3, 11};
   const int32_t IntShuffleMask1[8] = {4, 12, 5, 13, 6, 14, 7, 15};
   for (int i = 0; i < 4; i++) {
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask0));
     ShuffleOnLoad[2 * i] =
-        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
+        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
+                        reinterpret_cast<const int8_t *>(IntShuffleMask0));
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask1));
     ShuffleOnLoad[2 * i + 1] =
-        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
+        new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], OVLSType(32, 8),
+                        reinterpret_cast<const int8_t *>(IntShuffleMask1));
   }
 
   for (int i = 0; i < 8; i++)
@@ -2387,25 +2343,19 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   const int32_t IntShuffleMask3[8] = {4, 5, 12, 13, 6, 7, 14, 15};
 
   for (int i = 0; i < 2; i++) {
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask2));
     ShuffleOnShuffles[4 * i] =
-        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask3));
+        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
+                        reinterpret_cast<const int8_t *>(IntShuffleMask2));
     ShuffleOnShuffles[4 * i + 1] =
-        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], ShuffleMask);
+        new OVLSShuffle(ShuffleOnLoad[i], ShuffleOnLoad[i + 2], OVLSType(32, 8),
+                        reinterpret_cast<const int8_t *>(IntShuffleMask3));
 
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask2));
     ShuffleOnShuffles[4 * i + 2] = new OVLSShuffle(
-        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask3));
+        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask2));
     ShuffleOnShuffles[4 * i + 3] = new OVLSShuffle(
-        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
+        ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask3));
   }
 
   for (int i = 0; i < 8; i++)
@@ -2441,27 +2391,19 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
   const int32_t IntShuffleMask5[8] = {4, 5, 6, 7, 12, 13, 14, 15};
 
   for (int i = 0; i < 2; i++) {
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask4));
     ResultShuffles[4 * i] = new OVLSShuffle(
-        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
-        OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask5));
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask4));
     ResultShuffles[4 * i + 1] = new OVLSShuffle(
-        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], ShuffleMask);
+        ShuffleOnShuffles[4 * i], ShuffleOnShuffles[4 * i + 2], OVLSType(32, 8),
+        reinterpret_cast<const int8_t *>(IntShuffleMask5));
 
-    ShuffleMask = new OVLSConstant(
+    ResultShuffles[4 * i + 2] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i + 1], ShuffleOnShuffles[4 * i + 3],
         OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask4));
-    ResultShuffles[4 * i + 2] =
-        new OVLSShuffle(ShuffleOnShuffles[4 * i + 1],
-                        ShuffleOnShuffles[4 * i + 3], ShuffleMask);
-
-    ShuffleMask = new OVLSConstant(
+    ResultShuffles[4 * i + 3] = new OVLSShuffle(
+        ShuffleOnShuffles[4 * i + 1], ShuffleOnShuffles[4 * i + 3],
         OVLSType(32, 8), reinterpret_cast<const int8_t *>(IntShuffleMask5));
-    ResultShuffles[4 * i + 3] =
-        new OVLSShuffle(ShuffleOnShuffles[4 * i + 1],
-                        ShuffleOnShuffles[4 * i + 3], ShuffleMask);
   }
 
   for (int i = 0; i < 8; i++)
