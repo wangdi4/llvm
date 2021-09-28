@@ -350,6 +350,9 @@ public:
   /// Checks whether the instruction is a call to a omp simd directive.
   bool isSIMDDirective() const { return isDirective(DIR_OMP_SIMD); }
 
+  /// Checks whether the instruction is a call to a omp simd directive.
+  bool isSIMDEndDirective() const { return isDirective(DIR_OMP_END_SIMD); }
+
   /// Checks whether the instruction is a call to an auto vectorization
   /// directive.
   bool isAutoVecDirective() const;
