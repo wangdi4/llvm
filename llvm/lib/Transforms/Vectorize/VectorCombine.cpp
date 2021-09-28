@@ -96,9 +96,7 @@ private:
   bool foldExtractedCmps(Instruction &I);
   bool foldSingleElementStore(Instruction &I);
   bool scalarizeLoadExtract(Instruction &I);
-<<<<<<< HEAD
   bool foldVLSInsert(Instruction &I); // INTEL
-=======
 
   void replaceValue(Value &Old, Value &New) {
     Old.replaceAllUsesWith(&New);
@@ -116,7 +114,6 @@ private:
     Worklist.remove(&I);
     I.eraseFromParent();
   }
->>>>>>> 300870a95c22fde840862cf57d82adba3e5bd633
 };
 } // namespace
 
@@ -1346,7 +1343,12 @@ bool VectorCombine::run() {
     MadeChange |= scalarizeBinopOrCmp(I);
     MadeChange |= foldExtractedCmps(I);
     MadeChange |= scalarizeLoadExtract(I);
-    MadeChange |= foldSingleElementStore(I);
+#if INTEL_CUSTOMIZATION
+      // Need put all the customized functions in front of
+      // foldSingleElementStore since it may erase 'I'.
+      MadeChange |= foldVLSInsert(I);
+#endif // INTEL_CUSTOMIZATION
+      MadeChange |= foldSingleElementStore(I);
   };
   for (BasicBlock &BB : F) {
     // Ignore unreachable basic blocks.
@@ -1356,23 +1358,7 @@ bool VectorCombine::run() {
     for (Instruction &I : make_early_inc_range(BB)) {
       if (isa<DbgInfoIntrinsic>(I))
         continue;
-<<<<<<< HEAD
-      Builder.SetInsertPoint(&I);
-      MadeChange |= vectorizeLoadInsert(I);
-      MadeChange |= foldExtractExtract(I);
-      MadeChange |= foldBitcastShuf(I);
-      MadeChange |= scalarizeBinopOrCmp(I);
-      MadeChange |= foldExtractedCmps(I);
-      MadeChange |= scalarizeLoadExtract(I);
-#if INTEL_CUSTOMIZATION
-      // Need put all the customized functions in front of
-      // foldSingleElementStore since it may erase 'I'.
-      MadeChange |= foldVLSInsert(I);
-#endif // INTEL_CUSTOMIZATION
-      MadeChange |= foldSingleElementStore(I);
-=======
       FoldInst(I);
->>>>>>> 300870a95c22fde840862cf57d82adba3e5bd633
     }
   }
 
