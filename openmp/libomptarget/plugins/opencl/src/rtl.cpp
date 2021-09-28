@@ -659,6 +659,28 @@ public:
       return &AllocInfo->second;
   }
 
+  /// Return allocation information if Ptr belongs to any allocation range.
+  const MemAllocInfoTy *search(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    if (Map.size() == 0)
+      return nullptr;
+    auto I = Map.upper_bound(const_cast<void *>(Ptr));
+    // Key pointer (I->first) may be greater than Ptr, so both I and --I need to
+    // be checked.
+    int J = 0;
+    do {
+      std::advance(I, J);
+      if (I == Map.end())
+        continue;
+      uintptr_t AllocBase = (uintptr_t)I->second.Base;
+      size_t AllocSize = I->second.Size + (uintptr_t)I->first - AllocBase;
+      if (AllocBase <= (uintptr_t)Ptr && (uintptr_t)Ptr < AllocBase + AllocSize)
+        return &I->second;
+    } while (J-- > -1 && I != Map.begin());
+
+    return nullptr;
+  }
+
   bool contains(const void *Ptr, size_t Size) {
     std::lock_guard<std::mutex> Lock(Mtx);
     if (Map.size() == 0)
@@ -3985,7 +4007,9 @@ static inline int32_t runTargetTeamNDRegion(
   for (auto Ptr : KernelProperty.ImplicitArgs) {
     if (!Ptr)
       continue;
-    auto *Info = AllocInfos[DeviceId]->find(Ptr);
+    // "Ptr" is not always the allocation information known to libomptarget, so
+    // use "search" instead of "find".
+    auto *Info = AllocInfos[DeviceId]->search(Ptr);
     if (Info) {
       if ((int32_t)Info->Kind == TARGET_ALLOC_SVM) {
         ImplicitSVMArgs.push_back(Ptr);
@@ -3995,7 +4019,7 @@ static inline int32_t runTargetTeamNDRegion(
       }
     }
     if (DeviceInfo->Flags.UseSingleContext) {
-      Info = AllocInfos[DeviceInfo->NumDevices]->find(Ptr);
+      Info = AllocInfos[DeviceInfo->NumDevices]->search(Ptr);
       if (Info) {
         ImplicitUSMArgs.push_back(Ptr);
         HasUSMArgs[TARGET_ALLOC_HOST] = true;
