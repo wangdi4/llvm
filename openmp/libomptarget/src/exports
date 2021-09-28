@@ -68,6 +68,14 @@ VERS1.0 {
     omp_get_interop_rc_desc;
     omp_set_sub_device;
     omp_unset_sub_device;
+    ompx_target_realloc;
+    ompx_target_realloc_device;
+    ompx_target_realloc_host;
+    ompx_target_realloc_shared;
+    ompx_target_aligned_alloc;
+    ompx_target_aligned_alloc_device;
+    ompx_target_aligned_alloc_host;
+    ompx_target_aligned_alloc_shared;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
     __kmpc_push_target_tripcount;

@@ -479,7 +479,8 @@ int DebugLevel = getDebugLevel();
 /// Forward declarations
 static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
                                int32_t Kind, bool LargeMem = false,
-                               bool LogMemAlloc = true);
+                               bool LogMemAlloc = true,
+                               size_t Align = LEVEL0_ALIGNMENT);
 static void logMemUsage(ze_device_handle_t Device, size_t Requested, void *Ptr,
                         size_t MemSize = 0);
 class RTLDeviceInfoTy;
@@ -2561,8 +2562,8 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
 
 /// Allocate data explicitly
 static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
-                               int32_t Kind, bool LargeMem,
-                               bool LogMemAlloc) {
+                               int32_t Kind, bool LargeMem, bool LogMemAlloc,
+                               size_t Align) {
   void *mem = nullptr;
   ze_device_mem_alloc_desc_t deviceDesc = {
     ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
@@ -2591,18 +2592,17 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
 
   switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    CALL_ZE_RET_NULL(zeMemAllocDevice, context, &deviceDesc, Size,
-                     LEVEL0_ALIGNMENT, Device, &mem);
+    CALL_ZE_RET_NULL(zeMemAllocDevice, context, &deviceDesc, Size, Align,
+                     Device, &mem);
     DP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
     break;
   case TARGET_ALLOC_HOST:
-    CALL_ZE_RET_NULL(zeMemAllocHost, context, &hostDesc, Size,
-                     LEVEL0_ALIGNMENT, &mem);
+    CALL_ZE_RET_NULL(zeMemAllocHost, context, &hostDesc, Size, Align, &mem);
     DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
     break;
   case TARGET_ALLOC_SHARED:
-    CALL_ZE_RET_NULL(zeMemAllocShared, context, &deviceDesc, &hostDesc,
-                     Size, LEVEL0_ALIGNMENT, Device, &mem);
+    CALL_ZE_RET_NULL(zeMemAllocShared, context, &deviceDesc, &hostDesc, Size,
+                     Align, Device, &mem);
     DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
     break;
   default:
@@ -2615,10 +2615,12 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
   return mem;
 }
 
-static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind,
+                               size_t Align = LEVEL0_ALIGNMENT) {
   auto device = DeviceInfo->Devices[DeviceId];
   auto DeviceMaxMem = DeviceInfo->DeviceProperties[DeviceId].maxMemAllocSize;
-  return allocDataExplicit(device, Size, Kind, (uint64_t)Size > DeviceMaxMem);
+  return allocDataExplicit(device, Size, Kind, (uint64_t)Size > DeviceMaxMem,
+                           true /* LogMemAlloc */, Align);
 }
 
 TLSTy::~TLSTy() {
@@ -3178,7 +3180,7 @@ int32_t RTLDeviceInfoTy::dataDelete(int32_t DeviceId, void *Ptr) {
   }
 
   if (Flags.UseMemoryPool && Info.InPool) {
-    bool Deallocated = poolFree(DeviceId, Ptr);
+    bool Deallocated = poolFree(DeviceId, Info.Base ? Info.Base : Ptr);
     if (Deallocated) {
       DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(Ptr));
       return OFFLOAD_SUCCESS;
@@ -4146,18 +4148,23 @@ void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   return Mem;
 }
 
-static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+static void *dataAllocExplicit(
+    int32_t DeviceId, int64_t Size, int32_t Kind, size_t Align = 0) {
   void *Mem = nullptr;
+  void *Base = nullptr;
+  bool InPool = false;
 
   if (DeviceInfo->Flags.UseMemoryPool)
-    Mem = DeviceInfo->poolAlloc(DeviceId, Size, Kind);
+    Mem = DeviceInfo->poolAlloc(DeviceId, Size + Align, Kind);
 
-  bool InPool = false;
-  void *Base = nullptr;
   if (Mem) {
     InPool = true;
+    if (Align > 0) {
+      Base = Mem; // Use Base address in later poolFree() operation
+      Mem = (void *)(((uintptr_t)Mem + Align) & ~(Align - 1));
+    }
   } else {
-    Mem = allocDataExplicit(DeviceId, Size, Kind);
+    Mem = allocDataExplicit(DeviceId, Size, Kind, Align);
     Base = Mem;
   }
 
@@ -4204,6 +4211,69 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   void *Mem = dataAllocExplicit(DeviceId, Size, Kind);
 
   return Mem;
+}
+
+EXTERN void *__tgt_rtl_data_realloc(
+    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
+  const MemAllocInfoTy *Info = nullptr;
+
+  if (Ptr) {
+    if (DeviceInfo->getMemAllocType(Ptr) == ZE_MEMORY_TYPE_HOST)
+      Info = DeviceInfo->MemAllocInfo[DeviceInfo->NumDevices]->find(Ptr);
+    else
+      Info = DeviceInfo->MemAllocInfo[DeviceId]->find(Ptr);
+    if (!Info) {
+      DP("Error: Cannot find allocation information for pointer " DPxMOD "\n",
+         DPxPTR(Ptr));
+      return nullptr;
+    }
+    if (Size <= Info->Size && Kind == Info->Kind) {
+      DP("Returning the same pointer " DPxMOD " as reallocation is unneeded\n",
+         DPxPTR(Ptr));
+      return Ptr;
+    }
+  }
+
+  int32_t AllocKind = Kind;
+  if (AllocKind == TARGET_ALLOC_DEFAULT) {
+    AllocKind = DeviceInfo->TargetAllocKind;
+    if (AllocKind == TARGET_ALLOC_DEFAULT)
+      AllocKind = TARGET_ALLOC_DEVICE;
+  }
+
+  void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
+
+  if (Mem && Info) {
+    int32_t Rc = OFFLOAD_SUCCESS;
+    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE)
+      Rc = DeviceInfo->enqueueMemCopy(DeviceId, Mem, Ptr, Info->Size);
+    else
+      std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
+    if (Rc != OFFLOAD_SUCCESS)
+      return nullptr;
+    Rc = DeviceInfo->dataDelete(DeviceId, Ptr);
+    if (Rc != OFFLOAD_SUCCESS)
+      return nullptr;
+  }
+
+  return Mem;
+}
+
+EXTERN void *__tgt_rtl_data_aligned_alloc(
+    int32_t DeviceId, size_t Align, size_t Size, int32_t Kind) {
+  if (Align != 0 && (Align & (Align - 1)) != 0) {
+    DP("Error: Alignment %zu is not power of two.\n", Align);
+    return nullptr;
+  }
+
+  int32_t AllocKind = Kind;
+  if (AllocKind == TARGET_ALLOC_DEFAULT) {
+    AllocKind = DeviceInfo->TargetAllocKind;
+    if (AllocKind == TARGET_ALLOC_DEFAULT)
+      AllocKind = TARGET_ALLOC_DEVICE;
+  }
+
+  return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
 EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(int32_t DeviceId, void *Ptr) {

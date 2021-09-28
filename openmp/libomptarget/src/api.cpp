@@ -569,6 +569,111 @@ EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
   return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
 
+static void *targetRealloc(void *Ptr, size_t Size, int DeviceNum, int Kind,
+                           const char *Name) {
+  TIMESCOPE();
+  DP("Call to %s for device %d requesting %zu bytes (Ptr: " DPxMOD ")\n",
+     Name, DeviceNum, Size, DPxPTR(Ptr));
+
+  if (Size <= 0) {
+    DP("Call to %s with non-positive length\n", Name);
+    return NULL;
+  }
+
+  void *Ret = NULL;
+
+  if (DeviceNum == omp_get_initial_device()) {
+    if (Ptr)
+      Ret = realloc(Ptr, Size);
+    else
+      Ret = malloc(Size);
+    DP("%s returns host ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+    return Ret;
+  }
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("%s returns NULL ptr\n", Name);
+    return NULL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  Ret = Device.dataRealloc(Ptr, Size, Kind);
+  DP("%s returns target ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+
+  return Ret;
+}
+
+static void *targetAlignedAlloc(size_t Align, size_t Size, int DeviceNum,
+                                int Kind, const char *Name) {
+  TIMESCOPE();
+  DP("Call to %s for device %d requesting %zu bytes (Align: %zu)\n", Name,
+     DeviceNum, Size, Align);
+
+  if (Size <= 0) {
+    DP("Call to %s with non-positive length\n", Name);
+    return NULL;
+  }
+
+  void *Ret = NULL;
+
+  if (DeviceNum == omp_get_initial_device()) {
+    Ret = malloc(Size);
+    DP("%s returns host ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+    return Ret;
+  }
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("%s returns NULL ptr\n", Name);
+    return NULL;
+  }
+
+  DeviceTy &Device = *PM->Devices[DeviceNum];
+  Ret = Device.dataAlignedAlloc(Align, Size, Kind);
+  DP("%s returns target ptr " DPxMOD "\n", Name, DPxPTR(Ret));
+
+  return Ret;
+}
+
+EXTERN void *ompx_target_realloc(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_DEFAULT, __func__);
+}
+
+EXTERN void *ompx_target_realloc_device(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_DEVICE, __func__);
+}
+
+EXTERN void *ompx_target_realloc_host(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_HOST, __func__);
+}
+
+EXTERN void *ompx_target_realloc_shared(void *Ptr, size_t Size, int DeviceNum) {
+  return targetRealloc(Ptr, Size, DeviceNum, TARGET_ALLOC_SHARED, __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_DEFAULT,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_device(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_DEVICE,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_host(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_HOST,
+                            __func__);
+}
+
+EXTERN void *ompx_target_aligned_alloc_shared(
+    size_t Align, size_t Size, int DeviceNum) {
+  return targetAlignedAlloc(Align, Size, DeviceNum, TARGET_ALLOC_SHARED,
+                            __func__);
+}
+
 EXTERN void *omp_target_get_context(int device_num) {
   if (device_num == omp_get_initial_device()) {
     REPORT("%s returns null for the host device\n", __func__);

@@ -207,6 +207,14 @@ EXTERN
 void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
                                 void *HostBase);
 
+// Entry for supporting realloc
+EXTERN void *__tgt_rtl_data_realloc(
+    int32_t ID, void *Ptr, size_t Size, int32_t Kind);
+
+// Entry for supporting aligned_alloc
+EXTERN void *__tgt_rtl_data_aligned_alloc(
+    int32_t ID, size_t Align, size_t Size, int32_t Kind);
+
 // Returns implementation defined device name for the given device number,
 // using provided Buffer. Buffer must be able to hold at least BufferMaxSize
 // characters. Returns nullptr, if device name cannot be acquired, otherwise,

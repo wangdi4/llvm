@@ -3010,7 +3010,7 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
 }
 
 static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
-    void *HstBase, bool ImplicitArg) {
+    void *HstBase, bool ImplicitArg, cl_uint Align = 0) {
   intptr_t Offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   // If the offset is negative, then for our practical purposes it can be
   // considered 0 because the base address of an array will be contained
@@ -3033,7 +3033,7 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
 
   if (DeviceInfo->Flags.UseSVM) {
     AllocKind = TARGET_ALLOC_SVM;
-    CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, 0);
+    CALL_CL_RV(Base, clSVMAlloc, Context, CL_MEM_READ_WRITE, AllocSize, Align);
   } else {
     if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
                                                 clDeviceMemAllocINTELId)) {
@@ -3046,7 +3046,7 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
     CALL_CL_EXT_RVRC(DeviceId, Base, clDeviceMemAllocINTEL, RC, Context,
                      DeviceInfo->Devices[DeviceId],
                      getAllocMemProperties(AllocSize, MaxSize)->data(),
-                     AllocSize, 0);
+                     AllocSize, Align);
     if (RC != CL_SUCCESS)
       return nullptr;
   }
@@ -3070,7 +3070,8 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *HstPtr,
   return Ret;
 }
 
-static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
+static void *dataAllocExplicit(
+    int32_t DeviceId, int64_t Size, int32_t Kind, cl_uint Align = 0) {
   auto Device = DeviceInfo->Devices[DeviceId];
   auto Context = DeviceInfo->getContext(DeviceId);
   cl_int RC;
@@ -3082,7 +3083,8 @@ static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
 
   switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    Mem = dataAlloc(DeviceId, Size, nullptr, nullptr, true /* ImplicitArg */);
+    Mem = dataAlloc(DeviceId, Size, nullptr, nullptr, true /* ImplicitArg */,
+                    Align);
     break;
   case TARGET_ALLOC_HOST:
     if (DeviceInfo->Flags.UseSingleContext)
@@ -3093,7 +3095,7 @@ static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
       return nullptr;
     }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clHostMemAllocINTEL, RC, Context,
-                     getAllocMemProperties(Size, MaxSize)->data(), Size, 0);
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
     if (Mem) {
       DeviceInfo->MemAllocInfo[ID]->add(
           Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
@@ -3107,7 +3109,7 @@ static void *dataAllocExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
       return nullptr;
     }
     CALL_CL_EXT_RVRC(DeviceId, Mem, clSharedMemAllocINTEL, RC, Context, Device,
-                     getAllocMemProperties(Size, MaxSize)->data(), Size, 0);
+                     getAllocMemProperties(Size, MaxSize)->data(), Size, Align);
     if (Mem) {
       DeviceInfo->MemAllocInfo[ID]->add(
           Mem, Mem, Size, Kind, false /* InPool */, true /* IsImplicitArg */);
@@ -3155,6 +3157,67 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
   int32_t Kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
                                                     : TARGET_ALLOC_SHARED;
   return dataAllocExplicit(DeviceId, Size, Kind);
+}
+
+EXTERN void *__tgt_rtl_data_realloc(
+    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
+  const MemAllocInfoTy *Info = nullptr;
+
+  if (Ptr) {
+    Info = DeviceInfo->MemAllocInfo[DeviceId]->find(Ptr);
+    if (!Info && DeviceInfo->Flags.UseSingleContext)
+      Info = DeviceInfo->MemAllocInfo[DeviceInfo->NumDevices]->find(Ptr);
+    if (!Info) {
+      DP("Error: Cannot find allocation information for pointer " DPxMOD "\n",
+         DPxPTR(Ptr));
+      return nullptr;
+    }
+    if (Size <= Info->Size && Kind == Info->Kind) {
+      DP("Returning the same pointer " DPxMOD " as reallocation is unneeded\n",
+         DPxPTR(Ptr));
+      return Ptr;
+    }
+  }
+
+  int32_t AllocKind =
+      (Kind == TARGET_ALLOC_DEFAULT) ? TARGET_ALLOC_DEVICE : Kind;
+
+  void *Mem = dataAllocExplicit(DeviceId, Size, AllocKind);
+
+  if (Mem && Info) {
+    if (AllocKind == TARGET_ALLOC_DEVICE || Info->Kind == TARGET_ALLOC_DEVICE ||
+        Info->Kind == TARGET_ALLOC_SVM) {
+      // TARGET_ALLOC_SVM is for "Device" memory type when SVM is enabled
+      auto Queue = DeviceInfo->Queues[DeviceId];
+      if (DeviceInfo->Flags.UseSVM) {
+        CALL_CL_RET_NULL(clEnqueueSVMMemcpy, Queue, CL_TRUE, Mem, Ptr,
+                         Info->Size, 0, nullptr, nullptr);
+      } else {
+        CALL_CL_EXT_RET_NULL(DeviceId, clEnqueueMemcpyINTEL, Queue, CL_TRUE,
+                             Mem, Ptr, Info->Size, 0, nullptr, nullptr);
+      }
+    } else {
+      std::copy_n((char *)Ptr, Info->Size, (char *)Mem);
+    }
+    auto Rc = __tgt_rtl_data_delete(DeviceId, Ptr);
+    if (Rc != OFFLOAD_SUCCESS)
+      return nullptr;
+  }
+
+  return Mem;
+}
+
+EXTERN void *__tgt_rtl_data_aligned_alloc(
+    int32_t DeviceId, size_t Align, size_t Size, int32_t Kind) {
+  if (Align != 0 && (Align & (Align - 1)) != 0) {
+    DP("Error: Alignment %zu is not power of two.\n", Align);
+    return nullptr;
+  }
+
+  int32_t AllocKind =
+      (Kind == TARGET_ALLOC_DEFAULT) ? TARGET_ALLOC_DEVICE : Kind;
+
+  return dataAllocExplicit(DeviceId, Size, AllocKind, Align);
 }
 
 EXTERN

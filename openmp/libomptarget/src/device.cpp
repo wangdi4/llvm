@@ -886,6 +886,20 @@ int32_t DeviceTy::managed_memory_supported() {
   return RTL->is_device_accessible_ptr != nullptr;
 }
 
+void *DeviceTy::dataRealloc(void *Ptr, size_t Size, int32_t Kind) {
+  if (RTL->data_realloc)
+    return RTL->data_realloc(RTLDeviceID, Ptr, Size, Kind);
+  else
+    return allocData(Size, nullptr, Kind);
+}
+
+void *DeviceTy::dataAlignedAlloc(size_t Align, size_t Size, int32_t Kind) {
+  if (RTL->data_aligned_alloc)
+    return RTL->data_aligned_alloc(RTLDeviceID, Align, Size, Kind);
+  else
+    return allocData(Size, nullptr, Kind);
+}
+
 int32_t DeviceTy::get_data_alloc_info(
     int32_t NumPtrs, void *TgtPtrs, void *Infos) {
   if (RTL->get_data_alloc_info)
