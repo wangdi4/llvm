@@ -12,14 +12,15 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "test_utils.h"
 #include "CL/cl.h"
+#include "cl_sys_info.h"
 #include "cl_types.h"
 #include "cl_utils.h"
-#include "test_utils.h"
-#include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <algorithm>
+#include <gtest/gtest.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -841,4 +842,8 @@ cl_ulong trySetStackSize(cl_ulong size)
         return tLimitStruct.rlim_cur;
     }
 #endif
+}
+
+unsigned getMaxNumExternalThreads() {
+  return std::min((unsigned)Intel::OpenCL::Utils::GetNumberOfProcessors(), 10u);
 }

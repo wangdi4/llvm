@@ -227,8 +227,7 @@ void TestSetKernelArgSVMPointerMultiThreads(cl_context context,
                                             cl_device_id device,
                                             cl_command_queue queue,
                                             cl_program prog) {
-  int numThreads = tbb::global_control::active_value(
-      tbb::global_control::max_allowed_parallelism);
+  unsigned numThreads = getMaxNumExternalThreads();
 
   std::vector<SynchronizedThread *> threads(numThreads);
   for (size_t i = 0; i < numThreads; ++i)

@@ -299,7 +299,7 @@ bool MultithreadedContextRefCount()
 	const size_t numIterations   = 10000;
 	const size_t print_period    = numIterations/10;
 	const size_t initialRefCount = 1;
-	const size_t numThreads      = 20;
+	const size_t numThreads      = getMaxNumExternalThreads();
 
 	printf("Begin multi threaded context ref count test\n");
 
@@ -350,14 +350,14 @@ bool MultithreadedContextRefCount()
 		return false;
 	}
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		threads[i] = new RetainReleaseTestThread(numIterations, print_period, context);
 	}
     printf("Running\n");fflush(0);
 	SynchronizedThreadPool pool;
-	pool.Init(threads, numThreads);
+	pool.Init(&threads[0], numThreads);
 	pool.StartAll();
 	pool.WaitAll();
     printf("\nDone\n");fflush(0);
@@ -457,7 +457,7 @@ bool MultithreadedReleaseObjects()
 		threads[3] = new ReleaseProgramArrayThread(programs, numObjects);
 
 		SynchronizedThreadPool pool;
-		pool.Init(threads, 4);
+		pool.Init(&threads[0], 4);
 		pool.StartAll();
 		pool.WaitAll();
 		printf("  -  destruction passed");
@@ -475,7 +475,7 @@ bool MultithreadedHelloWorld()
 	bool bResult = true;
 	cl_int iRet  = CL_SUCCESS;
 
-	const size_t numThreads      = 100;
+	const size_t numThreads      = getMaxNumExternalThreads();
 	const size_t expectedResult  = 8; //remember to change it in programSource if you don't like this value
 
 	cl_platform_id platform     = 0;
@@ -484,7 +484,7 @@ bool MultithreadedHelloWorld()
 	cl_context           context;
 	cl_command_queue     queue;
 	cl_program           program;
-	cl_mem               params[numThreads];
+	std::vector<cl_mem>  params(numThreads);
 
 	const char* programSource    = "__kernel void k(__global int* p) { p[get_global_id(0)] = 8; }";
 
@@ -532,14 +532,14 @@ bool MultithreadedHelloWorld()
 		return false;
 	}
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 	for (size_t i = 0; i < numThreads; ++i)
 	{
 		threads[i] = new HelloWorldTestThread(context, queue, program, params[i], expectedResult);
 	}
 
 	SynchronizedThreadPool pool;
-	pool.Init(threads, numThreads);
+	pool.Init(&threads[0], numThreads);
 	pool.StartAll();
 	pool.WaitAll();
 
@@ -560,7 +560,7 @@ bool ConcurrentExecutionTest()
 {
 	const size_t numThreads = 1;
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 
 	printf("Begin multithreaded concurrent execution test. Using %zu threads\n", numThreads);
 
@@ -570,7 +570,7 @@ bool ConcurrentExecutionTest()
 	}
 
 	SynchronizedThreadPool pool;
-	pool.Init(threads, numThreads);
+	pool.Init(&threads[0], numThreads);
 	pool.StartAll();
 	pool.WaitAll();
 
@@ -666,7 +666,7 @@ bool MultithreadedOrderViolation()
 	bool bResult = true;
 	cl_int iRet  = CL_SUCCESS;
 
-	const size_t numThreads     = 32;
+	const size_t numThreads     = getMaxNumExternalThreads();
 
 	cl_platform_id platform     = 0;
 	cl_device_id   deviceId     = 0;
@@ -674,9 +674,9 @@ bool MultithreadedOrderViolation()
 	cl_context           context;
 	cl_command_queue     queue;
 	cl_program           program;
-	cl_mem               params[numThreads];
+	std::vector<cl_mem>  params(numThreads);
 
-	cl_char              data[numThreads];
+	std::vector<cl_char> data(numThreads);
 
 	const char* programSource    = "__kernel void k2(__global char* p, char id) { if ((char)(0x40+id) == p[get_global_id(0)])\
 													{p[get_global_id(0)] = id;} else {p[get_global_id(0)] = (char)(0x20+id);} }\
@@ -727,7 +727,7 @@ bool MultithreadedOrderViolation()
 		return false;
 	}
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 
 	for (size_t i = 0; i < numThreads; ++i)
 	{
@@ -742,7 +742,7 @@ bool MultithreadedOrderViolation()
 		}
 
 		SynchronizedThreadPool pool;
-		pool.Init(threads, numThreads);
+		pool.Init(&threads[0], numThreads);
 		pool.StartAll();
 		pool.WaitAll();
 
@@ -857,7 +857,7 @@ bool MultithreadedBuildTest()
 	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 
-	SynchronizedThread* threads[numThreads];
+	std::vector<SynchronizedThread*> threads(numThreads);
 
 	for (size_t i = 0; i < numThreads; ++i)
 	{
@@ -865,7 +865,7 @@ bool MultithreadedBuildTest()
 	}
 
 	SynchronizedThreadPool pool;
-	pool.Init(threads, numThreads);
+	pool.Init(&threads[0], numThreads);
 	pool.StartAll();
 	pool.WaitAll();
 

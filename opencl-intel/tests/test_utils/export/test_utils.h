@@ -144,3 +144,6 @@ bool compare_kernel_output(const string& expected, const string& actual);
 
 cl_ulong trySetStackSize(cl_ulong size);
 
+/// Return the maximum number of external threads that are allowed in
+/// a test in which each thread launches a separate kernel.
+unsigned getMaxNumExternalThreads();
