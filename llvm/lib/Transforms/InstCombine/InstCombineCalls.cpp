@@ -84,9 +84,6 @@
 using namespace llvm;
 using namespace PatternMatch;
 
-<<<<<<< HEAD
-#define DEBUG_TYPE "instcombine"
-
 #if INTEL_CUSTOMIZATION
 // The transformation described as follows is to expand the mempcy
 // into individual struct element copies in certain cases
@@ -111,8 +108,6 @@ static cl::opt<unsigned>
                                    cl::desc("Max byte size for structure copy"),
                                    cl::init(128), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> e08a5dc86f1ff868a61e74bfea413889a3d5915f
 STATISTIC(NumSimplified, "Number of library calls simplified");
 
 static cl::opt<unsigned> GuardWideningWindow(

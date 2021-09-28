@@ -112,16 +112,11 @@ protected:
   bool MadeIRChange = false;
 
 public:
-<<<<<<< HEAD
-  InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
+  InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
                bool MinimizeSize, bool PreserveForDTrans,
                bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
                bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
-=======
-  InstCombiner(InstructionWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, AAResults *AA, AssumptionCache &AC,
->>>>>>> e08a5dc86f1ff868a61e74bfea413889a3d5915f
                TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
                DominatorTree &DT, OptimizationRemarkEmitter &ORE,
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
