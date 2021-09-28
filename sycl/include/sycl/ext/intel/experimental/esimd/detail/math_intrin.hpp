@@ -1390,7 +1390,6 @@ __esimd_reduced_smin(__SEIEED::vector_type_t<Ty, N> src1,
   return __esimd_reduced_min<Ty, N>(src1, src2);
 }
 
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
@@ -1700,12 +1699,4 @@ __esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
-#undef __SEIEEED
-
 #endif // #ifdef __SYCL_DEVICE_ONLY__
-
-#undef __SEIEED
-#undef __SEIEE
-=======
-#endif // #ifdef __SYCL_DEVICE_ONLY__
->>>>>>> 01351f11854ae4ee86e940cd0249b5d5a7865d08
